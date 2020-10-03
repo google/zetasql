@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -163,7 +163,7 @@ message EvaluateRequest {
   message Parameter {
     optional string name = 1;
     optional ValueProto value = 2;
-    optional TypeProto type = 3;
+    reserved 3;
   }
 
   repeated Parameter columns = 2;
@@ -244,6 +244,14 @@ message BuildSqlResponse {
 
 message ExtractTableNamesFromStatementRequest {
   optional string sql_statement = 1;
+
+  // If language options are not provided, the parser would use a default
+  // LanguageOptions object. See ExtractTableNamesFromNextStatementRequest
+  // for further details.
+  optional LanguageOptionsProto options = 2;
+
+  // sql_statement is interpreted as a script rather than a single statement.
+  optional bool allow_script = 3;
 }
 
 message ExtractTableNamesFromStatementResponse {

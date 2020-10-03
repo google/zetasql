@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,10 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
+#include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -40,7 +42,6 @@
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/time_proto_util.h"
 
 namespace zetasql {
@@ -891,7 +892,7 @@ static bool AddAtLeastDaysToDatetime(
 
 static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
                                 DateTimestampPart part, absl::TimeZone timezone,
-                                absl::Time* output) {
+                                absl::Time* output, bool* had_overflow) {
   switch (part) {
     case HOUR:
       *output = timestamp + absl::Hours(interval);
@@ -915,6 +916,7 @@ static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
       break;
   }
   if (!IsValidTime(*output)) {
+    *had_overflow = true;
     return MakeAddTimestampOverflowError(timestamp, part, interval, timezone);
   }
   return absl::OkStatus();
@@ -928,22 +930,22 @@ static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
 static absl::Status AddTimestampInternal(absl::Time timestamp,
                                          absl::TimeZone timezone,
                                          DateTimestampPart part, int64_t interval,
-                                         absl::Time* output) {
+                                         absl::Time* output,
+                                         bool* had_overflow) {
   ZETASQL_RETURN_IF_ERROR(CheckValidAddTimestampPart(part, false /* is_legacy */));
   if (part == DAY) {
     // For TIMESTAMP_ADD(), the DAY interval is equivalent to 24 HOURs.
     part = HOUR;
     int64_t new_interval;
     if (!Multiply<int64_t>(interval, 24, &new_interval, kNoError)) {
+      *had_overflow = true;
       return MakeEvalError() << "TIMESTAMP_ADD interval value  " << interval
                              << " at " << DateTimestampPart_Name(part)
                              << " precision causes overflow";
     }
     interval = new_interval;
   }
-  return AddDuration(timestamp, interval, part, timezone, output);
-
-  return absl::OkStatus();
+  return AddDuration(timestamp, interval, part, timezone, output, had_overflow);
 }
 
 static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
@@ -1128,7 +1130,9 @@ static absl::Status FormatTimestampToStringInternal(
   if (truncate_tz) {
     // If ":00" appears at the end, remove it.  This is consistent with
     // Postgres.
-    *output = std::string(absl::StripSuffix(*output, ":00"));
+    if (absl::EndsWith(*output, ":00")) {
+      output->erase(output->size() - 3);
+    }
   }
   return absl::OkStatus();
 }
@@ -1149,7 +1153,7 @@ static absl::Status ConvertTimestampToStringInternal(
 
 // Returns the absl::Weekday corresponding to 'part', which must be one of the
 // WEEK values.
-static ::zetasql_base::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
+static zetasql_base::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
     DateTimestampPart part) {
   switch (part) {
     case WEEK:
@@ -1381,6 +1385,80 @@ static absl::Status TruncateDateImpl(
                            << " resulted in an out of range date value: "
                            << *output;
   }
+  return absl::OkStatus();
+}
+
+absl::Status LastDayOfDate(int32_t date, DateTimestampPart part, int32_t* output) {
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Invalid date value: " << date;
+  }
+  absl::CivilDay civil_day = EpochDaysToCivilDay(date);
+  // For YEAR, MONTH, QUARTER, last_day is implemented by first calling AddDate
+  // to add 1 to the part of the date, then truncate the date in the part,
+  // finally subtract 1 day
+  // However, AddDate may overflow for some input dates that can return a valid
+  // last_day result, so those cases are handled first.
+  if (civil_day.year() == 9999) {
+    if (part == YEAR || (part == MONTH && civil_day.month() == 12) ||
+        (part == QUARTER && civil_day.month() >= 10 && civil_day.month() <= 12))
+      {
+      *output = CivilDayToEpochDays(absl::CivilDay(9999, 12, 31));
+      return absl::OkStatus();
+    }
+  }
+  switch (part) {
+    case YEAR:
+    case MONTH:
+    case QUARTER: {
+      ZETASQL_RETURN_IF_ERROR(AddDate(date, part, 1, &date));
+      ZETASQL_RETURN_IF_ERROR(
+          TruncateDateImpl(date, part, /*enforce_range=*/false, &date));
+      ZETASQL_RETURN_IF_ERROR(SubDate(date, DAY, 1, output));
+      break;
+    }
+    case ISOYEAR: {
+      // last day of ISOYEAR could out of range if the input is 9999,
+      // the last day of ISOYEAR 9999 is 10000-01-02
+      *output = CivilDayToEpochDays(
+          date_time_util_internal::GetLastDayOfIsoYear(civil_day));
+      break;
+    }
+    case WEEK:
+    case ISOWEEK:
+    case WEEK_MONDAY:
+    case WEEK_TUESDAY:
+    case WEEK_WEDNESDAY:
+    case WEEK_THURSDAY:
+    case WEEK_FRIDAY:
+    case WEEK_SATURDAY: {
+      ZETASQL_ASSIGN_OR_RETURN(const absl::Weekday first_day_of_week,
+                       GetFirstWeekDayOfWeek(part));
+      *output = CivilDayToEpochDays(
+          PrevWeekdayOrToday(civil_day, first_day_of_week)) + 6;
+      break;
+      }
+    default:
+      return MakeEvalError() << "Unsupported DateTimestampPart "
+                             << DateTimestampPart_Name(part);
+  }
+  // ISO_YEAR, WEEK and WEEK(<WEEKDAY>) as part can result in a date that is out
+  // of bounds (i.e., after 9999-12-31), so we check the last day
+  // result here. The other date parts do not have the potential to underflow,
+  // but we validate the result anyway as a sanity check.
+  if (!IsValidDate(*output)) {
+    return MakeEvalError() << "Last day of date " << DateErrorString(date)
+                           << " to " << DateTimestampPartToSQL(part)
+                           << " resulted in an out of range date value: "
+                           << *output;
+  }
+  return absl::OkStatus();
+}
+
+absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
+                               DateTimestampPart part, int32_t* output) {
+  int32_t date;
+  ZETASQL_RETURN_IF_ERROR(ExtractFromDatetime(DATE, datetime, &date));
+  ZETASQL_RETURN_IF_ERROR(LastDayOfDate(date, part, output));
   return absl::OkStatus();
 }
 
@@ -3220,8 +3298,9 @@ static absl::Status AddDatetimeInternal(
     datetime_in_utc += absl::Nanoseconds(datetime.Nanoseconds());
 
     absl::Time result_timestamp;
+    bool had_overflow_unused;
     if (!AddTimestampInternal(datetime_in_utc, absl::UTCTimeZone(), part,
-                              interval, &result_timestamp)
+                              interval, &result_timestamp, &had_overflow_unused)
              .ok()) {
       return overflow_error_maker();
     }
@@ -3299,8 +3378,9 @@ absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
 absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output) {
-  ZETASQL_RETURN_IF_ERROR(
-      AddTimestampInternal(timestamp, timezone, part, interval, output));
+  bool had_overflow_unused;
+  ZETASQL_RETURN_IF_ERROR(AddTimestampInternal(timestamp, timezone, part, interval,
+                                       output, &had_overflow_unused));
   if (!IsValidTime(*output)) {
     return MakeAddTimestampOverflowError(timestamp, part, interval, timezone);
   }
@@ -3314,6 +3394,15 @@ absl::Status AddTimestamp(absl::Time timestamp,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return AddTimestamp(timestamp, timezone, part, interval, output);
+}
+
+absl::Status AddTimestampOverflow(absl::Time timestamp, absl::TimeZone timezone,
+                                  DateTimestampPart part, int64_t interval,
+                                  absl::Time* output, bool* had_overflow) {
+  *had_overflow = false;
+  absl::Status status = AddTimestampInternal(timestamp, timezone, part,
+                                             interval, output, had_overflow);
+  return *had_overflow ? absl::OkStatus() : status;
 }
 
 absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
@@ -3351,7 +3440,9 @@ absl::Status SubTimestamp(absl::Time timestamp, absl::TimeZone timezone,
   if (!IsValidTime(timestamp)) {
     return MakeEvalError() << "Invalid timestamp: " << timestamp;
   }
-  if (!AddTimestampInternal(timestamp, timezone, part, -interval, output)
+  bool had_overflow_unused;
+  if (!AddTimestampInternal(timestamp, timezone, part, -interval, output,
+                            &had_overflow_unused)
            .ok() ||
       !IsValidTime(*output)) {
     return MakeSubTimestampOverflowError(timestamp, part, interval, timezone);

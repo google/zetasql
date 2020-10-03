@@ -2,40 +2,64 @@
 
 # String functions
 
-<a name="string_values"></a>These string functions work on two different values:
-STRING and BYTES data
-types. STRING values must be well-formed UTF-8.
+These string functions work on two different values:
+`STRING` and `BYTES` data types. `STRING` values must be well-formed UTF-8.
 
-Functions that return position values, such as [STRPOS][string-link-to-strpos], encode those
-positions as INT64. The value `1` refers to the first
-character (or byte), `2` refers to the second, and so on. The value `0`
-indicates an invalid index. When working on
-STRING types, the returned positions refer to
-character positions.
+Functions that return position values, such as [STRPOS][string-link-to-strpos],
+encode those positions as `INT64`. The value `1`
+refers to the first character (or byte), `2` refers to the second, and so on.
+The value `0` indicates an invalid index. When working on `STRING` types, the
+returned positions refer to character positions.
 
 All string comparisons are done byte-by-byte, without regard to Unicode
 canonical equivalence.
 
+### ASCII
+
+```sql
+ASCII(value)
+```
+
+**Description**
+
+Returns the ASCII code for the first character or byte in `value`. Returns
+`0` if `value` is empty or the ASCII code is `0` for the first character
+or byte.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| 97    | 97    | 0     | NULL  |
++-------+-------+-------+-------+
+```
+
 ### BYTE_LENGTH
 
-```
+```sql
 BYTE_LENGTH(value)
 ```
 
 **Description**
 
-Returns the length of the [value][string-link-to-string-values] in bytes, regardless of
-whether the type of the value is STRING or
-BYTES.
+Returns the length of the `STRING` or `BYTES` value in `BYTES`,
+regardless of whether the type of the value is `STRING` or `BYTES`.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
 ```sql
-
 WITH example AS
   (SELECT "абвгд" AS characters, b"абвгд" AS bytes)
 
@@ -55,22 +79,21 @@ FROM example;
 
 ### CHAR_LENGTH
 
-```
+```sql
 CHAR_LENGTH(value)
 ```
 
 **Description**
 
-Returns the length of the STRING in characters.
+Returns the length of the `STRING` in characters.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
 ```sql
-
 WITH example AS
   (SELECT "абвгд" AS characters)
 
@@ -84,10 +107,11 @@ FROM example;
 +------------+---------------------+
 | абвгд      |                   5 |
 +------------+---------------------+
+```
 
-```
 ### CHARACTER_LENGTH
-```
+
+```sql
 CHARACTER_LENGTH(value)
 ```
 
@@ -97,12 +121,11 @@ Synonym for [CHAR_LENGTH][string-link-to-char-length].
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
 ```sql
-
 WITH example AS
   (SELECT "абвгд" AS characters)
 
@@ -116,11 +139,54 @@ FROM example;
 +------------+---------------------+
 | абвгд      |                   5 |
 +------------+---------------------+
+```
 
+### CHR
+
+```sql
+CHR(value)
+```
+
+**Description**
+
+Takes a Unicode [code point][string-link-to-code-points-wikipedia] and returns
+the character that matches the code point. Each valid code point should fall
+within the range of [0, 0xD7FF] and [0xE000, 0x10FFFF]. Returns an empty string
+if the code point is `0`. If an invalid Unicode code point is specified, an
+error is returned.
+
+To work with an array of Unicode code points, see
+[`CODE_POINTS_TO_STRING`][string-link-to-codepoints-to-string]
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| A     | ÿ     | ȁ     | Ѐ     |
++-------+-------+-------+-------+
+```
+
+```sql
+SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| a     | 例    |       | NULL  |
++-------+-------+-------+-------+
 ```
 
 ### CODE_POINTS_TO_BYTES
-```
+
+```sql
 CODE_POINTS_TO_BYTES(ascii_values)
 ```
 
@@ -128,15 +194,14 @@ CODE_POINTS_TO_BYTES(ascii_values)
 
 Takes an array of extended ASCII
 [code points][string-link-to-code-points-wikipedia]
-(ARRAY of INT64) and
-returns BYTES.
+(`ARRAY` of `INT64`) and returns `BYTES`.
 
-To convert from BYTES to an array of code points, see
+To convert from `BYTES` to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Examples**
 
@@ -145,11 +210,11 @@ The following is a basic example using `CODE_POINTS_TO_BYTES`.
 ```sql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
-+-------+
-| bytes |
-+-------+
-| AbCd  |
-+-------+
++----------+
+| bytes    |
++----------+
+| AbCd     |
++----------+
 ```
 
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
@@ -172,34 +237,36 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
-+----------------+
-| encoded_string |
-+----------------+
-| Grfg Fgevat!   |
-+----------------+
++------------------+
+| encoded_string   |
++------------------+
+| Grfg Fgevat!     |
++------------------+
 ```
 
 ### CODE_POINTS_TO_STRING
-```
+
+```sql
 CODE_POINTS_TO_STRING(value)
 ```
 
 **Description**
 
 Takes an array of Unicode [code points][string-link-to-code-points-wikipedia]
-(ARRAY of INT64) and
-returns a STRING.
+(`ARRAY` of `INT64`) and
+returns a `STRING`. If a code point is 0, does not return a character for it
+in the `STRING`.
 
 To convert from a string to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].
 
 **Return type**
 
-STRING
+`STRING`
 
-**Example**
+**Examples**
 
-The following is a basic example using `CODE_POINTS_TO_STRING`.
+The following are basic examples using `CODE_POINTS_TO_STRING`.
 
 ```sql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
@@ -208,6 +275,26 @@ SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 | string |
 +--------+
 | AÿȁЀ   |
++--------+
+```
+
+```sql
+SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
+
++--------+
+| string |
++--------+
+| a例    |
++--------+
+```
+
+```sql
+SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
+
++--------+
+| string |
++--------+
+| NULL   |
 +--------+
 ```
 
@@ -244,7 +331,8 @@ ORDER BY 2 DESC;
 ```
 
 ### CONCAT
-```
+
+```sql
 CONCAT(value1[, ...])
 ```
 
@@ -253,13 +341,15 @@ CONCAT(value1[, ...])
 Concatenates one or more values into a single result. All values must be
 `BYTES` or data types that can be cast to `STRING`.
 
+The function returns `NULL` if any input argument is `NULL`.
+
 Note: You can also use the
 [|| concatenation operator][string-link-to-operators] to concatenate
 values into a string.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
@@ -313,23 +403,23 @@ FROM Employees;
 ```
 
 ### ENDS_WITH
-```
+
+```sql
 ENDS_WITH(value1, value2)
 ```
 
 **Description**
 
-Takes two [values][string-link-to-string-values]. Returns TRUE if the second value is a
-suffix of the first.
+Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second
+value is a suffix of the first.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT "apple" as item
   UNION ALL
@@ -348,16 +438,15 @@ FROM items;
 |   False |
 |    True |
 +---------+
-
 ```
 
 ### FORMAT {: #format_string }
 
 ZetaSQL supports a `FORMAT()` function for formatting strings. This
-function is similar to the C `printf` function. It produces a
-STRING from a format string that contains zero or
-more format specifiers, along with a variable length list of additional
-arguments that matches the format specifiers. Here are some examples:
+function is similar to the C `printf` function. It produces a `STRING` from a
+format string that contains zero or more format specifiers, along with a
+variable length list of additional arguments that matches the format specifiers.
+Here are some examples:
 
 <table>
 <tr>
@@ -430,13 +519,13 @@ date: January 02, 2015!
 #### Syntax
 
 The `FORMAT()` syntax takes a format string and variable length list of
-arguments and produces a STRING result:
+arguments and produces a `STRING` result:
 
-```
-FORMAT(<format_string>, ...)
+```sql
+FORMAT(format_string, ...)
 ```
 
-The `<format_string>` expression can contain zero or more format specifiers.
+The `format_string` expression can contain zero or more format specifiers.
 Each format specifier is introduced by the `%` symbol, and must map to one or
 more of the remaining arguments.  For the most part, this is a one-to-one
 mapping, except when the `*` specifier is present. For example, `%.*i` maps to
@@ -561,13 +650,17 @@ Deviations from printf() are identified in <em>italics</em>.
  </tr>
  <tr>
     <td><code>G</code></td>
-    <td>Either decimal notation or scientific notation, depending on the input
-        value's exponent and the specified precision. Uppercase.
-        See <a href="#g_and_g_behavior">%g and %G behavior</a> for details.</td>
-    <td>392.65<br/>
+    <td>
+      Either decimal notation or scientific notation, depending on the input
+      value's exponent and the specified precision. Uppercase.
+      See <a href="#g_and_g_behavior">%g and %G behavior</a> for details.
+    </td>
+    <td>
+      392.65<br/>
       3.9265E+07<br/>
-    INF<br/>
-    NAN</td>
+      INF<br/>
+      NAN
+    </td>
     <td>
     <span> FLOAT</span><br><span> DOUBLE</span>
     </td>
@@ -578,11 +671,11 @@ Deviations from printf() are identified in <em>italics</em>.
     <td><em>
       <p>Produces a one-line printable string representing a protocol buffer.</p>
       <p>This protocol buffer generates the example to the right:</p>
-<pre>
-message ReleaseDate {
- required int32 year = 1 [default=2019];
- required int32 month = 2 [default=10];
-}</pre>
+      <pre>
+      message ReleaseDate {
+       required int32 year = 1 [default=2019];
+       required int32 month = 2 [default=10];
+      }</pre>
     </em></td>
     <td><em>year: 2019 month: 10</em></td>
     <td><em>ShortDebugString</em></td>
@@ -592,11 +685,11 @@ message ReleaseDate {
     <td><em>
       <p>Produces a multi-line printable string representing a protocol buffer.</p>
       <p>This protocol buffer generates the example to the right:</p>
-<pre>
-message ReleaseDate {
- required int32 year = 1 [default=2019];
- required int32 month = 2 [default=10];
-}</pre>
+      <pre>
+      message ReleaseDate {
+       required int32 year = 1 [default=2019];
+       required int32 month = 2 [default=10];
+      }</pre>
     </em></td>
     <td><em>
       year: 2019<br/>
@@ -613,23 +706,31 @@ message ReleaseDate {
  </tr>
  <tr>
     <td><em><code>t</code></em></td>
-    <td><em>Returns a printable string representing the value. Often looks
-similar to casting the argument to STRING. See <a
-href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
-    <td><em>sample</em><br/>
-    <em>2014&#8209;01&#8209;01</em></td>
+    <td>
+      <em>Returns a printable string representing the value. Often looks
+      similar to casting the argument to <code>STRING</code>.
+      See <a href="#t_and_t_behavior">%t and %T behavior</a>.</em>
+    </td>
+    <td>
+      <em>sample</em><br/>
+      <em>2014&#8209;01&#8209;01</em>
+    </td>
     <td><em>&lt;any&gt;</em></td>
  </tr>
  <tr>
     <td><em><code>T</code></em></td>
-    <td><em>Produces a string that is a valid ZetaSQL constant with a
-similar type to the value's type (maybe wider, or maybe string). See <a
-href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
-    <td><em>'sample'</em><br/>
-        <em>b'bytes&nbsp;sample'</em><br/>
-        <em>1234</em><br/>
-        <em>2.3</em><br/>
-        <em>date&nbsp;'2014&#8209;01&#8209;01'</em></td>
+    <td>
+      <em>Produces a string that is a valid ZetaSQL constant with a
+      similar type to the value's type (maybe wider, or maybe string).
+      See <a href="#t_and_t_behavior">%t and %T behavior</a>.</em>
+    </td>
+    <td>
+      <em>'sample'</em><br/>
+      <em>b'bytes&nbsp;sample'</em><br/>
+      <em>1234</em><br/>
+      <em>2.3</em><br/>
+      <em>date&nbsp;'2014&#8209;01&#8209;01'</em>
+    </td>
     <td><em>&lt;any&gt;</em></td>
  </tr>
  <tr>
@@ -640,8 +741,8 @@ href="#t_and_t_behavior">%t and %T behavior</a>.</em></td>
  </tr>
 </table>
 
-<i><a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an error if
-negative values are used.</i>
+<i><a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an
+error if negative values are used.</i>
 
 The format specifier can optionally contain the sub-specifiers identified above
 in the specifier prototype.
@@ -687,44 +788,51 @@ value</td>
  </tr>
  <tr>
     <td><code>0</code></td>
-    <td>Left-pads the number with zeroes (0) instead of spaces when padding is
-specified (see width sub-specifier)</td>
+    <td>
+      Left-pads the number with zeroes (0) instead of spaces when padding is
+      specified (see width sub-specifier)</td>
  </tr>
  <tr>
   <td><code>'</code></td>
-  <td><p>Formats integers using the appropriating grouping character.
-  For example:</p>
-  <ul>
-  <li><code>FORMAT("%'d", 12345678)</code> returns <code>12,345,678</code></li>
-  <li><code>FORMAT("%'x", 12345678)</code> returns <code>bc:614e</code></li>
-  <li><code>FORMAT("%'o", 55555)</code> returns <code>15,4403</code></li>
-  <p>This flag is only relevant for decimal, hex, and octal values.</p>
-  </ul>
+  <td>
+    <p>Formats integers using the appropriating grouping character.
+       For example:</p>
+    <ul>
+      <li><code>FORMAT("%'d", 12345678)</code> returns <code>12,345,678</code></li>
+      <li><code>FORMAT("%'x", 12345678)</code> returns <code>bc:614e</code></li>
+      <li><code>FORMAT("%'o", 55555)</code> returns <code>15,4403</code></li>
+      <p>This flag is only relevant for decimal, hex, and octal values.</p>
+    </ul>
   </td>
  </tr>
 </table>
 
-Flags may be specified in any order.  Duplicate flags are not an error.  When
+Flags may be specified in any order. Duplicate flags are not an error. When
 flags are not relevant for some element type, they are ignored.
 
 ##### Width
 
 <table>
- <tr>
+  <tr>
     <td>Width</td>
     <td>Description</td>
- </tr>
- <tr>
+  </tr>
+  <tr>
     <td>&lt;number&gt;</td>
-    <td>Minimum number of characters to be printed. If the value to be printed
-is shorter than this number, the result is padded with blank spaces. The value
-is not truncated even if the result is larger</td>
-</tr>
- <tr>
+    <td>
+      Minimum number of characters to be printed. If the value to be printed
+      is shorter than this number, the result is padded with blank spaces.
+      The value is not truncated even if the result is larger
+    </td>
+  </tr>
+  <tr>
     <td><code>*</code></td>
-    <td>The width is not specified in the format string, but as an additional
-integer value argument preceding the argument that has to be formatted</td>
-</tr> </table>
+    <td>
+      The width is not specified in the format string, but as an additional
+      integer value argument preceding the argument that has to be formatted
+    </td>
+  </tr>
+</table>
 
 ##### Precision
 
@@ -737,29 +845,32 @@ integer value argument preceding the argument that has to be formatted</td>
     <td><code>.</code>&lt;number&gt;</td>
     <td>
       <ul>
-      <li>For integer specifiers `%d`, `%i`, `%o`, `%u`, `%x`, and `%X`: precision specifies the
+      <li>For integer specifiers `%d`, `%i`, `%o`, `%u`, `%x`, and `%X`:
+          precision specifies the
           minimum number of digits to be written. If the value to be written is
           shorter than this number, the result is padded with trailing zeros.
           The value is not truncated even if the result is longer. A precision
           of 0 means that no character is written for the value 0.</li>
-      <li>For specifiers `%a`, `%A`, `%e`, `%E`, `%f`, and `%F`: this is the number of digits to be
-          printed after the decimal point. The default value is 6.</li>
-      <li>For specifiers `%g` and `%G`: this is the number of significant digits to be
-          printed, before the removal of the trailing zeros after the decimal
-          point. The default value is 6.</li>
+      <li>For specifiers `%a`, `%A`, `%e`, `%E`, `%f`, and `%F`: this is the
+          number of digits to be printed after the decimal point. The default
+          value is 6.</li>
+      <li>For specifiers `%g` and `%G`: this is the number of significant digits
+          to be printed, before the removal of the trailing zeros after the
+          decimal point. The default value is 6.</li>
       </ul>
    </td>
 </tr>
  <tr>
     <td><code>.*</code></td>
-    <td>The precision is not specified in the format string, but as an
-additional integer value argument preceding the argument that has to be
-formatted</td>
-</tr>
+    <td>
+      The precision is not specified in the format string, but as an
+      additional integer value argument preceding the argument that has to be
+      formatted
+   </td>
+  </tr>
 </table>
 
-<a name="g_and_g_behavior"></a>
-#### %g and %G behavior
+#### %g and %G behavior {: #g_and_g_behavior }
 The `%g` and `%G` format specifiers choose either the decimal notation (like
 the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
 specifiers), depending on the input value's exponent and the specified
@@ -776,107 +887,119 @@ Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
 are removed, and the decimal point is also removed if there is no digit after
 it.
 
-<a name="t_and_t_behavior"></a>
-#### %t and %T behavior
+#### %t and %T behavior {: #t_and_t_behavior }
 
-The `%t` and `%T` format specifiers are defined for all types.  The [width](#width),
-[precision](#precision), and [flags](#flags) act as they do for `%s`: the [width](#width) is the minimum width
-and the STRING will be padded to that size, and [precision](#precision) is the maximum width
-of content to show and the STRING will be truncated to that size, prior to
+The `%t` and `%T` format specifiers are defined for all types. The
+[width](#width), [precision](#precision), and [flags](#flags) act as they do
+for `%s`: the [width](#width) is the minimum width and the `STRING` will be
+padded to that size, and [precision](#precision) is the maximum width
+of content to show and the `STRING` will be truncated to that size, prior to
 padding to width.
 
 The `%t` specifier is always meant to be a readable form of the value.
 
-The `%T` specifier is always a valid SQL literal of a similar type, such as a wider numeric
-type.
+The `%T` specifier is always a valid SQL literal of a similar type, such as a
+wider numeric type.
 The literal will not include casts or a type name, except for the special case
 of non-finite floating point values.
 
-The STRING is formatted as follows:
+The `STRING` is formatted as follows:
 
 <table>
- <tr>
+  <tr>
     <td><strong>Type</strong></td>
     <td><strong>%t</strong></td>
     <td><strong>%T</strong></td>
- </tr>
- <tr>
+  </tr>
+  <tr>
     <td><code>NULL</code> of any type</td>
     <td><code>NULL</code></td>
     <td><code>NULL</code></td>
- </tr>
- <tr>
+  </tr>
+  <tr>
     <td><span> INT32</span><br><span> INT64</span><br><span> UINT32</span><br><span> UINT64</span><br></td>
     <td>123</td>
     <td>123</td>
- </tr>
+  </tr>
 
- <tr>
+  <tr>
     <td>NUMERIC</td>
     <td>123.0  <em>(always with .0)</em>
     <td>NUMERIC "123.0"</td>
- </tr>
- <tr>
+  </tr>
+  <tr>
 
     <td>FLOAT, DOUBLE</td>
-<td>123.0  <em>(always with .0)</em><br/>
-        123e+10<br><code>inf</code><br><code>-inf</code><br><code>NaN</code></td>
-    <td>123.0  <em>(always with .0)</em><br/>
-        123e+10<br/>
-        CAST("inf" AS &lt;type&gt;)<br/>
-        CAST("-inf" AS &lt;type&gt;)<br/>
-        CAST("nan" AS &lt;type&gt;)</td>
- </tr>
- <tr>
+
+    <td>
+      123.0  <em>(always with .0)</em><br/>
+      123e+10<br><code>inf</code><br><code>-inf</code><br><code>NaN</code>
+    </td>
+    <td>
+      123.0  <em>(always with .0)</em><br/>
+      123e+10<br/>
+      CAST("inf" AS &lt;type&gt;)<br/>
+      CAST("-inf" AS &lt;type&gt;)<br/>
+      CAST("nan" AS &lt;type&gt;)
+    </td>
+  </tr>
+  <tr>
     <td>STRING</td>
     <td>unquoted string value</td>
     <td>quoted string literal</td>
- </tr>
- <tr>
+  </tr>
+  <tr>
     <td>BYTES</td>
-    <td>unquoted escaped bytes<br/>
-    e.g. abc\x01\x02</td>
-    <td>quoted bytes literal<br/>
-    e.g. b"abc\x01\x02"</td>
- </tr>
+    <td>
+      unquoted escaped bytes<br/>
+      e.g. abc\x01\x02
+    </td>
+    <td>
+      quoted bytes literal<br/>
+      e.g. b"abc\x01\x02"
+    </td>
+  </tr>
 
- <tr>
+  <tr>
     <td>ENUM</td>
     <td>EnumName</td>
     <td>"EnumName"</td>
- </tr>
+  </tr>
  
  
- <tr>
+  <tr>
     <td>DATE</td>
     <td>2011-02-03</td>
     <td>DATE "2011-02-03"</td>
- </tr>
+  </tr>
  
  
- <tr>
+  <tr>
     <td>TIMESTAMP</td>
     <td>2011-02-03 04:05:06+00</td>
     <td>TIMESTAMP "2011-02-03 04:05:06+00"</td>
- </tr>
+  </tr>
 
  
  
- <tr>
+  <tr>
     <td>PROTO</td>
     <td>proto ShortDebugString</td>
-    <td>quoted string literal with proto<br/>
-    ShortDebugString</td>
- </tr>
+    <td>
+      quoted string literal with proto<br/>
+      ShortDebugString
+    </td>
+  </tr>
  
- <tr>
+  <tr>
     <td>ARRAY</td>
     <td>[value, value, ...]<br/>
     where values are formatted with %t</td>
     <td>[value, value, ...]<br/>
     where values are formatted with %T</td>
- </tr>
- <tr>
+  </tr>
+ 
+  <tr>
     <td>STRUCT</td>
     <td>(value, value, ...)<br/>
     where fields are formatted with %t</td>
@@ -886,7 +1009,8 @@ The STRING is formatted as follows:
     Special cases:<br/>
     Zero fields: STRUCT()<br/>
     One field: STRUCT(value)</td>
- </tr>
+  </tr>
+  
 </table>
 
 #### Error conditions
@@ -895,63 +1019,64 @@ If a format specifier is invalid, or is not compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
 produced.  For example, the following `<format_string>` expressions are invalid:
 
-```
+```sql
 FORMAT('%s', 1)
 ```
 
-```
+```sql
 FORMAT('%')
 ```
 
 #### NULL argument handling
 
-A `NULL` format string results in a `NULL` output STRING.  Any other arguments are
-ignored in this case.
+A `NULL` format string results in a `NULL` output `STRING`. Any other arguments
+are ignored in this case.
 
-The function generally produces a `NULL` value if a `NULL` argument is present. For
-example, `FORMAT('%i', <NULL expression>)` produces a `NULL`
-STRING as output.
+The function generally produces a `NULL` value if a `NULL` argument is present.
+For example, `FORMAT('%i', NULL_expression)` produces a `NULL STRING` as
+output.
 
-However, there are some exceptions: if the format specifier is %t or %T (both of
-which produce STRINGs that effectively match CAST and
-literal value semantics), a `NULL` value produces 'NULL' (without the quotes) in
-the result STRING. For example, the function:
+However, there are some exceptions: if the format specifier is %t or %T
+(both of which produce `STRING`s that effectively match CAST and literal value
+semantics), a `NULL` value produces 'NULL' (without the quotes) in the result
+`STRING`. For example, the function:
 
-```
-FORMAT('00-%t-00', <NULL expression>);
+```sql
+FORMAT('00-%t-00', NULL_expression);
 ```
 
 Returns
 
-```
+```sql
 00-NULL-00
 ```
 
 #### Additional semantic rules
 
-DOUBLE and
-FLOAT values can be `+/-inf` or `NaN`.  When an argument has one of
-those values, the result of the format specifiers `%f`, `%F`, `%e`, `%E`, `%g`,
-`%G`, and `%t` are `inf`, `-inf`, or `nan` (or the same in uppercase) as
-appropriate.  This is consistent with how ZetaSQL casts these values
-to STRING.  For `%T`, ZetaSQL returns quoted strings for
-DOUBLE values that don't have non-string literal
+`DOUBLE` and
+`FLOAT` values can be `+/-inf` or `NaN`.
+When an argument has one of those values, the result of the format specifiers
+`%f`, `%F`, `%e`, `%E`, `%g`, `%G`, and `%t` are `inf`, `-inf`, or `nan`
+(or the same in uppercase) as appropriate.  This is consistent with how
+ZetaSQL casts these values to `STRING`.  For `%T`,
+ZetaSQL returns quoted strings for
+`DOUBLE` values that don't have non-string literal
 representations.
 
 ### FROM_BASE32
 
-```
+```sql
 FROM_BASE32(string_expr)
 ```
 
 **Description**
 
-Converts the base32-encoded input `string_expr` into BYTES format. To convert
-BYTES to a base32-encoded STRING, use [TO_BASE32][string-link-to-base32].
+Converts the base32-encoded input `string_expr` into `BYTES` format. To convert
+`BYTES` to a base32-encoded `STRING`, use [TO_BASE32][string-link-to-base32].
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -967,18 +1092,20 @@ SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
 ### FROM_BASE64
 
-```
+```sql
 FROM_BASE64(string_expr)
 ```
 
 **Description**
 
-Converts the base64-encoded input `string_expr` into BYTES format. To convert
-BYTES to a base64-encoded STRING, use [TO_BASE64][string-link-to-base64].
+Converts the base64-encoded input `string_expr` into
+`BYTES` format. To convert
+`BYTES` to a base64-encoded `STRING`,
+use [TO_BASE64][string-link-to-base64].
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -993,23 +1120,23 @@ SELECT FROM_BASE64('3q2+7w==') AS byte_data;
 ```
 
 ### FROM_HEX
-```
+
+```sql
 FROM_HEX(string)
 ```
 
 **Description**
 
-Converts a hexadecimal-encoded STRING into BYTES format. Returns an error if the
-input STRING contains characters outside the range
+Converts a hexadecimal-encoded `STRING` into `BYTES` format. Returns an error
+if the input `STRING` contains characters outside the range
 `(0..9, A..F, a..f)`. The lettercase of the characters does not matter. If the
-input STRING has an odd number of characters, the function acts as if the input
-has an additional leading `0`. To convert BYTES to a
-hexadecimal-encoded STRING, use
-[TO_HEX][string-link-to-to-hex].
+input `STRING` has an odd number of characters, the function acts as if the
+input has an additional leading `0`. To convert `BYTES` to a hexadecimal-encoded
+`STRING`, use [TO_HEX][string-link-to-to-hex].
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -1021,6 +1148,7 @@ WITH Input AS (
 )
 SELECT hex_str, FROM_HEX(hex_str) AS bytes_str
 FROM Input;
+
 +------------------+----------------------------------+
 | hex_str          | bytes_str                        |
 +------------------+----------------------------------+
@@ -1030,20 +1158,221 @@ FROM Input;
 +------------------+----------------------------------+
 ```
 
-### LENGTH
+### INITCAP
+
+```sql
+INITCAP(value[, delimiters])
 ```
+
+**Description**
+
+Takes a `STRING` and returns it with the first character in each word in
+uppercase and all other characters in lowercase. Non-alphabetic characters
+remain the same.
+
+`delimiters` is an optional string argument that is used to override the default
+set of characters used to separate words. If `delimiters` is not specified, it
+defaults to the following characters: \
+`<whitespace> [ ] ( ) { } / | \ < > ! ? @ " ^ # $ & ~ _ , . : ; * % + -`
+
+If `value` or `delimiters` is `NULL`, the function returns `NULL`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+WITH example AS
+(
+  SELECT "Hello World-everyone!" AS value UNION ALL
+  SELECT "tHe dog BARKS loudly+friendly" AS value UNION ALL
+  SELECT "apples&oranges;&pears" AS value UNION ALL
+  SELECT "καθίσματα ταινιών" AS value
+)
+SELECT value, INITCAP(value) AS initcap_value FROM example
+
++-------------------------------+-------------------------------+
+| value                         | initcap_value                 |
++-------------------------------+-------------------------------+
+| Hello World-everyone!         | Hello World-Everyone!         |
+| tHe dog BARKS loudly+friendly | The Dog Barks Loudly+Friendly |
+| apples&oranges;&pears         | Apples&Oranges;&Pears         |
+| καθίσματα ταινιών             | Καθίσματα Ταινιών             |
++-------------------------------+-------------------------------+
+
+WITH example AS
+(
+  SELECT "hello WORLD!" AS value, "" AS delimiters UNION ALL
+  SELECT "καθίσματα ταιντιώ@ν" AS value, "τ@" AS delimiters UNION ALL
+  SELECT "Apples1oranges2pears" AS value, "12" AS delimiters UNION ALL
+  SELECT "tHisEisEaESentence" AS value, "E" AS delimiters
+)
+SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example;
+
++----------------------+------------+----------------------+
+| value                | delimiters | initcap_value        |
++----------------------+------------+----------------------+
+| hello WORLD!         |            | Hello world!         |
+| καθίσματα ταιντιώ@ν  | τ@         | ΚαθίσματΑ τΑιντΙώ@Ν  |
+| Apples1oranges2pears | 12         | Apples1Oranges2Pears |
+| tHisEisEaESentence   | E          | ThisEIsEAESentence   |
++----------------------+------------+----------------------+
+```
+
+### INSTR
+
+```sql
+INSTR(source_value, search_value[, position[, occurrence]])
+```
+
+**Description**
+
+Returns the lowest 1-based index of `search_value` in `source_value`. 0 is
+returned when no match is found. `source_value` and `search_value` must be the
+same type, either `STRING` or `BYTES`.
+
+If `position` is specified, the search starts at this position in
+`source_value`, otherwise it starts at the beginning of `source_value`. If
+`position` is negative, the function searches backwards from the end of
+`source_value`, with -1 indicating the last character. `position` cannot be 0.
+
+If `occurrence` is specified, the search returns the position of a specific
+instance of `search_value` in `source_value`, otherwise it returns the index of
+the first occurrence. If `occurrence` is greater than the number of matches
+found, 0 is returned. For `occurrence` > 1, the function searches for
+overlapping occurrences, in other words, the function searches for additional
+occurrences beginning with the second character in the previous occurrence.
+`occurrence` cannot be 0 or negative.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+WITH example AS
+(SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 1 as
+occurrence UNION ALL
+SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 2 as
+occurrence UNION ALL
+SELECT 'banana' as source_value, 'an' as search_value, 1 as position, 3 as
+occurrence UNION ALL
+SELECT 'banana' as source_value, 'an' as search_value, 3 as position, 1 as
+occurrence UNION ALL
+SELECT 'banana' as source_value, 'an' as search_value, -1 as position, 1 as
+occurrence UNION ALL
+SELECT 'banana' as source_value, 'an' as search_value, -3 as position, 1 as
+occurrence UNION ALL
+SELECT 'banana' as source_value, 'ann' as search_value, 1 as position, 1 as
+occurrence UNION ALL
+SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 1 as
+occurrence UNION ALL
+SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as
+occurrence
+)
+SELECT source_value, search_value, position, occurrence, INSTR(source_value,
+search_value, position, occurrence) AS instr
+FROM example;
+
++--------------+--------------+----------+------------+-------+
+| source_value | search_value | position | occurrence | instr |
++--------------+--------------+----------+------------+-------+
+| banana       | an           | 1        | 1          | 2     |
+| banana       | an           | 1        | 2          | 4     |
+| banana       | an           | 1        | 3          | 0     |
+| banana       | an           | 3        | 1          | 4     |
+| banana       | an           | -1       | 1          | 4     |
+| banana       | an           | -3       | 1          | 4     |
+| banana       | ann          | 1        | 1          | 0     |
+| helloooo     | oo           | 1        | 1          | 5     |
+| helloooo     | oo           | 1        | 2          | 6     |
++--------------+--------------+----------+------------+-------+
+```
+
+### LEFT
+
+```sql
+LEFT(value, length)
+```
+
+**Description**
+
+Returns a `STRING` or `BYTES` value that consists of the specified
+number of leftmost characters or bytes from `value`. The `length` is an
+`INT64` that specifies the length of the returned
+value. If `value` is of type `BYTES`, `length` is the number of leftmost bytes to
+return. If `value` is `STRING`, `length` is the number of leftmost characters
+to return.
+
+If `length` is 0, an empty `STRING` or `BYTES` value will be
+returned. If `length` is negative, an error will be returned. If `length`
+exceeds the number of characters or bytes from `value`, the original `value`
+will be returned.
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+WITH examples AS
+(SELECT 'apple' as example
+UNION ALL
+SELECT 'banana' as example
+UNION ALL
+SELECT 'абвгд' as example
+)
+SELECT example, LEFT(example, 3) AS left_example
+FROM examples;
+
++---------+--------------+
+| example | left_example |
++---------+--------------+
+| apple   | app          |
+| banana  | ban          |
+| абвгд   | абв          |
++---------+--------------+
+```
+
+```sql
+WITH examples AS
+(SELECT b'apple' as example
+UNION ALL
+SELECT b'banana' as example
+UNION ALL
+SELECT b'\xab\xcd\xef\xaa\xbb' as example
+)
+SELECT example, LEFT(example, 3) AS left_example
+FROM examples;
+
++----------------------+--------------+
+| example              | left_example |
++----------------------+--------------+
+| apple                | app          |
+| banana               | ban          |
+| \xab\xcd\xef\xaa\xbb | \xab\xcd\xef |
++----------------------+--------------+
+```
+
+### LENGTH
+
+```sql
 LENGTH(value)
 ```
 
 **Description**
 
-Returns the length of the [value][string-link-to-string-values]. The returned value
-is in characters for STRING arguments and in bytes
-for the BYTES argument.
+Returns the length of the `STRING` or `BYTES` value. The returned
+value is in characters for `STRING` arguments and in bytes for the `BYTES`
+argument.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -1066,17 +1395,18 @@ FROM example;
 ```
 
 ### LPAD
-```
+
+```sql
 LPAD(original_value, return_length[, pattern])
 ```
 
 **Description**
 
-Returns a [value][string-link-to-string-values] that consists of `original_value` prepended
-with `pattern`. The `return_length` is an INT64 that specifies the length of the
-returned value. If `original_value` is BYTES, `return_length` is the number of
-bytes. If `original_value` is STRING, `return_length` is the number of
-characters.
+Returns a `STRING` or `BYTES` value that consists of `original_value` prepended
+with `pattern`. The `return_length` is an `INT64` that
+specifies the length of the returned value. If `original_value` is of type
+`BYTES`, `return_length` is the number of bytes. If `original_value` is
+of type `STRING`, `return_length` is the number of characters.
 
 The default value of `pattern` is a blank space.
 
@@ -1086,8 +1416,8 @@ If `return_length` is less than or equal to the `original_value` length, this
 function returns the `original_value` value, truncated to the value of
 `return_length`. For example, `LPAD("hello world", 7);` returns `"hello w"`.
 
-If `original_value`, `return_length`, or `pattern` is NULL, this function
-returns NULL.
+If `original_value`, `return_length`, or `pattern` is `NULL`, this function
+returns `NULL`.
 
 This function returns an error if:
 
@@ -1096,7 +1426,7 @@ This function returns an error if:
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
@@ -1106,12 +1436,15 @@ SELECT t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST([
   ('abc', 2),
   ('例子', 4)
 ]);
-```
+
++------+-----+----------+
 | t    | len | LPAD     |
 |------|-----|----------|
-| abc  | 5   | <code>"&nbsp;&nbsp;abc"</code>  |
-| abc  | 2   | <code>"ab"</code>     |
-| 例子 | 4   | <code>"&nbsp;&nbsp;例子"</code> |
+| abc  | 5   | "  abc"  |
+| abc  | 2   | "ab"     |
+| 例子  | 4   | "  例子" |
++------+-----+----------+
+```
 
 ```sql
 SELECT t, len, pattern, FORMAT("%T", LPAD(t, len, pattern)) AS LPAD FROM UNNEST([
@@ -1119,12 +1452,15 @@ SELECT t, len, pattern, FORMAT("%T", LPAD(t, len, pattern)) AS LPAD FROM UNNEST(
   ('abc', 5, '-'),
   ('例子', 5, '中文')
 ]);
-```
+
++------+-----+---------+--------------+
 | t    | len | pattern | LPAD         |
 |------|-----|---------|--------------|
-| abc  | 8   | def     | <code>"defdeabc"</code>   |
-| abc  | 5   | -       | <code>"--abc"</code>      |
-| 例子 | 5   | 中文    | <code>"中文中例子"</code> |
+| abc  | 8   | def     | "defdeabc"   |
+| abc  | 5   | -       | "--abc"      |
+| 例子  | 5   | 中文    | "中文中例子"   |
++------+-----+---------+--------------+
+```
 
 ```sql
 SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST([
@@ -1132,12 +1468,15 @@ SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST
   (b'abc', 2),
   (b'\xab\xcd\xef', 4)
 ]);
-```
+
++-----------------+-----+------------------+
 | t               | len | LPAD             |
 |-----------------|-----|------------------|
-| b"abc"          | 5   | <code>b"&nbsp;&nbsp;abc"</code>         |
-| b"abc"          | 2   | <code>b"ab"</code>            |
-| b"\xab\xcd\xef" | 4   | <code>b" \xab\xcd\xef"</code> |
+| b"abc"          | 5   | b"  abc"         |
+| b"abc"          | 2   | b"ab"            |
+| b"\xab\xcd\xef" | 4   | b" \xab\xcd\xef" |
++-----------------+-----+------------------+
+```
 
 ```sql
 SELECT
@@ -1150,33 +1489,36 @@ FROM UNNEST([
   (b'abc', 5, b'-'),
   (b'\xab\xcd\xef', 5, b'\x00')
 ]);
-```
+
++-----------------+-----+---------+-------------------------+
 | t               | len | pattern | LPAD                    |
 |-----------------|-----|---------|-------------------------|
-| b"abc"          | 8   | b"def"  | <code>b"defdeabc"</code>             |
-| b"abc"          | 5   | b"-"    | <code>b"--abc"</code>                |
-| b"\xab\xcd\xef" | 5   | b"\x00" | <code>b"\x00\x00\xab\xcd\xef"</code> |
+| b"abc"          | 8   | b"def"  | b"defdeabc"             |
+| b"abc"          | 5   | b"-"    | b"--abc"                |
+| b"\xab\xcd\xef" | 5   | b"\x00" | b"\x00\x00\xab\xcd\xef" |
++-----------------+-----+---------+-------------------------+
+```
 
 ### LOWER
-```
+
+```sql
 LOWER(value)
 ```
 
 **Description**
 
-For STRING arguments, returns the original
-string with all alphabetic characters in lowercase.
-Mapping between lowercase and uppercase is done according to the
-[Unicode Character Database][string-link-to-unicode-character-definitions] without taking into
-account language-specific mappings.
+For `STRING` arguments, returns the original string with all alphabetic
+characters in lowercase. Mapping between lowercase and uppercase is done
+according to the
+[Unicode Character Database][string-link-to-unicode-character-definitions]
+without taking into account language-specific mappings.
 
-For BYTES arguments, the
-argument is treated as ASCII text, with all bytes
+For `BYTES` arguments, the argument is treated as ASCII text, with all bytes
 greater than 127 left intact.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
@@ -1206,7 +1548,8 @@ FROM items;
 ```
 
 ### LTRIM
-```
+
+```sql
 LTRIM(value1[, value2])
 ```
 
@@ -1216,12 +1559,11 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT "   apple   " as item
   UNION ALL
@@ -1240,7 +1582,9 @@ FROM items;
 | #banana   # |
 | #orange   # |
 +-------------+
+```
 
+```sql
 WITH items AS
   (SELECT "***apple***" as item
   UNION ALL
@@ -1259,7 +1603,9 @@ FROM items;
 | banana*** |
 | orange*** |
 +-----------+
+```
 
+```sql
 WITH items AS
   (SELECT "xxxapplexxx" as item
   UNION ALL
@@ -1268,7 +1614,9 @@ WITH items AS
   SELECT "zzzorangezzz" as item
   UNION ALL
   SELECT "xyzpearxyz" as item)
+```
 
+```sql
 SELECT
   LTRIM(item, "xyz") as example
 FROM items;
@@ -1284,13 +1632,14 @@ FROM items;
 ```
 
 ### NORMALIZE
-```
+
+```sql
 NORMALIZE(value[, normalization_mode])
 ```
 
 **Description**
 
-Takes a STRING, `value`, and returns it as a normalized string.
+Takes a string value and returns it as a normalized string.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
 two strings are equivalent. Normalization is often used in situations in which
@@ -1310,7 +1659,7 @@ The default normalization mode is `NFC`.
 
 **Return type**
 
-STRING
+`STRING`
 
 **Examples**
 
@@ -1352,13 +1701,14 @@ GROUP BY 1;
 ```
 
 ### NORMALIZE_AND_CASEFOLD
-```
+
+```sql
 NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 ```
 
 **Description**
 
-Takes a STRING, `value`, and performs the same actions as
+Takes a `STRING`, `value`, and performs the same actions as
 [`NORMALIZE`][string-link-to-normalize], as well as
 [casefolding][string-link-to-case-folding-wikipedia] for
 case-insensitive operations.
@@ -1376,7 +1726,7 @@ The default normalization mode is `NFC`.
 
 **Return type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -1400,15 +1750,24 @@ FROM Strings;
 +---+----+-------+-------+------+------+
 ```
 
+### OCTET_LENGTH
+
+```sql
+OCTET_LENGTH(value)
+```
+
+Alias for [`BYTE_LENGTH`](#byte-length).
+
 ### REGEXP_CONTAINS
 
-```
+```sql
 REGEXP_CONTAINS(value, regexp)
 ```
 
 **Description**
 
-Returns TRUE if `value` is a partial match for the regular expression, `regexp`.
+Returns `TRUE` if `value` is a partial match for the regular expression,
+`regexp`.
 
 If the `regexp` argument is invalid, the function returns an error.
 
@@ -1422,7 +1781,7 @@ regular expression syntax.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Examples**
 
@@ -1472,7 +1831,7 @@ FROM
 
 ### REGEXP_EXTRACT
 
-```
+```sql
 REGEXP_EXTRACT(value, regexp)
 ```
 
@@ -1496,12 +1855,11 @@ regular expression syntax.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH email_addresses AS
   (SELECT "foo@example.com" as email
   UNION ALL
@@ -1521,7 +1879,9 @@ FROM email_addresses;
 | bar       |
 | baz       |
 +-----------+
+```
 
+```sql
 WITH email_addresses AS
   (SELECT "foo@example.com" as email
   UNION ALL
@@ -1545,7 +1905,7 @@ FROM email_addresses;
 
 ### REGEXP_EXTRACT_ALL
 
-```
+```sql
 REGEXP_EXTRACT_ALL(value, regexp)
 ```
 
@@ -1564,13 +1924,11 @@ regular expression syntax.
 
 **Return type**
 
-An ARRAY of either STRINGs
-or BYTES
+An `ARRAY` of either `STRING`s or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH code_markdown AS
   (SELECT "Try `function(x)` or `function(y)`" as code)
 
@@ -1585,17 +1943,135 @@ FROM code_markdown;
 +----------------------------+
 ```
 
+### REGEXP_INSTR
+
+```sql
+REGEXP_INSTR(source_value, regexp [, position[, occurrence, [occurrence_position]]])
+```
+
+**Description**
+
+Returns the lowest 1-based index of a regular expression, `regexp`, in
+`source_value`. Returns `0` when no match is found or the regular expression
+is empty. Returns an error if the regular expression is invalid or has more than
+one capturing group. `source_value` and `regexp` must be the same type, either
+`STRING` or `BYTES`.
+
+If `position` is specified, the search starts at this position in
+`source_value`, otherwise it starts at the beginning of `source_value`. If
+`position` is negative, the function searches backwards from the end of
+`source_value`, with -1 indicating the last character. `position` cannot be 0.
+
+If `occurrence` is specified, the search returns the position of a specific
+instance of `regexp` in `source_value`, otherwise it returns the index of
+the first occurrence. If `occurrence` is greater than the number of matches
+found, 0 is returned. For `occurrence` > 1, the function searches for
+overlapping occurrences, in other words, the function searches for additional
+occurrences beginning with the second character in the previous occurrence.
+`occurrence` cannot be 0 or negative.
+
+You can optionally use `occurrence_position` to specify where a position
+in relation to an `occurrence` starts. Your choices are:
++  `0`: Returns the beginning position of the occurrence.
++  `1`: Returns the first position following the end of the occurrence. If the
+   end of the occurrence is also the end of the input, one off the
+   end of the occurrence is returned. For example, length of a string + 1.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
+  SELECT 'ab@mail.com', '@[^.]*' UNION ALL
+  SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
+  SELECT 'abc.com', '@[^.]*')
+SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) AS instr
+FROM example;
+
++---------------+--------+-------+
+| source_value  | regexp | instr |
++---------------+--------+-------+
+| ab@gmail.com  | @[^.]* | 3     |
+| ab@mail.com   | @[^.]* | 3     |
+| abc@gmail.com | @[^.]* | 4     |
+| abc.com       | @[^.]* | 0     |
++---------------+--------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4)
+SELECT
+  source_value, regexp, position,
+  REGEXP_INSTR(source_value, regexp, position) AS instr
+FROM example;
+
++-------------------------+--------+----------+-------+
+| source_value            | regexp | position | instr |
++-------------------------+--------+----------+-------+
+| a@gmail.com b@gmail.com | @[^.]* | 1        | 2     |
+| a@gmail.com b@gmail.com | @[^.]* | 2        | 2     |
+| a@gmail.com b@gmail.com | @[^.]* | 3        | 14    |
+| a@gmail.com b@gmail.com | @[^.]* | 4        | 14    |
++-------------------------+--------+----------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value,
+         '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3)
+SELECT
+  source_value, regexp, position, occurrence,
+  REGEXP_INSTR(source_value, regexp, position, occurrence) AS instr
+FROM example;
+
++-------------------------------------+--------+----------+------------+-------+
+| source_value                        | regexp | position | occurrence | instr |
++-------------------------------------+--------+----------+------------+-------+
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 1          | 2     |
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 2          | 14    |
+| a@gmail.com b@gmail.com c@gmail.com | @[^.]* | 1        | 3          | 26    |
++-------------------------------------+--------+----------+------------+-------+
+```
+
+```sql
+WITH example AS (
+  SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp,
+         1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1)
+SELECT
+  source_value, regexp, position, occurrence, o_position,
+  REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) AS instr
+FROM example;
+
++--------------+--------+----------+------------+------------+-------+
+| source_value | regexp | position | occurrence | o_position | instr |
++--------------+--------+----------+------------+------------+-------+
+| a@gmail.com  | @[^.]* | 1        | 1          | 0          | 2     |
+| a@gmail.com  | @[^.]* | 1        | 1          | 1          | 8     |
++--------------+--------+----------+------------+------------+-------+
+```
+
 ### REGEXP_MATCH
 
 <p class="caution"><strong>Deprecated.</strong> Use <a href="#regexp_contains">REGEXP_CONTAINS</a>.</p>
 
-```
+```sql
 REGEXP_MATCH(value, regexp)
 ```
 
 **Description**
 
-Returns TRUE if `value` is a full match for the regular expression, `regexp`.
+Returns `TRUE` if `value` is a full match for the regular expression, `regexp`.
 
 If the `regexp` argument is invalid, the function returns an error.
 
@@ -1605,12 +2081,11 @@ regular expression syntax.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Examples**
 
 ```sql
-
 WITH email_addresses AS
   (SELECT "foo@example.com" as email
   UNION ALL
@@ -1636,13 +2111,13 @@ FROM email_addresses;
 
 ### REGEXP_REPLACE
 
-```
+```sql
 REGEXP_REPLACE(value, regexp, replacement)
 ```
 
 **Description**
 
-Returns a STRING where all substrings of `value` that
+Returns a `STRING` where all substrings of `value` that
 match regular expression `regexp` are replaced with `replacement`.
 
 You can use backslashed-escaped digits (\1 to \9) within the `replacement`
@@ -1665,12 +2140,11 @@ regular expression syntax.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH markdown AS
   (SELECT "# Heading" as heading
   UNION ALL
@@ -1690,7 +2164,8 @@ FROM markdown;
 ```
 
 ### REPLACE
-```
+
+```sql
 REPLACE(original_value, from_value, to_value)
 ```
 
@@ -1701,12 +2176,11 @@ If `from_value` is empty, no replacement is made.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH desserts AS
   (SELECT "apple pie" as dessert
   UNION ALL
@@ -1728,22 +2202,23 @@ FROM desserts;
 ```
 
 ### REPEAT
-```
+
+```sql
 REPEAT(original_value, repetitions)
 ```
 
 **Description**
 
-Returns a [value][string-link-to-string-values] that consists of `original_value`, repeated.
+Returns a `STRING` or `BYTES` value that consists of `original_value`, repeated.
 The `repetitions` parameter specifies the number of times to repeat
-`original_value`. Returns NULL if either `original_value` or `repetitions` are
-NULL.
+`original_value`. Returns `NULL` if either `original_value` or `repetitions`
+are `NULL`.
 
-This function return an error if the `repetitions` value is negative.
+This function returns an error if the `repetitions` value is negative.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
@@ -1754,26 +2229,30 @@ SELECT t, n, REPEAT(t, n) AS REPEAT FROM UNNEST([
   ('abc', null),
   (null, 3)
 ]);
-```
+
++------+------+-----------+
 | t    | n    | REPEAT    |
 |------|------|-----------|
 | abc  | 3    | abcabcabc |
 | 例子 | 2    | 例子例子  |
 | abc  | NULL | NULL      |
 | NULL | 3    | NULL      |
++------+------+-----------+
+```
 
 ### REVERSE
-```
+
+```sql
 REVERSE(value)
 ```
 
 **Description**
 
-Returns the reverse of the input STRING or BYTES.
+Returns the reverse of the input `STRING` or `BYTES`.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
@@ -1797,18 +2276,86 @@ FROM example;
 +---------------+----------------+--------------+---------------+
 ```
 
-### RPAD
+### RIGHT
+
+```sql
+RIGHT(value, length)
 ```
+
+**Description**
+
+Returns a `STRING` or `BYTES` value that consists of the specified
+number of rightmost characters or bytes from `value`. The `length` is an
+`INT64` that specifies the length of the returned
+value. If `value` is `BYTES`, `length` is the number of rightmost bytes to
+return. If `value` is `STRING`, `length` is the number of rightmost characters
+to return.
+
+If `length` is 0, an empty `STRING` or `BYTES` value will be
+returned. If `length` is negative, an error will be returned. If `length`
+exceeds the number of characters or bytes from `value`, the original `value`
+will be returned.
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+WITH examples AS
+(SELECT 'apple' as example
+UNION ALL
+SELECT 'banana' as example
+UNION ALL
+SELECT 'абвгд' as example
+)
+SELECT example, RIGHT(example, 3) AS right_example
+FROM examples;
+
++---------+---------------+
+| example | right_example |
++---------+---------------+
+| apple   | ple           |
+| banana  | ana           |
+| абвгд   | вгд           |
++---------+---------------+
+```
+
+```sql
+WITH examples AS
+(SELECT b'apple' as example
+UNION ALL
+SELECT b'banana' as example
+UNION ALL
+SELECT b'\xab\xcd\xef\xaa\xbb' as example
+)
+SELECT example, RIGHT(example, 3) AS right_example
+FROM examples;
+
++----------------------+---------------+
+| example              | right_example |
++----------------------+---------------+
+| apple                | ple           |
+| banana               | ana           |
+| \xab\xcd\xef\xaa\xbb | \xef\xaa\xbb  |
++----------------------+---------------+
+```
+
+### RPAD
+
+```sql
 RPAD(original_value, return_length[, pattern])
 ```
 
 **Description**
 
-Returns a [value][string-link-to-string-values] that consists of `original_value` appended
-with `pattern`. The `return_length` is an INT64 that specifies the length of the
-returned value. If `original_value` is BYTES, `return_length` is the number of
-bytes. If `original_value` is STRING, `return_length` is the number of
-characters.
+Returns a `STRING` or `BYTES` value that consists of `original_value` appended
+with `pattern`. The `return_length` parameter is an
+`INT64` that specifies the length of the
+returned value. If `original_value` is `BYTES`,
+`return_length` is the number of bytes. If `original_value` is `STRING`,
+`return_length` is the number of characters.
 
 The default value of `pattern` is a blank space.
 
@@ -1818,8 +2365,8 @@ If `return_length` is less than or equal to the `original_value` length, this
 function returns the `original_value` value, truncated to the value of
 `return_length`. For example, `RPAD("hello world", 7);` returns `"hello w"`.
 
-If `original_value`, `return_length`, or `pattern` is NULL, this function
-returns NULL.
+If `original_value`, `return_length`, or `pattern` is `NULL`, this function
+returns `NULL`.
 
 This function returns an error if:
 
@@ -1828,7 +2375,7 @@ This function returns an error if:
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
@@ -1838,13 +2385,15 @@ SELECT t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST([
   ('abc', 2),
   ('例子', 4)
 ]);
-```
 
++------+-----+----------+
 | t    | len | RPAD     |
 |------|-----|----------|
-| abc  | 5   | <code>"abc&nbsp;&nbsp;"</code>  |
-| abc  | 2   | <code>"ab"</code>     |
-| 例子 | 4   | <code>"例子&nbsp;&nbsp;"</code> |
+| abc  | 5   | "abc  "  |
+| abc  | 2   | "ab"     |
+| 例子  | 4   | "例子  " |
++------+-----+----------+
+```
 
 ```sql
 SELECT t, len, pattern, FORMAT("%T", RPAD(t, len, pattern)) AS RPAD FROM UNNEST([
@@ -1852,13 +2401,15 @@ SELECT t, len, pattern, FORMAT("%T", RPAD(t, len, pattern)) AS RPAD FROM UNNEST(
   ('abc', 5, '-'),
   ('例子', 5, '中文')
 ]);
-```
 
++------+-----+---------+--------------+
 | t    | len | pattern | RPAD         |
 |------|-----|---------|--------------|
-| abc  | 8   | def     | <code>"abcdefde"</code>    |
-| abc  | 5   | -       | <code>"abc--"</code>       |
-| 例子 | 5   | 中文    | <code>"例子中文中"</code>  |
+| abc  | 8   | def     | "abcdefde"   |
+| abc  | 5   | -       | "abc--"      |
+| 例子  | 5   | 中文     | "例子中文中"  |
++------+-----+---------+--------------+
+```
 
 ```sql
 SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST([
@@ -1866,13 +2417,15 @@ SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST
   (b'abc', 2),
   (b'\xab\xcd\xef', 4)
 ]);
-```
 
++-----------------+-----+------------------+
 | t               | len | RPAD             |
 |-----------------|-----|------------------|
-| b"abc"          | 5   | <code>b"abc&nbsp;&nbsp;"</code>         |
-| b"abc"          | 2   | <code>b"ab"</code>             |
-| b"\xab\xcd\xef" | 4   | <code>b"\xab\xcd\xef "</code>  |
+| b"abc"          | 5   | b"abc  "         |
+| b"abc"          | 2   | b"ab"            |
+| b"\xab\xcd\xef" | 4   | b"\xab\xcd\xef " |
++-----------------+-----+------------------+
+```
 
 ```sql
 SELECT
@@ -1885,15 +2438,19 @@ FROM UNNEST([
   (b'abc', 5, b'-'),
   (b'\xab\xcd\xef', 5, b'\x00')
 ]);
-```
+
++-----------------+-----+---------+-------------------------+
 | t               | len | pattern | RPAD                    |
 |-----------------|-----|---------|-------------------------|
-| b"abc"          | 8   | b"def"  | <code>b"abcdefde"</code>             |
-| b"abc"          | 5   | b"-"    | <code>b"abc--"</code>                |
-| b"\xab\xcd\xef" | 5   | b"\x00" | <code>b"\xab\xcd\xef\x00\x00"</code> |
+| b"abc"          | 8   | b"def"  | b"abcdefde"             |
+| b"abc"          | 5   | b"-"    | b"abc--"                |
+| b"\xab\xcd\xef" | 5   | b"\x00" | b"\xab\xcd\xef\x00\x00" |
++-----------------+-----+---------+-------------------------+
+```
 
 ### RTRIM
-```
+
+```sql
 RTRIM(value1[, value2])
 ```
 
@@ -1903,12 +2460,11 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT "***apple***" as item
   UNION ALL
@@ -1927,7 +2483,9 @@ FROM items;
 | ***banana |
 | ***orange |
 +-----------+
+```
 
+```sql
 WITH items AS
   (SELECT "applexxx" as item
   UNION ALL
@@ -1953,18 +2511,18 @@ FROM items;
 
 ### SAFE_CONVERT_BYTES_TO_STRING
 
-```
+```sql
 SAFE_CONVERT_BYTES_TO_STRING(value)
 ```
 
 **Description**
 
-Converts a sequence of bytes to a string. Any invalid UTF-8 characters are
+Converts a sequence of `BYTES` to a `STRING`. Any invalid UTF-8 characters are
 replaced with the Unicode replacement character, `U+FFFD`.
 
 **Return type**
 
-STRING
+`STRING`
 
 **Examples**
 
@@ -1974,9 +2532,63 @@ The following statement returns the Unicode replacement character, &#65533;.
 SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2') as safe_convert;
 ```
 
+### SOUNDEX
+
+```sql
+SOUNDEX(value)
+```
+
+**Description**
+
+Returns a `STRING` that represents the
+[Soundex][string-link-to-soundex-wikipedia] code for `value`.
+
+SOUNDEX produces a phonetic representation of a string. It indexes words by
+sound, as pronounced in English. It is typically used to help determine whether
+two strings, such as the family names _Levine_ and _Lavine_, or the words _to_
+and _too_, have similar English-language pronunciation.
+
+The result of the SOUNDEX consists of a letter followed by 3 digits. Non-latin
+characters are ignored. If the remaining string is empty after removing
+non-Latin characters, an empty `STRING` is returned.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT 'Ashcraft' AS value UNION ALL
+  SELECT 'Raven' AS value UNION ALL
+  SELECT 'Ribbon' AS value UNION ALL
+  SELECT 'apple' AS value UNION ALL
+  SELECT 'Hello world!' AS value UNION ALL
+  SELECT '  H3##!@llo w00orld!' AS value UNION ALL
+  SELECT '#1' AS value UNION ALL
+  SELECT NULL AS value
+)
+SELECT value, SOUNDEX(value) AS soundex
+FROM example;
+
++----------------------+---------+
+| value                | soundex |
++----------------------+---------+
+| Ashcraft             | A261    |
+| Raven                | R150    |
+| Ribbon               | R150    |
+| apple                | a140    |
+| Hello world!         | H464    |
+|   H3##!@llo w00orld! | H464    |
+| #1                   |         |
+| NULL                 | NULL    |
++----------------------+---------+
+```
+
 ### SPLIT
 
-```
+```sql
 SPLIT(value[, delimiter])
 ```
 
@@ -1984,27 +2596,25 @@ SPLIT(value[, delimiter])
 
 Splits `value` using the `delimiter` argument.
 
-For STRING, the default delimiter is the comma `,`.
+For `STRING`, the default delimiter is the comma `,`.
 
-For BYTES, you must specify a delimiter.
+For `BYTES`, you must specify a delimiter.
 
 Splitting on an empty delimiter produces an array of UTF-8 characters for
-STRING values, and an array of
-BYTES for BYTES values.
+`STRING` values, and an array of `BYTES` for `BYTES` values.
 
-Splitting an empty STRING returns an
-ARRAY with a single empty
-STRING.
+Splitting an empty `STRING` returns an
+`ARRAY` with a single empty
+`STRING`.
 
 **Return type**
 
-ARRAY of type STRING or
-ARRAY of type BYTES
+`ARRAY` of type `STRING` or
+`ARRAY` of type `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH letters AS
   (SELECT "" as letter_group
   UNION ALL
@@ -2025,23 +2635,23 @@ FROM letters;
 ```
 
 ### STARTS_WITH
-```
+
+```sql
 STARTS_WITH(value1, value2)
 ```
 
 **Description**
 
-Takes two [values][string-link-to-string-values]. Returns TRUE if the second value is a prefix
-of the first.
+Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second value is a
+prefix of the first.
 
 **Return type**
 
-BOOL
+`BOOL`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT "foo" as item
   UNION ALL
@@ -2063,7 +2673,8 @@ FROM items;
 ```
 
 ### STRPOS
-```
+
+```sql
 STRPOS(string, substring)
 ```
 
@@ -2074,12 +2685,11 @@ Returns the 1-based index of the first occurrence of `substring` inside
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
 ```sql
-
 WITH email_addresses AS
   (SELECT
     "foo@example.com" AS email_address
@@ -2108,38 +2718,36 @@ FROM email_addresses;
 ```
 
 ### SUBSTR
-```
+
+```sql
 SUBSTR(value, position[, length])
 ```
 
 **Description**
 
-Returns a substring of the supplied [value][string-link-to-string-values]. The `position`
-argument is an integer specifying the starting position of the substring, with
-position = 1 indicating the first character or byte. The `length`
-argument is the maximum number of characters for
-STRING arguments, or bytes for
-BYTES arguments.
+Returns a substring of the supplied `STRING` or `BYTES` value. The
+`position` argument is an integer specifying the starting position of the
+substring, with position = 1 indicating the first character or byte. The
+`length` argument is the maximum number of characters for `STRING` arguments,
+or bytes for `BYTES` arguments.
 
 If `position` is negative, the function counts from the end of `value`,
 with -1 indicating the last character.
 
 If `position` is a position off the left end of the
-STRING (`position` = 0 or
-`position` &lt; `-LENGTH(value)`), the function starts
-from position = 1. If `length` exceeds the length of
-`value`, returns fewer than `length` characters.
+`STRING` (`position` = 0 or `position` &lt; `-LENGTH(value)`), the function
+starts from position = 1. If `length` exceeds the length of `value`, the
+function returns fewer than `length` characters.
 
 If `length` is less than 0, the function returns an error.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT "apple" as item
   UNION ALL
@@ -2158,7 +2766,9 @@ FROM items;
 | anana   |
 | range   |
 +---------+
+```
 
+```sql
 WITH items AS
   (SELECT "apple" as item
   UNION ALL
@@ -2177,7 +2787,9 @@ FROM items;
 | an      |
 | ra      |
 +---------+
+```
 
+```sql
 WITH items AS
   (SELECT "apple" as item
   UNION ALL
@@ -2198,20 +2810,28 @@ FROM items;
 +---------+
 ```
 
+### SUBSTRING
+
+```sql
+SUBSTRING(value, position[, length])
+```
+
+Alias for [`SUBSTR`](#substr).
+
 ### TO_BASE32
 
-```
+```sql
 TO_BASE32(bytes_expr)
 ```
 
 **Description**
 
-Converts a sequence of BYTES into a base32-encoded STRING. To convert a
-base32-encoded STRING into BYTES, use [FROM_BASE32][string-link-to-from-base32].
+Converts a sequence of `BYTES` into a base32-encoded `STRING`. To convert a
+base32-encoded `STRING` into `BYTES`, use [FROM_BASE32][string-link-to-from-base32].
 
 **Return type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -2227,18 +2847,18 @@ SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
 ### TO_BASE64
 
-```
+```sql
 TO_BASE64(bytes_expr)
 ```
 
 **Description**
 
-Converts a sequence of BYTES into a base64-encoded STRING. To convert a
-base64-encoded STRING into BYTES, use [FROM_BASE64][string-link-to-from-base64].
+Converts a sequence of `BYTES` into a base64-encoded `STRING`. To convert a
+base64-encoded `STRING` into `BYTES`, use [FROM_BASE64][string-link-to-from-base64].
 
 **Return type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -2253,27 +2873,29 @@ SELECT TO_BASE64(b'\xde\xad\xbe\xef') AS base64_string;
 ```
 
 ### TO_CODE_POINTS
-```
+
+```sql
 TO_CODE_POINTS(value)
 ```
 
 **Description**
 
-Takes a [value](#string_values) and returns an array of INT64.
+Takes a [value](#string_values) and returns an array of
+`INT64`.
 
-+ If `value` is a STRING, each element in the returned array represents a
++ If `value` is a `STRING`, each element in the returned array represents a
   [code point][string-link-to-code-points-wikipedia]. Each code point falls
   within the range of [0, 0xD7FF] and [0xE000, 0x10FFFF].
-+ If `value` is BYTES, each element in the array is an extended ASCII
++ If `value` is `BYTES`, each element in the array is an extended ASCII
   character value in the range of [0, 255].
 
-To convert from an array of code points to a STRING or BYTES, see
+To convert from an array of code points to a `STRING` or `BYTES`, see
 [CODE_POINTS_TO_STRING][string-link-to-codepoints-to-string] or
 [CODE_POINTS_TO_BYTES][string-link-to-codepoints-to-bytes].
 
 **Return type**
 
-ARRAY of INT64
+`ARRAY` of `INT64`
 
 **Examples**
 
@@ -2295,7 +2917,7 @@ FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word;
 +---------+------------------------------------+
 ```
 
-The following example converts integer representations of BYTES to their
+The following example converts integer representations of `BYTES` to their
 corresponding ASCII character values.
 
 ```sql
@@ -2310,8 +2932,8 @@ FROM UNNEST([b'\x00\x01\x10\xff', b'\x66\x6f\x6f']) AS word;
 +------------------+------------------------+
 ```
 
-The following example demonstrates the difference between a BYTES result and a
-STRING result.
+The following example demonstrates the difference between a `BYTES` result and a
+`STRING` result.
 
 ```sql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
@@ -2324,26 +2946,25 @@ SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 ```
 
 Notice that the character, Ā, is represented as a two-byte Unicode sequence. As
-a result, the BYTES version of `TO_CODE_POINTS` returns an array with two
-elements, while the STRING version returns an array with a single element.
+a result, the `BYTES` version of `TO_CODE_POINTS` returns an array with two
+elements, while the `STRING` version returns an array with a single element.
 
 ### TO_HEX
-```
+
+```sql
 TO_HEX(bytes)
 ```
 
 **Description**
 
-Converts a sequence of BYTES into a hexadecimal
-STRING. Converts each byte in
-the STRING as two hexadecimal characters in the range
+Converts a sequence of `BYTES` into a hexadecimal `STRING`. Converts each byte
+in the `STRING` as two hexadecimal characters in the range
 `(0..9, a..f)`. To convert a hexadecimal-encoded
-STRING
-to BYTES, use [FROM_HEX][string-link-to-from-hex].
+`STRING` to `BYTES`, use [FROM_HEX][string-link-to-from-hex].
 
 **Return type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -2354,16 +2975,62 @@ WITH Input AS (
 )
 SELECT byte_str, TO_HEX(byte_str) AS hex_str
 FROM Input;
+
 +----------------------------------+------------------+
 | byte_string                      | hex_string       |
 +----------------------------------+------------------+
-| foobar                           | 666f6f626172     |
 | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
+| foobar                           | 666f6f626172     |
 +----------------------------------+------------------+
 ```
 
-### TRIM
+### TRANSLATE
+
+```sql
+TRANSLATE(expression, source_characters, target_characters)
 ```
+
+**Description**
+
+In `expression`, replaces the characters in `source_characters` with the
+characters in `target_characters`. All inputs must be the same type, either
+`STRING` or `BYTES`.
+
++ Each character in `expression` is translated at most once.
++ A character in `expression` that is not present in `source_characters` is left
+  unchanged in `expression`.
++ A character in `source_characters` without a corresponding character in
+  `target_characters` is omitted from the result.
++ A duplicate character in `source_characters` results in an error.
+
+**Return type**
+
+`STRING` or `BYTES`
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT 'This is a cookie' AS expression, 'sco' AS source_characters, 'zku' AS
+  target_characters UNION ALL
+  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as
+  target_characters
+)
+SELECT expression, source_characters, target_characters, TRANSLATE(expression,
+source_characters, target_characters) AS translate
+FROM example;
+
++------------------+-------------------+-------------------+------------------+
+| expression       | source_characters | target_characters | translate        |
++------------------+-------------------+-------------------+------------------+
+| This is a cookie | sco               | zku               | Thiz iz a kuukie |
+| A coaster        | co                | k                 | A kaster         |
++------------------+-------------------+-------------------+------------------+
+```
+
+### TRIM
+
+```sql
 TRIM(value1[, value2])
 ```
 
@@ -2372,19 +3039,18 @@ TRIM(value1[, value2])
 Removes all leading and trailing characters that match `value2`. If
 `value2` is not specified, all leading and trailing whitespace characters (as
 defined by the Unicode standard) are removed. If the first argument is of type
-BYTES, the second argument is required.
+`BYTES`, the second argument is required.
 
 If `value2` contains more than one character or byte, the function removes all
 leading or trailing characters or bytes contained in `value2`.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT "   apple   " as item
   UNION ALL
@@ -2403,7 +3069,9 @@ FROM items;
 | #banana# |
 | #orange# |
 +----------+
+```
 
+```sql
 WITH items AS
   (SELECT "***apple***" as item
   UNION ALL
@@ -2422,7 +3090,9 @@ FROM items;
 | banana  |
 | orange  |
 +---------+
+```
 
+```sql
 WITH items AS
   (SELECT "xxxapplexxx" as item
   UNION ALL
@@ -2446,31 +3116,58 @@ FROM items;
 +---------+
 ```
 
-### UPPER
+### UNICODE
+
+```sql
+UNICODE(value)
 ```
+
+**Description**
+
+Returns the Unicode [code point][string-code-point] for the first character in
+`value`. Returns `0` if `value` is empty, or if the resulting Unicode code
+point is `0`.
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
+
++-------+-------+-------+-------+
+| A     | B     | C     | D     |
++-------+-------+-------+-------+
+| 226   | 226   | 0     | NULL  |
++-------+-------+-------+-------+
+```
+
+### UPPER
+
+```sql
 UPPER(value)
 ```
 
 **Description**
 
-For STRING arguments, returns the original
-string with all alphabetic characters in uppercase.
-Mapping between uppercase and lowercase is done according to the
-[Unicode Character Database][string-link-to-unicode-character-definitions] without taking into
-account language-specific mappings.
+For `STRING` arguments, returns the original string with all alphabetic
+characters in uppercase. Mapping between uppercase and lowercase is done
+according to the
+[Unicode Character Database][string-link-to-unicode-character-definitions]
+without taking into account language-specific mappings.
 
-For BYTES arguments, the
-argument is treated as ASCII text, with all bytes
+For `BYTES` arguments, the argument is treated as ASCII text, with all bytes
 greater than 127 left intact.
 
 **Return type**
 
-STRING or BYTES
+`STRING` or `BYTES`
 
 **Examples**
 
 ```sql
-
 WITH items AS
   (SELECT
     "foo" as item
@@ -2498,9 +3195,10 @@ FROM items;
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
+[string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+[string-code-point]: https://en.wikipedia.org/wiki/Code_point
 [string-link-to-strpos]: #strpos
-[string-link-to-string-values]: #string_values
 [string-link-to-char-length]: #char_length
 [string-link-to-code-points]: #to_code_points
 [string-link-to-base64]: #to_base64

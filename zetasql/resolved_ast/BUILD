@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 py_binary(
     name = "gen_resolved_ast",
@@ -65,6 +65,13 @@ gen_resolved_ast_files(
     ],
 )
 
+gen_resolved_ast_files(
+    name = "run_gen_resolved_ast_md",
+    srcs = ["resolved_ast.md.template"],
+    outs = ["resolved_ast.md"],
+    flags = ["--noallow_hash_prefix"],
+)
+
 proto_library(
     name = "resolved_node_kind_proto",
     srcs = ["resolved_node_kind.proto"],
@@ -103,12 +110,13 @@ cc_library(
         "resolved_node_kind.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -150,12 +158,13 @@ cc_library(
         "make_node_vector.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -169,12 +178,13 @@ cc_library(
     srcs = ["validator.cc"],
     hdrs = ["validator.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -217,12 +227,13 @@ cc_library(
         "sql_builder.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -248,6 +259,7 @@ cc_library(
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -261,19 +273,19 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
         ":serialization_cc_proto",
         ":validator",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
@@ -287,6 +299,7 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public:value_cc_proto",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -295,18 +308,19 @@ cc_test(
     size = "small",
     srcs = ["make_node_vector_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
-        "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -315,17 +329,17 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_deep_copy_visitor_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/public:analyzer",
@@ -340,6 +354,7 @@ cc_test(
         "//zetasql/public:value",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -348,17 +363,17 @@ cc_test(
     size = "small",
     srcs = ["resolved_ast_helper_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/analyzer",
         "//zetasql/base",
         "//zetasql/base:status",
@@ -368,6 +383,7 @@ cc_test(
         "//zetasql/public:value",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/memory",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -377,20 +393,21 @@ cc_test(
     size = "small",
     srcs = ["resolved_column_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":resolved_ast",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/public:templated_sql_tvf",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -462,4 +479,43 @@ cc_proto_library(
 java_proto_library(
     name = "serialization_java_proto",
     deps = [":serialization_proto"],
+)
+
+cc_library(
+    name = "rewrite_utils",
+    srcs = ["rewrite_utils.cc"],
+    hdrs = ["rewrite_utils.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":resolved_ast",
+        "//zetasql/base",
+    ],
+)
+
+cc_test(
+    name = "rewrite_utils_test",
+    size = "small",
+    srcs = ["rewrite_utils_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":rewrite_utils",
+        "//zetasql/public/types",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

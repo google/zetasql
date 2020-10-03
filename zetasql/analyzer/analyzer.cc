@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -655,7 +656,8 @@ AnalyzerOutput::AnalyzerOutput(
     std::unique_ptr<ParserOutput> parser_output,
     const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
-    const std::vector<const Type*>& undeclared_positional_parameters)
+    const std::vector<const Type*>& undeclared_positional_parameters,
+    int max_column_id)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       statement_(std::move(statement)),
@@ -663,7 +665,8 @@ AnalyzerOutput::AnalyzerOutput(
       parser_output_(std::move(parser_output)),
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
-      undeclared_positional_parameters_(undeclared_positional_parameters) {}
+      undeclared_positional_parameters_(undeclared_positional_parameters),
+      max_column_id_(max_column_id) {}
 
 AnalyzerOutput::AnalyzerOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
@@ -673,7 +676,8 @@ AnalyzerOutput::AnalyzerOutput(
     std::unique_ptr<ParserOutput> parser_output,
     const std::vector<absl::Status>& deprecation_warnings,
     const QueryParametersMap& undeclared_parameters,
-    const std::vector<const Type*>& undeclared_positional_parameters)
+    const std::vector<const Type*>& undeclared_positional_parameters,
+    int max_column_id)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       expr_(std::move(expr)),
@@ -681,21 +685,22 @@ AnalyzerOutput::AnalyzerOutput(
       parser_output_(std::move(parser_output)),
       deprecation_warnings_(deprecation_warnings),
       undeclared_parameters_(undeclared_parameters),
-      undeclared_positional_parameters_(undeclared_positional_parameters) {}
+      undeclared_positional_parameters_(undeclared_positional_parameters),
+      max_column_id_(max_column_id) {}
 
 AnalyzerOutput::~AnalyzerOutput() {
 }
 
 // Common post-parsing work for AnalyzeStatement() series.
 static absl::Status FinishAnalyzeStatementImpl(
-    absl::string_view sql, const ParserOutput& parser_output,
+    absl::string_view sql, const ASTStatement& ast_statement,
     Resolver* resolver, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory,
     std::unique_ptr<const ResolvedStatement>* resolved_statement) {
-  VLOG(5) << "Parsed AST:\n" << parser_output.statement()->DebugString();
+  VLOG(5) << "Parsed AST:\n" << ast_statement.DebugString();
 
-  ZETASQL_RETURN_IF_ERROR(resolver->ResolveStatement(sql, parser_output.statement(),
-                                             resolved_statement));
+  ZETASQL_RETURN_IF_ERROR(
+      resolver->ResolveStatement(sql, &ast_statement, resolved_statement));
 
   VLOG(3) << "Resolved AST:\n" << (*resolved_statement)->DebugString();
 
@@ -818,6 +823,39 @@ absl::Status AnalyzeNextStatement(
       options.error_message_mode(), resume_location->input(), status);
 }
 
+static absl::Status AnalyzeStatementHelper(
+    const ASTStatement& ast_statement, const AnalyzerOptions& options,
+    absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
+    std::unique_ptr<ParserOutput>* statement_parser_output,
+    bool take_parser_output_ownership_on_success,
+    std::unique_ptr<const AnalyzerOutput>* output) {
+  output->reset();
+  ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
+  std::unique_ptr<const ResolvedStatement> resolved_statement;
+  Resolver resolver(catalog, type_factory, &options);
+  const absl::Status status =
+      FinishAnalyzeStatementImpl(sql, ast_statement, &resolver, options,
+                                 catalog, type_factory, &resolved_statement);
+  if (!status.ok()) {
+    return ConvertInternalErrorLocationAndAdjustErrorString(
+        options.error_message_mode(), sql, status);
+  }
+
+  std::unique_ptr<ParserOutput> owned_parser_output;
+  if (take_parser_output_ownership_on_success) {
+    owned_parser_output = std::move(*statement_parser_output);
+  }
+
+  *output = absl::make_unique<AnalyzerOutput>(
+      options.id_string_pool(), options.arena(), std::move(resolved_statement),
+      resolver.analyzer_output_properties(), std::move(owned_parser_output),
+      ConvertInternalErrorLocationsAndAdjustErrorStrings(
+          options.error_message_mode(), sql, resolver.deprecation_warnings()),
+      resolver.undeclared_parameters(),
+      resolver.undeclared_positional_parameters(), resolver.max_column_id());
+  return absl::OkStatus();
+}
+
 static absl::Status AnalyzeStatementFromParserOutputImpl(
     std::unique_ptr<ParserOutput>* statement_parser_output,
     bool take_ownership_on_success, const AnalyzerOptions& options,
@@ -836,30 +874,11 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
     local_options.set_id_string_pool(
         (*statement_parser_output)->id_string_pool());
   }
-  output->reset();
 
-  std::unique_ptr<const ResolvedStatement> resolved_statement;
-  Resolver resolver(catalog, type_factory, &local_options);
-  const absl::Status status =
-      FinishAnalyzeStatementImpl(
-          sql, *(statement_parser_output->get()), &resolver, local_options,
-          catalog, type_factory, &resolved_statement);
-  if (!status.ok()) {
-    return ConvertInternalErrorLocationAndAdjustErrorString(
-        local_options.error_message_mode(), sql, status);
-  }
-  std::unique_ptr<ParserOutput> owned_parser_output(
-      take_ownership_on_success ? statement_parser_output->release() : nullptr);
-  *output = absl::make_unique<AnalyzerOutput>(
-      local_options.id_string_pool(), local_options.arena(),
-      std::move(resolved_statement),
-      AnalyzerOutputProperties(),
-      std::move(owned_parser_output),
-      ConvertInternalErrorLocationsAndAdjustErrorStrings(
-          local_options.error_message_mode(), sql,
-          resolver.deprecation_warnings()),
-      resolver.undeclared_parameters(),
-      resolver.undeclared_positional_parameters());
+  const ASTStatement* ast_statement = (*statement_parser_output)->statement();
+  ZETASQL_RETURN_IF_ERROR(AnalyzeStatementHelper(
+      *ast_statement, local_options, sql, catalog, type_factory,
+      statement_parser_output, take_ownership_on_success, output));
   return absl::OkStatus();
 }
 
@@ -879,6 +898,19 @@ absl::Status AnalyzeStatementFromParserOutputUnowned(
   return AnalyzeStatementFromParserOutputImpl(
       statement_parser_output, /*take_ownership_on_success=*/false, options,
       sql, catalog, type_factory, output);
+}
+
+absl::Status AnalyzeStatementFromParserAST(
+    const ASTStatement& statement, const AnalyzerOptions& options,
+    absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
+    std::unique_ptr<const AnalyzerOutput>* output) {
+  std::unique_ptr<AnalyzerOptions> copy;
+  const AnalyzerOptions& options_with_arenas =
+      GetOptionsWithArenas(&options, &copy);
+  return AnalyzeStatementHelper(
+      statement, options_with_arenas, sql, catalog, type_factory,
+      /*statement_parser_output=*/nullptr,
+      /*take_parser_output_ownership_on_success=*/false, output);
 }
 
 // Coerces <resolved_expr> to <target_type>, using assignment semantics
@@ -940,12 +972,13 @@ static absl::Status AnalyzeExpressionFromParserASTImpl(
 
   *output = absl::make_unique<AnalyzerOutput>(
       options.id_string_pool(), options.arena(), std::move(resolved_expr),
-      AnalyzerOutputProperties(),
+      resolver.analyzer_output_properties(),
       std::move(parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
-      resolver.undeclared_positional_parameters());
+      resolver.undeclared_positional_parameters(),
+      resolver.max_column_id());
   return absl::OkStatus();
 }
 

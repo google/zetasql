@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 cc_library(
@@ -23,12 +23,13 @@ cc_library(
     srcs = ["control_flow_graph.cc"],
     hdrs = ["control_flow_graph.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":script_segment",
@@ -51,12 +52,13 @@ cc_library(
         "parsed_script.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":control_flow_graph",
@@ -81,20 +83,21 @@ cc_test(
     name = "parsed_script_test",
     srcs = ["parsed_script_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parsed_script",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/parser",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -103,12 +106,13 @@ cc_library(
     srcs = ["script_segment.cc"],
     hdrs = ["script_segment.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         "//zetasql/parser",
@@ -123,12 +127,13 @@ cc_library(
     srcs = ["parse_helpers.cc"],
     hdrs = ["parse_helpers.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parsed_script",
@@ -145,17 +150,19 @@ cc_library(
     srcs = ["error_helpers.cc"],
     hdrs = ["error_helpers.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":script_exception_cc_proto",
         ":script_segment",
         "//zetasql/base:status",
+        "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
         "//zetasql/parser",
@@ -168,17 +175,17 @@ cc_test(
     name = "error_helpers_test",
     srcs = ["error_helpers_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":error_helpers",
         ":script_segment",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:errors",
@@ -188,6 +195,7 @@ cc_test(
         "//zetasql/public:error_helpers",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

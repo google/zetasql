@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,6 +45,7 @@
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"

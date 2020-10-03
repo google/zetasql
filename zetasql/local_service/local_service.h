@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,10 +83,12 @@ class ZetaSqlLocalServiceImpl {
   absl::Status BuildSql(const BuildSqlRequest& request,
                         BuildSqlResponse* response);
 
+  // Note, this also can handle scripts.
   absl::Status ExtractTableNamesFromStatement(
       const ExtractTableNamesFromStatementRequest& request,
       ExtractTableNamesFromStatementResponse* response);
 
+  // Note, this does not handle scripts.
   absl::Status ExtractTableNamesFromNextStatement(
       const ExtractTableNamesFromNextStatementRequest& request,
       ExtractTableNamesFromNextStatementResponse* response);

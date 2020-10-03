@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@ message LanguageOptionsProto {
   optional bool error_on_deprecated_syntax = 4;
   repeated LanguageFeature enabled_language_features = 5;
   repeated ResolvedNodeKind supported_statement_kinds = 6;
+  repeated string supported_generic_entity_types = 7;
 }
 
 // Serialized form of AllowedHintsAndOptions.

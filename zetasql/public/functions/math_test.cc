@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -253,28 +253,88 @@ TEST_P(MathTemplateTest, Testlib) {
         FAIL() << "unrecognized type for " << function;
     }
   } else if (function == "sqrt") {
-    return TestUnaryFunction(param.params, &Sqrt<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Sqrt<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Sqrt<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Sqrt<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "pow" || function == "power") {
     switch (param.params.param(0).type_kind()) {
       case TYPE_DOUBLE:
         return TestBinaryFunction(param.params, &Pow<double>);
       case TYPE_NUMERIC:
         return TestBinaryFunction(param.params, &Pow<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestBinaryFunction(param.params, &Pow<BigNumericValue>);
       default:
         FAIL() << "unrecognized type for " << function;
     }
   } else if (function == "exp") {
-    return TestUnaryFunction(param.params, &Exp<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Exp<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Exp<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Exp<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "ln") {
-    return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &NaturalLogarithm<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params,
+                                 &NaturalLogarithm<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "log") {
     if (param.params.num_params() == 1) {
-      return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+      switch (param.params.param(0).type_kind()) {
+        case TYPE_DOUBLE:
+          return TestUnaryFunction(param.params, &NaturalLogarithm<double>);
+        case TYPE_NUMERIC:
+          return TestUnaryFunction(param.params,
+                                   &NaturalLogarithm<NumericValue>);
+        case TYPE_BIGNUMERIC:
+          return TestUnaryFunction(param.params,
+                                   &NaturalLogarithm<BigNumericValue>);
+        default:
+          FAIL() << "unrecognized type for " << function;
+      }
     } else {
-      return TestBinaryFunction(param.params, &Logarithm<double>);
+      switch (param.params.param(0).type_kind()) {
+        case TYPE_DOUBLE:
+          return TestBinaryFunction(param.params, &Logarithm<double>);
+        case TYPE_NUMERIC:
+          return TestBinaryFunction(param.params, &Logarithm<NumericValue>);
+        case TYPE_BIGNUMERIC:
+          return TestBinaryFunction(param.params, &Logarithm<BigNumericValue>);
+        default:
+          FAIL() << "unrecognized type for " << function;
+      }
     }
   } else if (function == "log10") {
-    return TestUnaryFunction(param.params, &DecimalLogarithm<double>);
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &DecimalLogarithm<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &DecimalLogarithm<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params,
+                                 &DecimalLogarithm<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "cos") {
     return TestUnaryFunction(param.params, &Cos<double>);
   } else if (function == "acos") {
@@ -401,18 +461,38 @@ INSTANTIATE_TEST_SUITE_P(Rounding, MathTemplateTest,
 
 namespace {
 
-TEST(NumericPowTest, ErrorMessage) {
-  // POW is expected to produce a "floating point error" (rather than "floating
-  // point overflow").
-  NumericValue out;
-  absl::Status status;
-  EXPECT_FALSE(Pow<NumericValue>(NumericValue::MaxValue(),
-                                 NumericValue::MaxValue(), &out, &status));
-  EXPECT_THAT(
-      status,
-      ::zetasql_base::testing::StatusIs(
-          absl::StatusCode::kOutOfRange,
-          ::testing::HasSubstr("Floating point error in function: POW")));
+TEST(TruncAndRoundTest, PrecisionIssues) {
+#ifdef __x86_64__
+  auto test_same_in_as_out = [](double number, int digits) {
+    absl::Status status;
+    double out;
+    ASSERT_TRUE(TruncDecimal(number, digits, &out, &status)) << status;
+    EXPECT_EQ(number, out) << "Digits=" << digits;
+    ASSERT_TRUE(RoundDecimal(number, digits, &out, &status)) << status;
+    EXPECT_EQ(number, out) << "Digits=" << digits;
+
+    float fnumber = number;
+    float fout;
+    ASSERT_TRUE(TruncDecimal(fnumber, digits, &fout, &status)) << status;
+    EXPECT_EQ(fnumber, fout) << "Digits=" << digits;
+    ASSERT_TRUE(RoundDecimal(fnumber, digits, &fout, &status)) << status;
+    EXPECT_EQ(fnumber, fout) << "Digits=" << digits;
+  };
+
+  // Make sure that whole numbers don't change values through trunc / round.
+  for (int digits = 0; digits < 50; ++digits) {
+    for (double number = -10000; number <= 10000; ++number) {
+      test_same_in_as_out(number, digits);
+    }
+  }
+
+  // Check some fractional powers of 2.
+  for (int digits = 4; digits <= 10; ++digits) {
+    for (double number : { 0.5, 0.25, 0.125, 0.0625 }) {
+      test_same_in_as_out(number, digits);
+    }
+  }
+#endif
 }
 
 }  // namespace

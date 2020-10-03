@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -338,23 +339,43 @@ class FunctionResolver {
       const FunctionSignature& signature, int* repetitions,
       int* optionals) const;
 
-  // Determines if non-templated argument types match the signature, and returns
-  // related templated argument type information.  <repetitions> identifies the
-  // number of times that repeated arguments repeat.  Returns false if argument
-  // types (and therefore the signature) do not match.
+  // Returns if input argument types match the signature argument types, and
+  // updates related templated argument type information.
+  //
+  // <repetitions> identifies the number of times that repeated arguments
+  // repeat.
   //
   // Also populates <templated_argument_map> with a key for every templated
   // SignatureArgumentKind that appears in the signature (including the result
   // type) and <input_arguments>.  The corresponding value is the list of typed
   // arguments that occur for that SignatureArgumentKind. (The list may be empty
-  // in the case of untyped arguments.) There is also some special handling for
-  // ANY_K: if we see an argument (typed or untyped) for ARRAY_ANY_K, we act as
-  // if we also saw the corresponding array element argument for ANY_K, and add
-  // an entry to <templated_argument_map> even if ANY_K is not in the signature.
+  // in the case of untyped arguments.)
+  //
+  // There is also some special handling for ANY_K: if we see an argument (typed
+  // or untyped) for ARRAY_ANY_K, we act as if we also saw the corresponding
+  // array element argument for ANY_K, and add an entry to
+  // <templated_argument_map> even if ANY_K is not in the signature.
+  //
+  // Likewise for maps, if we see the map type, we also act as if we've seen
+  // the key and value types, and vice versa. Note that the key type does
+  // not imply we've seen the value type, nor does the value imply the key.
   bool CheckArgumentTypesAndCollectTemplatedArguments(
       const std::vector<InputArgumentType>& input_arguments,
-      const FunctionSignature& signature,
-      int repetitions,
+      const FunctionSignature& signature, int repetitions,
+      bool allow_argument_coercion,
+      ArgKindToInputTypesMap* templated_argument_map,
+      SignatureMatchResult* signature_match_result) const;
+
+  // Returns if a single input argument type matches the corresponding signature
+  // argument type, and updates related templated argument type information.
+  //
+  // Updates <templated_argument_map> for templated SignatureArgumentKind. The
+  // corresponding value is the list of typed arguments that occur for that
+  // SignatureArgumentKind. (The list may be empty in the case of untyped
+  // arguments.)
+  bool CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
+      const int arg_idx, const InputArgumentType& input_argument,
+      const FunctionArgumentType& signature_argument,
       bool allow_argument_coercion,
       ArgKindToInputTypesMap* templated_argument_map,
       SignatureMatchResult* signature_match_result) const;

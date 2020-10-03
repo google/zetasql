@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,8 +79,14 @@ class Validator {
       const ResolvedCreateTableFunctionStmt* stmt);
   absl::Status ValidateResolvedCreateProcedureStmt(
       const ResolvedCreateProcedureStmt* stmt);
+  absl::Status ValidateResolvedCreateEntityStmt(
+      const ResolvedCreateEntityStmt* stmt);
+  absl::Status ValidateResolvedAlterEntityStmt(
+      const ResolvedAlterEntityStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt);
+  absl::Status ValidateResolvedExportModelStmt(
+      const ResolvedExportModelStmt* stmt);
   absl::Status ValidateResolvedCallStmt(const ResolvedCallStmt* stmt);
   absl::Status ValidateResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* stmt);
@@ -304,8 +310,13 @@ class Validator {
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list,
       bool is_value_table);
+
+  absl::Status ValidateResolvedCreateSchemaStmt(
+      const ResolvedCreateSchemaStmt* stmt);
+
   absl::Status ValidateResolvedCreateTableStmtBase(
-      const ResolvedCreateTableStmtBase* stmt);
+      const ResolvedCreateTableStmtBase* stmt,
+      std::set<ResolvedColumn>* visible_columns);
 
   absl::Status ValidateResolvedCast(
       const std::set<ResolvedColumn>& visible_columns,
@@ -398,7 +409,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters);
 
   absl::Status ValidateResolvedRecursiveRefScan(
-      const ResolvedRecursiveRefScan* scan) const;
+      const ResolvedRecursiveRefScan* scan);
+
+  absl::Status ValidateResolvedWithPartitionColumns(
+      const ResolvedWithPartitionColumns* with_partition_columns,
+      std::set<ResolvedColumn>* visible_columns);
 
   // Check that <expr> contains only ColumnRefs, GetProtoField and
   // GetStructField expressions. Sets 'ref' to point to the leaf
@@ -414,6 +429,16 @@ class Validator {
   // Set using scoped VarSetters.
   typedef absl::flat_hash_set<ResolvedArgumentDefEnums::ArgumentKind>
       ArgumentKindSet;
+
+  struct RecursiveScanInfo {
+    explicit RecursiveScanInfo(const ResolvedRecursiveScan* scan) {
+      this->scan = scan;
+    }
+
+    const ResolvedRecursiveScan* scan;
+    bool saw_recursive_ref = false;
+  };
+
   ArgumentKindSet allowed_argument_kinds_;
 
   // This points to the current CREATE TABLE FUNCTION statement being validated,
@@ -428,10 +453,10 @@ class Validator {
   // A ResolvedRecursiveScan node is legal only if this value is > 0.
   int nested_recursive_context_count_ = 0;
 
-  // The number of nested recursive terms of a ResolvedRecursiveScan we are
-  // currently in. A ResolvedRecursiveRefScan node is legal only if this value
-  // is > 0.
-  int nested_recursive_term_count_ = 0;
+  // A stack of ResolvedRecursiveScans we are currently inside the recursive
+  // term of. Used to ensure that each ResolvedRecursiveRefScan matches up
+  // with a ResolvedRecursiveScan.
+  std::vector<RecursiveScanInfo> nested_recursive_scans_;
 };
 
 }  // namespace zetasql

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,6 +144,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeTrunc();
+std::vector<FunctionTestCall> GetFunctionTestsLastDay();
 std::vector<FunctionTestCall> GetFunctionTestsTimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsTimeTrunc();
@@ -177,8 +178,20 @@ std::vector<FunctionTestCall> GetFunctionTestsMath();
 std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
 
+std::vector<FunctionTestCall> GetFunctionTestsAscii();
+std::vector<FunctionTestCall> GetFunctionTestsUnicode();
+std::vector<FunctionTestCall> GetFunctionTestsChr();
+std::vector<FunctionTestCall> GetFunctionTestsOctetLength();
 std::vector<FunctionTestCall> GetFunctionTestsString();
+std::vector<FunctionTestCall> GetFunctionTestsInstr1();
+std::vector<FunctionTestCall> GetFunctionTestsInstr2();
+std::vector<FunctionTestCall> GetFunctionTestsInstr3();
+std::vector<FunctionTestCall> GetFunctionTestsSoundex();
+std::vector<FunctionTestCall> GetFunctionTestsTranslate();
+std::vector<FunctionTestCall> GetFunctionTestsInitCap();
 std::vector<FunctionTestCall> GetFunctionTestsRegexp();
+std::vector<FunctionTestCall> GetFunctionTestsRegexp2(bool include_feature_set);
+std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr();
 std::vector<FunctionTestCall> GetFunctionTestsFormat();
 std::vector<FunctionTestCall> GetFunctionTestsArray();
 std::vector<FunctionTestCall> GetFunctionTestsNormalize();
@@ -200,19 +213,26 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateTimestampArray();
 
 std::vector<FunctionTestCall> GetFunctionTestsRangeBucket();
 
-// Engines should prefer GetFunctionTestsJson() over
-// GetFunctionTestsJsonExtract(). The former contains the functions defined in
-// the SQL2016 standard.
+// Engines should prefer GetFunctionTest{String,Native}Json{Query,Value} over
+// GetFunctionTests{String,Native}JsonExtract{,Scalar}. The former group
+// contains the functions defined in the SQL2016 standard.
 //
 // TODO: Remove 'include_nano_timestamp' by always generating all
 // compliance tests, possibly with features set in QueryParamsWithResult. We
 // should avoid adding new bools.
-std::vector<FunctionTestCall> GetFunctionTestsJson();
-std::vector<FunctionTestCall> GetFunctionTestsJsonExtract();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonQuery();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtract();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonValue();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtractScalar();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQuery();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtract();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValue();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractScalar();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArray();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArrayStandardSql();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
     bool include_nano_timestamp);
+std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

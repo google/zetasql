@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,8 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/container/flat_hash_set.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -129,6 +131,8 @@ class LanguageOptions {
   // use only.
   void EnableMaximumLanguageFeaturesForDevelopment() {
     EnableMaximumLanguageFeatures(/*for_development=*/true);
+    enabled_language_features_.erase(
+        FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES);
   }
 
   // Helper that returns a LanguageOptions object that is equivalent to what
@@ -159,6 +163,17 @@ class LanguageOptions {
   }
   ABSL_MUST_USE_RESULT bool error_on_deprecated_syntax() const {
     return error_on_deprecated_syntax_;
+  }
+
+  void SetSupportedGenericEntityTypes(
+      absl::Span<const std::string> entity_types) {
+    for (const auto& type : entity_types) {
+      supported_generic_entity_types_.insert(type);
+    }
+  }
+
+  bool GenericEntityTypeSupported(const std::string& type) const {
+    return zetasql_base::ContainsKey(supported_generic_entity_types_, type);
   }
 
  private:
@@ -198,6 +213,21 @@ class LanguageOptions {
   // If true, return an error on deprecated syntax rather than returning
   // deprecation_warnings.
   bool error_on_deprecated_syntax_ = false;
+
+  struct CaseHash {
+    size_t operator()(absl::string_view s1) const {
+      return absl::Hash<std::string>()(absl::AsciiStrToLower(s1));
+    }
+  };
+  struct CaseEq {
+    size_t operator()(absl::string_view s1, absl::string_view s2) const {
+      return zetasql_base::CaseEqual(s1, s2);
+    }
+  };
+  // For generic DDLs CREATE/DROP/ALTER <entity_type>, parser will report
+  // error unless generic entity type is listed here.
+  absl::flat_hash_set<std::string, CaseHash, CaseEq>
+      supported_generic_entity_types_;
 
   // Copyable
 };

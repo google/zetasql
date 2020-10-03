@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 #include "zetasql/reference_impl/algebrizer.h"
 
 #include <functional>
+#include <memory>
+#include <stack>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -27,6 +29,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
@@ -45,6 +48,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -58,13 +62,16 @@ using zetasql::types::Int64Type;
 
 namespace zetasql {
 
+namespace {
+
 // Returns true if the given aggregate function should ignore NULL values in
 // the input arguments.
-static bool IgnoresNullArguments(
+bool IgnoresNullArguments(
     const ResolvedNonScalarFunctionCallBase* aggregate_function) {
   static const std::unordered_set<std::string>* const
       kFunctionsNotIgnoreNullSet = new std::unordered_set<std::string>(
-          {"array_agg", "any_value", "approx_top_count", "approx_top_sum"});
+          {"array_agg", "any_value", "approx_top_count", "approx_top_sum",
+           "st_nearest_neighbors"});
 
   switch (aggregate_function->null_handling_modifier()) {
     case ResolvedNonScalarFunctionCallBase::DEFAULT_NULL_HANDLING:
@@ -77,7 +84,7 @@ static bool IgnoresNullArguments(
   }
 }
 
-static absl::Status CheckHints(
+absl::Status CheckHints(
     const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list) {
   for (const auto& hint : hint_list) {
     // Ignore all hints meant for a specific different engine.
@@ -92,6 +99,28 @@ static absl::Status CheckHints(
   }
   return absl::OkStatus();
 }
+
+std::unique_ptr<ExtendedCompositeCastEvaluator>
+GetExtendedCastEvaluatorFromResolvedCast(const ResolvedCast* cast) {
+  if (cast->extended_cast() != nullptr) {
+    std::vector<ConversionEvaluator> evaluators;
+    for (const auto& extended_conversion :
+         cast->extended_cast()->element_list()) {
+      evaluators.push_back(
+          ConversionEvaluator::Create(extended_conversion->from_type(),
+                                      extended_conversion->to_type(),
+                                      extended_conversion->function())
+              .value());
+    }
+
+    return absl::make_unique<ExtendedCompositeCastEvaluator>(
+        std::move(evaluators));
+  }
+
+  return {};
+}
+
+}  // namespace
 
 Algebrizer::Algebrizer(const LanguageOptions& language_options,
                        const AlgebrizerOptions& algebrizer_options,
@@ -113,18 +142,18 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
     const ResolvedCast* cast) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
                    AlgebrizeExpression(cast->expr()));
-  ZETASQL_ASSIGN_OR_RETURN(
-      auto null_on_error_exp,
-      ConstExpr::Create(Value::Bool(cast->return_null_on_error())));
 
-  std::vector<std::unique_ptr<ValueExpr>> args;
-  args.push_back(std::move(arg));
-  args.push_back(std::move(null_on_error_exp));
-
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ValueExpr> function_call,
-      BuiltinScalarFunction::CreateCall(FunctionKind::kCast, language_options_,
-                                        cast->type(), std::move(args)));
+  // For extended conversions extended_cast will contain a conversion function
+  // that implements a conversion. Extended conversions in reference
+  // implementation are tested in public/types/extended_type_test.cc.
+  std::unique_ptr<ExtendedCompositeCastEvaluator> extended_evaluator =
+      GetExtendedCastEvaluatorFromResolvedCast(cast);
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call,
+                   BuiltinScalarFunction::CreateCast(
+                       language_options_, cast->type(), std::move(arg),
+                       cast->return_null_on_error(),
+                       ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
+                       std::move(extended_evaluator)));
   return function_call;
 }
 
@@ -479,8 +508,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
   return let_expr;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateArg>>
-Algebrizer::AlgebrizeAggregateFn(
+zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
     const VariableId& variable,
     const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL ||
@@ -749,6 +777,38 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeGetProto
     first = false;
   }
   return std::move(last_get_proto_field_expr);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFlatten(
+    const ResolvedFlatten* flatten) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> expr,
+                   AlgebrizeExpression(flatten->expr()));
+  std::vector<int> struct_indexes;
+  std::vector<const ProtoFieldReader*> proto_field_readers;
+  for (const auto& node : flatten->get_field_list()) {
+    if (node->node_kind() == RESOLVED_GET_STRUCT_FIELD) {
+      ZETASQL_RET_CHECK_EQ(0, proto_field_readers.size());
+      const ResolvedGetStructField& get =
+          *node->GetAs<ResolvedGetStructField>();
+      ZETASQL_RET_CHECK_EQ(RESOLVED_FLATTENED_ARG, get.expr()->node_kind());
+      struct_indexes.push_back(get.field_idx());
+    } else if (node->node_kind() == RESOLVED_GET_PROTO_FIELD) {
+      const ResolvedGetProtoField& get = *node->GetAs<ResolvedGetProtoField>();
+      ZETASQL_RET_CHECK_EQ(RESOLVED_FLATTENED_ARG, get.expr()->node_kind());
+      ZETASQL_ASSIGN_OR_RETURN(ProtoFieldRegistry* registry,
+                       AddProtoFieldRegistry(/*id=*/absl::nullopt));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const ProtoFieldReader* field_reader,
+          AddProtoFieldReader(
+              /*id=*/absl::nullopt, CreateProtoFieldAccessInfo(get), registry));
+      proto_field_readers.push_back(field_reader);
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected node kind: " << node->DebugString();
+    }
+  }
+  return FlattenExpr::Create(flatten->type(), std::move(expr),
+                             std::move(struct_indexes),
+                             std::move(proto_field_readers));
 }
 
 zetasql_base::StatusOr<std::unique_ptr<ValueExpr>>
@@ -1045,6 +1105,11 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpressi
           val_op, AlgebrizeGetProtoField(expr->GetAs<ResolvedGetProtoField>()));
       break;
     }
+    case RESOLVED_FLATTEN: {
+      ZETASQL_ASSIGN_OR_RETURN(val_op,
+                       AlgebrizeFlatten(expr->GetAs<ResolvedFlatten>()));
+      break;
+    }
     case RESOLVED_SUBQUERY_EXPR: {
       ZETASQL_ASSIGN_OR_RETURN(
           val_op, AlgebrizeSubqueryExpr(expr->GetAs<ResolvedSubqueryExpr>()));
@@ -1298,7 +1363,7 @@ Algebrizer::AlgebrizeSingleRowScan() {
   return std::unique_ptr<RelationalOp>(std::move(enum_op));
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>>
+zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>>
 Algebrizer::CreateScanOfTableAsArray(const ResolvedScan* scan,
                                      bool is_value_table,
                                      std::unique_ptr<ValueExpr> table_expr) {
@@ -1572,6 +1637,66 @@ absl::Status Algebrizer::TryAlgebrizeFilterConjunctAsColumnFilterArgs(
   return absl::OkStatus();
 }
 
+// Computes the number of times a WITH entry is referenced.
+// Only references reachable from the main query count. For example, in this
+// query:
+//    WITH t1 AS (SELECT 1),
+//         t2 AS (SELECT * FROM t1),
+//         t3 AS (SELECT * FROM t2),
+//         t4 AS (SELECT * FROM t1)
+//    SELECT * FROM t4
+//
+//  t1 and t4 would have one reference, while t2 and t3 would have zero
+//  references.
+class FindWithEntryReferenceCountVisitor : public ResolvedASTVisitor {
+ public:
+  static zetasql_base::StatusOr<absl::flat_hash_map<std::string, int>> Run(
+      const ResolvedWithScan* scan) {
+    absl::flat_hash_map<std::string, int> result;
+    std::stack<const ResolvedNode*> stack;
+    absl::flat_hash_set<const ResolvedNode*> visited;
+    stack.push(scan->query());
+    while (!stack.empty()) {
+      if (visited.contains(stack.top())) {
+        stack.pop();
+        continue;
+      }
+      visited.insert(stack.top());
+      FindWithEntryReferenceCountVisitor visitor;
+      for (const auto& with_entry : scan->with_entry_list()) {
+        visitor.reference_count_[with_entry->with_query_name()] = 0;
+      }
+      ZETASQL_RETURN_IF_ERROR(stack.top()->Accept(&visitor));
+      stack.pop();
+
+      for (const auto& with_entry : scan->with_entry_list()) {
+        int ref_count = visitor.reference_count_[with_entry->with_query_name()];
+        if (ref_count >= 1 && !visited.contains(with_entry.get())) {
+          stack.push(with_entry.get());
+        }
+        result[with_entry->with_query_name()] += ref_count;
+      }
+    }
+    return result;
+  }
+
+  absl::Status DefaultVisit(const ResolvedNode* node) override {
+    return node->ChildrenAccept(this);
+  }
+
+  absl::Status VisitResolvedWithRefScan(
+      const ResolvedWithRefScan* scan) override {
+    auto it = reference_count_.find(scan->with_query_name());
+    if (it != reference_count_.end()) {
+      ++it->second;
+    }
+    return absl::OkStatus();
+  }
+
+ private:
+  absl::flat_hash_map<std::string, int> reference_count_;
+};
+
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithScan(
     const ResolvedWithScan* scan) {
   // Each named subquery is nested as an array, which is then unnested when
@@ -1580,7 +1705,35 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithS
   // reference those subqueries.
   // Save the old with_map_ with names that are visible in the outer scope.
   const absl::flat_hash_map<std::string, ExprArg*> old_with_map = with_map_;
+
+  // Compute how many times each WITH entry is referenced. Entries referenced
+  // exactly once can be inlined, while entries not referenced at all can be
+  // skipped altogether.
+  absl::optional<absl::flat_hash_map<std::string, int>> reference_count_by_name;
+  if (algebrizer_options_.inline_with_entries) {
+    ZETASQL_ASSIGN_OR_RETURN(reference_count_by_name,
+                     FindWithEntryReferenceCountVisitor::Run(scan));
+  }
+
   for (const auto& with_entry : scan->with_entry_list()) {
+    if (reference_count_by_name.has_value()) {
+      int ref_count =
+          reference_count_by_name.value().at(with_entry->with_query_name());
+
+      if (ref_count == 0) {
+        // This WITH entry is not referenced, directly or indirectly, in the
+        // main query, so we can just ignore it completely. Mark its fields as
+        // "accessed" to suppress the access checks.
+        with_entry->MarkFieldsAccessed();
+        continue;
+      }
+      if (ref_count == 1) {
+        // Skip for now; we'll inline the definition when it's used.
+        inlined_with_entries_[with_entry->with_query_name()] =
+            with_entry->with_subquery();
+        continue;
+      }
+    }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> subquery,
                      AlgebrizeScan(with_entry->with_subquery()));
     ZETASQL_ASSIGN_OR_RETURN(
@@ -1605,9 +1758,53 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithS
 // Called only while AlgebrizeWithScan() sits in an earlier stack frame.
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithRefScan(
     const ResolvedWithRefScan* scan) {
-  const auto& it =
-      with_map_.find(scan->GetAs<ResolvedWithRefScan>()->with_query_name());
-  ZETASQL_RET_CHECK(it != with_map_.end());
+  const std::string& query_name =
+      scan->GetAs<ResolvedWithRefScan>()->with_query_name();
+  auto inlined_it = inlined_with_entries_.find(query_name);
+  if (inlined_it != inlined_with_entries_.end()) {
+    const ResolvedScan* with_subquery_scan = inlined_it->second;
+    // We have an inlined WITH entry. Algebrize it here and add the algebrized
+    // subquery directly.
+    //
+    // Note that, to maintain correct semantics where WITH subqueries are
+    // evaluated only once, it is not possible to get here unless
+    // the WITH entry is referenced exactly once. Remove the WITH entry from the
+    // map to help ensure that this is actually the case (and make the resultant
+    // ZETASQL_RET_CHECK() more diagnosable if it somehow isn't).
+    inlined_with_entries_.erase(inlined_it);
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> algebrized_with_subquery,
+                     AlgebrizeScan(with_subquery_scan));
+
+    // Map columns from that of subquery to that of <scan>.
+    std::vector<std::unique_ptr<ExprArg>> column_map;
+    ZETASQL_RET_CHECK_EQ(scan->column_list_size(),
+                 with_subquery_scan->column_list_size());
+    for (int i = 0; i < scan->column_list_size(); ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(VariableId from_varid,
+                       column_to_variable_->LookupVariableNameForColumn(
+                           &with_subquery_scan->column_list(i)));
+      VariableId to_varid =
+          column_to_variable_->GetVariableNameFromColumn(&scan->column_list(i));
+      ZETASQL_RET_CHECK(scan->column_list(i).type()->Equals(
+          with_subquery_scan->column_list(i).type()));
+
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<DerefExpr> deref,
+          DerefExpr::Create(from_varid, scan->column_list(i).type()));
+      column_map.push_back(
+          absl::make_unique<ExprArg>(to_varid, std::move(deref)));
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> compute_op,
+                     ComputeOp::Create(std::move(column_map),
+                                       std::move(algebrized_with_subquery)));
+    return compute_op;
+  }
+
+  // We are referencing a pre-computed array value storing the entire table.
+  const auto it = with_map_.find(query_name);
+  ZETASQL_RET_CHECK(it != with_map_.end())
+      << "Can't find query in with_map_: " << query_name;
   const ExprArg* arg = it->second;
   ZETASQL_ASSIGN_OR_RETURN(
       auto deref_arg,
@@ -2264,8 +2461,7 @@ Algebrizer::ApplyAlgebrizedFilterConjuncts(
   return rel_op;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateOp>>
-Algebrizer::AlgebrizeAggregateScan(
+zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
     const ResolvedAggregateScan* aggregate_scan) {
   // Algebrize the relational input of the aggregate.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
@@ -3261,6 +3457,16 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeScan(
           rel_op, AlgebrizeAnalyticScan(scan->GetAs<ResolvedAnalyticScan>()));
       break;
     }
+    case RESOLVED_RECURSIVE_SCAN: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          rel_op, AlgebrizeRecursiveScan(scan->GetAs<ResolvedRecursiveScan>()));
+      break;
+    }
+    case RESOLVED_RECURSIVE_REF_SCAN: {
+      ZETASQL_ASSIGN_OR_RETURN(rel_op, AlgebrizeRecursiveRefScan(
+                                   scan->GetAs<ResolvedRecursiveRefScan>()));
+      break;
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unhandled node type algebrizing a scan: "
@@ -3443,7 +3649,7 @@ Algebrizer::AlgebrizeQueryStatementAsRelation(
   if (!with_subquery_let_assignments_.empty()) {
     ZETASQL_ASSIGN_OR_RETURN(relation,
                      LetOp::Create(std::move(with_subquery_let_assignments_),
-                                   std::move(relation)));
+                                   /*cpp_assign=*/{}, std::move(relation)));
   }
   // Sanity check - WITH map should be cleared as WITH clauses go out of scope.
   ZETASQL_RET_CHECK(with_map_.empty());
@@ -3888,6 +4094,152 @@ absl::Status Algebrizer::AlgebrizeExpression(
 
   VLOG(2) << "Algebrized tree:\n" << output->get()->DebugString();
   return ast_root->CheckFieldsAccessed();
+}
+
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::FilterDuplicates(
+    std::unique_ptr<RelationalOp> input, const ResolvedColumnList& column_list,
+    VariableId row_set_id) {
+  std::vector<std::unique_ptr<KeyArg>> key_args;
+
+  for (const ResolvedColumn& col : column_list) {
+    VariableId column_var =
+        column_to_variable_->GetVariableNameFromColumn(&col);
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> key_deref,
+                     DerefExpr::Create(column_var, col.type()));
+    key_args.push_back(
+        absl::make_unique<KeyArg>(column_var, std::move(key_deref)));
+  }
+
+  return DistinctOp::Create(std::move(input), std::move(key_args), row_set_id);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+Algebrizer::AlgebrizeRecursiveScan(
+    const ResolvedRecursiveScan* recursive_scan) {
+  // Algebrize non-recursive term first.
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> non_recursive_term,
+                   AlgebrizeScan(recursive_scan->non_recursive_term()->scan()));
+  ZETASQL_ASSIGN_OR_RETURN(
+      non_recursive_term,
+      MapColumns(std::move(non_recursive_term),
+                 recursive_scan->non_recursive_term()->output_column_list(),
+                 recursive_scan->column_list()));
+
+  // Create a variable to hold the result from the previous iteration.
+  // ResolvedRecursiveRefScan nodes will derefrence this.
+  VariableId recursive_var =
+      variable_gen_->GetNewVariableName("$recursive_var");
+  ZETASQL_ASSIGN_OR_RETURN(const ArrayType* recursive_table_type,
+                   CreateTableArrayType(recursive_scan->column_list(), false,
+                                        type_factory_));
+
+  // Now, proceed to algebrize the recursive term.
+  recursive_var_id_stack_.push(
+      absl::make_unique<ExprArg>(recursive_var, recursive_table_type));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> recursive_term,
+                   AlgebrizeScan(recursive_scan->recursive_term()->scan()));
+  recursive_var_id_stack_.pop();
+  ZETASQL_ASSIGN_OR_RETURN(
+      recursive_term,
+      MapColumns(std::move(recursive_term),
+                 recursive_scan->recursive_term()->output_column_list(),
+                 recursive_scan->column_list()));
+
+  // Under UNION DISTINCT, wrap the recursive and non-recursive terms with a
+  // DistinctOp to make the rows they emit unique, not only among themselves,
+  // but also between each other.
+  VariableId distinct_id;
+  if (recursive_scan->op_type() == ResolvedRecursiveScanEnums::UNION_DISTINCT) {
+    distinct_id = variable_gen_->GetNewVariableName("distinct_row_set");
+    ZETASQL_ASSIGN_OR_RETURN(
+        non_recursive_term,
+        FilterDuplicates(std::move(non_recursive_term),
+                         recursive_scan->column_list(), distinct_id));
+    ZETASQL_ASSIGN_OR_RETURN(
+        recursive_term,
+        FilterDuplicates(std::move(recursive_term),
+                         recursive_scan->column_list(), distinct_id));
+  }
+
+  std::vector<std::unique_ptr<ExprArg>> initial_assign;
+  std::unique_ptr<RelationalOp> body;
+  std::vector<std::unique_ptr<ExprArg>> loop_assign;
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ArrayNestExpr> initial_assign_expr,
+                   NestRelationInStruct(recursive_scan->column_list(),
+                                        std::move(non_recursive_term),
+                                        /*is_with_table=*/false));
+  initial_assign.emplace_back(absl::make_unique<ExprArg>(
+      recursive_var, std::move(initial_assign_expr)));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<DerefExpr> deref,
+                   DerefExpr::Create(recursive_var, recursive_table_type));
+  ZETASQL_ASSIGN_OR_RETURN(
+      body, CreateScanOfTableAsArray(recursive_scan, /*is_value_table=*/false,
+                                     std::move(deref)));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ArrayNestExpr> loop_assign_expr,
+                   NestRelationInStruct(recursive_scan->column_list(),
+                                        std::move(recursive_term),
+                                        /*is_with_table=*/false));
+  loop_assign.emplace_back(
+      absl::make_unique<ExprArg>(recursive_var, std::move(loop_assign_expr)));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<LoopOp> loop_op,
+                   LoopOp::Create(std::move(initial_assign), std::move(body),
+                                  std::move(loop_assign)));
+
+  if (recursive_scan->op_type() == ResolvedRecursiveScanEnums::UNION_DISTINCT) {
+    // Wrap the LoopOp with a LetOp to associate <distinct_id> with a C++
+    // DistinctRowSet object, used to track duplicates. This prevents the
+    // recursive term from emitting rows from a prior iteration or from the
+    // non-recursive term.
+    std::vector<std::unique_ptr<CppValueArg>> cpp_assign;
+    cpp_assign.push_back(DistinctOp::MakeCppValueArgForRowSet(distinct_id));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<LetOp> let_op,
+                     LetOp::Create(/*assign=*/{}, std::move(cpp_assign),
+                                   std::move(loop_op)));
+    return std::move(let_op);  // workaround for gcc bug
+  } else {
+    return std::move(loop_op);  // workaround for gcc bug.
+  }
+}
+
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::MapColumns(
+    std::unique_ptr<RelationalOp> input,
+    const ResolvedColumnList& input_columns,
+    const ResolvedColumnList& output_columns) {
+  ZETASQL_RET_CHECK_EQ(input_columns.size(), output_columns.size());
+  std::vector<std::unique_ptr<ExprArg>> map;
+  for (int i = 0; i < output_columns.size(); ++i) {
+    const ResolvedColumn& input_column = input_columns.at(i);
+    const ResolvedColumn& output_column = output_columns.at(i);
+    ZETASQL_RET_CHECK(input_column.type()->Equals(output_column.type()));
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto deref,
+        DerefExpr::Create(
+            column_to_variable_->GetVariableNameFromColumn(&input_column),
+            output_column.type()));
+    map.push_back(absl::make_unique<ExprArg>(
+        column_to_variable_->GetVariableNameFromColumn(&output_column),
+        std::move(deref)));
+  }
+  return ComputeOp::Create(std::move(map), std::move(input));
+}
+
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+Algebrizer::AlgebrizeRecursiveRefScan(
+    const ResolvedRecursiveRefScan* recursive_ref_scan) {
+  ZETASQL_RET_CHECK(!recursive_var_id_stack_.empty());
+  VariableId recursive_var_id = recursive_var_id_stack_.top()->variable();
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> deref_expr,
+                   DerefExpr::Create(recursive_var_id,
+                                     recursive_var_id_stack_.top()->type()));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ArrayScanOp> scan_op,
+                   CreateScanOfTableAsArray(recursive_ref_scan,
+                                            /*is_value_table=*/false,
+                                            std::move(deref_expr)));
+  return std::move(scan_op);  // necessary to work around bugs in gcc.
 }
 
 }  // namespace zetasql

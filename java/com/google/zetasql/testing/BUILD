@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 proto_library(

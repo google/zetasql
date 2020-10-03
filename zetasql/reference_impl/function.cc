@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <map>
@@ -52,6 +53,7 @@
 #include "zetasql/public/functions/comparison.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/string_format.h"
 #include "zetasql/public/functions/generate_array.h"
 #include "zetasql/public/functions/like.h"
 #include "zetasql/public/functions/math.h"
@@ -66,6 +68,8 @@
 #include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -74,6 +78,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -378,13 +383,17 @@ class FunctionMap {
   }
 
  private:
-  void RegisterFunction(FunctionKind kind, const std::string& name,
-                        const std::string& debug_name) {
+  // We use string_view here to reduce stack frame usage in debug mode for
+  // FunctionMap::FunctionMap.  We are not concerned about the performance
+  // implications here since it is called once per process invocation.
+  void RegisterFunction(FunctionKind kind, absl::string_view name,
+                        absl::string_view debug_name) {
     CHECK(zetasql_base::InsertIfNotPresent(&function_debug_name_by_kind_, kind,
-                                  debug_name))
+                                  std::string(debug_name)))
         << "Duplicate function debug_name: " << debug_name;
     if (!name.empty()) {
-      CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, name, kind))
+      CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, std::string(name),
+                                    kind))
           << "Duplicate function name: " << name;
     }
   }
@@ -395,285 +404,309 @@ class FunctionMap {
 
 FunctionMap::FunctionMap() {
   static const std::string kPrivate = "";  // for private functions
-  RegisterFunction(FunctionKind::kAdd, "$add", "Add");
-  RegisterFunction(FunctionKind::kSafeAdd, "safe_add", "SafeAdd");
-  RegisterFunction(FunctionKind::kAnd, "$and", "And");
-  RegisterFunction(FunctionKind::kAndAgg, kPrivate, "AndAgg");
-  RegisterFunction(FunctionKind::kAnyValue, "any_value", "AnyValue");
-  RegisterFunction(FunctionKind::kArrayAgg, "array_agg", "ArrayAgg");
-  RegisterFunction(FunctionKind::kArrayConcat, "array_concat", "ArrayConcat");
-  RegisterFunction(FunctionKind::kArrayConcatAgg, "array_concat_agg",
-                   "ArrayConcatAgg");
-  RegisterFunction(FunctionKind::kArrayLength, "array_length", "ArrayLength");
-  RegisterFunction(FunctionKind::kArrayToString, "array_to_string",
-                   "ArrayToString");
-  RegisterFunction(FunctionKind::kArrayReverse, "array_reverse",
-                   "ArrayReverse");
-  RegisterFunction(FunctionKind::kArrayAtOffset, "$array_at_offset",
-                   "ArrayAtOffset");
-  RegisterFunction(FunctionKind::kArrayAtOrdinal, "$array_at_ordinal",
-                   "ArrayAtOrdinal");
-  RegisterFunction(FunctionKind::kSafeArrayAtOffset, "$safe_array_at_offset",
-                   "SafeArrayAtOffset");
-  RegisterFunction(FunctionKind::kSafeArrayAtOrdinal, "$safe_array_at_ordinal",
-                   "SafeArrayAtOrdinal");
-  RegisterFunction(FunctionKind::kAvg, "avg", "Avg");
-  RegisterFunction(FunctionKind::kBitwiseAnd, "$bitwise_and", "BitwiseAnd");
-  RegisterFunction(FunctionKind::kBitwiseLeftShift, "$bitwise_left_shift",
-                   "BitwiseLeftShift");
-  RegisterFunction(FunctionKind::kBitwiseNot, "$bitwise_not", "BitwiseNot");
-  RegisterFunction(FunctionKind::kBitwiseOr, "$bitwise_or", "BitwiseOr");
-  RegisterFunction(FunctionKind::kBitwiseRightShift, "$bitwise_right_shift",
-                   "BitwiseRightShift");
-  RegisterFunction(FunctionKind::kBitwiseXor, "$bitwise_xor", "BitwiseXor");
-  RegisterFunction(FunctionKind::kBitAnd, "bit_and", "BitAnd");
-  RegisterFunction(FunctionKind::kBitOr, "bit_or", "BitOr");
-  RegisterFunction(FunctionKind::kBitXor, "bit_xor", "BitXor");
-  RegisterFunction(FunctionKind::kBitCount, "bit_count", "BitCount");
-  RegisterFunction(FunctionKind::kCast, "cast", "Cast");
-  RegisterFunction(FunctionKind::kBitCastToInt32, "bit_cast_to_int32",
-                   "BitCastToInt32");
-  RegisterFunction(FunctionKind::kBitCastToInt64, "bit_cast_to_int64",
-                   "BitCastToInt64");
-  RegisterFunction(FunctionKind::kBitCastToUint32, "bit_cast_to_uint32",
-                   "BitCastToUint32");
-  RegisterFunction(FunctionKind::kBitCastToUint64, "bit_cast_to_uint64",
-                   "BitCastToUint64");
-  RegisterFunction(FunctionKind::kCount, "count", "Count");
-  RegisterFunction(FunctionKind::kCountIf, "countif", "CountIf");
-  RegisterFunction(FunctionKind::kDateAdd, "date_add", "Date_add");
-  RegisterFunction(FunctionKind::kDateSub, "date_sub", "Date_sub");
-  RegisterFunction(FunctionKind::kDatetimeAdd, "datetime_add", "Datetime_add");
-  RegisterFunction(FunctionKind::kDatetimeSub, "datetime_sub", "Datetime_sub");
-  RegisterFunction(FunctionKind::kDatetimeDiff, "datetime_diff",
-                   "Datetime_diff");
-  RegisterFunction(FunctionKind::kDateTrunc, "date_trunc", "Date_trunc");
-  RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
-                   "Datetime_trunc");
-  RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
-  RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
-  RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
-  RegisterFunction(FunctionKind::kDiv, "div", "Div");
-  RegisterFunction(FunctionKind::kEqual, "$equal", "Equal");
-  RegisterFunction(FunctionKind::kExists, "exists", "Exists");
-  RegisterFunction(FunctionKind::kGenerateArray, "generate_array",
-                   "GenerateArray");
-  RegisterFunction(FunctionKind::kGenerateDateArray, "generate_date_array",
-                   "GenerateDateArray");
-  RegisterFunction(FunctionKind::kGenerateTimestampArray,
-                   "generate_timestamp_array", "GenerateTimestampArray");
-  RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
-  RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
-  RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
-                   "JsonExtractScalar");
-  RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
-                   "JsonExtractArray");
-  RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
-  RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
-  RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
-  RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
-  RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
-  RegisterFunction(FunctionKind::kIsFalse, "$is_false", "IsFalse");
-  RegisterFunction(FunctionKind::kLeast, "least", "Least");
-  RegisterFunction(FunctionKind::kLess, "$less", "Less");
-  RegisterFunction(FunctionKind::kLessOrEqual, "$less_or_equal", "LessOrEqual");
-  RegisterFunction(FunctionKind::kLike, "$like", "Like");
-  RegisterFunction(FunctionKind::kLogicalAnd, "logical_and", "LogicalAnd");
-  RegisterFunction(FunctionKind::kLogicalOr, "logical_or", "LogicalOr");
-  RegisterFunction(FunctionKind::kMakeProto, "make_proto", "MakeProto");
-  RegisterFunction(FunctionKind::kMax, "max", "Max");
-  RegisterFunction(FunctionKind::kMin, "min", "Min");
-  RegisterFunction(FunctionKind::kMod, "mod", "Mod");
-  RegisterFunction(FunctionKind::kMultiply, "$multiply", "Multiply");
-  RegisterFunction(FunctionKind::kSafeMultiply, "safe_multiply",
-                   "SafeMultiply");
-  RegisterFunction(FunctionKind::kNot, "$not", "Not");
-  RegisterFunction(FunctionKind::kOr, "$or", "Or");
-  RegisterFunction(FunctionKind::kOrAgg, kPrivate, "OrAgg");
-  RegisterFunction(FunctionKind::kStringAgg, "string_agg", "StringAgg");
-  RegisterFunction(FunctionKind::kSubtract, "$subtract", "Subtract");
-  RegisterFunction(FunctionKind::kSafeSubtract, "safe_subtract",
-                   "SafeSubtract");
-  RegisterFunction(FunctionKind::kSum, "sum", "Sum");
-  RegisterFunction(FunctionKind::kTimeAdd, "time_add", "Time_add");
-  RegisterFunction(FunctionKind::kTimeSub, "time_sub", "Time_sub");
-  RegisterFunction(FunctionKind::kTimeDiff, "time_diff", "Time_diff");
-  RegisterFunction(FunctionKind::kTimeTrunc, "time_trunc", "Time_trunc");
-  RegisterFunction(FunctionKind::kTimestampDiff, "timestamp_diff",
-                   "Timestamp_diff");
-  RegisterFunction(FunctionKind::kTimestampAdd, "timestamp_add",
-                   "Timestamp_add");
-  RegisterFunction(FunctionKind::kTimestampSub, "timestamp_sub",
-                   "Timestamp_sub");
-  RegisterFunction(FunctionKind::kTimestampTrunc, "timestamp_trunc",
-                   "Timestamp_trunc");
-  RegisterFunction(FunctionKind::kUnaryMinus, "$unary_minus", "UnaryMinus");
-  RegisterFunction(FunctionKind::kSafeNegate, "safe_negate", "SafeNegate");
-  RegisterFunction(FunctionKind::kAbs, "abs", "Abs");
-  RegisterFunction(FunctionKind::kSign, "sign", "Sign");
-  RegisterFunction(FunctionKind::kRound, "round", "Round");
-  RegisterFunction(FunctionKind::kTrunc, "trunc", "Trunc");
-  RegisterFunction(FunctionKind::kCeil, "ceil", "Ceil");
-  RegisterFunction(FunctionKind::kFloor, "floor", "Floor");
-  RegisterFunction(FunctionKind::kIsNan, "is_nan", "IsNan");
-  RegisterFunction(FunctionKind::kIsInf, "is_inf", "IsInf");
-  RegisterFunction(FunctionKind::kIeeeDivide, "ieee_divide", "IeeeDivide");
-  RegisterFunction(FunctionKind::kSqrt, "sqrt", "Sqrt");
-  RegisterFunction(FunctionKind::kPow, "pow", "Pow");
-  RegisterFunction(FunctionKind::kExp, "exp", "Exp");
-  RegisterFunction(FunctionKind::kNaturalLogarithm, "ln", "NaturalLogarithm");
-  RegisterFunction(FunctionKind::kDecimalLogarithm, "log10",
-                   "DecimalLogarithm");
-  RegisterFunction(FunctionKind::kLogarithm, "log", "Logarithm");
-  RegisterFunction(FunctionKind::kCos, "cos", "Cos");
-  RegisterFunction(FunctionKind::kCosh, "cosh", "Cosh");
-  RegisterFunction(FunctionKind::kAcos, "acos", "Acos");
-  RegisterFunction(FunctionKind::kAcosh, "acosh", "Acosh");
-  RegisterFunction(FunctionKind::kSin, "sin", "Sin");
-  RegisterFunction(FunctionKind::kSinh, "sinh", "Sinh");
-  RegisterFunction(FunctionKind::kAsin, "asin", "Asin");
-  RegisterFunction(FunctionKind::kAsinh, "asinh", "Asinh");
-  RegisterFunction(FunctionKind::kTan, "tan", "Tan");
-  RegisterFunction(FunctionKind::kTanh, "tanh", "Tanh");
-  RegisterFunction(FunctionKind::kAtan, "atan", "Atan");
-  RegisterFunction(FunctionKind::kAtanh, "atanh", "Atanh");
-  RegisterFunction(FunctionKind::kAtan2, "atan2", "Atan2");
-  RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
-  RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
-  RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
-  RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
-  RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
-  RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
-  RegisterFunction(FunctionKind::kCharLength, "char_length", "CharLength");
-  RegisterFunction(FunctionKind::kConcat, "concat", "Concat");
-  RegisterFunction(FunctionKind::kEndsWith, "ends_with", "EndsWith");
-  RegisterFunction(FunctionKind::kLength, "length", "Length");
-  RegisterFunction(FunctionKind::kLower, "lower", "Lower");
-  RegisterFunction(FunctionKind::kLtrim, "ltrim", "Ltrim");
-  RegisterFunction(FunctionKind::kRegexpMatch, "regexp_match", "RegexpMatch");
-  RegisterFunction(FunctionKind::kRegexpContains, "regexp_contains",
-                   "RegexpContains");
-  RegisterFunction(FunctionKind::kRegexpExtract, "regexp_extract",
-                   "RegexpExtract");
-  RegisterFunction(FunctionKind::kRegexpExtractAll, "regexp_extract_all",
-                   "RegexpExtract");
-  RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
-                   "RegexpReplace");
-  RegisterFunction(FunctionKind::kReplace, "replace", "Replace");
-  RegisterFunction(FunctionKind::kRtrim, "rtrim", "Rtrim");
-  RegisterFunction(FunctionKind::kSplit, "split", "Split");
-  RegisterFunction(FunctionKind::kStartsWith, "starts_with", "StartsWith");
-  RegisterFunction(FunctionKind::kStrpos, "strpos", "Strpos");
-  RegisterFunction(FunctionKind::kSubstr, "substr", "Substr");
-  RegisterFunction(FunctionKind::kTrim, "trim", "Trim");
-  RegisterFunction(FunctionKind::kUpper, "upper", "Upper");
-  RegisterFunction(FunctionKind::kLpad, "lpad", "Lpad");
-  RegisterFunction(FunctionKind::kRpad, "rpad", "Rpad");
-  RegisterFunction(FunctionKind::kLeft, "left", "Left");
-  RegisterFunction(FunctionKind::kRight, "right", "Right");
-  RegisterFunction(FunctionKind::kRepeat, "repeat", "Repeat");
-  RegisterFunction(FunctionKind::kReverse, "reverse", "Reverse");
-  RegisterFunction(FunctionKind::kSafeConvertBytesToString,
-                   "safe_convert_bytes_to_string", "SafeConvertBytesToString");
-  RegisterFunction(FunctionKind::kNormalize,
-                   "normalize", "Normalize");
-  RegisterFunction(FunctionKind::kNormalizeAndCasefold,
-                   "normalize_and_casefold", "NormalizeAndCasefold");
-  RegisterFunction(FunctionKind::kToBase64, "to_base64", "ToBase64");
-  RegisterFunction(FunctionKind::kFromBase64, "from_base64", "FromBase64");
-  RegisterFunction(FunctionKind::kToHex, "to_hex", "ToHex");
-  RegisterFunction(FunctionKind::kFromHex, "from_hex", "FromHex");
-  RegisterFunction(FunctionKind::kToCodePoints, "to_code_points",
-                   "ToCodePoints");
-  RegisterFunction(FunctionKind::kCodePointsToString, "code_points_to_string",
-                   "CodePointsToString");
-  RegisterFunction(FunctionKind::kCodePointsToBytes, "code_points_to_bytes",
-                   "CodePointsToBytes");
-  RegisterFunction(FunctionKind::kCurrentDate, "current_date", "Current_date");
-  RegisterFunction(FunctionKind::kCurrentDatetime, "current_datetime",
-                   "Current_datetime");
-  RegisterFunction(FunctionKind::kCurrentTime, "current_time", "Current_time");
-  RegisterFunction(FunctionKind::kCurrentTimestamp, "current_timestamp",
-                   "Current_timestamp");
-  RegisterFunction(FunctionKind::kDateFromUnixDate, "date_from_unix_date",
-                   "Date_from_unix_date");
-  RegisterFunction(FunctionKind::kUnixDate, "unix_date", "Unix_date");
-  RegisterFunction(FunctionKind::kExtractFrom, "$extract", "Extract");
-  RegisterFunction(FunctionKind::kExtractDateFrom, "$extract_date",
-                   "Extract");
-  RegisterFunction(FunctionKind::kExtractTimeFrom, "$extract_time",
-                   "Extract");
-  RegisterFunction(FunctionKind::kExtractDatetimeFrom, "$extract_datetime",
-                   "Extract");
-  RegisterFunction(FunctionKind::kFormatDate, "format_date",
-                   "Format_date");
-  RegisterFunction(FunctionKind::kFormatDatetime, "format_datetime",
-                   "Format_datetime");
-  RegisterFunction(FunctionKind::kFormatTime, "format_time", "Format_time");
-  RegisterFunction(FunctionKind::kFormatTimestamp, "format_timestamp",
-                   "Format_timestamp");
-  RegisterFunction(FunctionKind::kTimestampSeconds, "timestamp_seconds",
-                   "Timestamp_seconds");
-  RegisterFunction(FunctionKind::kTimestampMillis, "timestamp_millis",
-                   "Timestamp_millis");
-  RegisterFunction(FunctionKind::kTimestampMicros, "timestamp_micros",
-                   "Timestamp_micros");
-  RegisterFunction(FunctionKind::kTimestampFromUnixSeconds,
-                   "timestamp_from_unix_seconds",
-                   "Timestamp_from_unix_seconds");
-  RegisterFunction(FunctionKind::kTimestampFromUnixMillis,
-                   "timestamp_from_unix_millis",
-                   "Timestamp_from_unix_millis");
-  RegisterFunction(FunctionKind::kTimestampFromUnixMicros,
-                   "timestamp_from_unix_micros",
-                   "Timestamp_from_unix_micros");
-  RegisterFunction(FunctionKind::kSecondsFromTimestamp, "unix_seconds",
-                   "Unix_seconds");
-  RegisterFunction(FunctionKind::kMillisFromTimestamp, "unix_millis",
-                   "Unix_millis");
-  RegisterFunction(FunctionKind::kMicrosFromTimestamp, "unix_micros",
-                   "Unix_micros");
-  RegisterFunction(FunctionKind::kStringFromTimestamp, "string",
-                   "String");
-  RegisterFunction(FunctionKind::kParseDate, "parse_date",
-                   "Parse_date");
-  RegisterFunction(FunctionKind::kParseDatetime, "parse_datetime",
-                   "Parse_datetime");
-  RegisterFunction(FunctionKind::kParseTime, "parse_time",
-                   "Parse_time");
-  RegisterFunction(FunctionKind::kParseTimestamp, "parse_timestamp",
-                   "Parse_timestamp");
-  RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
-  RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
-  RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
-                   "enum_value_descriptor_proto",
-                   "Enum_value_descriptor_proto");
-  RegisterFunction(FunctionKind::kDate, "date", "Date");
-  RegisterFunction(FunctionKind::kTimestamp, "timestamp", "Timestamp");
-  RegisterFunction(FunctionKind::kTime, "time", "Time");
-  RegisterFunction(FunctionKind::kDatetime, "datetime", "Datetime");
-  RegisterFunction(FunctionKind::kDenseRank, "dense_rank", "Dense_rank");
-  RegisterFunction(FunctionKind::kRank, "rank", "Rank");
-  RegisterFunction(FunctionKind::kRowNumber, "row_number", "Row_number");
-  RegisterFunction(FunctionKind::kPercentRank, "percent_rank", "Percent_rank");
-  RegisterFunction(FunctionKind::kCumeDist, "cume_dist", "Cume_dist");
-  RegisterFunction(FunctionKind::kNtile, "ntile", "Ntile");
-  RegisterFunction(FunctionKind::kFirstValue, "first_value", "First_value");
-  RegisterFunction(FunctionKind::kLastValue, "last_value", "Last_value");
-  RegisterFunction(FunctionKind::kNthValue, "nth_value", "Nth_value");
-  RegisterFunction(FunctionKind::kLead, "lead", "Lead");
-  RegisterFunction(FunctionKind::kLag, "lag", "Lag");
-  RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
-                   "Percentile_cont");
-  RegisterFunction(FunctionKind::kRand, "rand", "Rand");
-  RegisterFunction(FunctionKind::kGenerateUuid, "generate_uuid",
-                   "Generate_Uuid");
-  RegisterFunction(FunctionKind::kMd5, "md5", "Md5");
-  RegisterFunction(FunctionKind::kSha1, "sha1", "Sha1");
-  RegisterFunction(FunctionKind::kSha256, "sha256", "Sha256");
-  RegisterFunction(FunctionKind::kSha512, "sha512", "Sha512");
-  RegisterFunction(FunctionKind::kFarmFingerprint, "farm_fingerprint",
-                   "FarmFingerprint");
+  // We break registration into multiple lambdas to reduce stack frame size
+  // in debug builds.
+  [this]() {
+    RegisterFunction(FunctionKind::kAdd, "$add", "Add");
+    RegisterFunction(FunctionKind::kSafeAdd, "safe_add", "SafeAdd");
+    RegisterFunction(FunctionKind::kAnd, "$and", "And");
+    RegisterFunction(FunctionKind::kAndAgg, kPrivate, "AndAgg");
+    RegisterFunction(FunctionKind::kAnyValue, "any_value", "AnyValue");
+    RegisterFunction(FunctionKind::kArrayAgg, "array_agg", "ArrayAgg");
+    RegisterFunction(FunctionKind::kArrayConcat, "array_concat", "ArrayConcat");
+    RegisterFunction(FunctionKind::kArrayConcatAgg, "array_concat_agg",
+                     "ArrayConcatAgg");
+    RegisterFunction(FunctionKind::kArrayLength, "array_length", "ArrayLength");
+    RegisterFunction(FunctionKind::kArrayToString, "array_to_string",
+                     "ArrayToString");
+    RegisterFunction(FunctionKind::kArrayReverse, "array_reverse",
+                     "ArrayReverse");
+    RegisterFunction(FunctionKind::kArrayAtOffset, "$array_at_offset",
+                     "ArrayAtOffset");
+    RegisterFunction(FunctionKind::kArrayAtOrdinal, "$array_at_ordinal",
+                     "ArrayAtOrdinal");
+    RegisterFunction(FunctionKind::kSafeArrayAtOffset, "$safe_array_at_offset",
+                     "SafeArrayAtOffset");
+    RegisterFunction(FunctionKind::kSafeArrayAtOrdinal,
+                     "$safe_array_at_ordinal", "SafeArrayAtOrdinal");
+    RegisterFunction(FunctionKind::kArrayIsDistinct, "array_is_distinct",
+                     "ArrayIsDistinct");
+    RegisterFunction(FunctionKind::kAvg, "avg", "Avg");
+    RegisterFunction(FunctionKind::kBitwiseAnd, "$bitwise_and", "BitwiseAnd");
+    RegisterFunction(FunctionKind::kBitwiseLeftShift, "$bitwise_left_shift",
+                     "BitwiseLeftShift");
+    RegisterFunction(FunctionKind::kBitwiseNot, "$bitwise_not", "BitwiseNot");
+    RegisterFunction(FunctionKind::kBitwiseOr, "$bitwise_or", "BitwiseOr");
+    RegisterFunction(FunctionKind::kBitwiseRightShift, "$bitwise_right_shift",
+                     "BitwiseRightShift");
+    RegisterFunction(FunctionKind::kBitwiseXor, "$bitwise_xor", "BitwiseXor");
+    RegisterFunction(FunctionKind::kBitAnd, "bit_and", "BitAnd");
+    RegisterFunction(FunctionKind::kBitOr, "bit_or", "BitOr");
+    RegisterFunction(FunctionKind::kBitXor, "bit_xor", "BitXor");
+    RegisterFunction(FunctionKind::kBitCount, "bit_count", "BitCount");
+    RegisterFunction(FunctionKind::kCast, "cast", "Cast");
+    RegisterFunction(FunctionKind::kBitCastToInt32, "bit_cast_to_int32",
+                     "BitCastToInt32");
+    RegisterFunction(FunctionKind::kBitCastToInt64, "bit_cast_to_int64",
+                     "BitCastToInt64");
+    RegisterFunction(FunctionKind::kBitCastToUint32, "bit_cast_to_uint32",
+                     "BitCastToUint32");
+    RegisterFunction(FunctionKind::kBitCastToUint64, "bit_cast_to_uint64",
+                     "BitCastToUint64");
+    RegisterFunction(FunctionKind::kCount, "count", "Count");
+    RegisterFunction(FunctionKind::kCountIf, "countif", "CountIf");
+    RegisterFunction(FunctionKind::kDateAdd, "date_add", "Date_add");
+    RegisterFunction(FunctionKind::kDateSub, "date_sub", "Date_sub");
+    RegisterFunction(FunctionKind::kDatetimeAdd, "datetime_add",
+                     "Datetime_add");
+    RegisterFunction(FunctionKind::kDatetimeSub, "datetime_sub",
+                     "Datetime_sub");
+    RegisterFunction(FunctionKind::kDatetimeDiff, "datetime_diff",
+                     "Datetime_diff");
+    RegisterFunction(FunctionKind::kDateTrunc, "date_trunc", "Date_trunc");
+    RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
+                     "Datetime_trunc");
+    RegisterFunction(FunctionKind::kLastDay, "last_day", "Last_day");
+    RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
+    RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
+    RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
+    RegisterFunction(FunctionKind::kDiv, "div", "Div");
+    RegisterFunction(FunctionKind::kEqual, "$equal", "Equal");
+    RegisterFunction(FunctionKind::kExists, "exists", "Exists");
+    RegisterFunction(FunctionKind::kGenerateArray, "generate_array",
+                     "GenerateArray");
+    RegisterFunction(FunctionKind::kGenerateDateArray, "generate_date_array",
+                     "GenerateDateArray");
+    RegisterFunction(FunctionKind::kGenerateTimestampArray,
+                     "generate_timestamp_array", "GenerateTimestampArray");
+    RegisterFunction(FunctionKind::kRangeBucket, "range_bucket", "RangeBucket");
+    RegisterFunction(FunctionKind::kJsonExtract, "json_extract", "JsonExtract");
+    RegisterFunction(FunctionKind::kJsonExtractScalar, "json_extract_scalar",
+                     "JsonExtractScalar");
+    RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
+                     "JsonExtractArray");
+    RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
+    RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
+    RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
+  }();
+  [this]() {
+    RegisterFunction(FunctionKind::kIsNull, "$is_null", "IsNull");
+    RegisterFunction(FunctionKind::kIsTrue, "$is_true", "IsTrue");
+    RegisterFunction(FunctionKind::kIsFalse, "$is_false", "IsFalse");
+    RegisterFunction(FunctionKind::kLeast, "least", "Least");
+    RegisterFunction(FunctionKind::kLess, "$less", "Less");
+    RegisterFunction(FunctionKind::kLessOrEqual, "$less_or_equal",
+                     "LessOrEqual");
+    RegisterFunction(FunctionKind::kLike, "$like", "Like");
+    RegisterFunction(FunctionKind::kLogicalAnd, "logical_and", "LogicalAnd");
+    RegisterFunction(FunctionKind::kLogicalOr, "logical_or", "LogicalOr");
+    RegisterFunction(FunctionKind::kMakeProto, "make_proto", "MakeProto");
+    RegisterFunction(FunctionKind::kMax, "max", "Max");
+    RegisterFunction(FunctionKind::kMin, "min", "Min");
+    RegisterFunction(FunctionKind::kMod, "mod", "Mod");
+    RegisterFunction(FunctionKind::kMultiply, "$multiply", "Multiply");
+    RegisterFunction(FunctionKind::kSafeMultiply, "safe_multiply",
+                     "SafeMultiply");
+    RegisterFunction(FunctionKind::kNot, "$not", "Not");
+    RegisterFunction(FunctionKind::kOr, "$or", "Or");
+    RegisterFunction(FunctionKind::kOrAgg, kPrivate, "OrAgg");
+    RegisterFunction(FunctionKind::kStringAgg, "string_agg", "StringAgg");
+    RegisterFunction(FunctionKind::kSubtract, "$subtract", "Subtract");
+    RegisterFunction(FunctionKind::kSafeSubtract, "safe_subtract",
+                     "SafeSubtract");
+    RegisterFunction(FunctionKind::kSum, "sum", "Sum");
+    RegisterFunction(FunctionKind::kTimeAdd, "time_add", "Time_add");
+    RegisterFunction(FunctionKind::kTimeSub, "time_sub", "Time_sub");
+    RegisterFunction(FunctionKind::kTimeDiff, "time_diff", "Time_diff");
+    RegisterFunction(FunctionKind::kTimeTrunc, "time_trunc", "Time_trunc");
+    RegisterFunction(FunctionKind::kTimestampDiff, "timestamp_diff",
+                     "Timestamp_diff");
+    RegisterFunction(FunctionKind::kTimestampAdd, "timestamp_add",
+                     "Timestamp_add");
+    RegisterFunction(FunctionKind::kTimestampSub, "timestamp_sub",
+                     "Timestamp_sub");
+    RegisterFunction(FunctionKind::kTimestampTrunc, "timestamp_trunc",
+                     "Timestamp_trunc");
+    RegisterFunction(FunctionKind::kUnaryMinus, "$unary_minus", "UnaryMinus");
+    RegisterFunction(FunctionKind::kSafeNegate, "safe_negate", "SafeNegate");
+    RegisterFunction(FunctionKind::kAbs, "abs", "Abs");
+    RegisterFunction(FunctionKind::kSign, "sign", "Sign");
+    RegisterFunction(FunctionKind::kRound, "round", "Round");
+    RegisterFunction(FunctionKind::kTrunc, "trunc", "Trunc");
+    RegisterFunction(FunctionKind::kCeil, "ceil", "Ceil");
+    RegisterFunction(FunctionKind::kFloor, "floor", "Floor");
+    RegisterFunction(FunctionKind::kIsNan, "is_nan", "IsNan");
+    RegisterFunction(FunctionKind::kIsInf, "is_inf", "IsInf");
+    RegisterFunction(FunctionKind::kIeeeDivide, "ieee_divide", "IeeeDivide");
+    RegisterFunction(FunctionKind::kSqrt, "sqrt", "Sqrt");
+    RegisterFunction(FunctionKind::kPow, "pow", "Pow");
+    RegisterFunction(FunctionKind::kExp, "exp", "Exp");
+    RegisterFunction(FunctionKind::kNaturalLogarithm, "ln", "NaturalLogarithm");
+    RegisterFunction(FunctionKind::kDecimalLogarithm, "log10",
+                     "DecimalLogarithm");
+    RegisterFunction(FunctionKind::kLogarithm, "log", "Logarithm");
+    RegisterFunction(FunctionKind::kCos, "cos", "Cos");
+    RegisterFunction(FunctionKind::kCosh, "cosh", "Cosh");
+    RegisterFunction(FunctionKind::kAcos, "acos", "Acos");
+    RegisterFunction(FunctionKind::kAcosh, "acosh", "Acosh");
+    RegisterFunction(FunctionKind::kSin, "sin", "Sin");
+    RegisterFunction(FunctionKind::kSinh, "sinh", "Sinh");
+    RegisterFunction(FunctionKind::kAsin, "asin", "Asin");
+    RegisterFunction(FunctionKind::kAsinh, "asinh", "Asinh");
+    RegisterFunction(FunctionKind::kTan, "tan", "Tan");
+    RegisterFunction(FunctionKind::kTanh, "tanh", "Tanh");
+    RegisterFunction(FunctionKind::kAtan, "atan", "Atan");
+    RegisterFunction(FunctionKind::kAtanh, "atanh", "Atanh");
+    RegisterFunction(FunctionKind::kAtan2, "atan2", "Atan2");
+    RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
+    RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
+    RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
+    RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
+    RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
+  }();
+  [this]() {
+    RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
+    RegisterFunction(FunctionKind::kCharLength, "char_length", "CharLength");
+    RegisterFunction(FunctionKind::kConcat, "concat", "Concat");
+    RegisterFunction(FunctionKind::kEndsWith, "ends_with", "EndsWith");
+    RegisterFunction(FunctionKind::kFormat, "format", "Format");
+    RegisterFunction(FunctionKind::kLength, "length", "Length");
+    RegisterFunction(FunctionKind::kLower, "lower", "Lower");
+    RegisterFunction(FunctionKind::kLtrim, "ltrim", "Ltrim");
+    RegisterFunction(FunctionKind::kRegexpMatch, "regexp_match", "RegexpMatch");
+    RegisterFunction(FunctionKind::kRegexpContains, "regexp_contains",
+                     "RegexpContains");
+    RegisterFunction(FunctionKind::kRegexpExtract, "regexp_extract",
+                     "RegexpExtract");
+    RegisterFunction(FunctionKind::kRegexpExtractAll, "regexp_extract_all",
+                     "RegexpExtract");
+    RegisterFunction(FunctionKind::kRegexpInstr, "regexp_instr", "RegexpInstr");
+    RegisterFunction(FunctionKind::kRegexpReplace, "regexp_replace",
+                     "RegexpReplace");
+    RegisterFunction(FunctionKind::kReplace, "replace", "Replace");
+    RegisterFunction(FunctionKind::kRtrim, "rtrim", "Rtrim");
+    RegisterFunction(FunctionKind::kSplit, "split", "Split");
+    RegisterFunction(FunctionKind::kStartsWith, "starts_with", "StartsWith");
+    RegisterFunction(FunctionKind::kStrpos, "strpos", "Strpos");
+    RegisterFunction(FunctionKind::kInstr, "instr", "Instr");
+    RegisterFunction(FunctionKind::kSubstr, "substr", "Substr");
+    RegisterFunction(FunctionKind::kTrim, "trim", "Trim");
+    RegisterFunction(FunctionKind::kUpper, "upper", "Upper");
+    RegisterFunction(FunctionKind::kLpad, "lpad", "Lpad");
+    RegisterFunction(FunctionKind::kRpad, "rpad", "Rpad");
+    RegisterFunction(FunctionKind::kLeft, "left", "Left");
+    RegisterFunction(FunctionKind::kRight, "right", "Right");
+    RegisterFunction(FunctionKind::kRepeat, "repeat", "Repeat");
+    RegisterFunction(FunctionKind::kReverse, "reverse", "Reverse");
+    RegisterFunction(FunctionKind::kSafeConvertBytesToString,
+                     "safe_convert_bytes_to_string",
+                     "SafeConvertBytesToString");
+    RegisterFunction(FunctionKind::kNormalize, "normalize", "Normalize");
+    RegisterFunction(FunctionKind::kNormalizeAndCasefold,
+                     "normalize_and_casefold", "NormalizeAndCasefold");
+    RegisterFunction(FunctionKind::kToBase64, "to_base64", "ToBase64");
+    RegisterFunction(FunctionKind::kFromBase64, "from_base64", "FromBase64");
+    RegisterFunction(FunctionKind::kToHex, "to_hex", "ToHex");
+    RegisterFunction(FunctionKind::kFromHex, "from_hex", "FromHex");
+    RegisterFunction(FunctionKind::kAscii, "ascii", "Ascii");
+    RegisterFunction(FunctionKind::kUnicode, "unicode", "Unicode");
+    RegisterFunction(FunctionKind::kChr, "chr", "Chr");
+    RegisterFunction(FunctionKind::kToCodePoints, "to_code_points",
+                     "ToCodePoints");
+    RegisterFunction(FunctionKind::kCodePointsToString, "code_points_to_string",
+                     "CodePointsToString");
+    RegisterFunction(FunctionKind::kCodePointsToBytes, "code_points_to_bytes",
+                     "CodePointsToBytes");
+    RegisterFunction(FunctionKind::kSoundex, "soundex", "Soundex");
+    RegisterFunction(FunctionKind::kTranslate, "translate", "Translate");
+    RegisterFunction(FunctionKind::kInitCap, "initcap", "InitCap");
+    RegisterFunction(FunctionKind::kCurrentDate, "current_date",
+                     "Current_date");
+    RegisterFunction(FunctionKind::kCurrentDatetime, "current_datetime",
+                     "Current_datetime");
+    RegisterFunction(FunctionKind::kCurrentTime, "current_time",
+                     "Current_time");
+    RegisterFunction(FunctionKind::kCurrentTimestamp, "current_timestamp",
+                     "Current_timestamp");
+    RegisterFunction(FunctionKind::kDateFromUnixDate, "date_from_unix_date",
+                     "Date_from_unix_date");
+    RegisterFunction(FunctionKind::kUnixDate, "unix_date", "Unix_date");
+    RegisterFunction(FunctionKind::kExtractFrom, "$extract", "Extract");
+    RegisterFunction(FunctionKind::kExtractDateFrom, "$extract_date",
+                     "Extract");
+    RegisterFunction(FunctionKind::kExtractTimeFrom, "$extract_time",
+                     "Extract");
+    RegisterFunction(FunctionKind::kExtractDatetimeFrom, "$extract_datetime",
+                     "Extract");
+    RegisterFunction(FunctionKind::kFormatDate, "format_date", "Format_date");
+    RegisterFunction(FunctionKind::kFormatDatetime, "format_datetime",
+                     "Format_datetime");
+    RegisterFunction(FunctionKind::kFormatTime, "format_time", "Format_time");
+    RegisterFunction(FunctionKind::kFormatTimestamp, "format_timestamp",
+                     "Format_timestamp");
+    RegisterFunction(FunctionKind::kTimestampSeconds, "timestamp_seconds",
+                     "Timestamp_seconds");
+    RegisterFunction(FunctionKind::kTimestampMillis, "timestamp_millis",
+                     "Timestamp_millis");
+    RegisterFunction(FunctionKind::kTimestampMicros, "timestamp_micros",
+                     "Timestamp_micros");
+    RegisterFunction(FunctionKind::kTimestampFromUnixSeconds,
+                     "timestamp_from_unix_seconds",
+                     "Timestamp_from_unix_seconds");
+    RegisterFunction(FunctionKind::kTimestampFromUnixMillis,
+                     "timestamp_from_unix_millis",
+                     "Timestamp_from_unix_millis");
+    RegisterFunction(FunctionKind::kTimestampFromUnixMicros,
+                     "timestamp_from_unix_micros",
+                     "Timestamp_from_unix_micros");
+    RegisterFunction(FunctionKind::kSecondsFromTimestamp, "unix_seconds",
+                     "Unix_seconds");
+    RegisterFunction(FunctionKind::kMillisFromTimestamp, "unix_millis",
+                     "Unix_millis");
+    RegisterFunction(FunctionKind::kMicrosFromTimestamp, "unix_micros",
+                     "Unix_micros");
+    RegisterFunction(FunctionKind::kString, "string", "String");
+    RegisterFunction(FunctionKind::kParseDate, "parse_date", "Parse_date");
+    RegisterFunction(FunctionKind::kParseDatetime, "parse_datetime",
+                     "Parse_datetime");
+    RegisterFunction(FunctionKind::kParseTime, "parse_time", "Parse_time");
+    RegisterFunction(FunctionKind::kParseTimestamp, "parse_timestamp",
+                     "Parse_timestamp");
+    RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
+    RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
+    RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
+                     "enum_value_descriptor_proto",
+                     "Enum_value_descriptor_proto");
+    RegisterFunction(FunctionKind::kDate, "date", "Date");
+    RegisterFunction(FunctionKind::kTimestamp, "timestamp", "Timestamp");
+    RegisterFunction(FunctionKind::kTime, "time", "Time");
+    RegisterFunction(FunctionKind::kDatetime, "datetime", "Datetime");
+  }();
+  [this]() {
+    RegisterFunction(FunctionKind::kDenseRank, "dense_rank", "Dense_rank");
+    RegisterFunction(FunctionKind::kRank, "rank", "Rank");
+    RegisterFunction(FunctionKind::kRowNumber, "row_number", "Row_number");
+    RegisterFunction(FunctionKind::kPercentRank, "percent_rank",
+                     "Percent_rank");
+    RegisterFunction(FunctionKind::kCumeDist, "cume_dist", "Cume_dist");
+    RegisterFunction(FunctionKind::kNtile, "ntile", "Ntile");
+    RegisterFunction(FunctionKind::kFirstValue, "first_value", "First_value");
+    RegisterFunction(FunctionKind::kLastValue, "last_value", "Last_value");
+    RegisterFunction(FunctionKind::kNthValue, "nth_value", "Nth_value");
+    RegisterFunction(FunctionKind::kLead, "lead", "Lead");
+    RegisterFunction(FunctionKind::kLag, "lag", "Lag");
+    RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
+                     "Percentile_cont");
+    RegisterFunction(FunctionKind::kRand, "rand", "Rand");
+    RegisterFunction(FunctionKind::kGenerateUuid, "generate_uuid",
+                     "Generate_Uuid");
+    RegisterFunction(FunctionKind::kMd5, "md5", "Md5");
+    RegisterFunction(FunctionKind::kSha1, "sha1", "Sha1");
+    RegisterFunction(FunctionKind::kSha256, "sha256", "Sha256");
+    RegisterFunction(FunctionKind::kSha512, "sha512", "Sha512");
+    RegisterFunction(FunctionKind::kFarmFingerprint, "farm_fingerprint",
+                     "FarmFingerprint");
+  }();
 }
 
 const FunctionMap& GetFunctionMap() {
@@ -783,18 +816,80 @@ static zetasql_base::StatusOr<Value> Match(absl::Span<const Value> x,
 template <TypeKind type>
 static zetasql_base::StatusOr<Value> Extract(absl::Span<const Value> x,
                                      functions::RegExp* regexp) {
+  int64_t position = 1;
+  int64_t occurrence_index = 1;
+  if (x.size() >= 3) {
+    position = x[2].int64_value();
+    if (x.size() == 4) {
+      occurrence_index = x[3].int64_value();
+    }
+  }
+
   absl::Status status;
   absl::string_view out;
   bool is_null;
   std::string in_str = ValueTraits<type>::FromValue(x[0]);
-  if (!regexp->Extract(in_str, &out, &is_null, &status)) {
-    return status;
+  if (type == TYPE_STRING) {
+    if (!regexp->Extract(in_str, zetasql::functions::RegExp::kUtf8Chars,
+                         position, occurrence_index, &out, &is_null, &status)) {
+      return status;
+    }
+  } else {
+    if (!regexp->Extract(in_str, zetasql::functions::RegExp::kBytes, position,
+                         occurrence_index, &out, &is_null, &status)) {
+      return status;
+    }
   }
   if (is_null) {
     return ValueTraits<type>::NullValue();
   } else {
     return ValueTraits<type>::ToValue(out);
   }
+}
+
+// Helper function for regexp_instr.
+template <TypeKind type>
+static zetasql_base::StatusOr<Value> Instr(absl::Span<const Value> x,
+                                   functions::RegExp* regexp) {
+  ZETASQL_RET_CHECK_LE(x.size(), 5);
+  ZETASQL_RET_CHECK_GE(x.size(), 2);
+  absl::Status status;
+  functions::RegExp::InstrParams options;
+  for (const Value& arg : x) {
+    if (arg.is_null()) {
+      return Value::NullInt64();
+    }
+  }
+  if (type == TYPE_STRING) {
+    options.input_str = x[0].string_value();
+    options.position_unit = functions::RegExp::kUtf8Chars;
+  } else {
+    options.input_str = x[0].bytes_value();
+    options.position_unit = functions::RegExp::kBytes;
+  }
+
+  if (x.size() >= 3) {
+    options.position = x[2].int64_value();
+    if (x.size() >= 4) {
+      options.occurrence_index = x[3].int64_value();
+      if (x.size() == 5) {
+        if (x[4].int64_value() == 1) {
+          options.return_position = functions::RegExp::kEndOfMatch;
+        } else if (x[4].int64_value() == 0) {
+          options.return_position = functions::RegExp::kStartOfMatch;
+        } else {
+          return absl::Status(absl::StatusCode::kOutOfRange,
+                              "Invalid return_position_after_match.");
+        }
+      }
+    }
+  }
+  int64_t out;
+  options.out = &out;
+  if (!regexp->Instr(options, &status)) {
+    return status;
+  }
+  return Value::Int64(out);
 }
 
 // Helper function for regexp_replace.
@@ -1080,6 +1175,28 @@ static absl::Status ValidateSupportedTypes(
 }
 
 zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
+BuiltinScalarFunction::CreateCast(
+    const LanguageOptions& language_options, const Type* output_type,
+    std::unique_ptr<ValueExpr> argument, bool return_null_on_error,
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator) {
+  ZETASQL_ASSIGN_OR_RETURN(auto null_on_error_exp,
+                   ConstExpr::Create(Value::Bool(return_null_on_error)));
+
+  ZETASQL_RETURN_IF_ERROR(ValidateSupportedTypes(
+      language_options, {output_type, argument->output_type()}));
+
+  std::vector<std::unique_ptr<ValueExpr>> args;
+  args.push_back(std::move(argument));
+  args.push_back(std::move(null_on_error_exp));
+
+  return ScalarFunctionCallExpr::Create(
+      absl::make_unique<CastFunction>(output_type,
+                                      std::move(extended_cast_evaluator)),
+      std::move(args), error_mode);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCall(
     FunctionKind kind, const LanguageOptions& language_options,
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> arguments,
@@ -1226,6 +1343,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kRight:
     case FunctionKind::kReplace:
     case FunctionKind::kStrpos:
+    case FunctionKind::kInstr:
     case FunctionKind::kSafeConvertBytesToString:
     case FunctionKind::kNormalize:
     case FunctionKind::kNormalizeAndCasefold:
@@ -1237,16 +1355,25 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kRpad:
     case FunctionKind::kRepeat:
     case FunctionKind::kReverse:
+    case FunctionKind::kSoundex:
+    case FunctionKind::kAscii:
+    case FunctionKind::kUnicode:
+    case FunctionKind::kChr:
+    case FunctionKind::kTranslate:
+    case FunctionKind::kInitCap:
       return new StringFunction(kind, output_type);
     case FunctionKind::kToCodePoints:
       return new ToCodePointsFunction;
     case FunctionKind::kCodePointsToString:
     case FunctionKind::kCodePointsToBytes:
       return new CodePointsToFunction(kind, output_type);
+    case FunctionKind::kFormat:
+      return new FormatFunction(output_type);
     case FunctionKind::kRegexpContains:
     case FunctionKind::kRegexpMatch:
     case FunctionKind::kRegexpExtract:
     case FunctionKind::kRegexpExtractAll:
+    case FunctionKind::kRegexpInstr:
     case FunctionKind::kRegexpReplace: {
       ZETASQL_ASSIGN_OR_RETURN(auto fct,
                        CreateRegexpFunction(kind, output_type, arguments));
@@ -1274,6 +1401,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new ArrayToStringFunction(kind, output_type);
     case FunctionKind::kArrayReverse:
       return new ArrayReverseFunction(output_type);
+    case FunctionKind::kArrayIsDistinct:
+      return new ArrayIsDistinctFunction(kind, output_type);
     case FunctionKind::kCurrentDate:
     case FunctionKind::kCurrentDatetime:
     case FunctionKind::kCurrentTime:
@@ -1301,11 +1430,11 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new DateTimeDiffFunction(kind, output_type);
     case FunctionKind::kDatetimeTrunc:
     case FunctionKind::kTimeTrunc:
-      return new CivilTimeTruncFunction(kind, output_type);
     case FunctionKind::kDateTrunc:
-      return new DateTruncFunction(kind, output_type);
     case FunctionKind::kTimestampTrunc:
-      return new TimestampTruncFunction(kind, output_type);
+      return new DateTimeTruncFunction(kind, output_type);
+    case FunctionKind::kLastDay:
+      return new LastDayFunction(kind, output_type);
     case FunctionKind::kExtractFrom:
       return new ExtractFromFunction(kind, output_type);
     case FunctionKind::kExtractDateFrom:
@@ -1315,13 +1444,11 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kExtractDatetimeFrom:
       return new ExtractDatetimeFromFunction(kind, output_type);
     case FunctionKind::kFormatDate:
-      return new FormatDateFunction(kind, output_type);
     case FunctionKind::kFormatDatetime:
-      return new FormatDatetimeFunction(kind, output_type);
+    case FunctionKind::kFormatTimestamp:
+      return new FormatDateDatetimeTimestampFunction(kind, output_type);
     case FunctionKind::kFormatTime:
       return new FormatTimeFunction(kind, output_type);
-    case FunctionKind::kFormatTimestamp:
-      return new FormatTimestampFunction(kind, output_type);
     case FunctionKind::kTimestamp:
       return new TimestampConversionFunction(kind, output_type);
     case FunctionKind::kDate:
@@ -1339,8 +1466,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kMillisFromTimestamp:
     case FunctionKind::kMicrosFromTimestamp:
       return new IntFromTimestampFunction(kind, output_type);
-    case FunctionKind::kStringFromTimestamp:
-      return new StringFromTimestampFunction(kind, output_type);
+    case FunctionKind::kString:
+      return new StringConversionFunction(kind, output_type);
     case FunctionKind::kFromProto:
       return new FromProtoFunction(kind, output_type);
     case FunctionKind::kToProto:
@@ -1418,6 +1545,14 @@ static RegexpFunction::EvalFunction CreateEvalFunction(
     }
     case FCT(FunctionKind::kRegexpExtract, TYPE_BYTES): {
       return WrapOrInitRegexpFunction<TYPE_BYTES>(&Extract<TYPE_BYTES>, pattern,
+                                                  regexp, status);
+    }
+    case FCT(FunctionKind::kRegexpInstr, TYPE_STRING): {
+      return WrapOrInitRegexpFunction<TYPE_STRING>(&Instr<TYPE_STRING>,
+                                                   pattern, regexp, status);
+    }
+    case FCT(FunctionKind::kRegexpInstr, TYPE_BYTES): {
+      return WrapOrInitRegexpFunction<TYPE_BYTES>(&Instr<TYPE_BYTES>, pattern,
                                                   regexp, status);
     }
     case FCT(FunctionKind::kRegexpExtractAll, TYPE_STRING): {
@@ -1629,6 +1764,42 @@ zetasql_base::StatusOr<Value> CodePointsToFunction::Eval(
   }
 }
 
+zetasql_base::StatusOr<Value> FormatFunction::Eval(absl::Span<const Value> args,
+                                           EvaluationContext* context) const {
+  DCHECK_GE(args.size(), 1);
+  if (args[0].is_null()) return Value::NullString();
+  DCHECK(args[0].type()->IsString());
+
+  std::string output;
+  bool is_null;
+  absl::Span<const Value> values(args);
+  values.remove_prefix(1);
+  ZETASQL_RETURN_IF_ERROR(functions::StringFormatUtf8(
+      args[0].string_value(), values,
+      context->GetLanguageOptions().product_mode(), &output,
+      &is_null));
+  Value value;
+  if (is_null) {
+    value = Value::NullString();
+  } else {
+    if (context->IsDeterministicOutput()) {
+      for (const Value& value : values) {
+        if (HasFloatingPoint(value.type())) {
+          context->SetNonDeterministicOutput();
+          break;
+        }
+      }
+    }
+    value = Value::String(output);
+  }
+  if (value.physical_byte_size() > context->options().max_value_byte_size) {
+    return zetasql_base::OutOfRangeErrorBuilder()
+           << "Formatted values are limited to "
+           << context->options().max_value_byte_size << " bytes";
+  }
+  return value;
+}
+
 zetasql_base::StatusOr<Value> GenerateArrayFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   DCHECK_GE(args.size(), 2);
@@ -1777,6 +1948,16 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
 
   switch (FCT(kind(), args[0].type_kind())) {
     case FCT(FunctionKind::kAdd, TYPE_INT64):
+      if (args[1].type()->IsDate()) {
+        int32_t date;
+        *status =
+            functions::AddDate(args[1].date_value(), zetasql::functions::DAY,
+                               args[0].int64_value(), &date);
+        if (status->ok()) {
+          *result = Value::Date(date);
+        }
+        return status->ok();
+      }
       return InvokeBinary<int64_t>(&functions::Add<int64_t>, args, result, status);
     case FCT(FunctionKind::kAdd, TYPE_UINT64):
       return InvokeBinary<uint64_t>(&functions::Add<uint64_t>, args, result,
@@ -1791,6 +1972,16 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
       return InvokeBinary<BigNumericValue>(&functions::Add<BigNumericValue>,
                                            args, result, status);
 
+    case FCT(FunctionKind::kAdd, TYPE_DATE): {
+      int32_t date;
+      *status =
+          functions::AddDate(args[0].date_value(), zetasql::functions::DAY,
+                             args[1].int64_value(), &date);
+      if (status->ok()) {
+        *result = Value::Date(date);
+      }
+      return status->ok();
+    }
     case FCT(FunctionKind::kSubtract, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Subtract<int64_t>, args, result,
                                  status);
@@ -1806,6 +1997,17 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSubtract, TYPE_BIGNUMERIC):
       return InvokeBinary<BigNumericValue>(
           &functions::Subtract<BigNumericValue>, args, result, status);
+
+    case FCT(FunctionKind::kSubtract, TYPE_DATE): {
+      int32_t date;
+      *status =
+          functions::SubDate(args[0].date_value(), zetasql::functions::DAY,
+                             args[1].int64_value(), &date);
+      if (status->ok()) {
+        *result = Value::Date(date);
+      }
+      return status->ok();
+    }
 
     case FCT(FunctionKind::kMultiply, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Multiply<int64_t>, args, result,
@@ -2249,6 +2451,39 @@ zetasql_base::StatusOr<Value> ArrayReverseFunction::Eval(
   return Value::Array(output_type()->AsArray(), elements);
 }
 
+zetasql_base::StatusOr<Value> ArrayIsDistinctFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  DCHECK_EQ(args.size(), 1);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+
+  const Value& array = args[0];
+  const ArrayType* array_type = array.type()->AsArray();
+  ZETASQL_RET_CHECK_NE(array_type, nullptr)
+      << "ARRAY_IS_DISTINCT cannot be used on non-array type "
+      << array.type()->DebugString();
+
+  ZETASQL_RET_CHECK(array_type->element_type()->SupportsGrouping(
+      context->GetLanguageOptions(), nullptr))
+      << "ARRAY_IS_DISTINCT cannot be used on argument of type "
+      << array.type()->ShortTypeName(
+             context->GetLanguageOptions().product_mode())
+      << " because the array's element type does not support grouping";
+
+  MaybeSetNonDeterministicArrayOutput(array, context);
+
+  absl::flat_hash_set<Value> values;
+  for (int i = 0; i < array.num_elements(); ++i) {
+    if (!values.insert(array.element(i)).second) {
+      // The insertion did not take place, so the array contains duplicates.
+      return Value::Bool(false);
+    }
+  }
+
+  return Value::Bool(true);
+}
+
 bool IsFunction::Eval(absl::Span<const Value> args, EvaluationContext* context,
                       Value* result, absl::Status* status) const {
   DCHECK_EQ(1, args.size());
@@ -2277,10 +2512,13 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
   const bool return_null_on_error =
       args.size() == 2 ? args[1].bool_value() : false;
 
-  zetasql_base::StatusOr<Value> status_or =
-      CastValue(v, context->GetDefaultTimeZone(), context->GetLanguageOptions(),
-                output_type());
+  zetasql_base::StatusOr<Value> status_or = internal::CastValueWithoutTypeValidation(
+      v, context->GetDefaultTimeZone(), context->GetLanguageOptions(),
+      output_type(), extended_cast_evaluator_.get());
   if (!status_or.ok() && return_null_on_error) {
+    // TODO: check that failure is not due to absence of
+    // extended_type_function. In this case we still probably wants to fail the
+    // whole query.
     return zetasql_base::StatusOr<Value>(Value::Null(output_type()));
   }
   if (HasFloatingPoint(v.type()) &&
@@ -2390,7 +2628,7 @@ namespace {
 // Accumulator implementation for BuiltinAggregateFunction.
 class BuiltinAggregateAccumulator : public AggregateAccumulator {
  public:
-  static ::zetasql_base::StatusOr<std::unique_ptr<BuiltinAggregateAccumulator>> Create(
+  static zetasql_base::StatusOr<std::unique_ptr<BuiltinAggregateAccumulator>> Create(
       const BuiltinAggregateFunction* function, const Type* input_type,
       absl::Span<const Value> args, EvaluationContext* context) {
     auto accumulator = absl::WrapUnique(
@@ -2416,7 +2654,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   bool Accumulate(const Value& value, bool* stop_accumulation,
                   absl::Status* status) override;
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
 
  private:
 
@@ -2429,7 +2667,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
         args_(args.begin(), args.end()),
         context_(context) {}
 
-  ::zetasql_base::StatusOr<Value> GetFinalResultInternal(bool inputs_in_defined_order);
+  zetasql_base::StatusOr<Value> GetFinalResultInternal(bool inputs_in_defined_order);
 
   MemoryAccountant* accountant() { return context_->memory_accountant(); }
 
@@ -2460,6 +2698,8 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   NumericValue::SumAggregator numeric_aggregator_;  // Avg, Sum
   BigNumericValue::SumAggregator bignumeric_aggregator_;  // Avg, Sum
   NumericValue::VarianceAggregator numeric_variance_aggregator_;  // Var, Stddev
+  BigNumericValue::VarianceAggregator
+      bignumeric_variance_aggregator_;           // Var, Stddev
   std::string out_string_ = "";                  // Max, Min, StringAgg
   std::string delimiter_ = ",";                  // StringAgg
   // OrAgg, AndAgg, LogicalOr, LogicalAnd.
@@ -2653,6 +2893,10 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kVarSamp, TYPE_NUMERIC):
       numeric_variance_aggregator_ = NumericValue::VarianceAggregator();
       break;
+    case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC):
+      bignumeric_variance_aggregator_ = BigNumericValue::VarianceAggregator();
+      break;
   }
 
   return absl::OkStatus();
@@ -2738,6 +2982,12 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     case FCT(FunctionKind::kVarPop, TYPE_NUMERIC):
     case FCT(FunctionKind::kVarSamp, TYPE_NUMERIC): {
       numeric_variance_aggregator_.Add(value.numeric_value());
+      break;
+    }
+    // Variance and Stddev for BigNumericValue
+    case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC): {
+      bignumeric_variance_aggregator_.Add(value.bignumeric_value());
       break;
     }
     // Bitwise aggregates.
@@ -3048,7 +3298,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
   return true;
 }
 
-::zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
+zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
     bool inputs_in_defined_order) {
   ZETASQL_ASSIGN_OR_RETURN(const Value result,
                    GetFinalResultInternal(inputs_in_defined_order));
@@ -3060,7 +3310,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
   return result;
 }
 
-::zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
+zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     bool inputs_in_defined_order) {
   const Type* output_type = function_->output_type();
   absl::Status error;
@@ -3190,6 +3440,15 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       return CreateValueFromOptional(
           numeric_variance_aggregator_.GetSamplingVariance(count_));
     }
+    // Variance and Stddev for BigNumericValue
+    case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC): {
+      return CreateValueFromOptional(
+          bignumeric_variance_aggregator_.GetPopulationVariance(count_));
+    }
+    case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC): {
+      return CreateValueFromOptional(
+          bignumeric_variance_aggregator_.GetSamplingVariance(count_));
+    }
 
     // Max, Min
     case FCT(FunctionKind::kMax, TYPE_BOOL):
@@ -3302,7 +3561,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
 
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
+zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BuiltinAggregateFunction::CreateAccumulator(absl::Span<const Value> args,
                                             EvaluationContext* context) const {
   return BuiltinAggregateAccumulator::Create(this, input_type(), args, context);
@@ -3334,7 +3593,7 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   bool Accumulate(const Value& value, bool* stop_accumulation,
                   absl::Status* status) override;
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override;
 
  private:
   BinaryStatAccumulator(const BinaryStatFunction* function,
@@ -3361,6 +3620,10 @@ class BinaryStatAccumulator : public AggregateAccumulator {
   bool input_has_nan_or_inf_ = false;
   NumericValue::CovarianceAggregator numeric_covariance_aggregator_;  // Covar
   NumericValue::CorrelationAggregator numeric_correlation_aggregator_;  // Corr
+  BigNumericValue::CovarianceAggregator
+      bignumeric_covariance_aggregator_;  // Covar
+  BigNumericValue::CorrelationAggregator
+      bignumeric_correlation_aggregator_;  // Corr
 };
 
 absl::Status BinaryStatAccumulator::Reset() {
@@ -3379,6 +3642,11 @@ absl::Status BinaryStatAccumulator::Reset() {
     case FCT2(FunctionKind::kCovarPop, TYPE_NUMERIC, TYPE_NUMERIC):
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       numeric_covariance_aggregator_ = NumericValue::CovarianceAggregator();
+      break;
+    case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      bignumeric_covariance_aggregator_ =
+          BigNumericValue::CovarianceAggregator();
       break;
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
@@ -3423,6 +3691,11 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
       numeric_covariance_aggregator_.Add(arg_x.numeric_value(),
                                          arg_y.numeric_value());
       break;
+    case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+    case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      bignumeric_covariance_aggregator_.Add(arg_x.bignumeric_value(),
+                                            arg_y.bignumeric_value());
+      break;
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
       const double x = arg_x.ToDouble();
@@ -3449,7 +3722,7 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
   return status->ok();
 }
 
-::zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
+zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
     bool /* inputs_in_defined_order */) {
   if (pair_count_ < min_required_pair_count_) {
     return Value::Null(function_->output_type());
@@ -3470,6 +3743,13 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       return CreateValueFromOptional(
           numeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
+    case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      return CreateValueFromOptional(
+          bignumeric_covariance_aggregator_.GetPopulationCovariance(
+              pair_count_));
+    case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      return CreateValueFromOptional(
+          bignumeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
       out_double = covar_;
       break;
@@ -3494,7 +3774,7 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
 
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
+zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BinaryStatFunction::CreateAccumulator(absl::Span<const Value> args,
                                       EvaluationContext* context) const {
   return BinaryStatAccumulator::Create(this, input_type(), context);
@@ -3733,20 +4013,47 @@ bool MathFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kSqrt, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Sqrt<double>, args, result,
                                  status);
+    case FCT(FunctionKind::kSqrt, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(&functions::Sqrt<NumericValue>, args,
+                                       result, status);
+    case FCT(FunctionKind::kSqrt, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Sqrt<BigNumericValue>,
+                                          args, result, status);
     case FCT(FunctionKind::kPow, TYPE_DOUBLE):
       return InvokeBinary<double>(&functions::Pow<double>, args, result,
                                   status);
     case FCT(FunctionKind::kPow, TYPE_NUMERIC):
       return InvokeBinary<NumericValue>(&functions::Pow<NumericValue>, args,
                                         result, status);
+    case FCT(FunctionKind::kPow, TYPE_BIGNUMERIC):
+      return InvokeBinary<BigNumericValue>(&functions::Pow<BigNumericValue>,
+                                           args, result, status);
     case FCT(FunctionKind::kExp, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::Exp<double>, args, result, status);
+    case FCT(FunctionKind::kExp, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(&functions::Exp<NumericValue>, args,
+                                       result, status);
+    case FCT(FunctionKind::kExp, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(&functions::Exp<BigNumericValue>,
+                                          args, result, status);
     case FCT(FunctionKind::kNaturalLogarithm, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::NaturalLogarithm<double>, args,
                                  result, status);
+    case FCT(FunctionKind::kNaturalLogarithm, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(
+          &functions::NaturalLogarithm<NumericValue>, args, result, status);
+    case FCT(FunctionKind::kNaturalLogarithm, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(
+          &functions::NaturalLogarithm<BigNumericValue>, args, result, status);
     case FCT(FunctionKind::kDecimalLogarithm, TYPE_DOUBLE):
       return InvokeUnary<double>(&functions::DecimalLogarithm<double>, args,
                                  result, status);
+    case FCT(FunctionKind::kDecimalLogarithm, TYPE_NUMERIC):
+      return InvokeUnary<NumericValue>(
+          &functions::DecimalLogarithm<NumericValue>, args, result, status);
+    case FCT(FunctionKind::kDecimalLogarithm, TYPE_BIGNUMERIC):
+      return InvokeUnary<BigNumericValue>(
+          &functions::DecimalLogarithm<BigNumericValue>, args, result, status);
     case FCT(FunctionKind::kLogarithm, TYPE_DOUBLE):
       if (args.size() == 1) {
         return InvokeUnary<double>(&functions::NaturalLogarithm<double>, args,
@@ -3754,6 +4061,23 @@ bool MathFunction::Eval(absl::Span<const Value> args,
       } else {
         return InvokeBinary<double>(&functions::Logarithm<double>, args, result,
                                     status);
+      }
+    case FCT(FunctionKind::kLogarithm, TYPE_NUMERIC):
+      if (args.size() == 1) {
+        return InvokeUnary<NumericValue>(
+            &functions::NaturalLogarithm<NumericValue>, args, result, status);
+      } else {
+        return InvokeBinary<NumericValue>(&functions::Logarithm<NumericValue>,
+                                          args, result, status);
+      }
+    case FCT(FunctionKind::kLogarithm, TYPE_BIGNUMERIC):
+      if (args.size() == 1) {
+        return InvokeUnary<BigNumericValue>(
+            &functions::NaturalLogarithm<BigNumericValue>, args, result,
+            status);
+      } else {
+        return InvokeBinary<BigNumericValue>(
+            &functions::Logarithm<BigNumericValue>, args, result, status);
       }
 
     case FCT(FunctionKind::kCos, TYPE_DOUBLE):
@@ -3894,11 +4218,33 @@ bool StringFunction::Eval(absl::Span<const Value> args,
   }
   switch (FCT_TYPE_ARITY(kind(), args[0].type_kind(), args.size())) {
     case FCT_TYPE_ARITY(FunctionKind::kStrpos, TYPE_STRING, 2):
-      return Invoke<int64_t>(&functions::StrposUtf8, result, status,
-                           args[0].string_value(), args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kInstr, TYPE_STRING, 2):
+      return Invoke<int64_t>(&functions::StrPosOccurrenceUtf8, result, status,
+                           args[0].string_value(), args[1].string_value(),
+                           /*pos=*/1, /*occurrence=*/1);
     case FCT_TYPE_ARITY(FunctionKind::kStrpos, TYPE_BYTES, 2):
-      return Invoke<int64_t>(&functions::StrposBytes, result, status,
-                           args[0].bytes_value(), args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kInstr, TYPE_BYTES, 2):
+      return Invoke<int64_t>(&functions::StrPosOccurrenceBytes, result, status,
+                           args[0].bytes_value(), args[1].bytes_value(),
+                           /*pos=*/1, /*occurrence=*/1);
+    case FCT_TYPE_ARITY(FunctionKind::kInstr, TYPE_STRING, 3):
+      return Invoke<int64_t>(&functions::StrPosOccurrenceUtf8, result, status,
+                           args[0].string_value(), args[1].string_value(),
+                           /*pos=*/args[2].int64_value(), /*occurrence=*/1);
+    case FCT_TYPE_ARITY(FunctionKind::kInstr, TYPE_STRING, 4):
+      return Invoke<int64_t>(&functions::StrPosOccurrenceUtf8, result, status,
+                           args[0].string_value(), args[1].string_value(),
+                           /*pos=*/args[2].int64_value(),
+                           /*occurrence=*/args[3].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kInstr, TYPE_BYTES, 3):
+      return Invoke<int64_t>(&functions::StrPosOccurrenceBytes, result, status,
+                           args[0].bytes_value(), args[1].bytes_value(),
+                           /*pos=*/args[2].int64_value(), /*occurrence=*/1);
+    case FCT_TYPE_ARITY(FunctionKind::kInstr, TYPE_BYTES, 4):
+      return Invoke<int64_t>(&functions::StrPosOccurrenceBytes, result, status,
+                           args[0].bytes_value(), args[1].bytes_value(),
+                           /*pos=*/args[2].int64_value(),
+                           /*occurrence=*/args[3].int64_value());
     case FCT_TYPE_ARITY(FunctionKind::kLength, TYPE_STRING, 1):
       return Invoke<int64_t>(&functions::LengthUtf8, result, status,
                            args[0].string_value());
@@ -3914,6 +4260,15 @@ bool StringFunction::Eval(absl::Span<const Value> args,
     case FCT_TYPE_ARITY(FunctionKind::kCharLength, TYPE_STRING, 1):
       return Invoke<int64_t>(&functions::LengthUtf8, result, status,
                            args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kAscii, TYPE_STRING, 1):
+      return Invoke<int64_t>(&functions::FirstCharOfStringToASCII, result, status,
+                           args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kAscii, TYPE_BYTES, 1):
+      return Invoke<int64_t>(&functions::FirstByteOfBytesToASCII, result, status,
+                           args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kUnicode, TYPE_STRING, 1):
+      return Invoke<int64_t>(&functions::FirstCharToCodePoint, result, status,
+                           args[0].string_value());
     case FCT_TYPE_ARITY(FunctionKind::kStartsWith, TYPE_STRING, 2):
       return Invoke<bool>(&functions::StartsWithUtf8, result, status,
                           args[0].string_value(), args[1].string_value());
@@ -3926,6 +4281,9 @@ bool StringFunction::Eval(absl::Span<const Value> args,
     case FCT_TYPE_ARITY(FunctionKind::kEndsWith, TYPE_BYTES, 2):
       return Invoke<bool>(&functions::EndsWithBytes, result, status,
                           args[0].bytes_value(), args[1].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kChr, TYPE_INT64, 1):
+      return InvokeString<std::string>(
+          &functions::CodePointToString, result, status, args[0].int64_value());
     case FCT_TYPE_ARITY(FunctionKind::kSubstr, TYPE_STRING, 2):
       return InvokeString<absl::string_view>(&functions::SubstrUtf8, result,
                                              status, args[0].string_value(),
@@ -4085,6 +4443,24 @@ bool StringFunction::Eval(absl::Span<const Value> args,
     case FCT_TYPE_ARITY(FunctionKind::kFromHex, TYPE_STRING, 1):
       return InvokeBytes<std::string>(&functions::FromHex, result, status,
                                       args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kSoundex, TYPE_STRING, 1):
+      return InvokeString<std::string>(&functions::Soundex, result, status,
+                                      args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kTranslate, TYPE_STRING, 3):
+      return InvokeString<std::string>(
+          &functions::TranslateUtf8, result, status, args[0].string_value(),
+          args[1].string_value(), args[2].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kTranslate, TYPE_BYTES, 3):
+      return InvokeBytes<std::string>(
+          &functions::TranslateBytes, result, status, args[0].bytes_value(),
+          args[1].bytes_value(), args[2].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kInitCap, TYPE_STRING, 1):
+      return InvokeString<std::string>(&functions::InitialCapitalizeDefault,
+                                       result, status, args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kInitCap, TYPE_STRING, 2):
+      return InvokeString<std::string>(&functions::InitialCapitalize, result,
+                                       status, args[0].string_value(),
+                                       args[1].string_value());
   }
   *status = ::zetasql_base::UnimplementedErrorBuilder()
             << "Unsupported string function: " << debug_name();
@@ -4270,6 +4646,19 @@ static zetasql_base::StatusOr<Value> ReplaceProtoFields(
       // Clear repeated fields, so MergeValueToProtoField does not append to
       // them.
       reflection->ClearField(message_to_modify, path.back());
+
+      // There is a bug with verification of Proto repeated fields which are
+      // set to unordered values (via new_field_value). Verification assumes
+      // that the repeated field value is ordered leading to false negatives. If
+      // new_field_value contains an unordered array value for a repeated field,
+      // result from ZetaSQL reference driver is marked non-determinstic and
+      // is ignored.
+      // TODO : Fix the ordering issue in Proto repeated field,
+      // after which below safeguard can be removed.
+      if (InternalValue::GetOrderKind(new_field_value) !=
+          InternalValue::kPreservesOrder) {
+        context->SetNonDeterministicOutput();
+      }
     }
     ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(
         new_field_value, path.back(), /*use_wire_format_annotations=*/false,
@@ -4401,25 +4790,38 @@ zetasql_base::StatusOr<Value> DateTimeUnaryFunction::Eval(
          << "Unsupported function: " << debug_name();
 }
 
-zetasql_base::StatusOr<Value> FormatDateFunction::Eval(
+zetasql_base::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  DCHECK_GE(args.size(), 2);
+  DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string result_string;
-  ZETASQL_RETURN_IF_ERROR(functions::FormatDateToString(
-      args[0].string_value(), args[1].date_value(),
-      &result_string));
-  return Value::String(result_string);
-}
-
-zetasql_base::StatusOr<Value> FormatDatetimeFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
-  if (HasNulls(args)) return Value::Null(output_type());
-  std::string result_string;
-  ZETASQL_RETURN_IF_ERROR(functions::FormatDatetimeToString(
-      args[0].string_value(), args[1].datetime_value(),
-      &result_string));
+  switch (args[1].type_kind()) {
+    case TYPE_DATE:
+      ZETASQL_RETURN_IF_ERROR(functions::FormatDateToString(
+          args[0].string_value(), args[1].date_value(), &result_string));
+      break;
+    case TYPE_DATETIME:
+      ZETASQL_RETURN_IF_ERROR(functions::FormatDatetimeToString(
+          args[0].string_value(), args[1].datetime_value(), &result_string));
+      break;
+    case TYPE_TIMESTAMP: {
+      if (args.size() == 2) {
+        ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
+            args[0].string_value(), args[1].ToUnixMicros(),
+            context->GetDefaultTimeZone(), &result_string));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
+            args[0].string_value(), args[1].ToUnixMicros(),
+            args[2].string_value(), &result_string));
+      }
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported type " << args[1].type()->DebugString()
+             << " in function " << debug_name();
+  }
   return Value::String(result_string);
 }
 
@@ -4431,25 +4833,6 @@ zetasql_base::StatusOr<Value> FormatTimeFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::FormatTimeToString(
       args[0].string_value(), args[1].time_value(),
       &result_string));
-  return Value::String(result_string);
-}
-
-zetasql_base::StatusOr<Value> FormatTimestampFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  if (args[0].is_null() || args[1].is_null() ||
-      (args.size() == 3 && args[2].is_null())) {
-    return Value::Null(output_type());
-  }
-  std::string result_string;
-  if (args.size() == 2) {
-    ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-        args[0].string_value(), args[1].ToUnixMicros(),
-        context->GetDefaultTimeZone(), &result_string));
-  } else {
-    ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-        args[0].string_value(), args[1].ToUnixMicros(), args[2].string_value(),
-        &result_string));
-  }
   return Value::String(result_string);
 }
 
@@ -4496,6 +4879,8 @@ zetasql_base::StatusOr<Value> TimestampConversionFunction::Eval(
       return MakeEvalError() << "Unsupported function: " << debug_name();
     }
     return Value::TimestampFromUnixMicros(timestamp_micros);
+  } else if (args.size() == 1 && args[0].type()->IsTimestamp()) {
+    return args[0];
   } else {
     return ::zetasql_base::UnimplementedErrorBuilder()
            << "Unsupported function: " << debug_name();
@@ -4540,6 +4925,11 @@ zetasql_base::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
         } else {
           return MakeEvalError() << "Unsupported function: " << debug_name();
         }
+      } else if (args.size() == 1 && args[0].type()->IsDate()) {
+        return args[0];
+      } else if (args.size() == 1 && args[0].type()->IsString()) {
+        ZETASQL_RETURN_IF_ERROR(
+            functions::ConvertStringToDate(args[0].string_value(), &date));
       } else {
         return ::zetasql_base::UnimplementedErrorBuilder()
                << "Unsupported function: " << debug_name();
@@ -4568,6 +4958,11 @@ zetasql_base::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
           } else {
             return MakeEvalError() << "Unsupported function: " << debug_name();
           }
+        } else if (args.size() == 1 && args[0].type()->IsTime()) {
+          return args[0];
+        } else if (args.size() == 1 && args[0].type()->IsString()) {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTime(
+              args[0].string_value(), functions::kMicroseconds, &time));
         } else {
           ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
         }
@@ -4603,6 +4998,11 @@ zetasql_base::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
           } else {
             return MakeEvalError() << "Unsupported function: " << debug_name();
           }
+        } else if (args.size() == 1 && args[0].type()->IsDatetime()) {
+          return args[0];
+        } else if (args.size() == 1 && args[0].type()->IsString()) {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(
+              args[0].string_value(), functions::kMicroseconds, &datetime));
         } else {
           ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
         }
@@ -4694,43 +5094,61 @@ zetasql_base::StatusOr<Value> IntFromTimestampFunction::Eval(
   return Value::Int64(unix_time);
 }
 
-zetasql_base::StatusOr<Value> StringFromTimestampFunction::Eval(
+static functions::TimestampScale GetTimestampScale(
+    const LanguageOptions& options) {
+  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+    return functions::TimestampScale::kNanoseconds;
+  } else {
+    return functions::TimestampScale::kMicroseconds;
+  }
+}
+
+zetasql_base::StatusOr<Value> StringConversionFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   if (args[0].is_null() || (args.size() == 2 && args[1].is_null())) {
     return Value::Null(output_type());
   }
-  int64_t timestamp;
-  functions::TimestampScale scale;
+
+  std::string result_string;
   switch (args[0].type_kind()) {
-    case TYPE_TIMESTAMP:
-      timestamp = args[0].ToUnixMicros();
-      scale = functions::kMicroseconds;
+    case TYPE_TIMESTAMP: {
+      absl::TimeZone timezone;
+      if (args.size() == 1) {
+        timezone = context->GetDefaultTimeZone();
+      } else {
+        ZETASQL_RETURN_IF_ERROR(
+            functions::MakeTimeZone(args[1].string_value(), &timezone));
+      }
+      if (context->GetLanguageOptions().LanguageFeatureEnabled(
+              FEATURE_TIMESTAMP_NANOS)) {
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
+            args[0].ToTime(), functions::kNanoseconds, timezone,
+            &result_string));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithTruncation(
+            args[0].ToUnixMicros(), functions::kMicroseconds, timezone,
+            &result_string));
+      }
+      break;
+    }
+    case TYPE_DATE:
+      ZETASQL_RETURN_IF_ERROR(
+          functions::ConvertDateToString(args[0].date_value(), &result_string));
+      break;
+    case TYPE_TIME:
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertTimeToString(
+          args[0].time_value(),
+          GetTimestampScale(context->GetLanguageOptions()), &result_string));
+      break;
+    case TYPE_DATETIME:
+      ZETASQL_RETURN_IF_ERROR(functions::ConvertDatetimeToString(
+          args[0].datetime_value(),
+          GetTimestampScale(context->GetLanguageOptions()), &result_string));
       break;
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "String function only supports TIMESTAMP types but type "
-             << args[0].type()->DebugString() << " provided.";
-  }
-
-  std::string result_string;
-  absl::TimeZone timezone;
-  if (args.size() == 1) {
-    timezone = context->GetDefaultTimeZone();
-  } else {
-    ZETASQL_RETURN_IF_ERROR(functions::MakeTimeZone(args[1].string_value(), &timezone));
-  }
-  if (args[0].type_kind() == TYPE_TIMESTAMP) {
-    ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithTruncation(
-          timestamp,
-          scale,
-          timezone,
-          &result_string));
-  } else {
-    ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithoutTruncation(
-          timestamp,
-          scale,
-          timezone,
-          &result_string));
+             << "Unsupported type " << args[0].type()->DebugString()
+             << " for String function";
   }
   return Value::String(result_string);
 }
@@ -4743,15 +5161,6 @@ zetasql_base::StatusOr<Value> ParseDateFunction::Eval(
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDate(
       args[0].string_value(), args[1].string_value(), &date));
   return Value::Date(date);
-}
-
-static functions::TimestampScale GetTimestampScale(
-    const LanguageOptions& options) {
-  if (options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
-    return functions::TimestampScale::kNanoseconds;
-  } else {
-    return functions::TimestampScale::kMicroseconds;
-  }
 }
 
 zetasql_base::StatusOr<Value> ParseDatetimeFunction::Eval(
@@ -4808,23 +5217,9 @@ zetasql_base::StatusOr<Value> ParseTimestampFunction::Eval(
   }
 }
 
-zetasql_base::StatusOr<Value> DateTruncFunction::Eval(
+zetasql_base::StatusOr<Value> DateTimeTruncFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  // The signature arguments are (<date>, <datepart>).
-  ZETASQL_RET_CHECK_EQ(args.size(), 2);
-  if (args[0].is_null() || args[1].is_null()) {
-    return Value::Null(output_type());
-  }
-  functions::DateTimestampPart part =
-      static_cast<functions::DateTimestampPart>(args[1].enum_value());
-  int32_t date;
-  ZETASQL_RETURN_IF_ERROR(functions::TruncateDate(args[0].date_value(), part, &date));
-  return values::Date(date);
-}
-
-zetasql_base::StatusOr<Value> TimestampTruncFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  // The signature arguments are (<timestamp>, <datepart> [, <timezone>]).
+  // The signature arguments are (<expr>, <datepart>).
   ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 3);
   if (args[0].is_null() || args[1].is_null() ||
       (args.size() == 3 && args[2].is_null())) {
@@ -4832,17 +5227,71 @@ zetasql_base::StatusOr<Value> TimestampTruncFunction::Eval(
   }
   functions::DateTimestampPart part =
       static_cast<functions::DateTimestampPart>(args[1].enum_value());
-  int64_t int64_timestamp;
-  if (args.size() == 2) {
-    ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
-                                              context->GetDefaultTimeZone(),
-                                              part, &int64_timestamp));
-  } else {
-    ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
-                                              args[2].string_value(), part,
-                                              &int64_timestamp));
+  switch (args[0].type_kind()) {
+    case TYPE_DATE: {
+      int32_t date;
+      ZETASQL_RETURN_IF_ERROR(
+          functions::TruncateDate(args[0].date_value(), part, &date));
+      return values::Date(date);
+    }
+    case TYPE_TIMESTAMP: {
+      int64_t int64_timestamp;
+      if (args.size() == 2) {
+        ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
+                                                  context->GetDefaultTimeZone(),
+                                                  part, &int64_timestamp));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::TimestampTrunc(args[0].ToUnixMicros(),
+                                                  args[2].string_value(), part,
+                                                  &int64_timestamp));
+      }
+      return Value::TimestampFromUnixMicros(int64_timestamp);
+    }
+    case TYPE_DATETIME: {
+      DatetimeValue datetime;
+      ZETASQL_RETURN_IF_ERROR(functions::TruncateDatetime(args[0].datetime_value(),
+                                                  part, &datetime));
+      return Value::Datetime(datetime);
+    }
+    case TYPE_TIME: {
+      TimeValue time;
+      ZETASQL_RETURN_IF_ERROR(
+          functions::TruncateTime(args[0].time_value(), part, &time));
+      return Value::Time(time);
+    }
+    default:
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Unsupported type " << args[0].type()->DebugString()
+             << " for datetime TRUNC function";
   }
-  return Value::TimestampFromUnixMicros(int64_timestamp);
+}
+
+zetasql_base::StatusOr<Value> LastDayFunction::Eval(absl::Span<const Value> args,
+                                            EvaluationContext* context) const {
+  // The signature arguments are (<date> or <datetime>, <datepart> optional).
+  ZETASQL_RET_CHECK_LE(args.size(), 2);
+  ZETASQL_RET_CHECK_GE(args.size(), 1);
+  if (args[0].is_null()) {
+    return Value::Null(output_type());
+  }
+  functions::DateTimestampPart part;
+  if (args.size() == 2) {
+    if (args[1].is_null()) {
+      return Value::Null(output_type());
+    }
+    part = static_cast<functions::DateTimestampPart>(args[1].enum_value());
+  } else {
+    part = functions::DateTimestampPart::MONTH;
+  }
+  int32_t date;
+  if (args[0].type_kind() == TYPE_DATE) {
+    ZETASQL_RETURN_IF_ERROR(
+        functions::LastDayOfDate(args[0].date_value(), part, &date));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(
+        functions::LastDayOfDatetime(args[0].datetime_value(), part, &date));
+  }
+  return values::Date(date);
 }
 
 zetasql_base::StatusOr<Value> FromProtoFunction::Eval(
@@ -5118,34 +5567,6 @@ zetasql_base::StatusOr<Value> EnumValueDescriptorProtoFunction::Eval(
                                   enum_value_desc_proto);
 }
 
-zetasql_base::StatusOr<Value> CivilTimeTruncFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  // The signature arguments are ([<datetime>|<time>], <datepart>)
-  ZETASQL_RET_CHECK(args.size() == 2);
-  if (args[0].is_null() || args[1].is_null()) {
-    return Value::Null(output_type());
-  }
-  functions::DateTimestampPart part =
-      static_cast<functions::DateTimestampPart>(args[1].enum_value());
-  switch (kind()) {
-    case FunctionKind::kDatetimeTrunc: {
-      DatetimeValue datetime;
-      ZETASQL_RETURN_IF_ERROR(functions::TruncateDatetime(args[0].datetime_value(),
-                                                  part, &datetime));
-      return Value::Datetime(datetime);
-    }
-    case FunctionKind::kTimeTrunc: {
-      TimeValue time;
-      ZETASQL_RETURN_IF_ERROR(
-          functions::TruncateTime(args[0].time_value(), part, &time));
-      return Value::Time(time);
-    }
-    default:
-      return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Unsupported function: " << debug_name();
-  }
-}
-
 zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   if (args[0].is_null() || args[1].is_null()) {
@@ -5164,18 +5585,24 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
       ZETASQL_RETURN_IF_ERROR(functions::SubDate(args[0].date_value(), part,
                                          args[1].int64_value(), &value32));
       return Value::Date(value32);
+    case FCT(FunctionKind::kDateAdd, TYPE_DATETIME):
+    case FCT(FunctionKind::kTimestampAdd, TYPE_DATETIME):
     case FCT(FunctionKind::kDatetimeAdd, TYPE_DATETIME): {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(functions::AddDatetime(args[0].datetime_value(), part,
                                          args[1].int64_value(), &datetime));
       return Value::Datetime(datetime);
     }
+    case FCT(FunctionKind::kDateSub, TYPE_DATETIME):
+    case FCT(FunctionKind::kTimestampSub, TYPE_DATETIME):
     case FCT(FunctionKind::kDatetimeSub, TYPE_DATETIME): {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(functions::SubDatetime(args[0].datetime_value(), part,
                                          args[1].int64_value(), &datetime));
       return Value::Datetime(datetime);
     }
+    case FCT(FunctionKind::kDateDiff, TYPE_DATETIME):
+    case FCT(FunctionKind::kTimestampDiff, TYPE_DATETIME):
     case FCT(FunctionKind::kDatetimeDiff, TYPE_DATETIME):
       ZETASQL_RETURN_IF_ERROR(functions::DiffDatetimes(
           args[0].datetime_value(), args[1].datetime_value(), part, &value64));
@@ -5185,6 +5612,8 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
           args[0].date_value(), args[1].date_value(), part, &value32));
       return output_type()->IsInt64() ? Value::Int64(value32)
                                       : Value::Int32(value32);
+    case FCT(FunctionKind::kDateDiff, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDatetimeDiff, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampDiff, TYPE_TIMESTAMP):
       ZETASQL_RETURN_IF_ERROR(functions::TimestampDiff(
           args[0].ToUnixMicros(), args[1].ToUnixMicros(),
@@ -5206,6 +5635,8 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
       ZETASQL_RETURN_IF_ERROR(functions::DiffTimes(
           args[0].time_value(), args[1].time_value(), part, &value64));
       return Value::Int64(value64);
+    case FCT(FunctionKind::kDateAdd, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDatetimeAdd, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampAdd, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
@@ -5215,6 +5646,8 @@ zetasql_base::StatusOr<Value> DateTimeDiffFunction::Eval(
           &value64));
       return Value::TimestampFromUnixMicros(value64);
     }
+    case FCT(FunctionKind::kDateSub, TYPE_TIMESTAMP):
+    case FCT(FunctionKind::kDatetimeSub, TYPE_TIMESTAMP):
     case FCT(FunctionKind::kTimestampSub, TYPE_TIMESTAMP): {
       // We can hardcode the time zone to the default because it is only
       // used for error messaging.
@@ -6088,6 +6521,37 @@ absl::Status LagFunction::Eval(const TupleSchema& schema,
   return absl::OkStatus();
 }
 
+template <typename T>
+zetasql_base::StatusOr<Value> ComputePercentileCont(
+    const std::vector<Value>& values_arg, T percentile, bool ignore_nulls) {
+  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<T> percentile_evalutor,
+                   PercentileEvaluator<T>::Create(percentile));
+
+  std::vector<T> normal_values;
+  normal_values.reserve(values_arg.size());
+  size_t num_nulls = 0;
+  for (const Value& value_arg : values_arg) {
+    if constexpr (std::is_same_v<T, double>) {
+      ZETASQL_RET_CHECK(value_arg.type()->IsDouble());
+    } else if constexpr (std::is_same_v<T, NumericValue>) {
+      ZETASQL_RET_CHECK(value_arg.type()->IsNumericType());
+    }
+    if (value_arg.is_null()) {
+      ++num_nulls;
+    } else {
+      normal_values.push_back(value_arg.Get<T>());
+    }
+  }
+
+  T result_value;
+  bool result_is_not_null =
+      percentile_evalutor.template ComputePercentileCont<false>(
+          normal_values.begin(), normal_values.end(),
+          (ignore_nulls ? 0 : num_nulls), &result_value);
+  return result_is_not_null ? Value::Make<T>(result_value)
+                            : Value::MakeNull<T>();
+}
+
 absl::Status PercentileContFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
@@ -6098,9 +6562,6 @@ absl::Status PercentileContFunction::Eval(
   ZETASQL_RET_CHECK(windows.empty());
   ZETASQL_RET_CHECK(comparator == nullptr);
 
-  // The optional arguments <offset> and <default expression> must have
-  // been populated with default expressions by the algebrizer if they are not
-  // specified.
   ZETASQL_RET_CHECK_EQ(2, args.size());
   const std::vector<Value>& values_arg = args[0];
   // First argument <value expression> must have been evaluated on each
@@ -6108,52 +6569,48 @@ absl::Status PercentileContFunction::Eval(
   ZETASQL_RET_CHECK_EQ(tuples.size(), args[0].size());
   // Second argument <offset> must be a constant and of type double.
   ZETASQL_RET_CHECK_EQ(1, args[1].size());
-  ZETASQL_RET_CHECK(args[1][0].type()->IsDouble());
-
-  if (args[1][0].is_null()) {
+  const Value& percentile_arg = args[1][0];
+  if (percentile_arg.is_null()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "The second argument to the function PERCENTILE_CONT must not be"
               " null";
   }
-
-  const double percentile = args[1][0].double_value();
-  if (!(percentile >= 0 && percentile <= 1)) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "The second argument to the function PERCENTILE_CONT must be in"
-              " [0, 1]; got "
-           << percentile;
-  }
-
-  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator percentile_evalutor,
-                   PercentileEvaluator::Create(percentile));
-
-  std::vector<double> normal_values;
-  normal_values.reserve(values_arg.size());
-  size_t num_nulls = 0;
-  for (const Value& value_arg : values_arg) {
-    ZETASQL_RET_CHECK(value_arg.type()->IsDouble());
-    if (value_arg.is_null()) {
-      ++num_nulls;
-    } else {
-      normal_values.push_back(value_arg.double_value());
+  Value output_value;
+  switch (percentile_arg.type_kind()) {
+    case TYPE_DOUBLE: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output_value,
+          ComputePercentileCont(values_arg, percentile_arg.double_value(),
+                                ignore_nulls_));
+      break;
     }
+    case TYPE_NUMERIC: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output_value,
+          ComputePercentileCont(values_arg, percentile_arg.numeric_value(),
+                                ignore_nulls_));
+      break;
+    }
+    case TYPE_BIGNUMERIC: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output_value,
+          ComputePercentileCont(values_arg, percentile_arg.bignumeric_value(),
+                                ignore_nulls_));
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported argument type for percentile_disc.";
   }
-
-  double result_value;
-  bool result_is_not_null = percentile_evalutor.ComputePercentileCont<false>(
-      normal_values.begin(), normal_values.end(),
-      (ignore_nulls_ ? 0 : num_nulls), &result_value);
-  result->resize(
-      values_arg.size(),
-      result_is_not_null ? Value::Double(result_value) : Value::NullDouble());
+  result->resize(values_arg.size(), output_value);
   return absl::OkStatus();
 }
 
-template <typename T, typename V = T, typename ValueCreationFn = Value(*)(T)>
+template <typename T, typename PercentileType, typename V = T,
+          typename ValueCreationFn = Value (*)(T)>
 Value ComputePercentileDisc(
-    const PercentileEvaluator& percentile_evalutor,
-    const std::vector<Value>& values_arg,
-    const Type* type,
+    const PercentileEvaluator<PercentileType>& percentile_evalutor,
+    const std::vector<Value>& values_arg, const Type* type,
     V (Value::*extract_value_fn)() const /* e.g., &Value::double_value */,
     const ValueCreationFn& value_creation_fn /* e.g., &Value::Double */,
     bool ignore_nulls) {
@@ -6168,11 +6625,95 @@ Value ComputePercentileDisc(
     }
   }
 
-  auto itr = percentile_evalutor.ComputePercentileDisc<T, false>(
+  auto itr = percentile_evalutor.template ComputePercentileDisc<T, false>(
       normal_values.begin(), normal_values.end(),
       (ignore_nulls ? 0 : num_nulls));
   return itr == normal_values.end() ?
       Value::Null(type) : value_creation_fn(*itr);
+}
+
+template <typename PercentileType>
+zetasql_base::StatusOr<Value> ComputePercentileDisc(
+    const std::vector<Value>& values_arg, const Type* type,
+    PercentileType percentile, bool ignore_nulls) {
+  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<PercentileType> percentile_evalutor,
+                   PercentileEvaluator<PercentileType>::Create(percentile));
+  switch (type->kind()) {
+    case TYPE_INT64:
+      return ComputePercentileDisc<int64_t>(percentile_evalutor, values_arg, type,
+                                          &Value::int64_value, &Value::Int64,
+                                          ignore_nulls);
+    case TYPE_INT32:
+      return ComputePercentileDisc<int32_t>(percentile_evalutor, values_arg, type,
+                                          &Value::int32_value, &Value::Int32,
+                                          ignore_nulls);
+    case TYPE_UINT64:
+      return ComputePercentileDisc<uint64_t>(percentile_evalutor, values_arg,
+                                           type, &Value::uint64_value,
+                                           &Value::Uint64, ignore_nulls);
+    case TYPE_UINT32:
+      return ComputePercentileDisc<uint32_t>(percentile_evalutor, values_arg,
+                                           type, &Value::uint32_value,
+                                           &Value::Uint32, ignore_nulls);
+    case TYPE_DOUBLE:
+      return ComputePercentileDisc<double>(percentile_evalutor, values_arg,
+                                           type, &Value::double_value,
+                                           &Value::Double, ignore_nulls);
+    case TYPE_FLOAT:
+      return ComputePercentileDisc<float>(percentile_evalutor, values_arg, type,
+                                          &Value::float_value, &Value::Float,
+                                          ignore_nulls);
+    case TYPE_NUMERIC:
+      return ComputePercentileDisc<NumericValue>(
+          percentile_evalutor, values_arg, type, &Value::numeric_value,
+          &Value::Numeric, ignore_nulls);
+    case TYPE_BIGNUMERIC:
+      return ComputePercentileDisc<BigNumericValue>(
+          percentile_evalutor, values_arg, type, &Value::bignumeric_value,
+          &Value::BigNumeric, ignore_nulls);
+    case TYPE_BYTES:
+      return ComputePercentileDisc<absl::string_view, PercentileType,
+                                   const std::string&>(
+          percentile_evalutor, values_arg, type, &Value::bytes_value,
+          &Value::Bytes, ignore_nulls);
+    case TYPE_STRING:
+      return ComputePercentileDisc<absl::string_view, PercentileType,
+                                   const std::string&>(
+          percentile_evalutor, values_arg, type, &Value::string_value,
+          &Value::String, ignore_nulls);
+    case TYPE_BOOL:
+      return ComputePercentileDisc<bool>(percentile_evalutor, values_arg, type,
+                                         &Value::bool_value, &Value::Bool,
+                                         ignore_nulls);
+    case TYPE_DATE:
+      return ComputePercentileDisc<int32_t>(percentile_evalutor, values_arg, type,
+                                          &Value::date_value, &Value::Date,
+                                          ignore_nulls);
+    case TYPE_DATETIME:
+      return ComputePercentileDisc<int64_t>(percentile_evalutor, values_arg, type,
+                                          &Value::ToPacked64DatetimeMicros,
+                                          &Value::DatetimeFromPacked64Micros,
+                                          ignore_nulls);
+    case TYPE_TIME:
+      return ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::ToPacked64TimeMicros,
+          &Value::TimeFromPacked64Micros, ignore_nulls);
+    case TYPE_TIMESTAMP:
+      return ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::ToUnixMicros,
+          &Value::TimestampFromUnixMicros, ignore_nulls);
+    case TYPE_ENUM:
+      return ComputePercentileDisc<int32_t, PercentileType, int32_t,
+                                   std::function<Value(int32_t)>>(
+          percentile_evalutor, values_arg, type, &Value::enum_value,
+          [type](int32_t value) -> Value {
+            return Value::Enum(type->AsEnum(), value);
+          },
+          ignore_nulls);
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported argument type for percentile_disc.";
+  }
 }
 
 absl::Status PercentileDiscFunction::Eval(
@@ -6185,9 +6726,6 @@ absl::Status PercentileDiscFunction::Eval(
   ZETASQL_RET_CHECK(windows.empty());
   ZETASQL_RET_CHECK(comparator == nullptr);
 
-  // The optional arguments <offset> and <default expression> must have
-  // been populated with default expressions by the algebrizer if they are not
-  // specified.
   ZETASQL_RET_CHECK_EQ(2, args.size());
   const std::vector<Value>& values_arg = args[0];
   // First argument <value expression> must have been evaluated on each
@@ -6195,116 +6733,35 @@ absl::Status PercentileDiscFunction::Eval(
   ZETASQL_RET_CHECK_EQ(tuples.size(), args[0].size());
   // Second argument <offset> must be a constant and of type double.
   ZETASQL_RET_CHECK_EQ(1, args[1].size());
-  ZETASQL_RET_CHECK(args[1][0].type()->IsDouble());
-
-  if (args[1][0].is_null()) {
+  const Value& percentile_arg = args[1][0];
+  if (percentile_arg.is_null()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "The second argument to the function PERCENTILE_CONT must not be"
+           << "The second argument to the function PERCENTILE_DISC must not be"
               " null";
   }
-
-  const double percentile = args[1][0].double_value();
-  if (!(percentile >= 0 && percentile <= 1)) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "The second argument to the function PERCENTILE_CONT must be in"
-              " [0, 1]; got "
-           << percentile;
-  }
-
-  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator percentile_evalutor,
-                   PercentileEvaluator::Create(percentile));
-
   Value output_value;
-  const Type* type = output_type();
-  switch (output_type()->kind()) {
-    case TYPE_INT64:
-      output_value = ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type, &Value::int64_value,
-          &Value::Int64, ignore_nulls_);
+  switch (percentile_arg.type_kind()) {
+    case TYPE_DOUBLE: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output_value,
+          ComputePercentileDisc(values_arg, output_type(),
+                                percentile_arg.double_value(), ignore_nulls_));
       break;
-    case TYPE_INT32:
-      output_value = ComputePercentileDisc<int32_t>(
-          percentile_evalutor, values_arg, type, &Value::int32_value,
-          &Value::Int32, ignore_nulls_);
+    }
+    case TYPE_NUMERIC: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          output_value,
+          ComputePercentileDisc(values_arg, output_type(),
+                                percentile_arg.numeric_value(), ignore_nulls_));
       break;
-    case TYPE_UINT64:
-      output_value = ComputePercentileDisc<uint64_t>(
-          percentile_evalutor, values_arg, type, &Value::uint64_value,
-          &Value::Uint64, ignore_nulls_);
+    }
+    case TYPE_BIGNUMERIC: {
+      ZETASQL_ASSIGN_OR_RETURN(output_value,
+                       ComputePercentileDisc(values_arg, output_type(),
+                                             percentile_arg.bignumeric_value(),
+                                             ignore_nulls_));
       break;
-    case TYPE_UINT32:
-      output_value = ComputePercentileDisc<uint32_t>(
-          percentile_evalutor, values_arg, type, &Value::uint32_value,
-          &Value::Uint32, ignore_nulls_);
-      break;
-    case TYPE_DOUBLE:
-      output_value = ComputePercentileDisc<double>(
-          percentile_evalutor, values_arg, type, &Value::double_value,
-          &Value::Double, ignore_nulls_);
-      break;
-    case TYPE_FLOAT:
-      output_value = ComputePercentileDisc<float>(
-          percentile_evalutor, values_arg, type, &Value::float_value,
-          &Value::Float, ignore_nulls_);
-      break;
-    case TYPE_NUMERIC:
-      output_value = ComputePercentileDisc<NumericValue>(
-          percentile_evalutor, values_arg, type, &Value::numeric_value,
-          &Value::Numeric, ignore_nulls_);
-      break;
-    case TYPE_BIGNUMERIC:
-      output_value = ComputePercentileDisc<BigNumericValue>(
-          percentile_evalutor, values_arg, type, &Value::bignumeric_value,
-          &Value::BigNumeric, ignore_nulls_);
-      break;
-    case TYPE_BYTES:
-      output_value =
-          ComputePercentileDisc<absl::string_view, const std::string&>(
-              percentile_evalutor, values_arg, type, &Value::bytes_value,
-              &Value::Bytes, ignore_nulls_);
-      break;
-    case TYPE_STRING:
-      output_value =
-          ComputePercentileDisc<absl::string_view, const std::string&>(
-              percentile_evalutor, values_arg, type, &Value::string_value,
-              &Value::String, ignore_nulls_);
-      break;
-    case TYPE_BOOL:
-      output_value = ComputePercentileDisc<bool>(
-          percentile_evalutor, values_arg, type, &Value::bool_value,
-          &Value::Bool, ignore_nulls_);
-      break;
-    case TYPE_DATE:
-      output_value = ComputePercentileDisc<int32_t>(
-          percentile_evalutor, values_arg, type, &Value::date_value,
-          &Value::Date, ignore_nulls_);
-      break;
-    case TYPE_DATETIME:
-      output_value = ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type,
-          &Value::ToPacked64DatetimeMicros, &Value::DatetimeFromPacked64Micros,
-          ignore_nulls_);
-      break;
-    case TYPE_TIME:
-      output_value = ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type, &Value::ToPacked64TimeMicros,
-          &Value::TimeFromPacked64Micros, ignore_nulls_);
-      break;
-    case TYPE_TIMESTAMP:
-      output_value = ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type, &Value::ToUnixMicros,
-          &Value::TimestampFromUnixMicros, ignore_nulls_);
-      break;
-    case TYPE_ENUM:
-      output_value =
-          ComputePercentileDisc<int32_t, int32_t, std::function<Value(int32_t)>>(
-              percentile_evalutor, values_arg, type,
-              &Value::enum_value,
-              [type](int32_t value) -> Value {
-                return Value::Enum(type->AsEnum(), value);
-              },
-              ignore_nulls_);
-      break;
+    }
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unsupported argument type for percentile_disc.";

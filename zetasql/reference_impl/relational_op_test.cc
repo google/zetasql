@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,14 +51,16 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/source_location.h"
+#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/clock.h"
 
 using absl::nullopt;
@@ -78,6 +80,7 @@ using testing::Matcher;
 using testing::Not;
 using testing::Pointee;
 using testing::PrintToString;
+using testing::SizeIs;
 using testing::TestWithParam;
 using testing::UnorderedElementsAreArray;
 using testing::ValuesIn;
@@ -124,6 +127,59 @@ std::unique_ptr<ScalarFunctionBody> CreateFunction(FunctionKind kind,
   return BuiltinScalarFunction::CreateValidated(kind, language_options,
                                                 output_type, {})
       .value();
+}
+
+zetasql_base::StatusOr<std::unique_ptr<ExprArg>> AssignValueToVar(VariableId var,
+                                                          const Value& value) {
+  ZETASQL_ASSIGN_OR_RETURN(auto const_expr, ConstExpr::Create(value));
+  return absl::make_unique<ExprArg>(var, std::move(const_expr));
+}
+
+// Convenience method to produce an ExprArg representing "result = v1 + v2".
+//
+// All operands should have type <type>, which will be the type of the result
+// as well.
+zetasql_base::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1,
+                                                    VariableId v2,
+                                                    VariableId result,
+                                                    const Type* type) {
+  std::vector<std::unique_ptr<ValueExpr>> add_args(2);
+  ZETASQL_ASSIGN_OR_RETURN(add_args[0], DerefExpr::Create(v1, type));
+  ZETASQL_ASSIGN_OR_RETURN(add_args[1], DerefExpr::Create(v2, type));
+  ZETASQL_ASSIGN_OR_RETURN(auto add_expr, ScalarFunctionCallExpr::Create(
+                                      CreateFunction(FunctionKind::kAdd, type),
+                                      std::move(add_args)));
+  return absl::make_unique<ExprArg>(result, std::move(add_expr));
+}
+
+// Convience method to produce an ExprArg representing "result = v1 + v2".
+// This is similar to the above method, except the 2nd operand is a constant,
+// rather than a variable.
+zetasql_base::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1, Value v2,
+                                                    VariableId result) {
+  std::vector<std::unique_ptr<ValueExpr>> add_args(2);
+  ZETASQL_ASSIGN_OR_RETURN(add_args[0], DerefExpr::Create(v1, v2.type()));
+  ZETASQL_ASSIGN_OR_RETURN(add_args[1], ConstExpr::Create(v2));
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto add_expr,
+      ScalarFunctionCallExpr::Create(
+          CreateFunction(FunctionKind::kAdd, v2.type()), std::move(add_args)));
+  return absl::make_unique<ExprArg>(result, std::move(add_expr));
+}
+
+// Returns a RelationalOp representing <input>, filtered to include rows only
+// where <var> has value less than <value>. <var> and <value> must be the same
+// type.
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> FilterLessThan(
+    VariableId var, Value value, std::unique_ptr<RelationalOp> input) {
+  std::vector<std::unique_ptr<ValueExpr>> less_than_args(2);
+  ZETASQL_ASSIGN_OR_RETURN(less_than_args[0], DerefExpr::Create(var, value.type()));
+  ZETASQL_ASSIGN_OR_RETURN(less_than_args[1], ConstExpr::Create(value));
+  ZETASQL_ASSIGN_OR_RETURN(auto predicate,
+                   ScalarFunctionCallExpr::Create(
+                       CreateFunction(FunctionKind::kLess, BoolType()),
+                       std::move(less_than_args), DEFAULT_ERROR_MODE));
+  return FilterOp::Create(std::move(predicate), std::move(input));
 }
 
 // Test fixture for implementations of RelationalOp::CreateIterator.
@@ -827,6 +883,182 @@ TEST_F(CreateIteratorTest, EvaluatorTableScanOpDeadlineExceeded) {
   EXPECT_THAT(iter->Status(), StatusIs(absl::StatusCode::kDeadlineExceeded, _));
 }
 
+// Test implementation of CppValueArg; associates the variable with a
+// direct std::string (as opposed to a zetasql::Value representing a string).
+class TestCppValueArg : public CppValueArg {
+ public:
+  TestCppValueArg(VariableId var, absl::string_view value)
+      : CppValueArg(var, absl::StrCat("TestCppValueArg: ", value)),
+        value_(value) {}
+
+  std::unique_ptr<CppValueBase> CreateValue(
+      EvaluationContext* context) const override {
+    EXPECT_NE(context, nullptr);
+    return absl::make_unique<CppValue<std::string>>(value_);
+  }
+
+ private:
+  std::string value_;
+};
+
+// RelationalOp implementation to test consumption of CppValue's produced by
+// TestCppValueArg.
+//
+// Emits one row with schema <output_vars>, consisting of the values from
+//   <tuple_vars> and <cpp_vars> concatenated together. CppValue's are converted
+//   to zetasql::Value's by assuming they are of type CppValue<std::string>
+//   and creating a zetasql::Value to represent the underlying string.
+class TestCppValuesOp : public RelationalOp {
+ public:
+  // tuple_vars: Variables to be consumed, passed in to CreateIterator() via
+  //   <params>, using the schema passed into SetSchemasForEvaluation().
+  // cpp_vars: C++ Variables to be consumed; values are read from
+  //   EvaluationContext, and are assumed to be of type CppValue<std::string>;
+  //   Each C++ value translates into a zetasql::Value of STRING type.
+  // output_vars: Variables to use in the output schema. Requirement:
+  //   output_vars.size() == tuple_vars.size() + cpp_vars.size()
+  TestCppValuesOp(std::vector<VariableId> tuple_vars,
+                       std::vector<VariableId> cpp_vars,
+                       std::vector<VariableId> output_vars)
+      : cpp_vars_(cpp_vars), output_vars_(output_vars) {
+    // Initialize slot indices for tuple variables to -1, we'll substitute in
+    // the actual values during SetSchemasForEvaluation().
+    for (VariableId v : tuple_vars) {
+      tuple_vars_slots_[v] = std::make_pair(-1, -1);
+    }
+  }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override {
+    for (auto& pair : tuple_vars_slots_) {
+      bool found = false;
+      for (int i = 0; i < params_schemas.size(); ++i) {
+        absl::optional<int> idx =
+            params_schemas[i]->FindIndexForVariable(pair.first);
+        if (idx.has_value()) {
+          pair.second = std::make_pair(i, idx.value());
+          found = true;
+        }
+      }
+      if (!found) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+               << "Variable " << pair.first << " not found";
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override {
+    std::vector<TupleData> tuple_data;
+    tuple_data.emplace_back(tuple_vars_slots_.size() + cpp_vars_.size() +
+                            num_extra_slots);
+    // Include tuple variables first. Tuple variables exists to verify that
+    // the LetOp is able to handle tuple variables and cpp variables
+    // simultaneously.
+    int slot_idx = 0;
+    for (const auto& pair : tuple_vars_slots_) {
+      tuple_data[0]
+          .mutable_slot(slot_idx++)
+          ->CopyFromSlot(params[pair.second.first]->slot(pair.second.second));
+    }
+
+    // Convert the std::string's into zetasql::Value's, and pack into a
+    // TupleData to return to the caller.
+    for (const auto& var : cpp_vars_) {
+      tuple_data[0]
+          .mutable_slot(slot_idx++)
+          ->SetValue(Value::String(
+              *CppValue<std::string>::Get(context->GetCppValue(var))));
+    }
+    return absl::make_unique<TestTupleIterator>(
+        output_vars_, std::move(tuple_data), /*preserves_order=*/true,
+        /*end_status=*/absl::OkStatus());
+  }
+
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override {
+    return absl::make_unique<TupleSchema>(output_vars_);
+  }
+
+  std::string IteratorDebugString() const override {
+    return TestTupleIterator::GetDebugString();
+  }
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override {
+    return absl::StrCat(
+        "ConsumeTestCppValues: ",
+        absl::StrJoin(cpp_vars_, ", ",
+                      [](std::string* out, VariableId v) {
+                        absl::StrAppend(out, v.ToString());
+                      }),
+        " => ",
+        absl::StrJoin(output_vars_, ", ", [](std::string* out, VariableId v) {
+          absl::StrAppend(out, v.ToString());
+        }));
+  }
+
+ private:
+  std::map<VariableId, std::pair<int, int>> tuple_vars_slots_;
+  // CppValue'd variables; assumed to be instances of TestCppValueArg
+  std::vector<VariableId> cpp_vars_;
+  std::vector<VariableId> output_vars_;
+};
+
+TEST_F(CreateIteratorTest, LetOpCppValues) {
+  VariableId a("a"), b("b"), n("n"), x("x"), y("y");
+  VariableId out_a("out_a"), out_b("out_b"), out_x("out_x"), out_y("out_y");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_n, DerefExpr::Create(n, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_1, ConstExpr::Create(Int64(1)));
+
+  std::vector<std::unique_ptr<ExprArg>> assign;
+  assign.push_back(absl::make_unique<ExprArg>(a, std::move(const_1)));
+  assign.push_back(absl::make_unique<ExprArg>(b, std::move(deref_n)));
+
+  std::vector<std::unique_ptr<CppValueArg>> cpp_assign;
+  cpp_assign.push_back(absl::make_unique<TestCppValueArg>(x, "value_x"));
+  cpp_assign.push_back(absl::make_unique<TestCppValueArg>(y, "value_y"));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto let_op,
+      LetOp::Create(
+          std::move(assign), std::move(cpp_assign),
+          absl::make_unique<TestCppValuesOp>(
+              std::vector<VariableId>{a, b}, std::vector<VariableId>{x, y},
+              std::vector<VariableId>{out_a, out_b, out_x, out_y})));
+
+  TupleSchema schema({n});
+  ZETASQL_ASSERT_OK(let_op->SetSchemasForEvaluation({&schema}));
+  std::unique_ptr<TupleSchema> output_schema = let_op->CreateOutputSchema();
+  EXPECT_EQ("<out_a,out_b,out_x,out_y>", output_schema->DebugString());
+
+  TupleData data(CreateTestTupleData({Int64(10)}));
+  std::vector<const TupleData*> datas = {&data};
+  EvaluationContext context((EvaluationOptions()));
+  {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        std::unique_ptr<TupleIterator> iter,
+        let_op->CreateIterator(datas, /*num_extra_slots=*/1, &context));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> output_data,
+                         ReadFromTupleIterator(iter.get()));
+    ASSERT_EQ(1, output_data.size());
+    EXPECT_THAT(output_data[0].slots(),
+                ElementsAre(
+                    /*out_a: */ IsTupleSlotWith(Int64(1), IsNull()),
+                    /*out_b: */ IsTupleSlotWith(Int64(10), IsNull()),
+                    /*out_x: */ IsTupleSlotWith(String("value_x"), IsNull()),
+                    /*out_y: */ IsTupleSlotWith(String("value_y"), IsNull()),
+                    /*extra slot*/ _));
+  }
+
+  // Verify that C++ variables have been removed from the EvaluationContext
+  // when the LetOpTupleIterator is destroyed.
+  EXPECT_THAT(context.GetCppValue(x), IsNull());
+  EXPECT_THAT(context.GetCppValue(y), IsNull());
+}
+
 TEST_F(CreateIteratorTest, LetOp) {
   VariableId a("a"), x("x"), y("y"), z("z");
 
@@ -874,9 +1106,10 @@ TEST_F(CreateIteratorTest, LetOp) {
   let_op_assign.push_back(std::move(store_a_plus_one_in_x));
   let_op_assign.push_back(std::move(store_x_in_y));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto let_op,
-                       LetOp::Create(std::move(let_op_assign),
-                                     std::move(prepend_rows_with_y_into_z)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto let_op,
+      LetOp::Create(std::move(let_op_assign),
+                    /*cpp_assign=*/{}, std::move(prepend_rows_with_y_into_z)));
   EXPECT_EQ(let_op->IteratorDebugString(),
             "LetOpTupleIterator(ComputeTupleIterator(TestTupleIterator))");
   EXPECT_EQ(let_op->DebugString(),
@@ -884,6 +1117,7 @@ TEST_F(CreateIteratorTest, LetOp) {
             "+-assign: {\n"
             "| +-$x := Add($a, ConstExpr(1)),\n"
             "| +-$y := $x},\n"
+            "+-cpp_assign: {},\n"
             "+-body: ComputeOp(\n"
             "  +-map: {\n"
             "  | +-$z := $y},\n"
@@ -1656,8 +1890,9 @@ TEST_F(CreateIteratorTest, CrossApply) {
 
   // The right-hand side is two rows: (y:-1, z:(x+y)) and (y:1, z:(x+y)), where
   // x is the value of the left-hand side.
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto input2, LetOp::Create(std::move(let_assign), std::move(let_body)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto input2,
+                       LetOp::Create(std::move(let_assign), /*cpp_assign=*/{},
+                                     std::move(let_body)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_again, DerefExpr::Create(x, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_p, DerefExpr::Create(p, Int64Type()));
@@ -1716,6 +1951,7 @@ TEST_F(CreateIteratorTest, CrossApply) {
       "+-right_input: LetOp(\n"
       "  +-assign: {\n"
       "  | +-$x2 := $x},\n"
+      "  +-cpp_assign: {},\n"
       "  +-body: ComputeOp(\n"
       "    +-map: {\n"
       "    | +-$z := Add($x2, $y)},\n"
@@ -1831,8 +2067,9 @@ TEST_F(CreateIteratorTest, OuterApply) {
 
   // The right-hand side is two rows: (y:-1, z:(x+y)) and (y:1, z:(x+y)), where
   // x is the value of the left-hand side.
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto input2, LetOp::Create(std::move(let_assign), std::move(let_body)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto input2,
+                       LetOp::Create(std::move(let_assign), /*cpp_assign=*/{},
+                                     std::move(let_body)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_again, DerefExpr::Create(x, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_p, DerefExpr::Create(p, Int64Type()));
@@ -1900,6 +2137,7 @@ TEST_F(CreateIteratorTest, OuterApply) {
       "+-right_input: LetOp(\n"
       "  +-assign: {\n"
       "  | +-$x2 := $x},\n"
+      "  +-cpp_assign: {},\n"
       "  +-body: ComputeOp(\n"
       "    +-map: {\n"
       "    | +-$z := Add($x2, $y)},\n"
@@ -3322,6 +3560,214 @@ TEST_F(CreateIteratorTest, UnionAllOp) {
   EXPECT_FALSE(iter->PreservesOrder());
 }
 
+TEST_F(CreateIteratorTest, LoopOp) {
+  VariableId a("a"), x("x"), y("y"), z("z");
+
+  std::vector<std::unique_ptr<ExprArg>> initial_assign(3);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(initial_assign[0], AssignValueToVar(x, Int64(1)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(initial_assign[1], AssignValueToVar(y, Int64(2)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(initial_assign[2], AssignValueToVar(z, Int64(3)));
+
+  VariableId a_plus_x("a_plus_x"), a_plus_y("a_plus_y"), a_plus_z("a_plus_z");
+  std::vector<std::unique_ptr<ExprArg>> body_compute_exprs(3);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(body_compute_exprs[0],
+                       ComputeSum(a, x, a_plus_x, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(body_compute_exprs[1],
+                       ComputeSum(a, y, a_plus_y, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(body_compute_exprs[2],
+                       ComputeSum(a, z, a_plus_z, Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto body_compute_op,
+      ComputeOp::Create(
+          std::move(body_compute_exprs),
+          absl::WrapUnique(new TestRelationalOp(
+              {a}, CreateTestTupleDatas({{Int64(10)}, {Int64(20)}}),
+              /*preserves_order=*/true))));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto body,
+                       FilterLessThan(x, Int64(5), std::move(body_compute_op)));
+
+  std::vector<std::unique_ptr<ExprArg>> loop_assign(3);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(loop_assign[0], ComputeSum(x, Int64(1), x));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(loop_assign[1], ComputeSum(y, Int64(1), y));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(loop_assign[2], ComputeSum(z, Int64(1), z));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto loop_op, LoopOp::Create(std::move(initial_assign), std::move(body),
+                                   std::move(loop_assign)));
+
+  EXPECT_EQ(loop_op->IteratorDebugString(),
+            "LoopTupleIterator: any_rows = false, inner iterator: "
+            "FilterTupleIterator(ComputeTupleIterator(TestTupleIterator))");
+  LOG(ERROR) << loop_op->DebugString();
+  EXPECT_EQ(loop_op->DebugString(), absl::StripAsciiWhitespace(R"(
+LoopOp(
++-initial_assign: {
+| +-$x := ConstExpr(1),
+| +-$y := ConstExpr(2),
+| +-$z := ConstExpr(3)},
++-body: FilterOp(
+| +-condition: Less($x, ConstExpr(5)),
+| +-input: ComputeOp(
+|   +-map: {
+|   | +-$a_plus_x := Add($a, $x),
+|   | +-$a_plus_y := Add($a, $y),
+|   | +-$a_plus_z := Add($a, $z)},
+|   +-input: TestRelationalOp)),
++-loop_assign: {
+  +-$x := Add($x, ConstExpr(1)),
+  +-$y := Add($y, ConstExpr(1)),
+  +-$z := Add($z, ConstExpr(1))})
+  )"));
+
+  std::unique_ptr<TupleSchema> output_schema = loop_op->CreateOutputSchema();
+  EXPECT_THAT(output_schema->variables(),
+              ElementsAre(a, a_plus_x, a_plus_y, a_plus_z));
+  TupleSchema params_schema({});
+  ZETASQL_ASSERT_OK(loop_op->SetSchemasForEvaluation({&params_schema}));
+
+  EvaluationContext context((EvaluationOptions()));
+  TupleData params_data = CreateTestTupleData({});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      loop_op->CreateIterator({&params_data}, /*num_extra_slots=*/1, &context));
+  EXPECT_EQ(iter->DebugString(), "LoopTupleIterator: inner iterator: nullptr");
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+
+  // The loop should run for 4 iterations (x=1,2,3,4) with each iteration
+  // producing two rows (a=10, 20), for a total of 8 rows.
+  EXPECT_THAT(data, SizeIs(8));
+
+  // Iteration 1, row 1
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(Int64(11), IsNull()),
+                          IsTupleSlotWith(Int64(12), IsNull()),
+                          IsTupleSlotWith(Int64(13), IsNull()), _));
+
+  // Iteration 1, row 2
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(Int64(21), IsNull()),
+                          IsTupleSlotWith(Int64(22), IsNull()),
+                          IsTupleSlotWith(Int64(23), IsNull()), _));
+
+  // Iteration 2, row 1
+  EXPECT_THAT(data[2].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(Int64(12), IsNull()),
+                          IsTupleSlotWith(Int64(13), IsNull()),
+                          IsTupleSlotWith(Int64(14), IsNull()), _));
+
+  // Iteratino 2, row 2
+  EXPECT_THAT(data[3].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(Int64(22), IsNull()),
+                          IsTupleSlotWith(Int64(23), IsNull()),
+                          IsTupleSlotWith(Int64(24), IsNull()), _));
+
+  // Iteration 3, row 1
+  EXPECT_THAT(data[4].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(Int64(13), IsNull()),
+                          IsTupleSlotWith(Int64(14), IsNull()),
+                          IsTupleSlotWith(Int64(15), IsNull()), _));
+
+  // Iteration 3, row 2
+  EXPECT_THAT(data[5].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(Int64(23), IsNull()),
+                          IsTupleSlotWith(Int64(24), IsNull()),
+                          IsTupleSlotWith(Int64(25), IsNull()), _));
+
+  // Iteration 4, row 1
+  EXPECT_THAT(data[6].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(10), IsNull()),
+                          IsTupleSlotWith(Int64(14), IsNull()),
+                          IsTupleSlotWith(Int64(15), IsNull()),
+                          IsTupleSlotWith(Int64(16), IsNull()), _));
+
+  // Iteration 4, row 2
+  EXPECT_THAT(data[7].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(20), IsNull()),
+                          IsTupleSlotWith(Int64(24), IsNull()),
+                          IsTupleSlotWith(Int64(25), IsNull()),
+                          IsTupleSlotWith(Int64(26), IsNull()), _));
+}
+
+TEST_F(CreateIteratorTest, DistinctOp) {
+  VariableId a("a"), b("b"), c("c");
+  VariableId row_set1("row_set");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<DerefExpr> deref_a,
+                       DerefExpr::Create(a, types::Int64Type()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<DerefExpr> deref_b,
+                       DerefExpr::Create(b, types::Int64Type()));
+
+  std::vector<TupleData> test_values =
+      CreateTestTupleDatas({{Int64(1), Int64(10), Int64(100)},
+                            {Int64(2), Int64(20), Int64(200)},
+                            {Int64(3), Int64(30), Int64(300)},
+                            {Int64(1), Int64(10), Int64(101)}});
+  auto input = absl::WrapUnique(new TestRelationalOp({a, b, c}, test_values,
+                                                     /*preserves_order=*/true));
+
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  keys.push_back(absl::make_unique<KeyArg>(a, std::move(deref_a)));
+  keys.push_back(absl::make_unique<KeyArg>(b, std::move(deref_b)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto distinct_op,
+      DistinctOp::Create(std::move(input), std::move(keys), row_set1));
+
+  EXPECT_EQ(absl::StripAsciiWhitespace(
+                R"(
+DistinctOp(
++-input: TestRelationalOp,
++-keys: {
+| +-$a := $a,
+| +-$b := $b},
++-row_set_id: $row_set := )
+)"),
+            distinct_op->DebugString());
+  EXPECT_EQ("DistinctOp: TestTupleIterator",
+            distinct_op->IteratorDebugString());
+  EXPECT_EQ("<a,b>", distinct_op->CreateOutputSchema()->DebugString());
+
+  // Set up a row set with some pre-existing data, which should be excluded
+  // from the output.
+  EvaluationContext context((EvaluationOptions()));
+  auto row_set =
+    absl::make_unique<CppValue<DistinctRowSet>>(context.memory_accountant());
+  absl::Status status;
+  ASSERT_TRUE(row_set->value().InsertRowIfNotPresent(
+      absl::make_unique<TupleData>(CreateTestTupleData({Int64(3), Int64(30)})),
+      &status));
+  ASSERT_TRUE(row_set->value().InsertRowIfNotPresent(
+      absl::make_unique<TupleData>(CreateTestTupleData({Int64(3), Int64(50)})),
+      &status));
+  ASSERT_TRUE(context.SetCppValueIfNotPresent(row_set1, std::move(row_set)));
+
+  ZETASQL_ASSERT_OK(distinct_op->SetSchemasForEvaluation({}));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<TupleIterator> iter,
+      distinct_op->CreateIterator({},
+                                  /*num_extra_slots=*/1, &context));
+  EXPECT_EQ(iter->DebugString(), "DistinctOp: TestTupleIterator");
+  EXPECT_TRUE(iter->PreservesOrder());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
+                       ReadFromTupleIterator(iter.get()));
+
+  ASSERT_EQ(data.size(), 2);
+  EXPECT_THAT(data[0].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(1), IsNull()),
+                          IsTupleSlotWith(Int64(10), IsNull()), _));
+  EXPECT_THAT(data[1].slots(),
+              ElementsAre(IsTupleSlotWith(Int64(2), IsNull()),
+                          IsTupleSlotWith(Int64(20), IsNull()), _));
+}
+
 TEST_F(CreateIteratorTest, ComputeOp) {
   VariableId a("a"), b("b"), param("param"), minus("minus"), plus("plus");
   std::vector<TupleData> test_values =
@@ -3848,8 +4294,7 @@ TEST_F(CreateIteratorTest, RootOp) {
 
 // Builds a join between two relations with 'tuple_count' tuples each with
 // matching values and a relation1_tuple < relation2_tuple join condition.
-::zetasql_base::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(
-    int tuple_count) {
+zetasql_base::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(int tuple_count) {
   VariableId x("x"), y("y"), yp("y'");
 
   std::vector<TupleData> input1_tuples;

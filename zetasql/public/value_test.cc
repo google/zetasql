@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/evaluator.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/simple_catalog.h"
@@ -51,13 +52,13 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/hash/hash_testing.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/types/value_representations.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -99,6 +100,8 @@ static Value TestGetSQL(const Value& value) {
       FEATURE_NUMERIC_TYPE);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_BIGNUMERIC_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_JSON_TYPE);
 
   const bool testable_type = !value.type()->IsProto();
   // Test round tripping GetSQL for non-legacy types.
@@ -526,7 +529,7 @@ TEST_F(ValueTest, Numeric) {
 
   // Verify that there are no memory leaks.
   {
-    Value v1(Value::Numeric(NumericValue(1LL)));
+    Value v1(Value::Numeric(NumericValue(int64_t{1})));
     EXPECT_EQ(TYPE_NUMERIC, v1.type()->kind());
     EXPECT_FALSE(v1.is_null());
     Value v2(v1);
@@ -537,23 +540,23 @@ TEST_F(ValueTest, Numeric) {
 
   // Test the assignment operator.
   {
-    Value v1 = Value::Numeric(NumericValue(100LL));
+    Value v1 = Value::Numeric(NumericValue(int64_t{100}));
     Value v2 = Value::NullNumeric();
     v2 = v1;
     EXPECT_EQ(TYPE_NUMERIC, v1.type()->kind());
     EXPECT_EQ(TYPE_NUMERIC, v2.type()->kind());
     EXPECT_FALSE(v2.is_null());
-    EXPECT_EQ(NumericValue(100LL), v1.numeric_value());
-    EXPECT_EQ(NumericValue(100LL), v2.numeric_value());
+    EXPECT_EQ(NumericValue(int64_t{100}), v1.numeric_value());
+    EXPECT_EQ(NumericValue(int64_t{100}), v2.numeric_value());
     v1 = Value::Int32(1);
     EXPECT_EQ(TYPE_NUMERIC, v2.type()->kind());
   }
 
   {
-    Value value = TestGetSQL(Value::Numeric(NumericValue(123LL)));
+    Value value = TestGetSQL(Value::Numeric(NumericValue(int64_t{123})));
     EXPECT_EQ("NUMERIC", value.type()->DebugString());
     EXPECT_FALSE(value.is_null());
-    EXPECT_EQ(NumericValue(123LL), value.numeric_value());
+    EXPECT_EQ(NumericValue(int64_t{123}), value.numeric_value());
   }
 }
 
@@ -563,7 +566,7 @@ TEST_F(ValueTest, BigNumeric) {
 
   // Verify that there are no memory leaks.
   {
-    Value v1(Value::BigNumeric(BigNumericValue(1LL)));
+    Value v1(Value::BigNumeric(BigNumericValue(int64_t{1})));
     EXPECT_EQ(TYPE_BIGNUMERIC, v1.type()->kind());
     EXPECT_FALSE(v1.is_null());
     Value v2(v1);
@@ -573,7 +576,7 @@ TEST_F(ValueTest, BigNumeric) {
 
   // Test the assignment operator.
   {
-    Value v1 = Value::BigNumeric(BigNumericValue(100LL));
+    Value v1 = Value::BigNumeric(BigNumericValue(int64_t{100}));
     Value v2 = zetasql::values::BigNumeric(int64_t{100});
     Value v3 = Value::NullBigNumeric();
     v3 = v1;
@@ -581,20 +584,106 @@ TEST_F(ValueTest, BigNumeric) {
     EXPECT_EQ(TYPE_BIGNUMERIC, v2.type()->kind());
     EXPECT_EQ(TYPE_BIGNUMERIC, v3.type()->kind());
     EXPECT_FALSE(v3.is_null());
-    EXPECT_EQ(BigNumericValue(100LL), v1.bignumeric_value());
-    EXPECT_EQ(BigNumericValue(100LL), v2.bignumeric_value());
-    EXPECT_EQ(BigNumericValue(100LL), v3.bignumeric_value());
+    EXPECT_EQ(BigNumericValue(int64_t{100}), v1.bignumeric_value());
+    EXPECT_EQ(BigNumericValue(int64_t{100}), v2.bignumeric_value());
+    EXPECT_EQ(BigNumericValue(int64_t{100}), v3.bignumeric_value());
     v1 = Value::Int32(1);
     EXPECT_EQ(TYPE_BIGNUMERIC, v3.type()->kind());
   }
 
   {
-    Value value = TestGetSQL(Value::BigNumeric(BigNumericValue(123LL)));
+    Value value = TestGetSQL(Value::BigNumeric(BigNumericValue(int64_t{123})));
     EXPECT_EQ("BIGNUMERIC", value.type()->DebugString());
     EXPECT_FALSE(value.is_null());
-    EXPECT_EQ(BigNumericValue(123LL), value.bignumeric_value());
+    EXPECT_EQ(BigNumericValue(int64_t{123}), value.bignumeric_value());
   }
 }
+
+TEST_F(ValueTest, JSON) {
+  constexpr char kStringValue[] = "value";
+  constexpr int64_t kIntValue = 1;
+
+  {
+    Value null_json = Value::NullJson();
+    EXPECT_TRUE(null_json.is_null());
+    EXPECT_EQ(null_json.type_kind(), TYPE_JSON);
+    EXPECT_FALSE(null_json.is_unparsed_json());
+    EXPECT_FALSE(null_json.is_validated_json());
+    EXPECT_DEATH(null_json.json_value(), "Null value");
+    EXPECT_DEATH(null_json.json_string(), "Null value");
+    EXPECT_DEATH(null_json.json_value_unparsed(), "Null value");
+  }
+
+  // Verify that there are no memory leaks for validated JSON.
+  {
+    Value v1(Value::Json(JSONValue(kIntValue)));
+    EXPECT_EQ(TYPE_JSON, v1.type()->kind());
+    EXPECT_FALSE(v1.is_null());
+    EXPECT_TRUE(v1.is_validated_json());
+
+    Value v2(v1);
+    EXPECT_EQ(TYPE_JSON, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+    EXPECT_TRUE(v2.is_validated_json());
+    EXPECT_FALSE(v2.is_unparsed_json());
+    EXPECT_EQ(v2.json_string(), absl::StrCat(kIntValue));
+    EXPECT_DEATH(v2.json_value_unparsed(), "Not an unparsed json value");
+  }
+
+  // Verify that there are no memory leaks for unvalidated JSON.
+  {
+    Value v1(Value::UnvalidatedJsonString(kStringValue));
+    EXPECT_EQ(TYPE_JSON, v1.type()->kind());
+    EXPECT_FALSE(v1.is_null());
+    EXPECT_FALSE(v1.is_validated_json());
+    Value v2(v1);
+    EXPECT_EQ(TYPE_JSON, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+    ASSERT_FALSE(v2.is_validated_json());
+    ASSERT_TRUE(v2.is_unparsed_json());
+    EXPECT_EQ(kStringValue, v2.json_value_unparsed());
+    EXPECT_EQ(kStringValue, v2.json_string());
+    EXPECT_DEATH(v2.json_value(), "Non a validated json value");
+  }
+
+  // Test the assignment operator for validated JSON.
+  {
+    Value v1 = Value::Json(JSONValue(kIntValue));
+    Value v2 = Value::NullJson();
+    v2 = v1;
+    EXPECT_EQ(TYPE_JSON, v1.type()->kind());
+    EXPECT_EQ(TYPE_JSON, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+    EXPECT_EQ(kIntValue, v1.json_value().GetInt64());
+    EXPECT_EQ(kIntValue, v2.json_value().GetInt64());
+  }
+
+  // Test the assignment operator for unvalidated JSON.
+  {
+    Value v1 = Value::UnvalidatedJsonString(kStringValue);
+    Value v2 = Value::NullJson();
+    v2 = v1;
+    EXPECT_EQ(TYPE_JSON, v1.type()->kind());
+    EXPECT_EQ(TYPE_JSON, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+    ASSERT_FALSE(v2.is_validated_json());
+    ASSERT_TRUE(v2.is_unparsed_json());
+    EXPECT_EQ(kStringValue, v1.json_value_unparsed());
+    EXPECT_EQ(kStringValue, v2.json_value_unparsed());
+    EXPECT_EQ(kStringValue, v2.json_string());
+  }
+
+  {
+    Value value = TestGetSQL(Value::Json(JSONValue(kIntValue)));
+    EXPECT_EQ("JSON", value.type()->DebugString());
+    EXPECT_FALSE(value.is_null());
+    ASSERT_TRUE(value.is_validated_json());
+    ASSERT_TRUE(value.json_value().IsInt64());
+    EXPECT_EQ(kIntValue, value.json_value().GetInt64());
+    EXPECT_EQ(absl::StrCat(kIntValue), value.json_string());
+  }
+}
+
 
 TEST_F(ValueTest, GenericAccessors) {
   // Return types.
@@ -680,6 +769,7 @@ TEST_F(ValueTest, HashCode) {
       Value::NullDate(), Value::NullTimestamp(), Value::NullTime(),
       Value::NullDatetime(), Value::NullGeography(), Value::NullNumeric(),
       Value::NullBigNumeric(),
+      Value::NullJson(),
       Value::Null(enum_type), Value::Null(other_enum_type),
       Value::Null(proto_type), Value::Null(other_proto_type),
       Value::Null(types::Int32ArrayType()),
@@ -712,10 +802,12 @@ TEST_F(ValueTest, HashCode) {
           DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 1)),
       Value::Datetime(
           DatetimeValue::FromYMDHMSAndNanos(2018, 2, 14, 16, 36, 11, 2)),
-      Value::Numeric(NumericValue(1001LL)),
-      Value::Numeric(NumericValue(1002LL)),
-      Value::BigNumeric(BigNumericValue(1001LL)),
-      Value::BigNumeric(BigNumericValue(1002LL)),
+      Value::Numeric(NumericValue(int64_t{1001})),
+      Value::Numeric(NumericValue(int64_t{1002})),
+      Value::BigNumeric(BigNumericValue(int64_t{1001})),
+      Value::BigNumeric(BigNumericValue(int64_t{1002})),
+      Value::Json(JSONValue(int64_t{1})),
+      Value::UnvalidatedJsonString("value"),
       // Enums of two different types.
       values::Enum(enum_type, 0), values::Enum(enum_type, 1),
       values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1),
@@ -1244,17 +1336,17 @@ TEST_F(ValueTest, NestedArrayBag) {
   std::vector<std::string> table_columns = {"bool_val", "double_val",
                                             "int64_val", "str_val"};
   auto nested_x = StructArray(table_columns, {
-      {True(),  0.1, 1ll, "1"},
-      {False(), 0.2, 2ll, "2"}, },
+      {True(),  0.1, int64_t{1}, "1"},
+      {False(), 0.2, int64_t{2}, "2"}, },
       InternalValue::kIgnoresOrder);
   auto nested_y = StructArray(table_columns, {
-      {False(), 0.2, 2ll, "2"},
-      {True(),  0.1, 1ll, "1"}, },
+      {False(), 0.2, int64_t{2}, "2"},
+      {True(),  0.1, int64_t{1}, "1"}, },
       InternalValue::kIgnoresOrder);
   auto nested_z = StructArray(table_columns, {
-      {False(), 0.2, 2ll, "2"},
-      {False(), 0.2, 2ll, "2"},  // duplicate struct
-      {True(),  0.1, 1ll, "1"}, },
+      {False(), 0.2, int64_t{2}, "2"},
+      {False(), 0.2, int64_t{2}, "2"},  // duplicate struct
+      {True(),  0.1, int64_t{1}, "1"}, },
       InternalValue::kIgnoresOrder);
   auto array_x = StructArray(
       {"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
@@ -1812,7 +1904,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(21, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(22, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -1903,7 +1995,7 @@ TEST_F(ValueTest, ValueConstructor) {
   absl::string_view pc(chars);
   ValueConstructor int32_val = {1};
   ValueConstructor uint32_val = {1u};
-  ValueConstructor int64_val = {1ll};
+  ValueConstructor int64_val = {int64_t{1}};
   ValueConstructor uint64_val = {1ull};
   ValueConstructor bool_val = {True()};
   ValueConstructor float_val = {4.0F};
@@ -1924,7 +2016,7 @@ TEST_F(ValueTest, ValueConstructor) {
   EXPECT_EQ(String("a"), string_val3.get());
 
   std::vector<Value> l = ValueConstructor::ToValues({
-      1, 1u, 1ll, 1ull, True(), 4.0F, 3.5, "a"});
+      1, 1u, int64_t{1}, 1ull, True(), 4.0F, 3.5, "a"});
   EXPECT_EQ(Int32(1), l[0]);
   EXPECT_EQ(Uint32(1), l[1]);
   EXPECT_EQ(Int64(1), l[2]);
@@ -2528,32 +2620,45 @@ TEST_F(ValueTest, Serialize) {
     NullDouble()}));
 
   SerializeDeserialize(Value::NullNumeric());
-  SerializeDeserialize(Value::Numeric(NumericValue(1LL)));
+  SerializeDeserialize(Value::Numeric(NumericValue(int64_t{1})));
 
   SerializeDeserialize(EmptyArray(types::NumericArrayType()));
   SerializeDeserialize(Array({
     Value::Numeric(NumericValue()),
-    Value::Numeric(NumericValue(-1LL)),
-    Value::Numeric(NumericValue(1LL)),
+    Value::Numeric(NumericValue(int64_t{-1})),
+    Value::Numeric(NumericValue(int64_t{1})),
     Value::Numeric(NumericValue::MinValue()),
     Value::Numeric(NumericValue::MaxValue()),
     Value::NullNumeric()}));
 
   SerializeDeserialize(Value::NullBigNumeric());
   SerializeDeserialize(Value::BigNumeric(BigNumericValue()));
-  SerializeDeserialize(Value::BigNumeric(BigNumericValue(1LL)));
-  SerializeDeserialize(Value::BigNumeric(BigNumericValue(-1LL)));
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue(int64_t{1})));
+  SerializeDeserialize(Value::BigNumeric(BigNumericValue(int64_t{-1})));
   SerializeDeserialize(Value::BigNumeric(BigNumericValue::MinValue()));
   SerializeDeserialize(Value::BigNumeric(BigNumericValue::MaxValue()));
 
   SerializeDeserialize(EmptyArray(types::BigNumericArrayType()));
   SerializeDeserialize(Array({
     Value::BigNumeric(BigNumericValue()),
-    Value::BigNumeric(BigNumericValue(-1LL)),
-    Value::BigNumeric(BigNumericValue(1LL)),
+    Value::BigNumeric(BigNumericValue(int64_t{-1})),
+    Value::BigNumeric(BigNumericValue(int64_t{1})),
     Value::BigNumeric(BigNumericValue::MinValue()),
     Value::BigNumeric(BigNumericValue::MaxValue()),
     Value::NullBigNumeric()}));
+
+  SerializeDeserialize(Value::NullJson());
+  SerializeDeserialize(Value::Json(JSONValue()));
+  SerializeDeserialize(Value::Json(JSONValue(int64_t{1})));
+  SerializeDeserialize(Value::Json(JSONValue(int64_t{-1})));
+  SerializeDeserialize(Value::UnvalidatedJsonString("value"));
+
+  SerializeDeserialize(EmptyArray(types::JsonArrayType()));
+  SerializeDeserialize(Array({
+    Value::NullJson(),
+    Value::Json(JSONValue(int64_t{-1})),
+    Value::Json(JSONValue(int64_t{1})),
+    Value::UnvalidatedJsonString("value")}));
 
   SerializeDeserialize(NullString());
   SerializeDeserialize(String("Hello, world!"));
@@ -2931,7 +3036,7 @@ namespace {
     values->push_back(Value::Numeric(NumericValue(0)));
     // Some finite positive number
     values->push_back(
-        Value::Numeric(NumericValue::FromStringStrict("123.4").ValueOrDie()));
+        Value::Numeric(NumericValue::FromStringStrict("123.4").value()));
     // Highest finite positive number
     values->push_back(Value::Numeric(NumericValue::MaxValue()));
   }
@@ -2949,8 +3054,8 @@ namespace {
     // Zero
     values->push_back(Value::BigNumeric(BigNumericValue(0)));
     // Some finite positive number
-    values->push_back(Value::BigNumeric(
-        BigNumericValue::FromStringStrict("123.4").ValueOrDie()));
+    values->push_back(
+        Value::BigNumeric(BigNumericValue::FromStringStrict("123.4").value()));
     // Highest finite positive number
     values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
   }

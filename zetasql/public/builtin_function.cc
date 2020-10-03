@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -43,7 +44,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -72,6 +72,9 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
     for (const auto& function_entry : functions) {
       for (const FunctionSignature& signature :
            function_entry.second->signatures()) {
+        if (signature.options().is_aliased_signature()) {
+          continue;
+        }
         zetasql_base::InsertOrDie(
             id_map,
             static_cast<FunctionSignatureId>(signature.context_id()),

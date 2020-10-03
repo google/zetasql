@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #define ZETASQL_RESOLVED_AST_RESOLVED_COLUMN_H_
 
 #include <stddef.h>
+
 #include <string>
 #include <vector>
 
@@ -26,8 +27,8 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/statusor.h"
+#include "zetasql/base/status.h"
 
 namespace zetasql {
 

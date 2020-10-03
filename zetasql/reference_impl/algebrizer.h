@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <stack>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -44,11 +45,11 @@
 #include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -77,6 +78,16 @@ struct AlgebrizerOptions {
   // latter case, the filter remains in its original location because
   // EvaluatorTableIterator does not have to honor the filter.
   bool push_down_filters = false;
+
+  // True to inline references to WITH entries which are referenced at most
+  // once. This causes rows in a WITH entry referenced only once to be evaluated
+  // only when necessary to determine the primary query result, while also
+  // avoiding the evaluation of WITH entries without any references altogether.
+  //
+  // If false, all WITH entry tables, whether referenced or not, will be
+  // evaluated up front, and the result stored in an in-memory array, which will
+  // then be dereferenced when the WITH entry is referenced.
+  bool inline_with_entries = false;
 };
 
 class Algebrizer {
@@ -186,6 +197,9 @@ class Algebrizer {
 
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoField(
       const ResolvedGetProtoField* get_proto_field);
+
+  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlatten(
+      const ResolvedFlatten* flatten);
 
   // Helper for AlgebrizeGetProtoField() for the case where we are getting a
   // proto field of an expression of the form
@@ -375,6 +389,12 @@ class Algebrizer {
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticScan(
       const ResolvedAnalyticScan* analytic_scan);
 
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveScan(
+      const ResolvedRecursiveScan* recursive_scan);
+
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveRefScan(
+      const ResolvedRecursiveRefScan* recursive_ref_scan);
+
   // Returns an AnalyticOp for 'analytic_group'. A SortOp is also created under
   // the AnalyticOp if the partitioning or ordering expressions are not
   // empty. 'input_resolved_columns' contains the input columns including the
@@ -508,6 +528,18 @@ class Algebrizer {
           expr_list,
       int column_id, const ResolvedExpr** definition);
 
+  // Returns a RelationalOp representing a filtered view of <input>, excluding
+  // any rows which are duplicates, either with respect to <input> itself, or
+  // any prior evaluation of a node created from FilterDuplicates() using the
+  // same <row_set_id> value.
+  //
+  // <column_list> denotes the columns of each row returned by <input>. Two
+  // rows are considered to be duplicates only if all of the columns in
+  // <column_list> hold identical values.
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> FilterDuplicates(
+      std::unique_ptr<RelationalOp> input,
+      const ResolvedColumnList& column_list, VariableId row_set_id);
+
   // Cap the algebra for a relation in a struct with a ArrayNestExpr.
   zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> NestRelationInStruct(
       const ResolvedColumnList& output_columns,
@@ -520,7 +552,7 @@ class Algebrizer {
       std::unique_ptr<RelationalOp> relation, bool is_with_table);
 
   // Creates a scan operator iterating over 'table_expr'.
-  ::zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
+  zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
       const ResolvedScan* scan, bool is_value_table,
       std::unique_ptr<ValueExpr> table_expr);
 
@@ -797,10 +829,21 @@ class Algebrizer {
 
   // Maps named WITH subquery to an argument (variable, ValueExpr). Used to
   // algebrize WithRef scans referencing named subqueries.
+  //
+  // This map includes only WITH subqueries which are referenced two or more
+  // times (e.g. evaluated up front and stored in an array).
   absl::flat_hash_map<std::string, ExprArg*> with_map_;  // Not owned.
+
   // Vector of LetOp/LetExpr assignments we need to apply for WITH clauses in
   // the query.
   std::vector<std::unique_ptr<ExprArg>> with_subquery_let_assignments_;
+
+  // WITH entries whose definitions are to be inlined where they are referenced.
+  // Only WITH entries referenced exactly once are included in this map.
+  // Key = name, value = ResolvedScan of WITH entry subquery.
+  //
+  // Entries are removed from the map as AlgebrizeWithRefScan() consumes them.
+  absl::flat_hash_map<std::string, const ResolvedScan*> inlined_with_entries_;
 
   // Owns all the ProtoFieldRegistries created by the algebrizer.
   std::vector<std::unique_ptr<ProtoFieldRegistry>> proto_field_registries_;
@@ -852,6 +895,25 @@ class Algebrizer {
 
   // For generating unique column names.
   int next_column_;
+
+  // The top of the stack represents the variable id to use for the recursive
+  // variable in the current RecursiveScan node being algebrized.
+  std::stack<std::unique_ptr<ExprArg>> recursive_var_id_stack_;
+
+  // Maps each column in <input_columns>, produced by <input>, into the
+  // corresponding column in <output_columns>.
+  //
+  // The result is a ComputeOp node like the following:
+  //   ComputeOp
+  //     input: <input>
+  //     map:
+  //      <output_columns[0]>: DerefExpr(<input_columns[0]>)
+  //      <output_columns[1]>: DerefExpr(<input_columns[1]>)
+  //      ...
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> MapColumns(
+      std::unique_ptr<RelationalOp> input,
+      const ResolvedColumnList& input_columns,
+      const ResolvedColumnList& output_columns);
 };
 
 }  // namespace zetasql

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import com.google.zetasql.ConstantRefProto;
 import com.google.zetasql.FieldDescriptorRefProto;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.Function;
+import com.google.zetasql.FunctionProtos.TVFArgumentProto;
 import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.ResolvedFunctionCallInfo;
 import com.google.zetasql.FunctionProtos.ResolvedFunctionCallInfoProto;
@@ -119,23 +120,20 @@ public final class ResolvedNodes {
     return fieldDescriptorRef.build();
   }
 
-  // TODO: Handle serialization of ResolvedFunctionCallInfos.
   static ResolvedFunctionCallInfoProto serialize(
       ResolvedFunctionCallInfo functionCallContext,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return ResolvedFunctionCallInfoProto.getDefaultInstance();
   }
 
-  // TODO: Handle serialization of TVFSignatures.
   static TVFSignatureProto serialize(
       TVFSignature tvfSignature, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return TVFSignatureProto.getDefaultInstance();
+    return tvfSignature.serialize();
   }
 
-  // TODO: Handle serialization of TVFs.
   static TableValuedFunctionRefProto serialize(
       TableValuedFunction tvf, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return TableValuedFunctionRefProto.getDefaultInstance();
+    return TableValuedFunctionRefProto.newBuilder().setName(tvf.getName()).build();
   }
 
   static ModelRefProto serialize(Model model, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -338,7 +336,7 @@ public final class ResolvedNodes {
     public static final class Builder extends {{node.parent}}.Builder {
     {% endif %}
       {% for field in (node.fields) %}
-      {% if field.is_constructor_arg %}
+      {% if field.is_constructor_arg and not field.is_optional_constructor_arg %}
       {# All is_constructor_arg are required, so we default to null and check that
          they are set in validate(). #}
       protected {{field.nullable_java_type}} {{field.name|lower_camel_case}} = null;
@@ -417,7 +415,7 @@ public final class ResolvedNodes {
       protected void validate() {
         super.validate();
         {% for field in (node.fields) %}
-        {% if field.is_constructor_arg %}
+        {% if field.is_constructor_arg and not field.is_optional_constructor_arg %}
         Preconditions.checkArgument(
             {{field.name|lower_camel_case}} != null, "{{field.name|lower_camel_case}} must be set");
         {% endif %}

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -159,7 +159,13 @@ class Unparser : public ParseTreeVisitor {
                                     void* data) override;
   void visitASTCreateModelStatement(const ASTCreateModelStatement* node,
                                     void* data) override;
+  void visitASTCreateSchemaStatement(const ASTCreateSchemaStatement* node,
+                                     void* data) override;
   void visitASTCreateTableStatement(const ASTCreateTableStatement* node,
+                                    void* data) override;
+  void visitASTCreateEntityStatement(const ASTCreateEntityStatement* node,
+                                     void* data) override;
+  void visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
                                     void* data) override;
   void visitASTCreateTableFunctionStatement(
       const ASTCreateTableFunctionStatement* node, void* data) override;
@@ -167,12 +173,16 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTCreateMaterializedViewStatement(
       const ASTCreateMaterializedViewStatement* node, void* data) override;
+  void visitASTWithPartitionColumnsClause(
+      const ASTWithPartitionColumnsClause* node, void* data) override;
   void visitASTCreateExternalTableStatement(
       const ASTCreateExternalTableStatement* node, void* data) override;
   void visitASTCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* node, void* data) override;
   void visitASTExportDataStatement(const ASTExportDataStatement* node,
                                    void* data) override;
+  void visitASTExportModelStatement(const ASTExportModelStatement* node,
+                                    void* data) override;
   void visitASTCallStatement(const ASTCallStatement* node,
                              void* data) override;
   void visitASTDefineTableStatement(const ASTDefineTableStatement* node,
@@ -209,6 +219,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
   void visitASTDropStatement(const ASTDropStatement* node, void* data) override;
+  void visitASTDropEntityStatement(const ASTDropEntityStatement* node,
+                                   void* data) override;
   void visitASTDropFunctionStatement(
       const ASTDropFunctionStatement* node, void* data) override;
   void visitASTDropRowAccessPolicyStatement(
@@ -268,6 +280,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTColumnPosition(const ASTColumnPosition* node,
                               void* data) override;
   void visitASTOrderBy(const ASTOrderBy* node, void* data) override;
+  void visitASTLambda(const ASTLambda* node, void* data) override;
   void visitASTLimitOffset(const ASTLimitOffset* node, void* data) override;
   void visitASTHavingModifier(const ASTHavingModifier* node,
                               void* data) override;
@@ -293,6 +306,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTNumericLiteral* node, void* data) override;
   void visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
                                  void* data) override;
+  void visitASTJSONLiteral(const ASTJSONLiteral* node,
+                           void* data) override;
   void visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) override;
   void visitASTStringLiteral(const ASTStringLiteral* node, void* data) override;
   void visitASTBytesLiteral(const ASTBytesLiteral* node, void* data) override;
@@ -378,6 +393,8 @@ class Unparser : public ParseTreeVisitor {
                                  void* data) override;
   void visitASTAnalyticFunctionCall(const ASTAnalyticFunctionCall* node,
                                     void* data) override;
+  void visitASTFunctionCallWithGroupRows(
+      const ASTFunctionCallWithGroupRows* node, void* data) override;
   void visitASTWindowClause(const ASTWindowClause* node, void* data) override;
   void visitASTWindowDefinition(const ASTWindowDefinition* node,
                                 void* data) override;
@@ -447,6 +464,10 @@ class Unparser : public ParseTreeVisitor {
                                 void* data) override;
   void visitASTReplaceFieldsExpression(const ASTReplaceFieldsExpression* node,
                                        void* data) override;
+  void visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
+                               void* data) override;
+  void visitASTFilterFieldsExpression(const ASTFilterFieldsExpression* node,
+                                      void* data) override;
   void visitASTSampleSize(const ASTSampleSize* node, void* data) override;
   void visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) override;
   void visitASTWithWeight(const ASTWithWeight* node, void *data) override;
@@ -463,6 +484,7 @@ class Unparser : public ParseTreeVisitor {
                                   void* data) override;
   void visitASTSetOptionsAction(const ASTSetOptionsAction* node,
                                    void* data) override;
+  void visitASTSetAsAction(const ASTSetAsAction* node, void* data) override;
   void visitASTAddConstraintAction(const ASTAddConstraintAction* node,
                                    void* data) override;
   void visitASTDropConstraintAction(const ASTDropConstraintAction* node,
@@ -546,6 +568,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTExecuteImmediateStatement* node, void* data) override;
   void visitASTRaiseStatement(const ASTRaiseStatement* node,
                               void* data) override;
+  void visitASTCollateExpression(const ASTCollateExpression* node,
+                                 void* data) override;
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.

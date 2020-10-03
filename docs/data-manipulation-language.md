@@ -1,9 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Data Manipulation Reference
-
-<!-- BEGIN CONTENT -->
+# Data manipulation language
 
 ZetaSQL supports the following statements for manipulating data:
 
@@ -11,13 +9,11 @@ ZetaSQL supports the following statements for manipulating data:
 + `UPDATE`
 + `DELETE`
 
-<a name="example-data"></a>
-## Example data
+## Example data {: #example-data }
 
 The sections in this topic use the following table schemas.
 
-<a name="singers-table"></a>
-### Singers table
+### Singers table {: #singers-table }
 
 <table>
 <thead>
@@ -101,8 +97,7 @@ message Album {
 }
 </pre>
 
-<a name="concerts-table"></a>
-### Concerts table
+### Concerts table {: #concerts-table }
 
 <table>
 <thead>
@@ -155,13 +150,13 @@ INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
  (column_1 [, ..., column_n ] )
  input <br>[ASSERT_ROWS_MODIFIED m]<br/>
 input ::=
- VALUES (expr_1 [, ..., expr_n ] )
-        [, ..., (expr_k_1 [, ..., expr_k_n ] ) ]
+ VALUES (column_1 [, ..., column_n ] )
+        [, ..., (column_k_1 [, ..., column_k_n ] ) ]
 | SELECT_QUERY<br/>
 expr ::= value_expression | DEFAULT
 </pre>
 
-<a name="statement-rules"></a>
+<a id="statement-rules"></a>
 `INSERT` statements must comply with the following rules:
 
 + Column names must be specified.
@@ -204,8 +199,7 @@ SELECT c.VenueId, c.SingerId, DATE "2015-06-01", c.BeginTime, c.EndTime, c.Ticke
   FROM Concerts c WHERE c.SingerId = 1;
 ```
 
-<a name="compatible-types"></a>
-### Value type compatibility
+### Value type compatibility {: #compatible-types }
 
 Values added with an `INSERT` statement must be compatible with the target
 column's type. A value's type is considered compatible with the target column's
@@ -410,7 +404,7 @@ example of a **Singers** table:
 <td>Alice</td>
 <td>Trentor</td>
 <td>1991-10-2</td>
-<td>"nationality: 'U.S.A.'</td>
+<td>"nationality: 'U.S.A.'"</td>
 <td>NULL</td>
 </tr>
 </tbody>
@@ -486,7 +480,7 @@ VALUES (5, "Zak", "Sterling", "inactive");
 Existing row for Zak Sterling updated. His status is now `inactive`. All other
 values, such as `BirthDate`, remain unchanged.
 
-## DELETE Statement
+## DELETE statement
 
 Use the `DELETE` statement when you want to delete rows from a table.
 
@@ -954,6 +948,4 @@ SET
 
 [coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#coercion
 [functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference
-
-<!-- END CONTENT -->
 

@@ -90,14 +90,14 @@ Array Functions
 <tr>
 <td>4</td>
 <td>+</td>
-<td>All numeric types</td>
+<td>All numeric types<br>DATE and INT64</td>
 <td>Addition</td>
 <td>Binary</td>
 </tr>
 <tr>
 <td>&nbsp;</td>
 <td>-</td>
-<td>All numeric types</td>
+<td>All numeric types<br>DATE and INT64</td>
 <td>Subtraction</td>
 <td>Binary</td>
 </tr>
@@ -471,6 +471,37 @@ Result types for Unary Minus:
 </tbody>
 </table>
 
+### Date arithmetics operators
+Operators '+' and '-' can be used for arithmetic operations on dates.
+
+```sql
+date_expression + int64_expression
+int64_expression + date_expression
+date_expression - int64_expression
+```
+
+**Description**
+
+Adds or subtracts `int64_expression` days to or from `date_expression`. This is
+equivalent to `DATE_ADD` or `DATE_SUB` functions, when interval is expressed in
+days.
+
+**Return Data Type**
+
+DATE
+
+**Example**
+
+```sql
+SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
+
++------------+------------+
+| day_later  | week_ago   |
++------------+------------+
+| 2020-09-23 | 2020-09-15 |
++------------+------------+
+```
+
 ### Bitwise operators
 All bitwise operators return the same type
  and the same length as
@@ -557,37 +588,86 @@ This operator throws an error if Y is negative.</td>
 
 ### Logical operators
 
-All logical operators allow only BOOL input.
+ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
+Logical operators allow only BOOL or `NULL` input
+and use [three-valued logic](https://en.wikipedia.org/wiki/Three-valued_logic)
+to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Syntax</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Logical NOT</td>
-<td style="white-space:nowrap">NOT X</td>
-<td>Returns FALSE if input is TRUE. Returns TRUE if input is FALSE. Returns <code>NULL</code>
-otherwise.</td>
-</tr>
-<tr>
-<td>Logical AND</td>
-<td style="white-space:nowrap">X AND Y</td>
-<td>Returns FALSE if at least one input is FALSE. Returns TRUE if both X and Y
-are TRUE. Returns <code>NULL</code> otherwise.</td>
-</tr>
-<tr>
-<td>Logical OR</td>
-<td style="white-space:nowrap">X OR Y</td>
-<td>Returns FALSE if both X and Y are FALSE. Returns TRUE if at least one input
-is TRUE. Returns <code>NULL</code> otherwise.</td>
-</tr>
-</tbody>
-</table>
+| x       | y       | x AND y | x OR y |
+| ------- | ------- | ------- | ------ |
+| TRUE    | TRUE    | TRUE    | TRUE   |
+| TRUE    | FALSE   | FALSE   | TRUE   |
+| TRUE    | NULL    | NULL    | TRUE   |
+| FALSE   | TRUE    | FALSE   | TRUE   |
+| FALSE   | FALSE   | FALSE   | FALSE  |
+| FALSE   | NULL    | FALSE   | NULL   |
+| NULL    | TRUE    | NULL    | TRUE   |
+| NULL    | FALSE   | NULL    | NULL   |
+| NULL    | NULL    | NULL    | NULL   |
+
+| x       | NOT x   |
+| ------- | ------- |
+| TRUE    | FALSE   |
+| FALSE   | TRUE    |
+| NULL    | NULL    |
+
+**Examples**
+
+The examples in this section reference a table called `entry_table`:
+
+```sql
++-------+
+| entry |
++-------+
+| a     |
+| b     |
+| c     |
+| NULL  |
++-------+
+```
+
+```sql
+SELECT 'a' FROM entry_table WHERE entry = 'a'
+
+-- a => 'a' = 'a' => TRUE
+-- b => 'b' = 'a' => FALSE
+-- NULL => NULL = 'a' => NULL
+
++-------+
+| entry |
++-------+
+| a     |
++-------+
+```
+
+```sql
+SELECT entry FROM entry_table WHERE NOT (entry = 'a')
+
+-- a => NOT('a' = 'a') => NOT(TRUE) => FALSE
+-- b => NOT('b' = 'a') => NOT(FALSE) => TRUE
+-- NULL => NOT(NULL = 'a') => NOT(NULL) => NULL
+
++-------+
+| entry |
++-------+
+| b     |
+| c     |
++-------+
+```
+
+```sql
+SELECT entry FROM entry_table WHERE entry IS NULL
+
+-- a => 'a' IS NULL => FALSE
+-- b => 'b' IS NULL => FALSE
+-- NULL => NULL IS NULL => TRUE
+
++-------+
+| entry |
++-------+
+| NULL  |
++-------+
+```
 
 ### Comparison operators
 
@@ -608,7 +688,8 @@ STRUCTs support only 4 comparison operators: equal
 
 The following rules apply when comparing these data types:
 
-+  Floating point: All comparisons with NaN return FALSE,
++  Floating point:
+   All comparisons with NaN return FALSE,
    except for `!=` and `<>`, which return TRUE.
 +  BOOL: FALSE is less than TRUE.
 +  STRING: Strings are
@@ -721,7 +802,7 @@ types are compared when they have fields that are `NULL` valued.
 </tr>
 <tr>
 <td><code>STRUCT(1,2)</code></td>
-<td><code>STRUCT(1, NULL)</code</td>
+<td><code>STRUCT(1, NULL)</code></td>
 <td><code>NULL</code></td>
 </tr>
 </tbody>

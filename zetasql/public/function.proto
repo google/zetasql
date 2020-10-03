@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,6 +50,21 @@ enum SignatureArgumentKind {
   // For example,
   //   LAST(<array<T2>>) -> <T2>
   ARG_ARRAY_TYPE_ANY_2 = 4;
+
+  // Templated proto map type. This is an array of protos where the proto
+  // is a map entry. It has a key field and a value field. This kind allows
+  // inference of the key and value field types from the map field type, as
+  // in this expression:
+  //
+  // ARG_PROTO_MAP_ANY[KEY(ARG_PROTO_MAP_KEY_ANY)] ->
+  // ARG_PROTO_MAP_VALUE_ANY
+  ARG_PROTO_MAP_ANY = 14;
+
+  // The key type of a proto map that matches ARG_PROTO_MAP_ANY.
+  ARG_PROTO_MAP_KEY_ANY = 15;
+
+  // The value type of a proto map that matches ARG_PROTO_MAP_ANY.
+  ARG_PROTO_MAP_VALUE_ANY = 16;
 
   // Templated proto type. All arguments with this type must be the same type.
   // e.g.:
@@ -105,6 +120,12 @@ enum SignatureArgumentKind {
   // For more information, please see TVFDescriptorArgument in
   // table_valued_function.h.
   ARG_TYPE_DESCRIPTOR = 13;
+
+  // Lambda type. This is only valid for lambda function arguments. This
+  // specifies a lambda with a list of argument types and a body type.
+  // For more information, please see ArgumentTypeLambda in
+  // function_signature.h.
+  ARG_TYPE_LAMBDA = 17;
 
   __SignatureArgumentKind__switch_must_have_a_default__ = -1;
 }

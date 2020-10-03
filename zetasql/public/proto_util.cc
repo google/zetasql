@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,8 @@
 #include "absl/base/optimization.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/variant.h"
@@ -64,14 +66,34 @@ namespace zetasql {
          << "Unable to decode default value for " << (field)->DebugString() \
          << "\n(value out of valid range)"
 
-static absl::Status GetProtoFieldDefaultImpl(
-    const google::protobuf::FieldDescriptor* field, const Type* type,
-    bool ignore_use_defaults_annotations, bool ignore_format_annotations,
-    Value* default_value) {
+ProtoFieldDefaultOptions ProtoFieldDefaultOptions::FromFieldAndLanguage(
+    const google::protobuf::FieldDescriptor* field,
+    const LanguageOptions& language_options) {
+  ProtoFieldDefaultOptions options;
+  if (field->containing_type()->file()->syntax() ==
+          google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
+      language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
+    options.ignore_use_default_annotations = true;
+  }
+  return options;
+}
+
+absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
+                                  const google::protobuf::FieldDescriptor* field,
+                                  const Type* type, Value* default_value) {
+  if (options.ignore_format_annotations &&
+      !(type->IsSimpleType() || type->IsArray())) {
+    // If we are ignoring format annotations, non-simple, non-array types do
+    // not have default values.
+    *default_value = Value::Null(type);
+    return absl::OkStatus();
+  }
+
   if (ZETASQL_DEBUG_MODE) {
     TypeKind field_kind;
-    ZETASQL_RET_CHECK(ProtoType::FieldDescriptorToTypeKind(ignore_format_annotations,
-                                                   field, &field_kind)
+    ZETASQL_RET_CHECK(ProtoType::FieldDescriptorToTypeKind(
+                  options.ignore_format_annotations, field, &field_kind)
                   .ok());
     ZETASQL_RET_CHECK_EQ(type->kind(), field_kind);
   }
@@ -95,7 +117,7 @@ static absl::Status GetProtoFieldDefaultImpl(
   }
 
   const bool use_defaults = ProtoType::GetUseDefaultsExtension(field);
-  if (!use_defaults && !ignore_use_defaults_annotations) {
+  if (!use_defaults && !options.ignore_use_default_annotations) {
     *default_value = Value::Null(type);
     return absl::OkStatus();
   }
@@ -246,6 +268,10 @@ static absl::Status GetProtoFieldDefaultImpl(
       *default_value = Value::Datetime(datetime);
       break;
     }
+    case TYPE_JSON: {
+      *default_value = Value::Json(JSONValue());
+      break;
+    }
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();
@@ -253,55 +279,14 @@ static absl::Status GetProtoFieldDefaultImpl(
   return absl::OkStatus();
 }
 
-absl::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
-                                    const Type* type, Value* default_value) {
-  const bool& ignore_use_defaults =
-      field->containing_type()->file()->syntax() ==
-      google::protobuf::FileDescriptor::SYNTAX_PROTO3;
-  return GetProtoFieldDefaultImpl(field, type, ignore_use_defaults,
-                                  /*ignore_format_annotations=*/false,
-                                  default_value);
-}
-
-absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
-                                  const Type* type, Value* default_value) {
-  return GetProtoFieldDefault(field, type, /*use_obsolete_timestamp=*/false,
-                              default_value);
-}
-
-absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
-                                  const Type* type, bool use_obsolete_timestamp,
-                                  Value* default_value) {
-  ZETASQL_RET_CHECK(!use_obsolete_timestamp);
-  return GetProtoFieldDefaultImpl(field, type,
-                                  /*ignore_use_defaults_annotations=*/false,
-                                  /*ignore_format_annotations=*/false,
-                                  default_value);
-}
-
-absl::Status GetProtoFieldDefaultRaw(const google::protobuf::FieldDescriptor* field,
-                                     const Type* type, Value* default_value) {
-  if (type->IsSimpleType() || type->IsArray()) {
-    return GetProtoFieldDefaultImpl(field, type,
-                                    /*ignore_use_defaults_annotations=*/true,
-                                    /*ignore_format_annotations=*/true,
-                                    default_value);
-  }
-  *default_value = values::Null(type);
-  return absl::OkStatus();
-}
-
-static absl::Status GetProtoFieldTypeAndDefaultImpl(
-    const google::protobuf::FieldDescriptor* field, bool ignore_annotations,
-    TypeFactory* type_factory, const Type** type, Value* default_value) {
-  ZETASQL_RETURN_IF_ERROR(
-      type_factory->GetProtoFieldType(ignore_annotations, field, type));
+absl::Status GetProtoFieldTypeAndDefault(
+    const ProtoFieldDefaultOptions& options,
+    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
+    const Type** type, Value* default_value) {
+  ZETASQL_RETURN_IF_ERROR(type_factory->GetProtoFieldType(
+      options.ignore_format_annotations, field, type));
   if (default_value != nullptr) {
-    if (ignore_annotations) {
-      ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefaultRaw(field, *type, default_value));
-    } else {
-      ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(field, *type, default_value));
-    }
+    ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(options, field, *type, default_value));
   }
 
   DCHECK(default_value == nullptr ||
@@ -313,38 +298,12 @@ static absl::Status GetProtoFieldTypeAndDefaultImpl(
     // FieldDescriptorToTypeKind match the Types returned by this method.
     TypeKind computed_type_kind;
     ZETASQL_RETURN_IF_ERROR(ProtoType::FieldDescriptorToTypeKind(
-        ignore_annotations, field, &computed_type_kind));
+        options.ignore_format_annotations, field, &computed_type_kind));
     ZETASQL_RET_CHECK_EQ((*type)->kind(), computed_type_kind)
         << (*type)->DebugString() << "\n" << field->DebugString();
   }
 
   return absl::OkStatus();
-}
-
-absl::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
-                                         TypeFactory* type_factory,
-                                         const Type** type,
-                                         Value* default_value) {
-  return GetProtoFieldTypeAndDefault(field, type_factory,
-                                     /*use_obsolete_timestamp=*/false, type,
-                                     default_value);
-}
-
-absl::Status GetProtoFieldTypeAndDefault(const google::protobuf::FieldDescriptor* field,
-                                         TypeFactory* type_factory,
-                                         bool use_obsolete_timestamp,
-                                         const Type** type,
-                                         Value* default_value) {
-  ZETASQL_RET_CHECK(!use_obsolete_timestamp);
-  return GetProtoFieldTypeAndDefaultImpl(field, /*ignore_annotations=*/false,
-                                         type_factory, type, default_value);
-}
-
-absl::Status GetProtoFieldTypeAndDefaultRaw(
-    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
-    const Type** type, Value* default_value) {
-  return GetProtoFieldTypeAndDefaultImpl(field, /*ignore_annotations=*/true,
-                                         type_factory, type, default_value);
 }
 
 static absl::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format format,
@@ -1082,6 +1041,13 @@ absl::Status ProtoHasField(
       }
     }
   return absl::OkStatus();
+}
+
+bool IsProtoMap(const Type* type) {
+  if (!type->IsArray()) return false;
+  const Type* element = type->AsArray()->element_type();
+  if (!element->IsProto()) return false;
+  return element->AsProto()->descriptor()->options().map_entry();
 }
 
 }  // namespace zetasql

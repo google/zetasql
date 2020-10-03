@@ -1,10 +1,22 @@
 
 
-# Approximate Aggregate Functions
+# Approximate aggregate functions
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
-but produce approximate results instead of exact results. For more background,
-see [Approximate Aggregation][link-to-approximate-aggregation].
+but produce approximate results instead of exact results. These functions
+typically require less memory than [exact aggregation functions][aggregate-functions-reference]
+like `COUNT(DISTINCT ...)`, but also introduce statistical uncertainty.
+This makes approximate aggregation appropriate for large data streams for
+which linear memory usage is impractical, as well as for data that is
+already approximate.
+
+The approximate aggregate functions in this section work directly on the
+input data, rather than an intermediate estimation of the data. These functions
+_do not allow_ users to specify the precision for the estimation with
+sketches. If you would like specify precision with sketches, see:
+
++  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
++  [KLL16 functions][kll-functions] to estimate quantile values.
 
 ### APPROX_COUNT_DISTINCT
 
@@ -27,6 +39,7 @@ Any data type **except**:
 `STRUCT`
 `PROTO`
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -50,7 +63,7 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 ### APPROX_QUANTILES
 
 ```
-APPROX_QUANTILES([DISTINCT] expression, number [{IGNORE|RESPECT} NULLS] [HAVING (MAX | MIN) expression2])
+APPROX_QUANTILES([DISTINCT] expression, number [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -76,21 +89,14 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified or if neither is specified,
-    the NULL values are excluded from the result. If `RESPECT NULLS` is
-    specified,
-    the NULL values are included in the result.
+    specified, the `NULL` values are excluded from the result. If
+    `RESPECT NULLS` or if neither is specified, the `NULL` values are included
+    in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -162,7 +168,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 ### APPROX_TOP_COUNT
 
 ```
-APPROX_TOP_COUNT(expression, number [HAVING (MAX | MIN) expression2])
+APPROX_TOP_COUNT(expression, number [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -179,16 +185,10 @@ specifies the number of elements returned.
 **Optional Clause**
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -233,7 +233,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 ### APPROX_TOP_SUM
 
 ```
-APPROX_TOP_SUM(expression, weight, number [HAVING (MAX | MIN) expression2])
+APPROX_TOP_SUM(expression, weight, number [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -263,16 +263,10 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 **Optional Clause**
 
 `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -343,5 +337,7 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-[link-to-approximate-aggregation]: https://github.com/google/zetasql/blob/master/docs/approximate-aggregation
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
 

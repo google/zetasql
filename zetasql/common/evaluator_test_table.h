@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,9 +30,9 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/clock.h"
 
 namespace zetasql {
@@ -81,8 +81,8 @@ class EvaluatorTestTable : public SimpleTable {
     }
 
     return absl::make_unique<SimpleEvaluatorTableIterator>(
-        columns, column_values, end_status_, scan_column_filter_idxs,
-        cancel_cb_, set_deadline_cb_, clock_);
+        columns, column_values, num_rows(), end_status_,
+        scan_column_filter_idxs, cancel_cb_, set_deadline_cb_, clock_);
   }
 
  private:

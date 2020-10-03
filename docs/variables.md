@@ -2,8 +2,6 @@
 
 # Variables
 
-<!-- BEGIN CONTENT -->
-
 ZetaSQL specifies the syntax for the variable statements `SET` and
 `UNSET`.
 
@@ -35,6 +33,4 @@ UNSET @@system_variable = constant_value;
 ```
 
 [link-to-sql-identifiers]: https://github.com/google/zetasql/blob/master/docs/lexical#identifiers
-
-<!-- END CONTENT -->
 

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -53,7 +54,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 using zetasql::types::EmptyStructType;
 using zetasql::values::Bool;
@@ -83,7 +83,7 @@ absl::Status RelationalOp::set_is_order_preserving(bool is_order_preserving) {
   return absl::OkStatus();
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::Eval(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::Eval(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   // Copy params and pass ownershp of the copy to the value capture of a lambda.
@@ -104,7 +104,7 @@ absl::Status RelationalOp::set_is_order_preserving(bool is_order_preserving) {
   return iter;
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::MaybeReorder(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::MaybeReorder(
     std::unique_ptr<TupleIterator> iter, EvaluationContext* context) const {
   if (context->options().scramble_undefined_orderings) {
     iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
@@ -116,7 +116,7 @@ absl::Status RelationalOp::set_is_order_preserving(bool is_order_preserving) {
 // InArrayColumnFilterArg
 // -------------------------------------------------------
 
-::zetasql_base::StatusOr<std::unique_ptr<InArrayColumnFilterArg>>
+zetasql_base::StatusOr<std::unique_ptr<InArrayColumnFilterArg>>
 InArrayColumnFilterArg::Create(const VariableId& variable, int column_idx,
                                std::unique_ptr<ValueExpr> array) {
   return absl::WrapUnique(
@@ -128,7 +128,7 @@ absl::Status InArrayColumnFilterArg::SetSchemasForEvaluation(
   return array_->SetSchemasForEvaluation(params_schemas);
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> InArrayColumnFilterArg::Eval(
+zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> InArrayColumnFilterArg::Eval(
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
   TupleSlot array;
@@ -169,7 +169,7 @@ InArrayColumnFilterArg::InArrayColumnFilterArg(const VariableId& variable,
 // InListColumnFilterArg
 // -------------------------------------------------------
 
-::zetasql_base::StatusOr<std::unique_ptr<InListColumnFilterArg>>
+zetasql_base::StatusOr<std::unique_ptr<InListColumnFilterArg>>
 InListColumnFilterArg::Create(
     const VariableId& variable, int column_idx,
     std::vector<std::unique_ptr<ValueExpr>> elements) {
@@ -185,7 +185,7 @@ absl::Status InListColumnFilterArg::SetSchemasForEvaluation(
   return absl::OkStatus();
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> InListColumnFilterArg::Eval(
+zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> InListColumnFilterArg::Eval(
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
   std::vector<Value> elements(elements_.size());
@@ -233,7 +233,7 @@ InListColumnFilterArg::InListColumnFilterArg(
 // HalfUnboundedColumnFilterArg
 // -------------------------------------------------------
 
-::zetasql_base::StatusOr<std::unique_ptr<HalfUnboundedColumnFilterArg>>
+zetasql_base::StatusOr<std::unique_ptr<HalfUnboundedColumnFilterArg>>
 HalfUnboundedColumnFilterArg::Create(const VariableId& variable, int column_idx,
                                      Kind kind,
                                      std::unique_ptr<ValueExpr> arg) {
@@ -246,7 +246,7 @@ absl::Status HalfUnboundedColumnFilterArg::SetSchemasForEvaluation(
   return arg_->SetSchemasForEvaluation(params_schemas);
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>>
+zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>>
 HalfUnboundedColumnFilterArg::Eval(absl::Span<const TupleData* const> params,
                                    EvaluationContext* context) const {
   TupleSlot arg;
@@ -308,7 +308,7 @@ std::string EvaluatorTableScanOp::GetIteratorDebugString(
   return absl::StrCat("EvaluatorTableTupleIterator(", table_name, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableScanOp>>
+zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableScanOp>>
 EvaluatorTableScanOp::Create(
     const Table* table, const std::string& alias,
     absl::Span<const int> column_idxs,
@@ -321,7 +321,7 @@ EvaluatorTableScanOp::Create(
       std::move(and_filters), std::move(read_time)));
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>>
+zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>>
 EvaluatorTableScanOp::IntersectColumnFilters(
     const std::vector<std::unique_ptr<ColumnFilter>>& filters) {
   // Invariant: a Value that matches all the ColumnFilters in entry.second is
@@ -494,7 +494,7 @@ class EvaluatorTableTupleIterator : public TupleIterator {
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>
 EvaluatorTableScanOp::CreateIterator(absl::Span<const TupleData* const> params,
                                      int num_extra_slots,
                                      EvaluationContext* context) const {
@@ -605,10 +605,12 @@ std::string LetOp::GetIteratorDebugString(
   return absl::StrCat("LetOpTupleIterator(", input_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<LetOp>> LetOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<LetOp>> LetOp::Create(
     std::vector<std::unique_ptr<ExprArg>> assign,
+    std::vector<std::unique_ptr<CppValueArg>> cpp_assign,
     std::unique_ptr<RelationalOp> body) {
-  return absl::WrapUnique(new LetOp(std::move(assign), std::move(body)));
+  return absl::WrapUnique(
+      new LetOp(std::move(assign), std::move(cpp_assign), std::move(body)));
 }
 
 absl::Status LetOp::SetSchemasForEvaluation(
@@ -637,6 +639,40 @@ absl::Status LetOp::SetSchemasForEvaluation(
 }
 
 namespace {
+
+// Class that owns the lifetime of a collection of C++ variable values in the
+// EvaluationContext. The Removes variable mappings in the destructor.
+class CppValueHolder {
+ public:
+  explicit CppValueHolder(EvaluationContext* context) : context_(context) {}
+
+  // This class is not copyable or moveable
+  CppValueHolder(const CppValueHolder&) = delete;
+  CppValueHolder(CppValueHolder&&) = delete;
+  CppValueHolder& operator=(const CppValueHolder&) = delete;
+  CppValueHolder& operator=(CppValueHolder&&) = delete;
+
+  ~CppValueHolder() {
+    for (const VariableId& var : variables_) {
+      context_->ClearCppValue(var);
+    }
+  }
+
+  // Registers a VariableId->CppValue mapping with the EvaluationContext,
+  // which will be removed in the CppValueHolder objects's destructor.
+  absl::Status AddVariable(VariableId variable,
+                           std::unique_ptr<CppValueBase> value) {
+    ZETASQL_RET_CHECK(context_->SetCppValueIfNotPresent(variable, std::move(value)))
+        << "Variable " << variable << " already holds a C++ value";
+    variables_.push_back(variable);
+    return absl::OkStatus();
+  }
+
+ private:
+  EvaluationContext* context_;
+  std::vector<VariableId> variables_;
+};
+
 // Wrapper that owns 'params' while 'iter' uses them.
 class LetOpTupleIterator : public TupleIterator {
  public:
@@ -644,10 +680,12 @@ class LetOpTupleIterator : public TupleIterator {
   // copied the Values because the big ones are internally reference counted.
   LetOpTupleIterator(std::unique_ptr<TupleDataDeque> deque,
                      absl::Span<const std::shared_ptr<const TupleData>> params,
-                     std::unique_ptr<TupleIterator> iter)
+                     std::unique_ptr<TupleIterator> iter,
+                     std::unique_ptr<CppValueHolder> cpp_values)
       : deque_(std::move(deque)),
         params_(params.begin(), params.end()),
-        iter_(std::move(iter)) {}
+        iter_(std::move(iter)),
+        cpp_values_(std::move(cpp_values)) {}
 
   LetOpTupleIterator(const LetOpTupleIterator&) = delete;
   LetOpTupleIterator& operator=(const LetOpTupleIterator&) = delete;
@@ -672,10 +710,11 @@ class LetOpTupleIterator : public TupleIterator {
   const std::unique_ptr<TupleDataDeque> deque_;
   const std::vector<std::shared_ptr<const TupleData>> params_;
   std::unique_ptr<TupleIterator> iter_;
+  const std::unique_ptr<CppValueHolder> cpp_values_;
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> LetOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> LetOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   // Initialize 'all_params' with 'params', then extend 'all_params' with new
@@ -703,13 +742,20 @@ class LetOpTupleIterator : public TupleIterator {
     }
   }
 
+  auto cpp_values = absl::make_unique<CppValueHolder>(context);
+  for (const CppValueArg* a : cpp_assign()) {
+    ZETASQL_RETURN_IF_ERROR(
+        cpp_values->AddVariable(a->variable(), a->CreateValue(context)));
+  }
+
   std::vector<std::shared_ptr<const TupleData>> all_params_copies =
       DeepCopyTupleDatas(all_params);
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
                    body()->CreateIterator(StripSharedPtrs(all_params_copies),
                                           num_extra_slots, context));
   iter = absl::make_unique<LetOpTupleIterator>(
-      std::move(new_params), all_params_copies, std::move(iter));
+      std::move(new_params), all_params_copies, std::move(iter),
+      std::move(cpp_values));
   return iter;
 }
 
@@ -723,14 +769,17 @@ std::string LetOp::IteratorDebugString() const {
 
 std::string LetOp::DebugInternal(const std::string& indent,
                                  bool verbose) const {
-  return absl::StrCat(
-      "LetOp(", ArgDebugString({"assign", "body"}, {kN, k1}, indent, verbose),
-      ")");
+  return absl::StrCat("LetOp(",
+                      ArgDebugString({"assign", "cpp_assign", "body"},
+                                     {kN, kN, k1}, indent, verbose),
+                      ")");
 }
 
 LetOp::LetOp(std::vector<std::unique_ptr<ExprArg>> assign,
+             std::vector<std::unique_ptr<CppValueArg>> cpp_assign,
              std::unique_ptr<RelationalOp> body) {
   SetArgs<ExprArg>(kAssign, std::move(assign));
+  SetArgs<CppValueArg>(kCppAssign, std::move(cpp_assign));
   SetArg(kBody, absl::make_unique<RelationalArg>(std::move(body)));
 }
 
@@ -740,6 +789,14 @@ absl::Span<const ExprArg* const> LetOp::assign() const {
 
 absl::Span<ExprArg* const> LetOp::mutable_assign() {
   return GetMutableArgs<ExprArg>(kAssign);
+}
+
+absl::Span<const CppValueArg* const> LetOp::cpp_assign() const {
+  return GetArgs<CppValueArg>(kCppAssign);
+}
+
+absl::Span<CppValueArg* const> LetOp::mutable_cpp_assign() {
+  return GetMutableArgs<CppValueArg>(kAssign);
 }
 
 const RelationalOp* LetOp::body() const {
@@ -941,7 +998,7 @@ class SortTupleIterator : public TupleIterator {
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   Value limit_value;   // Invalid if no limit set.
@@ -1215,7 +1272,7 @@ std::string ComputeOp::GetIteratorDebugString(
   return absl::StrCat("ComputeTupleIterator(", input_iter_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ComputeOp>> ComputeOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<ComputeOp>> ComputeOp::Create(
     std::vector<std::unique_ptr<ExprArg>> map,
     std::unique_ptr<RelationalOp> input) {
   return absl::WrapUnique(new ComputeOp(std::move(map), std::move(input)));
@@ -1313,7 +1370,7 @@ class ComputeTupleIterator : public TupleIterator {
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> ComputeOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> ComputeOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   ZETASQL_ASSIGN_OR_RETURN(
@@ -1376,7 +1433,7 @@ std::string FilterOp::GetIteratorDebugString(
   return absl::StrCat("FilterTupleIterator(", input_iter_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<FilterOp>> FilterOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<FilterOp>> FilterOp::Create(
     std::unique_ptr<ValueExpr> predicate, std::unique_ptr<RelationalOp> input) {
   return absl::WrapUnique(new FilterOp(std::move(predicate), std::move(input)));
 }
@@ -1504,7 +1561,7 @@ std::string LimitOp::GetIteratorDebugString(
   return absl::StrCat("LimitTupleIterator(", input_iter_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<LimitOp>> LimitOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<LimitOp>> LimitOp::Create(
     std::unique_ptr<ValueExpr> row_count, std::unique_ptr<ValueExpr> offset,
     std::unique_ptr<RelationalOp> input, bool is_order_preserving) {
   ZETASQL_RET_CHECK(row_count->output_type()->IsInt64());
@@ -1711,7 +1768,7 @@ std::string EnumerateOp::GetIteratorDebugString(
   return absl::StrCat("EnumerateTupleIterator(", count_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<EnumerateOp>> EnumerateOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<EnumerateOp>> EnumerateOp::Create(
     std::unique_ptr<ValueExpr> row_count) {
   ZETASQL_RET_CHECK(row_count->output_type()->IsInt64());
   return absl::WrapUnique(new EnumerateOp(std::move(row_count)));
@@ -1827,7 +1884,7 @@ const std::string& JoinOp::JoinKindToString(JoinOp::JoinKind kind) {
   return (*join_names)[kind];
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<JoinOp>> JoinOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<JoinOp>> JoinOp::Create(
     JoinKind kind, std::vector<HashJoinEqualityExprs> equality_exprs,
     std::unique_ptr<ValueExpr> remaining_condition,
     std::unique_ptr<RelationalOp> left, std::unique_ptr<RelationalOp> right,
@@ -3072,7 +3129,7 @@ std::string ArrayScanOp::GetIteratorDebugString(
   return absl::StrCat("ArrayScanTupleIterator(", array_debug_string, ")");
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> ArrayScanOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> ArrayScanOp::Create(
     const VariableId& element, const VariableId& position,
     absl::Span<const std::pair<VariableId, int>> fields,
     std::unique_ptr<ValueExpr> array) {
@@ -3189,7 +3246,7 @@ class ArrayScanTupleIterator : public TupleIterator {
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> ArrayScanOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> ArrayScanOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   TupleSlot array_slot;
@@ -3298,6 +3355,210 @@ const VariableId& ArrayScanOp::position() const {
 }
 
 // -------------------------------------------------------
+// DistinctOp
+// -------------------------------------------------------
+zetasql_base::StatusOr<std::unique_ptr<DistinctOp>> DistinctOp::Create(
+    std::unique_ptr<RelationalOp> input,
+    std::vector<std::unique_ptr<KeyArg>> keys, VariableId row_set_id) {
+  return absl::WrapUnique(
+      new DistinctOp(std::move(input), std::move(keys), row_set_id));
+}
+
+DistinctOp::DistinctOp(std::unique_ptr<RelationalOp> input,
+                       std::vector<std::unique_ptr<KeyArg>> keys,
+                       VariableId row_set_id) {
+  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArgs(kKeys, std::move(keys));
+  SetArg(kRowSetId, MakeCppValueArgForRowSet(row_set_id));
+}
+
+const RelationalOp* DistinctOp::input() const {
+  return GetArg(kInput)->relational_op();
+}
+
+RelationalOp* DistinctOp::mutable_input() {
+  return GetMutableArg(kInput)->mutable_relational_op();
+}
+
+absl::Span<const KeyArg* const> DistinctOp::keys() const {
+  return GetArgs<KeyArg>(kKeys);
+}
+
+absl::Span<KeyArg* const> DistinctOp::mutable_keys() {
+  return GetMutableArgs<KeyArg>(kKeys);
+}
+
+VariableId DistinctOp::row_set_id() const {
+  return GetArg(kRowSetId)->variable();
+}
+
+absl::Status DistinctOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  ZETASQL_RETURN_IF_ERROR(mutable_input()->SetSchemasForEvaluation(params_schemas));
+
+  std::unique_ptr<TupleSchema> key_input_schema = input()->CreateOutputSchema();
+  for (KeyArg* key : mutable_keys()) {
+    ZETASQL_RETURN_IF_ERROR(key->mutable_value_expr()->SetSchemasForEvaluation(
+        {key_input_schema.get()}));
+  }
+
+  return absl::OkStatus();
+}
+
+namespace {
+// CppValueArg implementation representing a variable associated with a
+// DistinctRowSet.
+class DistinctRowSetValueArg : public CppValueArg {
+ public:
+  explicit DistinctRowSetValueArg(VariableId var_id)
+      : CppValueArg(var_id, "DistinctRowSet") {}
+
+  std::unique_ptr<CppValueBase> CreateValue(
+      EvaluationContext* context) const override {
+    return absl::make_unique<CppValue<DistinctRowSet>>(
+        context->memory_accountant());
+  }
+};
+
+// TupleIterator implementation for DistinctOp.
+//
+// For each row produced by 'input_iterator', evaluates a sequence of key
+// expressions denoted by 'keys'. For each key-set produced, attempts to insert
+// it into 'row_set'. If the key set is inserted successfully, emits that key
+// set, followed by 'num_extra_slots' additional uninitialized slots. If the
+// key-set duplicates an item already present in 'row_set', the key set is
+// discarded. If an error occurs (for example, if inserting it into 'row_set'
+// would exceed memory limits), the iteration fails and the error is propagated.
+//
+// 'output_schema' denotes the schema of the tuples emitted, and should contain
+// one variable for each key.
+class DistinctOpTupleIterator : public TupleIterator {
+ public:
+  DistinctOpTupleIterator(std::unique_ptr<TupleIterator> input_iterator,
+                          DistinctRowSet* row_set,
+                          std::unique_ptr<const TupleSchema> output_schema,
+                          absl::Span<const KeyArg* const> keys,
+                          EvaluationContext* context, int num_extra_slots)
+      : input_iterator_(std::move(input_iterator)),
+        row_set_(row_set),
+        output_schema_(std::move(output_schema)),
+        keys_(std::move(keys)),
+        keys_data_(static_cast<int>(keys_.size()) + num_extra_slots),
+        context_(context) {}
+
+  const TupleSchema& Schema() const override { return *output_schema_; }
+
+  TupleData* Next() override {
+    while (true) {
+      TupleData* input_data = input_iterator_->Next();
+      if (input_data == nullptr) {
+        status_ = input_iterator_->Status();
+        return nullptr;
+      }
+
+      // Got a row; check if it's unique on the current DistinctRowSet.
+      if (!EvaluateKeys(input_data)) {
+        return nullptr;
+      }
+
+      // Generate a copy of the row data for the row set, ignoring any
+      // "extra slots".
+      auto keys_data_copy = absl::make_unique<TupleData>(keys_.size());
+      for (int i = 0; i < keys_.size(); ++i) {
+        keys_data_copy->mutable_slot(i)->CopyFromSlot(keys_data_.slot(i));
+      }
+
+      if (row_set_->InsertRowIfNotPresent(std::move(keys_data_copy),
+                                          &status_)) {
+        return &keys_data_;
+      }
+      if (!status_.ok()) {
+        return nullptr;
+      }
+    }
+  }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override {
+    return absl::StrCat("DistinctOp: ", input_iterator_->DebugString());
+  }
+
+ private:
+  // Given a TupleData produced by <input_iterator_>, evaluates each of the
+  // key expressions, storing the resuts in <keys_data_>. If unique
+  // <keys_data_> will then be returned by Next(); if seen before, the current
+  // row will be discarded.
+  bool EvaluateKeys(TupleData* input_data) {
+    for (int i = 0; i < keys_.size(); ++i) {
+      const KeyArg* key = keys_.at(i);
+      if (!key->value_expr()->EvalSimple(
+              {input_data}, context_, keys_data_.mutable_slot(i), &status_)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const std::unique_ptr<TupleIterator> input_iterator_;
+  DistinctRowSet* row_set_;
+  const std::unique_ptr<const TupleSchema> output_schema_;
+  absl::Span<const KeyArg* const> keys_;
+  TupleData keys_data_;
+  EvaluationContext* const context_;
+  absl::Status status_;
+};
+}  // namespace
+
+std::unique_ptr<CppValueArg> DistinctOp::MakeCppValueArgForRowSet(
+    VariableId var) {
+  return absl::make_unique<DistinctRowSetValueArg>(var);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> DistinctOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<TupleIterator> input_iterator,
+      input()->CreateIterator(params, /*num_extra_slots=*/0, context));
+
+  DistinctRowSet* row_set =
+      CppValue<DistinctRowSet>::Get(context->GetCppValue(row_set_id()));
+  if (row_set == nullptr) {
+    // This error means an outer tree node failed to set up the tuple data
+    // input so that the row set id points to a valid DistinctRowSet.
+    return zetasql_base::InternalErrorBuilder()
+           << "DistinctOp unable to look up row set id " << row_set_id();
+  }
+
+  return absl::make_unique<DistinctOpTupleIterator>(
+      std::move(input_iterator), row_set, CreateOutputSchema(), keys(), context,
+      num_extra_slots);
+}
+
+// Returns the schema consisting of the variables for the keys, followed by
+// the variables for the aggregators.
+std::unique_ptr<TupleSchema> DistinctOp::CreateOutputSchema() const {
+  std::vector<VariableId> variables;
+  for (const KeyArg* key : keys()) {
+    variables.push_back(key->variable());
+  }
+  return absl::make_unique<TupleSchema>(variables);
+}
+
+std::string DistinctOp::IteratorDebugString() const {
+  return absl::StrCat("DistinctOp: ", input()->IteratorDebugString());
+}
+
+std::string DistinctOp::DebugInternal(const std::string& indent,
+                                      bool verbose) const {
+  return absl::StrCat("DistinctOp(",
+                      ArgDebugString({"input", "keys", "row_set_id"},
+                                     {k1, kN, k1}, indent, verbose),
+                      ")");
+}
+
+// -------------------------------------------------------
 // UnionAllOp
 // -------------------------------------------------------
 
@@ -3310,7 +3571,7 @@ std::string UnionAllOp::GetIteratorDebugString(
 static int rel_index(int i) { return i * 2; }
 static int terms_index(int i) { return i * 2 + 1; }
 
-::zetasql_base::StatusOr<std::unique_ptr<UnionAllOp>> UnionAllOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<UnionAllOp>> UnionAllOp::Create(
     std::vector<Input> inputs) {
   ZETASQL_RET_CHECK(!inputs.empty());
   for (int i = 0; i < inputs.size(); ++i) {
@@ -3437,7 +3698,7 @@ class UnionAllTupleIterator : public TupleIterator {
 };
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> UnionAllOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> UnionAllOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   std::vector<absl::Span<const ExprArg* const>> tuple_values;
@@ -3539,10 +3800,307 @@ RelationalOp* UnionAllOp::mutable_rel(int i) {
 }
 
 // -------------------------------------------------------
+// LoopOp
+// -------------------------------------------------------
+zetasql_base::StatusOr<std::unique_ptr<LoopOp>> LoopOp::Create(
+    std::vector<std::unique_ptr<ExprArg>> initial_assign,
+    std::unique_ptr<RelationalOp> body,
+    std::vector<std::unique_ptr<ExprArg>> loop_assign) {
+  // Make sure all variable targets of <loop_assign> are in <initial_assign>
+  // and populate loop_assign_indexes_.
+  absl::flat_hash_map<VariableId, int> varid_to_index;
+  for (const std::unique_ptr<ExprArg>& arg : initial_assign) {
+    ZETASQL_RET_CHECK(!varid_to_index.contains(arg->variable()))
+        << "Duplicate variable " << arg->variable() << " in <initial_assign>";
+    varid_to_index[arg->variable()] = static_cast<int>(varid_to_index.size());
+  }
+
+  std::vector<int> loop_assign_indexes;
+  loop_assign_indexes.reserve(loop_assign.size());
+  for (const auto& arg : loop_assign) {
+    auto it = varid_to_index.find(arg->variable());
+    ZETASQL_RET_CHECK(it != varid_to_index.end())
+        << "Variable " << arg->variable()
+        << " in <loop_assign>, but not <initial_assign>";
+    loop_assign_indexes.push_back(it->second);
+  }
+  return absl::WrapUnique(new LoopOp(std::move(initial_assign), std::move(body),
+                                     std::move(loop_assign),
+                                     std::move(loop_assign_indexes)));
+}
+
+LoopOp::LoopOp(std::vector<std::unique_ptr<ExprArg>> initial_assign,
+               std::unique_ptr<RelationalOp> body,
+               std::vector<std::unique_ptr<ExprArg>> loop_assign,
+               std::vector<int> loop_assign_indexes)
+    : loop_assign_indexes_(std::move(loop_assign_indexes)) {
+  SetArgs(kInitialAssign, std::move(initial_assign));
+  SetArg(kBody, std::make_unique<RelationalArg>(std::move(body)));
+  SetArgs(kLoopAssign, std::move(loop_assign));
+}
+
+zetasql_base::StatusOr<int> LoopOp::GetVariableIndexFromLoopAssignIndex(int i) const {
+  ZETASQL_RET_CHECK_GE(i, 0);
+  ZETASQL_RET_CHECK_LT(i, loop_assign_indexes_.size());
+  return loop_assign_indexes_.at(i);
+}
+
+std::string LoopOp::DebugInternal(const std::string& indent,
+                                  bool verbose) const {
+  return absl::StrCat("LoopOp(",
+                      ArgDebugString({"initial_assign", "body", "loop_assign"},
+                                     {kN, k1, kN}, indent, verbose),
+                      ")");
+}
+
+const RelationalOp* LoopOp::body() const {
+  return GetArg(kBody)->relational_op();
+}
+
+RelationalOp* LoopOp::mutable_body() {
+  return GetMutableArg(kBody)->mutable_relational_op();
+}
+
+int LoopOp::num_variables() const {
+  return GetArgs<ExprArg>(kInitialAssign).size();
+}
+
+VariableId LoopOp::variable(int i) const {
+  return GetArgs<ExprArg>(kInitialAssign).at(i)->variable();
+}
+
+const ValueExpr* LoopOp::initial_assign_expr(int i) const {
+  return GetArgs<ExprArg>(kInitialAssign).at(i)->value_expr();
+}
+
+ValueExpr* LoopOp::mutable_initial_assign_expr(int i) {
+  return GetMutableArgs<ExprArg>(kInitialAssign).at(i)->mutable_value_expr();
+}
+
+int LoopOp::num_loop_assign() const {
+  return GetArgs<ExprArg>(kLoopAssign).size();
+}
+
+VariableId LoopOp::loop_assign_variable(int i) const {
+  return GetArgs<ExprArg>(kLoopAssign).at(i)->variable();
+}
+
+const ValueExpr* LoopOp::loop_assign_expr(int i) const {
+  return GetArgs<ExprArg>(kLoopAssign).at(i)->value_expr();
+}
+
+ValueExpr* LoopOp::mutable_loop_assign_expr(int i) {
+  return GetMutableArgs<ExprArg>(kLoopAssign).at(i)->mutable_value_expr();
+}
+
+absl::Status LoopOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  std::vector<const TupleSchema*> all_schemas(params_schemas.begin(),
+                                              params_schemas.end());
+
+  // During initial assignment expressions, allow each variable to be accessed
+  // only after it has been assigned to.
+  auto loop_variables_schema =
+      absl::make_unique<TupleSchema>(std::vector<VariableId>{});
+  all_schemas.push_back(loop_variables_schema.get());
+  for (int i = 0; i < num_variables(); ++i) {
+    ZETASQL_RETURN_IF_ERROR(
+        mutable_initial_assign_expr(i)->SetSchemasForEvaluation(all_schemas));
+    loop_variables_schema->AddVariable(variable(i));
+  }
+
+  // During the loop itself, all variables are accessible to the body and the
+  // loop assignment expressions.
+  ZETASQL_RETURN_IF_ERROR(mutable_body()->SetSchemasForEvaluation(all_schemas));
+  for (int i = 0; i < num_loop_assign(); ++i) {
+    ZETASQL_RETURN_IF_ERROR(
+        mutable_loop_assign_expr(i)->SetSchemasForEvaluation(all_schemas));
+  }
+
+  return absl::OkStatus();
+}
+
+std::unique_ptr<TupleSchema> LoopOp::CreateOutputSchema() const {
+  return body()->CreateOutputSchema();
+}
+
+std::string LoopOp::IteratorDebugString() const {
+  return absl::StrCat("LoopTupleIterator: any_rows = false, inner iterator: ",
+                      body()->IteratorDebugString());
+}
+
+namespace {
+// Tuple iterator for LoopOp.
+//
+// Iteration begins by iterating through the rows of the body, passing each
+// returned tuple on through to the caller. The body iterator is created with
+// each loop variable set to its corresponding value from evaluating the
+// expressions in op_->initial_assign().
+//
+// When a full pass through the body iterator is complete, we stop if no tuples
+// have been produced. Otherwise, we advance the iteration by evaluating each
+// expression in op_->loop_assign() and using the results to update loop
+// variables. The new set of loop variables is used to create a new body
+// iterator for the next iteration. The iteration continues until the body
+// iterator eventually either fails or completes without producing any new
+// tuples.
+//
+// While LoopTupleOperator does not contain any explicit checks to cut off
+// runaway iteration, it is expected that inner evaluations will eventually
+// start failing when memory limits are reached as a result of producing too
+// many tuples in total.
+class LoopTupleIterator : public TupleIterator {
+ public:
+  static zetasql_base::StatusOr<std::unique_ptr<LoopTupleIterator>> Create(
+      const LoopOp* op, absl::Span<const TupleData* const> params,
+      int num_extra_slots, EvaluationContext* context) {
+    return absl::WrapUnique(
+        new LoopTupleIterator(op, params, num_extra_slots, context));
+  }
+
+  const TupleSchema& Schema() const override { return *output_schema_; }
+
+  absl::Status Status() const override { return status_; }
+
+  TupleData* Next() override {
+    zetasql_base::StatusOr<TupleData*> status_or_data = NextInternal();
+    status_ = status_or_data.status();
+    TupleData* data = status_.ok() ? *status_or_data : nullptr;
+    if (data == nullptr) {
+      // Free body iterator, including result from previous call to Next().
+      iter_.reset();
+    }
+    return data;
+  }
+
+  std::string DebugString() const override {
+    return absl::StrCat("LoopTupleIterator: inner iterator: ",
+                        (iter_ != nullptr ? iter_->DebugString() : "nullptr"));
+  }
+
+ private:
+  LoopTupleIterator(const LoopOp* op, absl::Span<const TupleData* const> params,
+                    int num_extra_slots, EvaluationContext* context)
+      : op_(op),
+        loop_variables_(absl::make_unique<TupleData>(op->num_variables())),
+        params_and_loop_variables_(
+            ConcatSpans(absl::Span<const TupleData* const>(params),
+                        {loop_variables_.get()})),
+        num_extra_slots_(num_extra_slots),
+        context_(context),
+        output_schema_(op_->CreateOutputSchema()) {}
+
+  // Returns the next tuple in the enumeration(), nullptr if enumeration is
+  // complete, or a failed status if an error occurs.
+  //
+  // Invoked by Next(); caller is responsible for updating status_ based on the
+  // result.
+  zetasql_base::StatusOr<TupleData*> NextInternal() {
+    TupleData* data = nullptr;
+    if (iter_ == nullptr) {
+      // We are beginning the first iteration.
+      // Initialize loop variables by evaluating op_->initial_assign_expr().
+      for (int i = 0; i < op_->num_variables(); ++i) {
+        absl::Status status;
+        if (!op_->initial_assign_expr(i)->EvalSimple(
+                params_and_loop_variables_, context_,
+                loop_variables_->mutable_slot(i), &status)) {
+          return status;
+        }
+      }
+      ZETASQL_ASSIGN_OR_RETURN(data, BeginNextIteration());
+      return data;
+    }
+    // An iteration is already in progress; fetch the next tuple.
+    data = iter_->Next();
+    if (data == nullptr) {
+      // The current iteration is over; update variables and begin the next
+      // one.
+      ZETASQL_RETURN_IF_ERROR(UpdateLoopVariables());
+      ZETASQL_ASSIGN_OR_RETURN(data, BeginNextIteration());
+    }
+    return data;
+  }
+
+  // Updates loop variables after each loop iteration in preparation for the
+  // next one by evaluating each expression in op_->loop_assign_expr().
+  absl::Status UpdateLoopVariables() {
+    for (int i = 0; i < op_->num_loop_assign(); ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(int var_index,
+                       op_->GetVariableIndexFromLoopAssignIndex(i));
+      absl::Status status;
+      if (!op_->loop_assign_expr(i)->EvalSimple(
+              params_and_loop_variables_, context_,
+              loop_variables_->mutable_slot(var_index), &status)) {
+        return status;
+      }
+    }
+    return absl::OkStatus();
+  }
+
+  // Returns the first row of the next iteration of the loop. The caller must
+  // set up loop variables appropriately before calling this method.
+  //
+  // Returns:
+  //  - A non-null TupleData if the next iteration contains at least one tuple
+  //  - nullptr if the next iteration is empty (and terminates the loop)
+  //  - An error status if an error occurred.
+  zetasql_base::StatusOr<TupleData*> BeginNextIteration() {
+    // Create a new iterator for the body
+    ZETASQL_ASSIGN_OR_RETURN(iter_,
+                     op_->body()->CreateIterator(params_and_loop_variables_,
+                                                 num_extra_slots_, context_));
+
+    // Fetch the first TupleData of the next iteration
+    TupleData* data = iter_->Next();
+    if (data == nullptr) {
+      ZETASQL_RETURN_IF_ERROR(iter_->Status());
+    }
+    return data;
+  }
+
+  // The underlying LoopOp which produced this iterator.
+  const LoopOp* op_;
+
+  // Additional TupleData to store loop variables.
+  const std::unique_ptr<TupleData> loop_variables_;
+
+  // All TupleData parameters to be passed into child expressions/iterators.
+  // Contains a copy of params passed to constructor with <variables_> appended.
+  const std::vector<const TupleData*> params_and_loop_variables_;
+
+  // Passed down into CreateIterator() on the loop body.
+  const int num_extra_slots_;
+
+  // EvaluationContext, passed down into child evaluations.
+  EvaluationContext* const context_;
+
+  // Output schema.
+  const std::unique_ptr<const TupleSchema> output_schema_;
+
+  // Inner iterator representing the current progress through the loop body.
+  // Initialized in Init() and replaced with a new iterator inside Advance().
+  // Once Init() completes, a null value indicates that the last iteration of
+  // the loop is complete.
+  std::unique_ptr<TupleIterator> iter_;
+
+  // Current status of loop iteration.
+  absl::Status status_;
+};
+
+}  // namespace
+
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> LoopOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  return LoopTupleIterator::Create(this, params, num_extra_slots, context);
+}
+
+// -------------------------------------------------------
 // RootOp
 // -------------------------------------------------------
 
-::zetasql_base::StatusOr<std::unique_ptr<RootOp>> RootOp::Create(
+zetasql_base::StatusOr<std::unique_ptr<RootOp>> RootOp::Create(
     std::unique_ptr<RelationalOp> input, std::unique_ptr<RootData> root_data) {
   return absl::WrapUnique(new RootOp(std::move(input), std::move(root_data)));
 }
@@ -3552,7 +4110,7 @@ absl::Status RootOp::SetSchemasForEvaluation(
   return mutable_input()->SetSchemasForEvaluation(params_schemas);
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RootOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> RootOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   return input()->CreateIterator(params, num_extra_slots, context);
@@ -3585,5 +4143,4 @@ const RelationalOp* RootOp::input() const {
 RelationalOp* RootOp::mutable_input() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
 }
-
 }  // namespace zetasql

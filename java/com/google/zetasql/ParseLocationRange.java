@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 package com.google.zetasql;
 
 import com.google.auto.value.AutoValue;
+import java.io.Serializable;
 
 /**
  * This class is for storing the start and end byte offsets of a symbol string as it occurs in a
  * bigger string. This class corresponds to the ParseLocationRange class in C++:
  */
 @AutoValue
-abstract class ParseLocationRange {
+public abstract class ParseLocationRange implements Serializable {
   public static ParseLocationRange create(String fileName, int start, int end) {
     return new AutoValue_ParseLocationRange(fileName, start, end);
   }
@@ -44,5 +45,9 @@ abstract class ParseLocationRange {
     builder.setStart(start());
     builder.setEnd(end());
     return builder.build();
+  }
+
+  public static ParseLocationRange deserialize(ParseLocationRangeProto proto) {
+    return create(proto.getFilename(), proto.getStart(), proto.getEnd());
   }
 }

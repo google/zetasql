@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -80,8 +80,11 @@ class CastFilterScan : public ResolvedASTDeepCopyVisitor {
         ConsumeTopOfStack<ResolvedFilterScan>();
 
     const Type* type = filter->filter_expr()->type();
-    auto new_expr = MakeResolvedCast(type, filter->release_filter_expr(),
-                                     false /* return_null_on_error */);
+    auto new_expr =
+        MakeResolvedCast(types::StringType(), filter->release_filter_expr(),
+                         /*return_null_on_error=*/false);
+    new_expr = MakeResolvedCast(type, std::move(new_expr),
+                                /* return_null_on_error=*/false);
 
     // Allocate a new ResolvedFilterScan, releasing the copied node for the
     // old child scan.
@@ -348,6 +351,12 @@ ResolvedASTDeepCopyVisitorTest::TestModifyJoinScan(const std::string& query) {
   return ApplyCopyVisitor(query, &visitor);
 }
 
+std::unique_ptr<ResolvedNode>
+ResolvedASTDeepCopyVisitorTest::TestCastFilterScan(const std::string& query) {
+  CastFilterScan visitor;
+  return ApplyCopyVisitor(query, &visitor);
+}
+
 void ResolvedASTDeepCopyVisitorTest::TestAddFilterToTableScanError(
     const std::string& query, const std::string& error) {
   // Parse query into AST.
@@ -467,10 +476,11 @@ TEST_F(ResolvedASTDeepCopyVisitorTest, TestCastFilterScan) {
   // Tests that it updates the filter expression.
   const std::string input_sql =
       "SELECT double_field FROM Temp WHERE int32_field = 10";
-  auto ast = TestModifyJoinScan(input_sql);
+  auto ast = TestCastFilterScan(input_sql);
 
   const std::string input_sql_modified =
-      "SELECT double_field FROM Temp WHERE CAST(int32_field = 10 AS BOOL)";
+      "SELECT double_field FROM Temp WHERE "
+      "CAST(CAST(int32_field = 10 AS STRING) AS BOOL)";
   auto desired_ast = TestDeepCopyAST(input_sql_modified);
 
   ASSERT_EQ(ast->DebugString(), desired_ast->DebugString());

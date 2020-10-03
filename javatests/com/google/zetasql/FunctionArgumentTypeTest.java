@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,10 @@ package com.google.zetasql;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.zetasql.FunctionArgumentType.FunctionArgumentTypeOptions;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ArgumentCardinality;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ProcedureArgumentMode;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
@@ -168,7 +170,7 @@ public class FunctionArgumentTypeTest {
   }
 
   @Test
-  public void testSerializationAndDeserialization() {
+  public void testSerializationAndDeserializationOfFunctionArgumentType() {
     FunctionArgumentType arrayTypeAny1 =
         new FunctionArgumentType(
             SignatureArgumentKind.ARG_ARRAY_TYPE_ANY_1, ArgumentCardinality.REPEATED, 0);
@@ -200,12 +202,51 @@ public class FunctionArgumentTypeTest {
                 .serialize(fileDescriptorSetsBuilder));
   }
 
+  @Test
+  public void testSerializationAndDeserializationOfFunctionArgumentTypeOptions() {
+    FunctionArgumentTypeOptions options =
+        FunctionArgumentTypeOptions.builder()
+            .setCardinality(ArgumentCardinality.REPEATED)
+            .setMustBeConstant(true)
+            .setMustBeNonNull(true)
+            .setIsNotAggregate(true)
+            .setMustSupportEquality(true)
+            .setMustSupportOrdering(true)
+            .setMinValue(Long.MIN_VALUE)
+            .setMaxValue(Long.MAX_VALUE)
+            .setExtraRelationInputColumnsAllowed(true)
+            .setRelationInputSchema(
+                TVFRelation.createValueTableBased(
+                    TypeFactory.createSimpleType(TypeKind.TYPE_INT64)))
+            .setArgumentName("name")
+            .setArgumentNameParseLocation(ParseLocationRange.create("filename1", 0, 1))
+            .setArgumentTypeParseLocation(ParseLocationRange.create("fielname2", 2, 3))
+            .setProcedureArgumentMode(ProcedureArgumentMode.INOUT)
+            .setArgumentNameIsMandatory(true)
+            .setDescriptorResolutionTableOffset(1234)
+            .build();
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+    assertThat(options)
+        .isEqualTo(
+            FunctionArgumentTypeOptions.deserialize(
+                options.serialize(),
+                fileDescriptorSetsBuilder.getDescriptorPools(),
+                TypeFactory.nonUniqueNames()));
+    assertThat(options.serialize())
+        .isEqualTo(
+            FunctionArgumentTypeOptions.deserialize(
+                    options.serialize(),
+                    fileDescriptorSetsBuilder.getDescriptorPools(),
+                    TypeFactory.nonUniqueNames())
+                .serialize());
+  }
+
   static void checkEquals(FunctionArgumentType type1, FunctionArgumentType type2) {
     assertThat(type2.getNumOccurrences()).isEqualTo(type1.getNumOccurrences());
     assertThat(type2.getCardinality()).isEqualTo(type1.getCardinality());
     assertThat(type2.getKind()).isEqualTo(type1.getKind());
     if (type1.isConcrete()) {
-      assertThat(type1.getType().equals(type2.getType())).isTrue();
+      assertThat(type1.getType()).isEqualTo(type2.getType());
     }
   }
 
@@ -215,11 +256,11 @@ public class FunctionArgumentTypeTest {
             "The number of fields of FunctionArgumentTypeProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(FunctionArgumentTypeProto.getDescriptor().getFields())
-        .hasSize(4);
+        .hasSize(5);
     assertWithMessage(
             "The number of fields in FunctionArgumentType class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(FunctionArgumentType.class))
-        .isEqualTo(4);
+        .isEqualTo(5);
   }
 }

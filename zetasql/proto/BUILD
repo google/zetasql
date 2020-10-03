@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 # Package for non-public protos.
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 proto_library(
     name = "options_proto",
@@ -70,6 +70,7 @@ proto_library(
         "//zetasql/public:parse_location_range_proto",
         "//zetasql/public:parse_resume_location_proto",
         "//zetasql/public:type_proto",
+        "//zetasql/public:value_proto",
         "//zetasql/resolved_ast:serialization_proto",
     ],
 )

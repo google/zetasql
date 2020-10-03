@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ class TestInput {
             const std::string& error = "")
       : sql_(sql), error_(error), owned_names_(named_parameters) {
     ParsedScript::StringSet ids;
-    for (std::string name : named_parameters) {
+    for (const std::string& name : named_parameters) {
       IdString id = IdString::MakeGlobal(name);
       ids.insert(id.ToStringView());
     }

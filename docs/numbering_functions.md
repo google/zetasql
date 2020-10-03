@@ -1,6 +1,6 @@
 
 
-# Numbering Functions
+# Numbering functions
 
 The following sections describe the numbering functions that ZetaSQL
 supports. Numbering functions are a subset of analytic functions. For an

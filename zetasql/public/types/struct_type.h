@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -98,22 +98,6 @@ class StructType : public Type {
   int64_t GetEstimatedOwnedMemoryBytesSize() const override
       ABSL_NO_THREAD_SAFETY_ANALYSIS;
 
-  void InitializeValueContent(ValueContent* value) const override;
-  void CopyValueContent(const ValueContent& from,
-                        ValueContent* to) const override;
-  void ClearValueContent(const ValueContent& value) const override;
-  absl::HashState HashTypeParameter(absl::HashState state) const override;
-  absl::HashState HashValueContent(const ValueContent& value,
-                                   absl::HashState state) const override;
-  bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const override;
-
-  // This function shouldn't be called until b/155192766 is fixed.
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
-
  private:
   // Caller must enforce that <nesting_depth> is accurate. No verification is
   // done.
@@ -144,6 +128,25 @@ class StructType : public Type {
 
   HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
                               bool include_pseudo_fields) const override;
+
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override;
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override;
 
   const std::vector<StructField> fields_;
 

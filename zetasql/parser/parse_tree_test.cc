@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
@@ -179,6 +180,38 @@ TEST(ParseTreeTest, NodeKindCategories_IfStatement) {
   EXPECT_FALSE(statement->IsTableExpression());
 }
 
+TEST(ParseTreeTest, NodeKindCategories_DdlStatement_IsCreateStatement) {
+  const std::string sql = "create table t as select 1 x";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
+                        &parser_output));
+  auto statement_list = parser_output->script()->statement_list();
+  ASSERT_EQ(statement_list.size(), 1);
+  const ASTDdlStatement* statement =
+      statement_list[0]->GetAs<ASTDdlStatement>();
+
+  EXPECT_TRUE(statement->IsDdlStatement());
+  EXPECT_TRUE(statement->IsCreateStatement());
+  EXPECT_FALSE(statement->IsAlterStatement());
+}
+
+TEST(ParseTreeTest, NodeKindCategories_DdlStatement_IsAlterStatement) {
+  const std::string sql = "alter table t set options()";
+
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_ASSERT_OK(ParseScript(sql, ParserOptions(), ERROR_MESSAGE_WITH_PAYLOAD,
+                        &parser_output));
+  auto statement_list = parser_output->script()->statement_list();
+  ASSERT_EQ(statement_list.size(), 1);
+  const ASTDdlStatement* statement =
+      statement_list[0]->GetAs<ASTDdlStatement>();
+
+  EXPECT_TRUE(statement->IsDdlStatement());
+  EXPECT_TRUE(statement->IsAlterStatement());
+  EXPECT_FALSE(statement->IsCreateStatement());
+}
+
 TEST(ParseTreeTest, NodeKindCategories_LoopStatement) {
   const std::string sql = "LOOP END LOOP;";
 
@@ -279,6 +312,8 @@ TEST(ParseTreeTest, GetDescendantsWithKinds) {
                                             &found_nodes);
   EXPECT_EQ("QueryStatement:1", CountNodeKinds(found_nodes));
   EXPECT_EQ(AST_QUERY_STATEMENT, statement->node_kind());
+  EXPECT_TRUE(statement->Is<ASTQueryStatement>());
+  EXPECT_FALSE(statement->Is<ASTCreateTableStatement>());
   statement->GetDescendantsWithKinds({AST_QUERY_STATEMENT}, &found_nodes);
   EXPECT_EQ("QueryStatement:1", CountNodeKinds(found_nodes));
 
@@ -338,8 +373,8 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
   // Returns a custom VisitResult to return after pre-visit, or
   // this->VisitChildren() to proceed to visiting children and optionally
   // perform post-visit.
-  virtual zetasql_base::StatusOr<VisitResult> OnDonePreVisit(
-      const ASTNode* node, const std::string& label) {
+  virtual zetasql_base::StatusOr<VisitResult> OnDonePreVisit(const ASTNode* node,
+                                                     const std::string& label) {
     return VisitChildren(node, label);
   }
 

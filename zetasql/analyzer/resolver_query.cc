@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 #include "zetasql/analyzer/recursive_queries.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/resolver_common_inl.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include <cstdint>
 // This includes common macro definitions to define in the resolver cc files.
@@ -69,6 +70,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -153,16 +155,10 @@ void Resolver::AddNamedSubquery(const std::vector<IdString>& alias,
   it->second.push_back(std::move(named_subquery));
 }
 
-absl::Status Resolver::ResolveQuery(
-    const ASTQuery* query,
-    const NameScope* scope,
-    IdString query_alias,
-    bool is_outer_query,
-    std::unique_ptr<const ResolvedScan>* output,
-    std::shared_ptr<const NameList>* output_name_list) {
-
+zetasql_base::StatusOr<std::vector<std::unique_ptr<const ResolvedWithEntry>>>
+Resolver::ResolveWithClauseIfPresent(const ASTQuery* query,
+                                     bool is_outer_query) {
   std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entries;
-
   if (query->with_clause() != nullptr) {
     if (!is_outer_query &&
         !language().LanguageFeatureEnabled(FEATURE_V_1_1_WITH_ON_SUBQUERY)) {
@@ -209,7 +205,44 @@ absl::Status Resolver::ResolveQuery(
       }
     }
   }
+  return with_entries;
+}
 
+absl::Status Resolver::FinishResolveWithClauseIfPresent(
+    const ASTQuery* query,
+    std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entries,
+    std::unique_ptr<const ResolvedScan>* output) {
+  if (query->with_clause() == nullptr) {
+    return absl::OkStatus();
+  }
+  // Now remove any WITH entry mappings we added, restoring what was visible
+  // outside this WITH clause.
+  for (const ASTWithClauseEntry* with_entry : query->with_clause()->with()) {
+    const IdString with_alias = with_entry->alias()->GetAsIdString();
+    auto it = named_subquery_map_.find({with_alias});
+    ZETASQL_RET_CHECK(it != named_subquery_map_.end());
+    it->second.pop_back();
+    if (it->second.empty()) {
+      named_subquery_map_.erase(it);
+    }
+  }
+
+  // Wrap a ResolvedWithScan around the output query.
+  const auto& tmp_column_list = (*output)->column_list();
+  *output = MakeResolvedWithScan(tmp_column_list, std::move(with_entries),
+                                 std::move(*output),
+                                 query->with_clause()->recursive());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveQuery(
+    const ASTQuery* query, const NameScope* scope, IdString query_alias,
+    bool is_outer_query, std::unique_ptr<const ResolvedScan>* output,
+    std::shared_ptr<const NameList>* output_name_list) {
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entries,
+      ResolveWithClauseIfPresent(query, is_outer_query));
   ZETASQL_RETURN_IF_ERROR(ResolveQueryAfterWith(query, scope, query_alias, output,
                                         output_name_list));
 
@@ -220,28 +253,8 @@ absl::Status Resolver::ResolveQuery(
         output_name_list));
   }
 
-  // Now remove any WITH entry mappings we added, restoring what was visible
-  // outside this WITH clause.
-  if (query->with_clause() != nullptr) {
-    for (const ASTWithClauseEntry* with_entry : query->with_clause()->with()) {
-      const IdString with_alias = with_entry->alias()->GetAsIdString();
-      auto it = named_subquery_map_.find({with_alias});
-      ZETASQL_RET_CHECK(it != named_subquery_map_.end());
-      it->second.pop_back();
-      if (it->second.empty()) {
-        named_subquery_map_.erase(it);
-      }
-    }
-  }
-
-  // If there are WITH subqueries, wrap a ResolvedWithScan around the output
-  // query.
-  if (!with_entries.empty()) {
-    const auto& tmp_column_list = (*output)->column_list();
-    *output = MakeResolvedWithScan(tmp_column_list, std::move(with_entries),
-                                   std::move(*output),
-                                   query->with_clause()->recursive());
-  }
+  ZETASQL_RETURN_IF_ERROR(
+      FinishResolveWithClauseIfPresent(query, std::move(with_entries), output));
 
   // Add parse location to the outermost ResolvedScan only. This is intended
   // because the outermost ResolvedScan represents a query_expr (query or
@@ -255,23 +268,35 @@ absl::Status Resolver::ResolveQuery(
   return absl::OkStatus();
 }
 
+static absl::Status VerifyNoLimitOrOrderByInRecursiveQuery(
+    const ASTQuery* query) {
+  if (query->order_by() != nullptr) {
+    return MakeSqlErrorAt(query->order_by())
+           << "A recursive query may not use ORDER BY";
+  }
+  if (query->limit_offset() != nullptr) {
+    return MakeSqlErrorAt(query->limit_offset())
+           << "A recursive query may not use LIMIT";
+  }
+  return absl::OkStatus();
+}
+
 zetasql_base::StatusOr<const ASTSetOperation*> Resolver::GetRecursiveUnion(
-    IdString query_name, const ASTQuery* query) {
+    const ASTQuery* query) {
   // Skip redundant parentheses around the UNION
   while (query->query_expr()->node_kind() == AST_QUERY) {
-    // TODO: Make sure the ORDER BY/LIMIT on these intermediate
-    // queries is disallowed.
+    ZETASQL_RETURN_IF_ERROR(VerifyNoLimitOrOrderByInRecursiveQuery(query));
     query = query->query_expr()->GetAsOrDie<ASTQuery>();
   }
+  ZETASQL_RETURN_IF_ERROR(VerifyNoLimitOrOrderByInRecursiveQuery(query));
 
   const ASTSetOperation* query_set_op =
       query->query_expr()->GetAsOrNull<ASTSetOperation>();
   if (query_set_op == nullptr ||
       query_set_op->op_type() != ASTSetOperation::UNION) {
     return MakeSqlErrorAt(query)
-           << "Recursive query '" << query_name.ToString()
-           << "' does not have the form <non-recursive-term> UNION "
-           << "[ALL|DISTINCT] <recursive-term>";
+           << "Recursive query does not have the form <non-recursive-term> "
+           << "UNION [ALL|DISTINCT] <recursive-term>";
   }
   return query_set_op;
 }
@@ -288,31 +313,36 @@ Resolver::ResolveWithEntry(const ASTWithClauseEntry* with_entry,
                                              unique_with_alias_names_.size()));
   }
 
-  if (recursive) {
-    ZETASQL_ASSIGN_OR_RETURN(const ASTSetOperation* recursive_union,
-                     GetRecursiveUnion(with_alias, with_entry->query()));
-    // TODO: Verify that the non-recursive UNION term is actually
-    // non-recursive.
-    // TODO: Resolve the UNION into a ResolvedRecursiveScan.
-    // TODO: Verify that the resolved scan satisfies the tree-shape
-    // rules described in (broken link) (e.g. no aggregates,
-    // analytics, etc.)
-    return MakeSqlErrorAt(recursive_union)
-           << "Recursive WITH entries are not implemented yet";
-  }
-
-  // We always pass empty_name_scope_ when resolving the subquery inside
-  // WITH.  Those queries must stand alone and cannot reference any
-  // correlated columns or other names defined outside.
   std::unique_ptr<const ResolvedScan> resolved_subquery;
   std::shared_ptr<const NameList> subquery_name_list;
-  ZETASQL_RETURN_IF_ERROR(ResolveQuery(with_entry->query(), empty_name_scope_.get(),
-                               with_alias, false /* is_outer_query */,
-                               &resolved_subquery, &subquery_name_list));
-  AddNamedSubquery(
-      {with_alias},
-      absl::make_unique<NamedSubquery>(
-          unique_alias, resolved_subquery->column_list(), subquery_name_list));
+  if (recursive) {
+    // WITH entry is actually recursive (not just defined using the RECURSIVE
+    // keyword).
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<const ResolvedWithEntry>>
+                         inner_with_entries,
+                     ResolveWithClauseIfPresent(with_entry->query(),
+                                                /*is_outer_query=*/false));
+    ZETASQL_ASSIGN_OR_RETURN(const ASTSetOperation* recursive_union,
+                     GetRecursiveUnion(with_entry->query()));
+    SetOperationResolver setop_resolver(recursive_union, this);
+    ZETASQL_RETURN_IF_ERROR(setop_resolver.ResolveRecursive(
+        empty_name_scope_.get(), {with_alias}, unique_alias, &resolved_subquery,
+        &subquery_name_list));
+    ZETASQL_RETURN_IF_ERROR(FinishResolveWithClauseIfPresent(
+        with_entry->query(), std::move(inner_with_entries),
+        &resolved_subquery));
+  } else {
+    // We always pass empty_name_scope_ when resolving the subquery inside
+    // WITH.  Those queries must stand alone and cannot reference any
+    // correlated columns or other names defined outside.
+    ZETASQL_RETURN_IF_ERROR(ResolveQuery(with_entry->query(), empty_name_scope_.get(),
+                                 with_alias, false /* is_outer_query */,
+                                 &resolved_subquery, &subquery_name_list));
+    AddNamedSubquery({with_alias},
+                     absl::make_unique<NamedSubquery>(
+                         unique_alias, /*recursive_in=*/false,
+                         resolved_subquery->column_list(), subquery_name_list));
+  }
   std::unique_ptr<const ResolvedWithEntry> resolved_with_entry =
       MakeResolvedWithEntry(unique_alias.ToString(),
                             std::move(resolved_subquery));
@@ -1271,7 +1301,8 @@ absl::Status Resolver::ResolveModelTransformSelectList(
         query_info.select_column_state_list()->GetSelectColumnState(i);
     if (IsInternalAlias(select_column_state->alias)) {
       return MakeSqlErrorAt(select_column_state->ast_expr)
-             << "Anonymous columns are disallowed in TRANSFORM clause";
+             << "Anonymous columns are disallowed in TRANSFORM clause. Please "
+                "provide a column name";
     }
     if (select_column_state->has_aggregation) {
       return MakeSqlErrorAt(select_column_state->ast_expr)
@@ -2451,8 +2482,9 @@ absl::Status Resolver::AddColumnFieldsToSelectList(
       Value default_value;
       RETURN_SQL_ERROR_AT_IF_ERROR(
           ast_expression,
-          GetProtoFieldTypeAndDefault(field, type_factory_,
-                                      &field_type, &default_value));
+          GetProtoFieldTypeAndDefault(
+              ProtoFieldDefaultOptions::FromFieldAndLanguage(field, language()),
+              field, type_factory_, &field_type, &default_value));
       // TODO: This really should be check for
       // !field_type->IsSupportedType(language())
       // but that breaks existing tests :(
@@ -3359,6 +3391,18 @@ static absl::Status GetSetScanEnumType(
   return absl::OkStatus();
 }
 
+static absl::Status GetRecursiveScanEnumType(
+    const ASTSetOperation* set_operation,
+    ResolvedRecursiveScan::RecursiveSetOperationType* op_type) {
+  ZETASQL_RET_CHECK_EQ(set_operation->op_type(), ASTSetOperation::UNION);
+  if (set_operation->distinct()) {
+    *op_type = ResolvedRecursiveScan::UNION_DISTINCT;
+  } else {
+    *op_type = ResolvedRecursiveScan::UNION_ALL;
+  }
+  return absl::OkStatus();
+}
+
 static std::string FormatColumnCount(const NameList& name_list) {
   return name_list.is_value_table()
              ? std::string(" is value table with 1 column")
@@ -3391,7 +3435,8 @@ absl::Status Resolver::SetOperationResolver::Resolve(
   }
 
   std::vector<std::vector<InputArgumentType>> column_type_lists;
-  ZETASQL_ASSIGN_OR_RETURN(column_type_lists, BuildColumnTypeLists(resolved_inputs));
+  ZETASQL_ASSIGN_OR_RETURN(column_type_lists,
+                   BuildColumnTypeLists(absl::MakeSpan(resolved_inputs)));
   ZETASQL_ASSIGN_OR_RETURN(
       ResolvedColumnList final_column_list,
       BuildColumnLists(column_type_lists, *resolved_inputs.front().name_list));
@@ -3403,8 +3448,8 @@ absl::Status Resolver::SetOperationResolver::Resolve(
     resolved_input_set_op_items.push_back(std::move(result.node));
   }
 
-  ZETASQL_RETURN_IF_ERROR(CreateWrapperScansWithCasts(final_column_list,
-                                              &resolved_input_set_op_items));
+  ZETASQL_RETURN_IF_ERROR(CreateWrapperScansWithCasts(
+      final_column_list, absl::MakeSpan(resolved_input_set_op_items)));
   auto set_op_scan = MakeResolvedSetOperationScan(
       final_column_list, op_type, std::move(resolved_input_set_op_items));
 
@@ -3420,6 +3465,388 @@ absl::Status Resolver::SetOperationResolver::Resolve(
   ZETASQL_ASSIGN_OR_RETURN(*output_name_list,
                    BuildFinalNameList(*resolved_inputs.front().name_list,
                                       final_column_list));
+  return absl::OkStatus();
+}
+
+Resolver::ValidateRecursiveTermVisitor::ValidateRecursiveTermVisitor(
+    const Resolver* resolver, IdString recursive_query_name)
+    : resolver_(resolver), recursive_query_name_(recursive_query_name) {}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::DefaultVisit(
+    const ResolvedNode* node) {
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedAggregateScan(
+    const ResolvedAggregateScan* node) {
+  ++aggregate_scan_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --aggregate_scan_count_;
+  return absl::OkStatus();
+}
+
+absl::Status
+Resolver::ValidateRecursiveTermVisitor::VisitResolvedFunctionArgument(
+    const ResolvedFunctionArgument* node) {
+  ++tvf_argument_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --tvf_argument_count_;
+  return absl::OkStatus();
+}
+
+absl::Status
+Resolver::ValidateRecursiveTermVisitor::VisitResolvedLimitOffsetScan(
+    const ResolvedLimitOffsetScan* node) {
+  ++limit_offset_scan_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --limit_offset_scan_count_;
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedWithEntry(
+    const ResolvedWithEntry* node) {
+  ++nested_with_entry_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --nested_with_entry_count_;
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedAnalyticScan(
+    const ResolvedAnalyticScan* node) {
+  ++analytic_scan_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --analytic_scan_count_;
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedSampleScan(
+    const ResolvedSampleScan* node) {
+  ++sample_scan_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --sample_scan_count_;
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedOrderByScan(
+    const ResolvedOrderByScan* node) {
+  ++order_by_scan_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --order_by_scan_count_;
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedSubqueryExpr(
+    const ResolvedSubqueryExpr* node) {
+  ++subquery_expr_count_;
+  ZETASQL_RETURN_IF_ERROR(node->ChildrenAccept(this));
+  --subquery_expr_count_;
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedRecursiveScan(
+    const ResolvedRecursiveScan* node) {
+  // If we have an inner recursive query, process only the query's non-recursive
+  // term. As recursive queries are validated in a bottom-up fashon, the inner
+  // query's recursive term has already been validated, and part of the
+  // inner query's validation prevents its recursive term from referencing the
+  // current (outer) query.
+  ZETASQL_RETURN_IF_ERROR(node->non_recursive_term()->Accept(this));
+  return absl::OkStatus();
+}
+
+int* Resolver::ValidateRecursiveTermVisitor::GetJoinCountField(
+    const ResolvedJoinScan::JoinType join_type, bool left_operand) {
+  switch (join_type) {
+    case ResolvedJoinScan::LEFT:
+      return left_operand ? nullptr : &right_operand_of_left_join_count_;
+    case ResolvedJoinScan::RIGHT:
+      return left_operand ? &left_operand_of_right_join_count_ : nullptr;
+    case ResolvedJoinScan::FULL:
+      return &full_join_operand_count_;
+    case ResolvedJoinScan::INNER:
+      return nullptr;
+  }
+}
+
+void Resolver::ValidateRecursiveTermVisitor::MaybeAdjustJoinCount(
+    const ResolvedJoinScan::JoinType join_type, bool left_operand, int offset) {
+  int* field = GetJoinCountField(join_type, left_operand);
+  if (field != nullptr) {
+    (*field) += offset;
+  }
+}
+
+absl::Status Resolver::ValidateRecursiveTermVisitor::VisitResolvedJoinScan(
+    const ResolvedJoinScan* node) {
+  // Process left operand
+  MaybeAdjustJoinCount(node->join_type(), /*left_operand=*/true, 1);
+  ZETASQL_RETURN_IF_ERROR(node->left_scan()->Accept(this));
+  MaybeAdjustJoinCount(node->join_type(), /*left_operand=*/true, -1);
+
+  // Process right operand
+  MaybeAdjustJoinCount(node->join_type(), /*left_operand=*/false, 1);
+  ZETASQL_RETURN_IF_ERROR(node->right_scan()->Accept(this));
+  MaybeAdjustJoinCount(node->join_type(), /*left_operand=*/false, -1);
+
+  // Process ON expression
+  if (node->join_expr() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(node->join_expr()->Accept(this));
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status
+Resolver::ValidateRecursiveTermVisitor::VisitResolvedRecursiveRefScan(
+    const ResolvedRecursiveRefScan* node) {
+  auto it = resolver_->recursive_ref_info_.find(node);
+  ZETASQL_RET_CHECK(it != resolver_->recursive_ref_info_.end());
+  const RecursiveRefScanInfo& info = it->second;
+  std::string query_type =
+      (recursive_query_name_.ToStringView() == "$view") ? "view" : "table";
+
+  if (seen_recursive_reference_) {
+    return MakeSqlErrorAt(info.path)
+        << "Multiple recursive references to " << query_type
+        << "'" << info.path->ToIdentifierPathString() << "' is not allowed";
+  }
+  seen_recursive_reference_ = true;
+
+  if (!info.recursive_query_unique_name.Equals(recursive_query_name_)) {
+    return MakeSqlErrorAt(info.path)
+           << query_type << " '" << info.path->ToIdentifierPathString()
+           << "' may not be recursively referenced from inside an "
+              "inner WITH entry";
+  }
+
+  if (nested_with_entry_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << query_type << " '" << info.path->ToIdentifierPathString()
+           << "' may not be recursively referenced from inside an "
+              "inner WITH entry";
+  }
+
+  if (subquery_expr_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A recursive reference from inside an expression subquery is not "
+              "allowed";
+  }
+
+  if (aggregate_scan_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A subquery containing a recursive reference may not use "
+              "DISTINCT, GROUP BY, or any aggregate function";
+  }
+
+  if (analytic_scan_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A subquery containing a recursive reference may not use an "
+              "analytic function";
+  }
+
+  if (sample_scan_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A subquery containing a recursive reference may not use the "
+              "TABLESAMPLE operator";
+  }
+
+  if (order_by_scan_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A subquery containing a recursive reference may not contain an "
+              "ORDER BY clause";
+  }
+
+  if (limit_offset_scan_count_ > 0) {
+    return MakeSqlErrorAt(info.path) << "A query containing a recursive "
+                                        "reference may not use a LIMIT clause";
+  }
+
+  if (right_operand_of_left_join_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A query containing a recursive reference may not be used as the "
+              "right operand of a LEFT JOIN";
+  }
+
+  if (left_operand_of_right_join_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A query containing a recursive reference may not be used as the "
+              "left operand of a RIGHT JOIN";
+  }
+
+  if (full_join_operand_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A query containing a recursive reference may not be used as an "
+              "operand of a FULL OUTER JOIN";
+  }
+
+  if (tvf_argument_count_ > 0) {
+    return MakeSqlErrorAt(info.path)
+           << "A query containing a recursive reference may not be used as an "
+              "argument to a table-valued function";
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::SetOperationResolver::ResolveRecursive(
+    const NameScope* scope, const std::vector<IdString>& recursive_alias,
+    const IdString& recursive_query_unique_name,
+    std::unique_ptr<const ResolvedScan>* output,
+    std::shared_ptr<const NameList>* output_name_list) {
+  ZETASQL_RET_CHECK_GE(set_operation_->inputs().size(), 2);
+
+  ResolvedRecursiveScan::RecursiveSetOperationType recursive_op_type;
+  ZETASQL_RETURN_IF_ERROR(GetRecursiveScanEnumType(set_operation_, &recursive_op_type));
+
+  // Register a NULL entry for the named subquery so that any references to it
+  // from within the non-recursive term result in an error. We'll change this
+  // to an actual NamedSubquery object when the recursive term resolves.
+  resolver_->named_subquery_map_[recursive_alias].push_back(nullptr);
+
+  // The standard requires that any recursion be confined to the rhs of the
+  // UNION. However, the ZetaSQL parser collapses chains of UNION's like:
+  //   SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 ...
+  // into a single ASTSetOperation node, which is left-associative. When this
+  // happens, we will treat the UNION of all terms except the last as the
+  // overall non-recursive term, and the last term of the UNION as the overall
+  // recursive term. To override and include an inner UNION within the recursive
+  // term, the user will need to provide explicit parentheses.
+  std::vector<ResolvedInputResult> nonrecursive_resolved_inputs;
+  int num_nonrecursive_inputs =
+      static_cast<int>(set_operation_->inputs().size() - 1);
+  for (int idx = 0; idx < num_nonrecursive_inputs; ++idx) {
+    ZETASQL_ASSIGN_OR_RETURN(nonrecursive_resolved_inputs.emplace_back(),
+                     ResolveInputQuery(scope, idx));
+  }
+
+  ZETASQL_RET_CHECK_EQ(set_operation_->inputs().size() - 1,
+               nonrecursive_resolved_inputs.size());
+
+  // Determine the UNION's column list and name list using only the
+  // non-recursive terms.
+  std::vector<std::vector<InputArgumentType>> column_type_lists;
+  ZETASQL_ASSIGN_OR_RETURN(
+      column_type_lists,
+      BuildColumnTypeLists(absl::MakeSpan(nonrecursive_resolved_inputs)));
+  ZETASQL_ASSIGN_OR_RETURN(
+      ResolvedColumnList column_list,
+      BuildColumnLists(column_type_lists,
+                       *nonrecursive_resolved_inputs.front().name_list));
+
+  std::vector<std::unique_ptr<ResolvedSetOperationItem>>
+      resolved_nonrecursive_input_set_op_items;
+  resolved_nonrecursive_input_set_op_items.reserve(
+      nonrecursive_resolved_inputs.size());
+  for (ResolvedInputResult& result : nonrecursive_resolved_inputs) {
+    resolved_nonrecursive_input_set_op_items.push_back(std::move(result.node));
+  }
+
+  ZETASQL_RETURN_IF_ERROR(CreateWrapperScansWithCasts(
+      column_list, absl::MakeSpan(resolved_nonrecursive_input_set_op_items)));
+
+  std::shared_ptr<const NameList> final_name_list;
+  ZETASQL_ASSIGN_OR_RETURN(
+      final_name_list,
+      BuildFinalNameList(*nonrecursive_resolved_inputs.front().name_list,
+                         column_list));
+
+  // Register the WITH entry so that self-references in the recursive term can
+  // resolve correctly.
+  resolver_->named_subquery_map_.at(recursive_alias).back() =
+      absl::make_unique<NamedSubquery>(recursive_query_unique_name,
+                                       /*recursive_in=*/true, column_list,
+                                       final_name_list);
+
+  // Resolve the recursive term.
+  ZETASQL_ASSIGN_OR_RETURN(
+      ResolvedInputResult resolved_recursive_input,
+      ResolveInputQuery(scope,
+                        static_cast<int>(set_operation_->inputs().size() - 1)));
+
+  // The recursive query is now resolved; clear the 'recursive' flag in
+  // named_subquery_map_ so that future references simply resolve like an
+  // ordinary WITH entry.
+  resolver_->named_subquery_map_[recursive_alias].back()->is_recursive = false;
+
+  if (resolved_recursive_input.name_list->num_columns() !=
+      column_type_lists.size()) {
+    return MakeSqlErrorAt(set_operation_->inputs().back())
+           << "Queries in " << set_operation_->GetSQLForOperation()
+           << " have mismatched column count; query 1"
+           << FormatColumnCount(*nonrecursive_resolved_inputs.front().name_list)
+           << ", query " << (nonrecursive_resolved_inputs.size() + 1)
+           << FormatColumnCount(*resolved_recursive_input.name_list);
+  }
+
+  ValidateRecursiveTermVisitor validation_visitor(resolver_,
+                                                  recursive_query_unique_name);
+  ZETASQL_RETURN_IF_ERROR(resolved_recursive_input.node->Accept(&validation_visitor));
+
+  // Obtain the type of each column in the recursive term and verify that it
+  // is coercible to the corresponding column type based on the non-recursive
+  // terms.
+  std::vector<std::vector<InputArgumentType>> recursive_column_type_lists;
+  ZETASQL_ASSIGN_OR_RETURN(
+      recursive_column_type_lists,
+      BuildColumnTypeLists(absl::MakeSpan(&resolved_recursive_input, 1)));
+
+  for (int i = 0; i < column_list.size(); ++i) {
+    SignatureMatchResult result;
+    if (!resolver_->coercer_.CoercesTo(recursive_column_type_lists.at(i).at(0),
+                                       column_list.at(i).type(),
+                                       /*is_explicit=*/false, &result)) {
+      return MakeSqlErrorAt(set_operation_->inputs().back())
+             << "Cannot coerce column " << (i + 1) << " of recursive term "
+             << "("
+             << recursive_column_type_lists.at(i).at(0).type()->TypeName(
+                    resolver_->analyzer_options_.language_options()
+                        .product_mode())
+             << ") to column type in non-recursive term ( "
+             << column_list.at(i).type()->TypeName(
+                    resolver_->analyzer_options_.language_options()
+                        .product_mode())
+             << ")";
+    }
+  }
+
+  // Add casts as needed to ensure that every column produced by the recursive
+  // term is the correct type (we already verified that the casts are legal
+  // through implicit coercion).
+  ZETASQL_RETURN_IF_ERROR(CreateWrapperScansWithCasts(
+      column_list, absl::MakeSpan(&resolved_recursive_input.node, 1)));
+
+  // Package everything together in a ResolvedRecursiveScan node.
+  std::unique_ptr<ResolvedRecursiveScan> recursive_scan;
+  if (nonrecursive_resolved_inputs.size() == 1) {
+    recursive_scan = MakeResolvedRecursiveScan(
+        column_list, recursive_op_type,
+        std::move(resolved_nonrecursive_input_set_op_items.at(0)),
+        std::move(resolved_recursive_input.node));
+  } else {
+    // If we have multiple non-recursive operands, wrap them in an inner UNION
+    // so that the ResolvedRecursive scan can have just one non-recursive
+    // operand.
+    ResolvedSetOperationScan::SetOperationType op_type;
+    ZETASQL_RETURN_IF_ERROR(GetSetScanEnumType(set_operation_, &op_type));
+    auto set_op_scan = MakeResolvedSetOperationScan(
+        column_list, op_type,
+        std::move(resolved_nonrecursive_input_set_op_items));
+    auto non_recursive_operand =
+        MakeResolvedSetOperationItem(std::move(set_op_scan), column_list);
+    recursive_scan = MakeResolvedRecursiveScan(
+        column_list, recursive_op_type, std::move(non_recursive_operand),
+        std::move(resolved_recursive_input.node));
+  }
+  // Resolve the ResolvedOption (Query Hint), if present.
+  if (set_operation_->hint() != nullptr) {
+    std::vector<std::unique_ptr<const ResolvedOption>> hint_list;
+    ZETASQL_RETURN_IF_ERROR(
+        resolver_->ResolveHintAndAppend(set_operation_->hint(), &hint_list));
+    recursive_scan->set_hint_list(std::move(hint_list));
+  }
+  *output = std::move(recursive_scan);
+  *output_name_list = final_name_list;
   return absl::OkStatus();
 }
 
@@ -3444,7 +3871,7 @@ Resolver::SetOperationResolver::ResolveInputQuery(const NameScope* scope,
 
 zetasql_base::StatusOr<std::vector<std::vector<InputArgumentType>>>
 Resolver::SetOperationResolver::BuildColumnTypeLists(
-    const std::vector<ResolvedInputResult>& resolved_inputs) const {
+    absl::Span<ResolvedInputResult> resolved_inputs) const {
   std::vector<std::vector<InputArgumentType>> column_type_lists;
   column_type_lists.resize(resolved_inputs.front().name_list->num_columns());
   // Resolve all the input scans, and collect <column_type_lists>.
@@ -3498,7 +3925,9 @@ Resolver::SetOperationResolver::BuildColumnLists(
     for (const InputArgumentType& type : column_type_lists[i]) {
       type_set.Insert(type);
     }
-    const Type* supertype = resolver_->coercer_.GetCommonSuperType(type_set);
+    const Type* supertype = nullptr;
+    ZETASQL_RETURN_IF_ERROR(
+        resolver_->coercer_.GetCommonSuperType(type_set, &supertype));
     if (supertype == nullptr) {
       // We location in set_operation points at the start of the first query,
       // because of how the grammar is expressed, I think.
@@ -3537,10 +3966,10 @@ Resolver::SetOperationResolver::BuildColumnLists(
   // column to the respective overall column type of the set operation.
 absl::Status Resolver::SetOperationResolver::CreateWrapperScansWithCasts(
     const ResolvedColumnList& column_list,
-    std::vector<std::unique_ptr<ResolvedSetOperationItem>>* resolved_inputs) {
-  ZETASQL_RET_CHECK_EQ(resolved_inputs->size(), set_operation_->inputs().size());
-  for (int idx = 0; idx < resolved_inputs->size(); ++idx) {
-    ResolvedSetOperationItem* input = resolved_inputs->at(idx).get();
+    absl::Span<std::unique_ptr<ResolvedSetOperationItem>> resolved_inputs)
+    const {
+  for (int idx = 0; idx < resolved_inputs.size(); ++idx) {
+    ResolvedSetOperationItem* input = resolved_inputs.at(idx).get();
 
     std::unique_ptr<const ResolvedScan> resolved_scan = input->release_scan();
 
@@ -4376,7 +4805,13 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
   ZETASQL_RET_CHECK(table_path != nullptr);
   auto it = named_subquery_map_.find(table_path->ToIdStringVector());
   ZETASQL_RET_CHECK(it != named_subquery_map_.end() && !it->second.empty());
-  const NamedSubquery& named_subquery = *it->second.back();
+  const NamedSubquery* named_subquery = it->second.back().get();
+  if (named_subquery == nullptr) {
+    // This is possible only if we have a recursive reference from within the
+    // non-recursive term of a recursive UNION. This is an error.
+    return MakeSqlErrorAt(table_path)
+           << "Recursive reference is not allowed in non-recursive UNION term";
+  }
 
   // For each new column produced in the WithRefScan, we want to name it
   // using the WITH alias, not the original column name.  e.g. In
@@ -4385,7 +4820,7 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
   // we want to call the new column Q.K, not Q.Key.  Since the column_list
   // may not map 1:1 with select-list column names, we need to build a map.
   std::map<ResolvedColumn, IdString> with_column_to_alias;
-  for (const NamedColumn& named_column : named_subquery.name_list->columns()) {
+  for (const NamedColumn& named_column : named_subquery->name_list->columns()) {
     zetasql_base::InsertIfNotPresent(&with_column_to_alias, named_column.column,
                             named_column.name);
   }
@@ -4395,8 +4830,8 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
   // we get distinct column names for each scan.
   ResolvedColumnList column_list;
   std::map<ResolvedColumn, ResolvedColumn> old_column_to_new_column;
-  for (int i = 0; i < named_subquery.column_list.size(); ++i) {
-    const ResolvedColumn& column = named_subquery.column_list[i];
+  for (int i = 0; i < named_subquery->column_list.size(); ++i) {
+    const ResolvedColumn& column = named_subquery->column_list[i];
 
     // Get the alias for the column produced by the WITH reference,
     // using the first alias for that column in the WITH subquery.
@@ -4408,7 +4843,7 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
     new_column_alias = *found;
 
     column_list.emplace_back(ResolvedColumn(AllocateColumnId(),
-                                            named_subquery.unique_alias,
+                                            named_subquery->unique_alias,
                                             new_column_alias, column.type()));
     // Build mapping from WITH subquery column to the newly created column
     // for the WITH reference.
@@ -4420,7 +4855,7 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
 
   // Make a new NameList pointing at the new ResolvedColumns.
   std::shared_ptr<NameList> name_list(new NameList);
-  for (const NamedColumn& named_column : named_subquery.name_list->columns()) {
+  for (const NamedColumn& named_column : named_subquery->name_list->columns()) {
     const ResolvedColumn& old_column = named_column.column;
     ZETASQL_RET_CHECK(zetasql_base::ContainsKey(old_column_to_new_column, old_column));
     const ResolvedColumn& new_column =
@@ -4428,16 +4863,30 @@ absl::Status Resolver::ResolveNamedSubqueryRef(
     ZETASQL_RETURN_IF_ERROR(name_list->AddColumn(
         named_column.name, new_column, named_column.is_explicit));
   }
-  if (named_subquery.name_list->is_value_table()) {
+  if (named_subquery->name_list->is_value_table()) {
     ZETASQL_RET_CHECK_EQ(name_list->num_columns(), 1);
     name_list->set_is_value_table(true);
   }
 
-  std::unique_ptr<ResolvedWithRefScan> with_ref_scan = MakeResolvedWithRefScan(
-      column_list, named_subquery.unique_alias.ToString());
-  ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(hint, with_ref_scan.get()));
+  std::unique_ptr<ResolvedScan> scan;
+  if (named_subquery->is_recursive) {
+    std::unique_ptr<ResolvedRecursiveRefScan> recursive_scan =
+        MakeResolvedRecursiveRefScan(column_list);
 
-  *output = std::move(with_ref_scan);
+    // Remember information about the recursive scan, which will be needed for
+    // downstream validation checks.
+    recursive_ref_info_[recursive_scan.get()] = RecursiveRefScanInfo{
+        table_path,
+        named_subquery->unique_alias,
+    };
+    scan = std::move(recursive_scan);
+  } else {
+    scan = MakeResolvedWithRefScan(column_list,
+                                   named_subquery->unique_alias.ToString());
+  }
+  ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(hint, scan.get()));
+
+  *output = std::move(scan);
   *output_name_list = name_list;
   return absl::OkStatus();
 }
@@ -5322,7 +5771,7 @@ zetasql_base::StatusOr<int> Resolver::MatchTVFSignature(
         tvf_catalog_entry, &named_arguments, i,
         descriptor_arg_present ? &tvf_table_scope_map : nullptr);
     ZETASQL_RETURN_IF_ERROR(tvf_arg_or_status.status());
-    resolved_tvf_args->push_back(std::move(tvf_arg_or_status).ValueOrDie());
+    resolved_tvf_args->push_back(std::move(tvf_arg_or_status).value());
   }
 
   // We perform a second resolution pass for descriptors whose columns must be
@@ -5387,7 +5836,7 @@ zetasql_base::StatusOr<int> Resolver::MatchTVFSignature(
   for (int i = 0; i < num_tvf_args; ++i) {
     auto input_arg_type_or_status = GetTVFArgType(resolved_tvf_args->at(i));
     ZETASQL_RETURN_IF_ERROR(input_arg_type_or_status.status());
-    input_arg_types.push_back(std::move(input_arg_type_or_status).ValueOrDie());
+    input_arg_types.push_back(std::move(input_arg_type_or_status).value());
   }
   if (!function_resolver.SignatureMatches(input_arg_types, function_signature,
                                           true /* allow_argument_coercion */,

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,10 @@
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_representations.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 
 namespace zetasql {
@@ -70,6 +73,20 @@ bool ProtoType::SupportsOrdering(const LanguageOptions& language_options,
 
 const google::protobuf::Descriptor* ProtoType::descriptor() const {
   return descriptor_;
+}
+
+const google::protobuf::FieldDescriptor* ProtoType::map_key() const {
+  // This is the same as Descriptor::map_key() in descriptor.h in the latest
+  // release. However, ZetaSQL is not currently importing the current protobuf
+  // release.
+  return descriptor()->FindFieldByNumber(1);
+}
+
+const google::protobuf::FieldDescriptor* ProtoType::map_value() const {
+  // This is the same as Descriptor::map_value() in descriptor.h in the latest
+  // release. However, ZetaSQL is not currently importing the current protobuf
+  // release.
+  return descriptor()->FindFieldByNumber(2);
 }
 
 absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
@@ -285,9 +302,24 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
     case google::protobuf::FieldDescriptor::TYPE_ENUM:
       *kind = TYPE_ENUM;
       break;
-    case google::protobuf::FieldDescriptor::TYPE_STRING:
-      *kind = TYPE_STRING;
+    case google::protobuf::FieldDescriptor::TYPE_STRING: {
+      switch (format) {
+        case FieldFormat::DEFAULT_FORMAT:
+          *kind = TYPE_STRING;
+          break;
+        case FieldFormat::JSON:
+          *kind = TYPE_JSON;
+          break;
+        default:
+          // Should not reach this if ValidateTypeAnnotations() is working
+          // properly.
+          return MakeSqlError()
+                 << "Proto " << field->containing_type()->full_name()
+                 << " has invalid zetasql.format for STRING field: "
+                 << field->DebugString();
+      }
       break;
+  }
     case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
       if (ignore_format_annotations) {
         *kind = TYPE_PROTO;
@@ -362,6 +394,55 @@ FieldFormat::Format ProtoType::GetFormatAnnotationImpl(
   } else {
     return FieldFormat::DEFAULT_FORMAT;
   }
+}
+
+// Forward declaration, see below for documentation.
+static bool HasSubfieldWithFormatHelper(
+    const google::protobuf::FieldDescriptor* field, FieldFormat::Format format,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>* visited_descriptors);
+
+// This is a helper for HasSubfieldWithFormat() that keeps track the
+// visited descriptors to avoid crashing in recursive protos messages.
+static bool HasSubfieldWithFormatHelper(
+    const google::protobuf::Descriptor* descriptor, FieldFormat::Format format,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>* visited_descriptors) {
+  if (!visited_descriptors->insert(descriptor).second) {
+    return false;
+  }
+  for (int i = 0; i < descriptor->field_count(); ++i) {
+    if (HasSubfieldWithFormatHelper(descriptor->field(i), format,
+                                    visited_descriptors))
+      return true;
+  }
+  return false;
+}
+
+// This is a helper for HasSubfieldWithFormat() that keeps track the
+// visited descriptors to avoid crashing in recursive protos messages.
+static bool HasSubfieldWithFormatHelper(
+    const google::protobuf::FieldDescriptor* field, FieldFormat::Format format,
+    absl::flat_hash_set<const google::protobuf::Descriptor*>* visited_descriptors) {
+  if (ProtoType::GetFormatAnnotation(field) == format) {
+    return true;
+  }
+  if (field->message_type() != nullptr &&
+      HasSubfieldWithFormatHelper(field->message_type(), format,
+                                  visited_descriptors)) {
+    return true;
+  }
+  return false;
+}
+
+bool ProtoType::HasSubfieldWithFormat(const google::protobuf::Descriptor* descriptor,
+                                      FieldFormat::Format format) {
+  absl::flat_hash_set<const google::protobuf::Descriptor*> visited_descriptors;
+  return HasSubfieldWithFormatHelper(descriptor, format, &visited_descriptors);
+}
+
+bool ProtoType::HasSubfieldWithFormat(const google::protobuf::FieldDescriptor* field,
+                                      FieldFormat::Format format) {
+  absl::flat_hash_set<const google::protobuf::Descriptor*> visited_descriptors;
+  return HasSubfieldWithFormatHelper(field, format, &visited_descriptors);
 }
 
 FieldFormat::Format ProtoType::GetFormatAnnotation(
@@ -488,10 +569,6 @@ bool ProtoType::EqualsImpl(const ProtoType* const type1,
   return false;
 }
 
-void ProtoType::InitializeValueContent(ValueContent* value) const {
-  value->set(new internal::ProtoRep(this, absl::Cord()));
-}
-
 void ProtoType::CopyValueContent(const ValueContent& from,
                                  ValueContent* to) const {
   GetValueRef(from)->Ref();
@@ -519,7 +596,7 @@ absl::HashState ProtoType::HashValueContent(const ValueContent& value,
   return absl::HashState::combine(std::move(state), 0);
 }
 
-bool ProtoType::ValueContentEqualsImpl(
+bool ProtoType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
   const absl::Cord& x_value = x.GetAs<internal::ProtoRep*>()->value();
@@ -564,6 +641,13 @@ bool ProtoType::ValueContentEqualsImpl(
   return result;
 }
 
+bool ProtoType::ValueContentLess(const ValueContent& x, const ValueContent& y,
+                                 const Type* other_type) const {
+  LOG(DFATAL) << "Cannot compare " << DebugString() << " to "
+              << other_type->DebugString();
+  return false;
+}
+
 std::string ProtoType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
   if (!options.as_literal()) {
@@ -597,6 +681,24 @@ std::string ProtoType::FormatValueContent(
 
   // This branch is not expected, but try to return something.
   return ToStringLiteral(message->ShortDebugString());
+}
+
+absl::Status ProtoType::SerializeValueContent(const ValueContent& value,
+                                              ValueProto* value_proto) const {
+  value_proto->set_proto_value(std::string(GetCordValue(value)));
+
+  return absl::OkStatus();
+}
+
+absl::Status ProtoType::DeserializeValueContent(const ValueProto& value_proto,
+                                                ValueContent* value) const {
+  if (!value_proto.has_proto_value()) {
+    return TypeMismatchError(value_proto);
+  }
+  value->set(new internal::ProtoRep(this,
+  absl::Cord(value_proto.proto_value())));
+
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

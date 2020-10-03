@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,10 +23,13 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/json_internal.h"
+#include "zetasql/public/json_value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/status_macros.h"
 #include "zetasql/base/statusor.h"
+#include "absl/strings/match.h"
+#include "re2/re2.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace functions {
@@ -55,6 +58,7 @@ absl::Status JsonPathEvaluator::Extract(absl::string_view json,
                                         bool* is_null) const {
   JSONPathExtractor parser(json, path_iterator_.get());
   parser.set_special_character_escaping(escape_special_characters_);
+  parser.set_escaping_needed_callback(&escaping_needed_callback_);
   value->clear();
   parser.Extract(value, is_null);
   if (parser.StoppedDueToStackSpace()) {
@@ -63,6 +67,44 @@ absl::Status JsonPathEvaluator::Extract(absl::string_view json,
                            << JSONPathExtractor::kMaxParsingDepth;
   }
   return absl::OkStatus();
+}
+
+absl::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
+    JSONValueConstRef input) const {
+  for (path_iterator_->Rewind(); !path_iterator_->End(); ++(*path_iterator_)) {
+    const ValidJSONPathIterator::Token& token = *(*path_iterator_);
+
+    if (token.empty()) {
+      // The JSONPath "$.a[1].b" will result in the following list of tokens:
+      // "", "a", "1", "b". The first token is always the empty token
+      // corresponding to the whole JSON document, and we don't need to do
+      // anything in that iteration. There shouldn't be any empty tokens after
+      // the first one as ValidJSONPathIterator would reject those invalid
+      // paths.
+      continue;
+    }
+
+    if (input.IsObject()) {
+      absl::optional<JSONValueConstRef> optional_member =
+          input.GetMemberIfExists(token);
+      if (!optional_member.has_value()) {
+        return absl::nullopt;
+      }
+      input = optional_member.value();
+    } else if (input.IsArray()) {
+      int64_t index;
+      if (!absl::SimpleAtoi(token, &index) || index < 0 ||
+          index >= input.GetArraySize()) {
+        return absl::nullopt;
+      }
+      input = input.GetArrayElement(index);
+    } else {
+      // The path is not present in the JSON object.
+      return absl::nullopt;
+    }
+  }
+
+  return input;
 }
 
 absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
@@ -80,6 +122,23 @@ absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
   return absl::OkStatus();
 }
 
+absl::optional<std::string> JsonPathEvaluator::ExtractScalar(
+    JSONValueConstRef input) const {
+  absl::optional<JSONValueConstRef> optional_json = Extract(input);
+  if (!optional_json.has_value() || optional_json->IsNull() ||
+      optional_json->IsObject() || optional_json->IsArray()) {
+    return absl::nullopt;
+  }
+
+  if (optional_json->IsString()) {
+    // ToString() adds extra quotes and escapes special characters,
+    // which we don't want.
+    return optional_json->GetString();
+  }
+
+  return optional_json->ToString();
+}
+
 absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
                                              std::vector<std::string>* value,
                                              bool* is_null) const {
@@ -94,6 +153,76 @@ absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
                            << JSONPathExtractor::kMaxParsingDepth;
   }
   return absl::OkStatus();
+}
+
+zetasql_base::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
+    absl::string_view json_path) {
+  // See json_internal.cc for list of characters that don't need escaping.
+  static const RE2& kSpecialCharsPattern =
+      *new RE2(R"([^\p{L}\p{N}\d_\-\:\s])");
+  static const RE2& kDoubleQuotesPattern = *new RE2(R"(")");
+
+  ZETASQL_ASSIGN_OR_RETURN(auto iterator, json_internal::ValidJSONPathIterator::Create(
+                                      json_path, /*sql_standard_mode=*/false));
+
+  std::string new_json_path = "$";
+
+  // First token is empty.
+  ++(*iterator);
+
+  for (; !iterator->End(); ++(*iterator)) {
+    // Token is unescaped.
+    absl::string_view token = **iterator;
+    if (!RE2::PartialMatch(token, kSpecialCharsPattern)) {
+      // No special characters. Can be field access or array element access.
+      // Note that '$[0]' is equivalent to '$.0'.
+      absl::StrAppend(&new_json_path, ".", token);
+    } else if (absl::StrContains(token, "\"")) {
+      // We need to escape double quotes in the token because the SQL standard
+      // mode use them to wrap around token with special characters.
+      std::string escaped(token);
+      // Two backslashes are needed in the replacement string because \<digit>
+      // is used for group matching.
+      RE2::GlobalReplace(&escaped, kDoubleQuotesPattern, R"(\\")");
+      absl::StrAppend(&new_json_path, ".\"", escaped, "\"");
+    } else {
+      // Special characters but no double quotes.
+      absl::StrAppend(&new_json_path, ".\"", token, "\"");
+    }
+  }
+
+  ZETASQL_RET_CHECK_OK(json_internal::IsValidJSONPath(new_json_path,
+                                              /*sql_standard_mode=*/true));
+
+  return new_json_path;
+}
+
+zetasql_base::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
+    absl::Span<const std::string> json_paths) {
+  if (json_paths.empty()) {
+    return absl::OutOfRangeError("Empty JSONPaths.");
+  }
+
+  std::string merged_json_path = "$";
+
+  for (absl::string_view json_path : json_paths) {
+    if (json_internal::IsValidJSONPath(json_path, /*sql_standard_mode=*/true)
+            .ok()) {
+      // Remove the "$" prefix.
+      absl::StrAppend(&merged_json_path, json_path.substr(1));
+    } else {
+      // Convert to SQL standard mode first.
+      ZETASQL_ASSIGN_OR_RETURN(std::string sql_standard_json_path,
+                       ConvertJSONPathToSqlStandardMode(json_path));
+
+      absl::StrAppend(&merged_json_path, sql_standard_json_path.substr(1));
+    }
+  }
+
+  ZETASQL_RET_CHECK_OK(json_internal::IsValidJSONPath(merged_json_path,
+                                              /*sql_standard_mode=*/true));
+
+  return merged_json_path;
 }
 
 }  // namespace functions

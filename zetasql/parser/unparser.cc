@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "zetasql/parser/unparser.h"
 
 #include <ctype.h>
+
 #include <set>
 #include <utility>
 #include <deque>
@@ -140,10 +141,10 @@ void Formatter::FormatLine(absl::string_view s) {
 bool Formatter::LastTokenIsSeparator() {
   // These are keywords emitted in uppercase in Unparser, so don't need to make
   // them case insensitive.
-  static const std::set<std::string> kWordSperarator = {"AND", "OR", "ON",
-                                                        "IN"};
-  static const std::set<char> kNonWordSperarator = {
-      ',', '<', '>', '-', '+', '=', '*', '/', '%' };
+  static const std::set<std::string>& kWordSperarator =
+      *new std::set<std::string>({"AND", "OR", "ON", "IN"});
+  static const std::set<char>& kNonWordSperarator =
+      *new std::set<char>({',', '<', '>', '-', '+', '=', '*', '/', '%'});
   if (buffer_.empty()) return false;
   // When last token is not a word.
   if (!isalnum(buffer_.back())) {
@@ -537,6 +538,17 @@ void Unparser::visitASTCreateFunctionStatement(
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
+void Unparser::visitASTCreateSchemaStatement(
+    const ASTCreateSchemaStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, "SCHEMA"));
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTCreateTableFunctionStatement(
     const ASTCreateTableFunctionStatement* node, void* data) {
   PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
@@ -598,6 +610,29 @@ void Unparser::visitASTCreateTableStatement(
     node->query()->Accept(this, data);
   }
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+}
+
+void Unparser::visitASTCreateEntityStatement(
+    const ASTCreateEntityStatement* node, void* data) {
+  print(GetCreateStatementPrefix(node, node->type()->GetAsString()));
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+  if (node->json_body() != nullptr) {
+    println();
+    print("AS JSON");
+    node->json_body()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
+                                            void* data) {
+  print("ALTER ");
+  node->type()->Accept(this, data);
+  VisitAlterStatementBase(node, data);
 }
 
 void Unparser::visitASTCreateModelStatement(const ASTCreateModelStatement* node,
@@ -738,6 +773,14 @@ void Unparser::visitASTCreateMaterializedViewStatement(
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
+void Unparser::visitASTWithPartitionColumnsClause(
+    const ASTWithPartitionColumnsClause* node, void* data) {
+  print("WITH PARTITION COLUMNS");
+  if (node->table_element_list() != nullptr) {
+    node->table_element_list()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTCreateExternalTableStatement(
     const ASTCreateExternalTableStatement* node, void* data) {
   PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
@@ -747,13 +790,8 @@ void Unparser::visitASTCreateExternalTableStatement(
     println();
     node->table_element_list()->Accept(this, data);
   }
-  // skipping println() in partition_by, cluster_by clauses to keep it in sync
-  // with CREATE TABLE statement.
-  if (node->partition_by() != nullptr) {
-    node->partition_by()->Accept(this, data);
-  }
-  if (node->cluster_by() != nullptr) {
-    node->cluster_by()->Accept(this, data);
+  if (node->with_partition_columns_clause() != nullptr) {
+    node->with_partition_columns_clause()->Accept(this, data);
   }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
@@ -831,6 +869,24 @@ void Unparser::visitASTExportDataStatement(
   println("AS");
   node->query()->Accept(this, data);
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+}
+
+void Unparser::visitASTExportModelStatement(const ASTExportModelStatement* node,
+                                            void* data) {
+  print("EXPORT MODEL");
+  if (node->model_name_path() != nullptr) {
+    node->model_name_path()->Accept(this, data);
+  }
+
+  if (node->with_connection_clause() != nullptr) {
+    print("WITH");
+    node->with_connection_clause()->Accept(this, data);
+  }
+
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTWithConnectionClause(const ASTWithConnectionClause* node,
@@ -1021,7 +1077,18 @@ void Unparser::visitASTDropStatement(const ASTDropStatement* node, void* data) {
     print("IF EXISTS");
   }
   node->name()->Accept(this, data);
-  PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+　PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+  print(node->GetSQLForDropMode(node->drop_mode()));
+}
+
+void Unparser::visitASTDropEntityStatement(const ASTDropEntityStatement* node,
+                                           void* data) {
+  print("DROP ");
+  node->entity_type()->Accept(this, data);
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
 }
 
 void Unparser::visitASTDropFunctionStatement(
@@ -1204,6 +1271,11 @@ void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
   }
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
   PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTSetAsAction(const ASTSetAsAction* node, void* data) {
+  print("SET AS JSON");
+  node->body()->Accept(this, data);
 }
 
 void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
@@ -1645,6 +1717,11 @@ void Unparser::visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }
 
+void Unparser::visitASTJSONLiteral(const ASTJSONLiteral* node, void* data) {
+  print("JSON");
+  UnparseLeafNode(node);
+}
+
 void Unparser::visitASTFloatLiteral(const ASTFloatLiteral* node, void* data) {
   PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   UnparseLeafNode(node);
@@ -1870,6 +1947,15 @@ void Unparser::visitASTExtractExpression(const ASTExtractExpression* node,
     node->time_zone_expr()->Accept(this, data);
   }
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+  print(")");
+}
+
+void Unparser::visitASTCollateExpression(const ASTCollateExpression* node,
+                                         void* data) {
+  print("COLLATE(");
+  node->expr()->Accept(this, data);
+  print(", ");
+  node->collation_spec()->Accept(this, data);
   print(")");
 }
 
@@ -2199,12 +2285,29 @@ void Unparser::visitASTAnalyticFunctionCall(const ASTAnalyticFunctionCall* node,
                                             void* data) {
   PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   PrintOpenParenIfNeeded(node);
-  node->function()->Accept(this, data);
+  if (node->function() != nullptr) {
+    node->function()->Accept(this, data);
+  } else {
+    node->function_with_group_rows()->Accept(this, data);
+  }
   print("OVER (");
   {
     Formatter::Indenter indenter(&formatter_);
     node->window_spec()->Accept(this, data);
     PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+  }
+  print(")");
+  PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTFunctionCallWithGroupRows(
+    const ASTFunctionCallWithGroupRows* node, void* data) {
+  PrintOpenParenIfNeeded(node);
+  node->function()->Accept(this, data);
+  print("WITH GROUP_ROWS (");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->subquery()->Accept(this, data);
   }
   print(")");
   PrintCloseParenIfNeeded(node);
@@ -2704,6 +2807,26 @@ void Unparser::visitASTReplaceFieldsExpression(
     Formatter::Indenter indenter(&formatter_);
     UnparseVectorWithSeparator(node->arguments(), data, ",");
     PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+  }
+  print(")");
+}
+
+void Unparser::visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
+                                       void* data) {
+  std::string path_expression = Unparse(node->path_expression());
+  DCHECK_EQ(path_expression.back(), '\n');
+  path_expression.pop_back();
+  print(absl::StrCat(node->GetSQLForOperator(), path_expression));
+}
+
+void Unparser::visitASTFilterFieldsExpression(
+    const ASTFilterFieldsExpression* node, void* data) {
+  print("FILTER_FIELDS(");
+  node->expr()->Accept(this, data);
+  print(", ");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseVectorWithSeparator(node->arguments(), data, ",");
   }
   print(")");
 }
@@ -3326,6 +3449,23 @@ void Unparser::visitASTNamedArgument(const ASTNamedArgument* node, void* data) {
   print(" => ");
   node->expr()->Accept(this, data);
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
+}
+
+void Unparser::visitASTLambda(const ASTLambda* node, void* data) {
+  const ASTExpression* argument_list = node->argument_list();
+  // Check if the parameter list expression will print the parentheses.
+  const bool already_parenthesized =
+      argument_list->parenthesized() ||
+      argument_list->node_kind() == AST_STRUCT_CONSTRUCTOR_WITH_PARENS;
+  if (!already_parenthesized) {
+    print("(");
+  }
+  node->argument_list()->Accept(this, data);
+  if (!already_parenthesized) {
+    print(")");
+  }
+  print("-> ");
+  node->body()->Accept(this, data);
 }
 
 void Unparser::visitASTExceptionHandler(const ASTExceptionHandler* node,

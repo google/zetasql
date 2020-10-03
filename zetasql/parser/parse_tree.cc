@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@
 #include "zetasql/public/strings.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -58,6 +60,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
       "ASTAlterConstraintSetOptionsAction";
   map[AST_ALTER_DATABASE_STATEMENT] = "AlterDatabaseStatement";
+  map[AST_ALTER_ENTITY_STATEMENT] = "AlterEntityStatement";
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
   map[AST_ALTER_ROW_ACCESS_POLICY_STATEMENT] = "AlterRowAccessPolicyStatement";
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
@@ -65,6 +68,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_TABLE_STATEMENT] = "AlterTableStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
   map[AST_ANALYTIC_FUNCTION_CALL] = "AnalyticFunctionCall";
+  map[AST_FUNCTION_CALL_WITH_GROUP_ROWS] = "ASTFunctionCallWithGroupRows";
   map[AST_AND_EXPR] = "AndExpr";
   map[AST_ARRAY_COLUMN_SCHEMA] = "ArrayColumnSchema";
   map[AST_ARRAY_CONSTRUCTOR] = "ArrayConstructor";
@@ -89,6 +93,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CHECK_CONSTRAINT] = "CheckConstraint";
   map[AST_CLUSTER_BY] = "ClusterBy";
   map[AST_COLLATE] = "Collate";
+  map[AST_COLLATE_EXPRESSION] = "CollateExpression";
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
   map[AST_COLUMN_ATTRIBUTE_LIST] = "ColumnAttributeList";
   map[AST_COLUMN_LIST] = "ColumnList";
@@ -106,8 +111,10 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_MODEL_STATEMENT] = "CreateModelStatement";
   map[AST_CREATE_ROW_ACCESS_POLICY_STATEMENT] =
       "CreateRowAccessPolicyStatement";
+  map[AST_CREATE_SCHEMA_STATEMENT] = "CreateSchemaStatement";
   map[AST_CREATE_TABLE_FUNCTION_STATEMENT] = "CreateTableFunctionStatement";
   map[AST_CREATE_TABLE_STATEMENT] = "CreateTableStatement";
+  map[AST_CREATE_ENTITY_STATEMENT] = "CreateEntityStatement";
   map[AST_CREATE_VIEW_STATEMENT] = "CreateViewStatement";
   map[AST_CREATE_MATERIALIZED_VIEW_STATEMENT] =
       "CreateMaterializedViewStatement";
@@ -127,6 +134,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
       "DropAllRowAccessPoliciesStatement";
   map[AST_DROP_COLUMN_ACTION] = "DropColumnAction";
   map[AST_DROP_CONSTRAINT_ACTION] = "DropConstraintAction";
+  map[AST_DROP_ENTITY_STATEMENT] = "DropEntityStatement";
   map[AST_DROP_FUNCTION_STATEMENT] = "DropFunctionStatement";
   map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
@@ -141,8 +149,11 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_EXECUTE_USING_CLAUSE] = "ExecuteUsingClause";
   map[AST_EXPLAIN_STATEMENT] = "ExplainStatement";
   map[AST_EXPORT_DATA_STATEMENT] = "ExportDataStatement";
+  map[AST_EXPORT_MODEL_STATEMENT] = "ExportModelStatement";
   map[AST_EXPRESSION_SUBQUERY] = "ExpressionSubquery";
   map[AST_EXTRACT_EXPRESSION] = "ExtractExpression";
+  map[AST_FILTER_FIELDS_ARG] = "FilterFieldsArg";
+  map[AST_FILTER_FIELDS_EXPRESSION] = "FilterFieldsExpression";
   map[AST_FILTER_USING_CLAUSE] = "FilterUsingClause";
   map[AST_FLOAT_LITERAL] = "FloatLiteral";
   map[AST_FOREIGN_KEY] = "ForeignKey";
@@ -184,6 +195,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_INTO_ALIAS] = "IntoAlias";
   map[AST_INT_LITERAL] = "IntLiteral";
   map[AST_JOIN] = "Join";
+  map[AST_JSON_LITERAL] = "JSONLiteral";
+  map[AST_LAMBDA] = "Lambda";
   map[AST_LIMIT_OFFSET] = "LimitOffset";
   map[AST_MERGE_ACTION] = "MergeAction";
   map[AST_MERGE_STATEMENT] = "MergeStatement";
@@ -238,6 +251,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SELECT] = "Select";
   map[AST_SET_OPERATION] = "SetOperation";
   map[AST_SET_OPTIONS_ACTION] = "SetOptionsOperation";
+  map[AST_SET_AS_ACTION] = "SetAsOperation";
   map[AST_SET_TRANSACTION_STATEMENT] = "SetTransaction";
   map[AST_SINGLE_ASSIGNMENT] = "SingleAssignment";
   map[AST_SHOW_STATEMENT] = "ShowStatement";
@@ -297,6 +311,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WITH_CONNECTION_CLAUSE] = "WithConnectionClause";
   map[AST_WITH_OFFSET] = "WithOffset";
   map[AST_WITH_WEIGHT] = "WithWeight";
+  map[AST_WITH_PARTITION_COLUMNS_CLAUSE] = "WithPartitionColumnsClause";
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
     DCHECK(zetasql_base::ContainsKey(map, static_cast<ASTNodeKind>(kind)))
@@ -702,9 +717,36 @@ std::string ASTCastExpression::SingleNodeDebugString() const {
 }
 
 std::string ASTDropStatement::SingleNodeDebugString() const {
-  const std::string out =
-      absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
-                   SchemaObjectKindToName(schema_object_kind()));
+  std::string out = absl::StrCat(ASTNode::SingleNodeDebugString(), " ",
+                                 SchemaObjectKindToName(schema_object_kind()));
+  std::vector<std::string> params;
+  if (is_if_exists()) {
+    params.push_back("is_if_exists");
+  }
+  if (drop_mode() != ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED) {
+    params.push_back(
+        absl::StrCat("drop_mode=", GetSQLForDropMode(drop_mode())));
+  }
+  if (!params.empty()) {
+    absl::StrAppend(&out, "(", absl::StrJoin(params, ", "), ")");
+  }
+  return out;
+}
+
+// static
+std::string ASTDropStatement::GetSQLForDropMode(DropMode drop_mode) {
+  switch (drop_mode) {
+    case DropMode::DROP_MODE_UNSPECIFIED:
+      return "";
+    case DropMode::RESTRICT:
+      return "RESTRICT";
+    case DropMode::CASCADE:
+      return "CASCADE";
+  }
+}
+
+std::string ASTDropEntityStatement::SingleNodeDebugString() const {
+  const std::string out = ASTNode::SingleNodeDebugString();
   if (!is_if_exists()) {
     return out;
   }
@@ -825,6 +867,28 @@ std::string ASTWindowFrameExpr::BoundaryTypeToString(BoundaryType type) {
 
 std::string ASTWindowFrameExpr::GetBoundaryTypeString() const {
   return BoundaryTypeToString(boundary_type_);
+}
+
+const ASTFunctionCall* ASTAnalyticFunctionCall::function() const {
+  if (expression_ == nullptr) {
+    return nullptr;
+  }
+  if (expression_->node_kind() == ASTNodeKind::AST_FUNCTION_CALL) {
+    return static_cast<const ASTFunctionCall*>(expression_);
+  }
+  return nullptr;
+}
+
+const ASTFunctionCallWithGroupRows*
+ASTAnalyticFunctionCall::function_with_group_rows() const {
+  if (expression_ == nullptr) {
+    return nullptr;
+  }
+  if (expression_->node_kind() ==
+      ASTNodeKind::AST_FUNCTION_CALL_WITH_GROUP_ROWS) {
+    return static_cast<const ASTFunctionCallWithGroupRows*>(expression_);
+  }
+  return nullptr;
 }
 
 std::string ASTExpressionSubquery::ModifierToString(Modifier modifier) {
@@ -1026,7 +1090,7 @@ std::string ASTCreateTableFunctionStatement::SingleNodeDebugString() const {
 // non-nested DML statement). In that case, returns 'target_path' as an
 // ASTPathExpression. Otherwise returns an error based on
 // 'statement_type'.
-static ::zetasql_base::StatusOr<const ASTPathExpression*>
+static zetasql_base::StatusOr<const ASTPathExpression*>
 GetTargetPathForNonNestedDMLStatement(
     absl::string_view statement_type,
     const ASTGeneralizedPathExpression* target_path) {
@@ -1268,6 +1332,10 @@ std::string ASTSetOptionsAction::GetSQLForAlterAction() const {
   return "SET OPTIONS";
 }
 
+std::string ASTSetAsAction::GetSQLForAlterAction() const {
+  return "SET AS";
+}
+
 std::string ASTAddConstraintAction::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
                       is_if_not_exists() ? "(is_if_not_exists)" : "");
@@ -1339,6 +1407,22 @@ std::string ASTGrantToClause::GetSQLForAlterAction() const {
   return "GRANT TO";
 }
 
+std::string ASTFilterFieldsArg::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                      GetSQLForOperator(), ")");
+}
+
+std::string ASTFilterFieldsArg::GetSQLForOperator() const {
+  switch (filter_type_) {
+    case NOT_SET:
+      return "<UNKNOWN>";
+    case INCLUDE:
+      return "+";
+    case EXCLUDE:
+      return "-";
+  }
+}
+
 std::string ASTFilterUsingClause::GetSQLForAlterAction() const {
   return "FILTER USING";
 }
@@ -1388,6 +1472,8 @@ absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind) {
       return "MODEL";
     case SchemaObjectKind::kProcedure:
       return "PROCEDURE";
+    case SchemaObjectKind::kSchema:
+      return "SCHEMA";
     case SchemaObjectKind::kTable:
       return "TABLE";
     case SchemaObjectKind::kTableFunction:

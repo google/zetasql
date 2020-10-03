@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "google/protobuf/arena.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
 #include "zetasql/common/errors.h"
@@ -37,10 +38,13 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
 #include <cstdint>
+#include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
@@ -53,8 +57,9 @@ namespace zetasql {
 
 #define MAX_LITERAL_DISPLAY_LENGTH 60
 
+namespace {
 
-static functions::TimestampScale GetTimestampScale(
+functions::TimestampScale GetTimestampScale(
     const LanguageOptions& language_options) {
   if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
     return functions::kNanoseconds;
@@ -63,13 +68,13 @@ static functions::TimestampScale GetTimestampScale(
   }
 }
 
-static void AddToCastMap(TypeKind from, TypeKind to, CastFunctionType type,
-                         CastHashMap* map) {
+void AddToCastMap(TypeKind from, TypeKind to, CastFunctionType type,
+                  CastHashMap* map) {
   zetasql_base::InsertIfNotPresent(map, {from, to},
                           {type, Type::GetTypeCoercionCost(to, from)});
 }
 
-static const CastHashMap* InitializeZetaSQLCasts() {
+const CastHashMap* InitializeZetaSQLCasts() {
   CastHashMap* map = new CastHashMap();
 
   const CastFunctionType IMPLICIT = CastFunctionType::IMPLICIT;
@@ -197,13 +202,14 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     BOOL,       EXPLICIT);
   ADD_TO_MAP(STRING,     NUMERIC,    EXPLICIT);
   ADD_TO_MAP(STRING,     BIGNUMERIC, EXPLICIT);
+  ADD_TO_MAP(STRING,     JSON,       EXPLICIT);
 
   ADD_TO_MAP(BYTES,      BYTES,      IMPLICIT);
   ADD_TO_MAP(BYTES,      STRING,     EXPLICIT);
   ADD_TO_MAP(BYTES,      PROTO,      EXPLICIT_OR_LITERAL_OR_PARAMETER);
 
   ADD_TO_MAP(DATE,       DATE,       IMPLICIT);
-  ADD_TO_MAP(DATE,       DATETIME,   EXPLICIT);
+  ADD_TO_MAP(DATE,       DATETIME,   IMPLICIT);
   ADD_TO_MAP(DATE,       TIMESTAMP,  EXPLICIT);
   ADD_TO_MAP(DATE,       STRING,     EXPLICIT);
 
@@ -227,6 +233,7 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(GEOGRAPHY,  GEOGRAPHY,  IMPLICIT);
 
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
+  ADD_TO_MAP(JSON,       STRING,     EXPLICIT);
 
   ADD_TO_MAP(ENUM,       STRING,     EXPLICIT);
 
@@ -249,41 +256,14 @@ static const CastHashMap* InitializeZetaSQLCasts() {
   return map;
 }
 
-const CastHashMap& GetZetaSQLCasts() {
-  static const CastHashMap* cast_hash_map = InitializeZetaSQLCasts();
-  return *cast_hash_map;
-}
-
 // Returns a single uint64_t that represents an (input kind, output kind) pair.
 // Useful for switching on a combination of two kinds.
-static constexpr uint64_t FCT(TypeKind input_kind, TypeKind output_kind) {
+constexpr uint64_t FCT(TypeKind input_kind, TypeKind output_kind) {
   return ((static_cast<uint64_t>(input_kind) << 32) + output_kind);
 }
 
-bool SupportsImplicitCoercion(CastFunctionType type) {
-  return type == CastFunctionType::IMPLICIT;
-}
-
-bool SupportsLiteralCoercion(CastFunctionType type) {
-  return type == CastFunctionType::IMPLICIT ||
-         type == CastFunctionType::EXPLICIT_OR_LITERAL ||
-         type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
-}
-
-bool SupportsParameterCoercion(CastFunctionType type) {
-  return type == CastFunctionType::IMPLICIT ||
-         type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
-}
-
-bool SupportsExplicitCast(CastFunctionType type) {
-  return type == CastFunctionType::IMPLICIT ||
-         type == CastFunctionType::EXPLICIT ||
-         type == CastFunctionType::EXPLICIT_OR_LITERAL ||
-         type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
-}
-
 template <typename FromType, typename ToType>
-static zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
+zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
   absl::Status status;
   FromType in = value.Get<FromType>();
   ToType out;
@@ -296,7 +276,7 @@ static zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
 }
 
 template <typename FromType, typename ToType>
-static zetasql_base::StatusOr<Value> NumericValueCast(const FromType& in) {
+zetasql_base::StatusOr<Value> NumericValueCast(const FromType& in) {
   absl::Status status;
   ToType out;
   functions::Convert<FromType, ToType>(in, &out, &status);
@@ -347,7 +327,7 @@ absl::Status CheckLegacyRanges(int64_t timestamp,
 //
 // Crashes if the Value type does not correspond with <T>.
 template <typename T>
-static zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
+zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
   if (v.is_null()) return Value::NullString();
   T value = v.Get<T>();
   std::string str;
@@ -367,7 +347,7 @@ static zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
 //
 // Crashes if the Value <v> is not a string.
 template <typename T>
-static zetasql_base::StatusOr<Value> StringToNumeric(const Value& v) {
+zetasql_base::StatusOr<Value> StringToNumeric(const Value& v) {
   if (v.is_null()) return Value::MakeNull<T>();
   std::string value = v.string_value();
   T out;
@@ -379,11 +359,127 @@ static zetasql_base::StatusOr<Value> StringToNumeric(const Value& v) {
   }
 }
 
-zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
-                                absl::TimeZone default_timezone,
-                                const LanguageOptions& language_options,
-                                const Type* to_type) {
-  DCHECK(from_value.is_valid());
+// Returns whether this cast is a map-entry cast (see below).
+bool IsMapEntryCast(const Type* from, const Type* to) {
+  return from->IsStruct() && from->AsStruct()->fields().size() == 2 &&
+         to->IsProto() && to->AsProto()->descriptor()->options().map_entry();
+}
+
+// Tries to perform a STRUCT->PROTO cast if to_type is a map_entry. See
+// (broken link). <from_value> is a two-field struct where
+// the fields represent the key and value of the requested map_entry proto
+// in <to_type>.
+zetasql_base::StatusOr<Value> DoMapEntryCast(const Value& from_value,
+                                     absl::TimeZone default_timezone,
+                                     const LanguageOptions& language_options,
+                                     const Type* to_type) {
+  ZETASQL_RET_CHECK(IsMapEntryCast(from_value.type(), to_type));
+
+  const ProtoType* to_proto_type = to_type->AsProto();
+  TypeFactory type_factory;
+  const Type* key_type;
+  const Type* value_type;
+
+  ZETASQL_RETURN_IF_ERROR(to_proto_type->GetFieldTypeByTagNumber(
+      to_proto_type->map_key()->number(), &type_factory, &key_type));
+  ZETASQL_RETURN_IF_ERROR(to_proto_type->GetFieldTypeByTagNumber(
+      to_proto_type->map_value()->number(), &type_factory, &value_type));
+
+  ZETASQL_ASSIGN_OR_RETURN(Value key, CastValue(from_value.field(0), default_timezone,
+                                        language_options, key_type));
+  ZETASQL_ASSIGN_OR_RETURN(Value value, CastValue(from_value.field(1), default_timezone,
+                                          language_options, value_type));
+
+  google::protobuf::Arena arena;
+  google::protobuf::DynamicMessageFactory factory;
+  google::protobuf::Message* message =
+      factory.GetPrototype(to_proto_type->descriptor())->New(&arena);
+
+  bool use_wire_format_annotations = true;
+  ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(key, to_proto_type->map_key(),
+                                         use_wire_format_annotations, &factory,
+                                         message));
+  ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(value, to_proto_type->map_value(),
+                                         use_wire_format_annotations, &factory,
+                                         message));
+
+  absl::Cord bytes;
+  std::string bytes_str;
+  CHECK(message->SerializeToString(&bytes_str));
+  bytes = absl::Cord(bytes_str);
+  return Value::Proto(to_proto_type, bytes);
+}
+
+}  // namespace
+
+bool SupportsImplicitCoercion(CastFunctionType type) {
+  return type == CastFunctionType::IMPLICIT;
+}
+
+bool SupportsLiteralCoercion(CastFunctionType type) {
+  return type == CastFunctionType::IMPLICIT ||
+         type == CastFunctionType::EXPLICIT_OR_LITERAL ||
+         type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
+}
+
+bool SupportsParameterCoercion(CastFunctionType type) {
+  return type == CastFunctionType::IMPLICIT ||
+         type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
+}
+
+bool SupportsExplicitCast(CastFunctionType type) {
+  return type == CastFunctionType::IMPLICIT ||
+         type == CastFunctionType::EXPLICIT ||
+         type == CastFunctionType::EXPLICIT_OR_LITERAL ||
+         type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
+}
+
+const CastHashMap& GetZetaSQLCasts() {
+  static const CastHashMap* cast_hash_map = InitializeZetaSQLCasts();
+  return *cast_hash_map;
+}
+
+namespace {
+
+// CastContext is an abstract class containing basic set of properties and
+// methods needed to execute a cast. Serves as a base class for classes
+// responsible for execution of validated (CastValue) and plain
+// (CastValueWithoutTypeValidation) casts.
+class CastContext {
+ public:
+  CastContext(absl::TimeZone default_timezone,
+              const LanguageOptions& language_options)
+      : default_timezone_(default_timezone),
+        language_options_(language_options) {}
+  virtual ~CastContext() {}
+
+  CastContext(const CastContext&) = delete;
+  CastContext& operator=(const CastContext&) = delete;
+
+  zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
+                                  const Type* to_type) const;
+
+ protected:
+  const absl::TimeZone& default_timezone() const { return default_timezone_; }
+  const LanguageOptions& language_options() const { return language_options_; }
+
+ private:
+  // Executes a cast which involves extended types: source and/or destination
+  // type is extended.
+  virtual zetasql_base::StatusOr<Value> CastWithExtendedType(
+      const Value& from_value, const Type* to_type) const = 0;
+
+  // Checks that coercion is valid using Coercer.
+  virtual absl::Status ValidateCoercion(const Value& from_value,
+                                        const Type* to_type) const = 0;
+
+  const absl::TimeZone default_timezone_;
+  const LanguageOptions& language_options_;
+};
+
+zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
+                                             const Type* to_type) const {
+  ZETASQL_RET_CHECK(from_value.is_valid());
   // Use a shorter name inside the body of this method.
   const Value& v = from_value;
 
@@ -391,6 +487,21 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     // Coercion from a value to the exact same type always works.
     return v;
   }
+
+  if (from_value.type()->IsExtendedType() || to_type->IsExtendedType()) {
+    return CastWithExtendedType(from_value, to_type);
+  }
+
+  // Special case: STRUCT are not generally castable to PROTO, but there is an
+  // exception for two-field structs whose fields are castable to the fields
+  // of a map_entry protocol buffer (see (broken link)).
+  if (language_options().LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS) &&
+      IsMapEntryCast(from_value.type(), to_type)) {
+    return DoMapEntryCast(from_value, default_timezone(), language_options(),
+                          to_type);
+  }
+
   // Check to see if the type kinds are castable.
   if (!zetasql_base::ContainsKey(GetZetaSQLCasts(),
                         TypeKindPair(v.type_kind(), to_type->kind()))) {
@@ -407,15 +518,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       // so perform a literal coercion check to see if the complex types
       // are compatible and therefore a NULL value can cast from one to
       // the other.
-      SignatureMatchResult result;
-      TypeFactory type_factory;
-      Coercer coercer(&type_factory, default_timezone, &language_options);
-      if (!coercer.CoercesTo(InputArgumentType(v), to_type,
-                             true /* is_explicit */, &result)) {
-        return MakeSqlError() << "Unsupported cast from "
-                              << v.type()->DebugString() << " to "
-                              << to_type->DebugString();
-      }
+      ZETASQL_RETURN_IF_ERROR(ValidateCoercion(v, to_type));
     }
     // We have already validated that this is a valid cast for NULL values,
     // so just return a NULL value of <to_type>.
@@ -557,28 +660,44 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       // that includes an argument to indicate if a timezone is allowed in
       // the string or not.  If not allowed and there is a timezone then
       // an error should be provided.
-      if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+      if (language_options().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
         absl::Time timestamp;
         ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-            v.string_value(), default_timezone, functions::kNanoseconds,
+            v.string_value(), default_timezone(), functions::kNanoseconds,
             true /* allow_tz_in_str */, &timestamp));
         return Value::Timestamp(timestamp);
       } else {
         int64_t timestamp;
         ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-            v.string_value(), default_timezone, functions::kMicroseconds,
+            v.string_value(), default_timezone(), functions::kMicroseconds,
             &timestamp));
         return Value::TimestampFromUnixMicros(timestamp);
       }
     }
+    case FCT(TYPE_STRING, TYPE_JSON): {
+      if (language_options().LanguageFeatureEnabled(
+              FEATURE_JSON_NO_VALIDATION)) {
+        return Value::UnvalidatedJsonString(v.string_value());
+      } else {
+        auto json_value = JSONValue::ParseJSONString(
+            v.string_value(), language_options().LanguageFeatureEnabled(
+                                  FEATURE_JSON_LEGACY_PARSE));
+        if (!json_value.ok()) {
+          return MakeEvalError() << json_value.status().message();
+        }
+        return Value::Json(std::move(json_value.value()));
+      }
+    }
+
     case FCT(TYPE_TIMESTAMP, TYPE_STRING): {
       std::string timestamp;
-      if (language_options.LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
+      if (language_options().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
         ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToString(
-            v.ToTime(), functions::kNanoseconds, default_timezone, &timestamp));
+            v.ToTime(), functions::kNanoseconds, default_timezone(),
+            &timestamp));
       } else {
         ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToStringWithTruncation(
-            v.ToUnixMicros(), functions::kMicroseconds, default_timezone,
+            v.ToUnixMicros(), functions::kMicroseconds, default_timezone(),
             &timestamp));
       }
       return Value::String(timestamp);
@@ -586,7 +705,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_DATE, TYPE_TIMESTAMP): {
       int64_t timestamp;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertDateToTimestamp(
-          v.date_value(), functions::kMicroseconds, default_timezone,
+          v.date_value(), functions::kMicroseconds, default_timezone(),
           &timestamp));
       return Value::TimestampFromUnixMicros(timestamp);
     }
@@ -594,7 +713,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       int32_t date;
       ZETASQL_RETURN_IF_ERROR(ExtractFromTimestamp(
           functions::DateTimestampPart::DATE, v.ToUnixMicros(),
-          functions::kMicroseconds, default_timezone, &date));
+          functions::kMicroseconds, default_timezone(), &date));
       return Value::Date(date);
     }
     case FCT(TYPE_STRING, TYPE_BYTES):
@@ -688,44 +807,44 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_STRING, TYPE_TIME): {
       TimeValue time;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTime(
-          v.string_value(), GetTimestampScale(language_options), &time));
+          v.string_value(), GetTimestampScale(language_options()), &time));
       return Value::Time(time);
     }
     case FCT(TYPE_TIME, TYPE_STRING): {
       std::string result;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertTimeToString(
-          v.time_value(), GetTimestampScale(language_options), &result));
+          v.time_value(), GetTimestampScale(language_options()), &result));
       return Value::String(result);
     }
     case FCT(TYPE_TIMESTAMP, TYPE_TIME): {
       TimeValue time;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToTime(
-          v.ToTime(), default_timezone, &time));
+          v.ToTime(), default_timezone(), &time));
       return Value::Time(time);
     }
 
     case FCT(TYPE_STRING, TYPE_DATETIME): {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(
-          v.string_value(), GetTimestampScale(language_options), &datetime));
+          v.string_value(), GetTimestampScale(language_options()), &datetime));
       return Value::Datetime(datetime);
     }
     case FCT(TYPE_DATETIME, TYPE_STRING): {
       std::string result;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertDatetimeToString(
-          v.datetime_value(), GetTimestampScale(language_options), &result));
+          v.datetime_value(), GetTimestampScale(language_options()), &result));
       return Value::String(result);
     }
     case FCT(TYPE_DATETIME, TYPE_TIMESTAMP): {
       absl::Time time;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertDatetimeToTimestamp(
-          v.datetime_value(), default_timezone, &time));
+          v.datetime_value(), default_timezone(), &time));
       return Value::Timestamp(time);
     }
     case FCT(TYPE_TIMESTAMP, TYPE_DATETIME): {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToDatetime(
-          v.ToTime(), default_timezone, &datetime));
+          v.ToTime(), default_timezone(), &datetime));
       return Value::Datetime(datetime);
     }
     case FCT(TYPE_DATETIME, TYPE_DATE): {
@@ -758,8 +877,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       for (int i = 0; i < v_type->num_fields(); ++i) {
         ZETASQL_ASSIGN_OR_RETURN(
             casted_field_values[i],
-            CastValue(v.field(i), default_timezone, language_options,
-                      to_type->AsStruct()->field(i).type));
+            CastValue(v.field(i), to_type->AsStruct()->field(i).type));
       }
 
       return Value::Struct(to_type->AsStruct(), casted_field_values);
@@ -806,15 +924,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
       return Value::Proto(to_type->AsProto(), v.ToCord());
 
     case FCT(TYPE_ARRAY, TYPE_ARRAY): {
-      SignatureMatchResult result;
-      TypeFactory type_factory;
-      Coercer coercer(&type_factory, default_timezone, &language_options);
-      if (!coercer.CoercesTo(InputArgumentType(v), to_type,
-                             true /* is_explicit */, &result)) {
-        return MakeSqlError() << "Unsupported cast from "
-                              << v.type()->DebugString() << " to "
-                              << to_type->DebugString();
-      }
+      ZETASQL_RETURN_IF_ERROR(ValidateCoercion(v, to_type));
 
       const Type* to_element_type = to_type->AsArray()->element_type();
       std::vector<Value> casted_elements(v.num_elements());
@@ -823,8 +933,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
           casted_elements[i] = Value::Null(to_element_type);
         } else {
           ZETASQL_ASSIGN_OR_RETURN(casted_elements[i],
-                           CastValue(v.element(i), default_timezone,
-                                     language_options, to_element_type));
+                           CastValue(v.element(i), to_element_type));
         }
       }
       return InternalValue::ArrayChecked(to_type->AsArray(),
@@ -866,6 +975,10 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
     case FCT(TYPE_BIGNUMERIC, TYPE_STRING):
       return NumericToString<BigNumericValue>(v);
 
+    case FCT(TYPE_JSON, TYPE_STRING): {
+      return Value::String(v.json_string());
+    }
+
     // TODO: implement missing casts.
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
@@ -874,25 +987,121 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
   }
 }
 
-Conversion::Conversion(const Type* from_type, const Type* to_type,
-                       const Function* function,
-                       const CastFunctionProperty& property)
-    : from_type_(from_type),
-      to_type_(to_type),
-      function_(function),
-      cast_function_property_(property) {
-  DCHECK(from_type);
-  DCHECK(to_type);
-  DCHECK(function);
-  DCHECK(!from_type->Equals(to_type));
+// CastContextWithValidation implements a validated cast. Used by CastValue.
+class CastContextWithValidation : public CastContext {
+ public:
+  CastContextWithValidation(absl::TimeZone default_timezone,
+                            const LanguageOptions& language_options,
+                            Catalog* catalog)
+      : CastContext(default_timezone, language_options), catalog_(catalog) {}
+
+ private:
+  zetasql_base::StatusOr<Value> CastWithExtendedType(
+      const Value& from_value, const Type* to_type) const override {
+    if (catalog_ == nullptr) {
+      return zetasql_base::FailedPreconditionErrorBuilder()
+             << "Attempt to cast a Value of extened type without providing a "
+                "Catalog";
+    }
+
+    Catalog::FindConversionOptions options(
+        /*is_explicit=*/true, Catalog::ConversionSourceExpressionKind::kLiteral,
+        language_options().product_mode());
+    Conversion conversion = Conversion::Invalid();
+    ZETASQL_RETURN_IF_ERROR(catalog_->FindConversion(from_value.type(), to_type,
+                                             options, &conversion));
+    return conversion.evaluator().Eval(from_value);
+  }
+
+  absl::Status ValidateCoercion(const Value& from_value,
+                                const Type* to_type) const override {
+    SignatureMatchResult result;
+    TypeFactory type_factory;
+    Coercer coercer(&type_factory, &language_options(), catalog_);
+    if (!coercer.CoercesTo(InputArgumentType(from_value), to_type,
+                           /*is_explicit=*/true, &result)) {
+      return MakeSqlError()
+             << "Unsupported cast from " << from_value.type()->DebugString()
+             << " to " << to_type->DebugString();
+    }
+
+    return absl::OkStatus();
+  }
+
+  mutable Catalog* catalog_;
+};
+
+// CastContextWithoutValidation implements an unvalidated cast. Used by the
+// CastValueWithoutTypeValidation.
+class CastContextWithoutValidation : public CastContext {
+ public:
+  CastContextWithoutValidation(
+      absl::TimeZone default_timezone, const LanguageOptions& language_options,
+      const ExtendedCompositeCastEvaluator* extended_cast_evaluator)
+      : CastContext(default_timezone, language_options),
+        extended_cast_evaluator_(extended_cast_evaluator) {}
+
+  zetasql_base::StatusOr<Value> CastWithExtendedType(
+      const Value& from_value, const Type* to_type) const override {
+    if (extended_cast_evaluator_ == nullptr) {
+      return zetasql_base::FailedPreconditionErrorBuilder()
+             << "Attempt to cast a Value of extened type without providing an "
+                "extended conversion function";
+    }
+
+    return extended_cast_evaluator_->Eval(from_value, to_type);
+  }
+
+  absl::Status ValidateCoercion(const Value& from_value,
+                                const Type* to_type) const override {
+    return absl::OkStatus();
+  }
+
+ private:
+  const ExtendedCompositeCastEvaluator* extended_cast_evaluator_;
+};
+
+}  // namespace
+
+zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
+                                absl::TimeZone default_timezone,
+                                const LanguageOptions& language_options,
+                                const Type* to_type, Catalog* catalog) {
+  return CastContextWithValidation(default_timezone, language_options, catalog)
+      .CastValue(from_value, to_type);
 }
 
-FunctionSignature Conversion::GetFunctionSignature(const Type* from_type,
-                                                   const Type* to_type) {
-  return FunctionSignature({to_type}, {{from_type}}, /*context_ptr=*/nullptr);
+namespace internal {
+
+zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
+    const Value& from_value, absl::TimeZone default_timezone,
+    const LanguageOptions& language_options, const Type* to_type,
+    const ExtendedCompositeCastEvaluator* extended_cast_evaluator) {
+  return CastContextWithoutValidation(default_timezone, language_options,
+                                      extended_cast_evaluator)
+      .CastValue(from_value, to_type);
 }
 
-zetasql_base::StatusOr<Value> Conversion::CastValue(const Value& from_value) const {
+}  // namespace internal
+
+zetasql_base::StatusOr<ConversionEvaluator> ConversionEvaluator::Create(
+    const Type* from_type, const Type* to_type, const Function* function) {
+  ZETASQL_RET_CHECK(from_type);
+  ZETASQL_RET_CHECK(to_type);
+  ZETASQL_RET_CHECK(function);
+  ZETASQL_RET_CHECK(!from_type->Equals(to_type));
+
+  return ConversionEvaluator(from_type, to_type, function);
+}
+
+FunctionSignature ConversionEvaluator::GetFunctionSignature(
+    const Type* from_type, const Type* to_type) {
+  return FunctionSignature({to_type, /*num_occurrences=*/1},
+                           {{from_type, /*num_occurrences=*/1}},
+                           /*context_ptr=*/nullptr);
+}
+
+zetasql_base::StatusOr<Value> ConversionEvaluator::Eval(const Value& from_value) const {
   if (!is_valid()) {
     return zetasql_base::FailedPreconditionErrorBuilder()
            << "Attempt to cast a value using invalid conversion";
@@ -907,6 +1116,21 @@ zetasql_base::StatusOr<Value> Conversion::CastValue(const Value& from_value) con
   ZETASQL_ASSIGN_OR_RETURN(auto evaluator, function_->GetFunctionEvaluatorFactory()(
                                        function_signature()));
   return evaluator({from_value});
+}
+
+zetasql_base::StatusOr<Conversion> Conversion::Create(
+    const Type* from_type, const Type* to_type, const Function* function,
+    const CastFunctionProperty& property) {
+  ZETASQL_ASSIGN_OR_RETURN(ConversionEvaluator evaluator,
+                   ConversionEvaluator::Create(from_type, to_type, function));
+  return Create(evaluator, property);
+}
+
+zetasql_base::StatusOr<Conversion> Conversion::Create(
+    const ConversionEvaluator& evaluator,
+    const CastFunctionProperty& property) {
+  ZETASQL_RET_CHECK(evaluator.is_valid());
+  return Conversion(evaluator, property);
 }
 
 bool Conversion::IsMatch(const Catalog::FindConversionOptions& options) const {
@@ -926,22 +1150,36 @@ bool Conversion::IsMatch(const Catalog::FindConversionOptions& options) const {
   // We are looking for implicit conversion below and need to check whether it
   // can be applied to all kinds of expression (unconditional) or only to some.
 
-  if (cast_function_property().is_implicit()) {
+  if (property().is_implicit()) {
     return true;  // Conversion is unconditionally implicit.
   }
 
   switch (options.source_kind()) {
     case Catalog::ConversionSourceExpressionKind::kLiteral:
-      return cast_function_property().type ==
-                 CastFunctionType::EXPLICIT_OR_LITERAL ||
-             cast_function_property().type ==
+      return property().type == CastFunctionType::EXPLICIT_OR_LITERAL ||
+             property().type ==
                  CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
     case Catalog::ConversionSourceExpressionKind::kParameter:
-      return cast_function_property().type ==
+      return property().type ==
              CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
     default:
       return false;
   }
+}
+
+zetasql_base::StatusOr<Value> ExtendedCompositeCastEvaluator::Eval(
+    const Value& from_value, const Type* to_type) const {
+  for (const ConversionEvaluator& evaluator : evaluators_) {
+    if (evaluator.from_type()->Equals(from_value.type()) &&
+        evaluator.to_type()->Equals(to_type)) {
+      return evaluator.Eval(from_value);
+    }
+  }
+
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Conversion from type " << from_value.type()->DebugString()
+         << " to type " << to_type->DebugString()
+         << " is not found in ExtendedCompositeCastEvaluator";
 }
 
 }  // namespace zetasql

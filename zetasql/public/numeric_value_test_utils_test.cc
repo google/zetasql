@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,21 +16,34 @@
 
 #include "zetasql/public/numeric_value_test_utils.h"
 
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/numeric_value.h"
 #include "gtest/gtest.h"
 #include "absl/random/random.h"
+#include "absl/strings/str_format.h"
 
 namespace zetasql {
 
 template <typename T>
-void TestMakeRandomCoverage(absl::BitGen* random) {
+void TestMakeRandomCoverage(T (*generator)(absl::BitGen*),
+                            bool expect_zero_values,
+                            bool expect_negative_values) {
+  absl::BitGen random;
   // covered[sign][i][j] = true iff there is at least one random value with
   // sign (0=non-negative; 1=negative), exactly i integer digits and exactly j
   // fractional digits.
   bool covered[2][T::kMaxIntegerDigits + 1][T::kMaxFractionalDigits + 1];
   memset(covered, 0, sizeof(covered));
+  bool has_zero_values = false;
+  bool has_negative_values = false;
   for (int i = 0; i < 100000; ++i) {
-    T v = MakeRandomNumericValue<T>(random);
+    T v = generator(&random);
+    if (v == T()) {
+      has_zero_values = true;
+    }
+    if (v < T()) {
+      has_negative_values = true;
+    }
     std::string str = v.ToString();
     ASSERT_TRUE(!str.empty());
     absl::string_view str_view = str;
@@ -63,23 +76,84 @@ void TestMakeRandomCoverage(absl::BitGen* random) {
       }
     }
   }
+  EXPECT_EQ(expect_zero_values, has_zero_values);
+  EXPECT_EQ(expect_negative_values, has_negative_values);
   // covered[true][0][0] is always false, and hence subtract 1.
-  constexpr size_t kNumPossibleCombinations =
-      2 * (T::kMaxIntegerDigits + 1) * (T::kMaxFractionalDigits + 1) - 1;
+  size_t kNumPossibleCombinations = (1 + expect_negative_values) *
+                                        (T::kMaxIntegerDigits + 1) *
+                                        (T::kMaxFractionalDigits + 1) -
+                                    1;
   // Should cover at least 90% of the possile combinations.
   // In an experiment with 200 runs, the minimum coverage is 99.9% for
   // BigNumericValue and 100% for NumericValue.
   EXPECT_GE(num_covered, 9 * kNumPossibleCombinations / 10);
 }
 
-TEST(NumericTest, MakeRandom_Coverage) {
-  absl::BitGen random;
-  TestMakeRandomCoverage<NumericValue>(&random);
+template <typename T>
+T MakeRandomNumericValueWrapper(absl::BitGen* random) {
+  return MakeRandomNumericValue<T>(random, nullptr);
 }
 
-TEST(BigNumericTest, MakeRandom_Coverage) {
+TEST(NumericTest, MakeRandomNumericValue_Coverage) {
+  TestMakeRandomCoverage(&MakeRandomNumericValueWrapper<NumericValue>,
+                         /* expect_zero_values = */ true,
+                         /* expect_negative_values = */ true);
+}
+
+TEST(BigNumericTest, MakeRandomNumericValue_Coverage) {
+  TestMakeRandomCoverage(&MakeRandomNumericValueWrapper<BigNumericValue>,
+                         /* expect_zero_values = */ true,
+                         /* expect_negative_values = */ true);
+}
+
+TEST(NumericTest, MakeRandomNonZeroNumericValue_Coverage) {
+  TestMakeRandomCoverage(&MakeRandomNonZeroNumericValue<NumericValue>,
+                         /* expect_zero_values = */ false,
+                         /* expect_negative_values = */ true);
+}
+
+TEST(BigNumericTest, MakeRandomNonZeroNumericValue_Coverage) {
+  TestMakeRandomCoverage(&MakeRandomNonZeroNumericValue<BigNumericValue>,
+                         /* expect_zero_values = */ false,
+                         /* expect_negative_values = */ true);
+}
+
+TEST(NumericTest, MakeRandomPositiveNumericValue_Coverage) {
+  TestMakeRandomCoverage(&MakeRandomPositiveNumericValue<NumericValue>,
+                         /* expect_zero_values = */ false,
+                         /* expect_negative_values = */ false);
+}
+
+TEST(BigNumericTest, MakeRandomPositiveNumericValue_Coverage) {
+  TestMakeRandomCoverage(&MakeRandomPositiveNumericValue<BigNumericValue>,
+                         /* expect_zero_values = */ false,
+                         /* expect_negative_values = */ false);
+}
+
+template <typename T>
+void TestMakeLosslessRandomDoubleValueRoundTrip() {
   absl::BitGen random;
-  TestMakeRandomCoverage<BigNumericValue>(&random);
+  for (int i = 0; i < 100000; ++i) {
+    uint max_integer_bits =
+        absl::Uniform<uint>(random, 0, 55 - T::kMaxFractionalDigits);
+    double value = MakeLosslessRandomDoubleValue<T>(max_integer_bits, &random);
+    EXPECT_LT(std::abs(value), 1ULL << max_integer_bits);
+    ZETASQL_ASSERT_OK_AND_ASSIGN(T numeric_value, T::FromDouble(value));
+    EXPECT_EQ(value, numeric_value.ToDouble());
+    std::string str = absl::StrFormat("%.*f", T::kMaxFractionalDigits, value);
+    // Cannot directly compare str to numeric_value.ToString() because str
+    // might have trailing zeros after the decimal point.
+    EXPECT_THAT(T::FromStringStrict(str),
+                ::zetasql_base::testing::IsOkAndHolds(numeric_value));
+  }
+}
+
+TEST(NumericTest, MakeLosslessRandomDoubleValue) {
+  TestMakeLosslessRandomDoubleValueRoundTrip<NumericValue>();
+}
+
+TEST(BigNumericTest, MakeLosslessRandomDoubleValue) {
+  TestMakeLosslessRandomDoubleValueRoundTrip<BigNumericValue>();
 }
 
 }  // namespace zetasql

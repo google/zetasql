@@ -2,14 +2,12 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# ZetaSQL Data Model
-
-<!-- BEGIN CONTENT -->
+# Data model
 
 The following sections provide an overview of the ZetaSQL data
 model.
 
-## Standard SQL Tables
+## Standard SQL tables
 
 ZetaSQL data is stored in tables. Each table consists of an ordered
 list of columns and a number of rows. Each column has a name used to identify it
@@ -164,8 +162,7 @@ quickly. You can specify that sort order is ascending or descending. A unique
 or primary key index defines an indexed column that is subject to the uniqueness
 constraint.
 
-<a name="pseudo-columns"></a>
-## Pseudo-columns
+## Pseudo-columns {: #pseudo-columns }
 
 ZetaSQL tables support pseudo-columns. Pseudo-columns contain data elements
 that you can query like regular columns, but are not considered real columns in
@@ -437,6 +434,4 @@ value does not have a field called `ROWNUM`.
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language
 [query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value_tables
-
-<!-- END CONTENT -->
 

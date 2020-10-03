@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -105,10 +105,8 @@ def GenerateParseTreeVisitor(concrete_classes):
         }
       ''')
   for cls in concrete_classes:
-    yield (
-        ('  virtual zetasql_base::StatusOr<VisitResult> visit{0}(const {0}* node) ' +
-         '{{return defaultVisit(node);}};\n\n')
-        .format(cls))
+    yield (('  virtual zetasql_base::StatusOr<VisitResult> visit{0}(const {0}* node) ' +
+            '{{return defaultVisit(node);}};\n\n').format(cls))
   yield textwrap.dedent('''\
       };
       }  // namespace zetasql

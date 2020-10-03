@@ -4,7 +4,7 @@
 
 ### ARRAY
 
-```
+```sql
 ARRAY(subquery)
 ```
 
@@ -44,7 +44,7 @@ ARRAY
 
 **Examples**
 
-```
+```sql
 SELECT ARRAY
   (SELECT 1 UNION ALL
    SELECT 2 UNION ALL
@@ -63,7 +63,7 @@ the `ARRAY` function will return an `ARRAY` of `STRUCT`s. The `ARRAY` will
 contain one `STRUCT` for each row in the subquery, and each of these `STRUCT`s
 will contain a field for each column in that row.
 
-```
+```sql
 SELECT
   ARRAY
     (SELECT AS STRUCT 1, 2, 3
@@ -79,7 +79,7 @@ SELECT
 Similarly, to construct an `ARRAY` from a subquery that contains
 one or more `ARRAY`s, change the subquery to use `SELECT AS STRUCT`.
 
-```
+```sql
 SELECT ARRAY
   (SELECT AS STRUCT [1, 2, 3] UNION ALL
    SELECT AS STRUCT [4, 5, 6]) AS new_array;
@@ -93,7 +93,7 @@ SELECT ARRAY
 
 ### ARRAY_CONCAT
 
-```
+```sql
 ARRAY_CONCAT(array_expression_1 [, array_expression_n])
 ```
 
@@ -122,7 +122,7 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 
 ### ARRAY_LENGTH
 
-```
+```sql
 ARRAY_LENGTH(array_expression)
 ```
 
@@ -157,7 +157,7 @@ ORDER BY size DESC;
 
 ### ARRAY_TO_STRING
 
-```
+```sql
 ARRAY_TO_STRING(array_expression, delimiter[, null_text])
 ```
 
@@ -211,7 +211,8 @@ FROM items;
 ```
 
 ### GENERATE_ARRAY
-```
+
+```sql
 GENERATE_ARRAY(start_expression, end_expression[, step_expression])
 ```
 
@@ -330,7 +331,8 @@ FROM UNNEST([3, 4, 5]) AS start;
 ```
 
 ### GENERATE_DATE_ARRAY
-```
+
+```sql
 GENERATE_DATE_ARRAY(start_date, end_date[, INTERVAL INT64_expr date_part])
 ```
 
@@ -407,7 +409,6 @@ SELECT GENERATE_DATE_ARRAY('2016-10-05',
 +--------------+
 | [2016-10-05] |
 +--------------+
-
 ```
 
 The following returns an empty array, because the `start_date` is greater
@@ -474,7 +475,7 @@ FROM (
 
 ### GENERATE_TIMESTAMP_ARRAY
 
-```
+```sql
 GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp,
                          INTERVAL step_expression date_part)
 ```
@@ -491,13 +492,10 @@ inputs:
 + `start_timestamp`: `TIMESTAMP`
 + `end_timestamp`: `TIMESTAMP`
 + `step_expression`: `INT64`
-+ Allowed `date_part` values are
-  
-  `MICROSECOND` or `NANOSECOND` (depends on what the SQL engine supports),
-  
-   `MILLISECOND`,
-  
-  `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
++ Allowed `date_part` values are:
+  `NANOSECOND`
+  (if the SQL engine supports it),
+  `MICROSECOND`, `MILLISECOND`, `SECOND`, `MINUTE`, `HOUR`, or `DAY`.
 
 The `step_expression` parameter determines the increment used to generate
 timestamps.
@@ -511,7 +509,7 @@ An `ARRAY` containing 0 or more
 
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1 day.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
                                 INTERVAL 1 DAY) AS timestamp_array;
 
@@ -525,7 +523,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-07 00:00:00',
 The following example returns an `ARRAY` of `TIMESTAMP`s at intervals of 1
 second.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
                                 INTERVAL 1 SECOND) AS timestamp_array;
 
@@ -539,7 +537,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:02',
 The following example returns an `ARRAY` of `TIMESTAMPS` with a negative
 interval.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
                                 INTERVAL -2 DAY) AS timestamp_array;
 
@@ -553,7 +551,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-01 00:00:00',
 The following example returns an `ARRAY` with a single element, because
 `start_timestamp` and `end_timestamp` have the same value.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
@@ -567,7 +565,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', '2016-10-05 00:00:00',
 The following example returns an empty `ARRAY`, because `start_timestamp` is
 later than `end_timestamp`.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
                                 INTERVAL 1 HOUR) AS timestamp_array;
 
@@ -581,7 +579,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-06 00:00:00', '2016-10-05 00:00:00',
 The following example returns a null `ARRAY`, because one of the inputs is
 `NULL`.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
   AS timestamp_array;
 
@@ -595,7 +593,7 @@ SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00', NULL, INTERVAL 1 HOUR)
 The following example generates `ARRAY`s of `TIMESTAMP`s from columns containing
 values for `start_timestamp` and `end_timestamp`.
 
-```
+```sql
 SELECT GENERATE_TIMESTAMP_ARRAY(start_timestamp, end_timestamp, INTERVAL 1 HOUR)
   AS timestamp_array
 FROM
@@ -622,7 +620,7 @@ FROM
 
 ### OFFSET and ORDINAL
 
-```
+```sql
 array_expression[OFFSET(zero_based_offset)]
 array_expression[ORDINAL(one_based_offset)]
 ```
@@ -666,7 +664,8 @@ FROM items;
 ```
 
 ### ARRAY_REVERSE
-```
+
+```sql
 ARRAY_REVERSE(value)
 ```
 
@@ -700,9 +699,54 @@ FROM example;
 +-----------+-------------+
 ```
 
+### ARRAY_IS_DISTINCT
+
+```sql
+ARRAY_IS_DISTINCT(value)
+```
+
+**Description**
+
+Returns true if the array contains no repeated elements, using the same equality
+comparison logic as `SELECT DISTINCT`.
+
+**Return type**
+
+BOOL
+
+**Examples**
+
+```sql
+WITH example AS (
+  SELECT [1, 2, 3] AS arr UNION ALL
+  SELECT [1, 1, 1] AS arr UNION ALL
+  SELECT [1, 2, NULL] AS arr UNION ALL
+  SELECT [1, 1, NULL] AS arr UNION ALL
+  SELECT [1, NULL, NULL] AS arr UNION ALL
+  SELECT [] AS arr UNION ALL
+  SELECT CAST(NULL AS ARRAY<INT64>) AS arr
+)
+SELECT
+  arr,
+  ARRAY_IS_DISTINCT(arr) as is_distinct
+FROM example;
+
++-----------------+-------------+
+| arr             | is_distinct |
++-----------------+-------------+
+| [1, 2, 3]       | true        |
+| [1, 1, 1]       | false       |
+| [1, 2, NULL]    | true        |
+| [1, 1, NULL]    | false       |
+| [1, NULL, NULL] | false       |
+| []              | true        |
+| NULL            | NULL        |
++-----------------+-------------+
+```
+
 ### SAFE_OFFSET and SAFE_ORDINAL
 
-```
+```sql
 array_expression[SAFE_OFFSET(zero_based_offset)]
 array_expression[SAFE_ORDINAL(one_based_offset)]
 ```

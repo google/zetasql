@@ -1,15 +1,13 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Query Syntax
-
-<!-- BEGIN CONTENT -->
+# Query syntax
 
 Query statements scan one or more tables or expressions and return the computed
 result rows. This topic describes the syntax for SQL queries in
 ZetaSQL.
 
-## SQL Syntax
+## SQL syntax
 
 <pre class="lang-sql prettyprint">
 <span class="var">query_statement</span>:
@@ -63,7 +61,7 @@ ZetaSQL.
     { PERCENT | ROWS }
 </pre>
 
-Notation:
+**Notation rules**
 
 + Square brackets "[ ]" indicate optional clauses.
 + Parentheses "( )" indicate literal parentheses.
@@ -71,6 +69,100 @@ Notation:
 + Curly braces "{ }" enclose a set of options.
 + A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
   the preceding item can repeat in a comma-separated list.
+
+### Sample tables {: #sample_tables }
+
+The following tables are used to illustrate the behavior of different
+query clauses in this reference.
+
+#### Roster table
+
+The `Roster` table includes a list of player names (`LastName`) and the
+unique ID assigned to their school (`SchoolID`). It looks like this:
+
+```sql
++-----------------------+
+| LastName   | SchoolID |
++-----------------------+
+| Adams      | 50       |
+| Buchanan   | 52       |
+| Coolidge   | 52       |
+| Davis      | 51       |
+| Eisenhower | 77       |
++-----------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH Roster AS
+ (SELECT 'Adams' as LastName, 50 as SchoolID UNION ALL
+  SELECT 'Buchanan', 52 UNION ALL
+  SELECT 'Coolidge', 52 UNION ALL
+  SELECT 'Davis', 51 UNION ALL
+  SELECT 'Eisenhower', 77)
+SELECT * FROM Roster
+```
+
+#### PlayerStats table
+
+The `PlayerStats` table includes a list of player names (`LastName`) and the
+unique ID assigned to the opponent they played in a given game (`OpponentID`)
+and the number of points scored by the athlete in that game (`PointsScored`).
+
+```sql
++----------------------------------------+
+| LastName   | OpponentID | PointsScored |
++----------------------------------------+
+| Adams      | 51         | 3            |
+| Buchanan   | 77         | 0            |
+| Coolidge   | 77         | 1            |
+| Davis      | 52         | 4            |
+| Eisenhower | 50         | 13           |
++----------------------------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH PlayerStats AS
+ (SELECT 'Adams' as LastName, 51 as OpponentID, 3 as PointsScored UNION ALL
+  SELECT 'Buchanan', 77, 0 UNION ALL
+  SELECT 'Coolidge', 77, 1 UNION ALL
+  SELECT 'Adams', 52, 4 UNION ALL
+  SELECT 'Buchanan', 50, 13)
+SELECT * FROM PlayerStats
+```
+
+#### TeamMascot table
+
+The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
+mascot for that school (`Mascot`).
+
+```sql
++---------------------+
+| SchoolID | Mascot   |
++---------------------+
+| 50       | Jaguars  |
+| 51       | Knights  |
+| 52       | Lakers   |
+| 53       | Mustangs |
++---------------------+
+```
+
+You can use this `WITH` clause to emulate a temporary table name for the
+examples in this reference:
+
+```sql
+WITH TeamMascot AS
+ (SELECT 50 as SchoolID, 'Jaguars' as Mascot UNION ALL
+  SELECT 51, 'Knights' UNION ALL
+  SELECT 52, 'Lakers' UNION ALL
+  SELECT 53, 'Mustangs')
+SELECT * FROM TeamMascot
+```
 
 ## SELECT list
 
@@ -277,7 +369,7 @@ when querying a regular table.
 
 In contexts where a query with exactly one column is expected, a value table
 query can be used instead.  For example, scalar subqueries and array subqueries
-(see [Subqueries][subqueries]) normally require a single-column query, but in
+(see [Subqueries][subquery-concepts]) normally require a single-column query, but in
 ZetaSQL, they also allow using a value table query.
 
 A query will produce a value table if it uses `SELECT AS`, using one of the
@@ -305,8 +397,8 @@ The query above produces STRUCT values of type `STRUCT<int64 x, int64, int64
 x>.` The first and third fields have the same name `x`, and the second field is
 anonymous.
 
-The example above produces the same result as this query using a struct
-constructor:
+The example above produces the same result as this `SELECT AS VALUE` query
+using a struct constructor:
 
 ```
 SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
@@ -323,7 +415,7 @@ FROM
 
 `SELECT AS STRUCT` can be used in a scalar or array subquery to produce a single
 STRUCT type grouping multiple values together. Scalar
-and array subqueries (see [Subqueries][subqueries]) are normally not allowed to
+and array subqueries (see [Subqueries][subquery-concepts]) are normally not allowed to
 return multiple columns.
 
 #### SELECT AS VALUE
@@ -403,7 +495,7 @@ See <a href="#join_types">JOIN Types</a> below.
 
 #### select
 
-<code>( select ) [ [ AS ] alias ]</code> is a table <a href="#subqueries">subquery</a>.
+<code>( select ) [ [ AS ] alias ]</code> is a [table subquery][table-subquery-concepts].
 
 #### field_path
 
@@ -616,92 +708,83 @@ for the duration of the query, unless you qualify the table name, e.g.
 
 </p>
 
-<a id="subqueries"></a>
-### Subqueries
-
-A subquery is a query that appears inside another statement, and is written
-inside parentheses. These are also referred to as "sub-SELECTs" or
-"nested SELECTs". The full `SELECT` syntax is valid in
-subqueries.
-
-There are two types of subquery:
-
-+  [Expression Subqueries][expression-subqueries],
-   which you can use in a query wherever expressions are valid. Expression
-   subqueries return a single value.
-+  Table subqueries, which you can use only in a `FROM` clause. The outer
-query treats the result of the subquery as a table.
-
-Note that there must be parentheses around both types of subqueries.
-
-Example:
-
-```
-SELECT AVG ( PointsScored )
-FROM
-( SELECT PointsScored
-  FROM Stats
-  WHERE SchoolID = 77 )
-```
-
-Optionally, a table subquery can have an alias.
-
-Example:
-
-```
-SELECT r.LastName
-FROM
-( SELECT * FROM Roster) AS r;
-```
-
 ### TABLESAMPLE operator
+
+```sql
+tablesample_type:
+    TABLESAMPLE sample_method (sample_size percent_or_rows [ partition_by ])
+    [ REPEATABLE(repeat_argument) ]
+    [ WITH WEIGHT [AS alias] ]
+
+sample_method:
+    { BERNOULLI | SYSTEM | RESERVOIR }
+
+sample_size:
+    numeric_value_expression
+
+percent_or_rows:
+    { PERCENT | ROWS }
+
+partition_by:
+    PARTITION BY partition_expression [, ...]
+```
+
+**Description**
 
 You can use the `TABLESAMPLE` operator to select a random sample of a data
 set. This operator is useful when working with tables that have large amounts of
 data and precise answers are not required.
 
-Syntax:
++  `sample_method`: When using the `TABLESAMPLE` operator, you must specify the
+   sampling algorithm to use:
+   + `BERNOULLI`: Each row is independently selected with the probability
+     given in the `percent` clause. As a result, you get approximately
+     `N * percent/100` rows.
+   + `SYSTEM`: Produces a sample using an
+     unspecified engine-dependent method, which may be more efficient but less
+     probabilistically random than other methods.  For example, it could choose
+     random disk blocks and return data from those blocks.
+   + `RESERVOIR`: Takes as parameter an actual sample size
+     K (expressed as a number of rows). If the input is smaller than K, it
+     outputs the entire input relation. If the input is larger than K,
+     reservoir sampling outputs a sample of size exactly K, where any sample of
+     size K is equally likely.
++  `sample_size`: The size of the sample.
++  `percent_or_rows`: The `TABLESAMPLE` operator requires that you choose either
+   `ROWS` or `PERCENT`. If you choose `PERCENT`, the value must be between
+   0 and 100. If you choose `ROWS`, the value must be greater than or equal
+   to 0.
++  `partition_by`: Optional. Perform [stratefied sampling][stratefied-sampling]
+   for each distinct group identified by the `PARTITION BY` clause. That is,
+   if the number of rows in a particular group is less than the specified row
+   count, all rows in that group are assigned to the sample. Otherwise, it
+   randomly selects the specified number of rows for each group, where for a
+   particular group, every sample of that size is equally
+   likely.
++  `REPEATABLE`: Optional. When it is used, repeated
+   executions of the sampling operation return a result table with identical
+   rows for a given repeat argument, as long as the underlying data does
+   not change. `repeat_argument` represents a sampling seed
+   and must be a positive value of type `INT64`.
++  `WITH WEIGHT`: Optional. Retrieves [scaling weight][scaling-weight]. If
+   specified, the `TableSample` operator outputs one extra column of type
+   `DOUBLE` that is greater than or equal 1.0 to represent the actual scaling
+   weight. If an alias is not provided, the default name _weight_ is used.
+   +  In Bernoulli sampling, the weight is `1 / provided sampling probability`.
+      For example, `TABLESAMPLE BERNOULLI (1 percent)` will expose the weight
+      of `1 / 0.01`.
+   +  In System sampling, the weight is approximated or computed exactly in
+      some engine-defined way, as long as its type and value range is
+      specified.
+   +  In non-stratified fixed row count sampling,
+      (RESERVOIR without the PARTITION BY clause), the weight is equal to the
+      total number of input rows divided by the count of sampled rows.
+   +  In stratified sampling,
+      (RESERVOIR with the PARTITION BY clause), the weight for rows from a
+      particular group is equal to the group cardinality divided by the count
+      of sampled rows for that group.
 
-<pre>
-<span class="var">tablesample_type</span>:
-    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span>)
-    [ REPEATABLE(repeat_argument) ]
-
-<span class="var">sample_method</span>:
-    { BERNOULLI | SYSTEM | RESERVOIR }
-
-<span class="var">sample_size</span>:
-    <span class="var">numeric_value_expression</span>
-
-<span class="var">percent_or_rows</span>:
-    { PERCENT | ROWS }
-</pre>
-
-When using the `TABLESAMPLE` operator, you must specify the sampling algorithm
-to use:
-
-+ `BERNOULLI` - each row is independently selected
-with the probability given in the `percent` clause. As a result, you get
-approximately `N * percent/100` rows.
-+ `SYSTEM` - produces a sample using an
-unspecified engine-dependent method, which may be more efficient but less
-probabilistically random than other methods.  For example, it could choose
-random disk blocks and return data from those blocks.
-+ `RESERVOIR` - takes as parameter an actual sample size
-K (expressed as a number of rows). If the input is smaller than K, it outputs
-the entire input relation. If the input is larger than K, reservoir sampling
-outputs a sample of size exactly K, where any sample of size K is equally
-likely.
-
-The `TABLESAMPLE` operator requires that you select either `ROWS` or `PERCENT`.
-If you select `PERCENT`, the value must be between 0 and 100. If you select
-`ROWS`, the value must be greater than or equal to 0.
-
-The `REPEATABLE` clause is optional. When it is used, repeated executions of
-the sampling operation return a result table with identical rows for a
-given repeat argument, as long as the underlying data does
-not change. `repeat_argument` represents a sampling seed
-and must be a positive value of type `INT64`.
+**Examples**
 
 The following examples illustrate the use of the `TABLESAMPLE` operator.
 
@@ -719,14 +802,14 @@ SELECT MessageId
 FROM Messages TABLESAMPLE BERNOULLI (0.1 PERCENT);
 ```
 
-Using `TABLESAMPLE` with a repeat argument:
+Use `TABLESAMPLE` with a repeat argument:
 
 ```sql
 SELECT MessageId
 FROM Messages TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
 ```
 
-Using `TABLESAMPLE` with a subquery:
+Use `TABLESAMPLE` with a subquery:
 
 ```sql
 SELECT Subject FROM
@@ -735,7 +818,7 @@ TABLESAMPLE BERNOULLI(50 PERCENT)
 WHERE MessageId > 3;
 ```
 
-Using a `TABLESAMPLE` operation with a join to another table.
+Use a `TABLESAMPLE` operation with a join to another table.
 
 ```sql
 SELECT S.Subject
@@ -746,13 +829,126 @@ Threads AS S
 WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 ```
 
+Group results by country, using stratefied sampling:
+
+```sql
+SELECT country, SUM(click_cost) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ GROUP BY country;
+```
+
+Add scaling weight to stratefied sampling:
+
+```sql
+SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ WITH WEIGHT AS sampling_weight
+ GROUP BY country;
+```
+
+This is equivelant to the previous example. Note that you don't have to use
+an alias after `WITH WEIGHT`. If you don't, the default alias `weight` is used.
+
+```sql
+SELECT country, SUM(click_cost * weight) FROM ClickEvents
+ TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+ WITH WEIGHT
+ GROUP BY country;
+```
+
+#### Stratefied sampling {: #stratefied_sampling }
+
+If you want better quality generated samples for under-represented groups,
+you can use stratefied sampling. Stratefied sampling helps you
+avoid samples with missing groups. To allow stratified sampling per
+distinct group, use `PARTITION BY` with `RESERVOIR` in the `TABLESAMPLE` clause.
+
+Stratified sampling performs `RESERVOIR` sampling for each distinct group
+identified by the `PARTITION BY` clause. If the number of rows in a particular
+group is less than the specified row count, all rows in that group are assigned
+to the sample. Otherwise, it randomly selects the specified number of rows for
+each group, where for a particular group, every sample of that size is equally
+likely.
+
+**Example**
+
+Let’s consider a table named `ClickEvents` representing a stream of
+click events, each of which has two fields: `country` and `click_cost`.
+`country` represents the country from which the click was originated
+and `click_cost` represents how much the click costs. In this example,
+100 rows are randomly selected for each country.
+
+```sql
+SELECT click_cost, country FROM ClickEvents
+TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
+```
+
+#### Scaling weight {: #scaling_weight }
+
+With scaling weight, you can perform fast and reasonable population estimates
+from generated samples or estimate the aggregate results from samples. You can
+capture scaling weight for a tablesample with the `WITH WEIGHT` clause.
+
+Scaling weight represents the reciprocal of the actual, observed sampling
+rate for a tablesample, making it easier to estimate aggregate results for
+samples. The exposition of scaling weight generally applies to all variations
+of `TABLESAMPLE`, including stratified Reservoir, non-stratified Reservoir,
+Bernoulli, and System.
+
+Let’s consider a table named `ClickEvents` representing a stream of
+click events, each of which has two fields: `country` and `click_cost`.
+`country` represents the country from which the click was originated
+and `click_cost` represents how much the click costs. To calculate the
+total click cost per country, you can use the following query:
+
+```sql
+SELECT country, SUM(click_cost)
+FROM ClickEvents
+GROUP BY country;
+```
+
+You can leverage the existing uniform sampling with fixed probability, using
+Bernoulli sampling and run this query to estimate the result of the previous
+query:
+
+```sql
+SELECT country, SUM(click_cost * weight)
+FROM ClickEvents TABLESAMPLE BERNOULLI (1 PERCENT)
+WITH WEIGHT
+GROUP BY country;
+```
+
+You can break the second query into two steps:
+
+1. Materialize a sample for reuse.
+1. Perform aggregate estimates of the materialized sample.
+
+Instead of aggregating the entire table, you use a 1% uniform sample to
+aggregate a fraction of the original table and to compute the total click cost.
+Because only 1% of the rows flow into the aggregation operator, you need to
+scale the aggregate with a certain weight. Specifically, we multiply the
+aggregate with 100, the reciprocal of the provided sampling probability, for
+each group. And because we use uniform sampling, the scaling weight for each
+group is effectively equal to the scaling weight for each row of the table,
+which is 100.
+
+Even though this sample provides a statistically accurate representation
+of the original table, it might miss an entire group of rows, such as countries
+in the running example, with small cardinality. For example, suppose that
+the `ClickEvents` table contains 10000 rows, with 9990 rows of value `US`
+and 10 rows of value `VN`. The number of distinct countries in this example
+is two. With 1% uniform sampling, it is statistically probable that all the
+sampled rows are from the `US` and none of them are from the `VN` partition.
+As a result, the output of the second query does not contain the `SUM` estimate
+for the group `VN`. We refer to this as the _missing-group problem_, which
+can be solved with [stratefied sampling][stratefied-sampling].
+
 ### Aliases
 
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `FROM` clause aliases.
 
-<a id="join_types"></a>
-## JOIN types
+## JOIN types {: #join_types }
 
 ### Syntax
 
@@ -786,53 +982,217 @@ of the two `from_item`s and discards all rows that do not meet the join
 condition. "Effectively" means that it is possible to implement an `INNER JOIN`
 without actually calculating the Cartesian product.
 
+```sql
+FROM A INNER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | k |     | 2 | b | 2 | k |
+| 2 | b |     | 3 | m |     | 3 | c | 3 | m |
+| 3 | c |     | 3 | n |     | 3 | c | 3 | n |
+| 3 | d |     | 4 | p |     | 3 | d | 3 | m |
++-------+     +-------+     | 3 | d | 3 | n |
+                            +---------------+
+```
+
+```sql
+FROM A INNER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +-----------+
+| x | y |  *  | x | z |  =  | x | y | z |
++-------+     +-------+     +-----------+
+| 1 | a |     | 2 | k |     | 2 | b | k |
+| 2 | b |     | 3 | m |     | 3 | c | m |
+| 3 | c |     | 3 | n |     | 3 | c | n |
+| 3 | d |     | 4 | p |     | 3 | d | m |
++-------+     +-------+     | 3 | d | n |
+                            +-----------+
+```
+
+**Example**
+
+This query performs an `INNER JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
++---------------------------+
+```
+
 ### CROSS JOIN
 
 `CROSS JOIN` returns the Cartesian product of the two `from_item`s. In other
 words, it combines each row from the first `from_item` with each row from the
-second `from_item`. If there are *M* rows from the first and *N* rows from the
-second, the result is *M* * *N* rows. Note that if either `from_item` has zero
-rows, the result is zero rows.
+second `from_item`.
 
-**Comma cross joins**
+If the rows of the two `from_item`s are independent, then the result has *M* *
+*N* rows, given *M* rows in one `from_item` and *N* in the other. Note that this
+still holds for the case when either `from_item` has zero rows.
 
-`CROSS JOIN`s can be written explicitly (see directly above) or implicitly using
-a comma to separate the `from_item`s.
+```sql
+FROM A CROSS JOIN B
 
-Example of an implicit "comma cross join":
-
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | c |     | 1 | a | 2 | c |
+| 2 | b |     | 3 | d |     | 1 | a | 3 | d |
++-------+     +-------+     | 2 | b | 2 | c |
+                            | 2 | b | 3 | d |
+                            +---------------+
 ```
-SELECT * FROM Roster, TeamMascot;
+
+You can use *correlated* `CROSS JOIN`s to
+[flatten `ARRAY` columns][flattening-arrays]. In this case, the rows of the
+second `from_item` vary for each row of the first `from_item`.
+
+```sql
+FROM A CROSS JOIN A.y
+
+Table A                    Result
++-------------------+      +-----------+
+| w | x | y         |  ->  | w | x | y |
++-------------------+      +-----------+
+| 1 | a | [P, Q]    |      | 1 | a | P |
+| 2 | b | [R, S, T] |      | 1 | a | Q |
++-------------------+      | 2 | b | R |
+                           | 2 | b | S |
+                           | 2 | b | T |
+                           +-----------+
 ```
 
-Here is the explicit cross join equivalent:
+`CROSS JOIN`s can be written explicitly like this:
 
+```sql
+FROM a CROSS JOIN b
 ```
-SELECT * FROM Roster CROSS JOIN TeamMascot;
+
+Or implicitly as a comma cross join like this:
+
+```sql
+FROM a, b
 ```
 
-You cannot write comma cross joins inside parentheses.
+You cannot write comma cross joins inside parentheses:
 
-Invalid - comma cross join inside parentheses:
-
-```
-SELECT * FROM t CROSS JOIN (Roster, TeamMascot);  // INVALID.
+```sql {.bad}
+FROM a CROSS JOIN (b, c)  // INVALID
 ```
 
 See [Sequences of JOINs][sequences-of-joins] for details on how a comma cross
 join behaves in a sequence of JOINs.
+
+**Examples**
+
+This query performs an explicit `CROSS JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster CROSS JOIN TeamMascot;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Adams      | Knights      |
+| Adams      | Lakers       |
+| Adams      | Mustangs     |
+| Buchanan   | Jaguars      |
+| Buchanan   | Knights      |
+| Buchanan   | Lakers       |
+| Buchanan   | Mustangs     |
+| ...                       |
++---------------------------+
+```
+
+This query performs a comma cross join that produces the same results as the
+explicit `CROSS JOIN` above:
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster, TeamMascot;
+```
 
 ### FULL [OUTER] JOIN
 
 A `FULL OUTER JOIN` (or simply `FULL JOIN`) returns all fields for all rows in
 both `from_item`s that meet the join condition.
 
-`FULL` indicates that <em>all rows</em> from both `from_item`s are
+`FULL` indicates that _all rows_ from both `from_item`s are
 returned, even if they do not meet the join condition.
 
 `OUTER` indicates that if a given row from one `from_item` does not
 join to any row in the other `from_item`, the row will return with NULLs
 for all columns from the other `from_item`.
+
+```sql
+FROM A FULL OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | k |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | 2    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | 3    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | 3    | n    |
++-------+     +-------+     | 3    | d    | 3    | m    |
+                            | 3    | d    | 3    | n    |
+                            | NULL | NULL | 4    | p    |
+                            +---------------------------+
+```
+
+```sql
+FROM A FULL OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | k |     | 1    | a    | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | n    |
++-------+     +-------+     | 3    | d    | m    |
+                            | 3    | d    | n    |
+                            | 4    | NULL | p    |
+                            +--------------------+
+```
+
+**Example**
+
+This query performs a `FULL JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| Eisenhower | NULL         |
+| NULL       | Mustangs     |
++---------------------------+
+```
 
 ### LEFT [OUTER] JOIN
 
@@ -841,146 +1201,300 @@ The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 `JOIN` clause, even if no rows in the right `from_item` satisfy the join
 predicate.
 
-`LEFT` indicates that all rows from the <em>left</em> `from_item` are
+`LEFT` indicates that all rows from the _left_ `from_item` are
 returned; if a given row from the left `from_item` does not join to any row
-in the <em>right</em> `from_item`, the row will return with NULLs for all
+in the _right_ `from_item`, the row will return with NULLs for all
 columns from the right `from_item`.  Rows from the right `from_item` that
 do not join to any row in the left `from_item` are discarded.
+
+```sql
+FROM A LEFT OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | k |     | 1    | a    | NULL | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | 2    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | 3    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | 3    | n    |
++-------+     +-------+     | 3    | d    | 3    | m    |
+                            | 3    | d    | 3    | n    |
+                            +---------------------------+
+```
+
+```sql
+FROM A LEFT OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | k |     | 1    | a    | NULL |
+| 2 | b |     | 3 | m |     | 2    | b    | k    |
+| 3 | c |     | 3 | n |     | 3    | c    | m    |
+| 3 | d |     | 4 | p |     | 3    | c    | n    |
++-------+     +-------+     | 3    | d    | m    |
+                            | 3    | d    | n    |
+                            +--------------------+
+```
+
+**Example**
+
+This query performs a `LEFT JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| Eisenhower | NULL         |
++---------------------------+
+```
 
 ### RIGHT [OUTER] JOIN
 
 The result of a `RIGHT OUTER JOIN` (or simply `RIGHT JOIN`) is similar and
 symmetric to that of `LEFT OUTER JOIN`.
 
-<a id="on_clause"></a>
-### ON clause
+```sql
+FROM A RIGHT OUTER JOIN B ON A.w = B.y
+
+Table A       Table B       Result
++-------+     +-------+     +---------------------------+
+| w | x |  *  | y | z |  =  | w    | x    | y    | z    |
++-------+     +-------+     +---------------------------+
+| 1 | a |     | 2 | k |     | 2    | b    | 2    | k    |
+| 2 | b |     | 3 | m |     | 3    | c    | 3    | m    |
+| 3 | c |     | 3 | n |     | 3    | c    | 3    | n    |
+| 3 | d |     | 4 | p |     | 3    | d    | 3    | m    |
++-------+     +-------+     | 3    | d    | 3    | n    |
+                            | NULL | NULL | 4    | p    |
+                            +---------------------------+
+```
+
+```sql
+FROM A RIGHT OUTER JOIN B USING (x)
+
+Table A       Table B       Result
++-------+     +-------+     +--------------------+
+| x | y |  *  | x | z |  =  | x    | y    | z    |
++-------+     +-------+     +--------------------+
+| 1 | a |     | 2 | k |     | 2    | b    | k    |
+| 2 | b |     | 3 | m |     | 3    | c    | m    |
+| 3 | c |     | 3 | n |     | 3    | c    | n    |
+| 3 | d |     | 4 | p |     | 3    | d    | m    |
++-------+     +-------+     | 3    | d    | n    |
+                            | 4    | NULL | p    |
+                            +--------------------+
+```
+
+**Example**
+
+This query performs a `RIGHT JOIN` on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
+| NULL       | Mustangs     |
++---------------------------+
+```
+
+### ON clause {: #on_clause }
 
 The `ON` clause contains a `bool_expression`. A combined row (the result of
 joining two rows) meets the join condition if `bool_expression` returns
 TRUE.
 
-Example:
+```sql
+FROM A JOIN B ON A.x = B.x
 
-```
-SELECT * FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
+Table A   Table B   Result (A.x, B.x)
++---+     +---+     +-------+
+| x |  *  | x |  =  | x | x |
++---+     +---+     +-------+
+| 1 |     | 2 |     | 2 | 2 |
+| 2 |     | 3 |     | 3 | 3 |
+| 3 |     | 4 |     +-------+
++---+     +---+
 ```
 
-<a id="using_clause"></a>
-### USING clause
+**Example**
+
+This query performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
+
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Buchanan   | Lakers       |
+| Coolidge   | Lakers       |
+| Davis      | Knights      |
++---------------------------+
+```
+
+### USING clause {: #using_clause }
 
 The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
 and the rows meet the join condition if the equality comparison returns TRUE.
 
-In most cases, a statement with the `USING` keyword is equivalent to using the
-`ON` keyword.  For example, the statement:
+```sql
+FROM A JOIN B USING (x)
 
+Table A   Table B   Result
++---+     +---+     +---+
+| x |  *  | x |  =  | x |
++---+     +---+     +---+
+| 1 |     | 2 |     | 2 |
+| 2 |     | 3 |     | 3 |
+| 3 |     | 4 |     +---+
++---+     +---+
 ```
-SELECT FirstName
-FROM Roster INNER JOIN PlayerStats
-USING (LastName);
-```
-
-is equivalent to:
-
-```
-SELECT FirstName
-FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
-```
-
-The results from queries with `USING` do differ from queries that use `ON` when
-you use `SELECT *`. To illustrate this, consider the query:
-
-```
-SELECT * FROM Roster INNER JOIN PlayerStats
-USING (LastName);
-```
-
-This statement returns the rows from `Roster` and `PlayerStats` where
-`Roster.LastName` is the same as `PlayerStats.LastName`.  The results include a
-single `LastName` column.
-
-By contrast, consider the following query:
-
-```
-SELECT * FROM Roster INNER JOIN PlayerStats
-ON Roster.LastName = PlayerStats.LastName;
-```
-
-This statement returns the rows from `Roster` and `PlayerStats` where
-`Roster.LastName` is the same as `PlayerStats.LastName`.  The results include
-two `LastName` columns; one from `Roster` and one from `PlayerStats`.
 
 **NOTE**: The `USING` keyword is not supported in
 strict
 mode.
 
-<a id="sequences_of_joins"></a>
-### Sequences of JOINs
+**Example**
 
-The `FROM` clause can contain multiple `JOIN` clauses in sequence.
+This query performs an `INNER JOIN` on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
 
-Example:
+This statement returns the rows from `Roster` and `TeamMascot` where
+`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
+a single `SchooldID` column.
 
+```sql
+SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
+
++----------------------------------------+
+| SchoolID   | LastName   | Mascot       |
++----------------------------------------+
+| 50         | Adams      | Jaguars      |
+| 52         | Buchanan   | Lakers       |
+| 52         | Coolidge   | Lakers       |
+| 51         | Davis      | Knights      |
++----------------------------------------+
 ```
-SELECT * FROM a LEFT JOIN b ON TRUE LEFT JOIN c ON TRUE;
+
+### ON and USING equivalency
+
+The `ON` and `USING` keywords are not equivalent, but they are similar.
+`ON` returns multiple columns, and `USING` returns one.
+
+```sql
+FROM A JOIN B ON A.x = B.x
+FROM A JOIN B USING (x)
+
+Table A   Table B   Result ON     Result USING
++---+     +---+     +-------+     +---+
+| x |  *  | x |  =  | x | x |     | x |
++---+     +---+     +-------+     +---+
+| 1 |     | 2 |     | 2 | 2 |     | 2 |
+| 2 |     | 3 |     | 3 | 3 |     | 3 |
+| 3 |     | 4 |     +-------+     +---+
++---+     +---+
 ```
 
-where `a`, `b`, and `c` are any `from_item`s. JOINs are bound from left to
-right, but you can insert parentheses to group them in a different order.
+Although `ON` and `USING` are not equivalent, they can return the same results
+if you specify the columns you want to return.
 
-Consider the following queries: A (without parentheses) and B (with parentheses)
-are equivalent to each other but not to C. The `FULL JOIN` in **bold** binds
-first.
+```sql
+SELECT x FROM A JOIN B USING (x);
+SELECT A.x FROM A JOIN B ON A.x = B.x;
 
- A.
+Table A   Table B   Result
++---+     +---+     +---+
+| x |  *  | x |  =  | x |
++---+     +---+     +---+
+| 1 |     | 2 |     | 2 |
+| 2 |     | 3 |     | 3 |
+| 3 |     | 4 |     +---+
++---+     +---+
+```
 
-<pre>
-SELECT * FROM Roster <b>FULL JOIN</b> TeamMascot USING (SchoolID)
-FULL JOIN PlayerStats USING (LastName);
-</pre>
+### Sequences of JOINs {: #sequences_of_joins }
 
-B.
+The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
+`JOIN`s are bound from left to right. For example:
 
-<pre>
-SELECT * FROM ( (Roster <b>FULL JOIN</b> TeamMascot USING (SchoolID))
-FULL JOIN PlayerStats USING (LastName));
-</pre>
+```sql
+FROM A JOIN B USING (x) JOIN C USING (x)
 
-C.
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2                  = return value
+```
 
-<pre>
-SELECT * FROM (Roster FULL JOIN (TeamMascot <b>FULL JOIN</b> PlayerStats USING
-(LastName)) USING (SchoolID)) ;
-</pre>
+You can also insert parentheses to group `JOIN`s:
+
+```sql
+FROM ( (A JOIN B USING (x)) JOIN C USING (x) )
+
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2                  = return value
+```
+
+With parentheses, you can group `JOIN`s so that they are bound in a different
+order:
+
+```sql
+FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
+
+-- B JOIN C USING (x)       = result_1
+-- A JOIN result_1          = result_2
+-- result_2                 = return value
+```
 
 When comma cross joins are present in a query with a sequence of JOINs, they
-group from left to right like other `JOIN` types.
+group from left to right like other `JOIN` types:
 
-Example:
+```sql
+FROM A JOIN B USING (x) JOIN C USING (x), D
 
-```
-SELECT * FROM a JOIN b ON TRUE, b JOIN c ON TRUE;
-```
-
-The query above is equivalent to
-
-```
-SELECT * FROM ((a JOIN b ON TRUE) CROSS JOIN b) JOIN c ON TRUE);
+-- A JOIN B USING (x)        = result_1
+-- result_1 JOIN C USING (x) = result_2
+-- result_2 CROSS JOIN D     = return value
 ```
 
-There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join.
+There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join:
 
-Invalid - `RIGHT JOIN` after a comma cross join:
-
-```
-SELECT * FROM Roster, TeamMascot RIGHT JOIN PlayerStats ON TRUE;  // INVALID.
+```sql {.bad}
+FROM A, B RIGHT JOIN C ON TRUE // INVALID
 ```
 
-<a id="where_clause"></a>
-## WHERE clause
+```sql {.bad}
+FROM A, B FULL JOIN C ON TRUE  // INVALID
+```
+
+```sql
+FROM A, B JOIN C ON TRUE       // VALID
+```
+
+## WHERE clause {: #where_clause }
 
 ### Syntax
 
@@ -1017,20 +1531,21 @@ equivalent expression using `CROSS JOIN` and `WHERE`.
 
 Example - this query:
 
-```
-SELECT * FROM Roster INNER JOIN TeamMascot
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster INNER JOIN TeamMascot
 ON Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
 is equivalent to:
 
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot
+```sql
+SELECT Roster.LastName, TeamMascot.Mascot
+FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
-<a id="group_by_clause"></a>
-## GROUP BY clause
+## GROUP BY clause {: #group_by_clause }
 
 ### Syntax
 
@@ -1196,8 +1711,7 @@ grand total:
 +------+------+-------+
 ```
 
-<a id="having_clause"></a>
-## HAVING clause
+## HAVING clause {: #having_clause }
 
 ### Syntax
 
@@ -1242,8 +1756,7 @@ GROUP BY LastName
 HAVING ps > 0;
 ```
 
-<a id="mandatory_aggregation"></a>
-### Mandatory aggregation
+### Mandatory aggregation {: #mandatory_aggregation }
 
 Aggregation does not have to be present in the `HAVING` clause itself, but
 aggregation must be present in at least one of the following forms:
@@ -1280,8 +1793,7 @@ GROUP BY LastName
 HAVING SUM(PointsScored) > 15;
 ```
 
-<a id="order_by_clause"></a>
-## ORDER BY clause
+## ORDER BY clause {: #order_by_clause }
 
 ### Syntax
 
@@ -1484,8 +1996,7 @@ FROM Locations
 ORDER BY Place COLLATE "unicode:ci"
 ```
 
-<a id="window_clause"></a>
-## WINDOW clause
+## WINDOW clause {: #window_clause }
 
 ### Syntax
 
@@ -1541,8 +2052,7 @@ WINDOW
   c AS b
 ```
 
-<a id="set_operators"></a>
-## Set operators
+## Set operators {: #set_operators }
 
 ### Syntax
 
@@ -1603,26 +2113,24 @@ query1 UNION ALL query2 UNION ALL query3
 
 Invalid:
 
-<pre>
-query1 UNION ALL query2 UNION DISTINCT query3<br>query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
-</pre>
+``` {.bad}
+query1 UNION ALL query2 UNION DISTINCT query3
+query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
+```
 
-<a id="union"></a>
-### UNION
+### UNION {: #union }
 
 The `UNION` operator combines the result sets of two or more input queries by
 pairing columns from the result set of each query and vertically concatenating
 them.
 
-<a id="intersect"></a>
-### INTERSECT
+### INTERSECT {: #intersect }
 
 The `INTERSECT` operator returns rows that are found in the result sets of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
-queries (to the left vs. right of the `INTERSECT` operator) does not matter.
+queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
-<a id="except"></a>
-### EXCEPT
+### EXCEPT {: #except }
 
 The `EXCEPT` operator returns rows from the left input query that are
 not present in the right input query.
@@ -1641,8 +2149,7 @@ EXCEPT DISTINCT SELECT 1;
 +--------+
 ```
 
-<a id="limit-clause_and_offset_clause"></a>
-## LIMIT clause and OFFSET clause
+## LIMIT clause and OFFSET clause {: #limit-clause_and_offset_clause }
 
 ### Syntax
 
@@ -1692,13 +2199,12 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 +---------+
 ```
 
-<a id="with_clause"></a>
-## WITH clause
+## WITH clause {: #with_clause }
 
-The `WITH` clause binds the results of one or more named subqueries to temporary
-table names.  Each introduced table name is visible in subsequent `SELECT`
-expressions within the same query expression. This includes the following kinds
-of `SELECT` expressions:
+The `WITH` clause binds the results of one or more named
+[subqueries][subquery-concepts] to temporary table names.  Each introduced
+table name is visible in subsequent `SELECT` expressions within the same
+query expression. This includes the following kinds of `SELECT` expressions:
 
 + Any `SELECT` expressions in subsequent `WITH` bindings
 + Top level `SELECT` expressions in the query expression on both sides of a set
@@ -1707,7 +2213,7 @@ of `SELECT` expressions:
 
 Example:
 
-```
+```sql
 WITH subQ1 AS (SELECT SchoolID FROM Roster),
      subQ2 AS (SELECT OpponentID FROM PlayerStats)
 SELECT * FROM subQ1
@@ -1715,13 +2221,9 @@ UNION ALL
 SELECT * FROM subQ2;
 ```
 
-Another useful role of the `WITH` clause is to break up more complex queries
-into a `WITH` `SELECT` statement and `WITH` clauses, where the less desirable
-alternative is writing nested table subqueries. If a `WITH` clause contains
-multiple subqueries, the subquery names cannot repeat.
-
-ZetaSQL supports `WITH` clauses in subqueries, such as table
-subqueries, expression subqueries, and so on.
+You can use `WITH` to break up more complex queries into a `WITH` `SELECT`
+statement and `WITH` clauses, where the less desirable alternative is writing
+nested table subqueries. For example:
 
 ```
 WITH q1 AS (my_query)
@@ -1729,6 +2231,9 @@ SELECT *
 FROM
   (WITH q2 AS (SELECT * FROM q1) SELECT * FROM q2)
 ```
+
+Note: If a `WITH` clause contains multiple subqueries, the subquery names cannot
+repeat.
 
 The following are scoping rules for `WITH` clauses:
 
@@ -1757,10 +2262,9 @@ FROM
     SELECT * FROM q1)  # q1 resolves to the third inner WITH subquery.
 ```
 
-NOTE: ZetaSQL does not support `WITH RECURSIVE`.
+`WITH RECURSIVE` is not supported.
 
-<a name="using_aliases"></a>
-## Using Aliases
+## Using aliases {: #using_aliases }
 
 An alias is a temporary name given to a table, column, or expression present in
 a query. You can introduce explicit aliases in the `SELECT` list or `FROM`
@@ -1768,8 +2272,7 @@ clause, or ZetaSQL will infer an implicit alias for some expressions.
 Expressions with neither an explicit nor implicit alias are anonymous and the
 query cannot reference them by name.
 
-<a id=explicit_alias_syntax></a>
-### Explicit alias syntax
+### Explicit alias syntax {: #explicit_alias_syntax }
 
 You can introduce explicit aliases in either the `FROM` clause or the `SELECT`
 list.
@@ -1795,15 +2298,13 @@ SELECT s.FirstName AS name, LOWER(s.FirstName) AS lname
 FROM Singers s;
 ```
 
-<a id=alias_visibility></a>
-### Explicit alias visibility
+### Explicit alias visibility {: #alias_visibility }
 
 After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
 alias visibility are the result of ZetaSQL's name scoping rules.
 
-<a id=from_clause_aliases></a>
-#### FROM clause aliases
+#### FROM clause aliases {: #from_clause_aliases }
 
 ZetaSQL processes aliases in a `FROM` clause from left to right,
 and aliases are visible only to subsequent path expressions in a `FROM`
@@ -1820,7 +2321,7 @@ FROM Singers AS s, s.Concerts;
 
 Invalid:
 
-```
+``` {.bad}
 SELECT FirstName
 FROM s.Concerts, Singers AS s;  // INVALID.
 ```
@@ -1831,7 +2332,7 @@ other tables in the same `FROM` clause.
 
 Invalid:
 
-```
+``` {.bad}
 SELECT FirstName
 FROM Singers AS s, (SELECT (2020 - ReleaseDate) FROM s)  // INVALID.
 ```
@@ -1861,13 +2362,12 @@ ORDER BY s.LastName
 
 Invalid &mdash; `ORDER BY` does not use the table alias:
 
-```
+``` {.bad}
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
 
-<a id=select-list_aliases></a>
-#### SELECT list aliases
+#### SELECT list aliases {: #select-list_aliases }
 
 Aliases in the `SELECT` list are **visible only** to the following clauses:
 
@@ -1883,8 +2383,7 @@ FROM Singers
 ORDER BY last;
 ```
 
-<a id=aliases_clauses></a>
-### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses
+### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses {: #aliases_clauses }
 
 These three clauses, `GROUP BY`, `ORDER BY`, and `HAVING`, can refer to only the
 following values:
@@ -1916,8 +2415,7 @@ GROUP BY sid
 ORDER BY s2id DESC;
 ```
 
-<a id=ambiguous_aliases></a>
-### Ambiguous aliases
+### Ambiguous aliases {: #ambiguous_aliases }
 
 ZetaSQL provides an error if a name is ambiguous, meaning it can
 resolve to more than one unique object.
@@ -1972,8 +2470,7 @@ GROUP BY BirthYear;
 The alias `BirthYear` is not ambiguous because it resolves to the same
 underlying column, `Singers.BirthYear`.
 
-<a id=implicit_aliases></a>
-### Implicit aliases
+### Implicit aliases {: #implicit_aliases }
 
 In the `SELECT` list, if there is an expression that does not have an explicit
 alias, ZetaSQL assigns an implicit alias according to the following
@@ -2008,489 +2505,87 @@ following rules apply:
 <li><code>FROM UNNEST(x)</code> does not have an implicit alias.</li>
 </ul>
 
-<a id=appendix_a_examples_with_sample_data></a>
-## Appendix A: examples with sample data
+### Range variables {: #range_variables }
 
-<a id=sample_tables></a>
-### Sample tables
+In ZetaSQL, a range variable is a table expression alias in the
+`FROM` clause. Sometimes a range variable is known as a `table alias`. A
+range variable lets you reference rows being scanned from a table expression.
+A table expression represents an item in the `FROM` clause that returns a table.
+Common items that this expression can represent include [tables][query-tables],
+[value tables][query-value-tables], [subqueries][subquery-concepts],
+[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and
+[parenthesized joins][query-joins].
 
-The following three tables contain sample data about athletes, their schools,
-and the points they score during the season. These tables will be used to
-illustrate the behavior of different query clauses.
+In general, a range variable provides a reference to the rows of a table
+expression. A range variable can be used to qualify a column reference and
+unambiguously identify the related table, for example `range_variable.column_1`.
 
-Table Roster:
+When referencing a range variable on its own without a specified column suffix,
+the result of a table expression is the row type of the related table.
+Value tables have explicit row types, so for range variables related
+to value tables, the result type is the value table's row type. Other tables
+do not have explicit row types, and for those tables, the range variable
+type is a dynamically defined `STRUCT` that includes all of the
+columns in the table.
 
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>SchoolID</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-</tr>
-</tbody>
-</table>
+**Examples**
 
-The Roster table includes a list of player names (LastName) and the unique ID
-assigned to their school (SchoolID).
+In these examples, the `WITH` clause is used to emulate a temporary table
+called `Grid`. This table has columns `x` and `y`. A range variable called
+`Coordinate` refers to the current row as the table is scanned. `Coordinate`
+can be used to access the entire row or columns in the row.
 
-Table PlayerStats:
+The following example selects column `x` from range variable `Coordinate`,
+which in effect selects column `x` from table `Grid`.
 
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>OpponentID</th>
-<th>PointsScored</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>51</td>
-<td>3</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>77</td>
-<td>0</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>77</td>
-<td>1</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>52</td>
-<td>4</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>50</td>
-<td>13</td>
-</tr>
-</tbody>
-</table>
+```sql
+WITH Grid AS (SELECT 1 x, 2 y)
+SELECT Coordinate.x FROM Grid AS Coordinate;
 
-The PlayerStats table includes a list of player names (LastName) and the unique
-ID assigned to the opponent they played in a given game (OpponentID) and the
-number of points scored by the athlete in that game (PointsScored).
-
-Table TeamMascot:
-
-<table>
-<thead>
-<tr>
-<th>SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-The TeamMascot table includes a list of unique school IDs (SchoolID) and the
-mascot for that school (Mascot).
-
-<a id="join_types_examples"></a>
-### JOIN types
-
-1) [INNER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
++---+
+| x |
++---+
+| 1 |
++---+
 ```
 
-Results:
+The following example selects all columns from range variable `Coordinate`,
+which in effect selects all columns from table `Grid`.
 
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-</tbody>
-</table>
+```sql
+WITH Grid AS (SELECT 1 x, 2 y)
+SELECT Coordinate.* FROM Grid AS Coordinate;
 
-2) CROSS JOIN
-
-Example:
-
-```
-SELECT * FROM Roster CROSS JOIN TeamMascot;
++---+---+
+| x | y |
++---+---+
+| 1 | 2 |
++---+---+
 ```
 
-Results:
+The following example selects the range variable `Coordinate`, which is a
+reference to rows in table `Grid`.  Since `Grid` is not a value table,
+the result type of `Coordinate` is a `STRUCT` that contains all the columns
+from `Grid`.
 
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
+```sql
+WITH Grid AS (SELECT 1 x, 2 y)
+SELECT Coordinate FROM Grid AS Coordinate;
 
-3) FULL [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster FULL JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
++--------------+
+| Coordinate   |
++--------------+
+| {x: 1, y: 2} |
++--------------+
 ```
 
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-<tr>
-<td>NULL</td>
-<td>NULL</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
+## Appendix A: examples with sample data {: #appendix_a_examples_with_sample_data }
 
-4) LEFT [OUTER] JOIN
+These examples include statements which perform queries on the
+[`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
+and [`PlayerStats`][playerstats-table] tables.
 
-Example:
-
-```
-SELECT * FROM Roster LEFT JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Eisenhower</td>
-<td>77</td>
-<td>NULL</td>
-<td>NULL</td>
-</tr>
-</tbody>
-</table>
-
-5) RIGHT [OUTER] JOIN
-
-Example:
-
-```
-SELECT * FROM Roster RIGHT JOIN TeamMascot
-ON Roster.SchoolID = TeamMascot.SchoolID;
-```
-
-Results:
-
-<table>
-<thead>
-<tr>
-<th>LastName</th>
-<th>Roster.SchoolId</th>
-<th>TeamMascot.SchoolId</th>
-<th>Mascot</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Adams</td>
-<td>50</td>
-<td>50</td>
-<td>Jaguars</td>
-</tr>
-<tr>
-<td>Davis</td>
-<td>51</td>
-<td>51</td>
-<td>Knights</td>
-</tr>
-<tr>
-<td>Coolidge</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>Buchanan</td>
-<td>52</td>
-<td>52</td>
-<td>Lakers</td>
-</tr>
-<tr>
-<td>NULL</td>
-<td>NULL</td>
-<td>53</td>
-<td>Mustangs</td>
-</tr>
-</tbody>
-</table>
-
-<a id=group_by_clause></a>
-### GROUP BY clause
+### GROUP BY clause {: #group_by_clause }
 
 Example:
 
@@ -2523,12 +2618,9 @@ GROUP BY LastName;
 </tbody>
 </table>
 
-<a id=set_operators></a>
-### Set operators
+### Set operators {: #set_operators }
 
-<a id=union></a>
-
-#### UNION
+#### UNION {: #union }
 
 The `UNION` operator combines the result sets of two or more `SELECT` statements
 by pairing columns from the result set of each `SELECT` statement and vertically
@@ -2593,8 +2685,7 @@ Results:
 </tbody>
 </table>
 
-<a id=intersect></a>
-#### INTERSECT
+#### INTERSECT {: #intersect }
 
 This query returns the last names that are present in both Roster and
 PlayerStats.
@@ -2628,8 +2719,7 @@ Results:
 </tbody>
 </table>
 
-<a id=except></a>
-#### EXCEPT
+#### EXCEPT {: #except }
 
 The query below returns last names in Roster that are **not** present in
 PlayerStats.
@@ -2681,24 +2771,32 @@ Results:
 [tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
 
 [implicit-aliases]: #implicit_aliases
-[subqueries]: #subqueries
 [using-aliases]: #using_aliases
 [sequences-of-joins]: #sequences_of_joins
 [set-operators]: #set_operators
 [union-syntax]: #union
 [join-hints]: #join_hints
 [query-value-tables]: #value_tables
+[roster-table]: #roster_table
+[playerstats-table]: #playerstats_table
+[teammascot-table]: #teammascot_table
+[stratefied-sampling]: #stratefied_sampling
+[scaling-weight]: #scaling_weight
+[query-joins]: #join-types
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
 [produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
+[tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
+[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries
+[table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#table_subquery_concepts
+[expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#expression_subquery_concepts
+[query-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
-
-<!-- END CONTENT -->
 

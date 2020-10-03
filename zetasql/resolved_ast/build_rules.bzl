@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,13 +20,15 @@ def gen_resolved_ast_files(
         name,
         srcs = [],
         outs = [],
+        flags = [],
         **extra_args):
     cmd = "$(location //zetasql/resolved_ast:gen_resolved_ast) "
+    for f in flags:
+        cmd += f + " "
     for t in srcs:
         cmd += "$(location %s) " % t
     for o in outs:
         cmd += "$(location %s) " % o
-
     native.genrule(
         name = name,
         srcs = srcs,

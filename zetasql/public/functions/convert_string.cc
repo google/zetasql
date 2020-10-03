@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 #include "zetasql/public/functions/util.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/base/optimization.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/strip.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace functions {
@@ -221,10 +221,8 @@ bool StringToNumeric(absl::string_view value, NumericValue* out,
     *out = numeric_status.value();
     return true;
   }
-  if (error != nullptr) {
-    *error = numeric_status.status();
-  }
-  return false;
+  return internal::UpdateError(error,
+                               FormatError("Invalid NUMERIC value: ", value));
 }
 
 template <>
@@ -232,13 +230,11 @@ bool StringToNumeric(absl::string_view value, BigNumericValue* out,
                      absl::Status* error) {
   const auto bignumeric_status = BigNumericValue::FromString(value);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = bignumeric_status.value();
     return true;
   }
-  if (error != nullptr) {
-    *error = bignumeric_status.status();
-  }
-  return false;
+  return internal::UpdateError(
+      error, FormatError("Invalid BIGNUMERIC value: ", value));
 }
 
 }  // namespace functions

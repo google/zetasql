@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -211,8 +211,12 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::BIGNUMERIC);
       break;
     }
-    case TYPE_JSON:
-      return absl::UnimplementedError("JSON type is not fully implemented");
+    case TYPE_JSON: {
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_STRING);
+      proto_field->mutable_options()->SetExtension(
+          zetasql::format, FieldFormat::JSON);
+      break;
+    }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_ENUM);

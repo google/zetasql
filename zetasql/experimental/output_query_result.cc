@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@
 
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_split.h"
 
 namespace zetasql {
 
 namespace {
 
-::zetasql_base::StatusOr<const Table*> GetTableForDMLStatement(
+zetasql_base::StatusOr<const Table*> GetTableForDMLStatement(
     const ResolvedStatement* resolved_stmt) {
   const ResolvedTableScan* scan = nullptr;
   switch (resolved_stmt->node_kind()) {
@@ -207,15 +208,17 @@ std::string GetEscapedString(const Value& value) {
 std::string ValueToOutputString(const Value& value, bool escape_strings) {
   if (value.is_null()) return "NULL";
   if (value.type()->IsStruct()) {
-    return absl::StrCat(
-        "{",
-        absl::StrJoin(value.fields(), ", ",
-                      [](std::string* out, const zetasql::Value& value) {
-                        absl::StrAppend(
-                            out, ValueToOutputString(value,
-                                                     /*escape_strings=*/true));
-                      }),
-        "}");
+    std::vector<std::string> field_results;
+    for (int i = 0; i < value.type()->AsStruct()->num_fields(); ++i) {
+      std::string field_result =
+          ValueToOutputString(value.field(i), /*escape_strings=*/true);
+      absl::string_view name = value.type()->AsStruct()->field(i).name;
+      if (!name.empty()) {
+        absl::StrAppend(&field_result, " ", name);
+      }
+      field_results.push_back(field_result);
+    }
+    return absl::StrCat("{", absl::StrJoin(field_results, ", "), "}");
   } else if (value.type()->IsArray()) {
     return absl::StrCat(
         "[",

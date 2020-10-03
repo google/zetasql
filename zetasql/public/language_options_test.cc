@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gtest/gtest.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 
 namespace zetasql {
@@ -217,6 +218,7 @@ TEST(LanguageOptions, Deserialize) {
       FEATURE_V_1_1_SELECT_STAR_EXCEPT_REPLACE);
   proto.add_enabled_language_features(FEATURE_TABLESAMPLE);
   proto.add_supported_statement_kinds(RESOLVED_EXPLAIN_STMT);
+  proto.add_supported_generic_entity_types("NEW_TYPE");
 
   LanguageOptions options(proto);
   ASSERT_EQ(PRODUCT_EXTERNAL, options.product_mode());
@@ -230,6 +232,9 @@ TEST(LanguageOptions, Deserialize) {
       FEATURE_V_1_1_ORDER_BY_COLLATE));
   ASSERT_TRUE(options.SupportsStatementKind(RESOLVED_EXPLAIN_STMT));
   ASSERT_FALSE(options.SupportsStatementKind(RESOLVED_QUERY_STMT));
+  ASSERT_TRUE(options.GenericEntityTypeSupported("NEW_TYPE"));
+  ASSERT_TRUE(options.GenericEntityTypeSupported("new_type"));
+  ASSERT_FALSE(options.GenericEntityTypeSupported("unsupported"));
 }
 
 TEST(LanguageOptions, GetEnabledLanguageFeaturesAsString) {
@@ -251,10 +256,11 @@ TEST(LanguageOptions, ClassAndProtoSize) {
   EXPECT_EQ(16,
       sizeof(LanguageOptions) -
       sizeof(std::set<ResolvedNodeKind>) -
-      sizeof(std::set<LanguageFeature>))
+      sizeof(std::set<LanguageFeature>) -
+      sizeof(absl::flat_hash_set<std::string>))
       << "The size of LanguageOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(5, LanguageOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(6, LanguageOptionsProto::descriptor()->field_count())
       << "The number of fields in LanguageOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

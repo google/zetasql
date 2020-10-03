@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -134,6 +134,12 @@ message FieldFormat {
     //
     // Can be applied to bytes fields.
     BIGNUMERIC = 11;
+
+    // A ZetaSQL JSON value. These values are encoded as JSON strings
+    // according to the JSON RFC (RFC 7159)).
+    //
+    // Can be applied to string fields.
+    JSON = 12;
 
     // User code that switches on this enum must have a default case so
     // builds won't break if new enums get added.

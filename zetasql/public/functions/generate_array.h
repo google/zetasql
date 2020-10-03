@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/time/time.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace functions {

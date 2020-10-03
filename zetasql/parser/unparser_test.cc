@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -83,6 +83,25 @@ TEST(TestUnparser, ExpressionTest) {
   CompareParseTrees(parser_output->expression(),
                     unparsed_expression_parser_output->expression(),
                     expression_string, unparsed_expression_string);
+}
+
+TEST(TestUnparser, QueryTest) {
+  std::string query_string(
+      "BEGIN\n"
+      "END\n");
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_EXPECT_OK(ParseStatement(query_string, ParserOptions(), &parser_output));
+  ASSERT_THAT(parser_output->statement(), NotNull());
+  std::string unparsed_string = Unparse(parser_output->statement());
+  // Cannot generally do string equality because of capitalization and white
+  // space issues, so we will reparse and also compare the parse trees.
+  EXPECT_EQ(query_string, unparsed_string);
+  std::unique_ptr<ParserOutput> unparsed_query_parser_output;
+  ZETASQL_EXPECT_OK(ParseStatement(unparsed_string, ParserOptions(),
+                           &unparsed_query_parser_output));
+  CompareParseTrees(parser_output->statement(),
+                    unparsed_query_parser_output->statement(), query_string,
+                    unparsed_string);
 }
 
 }  // namespace zetasql

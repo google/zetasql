@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
@@ -38,7 +39,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -1188,7 +1188,8 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
     column_major_contents_[i] = column_values;
   }
 
-  auto factory = [this, rows](absl::Span<const int> column_idxs)
+  num_rows_ = rows.size();
+  auto factory = [this](absl::Span<const int> column_idxs)
       -> zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> {
     std::vector<const Column*> columns;
     std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
@@ -1199,7 +1200,7 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
     }
     std::unique_ptr<EvaluatorTableIterator> iter(
         new SimpleEvaluatorTableIterator(
-            columns, column_values,
+            columns, column_values, num_rows_,
             /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/{},
             /*cancel_cb=*/[]() {},
             /*set_deadline_cb=*/[](absl::Time t) {}, zetasql_base::Clock::RealClock()));

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
@@ -503,12 +504,10 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {BigNumeric(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
       {BigNumeric(BigNumericValue::MinValue()), BigNumeric(0), LESS},
       {BigNumeric(1), BigNumeric(1), EQUAL},
-      {BigNumeric(BigNumericValue::FromStringStrict("123.456").ValueOrDie()),
-       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
-       LESS},
-      {BigNumeric(BigNumericValue::FromStringStrict("-123.654").ValueOrDie()),
-       BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
-       LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("123.456").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").value()), LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.654").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("-123.456").value()), LESS},
       {BigNumeric(-1), BigNumeric(-1), EQUAL},
       {BigNumeric(1), NullBigNumeric(), NULL_VALUE},
 
@@ -517,9 +516,8 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {BigNumeric(BigNumericValue::MinValue()), int64min, LESS},
       {Int64(1), BigNumeric(1), EQUAL},
       {Int64(123),
-       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
-       LESS},
-      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").value()), LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").value()),
        Int64(-123), LESS},
       {Int64(-1), BigNumeric(-1), EQUAL},
       {Int64(1), NullBigNumeric(), NULL_VALUE},
@@ -529,9 +527,8 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {BigNumeric(BigNumericValue::MinValue()), uint64max, LESS},
       {Uint64(1), BigNumeric(1), EQUAL},
       {Uint64(123),
-       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
-       LESS},
-      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").value()), LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").value()),
        Uint64(123), LESS},
       {BigNumeric(-1), Uint64(1), LESS},
       {Uint64(1), NullBigNumeric(), NULL_VALUE},
@@ -547,12 +544,11 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Double(0.0), BigNumeric(0), EQUAL},
       {Double(-0.0), BigNumeric(0), EQUAL},
       {Double(123),
-       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
-       LESS},
-      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").value()), LESS},
+      {BigNumeric(BigNumericValue::FromStringStrict("-123.456").value()),
        Double(-123), LESS},
       {Double(-123.456),
-       BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
+       BigNumeric(BigNumericValue::FromStringStrict("-123.456").value()),
        EQUAL},
       {Double(-1), BigNumeric(-1), EQUAL},
       {Double(1), NullBigNumeric(), NULL_VALUE},
@@ -561,12 +557,10 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {Numeric(0), BigNumeric(BigNumericValue::MaxValue()), LESS},
       {BigNumeric(BigNumericValue::MinValue()), Numeric(0), LESS},
       {Numeric(1), BigNumeric(1), EQUAL},
-      {Numeric(NumericValue::FromStringStrict("123.456").ValueOrDie()),
-       BigNumeric(BigNumericValue::FromStringStrict("123.654").ValueOrDie()),
-       LESS},
-      {Numeric(NumericValue::FromStringStrict("-123.654").ValueOrDie()),
-       BigNumeric(BigNumericValue::FromStringStrict("-123.456").ValueOrDie()),
-       LESS},
+      {Numeric(NumericValue::FromStringStrict("123.456").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("123.654").value()), LESS},
+      {Numeric(NumericValue::FromStringStrict("-123.654").value()),
+       BigNumeric(BigNumericValue::FromStringStrict("-123.456").value()), LESS},
       {Numeric(-1), BigNumeric(-1), EQUAL},
       {Numeric(1), NullBigNumeric(), NULL_VALUE},
       {BigNumeric(1), NullNumeric(), NULL_VALUE},
@@ -2122,6 +2116,25 @@ std::vector<FunctionTestCall> GetFunctionTestsArray() {
       {"array_reverse",
        {Value::Array(array_struct_type, {struct0, struct1, struct2})},
        Value::Array(array_struct_type, {struct2, struct1, struct0})},
+
+      {"array_is_distinct", {Null(Int64ArrayType())}, NullBool()},
+      {"array_is_distinct", {Int64Array({1, 2, 3})}, True()},
+      {"array_is_distinct", {Int64Array({1, 1, 1})}, False()},
+      {"array_is_distinct", {Array({Int64(1), Int64(2), NullInt64()})}, True()},
+      {"array_is_distinct",
+       {Array({Int64(1), Int64(1), NullInt64()})},
+       False()},
+      {"array_is_distinct",
+       {Array({Int64(1), NullInt64(), NullInt64()})},
+       False()},
+      {"array_is_distinct", {StringArray({"foo", "foo"})}, False()},
+      {"array_is_distinct",
+       {Array({String(""), String("foo"), NullString()})},
+       True()},
+      {"array_is_distinct", {DoubleArray({0.0, 1.0})}, True()},
+      {"array_is_distinct", {DoubleArray({0.0, 0.0})}, False()},
+      {"array_is_distinct", {DoubleArray({0.0, double_nan})}, True()},
+      {"array_is_distinct", {DoubleArray({double_nan, double_nan})}, False()},
   };
   std::vector<FunctionTestCall> tests_array_concat = GetArrayConcatTests();
   results.insert(results.end(),

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@
 #include "zetasql/public/type.h"
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 // TODO: Over time the number of files related to catalog objects
 // has grown.  Consider creating a new public subdirectory for Catalog
@@ -145,7 +145,7 @@ class Catalog {
   // ConversionSourceExpressionKind represents the kind of expression that is
   // casted. Currently ZetaSQL has special casting rules for literals and
   // parameters and this enumeration helps to choose the appropriate rule.
-  enum class ConversionSourceExpressionKind {
+  enum class ConversionSourceExpressionKind : int8_t {
     kOther = 0,
     kLiteral,
     kParameter
@@ -170,14 +170,20 @@ class Catalog {
                                 is_explicit, source_kind, product_mode) {}
 
     const FindOptions& find_options() const { return find_options_; }
+
     bool is_explicit() const { return is_explicit_; }
     ConversionSourceExpressionKind source_kind() const { return source_kind_; }
     ProductMode product_mode() const { return product_mode_; }
 
    private:
     FindOptions find_options_;
+
+    // If true, explicit cast is requested.
     bool is_explicit_;
+
+    // The kind of converted expression, e.g. literal or parameter.
     ConversionSourceExpressionKind source_kind_;
+
     ProductMode product_mode_;
   };
 
@@ -268,22 +274,6 @@ class Catalog {
                             const Constant** constant,
                             const FindOptions& options = FindOptions());
 
-  // FindConversion looks up a Conversion between from_type and to_type with the
-  // given options.
-  //
-  // If a conversion is not found, kNotFound status is returned. Other errors
-  // indicate failures in the lookup mechanism and should make the user's
-  // request fail.
-  //
-  // Unlike other catalog's functions (which return a pointer to an object),
-  // conversion is returned by value, since a catalog may not be able to store
-  // all possible conversions (conversion is defined by two types and both of
-  // them can be parameterized extended types).
-  virtual absl::Status FindConversion(const Type* from_type,
-                                      const Type* to_type,
-                                      const FindConversionOptions& options,
-                                      Conversion* conversion);
-
   // Variant of FindConstant() that allows for trailing field references in
   // <path>.
   //
@@ -323,6 +313,52 @@ class Catalog {
                           const Type** object, const FindOptions& options);
   absl::Status FindObject(absl::Span<const std::string> path,
                           const Constant** object, const FindOptions& options);
+
+  // FindConversion looks up a Conversion between from_type and to_type with the
+  // given options.
+  //
+  // If a conversion is not found, kNotFound status is returned. Other errors
+  // indicate failures in the lookup mechanism and should make the user's
+  // request fail.
+  //
+  // Unlike other Catalog functions (which return a pointer to an object),
+  // conversion is returned by value, since a catalog may not be able to store
+  // all possible conversions (conversion is defined by two types and both of
+  // them can be parameterized extended types).
+  virtual absl::Status FindConversion(const Type* from_type,
+                                      const Type* to_type,
+                                      const FindConversionOptions& options,
+                                      Conversion* conversion);
+
+  // Returns the list of supertypes (should not contain the <type> itself) of
+  // the given extended <type>. Each valid supertype should have incoming
+  // implicit coercion from <type>: FindConversion(<type>, <supertype>,
+  // {implicit coercion}) called for this catalog should return a valid
+  // conversion.
+  //
+  // The list must be sorted according to the preference order in which
+  // supertypes should be considered in the common supertype calculation
+  // algorithm (note: the <type> itself is always considered first even though
+  // it is not part of the returned list). This type preference order (as a
+  // relationship between types) must follow strict total order maintained
+  // across all existing built-in and extended types.
+  //
+  // E.g. if GetExtendedTypeSuperTypes(A)=[B,C] and
+  // GetExtendedTypeSuperTypes(C)=[D,E], it's not allowed to have
+  // GetExtendedTypeSuperTypes(B)=[A] or GetExtendedTypeSuperTypes(D)=[B],
+  // because it will violate preference order (A>B>C and C>D>E) established by
+  // the first two rules.
+  //
+  // Please use CheckSuperTypePreferenceGlobalOrder to test that the global
+  // preference order rule described above is maintained for all types exposed
+  // by the Catalog.
+  //
+  // This function should only be called for extended types provided by this
+  // Catalog. Returned supertypes can be built-in and/or extended types.
+  //
+  // REQUIRES: type->IsExtendedType().
+  virtual zetasql_base::StatusOr<TypeListView> GetExtendedTypeSuperTypes(
+      const Type* type);
 
   // Given an identifier path, return the type name that results when combining
   // that path into a single protocol buffer type name, if applicable.

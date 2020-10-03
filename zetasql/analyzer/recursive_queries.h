@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -46,6 +47,11 @@ struct WithEntrySortResult {
 // result in an error.
 zetasql_base::StatusOr<WithEntrySortResult> SortWithEntries(
     const ASTWithClause* with_clause);
+
+// Returns true if the given CREATE RECURSIVE VIEW statement is actually
+// recursive.
+zetasql_base::StatusOr<bool> IsViewSelfRecursive(
+    const ASTCreateViewStatementBase* stmt);
 
 }  // namespace zetasql
 

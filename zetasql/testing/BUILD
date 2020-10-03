@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,44 @@
 # limitations under the License.
 #
 
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
+
+cc_library(
+    name = "sql_types_test",
+    testonly = 1,
+    srcs = ["sql_types_test.cc"],
+    hdrs = ["sql_types_test.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/public:civil_time",
+        "//zetasql/public:coercer",
+        "//zetasql/public:function",
+        "//zetasql/public:language_options",
+        "//zetasql/public:numeric_value",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
 
 cc_library(
     name = "test_value",
@@ -25,12 +62,13 @@ cc_library(
         "using_test_value.cc",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         "//zetasql/base",
@@ -54,12 +92,13 @@ cc_library(
     srcs = ["test_function.cc"],
     hdrs = ["test_function.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":test_value",
@@ -73,5 +112,56 @@ cc_library(
         "//zetasql/public:value",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "type_util",
+    testonly = 1,
+    srcs = ["type_util.cc"],
+    hdrs = ["type_util.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public/types",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+        "@com_googleapis_googleapis//:date_cc_proto",
+        "@com_googleapis_googleapis//:latlng_cc_proto",
+        "@com_googleapis_googleapis//:timeofday_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "type_util_test",
+    size = "small",
+    srcs = ["type_util_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":sql_types_test",
+        ":type_util",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/public:type",
+        "@com_google_googletest//:gtest_main",
     ],
 )

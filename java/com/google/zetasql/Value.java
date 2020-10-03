@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,11 @@ package com.google.zetasql;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.zetasql.CivilTimeEncoder.decodePacked64TimeNanos;
+import static com.google.zetasql.CivilTimeEncoder.decodePacked64TimeNanosAsJavaTime;
 import static com.google.zetasql.CivilTimeEncoder.decodePacked96DatetimeNanos;
+import static com.google.zetasql.CivilTimeEncoder.decodePacked96DatetimeNanosAsJavaTime;
+import static com.google.zetasql.CivilTimeEncoder.encodePacked64TimeNanos;
+import static com.google.zetasql.CivilTimeEncoder.encodePacked96DatetimeNanos;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -46,6 +50,10 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -283,6 +291,13 @@ public class Value implements Serializable {
     return proto.getDateValue();
   }
 
+  /** Returns the int value representing the date if the type is date. */
+  public LocalDate getLocalDateValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATE);
+    Preconditions.checkState(!isNull);
+    return LocalDate.ofEpochDay(proto.getDateValue());
+  }
+
   /** Returns the long value encoding the time if the type is time. */
   @SuppressWarnings("GoodTime") // should return a java.time.LocalTime (?)
   public long getTimeValue() {
@@ -291,11 +306,25 @@ public class Value implements Serializable {
     return proto.getTimeValue();
   }
 
+  /** Returns the long value encoding the time if the type is time. */
+  public LocalTime getLocalTimeValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIME);
+    Preconditions.checkState(!isNull);
+    return decodePacked64TimeNanosAsJavaTime(proto.getTimeValue());
+  }
+
   /** Returns the Datetime value encoding the datetime if the type is datetime. */
   public Datetime getDatetimeValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATETIME);
     Preconditions.checkState(!isNull);
     return proto.getDatetimeValue();
+  }
+
+  /** Returns the Datetime value encoding the datetime if the type is datetime. */
+  public LocalDateTime getLocalDateTimeValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATETIME);
+    Preconditions.checkState(!isNull);
+    return decodePacked96DatetimeNanosAsJavaTime(proto.getDatetimeValue());
   }
 
   /** Returns the number value if the type is enum. */
@@ -332,6 +361,13 @@ public class Value implements Serializable {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_PROTO);
     Preconditions.checkState(!isNull);
     return proto.getProtoValue();
+  }
+
+  /** Returns the JSON value as a string JSON document. */
+  public String getJsonValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_JSON);
+    Preconditions.checkState(!isNull);
+    return proto.getJsonValue();
   }
 
   /** Returns the number of fields, if the type is struct. */
@@ -512,6 +548,11 @@ public class Value implements Serializable {
           return other.numericValue.compareTo(numericValue) == 0;
         }
         return false;
+      case TYPE_JSON:
+        if (other.getType().equivalent(type)) {
+          return other.getJsonValue().equals(getJsonValue());
+        }
+        return false;
       default:
         throw new IllegalStateException("Shouldn't happen: compare with unsupported type " + type);
     }
@@ -581,6 +622,8 @@ public class Value implements Serializable {
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
         return numericValue.toBigInteger().hashCode();
+      case TYPE_JSON:
+        return getJsonValue().hashCode();
       default:
         // Shouldn't happen, but it's a bad idea to throw from hashCode().
         return super.hashCode();
@@ -626,6 +669,7 @@ public class Value implements Serializable {
       case TYPE_DATETIME:
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
+      case TYPE_JSON:
         return ZetaSQLStrings.convertSimpleValueToString(this, verbose);
       case TYPE_ENUM: {
         if (verbose) {
@@ -792,6 +836,9 @@ public class Value implements Serializable {
       String wktString = ZetaSQLStrings.convertSimpleValueToString(this, false /* verbose */);
       return String.format("ST_GeogFromText(%s)", ZetaSQLStrings.toStringLiteral(wktString));
     }
+    if (type.isJson()) {
+      return String.format("JSON %s", ZetaSQLStrings.toStringLiteral(s));
+    }
 
     if (type.isSimpleType()) {
       // Floats and doubles like "inf" and "nan" need to be quoted.
@@ -873,6 +920,9 @@ public class Value implements Serializable {
     }
     if (type.isBigNumeric()) {
       return String.format("BIGNUMERIC %s", ZetaSQLStrings.toStringLiteral(s));
+    }
+    if (type.isJson()) {
+      return String.format("JSON %s", ZetaSQLStrings.toStringLiteral(s));
     }
 
     if (type.isSimpleType()) {
@@ -1093,6 +1143,11 @@ public class Value implements Serializable {
                 MAX_BIGNUMERIC_VALUE,
                 MIN_BIGNUMERIC_VALUE,
                 "BIGNUMERIC"));
+      case TYPE_JSON:
+        if (!proto.hasJsonValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        break;
       case TYPE_ENUM: {
         if (!proto.hasEnumValue()) {
           throw typeMismatchException(type, proto);
@@ -1162,6 +1217,7 @@ public class Value implements Serializable {
       case TYPE_TIME:
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
+      case TYPE_JSON:
         return true;
       case TYPE_ARRAY:
         return isSupportedTypeKind(type.asArray().getElementType());
@@ -1301,6 +1357,13 @@ public class Value implements Serializable {
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATE), proto);
   }
 
+  /** Returns a date Value with given parameter. */
+  public static Value createDateValue(LocalDate v) {
+    Preconditions.checkArgument(Type.isValidDate(Math.toIntExact(v.toEpochDay())));
+    ValueProto proto = ValueProto.newBuilder().setDateValue((int) v.toEpochDay()).build();
+    return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATE), proto);
+  }
+
   /**
    * Returns a time Value with given parameter.
    *
@@ -1311,6 +1374,12 @@ public class Value implements Serializable {
   public static Value createTimeValue(long bitFieldTimeNanos) {
     decodePacked64TimeNanos(bitFieldTimeNanos);
     ValueProto proto = ValueProto.newBuilder().setTimeValue(bitFieldTimeNanos).build();
+    return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_TIME), proto);
+  }
+
+  /** Returns a time Value with given parameter. */
+  public static Value createTimeValue(LocalTime t) {
+    ValueProto proto = ValueProto.newBuilder().setTimeValue(encodePacked64TimeNanos(t)).build();
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_TIME), proto);
   }
 
@@ -1330,6 +1399,13 @@ public class Value implements Serializable {
             .build();
     decodePacked96DatetimeNanos(datetime);
     ValueProto proto = ValueProto.newBuilder().setDatetimeValue(datetime).build();
+    return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME), proto);
+  }
+
+  /** Returns a datetime Value with given parameter. */
+  public static Value createDatetimeValue(LocalDateTime v) {
+    ValueProto proto =
+        ValueProto.newBuilder().setDatetimeValue(encodePacked96DatetimeNanos(v)).build();
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_DATETIME), proto);
   }
 
@@ -1408,5 +1484,16 @@ public class Value implements Serializable {
   /** Returns an empty array Value of given {@code type}. */
   public static Value createEmptyArrayValue(ArrayType type) {
     return createArrayValue(type, new ArrayList<Value>());
+  }
+
+  /** Returns a JSON Value from the given JSON document {@code document}. */
+  public static Value createJsonValue(String document) {
+    SimpleType jsonType = TypeFactory.createSimpleType(TypeKind.TYPE_JSON);
+    Preconditions.checkArgument(isSupportedTypeKind(jsonType));
+    Preconditions.checkNotNull(document);
+
+    ValueProto proto =
+        ValueProto.newBuilder().setJsonValue(document).build();
+    return new Value(jsonType, proto);
   }
 }

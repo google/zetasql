@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,6 +74,8 @@ public abstract class Type implements Serializable {
     "GEOGRAPHY",
     "NUMERIC",
     "BIGNUMERIC",
+    "EXTENDED",
+    "JSON",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -142,6 +144,10 @@ public abstract class Type implements Serializable {
 
   public boolean isBigNumeric() {
     return kind == TypeKind.TYPE_BIGNUMERIC;
+  }
+
+  public boolean isJson() {
+    return kind == TypeKind.TYPE_JSON;
   }
 
   public boolean isString() {

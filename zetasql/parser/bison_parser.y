@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 // AMBIGUOUS CASES
 // ===============
 //
-// AMBIGOUS CASE 1: EXPRESSION SUBQUERY
+// AMBIGUOUS CASE 1: EXPRESSION SUBQUERY
 // ------------------------------------
 // There is a known ambiguous case causing 2 shift/reduce conflicts:
 //
@@ -274,7 +274,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 // query_maybe_expression is actually a subquery!
 //
 //
-// AMBIGOUS CASE 2: INSERT ... VALUES
+// AMBIGUOUS CASE 2: INSERT ... VALUES
 // ----------------------------------
 // The second known ambiguous case is INSERT ... VALUES. Since "values" can be
 // used as an identifier, in a query like "INSERT mytable values (...", "values"
@@ -374,7 +374,8 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: CREATE TABLE GENERATED
 //   1: CREATE EXTERNAL TABLE FUNCTION
 //   1: DESCRIPTOR
-%expect 17
+//   1: FILTER FIELDS
+%expect 18
 
 %union {
   bool boolean;
@@ -401,6 +402,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   ImportType import_type;
   zetasql::ASTCreateStatement::Scope create_scope;
   zetasql::ASTCreateStatement::SqlSecurity sql_security;
+  zetasql::ASTDropStatement::DropMode drop_mode;
   zetasql::ASTForeignKeyReference::Match foreign_key_match;
   zetasql::ASTForeignKeyActions::Action foreign_key_action;
   zetasql::ASTFunctionParameter::ProcedureParameterMode parameter_mode;
@@ -476,6 +478,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 %token KW_SHIFT_LEFT "<<"
 %token KW_SHIFT_RIGHT ">>"
 %token KW_NAMED_ARGUMENT_ASSIGNMENT "=>"
+%token KW_LAMBDA_ARROW "->"
 
 // These are not used in the grammar. They are here for parity with the JavaCC
 // tokenizer.
@@ -578,6 +581,7 @@ static bool IsUnparenthesizedNotExpression(zetasql::ASTNode* node) {
 
 using zetasql::ASTInsertStatement;
 using zetasql::ASTCreateFunctionStmtBase;
+using zetasql::ASTDropStatement;
 
 }
 
@@ -720,6 +724,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
 %token KW_BEGIN "BEGIN"
+%token KW_BIGDECIMAL "BIGDECIMAL"
 %token KW_BIGNUMERIC "BIGNUMERIC"
 %token KW_BREAK "BREAK"
 %token KW_CALL "CALL"
@@ -727,6 +732,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_CHECK "CHECK"
 %token KW_CLUSTER "CLUSTER"
 %token KW_COLUMN "COLUMN"
+%token KW_COLUMNS "COLUMNS"
 %token KW_COMMIT "COMMIT"
 %token KW_CONNECTION "CONNECTION"
 %token KW_CONTINUE "CONTINUE"
@@ -736,6 +742,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_DATABASE "DATABASE"
 %token KW_DATE "DATE"
 %token KW_DATETIME "DATETIME"
+%token KW_DECIMAL "DECIMAL"
 %token KW_DECLARE "DECLARE"
 %token KW_DEFINER "DEFINER"
 %token KW_DELETE "DELETE"
@@ -751,12 +758,14 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
 %token KW_FILTER "FILTER"
+%token KW_FILTER_FIELDS "FILTER_FIELDS"
 %token KW_FILL "FILL"
 %token KW_FIRST "FIRST"
 %token KW_FOREIGN "FOREIGN"
 %token KW_FUNCTION "FUNCTION"
 %token KW_GENERATED "GENERATED"
 %token KW_GRANT "GRANT"
+%token KW_GROUP_ROWS "GROUP_ROWS"
 %token KW_HIDDEN "HIDDEN"
 %token KW_IMMEDIATE "IMMEDIATE"
 %token KW_IMMUTABLE "IMMUTABLE"
@@ -767,6 +776,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_INVOKER "INVOKER"
 %token KW_ITERATE "ITERATE"
 %token KW_ISOLATION "ISOLATION"
+%token KW_JSON "JSON"
 %token KW_KEY "KEY"
 %token KW_LANGUAGE "LANGUAGE"
 %token KW_LAST "LAST"
@@ -809,6 +819,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %token KW_ROW "ROW"
 %token KW_RUN "RUN"
 %token KW_SAFE_CAST "SAFE_CAST"
+%token KW_SCHEMA "SCHEMA"
 %token KW_SECURITY "SECURITY"
 %token KW_SHOW "SHOW"
 %token KW_SIMPLE "SIMPLE"
@@ -860,7 +871,6 @@ using zetasql::ASTCreateFunctionStmtBase;
 // All nonterminals that return nodes.
 %type <node> abort_batch_statement
 %type <node> alter_statement
-%type <expression> analytic_function_call_expression
 %type <node> array_column_schema_inner
 %type <expression> array_constructor
 %type <expression> array_constructor_prefix
@@ -888,6 +898,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> column_schema_inner
 %type <node> commit_statement
 %type <node> connection_clause
+%type <expression> collate_expression
 %type <node> create_constant_statement
 %type <node> create_database_statement
 %type <node> create_function_statement
@@ -897,10 +908,12 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> create_external_table_statement
 %type <node> create_external_table_function_statement
 %type <node> create_index_statement
+%type <node> create_schema_statement
 %type <node> create_table_function_statement
 %type <node> create_model_statement
 %type <node> create_table_statement
 %type <node> create_view_statement
+%type <node> create_entity_statement
 %type <expression> date_or_time_literal
 %type <node> define_table_statement
 %type <node> delete_statement
@@ -911,7 +924,9 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> drop_statement
 %type <node> explain_statement
 %type <node> export_data_statement
+%type <node> export_model_statement
 %type <expression> expression
+%type <node> generic_entity_type
 %type <node> grant_to_clause
 %type <node> index_storing_expression_list_prefix
 %type <node> index_storing_expression_list
@@ -920,6 +935,10 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <expression> extract_expression
 %type <expression> extract_expression_base
 %type <node> field_schema
+%type <node> filter_fields_arg
+%type <expression> filter_fields_expression
+%type <expression> filter_fields_path_expression
+%type <expression> filter_fields_prefix
 %type <node> filter_using_clause
 %type <expression> floating_point_literal
 %type <node> foreign_key_column_attribute
@@ -929,6 +948,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <function_call> function_call_expression
 %type <function_call> function_call_expression_base
 %type <function_call> function_call_expression_with_args_prefix
+%type <expression> function_call_expression_with_clauses
 %type <node> function_declaration
 %type <node> function_name_from_keyword
 %type <node> function_parameter
@@ -986,6 +1006,9 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <expression> integer_literal
 %type <node> join
 %type <node> join_input
+%type <expression> json_literal
+%type <expression> lambda_argument
+%type <node> lambda_parameter_list
 %type <node> merge_action
 %type <node> merge_insert_value_list_or_source_row
 %type <node> merge_source
@@ -1022,6 +1045,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <create_scope> opt_create_scope
 %type <node> opt_at_system_time
 %type <node> opt_description
+%type <drop_mode> opt_drop_mode
 %type <node> opt_else
 %type <node> opt_foreign_key_actions
 %type <node> opt_from_clause
@@ -1029,6 +1053,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_function_parameters
 %type <node> opt_function_returns
 %type <node> opt_group_by_clause
+%type <node> generic_entity_body
+%type <node> opt_generic_entity_body
 %type <node> opt_having_clause
 %type <node> opt_having_modifier
 %type <node> opt_hint
@@ -1050,6 +1076,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_returns
 %type <sql_security> opt_sql_security_clause
 %type <sql_security> sql_security_clause_kind
+%type <node> opt_over_clause
 %type <node> opt_sample_clause
 %type <node> opt_sample_clause_suffix
 %type <node> opt_select_as_clause
@@ -1060,8 +1087,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_where_expression
 %type <node> opt_window_clause
 %type <node> opt_window_frame_clause
+%type <node> opt_with_group_rows
 %type <node> opt_with_offset_and_alias
-%type <node> opt_with_offset_or_sample_clause
 %type <node> options_entry
 %type <node> options_list
 %type <node> options_list_prefix
@@ -1192,7 +1219,7 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> opt_with_connection_clause
 %type <node> alter_action_list
 %type <node> alter_action
-%type <node> named_argument
+%type <expression> named_argument
 %type <node> column_position
 %type <node> opt_column_position
 %type <expression> fill_using_expression
@@ -1271,6 +1298,8 @@ using zetasql::ASTCreateFunctionStmtBase;
 %type <node> descriptor_column_list
 %type <node> descriptor_column
 %type <node> descriptor_argument
+%type <node> with_partition_columns_clause
+%type <node> opt_with_partition_columns_clause
 
 %start start_mode
 %%
@@ -1382,14 +1411,17 @@ sql_statement_body:
     | create_external_table_statement
     | create_external_table_function_statement
     | create_model_statement
+    | create_schema_statement
     | create_table_function_statement
     | create_table_statement
     | create_view_statement
+    | create_entity_statement
     | define_table_statement
     | describe_statement
     | execute_immediate
     | explain_statement
     | export_data_statement
+    | export_model_statement
     | grant_statement
     | rename_statement
     | revoke_statement
@@ -1413,6 +1445,11 @@ alter_action:
     "SET" "OPTIONS" options_list
       {
         $$ = MAKE_NODE(ASTSetOptionsAction, @$, {$3});
+      }
+    | "SET" "AS" generic_entity_body[body]
+      // See (broken link)
+      {
+        $$ = MAKE_NODE(ASTSetAsAction, @$, {$body});
       }
     | "ADD" table_constraint_spec
       {
@@ -1470,6 +1507,10 @@ alter_action:
       {
         $$ = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$3, $6});
       }
+    | "RENAME" "TO" path_expression
+      {
+        $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+      }
     ;
 
 alter_action_list:
@@ -1505,7 +1546,9 @@ row_access_policy_alter_action:
       }
     | "RENAME" "TO" identifier
       {
-        $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+        zetasql::ASTPathExpression* id =
+            MAKE_NODE(ASTPathExpression, @3, {$3});
+        $$ = MAKE_NODE(ASTRenameToClause, @$, {id});
       }
     ;
 
@@ -1536,8 +1579,14 @@ schema_object_kind:
       { $$ = zetasql::SchemaObjectKind::kConstant; }
     | "DATABASE"
       { $$ = zetasql::SchemaObjectKind::kDatabase; }
-    | "EXTERNAL" "TABLE"
-      { $$ = zetasql::SchemaObjectKind::kExternalTable; }
+    | "EXTERNAL" table_or_table_function {
+        if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+            YYERROR_AND_ABORT_AT(@1,
+               "EXTERNAL TABLE FUNCTION is not supported");
+        } else {
+           $$ = zetasql::SchemaObjectKind::kExternalTable;
+        }
+      }
     | "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kFunction; }
     | "INDEX"
@@ -1548,6 +1597,8 @@ schema_object_kind:
       { $$ = zetasql::SchemaObjectKind::kModel; }
     | "PROCEDURE"
       { $$ = zetasql::SchemaObjectKind::kProcedure; }
+    | "SCHEMA"
+      { $$ = zetasql::SchemaObjectKind::kSchema; }
     | "VIEW"
       { $$ = zetasql::SchemaObjectKind::kView; }
     ;
@@ -1584,6 +1635,13 @@ alter_statement:
         node->set_is_if_exists($3);
         node->AddChildren({$4, $5});
         $$ = WithLocation(node, @$);
+      }
+    | "ALTER" generic_entity_type opt_if_exists path_expression
+      alter_action_list
+      {
+        auto* node = MAKE_NODE(ASTAlterEntityStatement, @$, {$2, $4, $5});
+        node->set_is_if_exists($3);
+        $$ = node;
       }
     | "ALTER" "ROW" "ACCESS" "POLICY" opt_if_exists identifier "ON"
       path_expression row_access_policy_alter_action_list
@@ -2128,8 +2186,11 @@ create_row_access_policy_statement:
         opt_identifier "ON" path_expression
         opt_create_row_access_policy_grant_to_clause filter_using_clause
       {
+        zetasql::ASTPathExpression* opt_path_expression =
+            $7 == nullptr ? nullptr : MAKE_NODE(ASTPathExpression, @7, {$7});
         zetasql::ASTCreateRowAccessPolicyStatement* create =
-            MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$, {$7, $9, $10, $11});
+            MAKE_NODE(ASTCreateRowAccessPolicyStatement, @$,
+                      {$9, $10, $11, opt_path_expression});
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($6);
         create->set_has_access_keyword($4);
@@ -2137,20 +2198,34 @@ create_row_access_policy_statement:
       }
     ;
 
+with_partition_columns_clause:
+    "WITH" "PARTITION" "COLUMNS" opt_table_element_list
+      {
+        zetasql::ASTWithPartitionColumnsClause* with_partition_columns =
+            MAKE_NODE(ASTWithPartitionColumnsClause, @$, {$4});
+        $$ = with_partition_columns;
+      }
+      ;
+
+opt_with_partition_columns_clause:
+    with_partition_columns_clause
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
-    "TABLE" opt_if_not_exists path_expression
-    opt_table_element_list opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_options_list
+    "TABLE" opt_if_not_exists maybe_dashed_path_expression
+    opt_table_element_list opt_with_partition_columns_clause
+    opt_options_list
       {
-        if ($11 == nullptr) {
+        if ($10 == nullptr) {
           YYERROR_AND_ABORT_AT(
-              @11,
+              @10,
               "Syntax error: Expected keyword OPTIONS");
         }
         auto* create =
             MAKE_NODE(ASTCreateExternalTableStatement, @$,
-            {$7, $8, $9, $10, $11});
+            {$7, $8, $9, $10});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
@@ -2186,6 +2261,16 @@ create_index_statement:
       }
     ;
 
+create_schema_statement:
+    "CREATE" opt_or_replace "SCHEMA" opt_if_not_exists path_expression opt_options_list
+      {
+        auto* create = MAKE_NODE(ASTCreateSchemaStatement, @$, {$5, $6});
+        create->set_is_or_replace($2);
+        create->set_is_if_not_exists($4);
+        $$ = create;
+      }
+    ;
+
 // This rule encounters a shift/reduce conflict with 'create_table_statement'
 // as noted in AMBIGUOUS CASE 4 in the file-level comment. The syntax of this
 // rule and 'create_table_statement' must be kept the same until the "TABLE"
@@ -2217,7 +2302,7 @@ create_table_function_statement:
     ;
 
 // This rule encounters a shift/reduce conflict with
-// 'create_table_function_statement' as noted in AMBIGOUS CASE 4 in the
+// 'create_table_function_statement' as noted in AMBIGUOUS CASE 4 in the
 // file-level comment. The syntax of this rule and
 // 'create_table_function_statement' must be kept the same until the "TABLE"
 // keyword, so that parser can choose between these two rules based on the
@@ -2234,6 +2319,58 @@ create_table_statement:
         create->set_scope($3);
         create->set_is_if_not_exists($5);
         $$ = create;
+      }
+    ;
+
+generic_entity_type:
+    IDENTIFIER
+      {
+        std::string entity_type(parser->GetInputText(@1));
+        if (parser->language_options() != nullptr &&
+          !parser->language_options()
+                 ->GenericEntityTypeSupported(entity_type)) {
+          YYERROR_AND_ABORT_AT(@1, absl::StrCat(
+                               entity_type, " is not a supported object type"));
+        }
+        // It is by design that we don't want to support backtick quoted
+        // entity type. Backtick is kept as part of entity type name, and will
+        // be rejected by engine later.
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    ;
+
+// TODO: add string literal body after JSON type is implemented.
+generic_entity_body:
+    "JSON" string_literal
+      {
+        $$ = $string_literal;
+      }
+    ;
+
+opt_generic_entity_body:
+    "AS" generic_entity_body
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+create_entity_statement:
+    "CREATE" opt_or_replace generic_entity_type opt_if_not_exists
+    path_expression opt_options_list opt_generic_entity_body
+      {
+        auto* node = MAKE_NODE(
+            ASTCreateEntityStatement,
+            @$,
+            {
+              $generic_entity_type,
+              $path_expression,
+              $opt_options_list,
+              $opt_generic_entity_body
+            });
+        node->set_is_or_replace($opt_or_replace);
+        node->set_is_if_not_exists($opt_if_not_exists);
+        $$ = node;
       }
     ;
 
@@ -2303,7 +2440,7 @@ table_element_list_prefix:
 // Lastly, the third token of a table element definition is always a reserved
 // keyword (reserved_keyword_rule), a non-reserved keyword
 // (keyword_as_identifier), or the "." in a path expression. The third token is
-// never an IDENTIFIER. This enables the grammar to unambigously distinguish
+// never an IDENTIFIER. This enables the grammar to unambiguously distinguish
 // between named foreign key constraints and column definition attributes. The
 // only requirement is that the third component of all table element rules,
 // direct and indirect, is a keyword or symbol (i.e., a string literal, such as
@@ -2855,6 +2992,13 @@ export_data_statement:
     "EXPORT" "DATA" opt_with_connection_clause opt_options_list "AS" query
       {
         $$ = MAKE_NODE(ASTExportDataStatement, @$, {$3, $4, $6});
+      }
+    ;
+
+export_model_statement:
+    "EXPORT" "MODEL" path_expression opt_with_connection_clause opt_options_list
+      {
+        $$ = MAKE_NODE(ASTExportModelStatement, @$, {$3, $4, $5});
       }
     ;
 
@@ -3861,15 +4005,6 @@ tvf:
       }
     ;
 
-opt_with_offset_or_sample_clause:
-    "WITH" "OFFSET" opt_as_alias
-      {
-        $$ = MAKE_NODE(ASTWithOffset, @$, {$3});
-      }
-    | sample_clause
-    | /* Nothing */ { $$ = nullptr; }
-    ;
-
 table_path_expression_base:
     unnest_expression
     | maybe_dashed_path_expression { $$ = $1; }
@@ -3904,10 +4039,9 @@ table_path_expression_base:
     ;
 
 table_path_expression:
-    table_path_expression_base opt_hint opt_as_alias opt_at_system_time
-    opt_with_offset_or_sample_clause
+    table_path_expression_base opt_hint opt_as_alias opt_with_offset_and_alias opt_at_system_time opt_sample_clause
       {
-        $$ = MAKE_NODE(ASTTablePathExpression, @$, {$1, $2, $3, $4, $5});
+        $$ = MAKE_NODE(ASTTablePathExpression, @$, {$1, $2, $3, $4, $5, $6});
       }
     ;
 
@@ -4562,6 +4696,7 @@ expression:
     | integer_literal
     | numeric_literal
     | bignumeric_literal
+    | json_literal
     | floating_point_literal
     | date_or_time_literal
     | parameter_expression
@@ -4572,8 +4707,9 @@ expression:
     | cast_expression
     | extract_expression
     | replace_fields_expression
-    | function_call_expression { $$ = $1; }
-    | analytic_function_call_expression
+    | filter_fields_expression
+    | function_call_expression_with_clauses
+    | collate_expression
     | identifier
       {
         // The path expression is extended by the "." identifier rule below.
@@ -4603,6 +4739,9 @@ expression:
     | parenthesized_expression
     | struct_constructor
     | expression_subquery
+      {
+        $$ = $1;
+      }
     | expression "[" expression "]" %prec PRIMARY_PRECEDENCE
       {
         $$ = MAKE_NODE(ASTArrayElement, @2, @4, {$1, $3});
@@ -5390,6 +5529,13 @@ extract_expression_base:
       }
     ;
 
+collate_expression:
+    "COLLATE" "(" expression "," string_literal ")"
+      {
+        $$ = MAKE_NODE(ASTCollateExpression, @$, {$3, $5});
+      }
+    ;
+
 extract_expression:
     extract_expression_base ")"
       {
@@ -5425,6 +5571,49 @@ replace_fields_prefix:
 
 replace_fields_expression:
     replace_fields_prefix ")"
+      {
+        $$ = WithEndLocation($1, @$);
+      }
+    ;
+
+filter_fields_path_expression:
+    generalized_extension_path { $$ = $1; }
+    | generalized_path_expression { $$ = $1; }
+    ;
+
+
+filter_fields_arg:
+    "+" filter_fields_path_expression
+      {
+        auto* expression =
+            MAKE_NODE(ASTFilterFieldsArg, @$, {$2});
+        expression->set_filter_type(
+          zetasql::ASTFilterFieldsArg::FilterType::INCLUDE);
+        $$ = expression;
+      }
+    | "-" filter_fields_path_expression
+      {
+        auto* expression =
+            MAKE_NODE(ASTFilterFieldsArg, @$, {$2});
+        expression->set_filter_type(
+          zetasql::ASTFilterFieldsArg::FilterType::EXCLUDE);
+        $$ = expression;
+      }
+    ;
+
+filter_fields_prefix:
+    "FILTER_FIELDS" "(" expression "," filter_fields_arg
+      {
+        $$ = MAKE_NODE(ASTFilterFieldsExpression, @$, {$3, $5});
+      }
+    | filter_fields_prefix "," filter_fields_arg
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+filter_fields_expression:
+    filter_fields_prefix ")"
       {
         $$ = WithEndLocation($1, @$);
       }
@@ -5566,6 +5755,7 @@ function_call_argument:
         "parentheses to make it a scalar subquery expression");
       }
     | named_argument
+    | lambda_argument
     ;
 
 named_argument:
@@ -5573,6 +5763,43 @@ named_argument:
       {
         $$ = MAKE_NODE(ASTNamedArgument, @$, {$1, $3});
       }
+    ;
+
+lambda_argument:
+    lambda_parameter_list KW_LAMBDA_ARROW expression
+      {
+        $$ = MAKE_NODE(ASTLambda, @$, {$1, $3});
+      }
+    ;
+
+// Lambda parameter list could be:
+//  * one parameter without parenthesis, e.g. e.
+//  * one parameter with parenthesis, e.g. (e).
+//  * multiple parameter with parenthesis, e.g. (e, i).
+// All of the above could be parsed as expression. (e, i) is parsed as struct
+// constructor with parenthesis. We use expression rule to cover them all and to
+// avoid conflict.
+//
+// We cannot use an identifier_list rule as that results in conflict with
+// expression function argument. For ''(a, b) -> a + b', bison parser was not
+// able to decide what to do with the following working stack: ['(', ID('a')]
+// and seeing ID('b'), as bison parser won't look ahead to the '->' token.
+lambda_parameter_list:
+    expression
+      {
+        auto expr_kind = $1->node_kind();
+        if (expr_kind != zetasql::AST_STRUCT_CONSTRUCTOR_WITH_PARENS &&
+            expr_kind != zetasql::AST_PATH_EXPRESSION) {
+          YYERROR_AND_ABORT_AT(
+            @1,
+            "Syntax error: Expecting lambda argument list");
+        }
+        $$ = $1;
+      }
+    | "(" ")"
+    {
+      $$ = MAKE_NODE(ASTStructConstructorWithParens, @$);
+    }
     ;
 
 function_call_expression_with_args_prefix:
@@ -5737,11 +5964,39 @@ window_specification:
       }
    ;
 
-analytic_function_call_expression:
-    function_call_expression "OVER" window_specification
+function_call_expression_with_clauses:
+    function_call_expression opt_with_group_rows opt_over_clause
       {
-        $$ = MAKE_NODE(ASTAnalyticFunctionCall, @$, {$1, $3});
+        zetasql::ASTExpression* current_expression = $1;
+        if ($2 != nullptr) {
+          if (!parser->language_options()->LanguageFeatureEnabled(
+                         zetasql::FEATURE_V_1_3_WITH_GROUP_ROWS)) {
+            YYERROR_AND_ABORT_AT(@2, "WITH GROUP_ROWS is not supported");
+          }
+          current_expression = MAKE_NODE(ASTFunctionCallWithGroupRows, @$,
+              {current_expression, $2});
+        }
+        if ($3 != nullptr) {
+          current_expression = MAKE_NODE(ASTAnalyticFunctionCall, @$,
+              {current_expression, $3});
+        }
+        $$ = current_expression;
       }
+
+opt_with_group_rows:
+    "WITH" "GROUP_ROWS" "(" query ")"
+      {
+        $$ = $4;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_over_clause:
+    "OVER" window_specification
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
     ;
 
 parenthesized_expression:
@@ -5941,8 +6196,13 @@ integer_literal:
       }
     ;
 
+numeric_literal_prefix:
+    "NUMERIC"
+    | "DECIMAL"
+    ;
+
 numeric_literal:
-    "NUMERIC" STRING_LITERAL
+    numeric_literal_prefix STRING_LITERAL
       {
         auto* literal = MAKE_NODE(ASTNumericLiteral, @$);
         literal->set_image(std::string(parser->GetInputText(@2)));
@@ -5950,10 +6210,24 @@ numeric_literal:
       }
     ;
 
+bignumeric_literal_prefix:
+    "BIGNUMERIC"
+    | "BIGDECIMAL"
+    ;
+
 bignumeric_literal:
-    "BIGNUMERIC" STRING_LITERAL
+    bignumeric_literal_prefix STRING_LITERAL
       {
         auto* literal = MAKE_NODE(ASTBigNumericLiteral, @$);
+        literal->set_image(std::string(parser->GetInputText(@2)));
+        $$ = literal;
+      }
+    ;
+
+json_literal:
+    "JSON" STRING_LITERAL
+      {
+        auto* literal = MAKE_NODE(ASTJSONLiteral, @$);
         literal->set_image(std::string(parser->GetInputText(@2)));
         $$ = literal;
       }
@@ -6140,6 +6414,7 @@ keyword_as_identifier:
     | "ASSERT"
     | "BATCH"
     | "BEGIN"
+    | "BIGDECIMAL"
     | "BIGNUMERIC"
     | "BREAK"
     | "CALL"
@@ -6147,6 +6422,7 @@ keyword_as_identifier:
     | "CHECK"
     | "CLUSTER"
     | "COLUMN"
+    | "COLUMNS"
     | "COMMIT"
     | "CONNECTION"
     | "CONSTANT"
@@ -6156,6 +6432,7 @@ keyword_as_identifier:
     | "DATABASE"
     | "DATE"
     | "DATETIME"
+    | "DECIMAL"
     | "DECLARE"
     | "DEFINER"
     | "DELETE"
@@ -6172,12 +6449,14 @@ keyword_as_identifier:
     | "EXPORT"
     | "EXTERNAL"
     | "FILTER"
+    | "FILTER_FIELDS"
     | "FILL"
     | "FIRST"
     | "FOREIGN"
     | "FUNCTION"
     | "GENERATED"
     | "GRANT"
+    | "GROUP_ROWS"
     | "HIDDEN"
     | "IMMEDIATE"
     | "IMMUTABLE"
@@ -6188,6 +6467,7 @@ keyword_as_identifier:
     | "INVOKER"
     | "ISOLATION"
     | "ITERATE"
+    | "JSON"
     | "KEY"
     | "LANGUAGE"
     | "LAST"
@@ -6230,6 +6510,7 @@ keyword_as_identifier:
     | "ROW"
     | "RUN"
     | "SAFE_CAST"
+    | "SCHEMA"
     | "SECURITY"
     | "SHOW"
     | "SIMPLE"
@@ -6986,12 +7267,22 @@ on_path_expression:
       }
     ;
 
+opt_drop_mode:
+    "RESTRICT" { $$ = zetasql::ASTDropStatement::DropMode::RESTRICT; }
+    | "CASCADE" { $$ = zetasql::ASTDropStatement::DropMode::CASCADE; }
+    | /* Nothing */
+    { $$ = zetasql::ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED; }
+    ;
+
 drop_statement:
-    "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier on_path_expression
+    "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier
+    on_path_expression
       {
+        zetasql::ASTPathExpression* path_expression =
+            $7 == nullptr ? nullptr : MAKE_NODE(ASTPathExpression, @6, {$6});
         // This is a DROP ROW ACCESS POLICY statement.
-        auto* drop_row_access_policy =
-            MAKE_NODE(ASTDropRowAccessPolicyStatement, @$, {$6, $7});
+        auto* drop_row_access_policy = MAKE_NODE(
+            ASTDropRowAccessPolicyStatement, @$, {path_expression, $7});
         drop_row_access_policy->set_is_if_exists($5);
         $$ = drop_row_access_policy;
       }
@@ -7010,8 +7301,14 @@ drop_statement:
         drop->set_is_if_exists($3);
         $$ = drop;
       }
+    | "DROP" generic_entity_type opt_if_exists path_expression
+      {
+        auto* drop = MAKE_NODE(ASTDropEntityStatement, @$, {$2, $4});
+        drop->set_is_if_exists($3);
+        $$ = drop;
+      }
     | "DROP" schema_object_kind opt_if_exists path_expression
-      opt_function_parameters
+      opt_function_parameters opt_drop_mode
       {
         // This is a DROP <object_type> <object_name> statement.
         if ($2 == zetasql::SchemaObjectKind::kAggregateFunction) {
@@ -7021,6 +7318,16 @@ drop_statement:
           YYERROR_AND_ABORT_AT(@2,
                                "DROP AGGREGATE FUNCTION is not "
                                "supported, use DROP FUNCTION");
+        }
+        if ($2 != zetasql::SchemaObjectKind::kSchema) {
+          if ($6 != ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED) {
+            YYERROR_AND_ABORT_AT(
+              @6, absl::StrCat(
+              "Syntax error: '",
+              zetasql::ASTDropStatement::GetSQLForDropMode($6),
+              "' is not supported for DROP ",
+              zetasql::SchemaObjectKindToName($2)));
+            }
         }
         if ($2 == zetasql::SchemaObjectKind::kFunction) {
             // If no function parameters are given, then all overloads of the
@@ -7043,14 +7350,10 @@ drop_statement:
             drop_materialized_view->set_is_if_exists($3);
             $$ = drop_materialized_view;
           } else {
-            if ($5 != nullptr) {
-              YYERROR_AND_ABORT_AT(@5,
-                                   "Syntax error: Parameters are only "
-                                   "supported for DROP FUNCTION");
-            }
             auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
             drop->set_schema_object_kind($2);
             drop->set_is_if_exists($3);
+            drop->set_drop_mode($6);
             $$ = drop;
           }
         }
@@ -7392,6 +7695,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTExecuteImmediateStatement::kConcreteNodeKind; }
     | "EXPORT" "DATA"
       { $$ = zetasql::ASTExportDataStatement::kConcreteNodeKind; }
+    | "EXPORT" "MODEL"
+      { $$ = zetasql::ASTExportModelStatement::kConcreteNodeKind; }
     | "INSERT" { $$ = zetasql::ASTInsertStatement::kConcreteNodeKind; }
     | "UPDATE" { $$ = zetasql::ASTUpdateStatement::kConcreteNodeKind; }
     | "DELETE" { $$ = zetasql::ASTDeleteStatement::kConcreteNodeKind; }
@@ -7407,6 +7712,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
     | "DROP" table_or_table_function
       { $$ = zetasql::ASTDropStatement::kConcreteNodeKind; }
+    | "DROP" generic_entity_type
+      { $$ = zetasql::ASTDropEntityStatement::kConcreteNodeKind; }
     | "DROP" schema_object_kind
       {
         switch ($2) {
@@ -7456,6 +7763,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterViewStatement::kConcreteNodeKind; }
     | "ALTER" "MATERIALIZED" "VIEW"
       { $$ = zetasql::ASTAlterMaterializedViewStatement::kConcreteNodeKind; }
+    | "ALTER" generic_entity_type
+      { $$ = zetasql::ASTAlterEntityStatement::kConcreteNodeKind; }
     | "CREATE" "DATABASE"
       { $$ = zetasql::ASTCreateDatabaseStatement::kConcreteNodeKind; }
     | "CREATE" next_statement_kind_create_modifiers opt_aggregate
@@ -7474,6 +7783,10 @@ next_statement_kind_without_hint:
       }
     | "CREATE" opt_or_replace opt_unique "INDEX"
       { $$ = zetasql::ASTCreateIndexStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace "SCHEMA"
+      { $$ = zetasql::ASTCreateSchemaStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace generic_entity_type
+      { $$ = zetasql::ASTCreateEntityStatement::kConcreteNodeKind; }
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@
 #include "google/protobuf/message.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -93,7 +94,10 @@ inline Value::Value(const Value& that) {
 inline void Value::Clear() {
   if (!is_valid()) return;
 
-  type()->ClearValueContent(GetContent());
+  if (!is_null()) {
+    type()->ClearValueContent(GetContent());
+  }
+
   if (metadata_.has_type_pointer()) {
     internal::TypeStoreHelper::UnrefFromValue(metadata_.type()->type_store_);
   }
@@ -174,6 +178,11 @@ inline Value::Value(const NumericValue& numeric)
 inline Value::Value(const BigNumericValue& bignumeric)
     : metadata_(TypeKind::TYPE_BIGNUMERIC),
       bignumeric_ptr_(new internal::BigNumericRef(bignumeric)) {}
+
+inline Value::Value(internal::JSONRef* json_ptr)
+    : metadata_(TypeKind::TYPE_JSON), json_ptr_(json_ptr) {
+  CHECK(json_ptr != nullptr);
+}
 
 inline Value Value::Struct(const StructType* type,
                            absl::Span<const Value> values) {
@@ -256,6 +265,12 @@ inline Value Value::Numeric(NumericValue v) {
 inline Value Value::BigNumeric(BigNumericValue v) {
   return Value(v);
 }
+inline Value Value::UnvalidatedJsonString(std::string v) {
+  return Value(new internal::JSONRef(std::move(v)));
+}
+inline Value Value::Json(JSONValue v) {
+  return Value(new internal::JSONRef(std::move(v)));
+}
 inline Value Value::Enum(const EnumType* type, int64_t value) {
   return Value(type, value);
 }
@@ -264,6 +279,10 @@ inline Value Value::Enum(const EnumType* type, absl::string_view name) {
 }
 inline Value Value::Proto(const ProtoType* type, absl::Cord value) {
   return Value(type, std::move(value));
+}
+inline Value Value::Extended(const ExtendedType* type,
+                             const ValueContent& value) {
+  return Value(type, value);
 }
 
 inline Value Value::NullInt32() { return Value(types::Int32Type()); }
@@ -293,6 +312,9 @@ inline Value Value::NullNumeric() {
 }
 inline Value Value::NullBigNumeric() {
   return Value(types::BigNumericType());
+}
+inline Value Value::NullJson() {
+  return Value(types::JsonType());
 }
 inline Value Value::EmptyGeography() {
   CHECK(false);
@@ -332,6 +354,10 @@ inline bool Value::is_valid() const {
                 "Revisit implementation");
   // This check assumes that valid TypeKind values are positive.
   return static_cast<int32_t>(metadata_.type_kind()) > 0;
+}
+
+inline bool Value::has_content() const {
+  return is_valid() && !metadata_.is_null();
 }
 
 inline int32_t Value::int32_value() const {
@@ -422,6 +448,41 @@ inline const BigNumericValue& Value::bignumeric_value() const {
   return bignumeric_ptr_->value();
 }
 
+inline bool Value::is_validated_json() const {
+  return metadata_.type_kind() == TYPE_JSON && !metadata_.is_null() &&
+         json_ptr_->unparsed_string() == nullptr;
+}
+
+inline bool Value::is_unparsed_json() const {
+  return metadata_.type_kind() == TYPE_JSON && !metadata_.is_null() &&
+         json_ptr_->unparsed_string() != nullptr;
+}
+
+inline const std::string& Value::json_value_unparsed() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  CHECK(!metadata_.is_null()) << "Null value";
+  CHECK(is_unparsed_json()) << "Not an unparsed json value";
+  return *json_ptr_->unparsed_string();
+}
+
+inline JSONValueConstRef Value::json_value() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  CHECK(!metadata_.is_null()) << "Null value";
+  CHECK(is_validated_json()) << "Non a validated json value";
+  return json_ptr_->document().value();
+}
+
+inline std::string Value::json_string() const {
+  CHECK_EQ(TYPE_JSON, metadata_.type_kind()) << "Not a json type";
+  CHECK(!metadata_.is_null()) << "Null value";
+
+  if (json_ptr_->unparsed_string() == nullptr) {
+    return json_ptr_->document().value().ToString();
+  }
+
+  return *json_ptr_->unparsed_string();
+}
+
 inline bool Value::empty() const {
   return elements().empty();
 }
@@ -509,50 +570,6 @@ H Value::HashValueInternal(H h) const {
   }
 }
 
-template <>
-inline Value Value::Make<int32_t>(int32_t value) { return Value::Int32(value); }
-template <>
-inline Value Value::Make<int64_t>(int64_t value) { return Value::Int64(value); }
-template <>
-inline Value Value::Make<uint32_t>(uint32_t value) { return Value::Uint32(value); }
-template <>
-inline Value Value::Make<uint64_t>(uint64_t value) { return Value::Uint64(value); }
-template <>
-inline Value Value::Make<bool>(bool value) { return Value::Bool(value); }
-template <>
-inline Value Value::Make<float>(float value) { return Value::Float(value); }
-template <>
-inline Value Value::Make<double>(double value) { return Value::Double(value); }
-template <>
-inline Value Value::Make<NumericValue>(NumericValue value) {
-  return Value::Numeric(value);
-}
-template <>
-inline Value Value::Make<BigNumericValue>(BigNumericValue value) {
-  return Value::BigNumeric(value);
-}
-
-template <>
-inline Value Value::MakeNull<int32_t>() { return Value::NullInt32(); }
-template <>
-inline Value Value::MakeNull<int64_t>() { return Value::NullInt64(); }
-template <>
-inline Value Value::MakeNull<uint32_t>() { return Value::NullUint32(); }
-template <>
-inline Value Value::MakeNull<uint64_t>() { return Value::NullUint64(); }
-template <>
-inline Value Value::MakeNull<bool>() { return Value::NullBool(); }
-template <>
-inline Value Value::MakeNull<float>() { return Value::NullFloat(); }
-template <>
-inline Value Value::MakeNull<double>() { return Value::NullDouble(); }
-template <>
-inline Value Value::MakeNull<NumericValue>() { return Value::NullNumeric(); }
-template <>
-inline Value Value::MakeNull<BigNumericValue>() {
-  return Value::NullBigNumeric();
-}
-
 template <> inline int32_t Value::Get<int32_t>() const { return int32_value(); }
 template <> inline int64_t Value::Get<int64_t>() const { return int64_value(); }
 template <> inline uint32_t Value::Get<uint32_t>() const { return uint32_value(); }
@@ -609,6 +626,8 @@ inline Value BigNumeric(int64_t v) {
   return Value::BigNumeric(BigNumericValue(v));
 }
 
+inline Value Json(JSONValue v) { return Value::Json(std::move(v)); }
+
 inline Value Enum(const EnumType* enum_type, int32_t value) {
   return Value::Enum(enum_type, value);
 }
@@ -662,6 +681,7 @@ inline Value NullDatetime() { return Value::NullDatetime(); }
 inline Value NullGeography() { return Value::NullGeography(); }
 inline Value NullNumeric() { return Value::NullNumeric(); }
 inline Value NullBigNumeric() { return Value::NullBigNumeric(); }
+inline Value NullJson() { return Value::NullJson(); }
 inline Value Null(const Type* type) { return Value::Null(type); }
 
 inline Value Invalid() { return Value::Invalid(); }

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -321,6 +321,25 @@ message KitchenSinkPB {
 
 message MessageWithMapField {
   map<string, int32> string_int32_map = 1;
+  map<int32, int32> int32_int32_map = 2;
+  map<int64, uint64> int64_uint64_map = 3;
+  map<string, int64> string_int64_map = 4;
+  map<uint64, string> uint64_string_map = 5;
+  map<string, double> string_double_map = 6;
+  // TODO: we can't have any proto here that has required
+  // fields, since it may report a successful parse without actually being
+  // correctly initialized. This leads to problems with RQGs where identity
+  // comparisons don't always report true.
+  map<uint32, TestOptionalFields> uint32_testoptionalfields_map = 7;
+  map<bool, int32> bool_int32_map = 8;
+}
+
+// This protocol buffer has the exact same shape as the synthetic map entry for
+// MessageWithMapField. We use it in tests to verify that coercion from struct
+// to map entry only works with actual map entries.
+message FakeStringInt32EntryType {
+  optional string key = 1;
+  optional int32 value = 2;
 }
 
 message PackedRepeatablePB {
@@ -787,6 +806,9 @@ message FieldFormatsProto {
 
   optional bytes b_bignumeric = 916 [(zetasql.format) = BIGNUMERIC];
   repeated bytes repeated_b_bignumeric = 917 [(zetasql.format) = BIGNUMERIC];
+
+  optional string json = 918 [(zetasql.format) = JSON];
+  repeated string repeated_json = 919 [(zetasql.format) = JSON];
 
   extensions 1000;
 }

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -48,7 +49,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 using zetasql::types::EmptyStructType;
 using zetasql::values::Bool;
@@ -60,7 +60,7 @@ namespace zetasql {
 // AggregateArg
 // -------------------------------------------------------
 
-::zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
+zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
     const VariableId& variable,
     std::unique_ptr<const AggregateFunctionBody> function,
     std::vector<std::unique_ptr<ValueExpr>> arguments, Distinctness distinct,
@@ -127,7 +127,7 @@ class IntermediateAggregateAccumulator {
   virtual bool Accumulate(const TupleData& input_row, const Value& input_value,
                           bool* stop_accumulation, absl::Status* status) = 0;
 
-  virtual ::zetasql_base::StatusOr<Value> GetFinalResult(
+  virtual zetasql_base::StatusOr<Value> GetFinalResult(
       bool inputs_in_defined_order) = 0;
 };
 
@@ -162,11 +162,10 @@ class AggregateAccumulatorAdaptor : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
-      bool inputs_in_defined_order) override {
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     if (safe_result_.is_valid()) return safe_result_;
 
-    const ::zetasql_base::StatusOr<Value> status_or_value =
+    const zetasql_base::StatusOr<Value> status_or_value =
         accumulator_->GetFinalResult(inputs_in_defined_order);
     if (!status_or_value.ok()) {
       const absl::Status& error = status_or_value.status();
@@ -269,7 +268,7 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
     return inputs_.PushBack(std::move(input), status);
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
+  zetasql_base::StatusOr<Value> GetFinalResult(
       bool /* inputs_in_defined_order */) override {
     ZETASQL_ASSIGN_OR_RETURN(
         auto tuple_comparator,
@@ -350,7 +349,7 @@ class TopNAccumulator : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
+  zetasql_base::StatusOr<Value> GetFinalResult(
       bool /* inputs_in_defined_order */) override {
     bool stop_accumulation;
     absl::Status status;
@@ -419,8 +418,7 @@ class DistinctAccumulator : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
-      bool inputs_in_defined_order) override {
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -467,8 +465,7 @@ class IgnoresNullAccumulator : public IntermediateAggregateAccumulator {
                                     status);
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
-      bool inputs_in_defined_order) override {
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -607,8 +604,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
                                     status);
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
-      bool inputs_in_defined_order) override {
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -670,8 +666,7 @@ class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
                                     status);
   }
 
-  ::zetasql_base::StatusOr<Value> GetFinalResult(
-      bool inputs_in_defined_order) override {
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -710,7 +705,7 @@ static absl::Status PopulateSlotsForKeysAndValues(
   return absl::OkStatus();
 }
 
-::zetasql_base::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
+zetasql_base::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
 AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
                                 EvaluationContext* context) const {
   // Build the underlying AggregateAccumulator.
@@ -1050,20 +1045,6 @@ class AggregateTupleIterator : public TupleIterator {
   int64_t num_next_calls_ = 0;
 };
 
-// Wraps a const TupleData* but hashes as the underlying TupleData.
-struct TupleDataPtr {
-  explicit TupleDataPtr(const TupleData* data_in) : data(data_in) {}
-
-  const TupleData* data = nullptr;
-
-  bool operator==(const TupleDataPtr& t) const { return *data == *t.data; }
-
-  template <typename H>
-  friend H AbslHashValue(H h, const TupleDataPtr& t) {
-    return H::combine(std::move(h), *t.data);
-  }
-};
-
 // The bool is true if we should stop accumulation for the corresponding
 // accumulator.
 using AccumulatorList =
@@ -1114,7 +1095,7 @@ class GroupValue {
 
 }  // namespace
 
-::zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
+zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   ZETASQL_ASSIGN_OR_RETURN(

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -96,7 +96,6 @@ constexpr absl::string_view kReplacementCharacter = "\uFFFD";
 //
 // Background reading:
 //   - http://www.unicode.org/reports/tr36/#UTF-8_Exploit
-//   - http://sites/intl-eng/design-guide/core-application
 bool JSONParser::ParseHexDigits(const int size, std::string* str) {
   if (p_.length() < size) {
     return false;
@@ -356,7 +355,7 @@ bool JSONParser::ParseObject() {
 
     // Consume the colon
     SkipWhitespace();
-    if (*p_.data() != ':')
+    if (p_.empty() || *p_.data() != ':')
       return ReportFailure("Expected : between key:value pair");
     AdvanceOneByte();
 

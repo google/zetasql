@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@
 // builtin functions. Refer to reference_impl/functions/register_all.h for the
 // complete list.
 
-#include "zetasql/public/evaluator_base.h"
+#include "zetasql/public/evaluator_base.h"  
 
 namespace zetasql {
 

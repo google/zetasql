@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,10 +38,11 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include <cstdint>
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -53,7 +55,7 @@ class QueryExpression;
 //   SQLBuilder sql_builder;
 //   const ResolvedQueryStmt* node = ...;
 //   node->Accept(&sql_builder);
-//   const string& unparsed_sql = sql_builder.sql();
+//   const std::string& unparsed_sql = sql_builder.sql();
 //
 //   NOTE: SQL for the node gets appended onto the SQLBuilder's sql.
 //
@@ -123,6 +125,8 @@ class SQLBuilder : public ResolvedASTVisitor {
     const ResolvedCreateIndexStmt* node) override;
   absl::Status VisitResolvedCreateModelStmt(
       const ResolvedCreateModelStmt* node) override;
+  absl::Status VisitResolvedCreateSchemaStmt(
+      const ResolvedCreateSchemaStmt* node) override;
   absl::Status VisitResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* node) override;
   absl::Status VisitResolvedCreateTableAsSelectStmt(
@@ -149,6 +153,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedArgumentRef* node) override;
   absl::Status VisitResolvedExportDataStmt(
       const ResolvedExportDataStmt* node) override;
+  absl::Status VisitResolvedExportModelStmt(
+      const ResolvedExportModelStmt* node) override;
   absl::Status VisitResolvedCallStmt(const ResolvedCallStmt* node) override;
   absl::Status VisitResolvedDefineTableStmt(
       const ResolvedDefineTableStmt* node) override;
@@ -284,7 +290,11 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedOrderByScan* node) override;
   absl::Status VisitResolvedAggregateScan(
       const ResolvedAggregateScan* node) override;
+  absl::Status VisitResolvedRecursiveScan(
+      const ResolvedRecursiveScan* node) override;
   absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
+  absl::Status VisitResolvedRecursiveRefScan(
+      const ResolvedRecursiveRefScan* node) override;
   absl::Status VisitResolvedWithRefScan(
       const ResolvedWithRefScan* node) override;
   absl::Status VisitResolvedSampleScan(
@@ -303,6 +313,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedWindowFrame* node) override;
   absl::Status VisitResolvedWindowFrameExpr(
       const ResolvedWindowFrameExpr* node) override;
+  absl::Status VisitResolvedCreateEntityStmt(
+      const ResolvedCreateEntityStmt* node) override;
+  absl::Status VisitResolvedAlterEntityStmt(
+      const ResolvedAlterEntityStmt* node) override;
 
   absl::Status DefaultVisit(const ResolvedNode* node) override;
 
@@ -508,6 +522,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   std::string GetInsertColumnListSQL(
       const std::vector<ResolvedColumn>& insert_column_list) const;
 
+  absl::Status ProcessWithPartitionColumns(
+      std::string* sql, const ResolvedWithPartitionColumns* node);
+
   zetasql_base::StatusOr<std::string> ProcessCreateTableStmtBase(
       const ResolvedCreateTableStmtBase* node, bool process_column_definitions,
       const std::string& table_type);
@@ -544,6 +561,16 @@ class SQLBuilder : public ResolvedASTVisitor {
           foreign_key_list,
       const std::vector<std::unique_ptr<const ResolvedCheckConstraint>>&
           check_constraint_list);
+  std::string ComputedColumnAliasDebugString() const;
+
+  // If we have a recursive view, sets up internal data structures in
+  // preparation for generating SQL text for a recursive view, so that the
+  // columns and table references to the recursive table are correct.
+  //
+  // If 'node->query()' is not a ResolvedRecursiveScan, this function is a
+  // no-op.
+  absl::Status MaybeSetupRecursiveView(const ResolvedCreateViewBase* node);
+
   // A stack of QueryFragment kept to parallel the Visit call stack. Stores
   // return values of each Visit call which are then popped/used by the caller
   // of Accept.
@@ -563,10 +590,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   std::map<int /* column_id */, std::string> computed_column_alias_;
 
   // Stores the unique scan_aliases assigned for the corresponding scan nodes.
-  std::map<const ResolvedScan*, std::string> scan_alias_map_;
+  absl::flat_hash_map<const ResolvedScan*, std::string> scan_alias_map_;
 
   // Stores the unique aliases assigned to tables.
-  std::map<const Table*, std::string> table_alias_map_;
+  absl::flat_hash_map<const Table*, std::string> table_alias_map_;
 
   // Expected position of the next unparsed positional query parameter. Used for
   // validation only.
@@ -642,6 +669,21 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // True if we are unparsing the LHS of a SET statement.
   bool in_set_lhs_ = false;
+
+  struct RecursiveQueryInfo {
+    // Text to be inserted into the generated query to refer to the recursive
+    // table being referenced. If backticks are needed, this should already be
+    // present in the query name.
+    std::string query_name;
+
+    // The recursive scan being referenced.
+    const ResolvedRecursiveScan* scan;
+  };
+
+  // Stack of names of recursive queries being defined. Any
+  // ResolvedRecursiveRefScan node must refer to the query at the top of the
+  // stack.
+  std::stack<RecursiveQueryInfo> recursive_query_info_;
 
  private:
   // Helper function to perform operation on value table's column for

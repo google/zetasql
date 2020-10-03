@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,9 +29,19 @@
 using zetasql::JSONParser;
 
 namespace {
+// Exclude '\0' in the end to catch bugs like b/153040983.
+class StringNoTerminator {
+ public:
+  explicit StringNoTerminator(absl::string_view input)
+      : str_no_terminator_(input.begin(), input.end()) {}
+  absl::string_view data() const {
+    return {str_no_terminator_.data(), str_no_terminator_.size()};
+  }
+  std::vector<char> str_no_terminator_;
+};
 
 // Constructs a pretty-printed js string from the parser calls.
-class JSONToJSON : public JSONParser {
+class JSONToJSON : private StringNoTerminator, public JSONParser {
  private:
   std::string output_;
   int indent_;
@@ -40,7 +50,10 @@ class JSONToJSON : public JSONParser {
 
  public:
   explicit JSONToJSON(absl::string_view js)
-      : JSONParser(js), indent_(0), indent_next_(true) {}
+      : StringNoTerminator(js),
+        JSONParser(data()),
+        indent_(0),
+        indent_next_(true) {}
 
   // The pretty-printed js that resulted from the call to Parse().
   const std::string& output() const { return output_; }
@@ -403,7 +416,10 @@ TEST(JSONParserTest, ParseObject) {
 }
 
 TEST(JSONParserTest, ParseObjectFail) {
-  const char* str;
+  const char* str =
+      "{\n"
+      "  \"a\"";  // no colon
+  ParseAndExpectFail(str);
   str =
       "{\n"
       "  \"a\" : true\n"  // no comma

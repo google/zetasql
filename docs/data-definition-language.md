@@ -1,10 +1,8 @@
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Data Definition Language statements
+# Data definition language
 
-<!-- BEGIN CONTENT -->
-
-ZetaSQL specifies the syntax for Data Definition Language (DDL)
+ZetaSQL specifies the syntax for data definition language (DDL)
 statements.
 
 Where possible, this topic provides a link to the product-specific documentation
@@ -142,7 +140,7 @@ CREATE TABLE books (
 CLUSTER BY last_name, first_name;
 ```
 
-### Defining Columns
+### Defining columns
 
 <pre>
 <span class="var">column_definition:</span>
@@ -238,7 +236,7 @@ CREATE TABLE books (
 )
 ```
 
-### Defining Table Constraints
+### Defining table constraints
 
 <pre>
 <span class="var">constraint_definition:</span>
@@ -327,7 +325,7 @@ CREATE TABLE page_count_average (
 );
 ```
 
-### Defining Foreign References
+### Defining foreign references
 
 <pre>
 <span class="var">foreign_reference:</span>
@@ -468,11 +466,11 @@ The `CREATE VIEW` statement creates a view based on a specific query.
 
 **Optional Clauses**
 
-+   `OR REPLACE`: Replaces any table with the same name if it exists. Cannot
++   `OR REPLACE`: Replaces any view with the same name if it exists. Cannot
     appear with `IF NOT EXISTS`.
-+   `TEMP | TEMPORARY`: Creates a temporary table. The lifetime of the table is
++   `TEMP | TEMPORARY`: Creates a temporary view. The lifetime of the table is
     system-specific.
-+   `IF NOT EXISTS`: If any table exists with the same name, the `CREATE`
++   `IF NOT EXISTS`: If any view exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
 
 ## CREATE EXTERNAL TABLE
@@ -847,6 +845,4 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 [defining-columns]: #defining-columns
 [defining-constraints]: #defining-table-constraints
 [defining-foreign-reference]: #defining-foreign-references
-
-<!-- END CONTENT -->
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,14 @@
 
 package com.google.zetasql;
 
-import com.google.auto.value.AutoValue;
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.collect.ImmutableList;
 import com.google.zetasql.FunctionProtos.TVFRelationColumnProto;
 import com.google.zetasql.FunctionProtos.TVFRelationProto;
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * This represents a relation passed as an input argument to a TVF, or returned from a TVF. It
@@ -51,7 +53,8 @@ public class TVFRelation implements Serializable {
   /** Creates a new value-table TVFRelation with a single column of 'type' with no name. */
   public static TVFRelation createValueTableBased(Type type) {
     return new TVFRelation(
-        ImmutableList.of(Column.create(/* name= */ "", type)), /* isValueTable= */ true);
+        ImmutableList.of(Column.create(/* name= */ "", type, /* isPseudoColumn= */ false)),
+        /* isValueTable= */ true);
   }
 
   public ImmutableList<Column> getColumns() {
@@ -69,8 +72,8 @@ public class TVFRelation implements Serializable {
           .addColumn(
               TVFRelationColumnProto.newBuilder()
                   .setName(col.getName())
-                  .setType(col.getType().serialize()))
-          .build();
+                  .setType(col.getType().serialize())
+                  .setIsPseudoColumn(col.isPseudoColumn));
     }
     protoBuilder.setIsValueTable(isValueTable);
     return protoBuilder.build();
@@ -85,24 +88,94 @@ public class TVFRelation implements Serializable {
       return createValueTableBased(type);
     } else {
       ImmutableList.Builder<Column> columns = ImmutableList.builder();
+
       for (TVFRelationColumnProto columnProto : proto.getColumnList()) {
         Type type = typeFactory.deserialize(columnProto.getType(), pools);
-        columns.add(Column.create(columnProto.getName(), type));
+        columns.add(
+            Column.create(
+                columnProto.getName(),
+                type,
+                columnProto.hasIsPseudoColumn() && columnProto.getIsPseudoColumn()));
       }
       return createColumnBased(columns.build());
     }
   }
 
-  /** A column of a {@link TVFRelation}. */
-  @AutoValue
-  public abstract static class Column implements Serializable {
+  @Override
+  public String toString() {
+    return "TABLE<"
+        + columns.stream()
+            .map(c -> (!isValueTable || c.isPseudoColumn() ? c.getName() + " " : "") + c.getType())
+            .collect(joining(", "))
+        + ">";
+  }
 
-    public static Column create(String name, Type type) {
-      return new AutoValue_TVFRelation_Column(name, type);
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof TVFRelation)) {
+      return false;
+    }
+    TVFRelation that = (TVFRelation) o;
+    return isValueTable == that.isValueTable && columns.equals(that.columns);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(columns, isValueTable);
+  }
+
+  /** A column of a {@link TVFRelation}. */
+  public static class Column implements Serializable {
+    private final String name;
+    private final Type type;
+    private final boolean isPseudoColumn;
+
+    private Column(String name, Type type, boolean isPseudoColumn) {
+      this.name = name;
+      this.type = type;
+      this.isPseudoColumn = isPseudoColumn;
     }
 
-    public abstract String getName();
+    public static Column create(String name, Type type, boolean isPseudoColumn) {
+      return new Column(name, type, isPseudoColumn);
+    }
 
-    public abstract Type getType();
+    public static Column create(String name, Type type) {
+      return new Column(name, type, false);
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Type getType() {
+      return type;
+    }
+
+    public boolean isPseudoColumn() {
+      return isPseudoColumn;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof Column)) {
+        return false;
+      }
+      Column column = (Column) o;
+      return name.equals(column.name)
+          && type.equals(column.type)
+          && isPseudoColumn == column.isPseudoColumn;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, type, isPseudoColumn);
+    }
   }
 }

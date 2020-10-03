@@ -1,15 +1,13 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Analytic Functions Concepts
-
-<!-- BEGIN CONTENT -->
+# Analytic functions concepts
 
 An analytic function computes values over a group of rows and returns a
 single result for _each_ row. This is different from an aggregate function,
-which returns a single result for _an entire group_ of rows.
+which returns a single result for _a group_ of rows.
 
-It includes an `OVER` clause, which defines a window of rows
+An analytic function includes an `OVER` clause, which defines a window of rows
 around the row being evaluated.  For each row, the analytic function result
 is computed using the selected window of rows as input, possibly
 doing aggregation.
@@ -17,13 +15,12 @@ doing aggregation.
 With analytic functions you can compute moving averages, rank items, calculate
 cumulative sums, and perform other analyses.
 
-Analytic functions include the following categories:
+The following functions can be used as analytic functions:
 [navigation functions][navigation-functions-reference],
 [numbering functions][numbering-functions-reference], and
-[aggregate analytic functions][aggregate-analytic-functions-reference].
+[aggregate analytic functions][aggregate-analytic-functions-reference]
 
-<a name="syntax"></a>
-## Analytic Function Syntax
+## Analytic function syntax {: #syntax }
 
 <pre>
 analytic_function_name ( [ argument_list ] ) OVER over_clause
@@ -44,7 +41,7 @@ analytic_function_name ( [ argument_list ] ) OVER over_clause
   { ROWS | RANGE }
 </pre>
 
-Notation:
+**Notation rules**
 
 + Square brackets "[ ]" indicate optional clauses.
 + Parentheses "( )" indicate literal parentheses.
@@ -55,35 +52,43 @@ Notation:
 
 **Description**
 
-An analytic function computes results over a group of rows.
-These functions can be used as analytic functions:
-[navigation functions][navigation-functions-reference],
-[numbering functions][numbering-functions-reference], and
-[aggregate analytic functions][aggregate-analytic-functions-reference]
+An analytic function computes results over a group of rows. You can use the
+following syntax to build an analytic function:
 
 +  `analytic_function_name`: The function that performs an analytic operation.
-   For example, the numbering function RANK() could be used here.
+   For example, the numbering function `RANK()` could be used here.
 +  `argument_list`: Arguments that are specific to the analytic function.
    Some functions have them, some do not.
 +  `OVER`: Keyword required in the analytic function syntax preceding
    the [`OVER` clause][over-clause-def].
++  [`over_clause`][over-clause-def]: References a window that defines a group
+   of rows in a table upon which to use an analytic function.
++  [`window_specification`][window-specs-def]: Defines the specifications for
+   the window.
++  [`window_frame_clause`][window-frame-clause-def]: Defines the window frame
+   for the window.
++  [`rows_range`][window-frame-clause-def]: Defines the physical rows or a
+   logical range for a window frame.
 
 **Notes**
 
-+  An analytic function can appear as a scalar expression operand in
-   two places in the query:
+An analytic function can appear as a scalar expression operand in
+two places in the query:
+
    +  The `SELECT` list. If the analytic function appears in the `SELECT` list,
-      its argument list and `OVER` clause cannot refer to aliases introduced
+      its argument list and `OVER` clause can't refer to aliases introduced
       in the same SELECT list.
    +  The `ORDER BY` clause. If the analytic function appears in the `ORDER BY`
       clause of the query, its argument list can refer to `SELECT`
       list aliases.
-+  An analytic function cannot refer to another analytic function in its
-   argument list or its `OVER` clause, even indirectly through an alias.
-+  An analytic function is evaluated after aggregation. For example, the
-   `GROUP BY` clause and non-analytic aggregate functions are evaluated first.
-   Because aggregate functions are evaluated before analytic functions,
-   aggregate functions can be used as input operands to analytic functions.
+
+An analytic function can't refer to another analytic function in its
+argument list or its `OVER` clause, even indirectly through an alias.
+
+An analytic function is evaluated after aggregation. For example, the
+`GROUP BY` clause and non-analytic aggregate functions are evaluated first.
+Because aggregate functions are evaluated before analytic functions,
+aggregate functions can be used as input operands to analytic functions.
 
 **Returns**
 
@@ -146,12 +151,14 @@ Defines the specifications for the window.
 +  [`named_window`][named-windows]: The name of an existing window that was
    defined with a [`WINDOW` clause][analytic-functions-link-to-window].
 
-   Important: If you use a named window, special rules apply to
-   `PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See them [here][named-window-rules].
+Important: If you use a named window, special rules apply to
+`PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See
+them [here][named-window-rules].
+
 +  `PARTITION BY`: Breaks up the input rows into separate partitions, over
    which the analytic function is independently evaluated.
    +  Multiple partition expressions are allowed in the `PARTITION BY` clause.
-   +  An expression cannot contain floating point types, non-groupable types,
+   +  An expression can't contain floating point types, non-groupable types,
       constants, or analytic functions.
    +  If this optional clause is not used, all rows in the input table
       comprise a single partition.
@@ -166,33 +173,35 @@ Defines the specifications for the window.
 
 **Notes**
 
-+  If neither the `ORDER BY` clause nor window frame clause are present,
-   the window frame includes all rows in that partition.
-+  For aggregate analytic functions, if the `ORDER BY` clause is present but
-   the window frame clause is not, the following window frame clause is
-   used by default:
+If neither the `ORDER BY` clause nor window frame clause are present,
+the window frame includes all rows in that partition.
 
-   ```zetasql
-   RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-   ```
+For aggregate analytic functions, if the `ORDER BY` clause is present but
+the window frame clause is not, the following window frame clause is
+used by default:
 
-   For example, the following queries are equivalent:
+```zetasql
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
 
-   ```zetasql
-   SELECT book, LAST_VALUE(item)
-     OVER (ORDER BY year)
-   FROM Library
-   ```
+For example, the following queries are equivalent:
 
-   ```zetasql
-   SELECT book, LAST_VALUE(item)
-     OVER (
-       ORDER BY year
-       RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
-   FROM Library
-   ```
-+  [Hints][analytic-functions-link-to-hints] are supported on the `PARTITION BY`
-   clause and the `ORDER BY` clause.
+```zetasql
+SELECT book, LAST_VALUE(item)
+  OVER (ORDER BY year)
+FROM Library
+```
+
+```zetasql
+SELECT book, LAST_VALUE(item)
+  OVER (
+    ORDER BY year
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM Library
+```
+
+[Hints][analytic-functions-link-to-hints] are supported on the `PARTITION BY`
+clause and the `ORDER BY` clause.
 
 <a id="named_window_rules"></a>
 **Rules for using a named window in the window specification**
@@ -221,9 +230,9 @@ If you use a named window in your window specifications, these rules apply:
    FROM Produce
    WINDOW item_window AS (ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
    ```
-+  A named window and `PARTITION BY` cannot appear together in the
++  A named window and `PARTITION BY` can't appear together in the
    window specification. If you need `PARTITION BY`, add it to the named window.
-+  You cannot refer to a named window in an `ORDER BY` clause, an outer query,
++  You can't refer to a named window in an `ORDER BY` clause, an outer query,
    or any subquery.
 
 **Examples using the window specification**
@@ -314,22 +323,23 @@ Only aggregate analytic functions can use a window frame clause.
       expression in the `ORDER BY` clause, and the expression must have a
       numeric type.
 
-     Tip: If you want to use a range with a date, use `ORDER BY` with the
-     `UNIX_DATE()` function. If you want to use a range with a timestamp,
-     use the `UNIX_SECONDS()`, `UNIX_MILLIS()`, or `UNIX_MICROS()` function.
+  Tip: If you want to use a range with a date, use `ORDER BY` with the
+  `UNIX_DATE()` function. If you want to use a range with a timestamp,
+  use the `UNIX_SECONDS()`, `UNIX_MILLIS()`, or `UNIX_MICROS()` function.
 +  `frame_between`: Creates a window frame with a lower and upper boundary.
     The first boundary represents the lower boundary. The second boundary
     represents the upper boundary. Only certain boundary combinations can be
-    used, as show in the syntax above.
-    +  The following boundaries can be used to define the
-       beginning of the window frame.
+    used, as show in the preceding syntax.
+    +  Define the beginning of the window frame with `unbounded_preceding`,
+       `numeric_preceding`, `numeric_following`, or `current_row`.
        +  `unbounded_preceding`: The window frame starts at the beginning of the
           partition.
        +  `numeric_preceding` or `numeric_following`: The start of the window
           frame is relative to the
           current row.
        +  `current_row`: The window frame starts at the current row.
-    +  `frame_end_a ... frame_end_c`: Defines the end of the window frame.
+    +  Define the end of the window frame with `numeric_preceding`,
+       `numeric_following`, `current_row`, or `unbounded_following`.
         + `numeric_preceding` or `numeric_following`: The end of the window
           frame is relative to the current row.
         + `current_row`: The window frame ends at the current row.
@@ -348,12 +358,13 @@ Only aggregate analytic functions can use a window frame clause.
 
 **Notes**
 
-+  If a boundary extends beyond the beginning or end of a partition,
-   the window frame will only include rows from within that partition.
-+  You cannot use a window frame clause with
-   [navigation functions][analytic-functions-link-to-navigation-functions] and
-   [numbering functions][analytic-functions-link-to-numbering-functions],
-   such as  `RANK()`.
+If a boundary extends beyond the beginning or end of a partition,
+the window frame will only include rows from within that partition.
+
+You can't use a window frame clause with
+[navigation functions][analytic-functions-link-to-navigation-functions] and
+[numbering functions][analytic-functions-link-to-numbering-functions],
+such as  `RANK()`.
 
 **Examples using the window frame clause**
 
@@ -424,9 +435,10 @@ within a [window specification][window-specs-def].
 +  [Get the last value in a range][analytic-functions-get-last-value-range]
 +  [Use a named window in a window frame clause][analytic-functions-use-named-window]
 
-## Navigation Function Concepts
+## Navigation function concepts
 
-[Navigation functions][navigation-functions-reference] generally compute some `value_expression` over a different row in the window frame from the
+[Navigation functions][navigation-functions-reference] generally compute some
+`value_expression` over a different row in the window frame from the
 current row. The `OVER` clause syntax varies across navigation functions.
 
 Requirements for the `OVER` clause:
@@ -443,7 +455,7 @@ Requirements for the `OVER` clause:
 For all navigation functions, the result data type is the same type as
 `value_expression`.
 
-## Numbering Function Concepts
+## Numbering function concepts
 
 [Numbering functions][numbering-functions-reference] assign integer values to
 each row based on their position within the specified window.
@@ -479,25 +491,27 @@ FROM Numbers
 +---------------------------------------------------+
 ```
 
-* `RANK(): `For x=5, `rank` returns 4, since `RANK()` increments by the number
-of peers in the previous window ordering group.
-* `DENSE_RANK()`: For x=5, `dense_rank` returns 3, since `DENSE_RANK()` always
-increments by 1, never skipping a value.
-* `ROW_NUMBER(): `For x=5, `row_num` returns 4.
++  `RANK()`: For x=5, `rank` is 4, since `RANK()` increments by the number
+   of peers in the previous window ordering group.
++  `DENSE_RANK()`: For x=5, `dense_rank` is 3, since `DENSE_RANK()` always
+   increments by 1, never skipping a value.
++  `ROW_NUMBER()`: For x=5, `row_num` is 4.
 
-## Aggregate Analytic Function Concepts
+## Aggregate analytic function concepts
 
 An aggregate function is a function that performs a calculation on a
 set of values. Most aggregate functions can be used in an
 analytic function. These aggregate functions are called
 [aggregate analytic functions][aggregate-analytic-functions-reference].
 
-With aggregate analytic functions, the `OVER` clause is simply appended to the aggregate function call; the function call syntax remains otherwise unchanged.
-Like their aggregate function counterparts, these analytic functions perform aggregations, but specifically over the relevant window frame for each row.
+With aggregate analytic functions, the `OVER` clause is appended to the
+aggregate function call; the function call syntax remains otherwise unchanged.
+Like their aggregate function counterparts, these analytic functions perform
+aggregations, but specifically over the relevant window frame for each row.
 The result data types of these analytic functions are the same as their
 aggregate function counterparts.
 
-## Analytic Function Examples
+## Analytic function examples
 
 In these examples, the ==highlighted item== is the current row. The **bolded
 items** are the rows that are included in the analysis.
@@ -508,7 +522,7 @@ The following tables are used in the subsequent aggregate analytic
 query examples: [`Produce`][produce-table], [`Employees`][employees-table],
 and [`Farm`][farm-table].
 
-#### Produce Table
+#### Produce table
 
 Some examples reference a table called `Produce`:
 
@@ -534,7 +548,7 @@ SELECT * FROM Produce
 +-------------------------------------+
 ```
 
-#### Employees Table
+#### Employees table
 
 Some examples reference a table called `Employees`:
 
@@ -560,7 +574,7 @@ SELECT * FROM Employees
 +-------------------------------------+
 ```
 
-#### Farm Table
+#### Farm table
 
 Some examples reference a table called `Farm`:
 
@@ -656,12 +670,14 @@ This computes a cumulative sum for each category in the
 [`Produce`][produce-table] table. The sum is computed with respect to the
 order defined using the `ORDER BY` clause.
 
-+  (**==orange==**, apple, leek, cabbage, lettuce, kale) = 2 total purchases
-+  (**orange**, **==apple==**, leek, cabbage, lettuce, kale) = 10 total purchases
-+  (**orange**, **apple**, **==leek==**, cabbage, lettuce, kale) = 2 total purchases
-+  (**orange**, **apple**, **leek**, **==cabbage==**, lettuce, kale) = 11 total purchases
-+  (**orange**, **apple**, **leek**, **cabbage**, **==lettuce==**, kale) = 21 total purchases
-+  (**orange**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
++  fruit
+   +  (**==orange==**, apple) = 2 total purchases
+   +  (**orange**, **==apple==**) = 10 total purchases
++  vegetable
+   +  (**==leek==**, cabbage, lettuce, kale) = 2 total purchases
+   +  (**leek**, **==cabbage==**, lettuce, kale) = 11 total purchases
+   +  (**leek**, **cabbage**, **==lettuce==**, kale) = 21 total purchases
+   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
 
 ```zetasql
 SELECT item, purchases, category, SUM(purchases)
@@ -684,7 +700,7 @@ FROM Produce
 +-------------------------------------------------------+
 ```
 
-This does the same thing as the example above. You don't have to add
+This does the same thing as the preceding example. You don't have to add
 `CURRENT ROW` as a boundary unless you would like to for readability.
 
 ```sql
@@ -763,7 +779,7 @@ FROM Produce
 
 ### Compute the number of items within a range
 
-In this example, we get the number of animals that have a similar population
+This example gets the number of animals that have a similar population
 count in the [`Farm`][farm-table] table.
 
 +  (**==goose==**, **dog**, **ox**, **goat**, duck, cat) = 4 animals between population range 0-2.
@@ -796,7 +812,7 @@ FROM Farm;
 ### Get the most popular item in each category
 
 This example gets the most popular item in each category. It defines how rows
-in a window should be partitioned and ordered in each partition. The
+in a window are partitioned and ordered in each partition. The
 [`Produce`][produce-table] table is referenced.
 
 +  fruit
@@ -831,7 +847,7 @@ FROM Produce
 
 ### Get the last value in a range
 
-In this example, we get the most popular item in a specific window frame, using
+This example gets the most popular item in a specific window frame, using
 the [`Produce`][produce-table] table. The window frame analyzes up to three
 rows at a time. Take a close look at the `most_popular` column for vegetables.
 Instead of getting the most popular item in a specific category, it gets the
@@ -841,7 +857,7 @@ most popular item in a specific range in that category.
    +  (**==orange==**, **apple**) = apple is most popular
    +  (**orange**, **==apple==**) = apple is most popular
 +  vegetable
-   +  (**==leek==**, **cabbage**, lettuce, kale) = leek is most popular
+   +  (**==leek==**, **cabbage**, lettuce, kale) = cabbage is most popular
    +  (**leek**, **==cabbage==**, **lettuce**, kale) = lettuce is most popular
    +  (leek, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
    +  (leek, cabbage, **lettuce**, **==kale==**) = kale is most popular
@@ -867,7 +883,7 @@ FROM Produce
 +----------------------------------------------------+
 ```
 
-This example returns the same results as the one above, but it includes
+This example returns the same results as the preceding example, but it includes
 a named window called `item_window`. Some of the window specifications are
 defined directly in the `OVER` clause and some are defined in the named window.
 
@@ -968,7 +984,7 @@ WINDOW
 The following example produces an error because a window frame clause has been
 defined twice:
 
-```zetasql
+```zetasql {.bad}
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
     item_window
@@ -1005,6 +1021,4 @@ WINDOW item_window AS (
 [navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions
 [numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions
 [aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions
-
-<!-- END CONTENT -->
 

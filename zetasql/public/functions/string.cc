@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <iterator>
 #include <limits>
@@ -31,15 +32,19 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/util.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/base/casts.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "unicode/errorcode.h"
@@ -71,6 +76,17 @@ const char kExceededRepeatOutputSize[] =
     "Output of REPEAT exceeds max allowed output size of 1MB";
 const char kExceededReplaceOutputSize[] =
     "Output of REPLACE exceeds max allowed output size of 1MB";
+const char kExceededTranslateOutputSize[] =
+    "Output of TRANSLATE exceeds max allowed output size of 1MB";
+
+constexpr absl::string_view kBadOccurrenceStringPos =
+    "Occurrence must be positive";
+constexpr absl::string_view kBadPosStringPos = "Position must be non-zero";
+
+// Only used by INITCAP() functions. In addition, whitespace characters are
+// handled by the calling function.
+constexpr absl::string_view kDefaultDelimiters =
+    "[](){}/|\\<>!?@\"#$&~_,.:;*%+-^";
 
 // Verifies that the string length can be represented in a 32-bit signed int and
 // returns that value. Fitting in an int32_t is a requirement for icu methods.
@@ -286,26 +302,88 @@ absl::string_view BytesTrimmer::Trim(absl::string_view str) {
   return TrimLeft(TrimRight(str));
 }
 
-bool StrposUtf8(absl::string_view str, absl::string_view substr, int64_t* out,
-                absl::Status* error) {
-  absl::string_view::size_type pos = str.find(substr);
-  if (pos == absl::string_view::npos) {
-    *out = 0;
-  } else {
-    str = str.substr(0, pos);
-    if (!LengthUtf8(str, out, error)) return false;
-    (*out)++;
+bool Utf8Capitalizer::Initialize(absl::string_view delimiters,
+                                 absl::Status* error) {
+  int32_t delimiter_length32;
+  if (!CheckAndCastStrLength(delimiters, &delimiter_length32, error)) {
+    return false;
   }
+  if (unicode_set_ != nullptr) {
+    // This implies we are using default delimiters.
+    icu::ErrorCode cannot_fail;
+    const icu::UnicodeSet* whitespace_unicode_set = icu::UnicodeSet::fromUSet(
+      u_getBinaryPropertySet(UCHAR_WHITE_SPACE, cannot_fail));
+    unicode_set_->addAll(*whitespace_unicode_set);
+  } else {
+    unicode_set_ = absl::make_unique<icu::UnicodeSet>();
+  }
+  int32_t offset = 0;
+  while (offset < delimiter_length32) {
+    UChar32 character;
+    U8_NEXT(delimiters.data(), offset, delimiter_length32, character);
+    if (character < 0) {
+      return internal::UpdateError(error, kBadUtf8);
+    } else {
+      unicode_set_->add(character);
+    }
+  }
+  unicode_set_->freeze();
   return true;
 }
 
-bool StrposBytes(absl::string_view str, absl::string_view substr, int64_t* out,
-                 absl::Status* error) {
-  absl::string_view::size_type pos = str.find(substr);
-  if (pos == absl::string_view::npos) {
-    *out = 0;
-  } else {
-    *out = pos + 1;
+bool Utf8Capitalizer::InitializeDefault(absl::Status* error) {
+  unicode_set_ = absl::make_unique<icu::UnicodeSet>();
+  return Initialize(kDefaultDelimiters, error);
+}
+
+bool Utf8Capitalizer::Capitalize(absl::string_view str, std::string* out,
+                                 absl::Status* error) {
+  if (unicode_set_ == nullptr) {
+    return internal::UpdateError(
+        error, "Initialize much be called before calling Capitalize.");
+  }
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+  out->clear();
+  out->reserve(str_length32);
+  bool capitalize_char = true;
+  int32_t offset = 0;
+  while (offset < str_length32) {
+    int32_t prev_offset = offset;
+    UChar32 original;
+    U8_NEXT(str.data(), offset, str_length32, original);
+    if (original < 0) {
+      return internal::UpdateError(error, kBadUtf8);
+    }
+    bool is_delimiter = unicode_set_->contains(original);
+    UChar32 corrected = 0;
+    if (is_delimiter) {
+      corrected = original;
+      capitalize_char = true;
+    } else if (capitalize_char) {
+      corrected = u_toupper(original);
+      capitalize_char = false;
+    } else {
+      corrected = u_tolower(original);
+    }
+
+    if (corrected != original) {
+      int utf8_index = 0;
+      uint8_t utf8_buffer[4];  // U8_APPEND writes 0 to 4 bytes.
+      bool has_error = false;
+      U8_APPEND(utf8_buffer, utf8_index, sizeof(utf8_buffer), corrected,
+                has_error);
+      if (has_error) {
+        out->clear();
+        return internal::UpdateError(
+            error, absl::Substitute("Invalid codepoint $0", corrected));
+      }
+      out->append(reinterpret_cast<char*>(utf8_buffer), utf8_index);
+    } else {
+      out->append(str.substr(prev_offset, offset - prev_offset));
+    }
   }
   return true;
 }
@@ -469,36 +547,277 @@ bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
                               error);
 }
 
-// Move forward `num_code_points` in str, by updating `str_offset`.
-// Similar to U8_FWD_N, but will detect bad utf codepoints.
-static bool ForwardN(const char* str, int32_t str_length32, int64_t num_code_points,
-                     int32_t* str_offset, absl::Status* error) {
-  for (int64_t i = 0; i < num_code_points && *str_offset < str_length32; ++i) {
+// Move forward <num_code_points> in str starting at <str_offset> and updates
+// <str_offset>. Similar to U8_FWD_N, but will detect bad utf codepoints.
+// <hit_end> indicates whether we reached the end of <str> with less than
+// <num_code_points> character moves.
+static bool ForwardN(absl::string_view str, int32_t str_length32,
+                     int64_t num_code_points, int32_t* str_offset, bool* hit_end,
+                     absl::Status* error) {
+  int64_t i = 0;
+  for (; i < num_code_points && *str_offset < str_length32; ++i) {
     UChar32 character;
-    U8_NEXT(str, *str_offset, str_length32, character);
+    U8_NEXT(str.data(), *str_offset, str_length32, character);
     if (character < 0) {
       return internal::UpdateError(error, kBadUtf8);
     }
   }
+  *hit_end = (i < num_code_points);
   return true;
 }
 
-// Similar to U8_BACK_N, but will detect bad utf codepoints.
-static bool BackN(const char* str, int64_t num_code_points, int32_t* str_offset,
-                  absl::Status* error) {
-  for (int64_t i = 0; i<num_code_points&& * str_offset> 0; ++i) {
+// Move backward <num_code_points> in str starting at <str_offset> and updates
+// <str_offset>. Similar to U8_BACK_N, but will detect bad utf codepoints.
+// <hit_start> indicates whether we reached the start of <str> with less than
+// <num_code_points> character moves.
+static bool BackN(absl::string_view str, int64_t num_code_points,
+                  int32_t* str_offset, bool* hit_start, absl::Status* error) {
+  int64_t i = 0;
+  for (; i<num_code_points&& * str_offset> 0; ++i) {
     UChar32 character;
-    U8_PREV(str, 0, *str_offset, character);
+    U8_PREV(str.data(), 0, *str_offset, character);
 
     if (character < 0) {
       return internal::UpdateError(error, kBadUtf8);
     }
-    if (*str_offset == 0) {
-      // Hit the front of the string, give up.
-      break;
+  }
+  *hit_start = (i < num_code_points);
+  return true;
+}
+
+// Helper function for StrPosOccurrenceUtf8
+namespace {
+
+// Returns the position of the <occurrence>-th <substr> in <str>, starting the
+// search forward from <pos>.
+// Both <pos> and the result are indexed from 1 and count one UTF8 character
+// (which can span multiple bytes) as one unit.
+//
+// Algorithm:
+// - Position the starting string offset to <pos>, keeping in mind that an UTF-8
+//   character may span multiple 'string' characters.
+// - For each occurrence:
+//   - Search for the next match in <str>.
+//   - If no match, return 0.
+//   - Move the string offset to the second character in the match (overlapping
+//     matches allowed).
+// - Calculate the number of UTF-8 characters in <str> before the last match and
+//   return that number + 1 (because the output is indexed from 1).
+bool StrPositivePosUtf8(absl::string_view str, absl::string_view substr,
+                        int64_t pos, int64_t occurrence, int64_t* out,
+                        absl::Status* error) {
+  DCHECK_GT(pos, 0);
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+
+  int32_t string_offset = 0;
+  bool hit_end = false;
+  if (!ForwardN(str, str_length32, pos - 1, &string_offset, &hit_end, error)) {
+    return false;
+  }
+  if (hit_end) {
+    *out = 0;
+    return true;
+  }
+
+  for (int i = 0; i < occurrence; ++i) {
+    // We start the next search at the second character of the previous
+    // occurrence.
+    if (i > 0 &&
+        !ForwardN(str, str_length32, 1, &string_offset, &hit_end, error)) {
+      return false;
+    }
+
+    // This is to account for cases when substr == "":
+    // INSTR('ab', '', 1, 3) = 3
+    // INSTR('ab', '', 1, 4) = 0
+    // "ab".find("", 2) will match and return 2 (indexed from 0), so we need
+    // to keep advancing string_offset because ForwardN stops at str.length()
+    // and INSTR('ab', '', 1, N) for N > 3 will then all return 3 instead of 0.
+    if (hit_end) {
+      string_offset++;
+    }
+
+    // Safe cast because str.length() <= int32max.
+    string_offset = static_cast<int32_t>(str.find(substr, string_offset));
+    if (string_offset == absl::string_view::npos) {
+      *out = 0;
+      return true;
     }
   }
+
+  str = str.substr(0, string_offset);
+  if (!LengthUtf8(str, out, error)) return false;
+  (*out)++;
   return true;
+}
+
+// Returns the position of the <occurrence>-th <substr> in <str>, starting the
+// search backward from <pos> (-1 representing the last character).
+// Both <pos> and the result are indexed from 1 and count one UTF8 character
+// (which can span multiple bytes) as one unit.
+//
+// Algorithm:
+// - Position the starting string offset to the end of <str> minus <pos>,
+//   keeping in mind that an UTF-8 character may span multiple 'string'
+//   characters.
+// - For each occurrence:
+//   - Search for the previous match in <str>.
+//   - If no match, return 0.
+//   - Move the string offset to the previous character (overlapping matches
+//     allowed).
+// - Calculate the number of UTF-8 characters in <str> before the last match and
+//   return that number + 1 (because the output is indexed from 1).
+bool StrNegativePosUtf8(absl::string_view str, absl::string_view substr,
+                        int64_t pos, int64_t occurrence, int64_t* out,
+                        absl::Status* error) {
+  DCHECK_LT(pos, 0);
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+
+  int32_t string_offset = str_length32;
+  bool hit_start = false;
+  // -pos + 1 results in signed integer overflow as -int64min = int64max + 1.
+  if (!BackN(str, -(pos + 1), &string_offset, &hit_start, error)) {
+    return false;
+  }
+  if (hit_start) {
+    *out = 0;
+    return true;
+  }
+
+  // string_offset is indexed from 1, so we need to decrement it. However we
+  // only do so if substr is not empty because substr == "" is a special case:
+  //
+  // Since we have INSTR('a', '', 1) = 1 and INSTR('a', '', 2) = 2, by
+  // extension, we should also have INSTR('a', '', -1) = 2 and INSTR('a', '',
+  // -2) = 1. Therefore we don't decrement string_offset in that case.
+  if (!substr.empty() && string_offset-- == 0) {
+    *out = 0;
+    return true;
+  }
+
+  for (int i = 0; i < occurrence; ++i) {
+    // We start the next search at the second character of the previous
+    // occurrence.
+    if (i > 0 && !BackN(str, 1, &string_offset, &hit_start, error)) {
+      return false;
+    }
+
+    if (hit_start) {
+      // We arrived at the beginning of the string and haven't found the
+      // substr. Returns instead of wrapping around.
+      *out = 0;
+      return true;
+    }
+
+    // Safe cast because str.length() <= int32max.
+    string_offset = static_cast<int32_t>(str.rfind(substr, string_offset));
+    if (string_offset == absl::string_view::npos) {
+      *out = 0;
+      return true;
+    }
+  }
+
+  str = str.substr(0, string_offset);
+  if (!LengthUtf8(str, out, error)) return false;
+  (*out)++;
+  return true;
+}
+
+}  // namespace
+
+bool StrPosOccurrenceUtf8(absl::string_view str, absl::string_view substr,
+                          int64_t pos, int64_t occurrence, int64_t* out,
+                          absl::Status* error) {
+  if (occurrence < 1) {
+    return internal::UpdateError(error, kBadOccurrenceStringPos);
+  }
+
+  if (pos == 0) {
+    return internal::UpdateError(error, kBadPosStringPos);
+  }
+
+  if (pos > 0) {
+    return StrPositivePosUtf8(str, substr, pos, occurrence, out, error);
+  } else {
+    return StrNegativePosUtf8(str, substr, pos, occurrence, out, error);
+  }
+}
+
+bool StrPosOccurrenceBytes(absl::string_view str, absl::string_view substr,
+                           int64_t pos, int64_t occurrence, int64_t* out,
+                           absl::Status* error) {
+  if (occurrence < 1) {
+    return internal::UpdateError(error, kBadOccurrenceStringPos);
+  }
+
+  if (pos == 0) {
+    return internal::UpdateError(error, kBadPosStringPos);
+  }
+
+  if (pos > 0) {
+    absl::string_view::size_type start = pos - 1;
+    for (int i = 0; i < occurrence; ++i) {
+      start = str.find(substr, start);
+      if (start == absl::string_view::npos) {
+        *out = 0;
+        return true;
+      }
+      // We start the next search at the second character of the previous
+      // occurrence.
+      start++;
+    }
+
+    // start has already been incremented so not need to increment it again to
+    // account for the fact that absl::string_view is indexed from 0.
+    *out = start;
+    return true;
+  } else {
+    int32_t str_length32;
+    if (!CheckAndCastStrLength(str, &str_length32, error)) {
+      return false;
+    }
+
+    // substr == "" is a special case. Since we have
+    // INSTR('a', '', 1) = 1 and INSTR('a', '', 2) = 2,
+    // by extension, we should also have
+    // INSTR('a', '', -1) = 2 and INSTR('a', '', -2) = 1.
+    // Therefore we increment start in that case.
+    if (substr.empty()) {
+      pos++;
+    }
+
+    if (static_cast<int64_t>(str_length32) + pos < 0) {
+      *out = 0;
+      return true;
+    }
+
+    absl::string_view::size_type start = str_length32 + pos;
+    for (int i = 0; i < occurrence; ++i) {
+      // We start the next search at the second character of the previous
+      // occurrence.
+      if (i > 0 && start-- == 0) {
+        // We arrived at the beginning of the string and haven't found the
+        // substr. Returns instead of wrapping around.
+        *out = 0;
+        return true;
+      }
+      start = str.rfind(substr, start);
+      if (start == absl::string_view::npos) {
+        *out = 0;
+        return true;
+      }
+    }
+
+    // absl::string_view is indexed from 0.
+    *out = start + 1;
+    return true;
+  }
 }
 
 // This function handles SUBSTR(str, pos, length) where pos is negative.
@@ -527,14 +846,15 @@ static bool SubstrSuffixUtf8(absl::string_view str, int64_t pos, int64_t length,
   int32_t suffix_end_offset = str_length32;
   // Walk the string backwards from the end counting suffix_length characters
   // to find the end of the substring.
-  if (!BackN(str.data(), suffix_length32, &suffix_end_offset, error)) {
+  bool unused;
+  if (!BackN(str, suffix_length32, &suffix_end_offset, &unused, error)) {
     return false;
   }
   // At this point, suffix_end_offset is just a guess, we'll fix it later.
   int32_t suffix_start_offset = suffix_end_offset;
 
   while (length > 0 && suffix_start_offset > 0) {
-    if (!BackN(str.data(), 1, &suffix_start_offset, error)) {
+    if (!BackN(str, 1, &suffix_start_offset, &unused, error)) {
       return false;
     }
     length--;
@@ -544,7 +864,8 @@ static bool SubstrSuffixUtf8(absl::string_view str, int64_t pos, int64_t length,
     const int32_t length32 = ClampToInt32Max(length);
     // Hit the start of the string, so we need to fix our estimated end point
     // by pushing it out the remaining length.
-    if (!ForwardN(str.data(), str_length32, length32, &suffix_end_offset,
+    bool unused;
+    if (!ForwardN(str, str_length32, length32, &suffix_end_offset, &unused,
                   error)) {
       return false;
     }
@@ -588,7 +909,8 @@ bool SubstrWithLengthUtf8(absl::string_view str, int64_t pos, int64_t length,
     *out = absl::string_view("", 0);
     return true;
   }
-  if (!ForwardN(str.data(), str_length32, pos, &start_offset, error)) {
+  bool unused;
+  if (!ForwardN(str, str_length32, pos, &start_offset, &unused, error)) {
     return false;
   }
   // offset is now at the start we might need to truncate.
@@ -604,7 +926,7 @@ bool SubstrWithLengthUtf8(absl::string_view str, int64_t pos, int64_t length,
     *out = str.substr(start_offset);
   } else {
     int32_t end_offset = start_offset;
-    if (!ForwardN(str.data(), str_length32, length32, &end_offset, error)) {
+    if (!ForwardN(str, str_length32, length32, &end_offset, &unused, error)) {
       return false;
     }
     *out = str.substr(start_offset, end_offset - start_offset);
@@ -706,6 +1028,24 @@ bool LowerBytes(absl::string_view str, std::string* out, absl::Status* error) {
     (*out)[i] = absl::ascii_tolower(str[i]);
   }
   return true;
+}
+
+bool InitialCapitalize(absl::string_view str, absl::string_view delimiters,
+                       std::string* out, absl::Status* error) {
+  Utf8Capitalizer capitalizer;
+  if (!capitalizer.Initialize(delimiters, error)) {
+    return false;
+  }
+  return capitalizer.Capitalize(str, out, error);
+}
+
+bool InitialCapitalizeDefault(absl::string_view str, std::string* out,
+                              absl::Status* error) {
+  Utf8Capitalizer capitalizer;
+  if (!capitalizer.InitializeDefault(error)) {
+    return false;
+  }
+  return capitalizer.Capitalize(str, out, error);
 }
 
 // REPLACE(STRING, STRING, STRING) -> STRING
@@ -915,6 +1255,78 @@ bool FromHex(absl::string_view str, std::string* out, absl::Status* error) {
   }
   return true;
 }
+
+bool FirstCharOfStringToASCII(absl::string_view str, int64_t* out,
+                              absl::Status* error) {
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+  if (str_length32 == 0) {
+    *out = 0;
+  } else {
+    UChar32 character;
+    size_t i = 0;
+    U8_NEXT(str.data(), i, str_length32, character);
+    if (character < 0 || character > 127) {
+      return internal::UpdateError(
+          error, absl::Substitute("Argument to ASCII is not a "
+                                  "structurally valid ASCII string: '$0'",
+                                  str));
+    }
+    *out = character;
+  }
+  return true;
+}
+
+bool FirstByteOfBytesToASCII(absl::string_view str, int64_t* out,
+                              absl::Status* error) {
+  if (str.empty()) {
+    *out = 0;
+  } else {
+    *out = static_cast<int64_t>(str[0]);
+  }
+  return true;
+}
+
+bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
+                          absl::Status* error) {
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+  if (str_length32 == 0) {
+    *out = 0;
+  } else {
+    UChar32 character;
+    size_t i = 0;
+    U8_NEXT(str.data(), i, str_length32, character);
+    if (character < 0) {
+      std::string hexFirstChar = absl::BytesToHexString(str.substr(0, i));
+      DCHECK_EQ(hexFirstChar.size() % 2, 0);
+      std::string bytesFirstChar;
+      size_t sizeOfFirstBytes = hexFirstChar.size() + hexFirstChar.size() / 2;
+      bytesFirstChar.reserve(sizeOfFirstBytes);
+      for (int i = 0; i < hexFirstChar.size(); i += 2) {
+        bytesFirstChar.push_back('\\');
+        bytesFirstChar.push_back('x');
+        bytesFirstChar.push_back(hexFirstChar[i]);
+        bytesFirstChar.push_back(hexFirstChar[i + 1]);
+      }
+      return internal::UpdateError(
+          error, absl::Substitute("First char of input is not a "
+                                  "structurally valid UTF-8 character: '$0'",
+                                  bytesFirstChar));
+    }
+    *out = character;
+  }
+  return true;
+}
+
+bool CodePointToString(int64_t codepoint, std::string* out, absl::Status* error) {
+  return CodePointsToString({codepoint}, out, error);
+}
+
 
 bool StringToCodePoints(absl::string_view str, std::vector<int64_t>* out,
                         absl::Status* error) {
@@ -1354,6 +1766,263 @@ LikeRewriteType GetRewriteForLikePattern(bool is_string,
     // Rewrite "input LIKE 'pattern'" to an equality check.
     return LikeRewriteType::kEquals;
   }
+}
+
+// Helper constant for Soundex.
+namespace {
+
+// Mapping:
+// Non alpha character: 7
+//
+// Same for lower case.
+// A, E, I, O, U, Y, H, W: 0
+// B, F, P, V: 1
+// C, G, J, K, Q, S, X, Z: 2
+// D, T: 3
+// L: 4
+// M, N: 5
+// R: 6
+//
+// Multi-byte UTF8 characters have 1 as first bit in all bytes, so they will
+// return '7' (invalid).
+constexpr char kSoundexCodeMap[256] = {
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '0', '1', '2', '3', '0', '1', '2', '0', '0', '2',
+    '2', '4', '5', '5', '0', '1', '2', '6', '2', '3', '0', '1', '0', '2', '0',
+    '2', '7', '7', '7', '7', '7', '7', '0', '1', '2', '3', '0', '1', '2', '0',
+    '0', '2', '2', '4', '5', '5', '0', '1', '2', '6', '2', '3', '0', '1', '0',
+    '2', '0', '2', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7', '7',
+    '7'};
+
+}  // namespace
+
+// The Soundex code for a string consists of a letter followed by three
+// digits: the letter is the first letter of the string, and the digits
+// encode the remaining consonants. Consonants at a similar place of
+// articulation share the same digit so, for example, the labial consonants B,
+// F, P, and V are each encoded as the number 1.
+//
+// Specifications: (broken link)
+//
+// Algorithm:
+// - Set the first alpha character of the result to the first alpha letter of
+//   string and get the corresponding code from kSoundexCodeMap.
+// - Do the following until we have 4 characters in the result, or we reach the
+//   end of string:
+//   - Get the code for the next character in string.
+//   - If it is 0 or 7, continue.
+//   - If it is different from the previous code, add the code to the result.
+// - If the result has less than 4 characters, pad it with '0'.
+bool Soundex(absl::string_view str, std::string* out, absl::Status* error) {
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+
+  char result[] = "0000";
+  int res_index = 0;
+
+  char previous;
+  for (size_t str_index = 0; res_index < 4 && str_index < str_length32;
+       str_index++) {
+    char current = kSoundexCodeMap[str.at(str_index)];
+    if (current == '7') {
+      // Invalid character, skip.
+      continue;
+    }
+
+    if (res_index == 0) {
+      // First valid character.
+      result[res_index++] = str.at(str_index);
+      previous = current;
+    } else if (current != '0' && current != previous) {
+      result[res_index++] = current;
+      previous = current;
+    }
+  }
+  if (res_index == 0) {
+    // Empty input (after removing invalid characters), return empty string.
+    out->clear();
+  } else {
+    *out = result;
+  }
+
+  return true;
+}
+
+bool Utf8Translator::Initialize(absl::string_view source_characters,
+                                absl::string_view target_characters,
+                                absl::Status* error) {
+  int32_t source_length32;
+  if (!CheckAndCastStrLength(source_characters, &source_length32, error)) {
+    return false;
+  }
+  int32_t target_length32;
+  if (!CheckAndCastStrLength(target_characters, &target_length32, error)) {
+    return false;
+  }
+
+  size_t target_offset = 0;
+  for (size_t source_offset = 0; source_offset < source_length32;
+       /* U8_NEXT increments source_offset */) {
+    const size_t previous_source_offset = source_offset;
+    UChar32 character;
+    U8_NEXT(source_characters.data(), source_offset, source_length32,
+            character);
+    if (character < 0) {
+      return !internal::UpdateError(error, kBadUtf8);
+    }
+
+    absl::string_view target_string_view;
+    if (target_offset < target_length32) {
+      const size_t previous_target_offset = target_offset;
+      UChar32 target_character;
+      U8_NEXT(target_characters.data(), target_offset, target_length32,
+              target_character);
+      if (target_character < 0) {
+        return internal::UpdateError(error, kBadUtf8);
+      }
+      target_string_view = target_characters.substr(
+          previous_target_offset, target_offset - previous_target_offset);
+    }
+    if (!mapping_.insert({character, target_string_view}).second) {
+      return internal::UpdateError(
+          error, absl::Substitute(
+                     "Duplicate character $0 in TRANSLATE source characters",
+                     ToStringLiteral(source_characters.substr(
+                         previous_source_offset,
+                         source_offset - previous_source_offset))));
+    }
+  }
+  return true;
+}
+
+// Replaces characters in <str> according to <mapping_>.
+//
+// Complexity: O(Nlog(M)), N being the size of <str> and M the size of
+// <source_characters>.
+bool Utf8Translator::Translate(absl::string_view str, std::string* out,
+                               absl::Status* error) const {
+  int32_t str_length32;
+  if (!CheckAndCastStrLength(str, &str_length32, error)) {
+    return false;
+  }
+
+  out->clear();
+  // The output can be theorically 4 times as long as the input, if each
+  // single-byte character is replaced by a 4-byte UTF8 character.
+  // We reserve 120% of the original str size for the output string to avoid the
+  // cost of re-allocating memory while not over allocating prematurely.
+  // The number 120% is arbitrary.
+  out->reserve(
+      std::min(static_cast<size_t>(str_length32 * 1.2), kMaxOutputSize));
+
+  absl::string_view current_character;
+  for (size_t i = 0; i < str_length32; /* U8_NEXT increments i */) {
+    const size_t previous = i;
+    UChar32 character;
+    U8_NEXT(str.data(), i, str_length32, character);
+    if (character < 0) {
+      return internal::UpdateError(error, kBadUtf8);
+    }
+    const absl::string_view* target_string_view =
+        zetasql_base::FindOrNull(mapping_, character);
+    if (target_string_view == nullptr) {
+      // We copy the original character.
+      current_character = str.substr(previous, i - previous);
+      target_string_view = &current_character;
+    }
+
+    if (!target_string_view->empty()) {
+      if (out->size() + target_string_view->length() > kMaxOutputSize) {
+        return internal::UpdateError(error, kExceededTranslateOutputSize);
+      }
+      out->append(target_string_view->data(), target_string_view->length());
+    }
+  }
+
+  return true;
+}
+
+bool BytesTranslator::Initialize(absl::string_view source_bytes,
+                                 absl::string_view target_bytes,
+                                 absl::Status* error) {
+  std::bitset<256> assigned_bytes;
+
+  for (size_t i = 0; i < 256; ++i) {
+    mapping_[i] = static_cast<char>(i);
+  }
+
+  for (size_t i = 0; i < source_bytes.length(); ++i) {
+    uint8_t source_byte = static_cast<uint8_t>(source_bytes[i]);
+    if (assigned_bytes[source_byte]) {
+      return internal::UpdateError(
+          error,
+          absl::StrFormat("Duplicate byte 0x%02x in TRANSLATE source bytes",
+                          source_byte));
+    }
+    if (i < target_bytes.length()) {
+      mapping_[source_byte] = target_bytes[i];
+    } else {
+      skipped_bytes_[source_byte] = true;
+    }
+    assigned_bytes[source_byte] = true;
+  }
+  return true;
+}
+
+// Replaces bytes in <str> according to <mapping_>.
+//
+// Complexity: O(N), N being the size of <str>.
+bool BytesTranslator::Translate(absl::string_view str, std::string* out,
+                                absl::Status* error) const {
+  out->clear();
+  out->reserve(std::min(str.length(), kMaxOutputSize));
+
+  size_t output_size = 0;
+  for (const char c : str) {
+    uint8_t byte = static_cast<uint8_t>(c);
+    if (skipped_bytes_[byte]) continue;
+
+    if (++output_size > kMaxOutputSize) {
+      return internal::UpdateError(error, kExceededTranslateOutputSize);
+    }
+
+    out->append(1, mapping_[byte]);
+  }
+
+  return true;
+}
+
+bool TranslateUtf8(absl::string_view str, absl::string_view source_characters,
+                   absl::string_view target_characters, std::string* out,
+                   absl::Status* error) {
+  Utf8Translator translator;
+  if (!translator.Initialize(source_characters, target_characters, error)) {
+    return false;
+  }
+  return translator.Translate(str, out, error);
+}
+
+bool TranslateBytes(absl::string_view str, absl::string_view source_bytes,
+                    absl::string_view target_bytes, std::string* out,
+                    absl::Status* error) {
+  BytesTranslator translator;
+  if (!translator.Initialize(source_bytes, target_bytes, error)) {
+    return false;
+  }
+  return translator.Translate(str, out, error);
 }
 
 }  // namespace functions

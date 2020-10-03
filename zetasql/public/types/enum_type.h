@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,17 +77,6 @@ class EnumType : public Type {
     return sizeof(*this);
   }
 
-  void InitializeValueContent(ValueContent* value) const override;
-  absl::HashState HashTypeParameter(absl::HashState state) const override;
-  absl::HashState HashValueContent(const ValueContent& value,
-                                   absl::HashState state) const override;
-  bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
-
  private:
   // Does not take ownership of <factory> or <enum_descr>.  The
   // <enum_descriptor> must outlive the type.  The <enum_descr> must not be
@@ -121,6 +110,22 @@ class EnumType : public Type {
 
   void DebugStringImpl(bool details, TypeOrStringVector* stack,
                        std::string* debug_string) const override;
+
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override;
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override;
 
   const google::protobuf::EnumDescriptor* enum_descriptor_;  // Not owned.
 

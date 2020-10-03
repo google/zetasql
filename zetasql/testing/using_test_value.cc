@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ inline zetasql::Value NumericFromDouble(double v) {
 }
 using zetasql::values::BigNumeric;  // NOLINT
 inline zetasql::Value BigNumericFromDouble(double v) {
-  return BigNumeric(zetasql::BigNumericValue::FromDouble(v).ValueOrDie());
+  return BigNumeric(zetasql::BigNumericValue::FromDouble(v).value());
 }
 using zetasql::values::Proto;
 using zetasql::values::String;
@@ -103,6 +103,7 @@ using zetasql::values::NullInt32;
 using zetasql::values::NullInt64;
 using zetasql::values::NullNumeric;  // NOLINT
 using zetasql::values::NullBigNumeric;  // NOLINT
+using zetasql::values::NullJson;  // NOLINT
 using zetasql::values::NullString;
 using zetasql::values::NullTime;
 using zetasql::values::NullTimestamp;
@@ -120,5 +121,6 @@ using zetasql::values::Uint32Array;
 using zetasql::values::Uint64Array;
 using zetasql::values::NumericArray;  // NOLINT
 using zetasql::values::BigNumericArray;  // NOLINT
+using zetasql::values::Json;  // NOLINT
 
 using zetasql::values::EmptyArray;

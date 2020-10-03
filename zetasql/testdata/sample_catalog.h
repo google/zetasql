@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "absl/container/node_hash_map.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -127,6 +128,7 @@ class SampleCatalog {
   const ProtoType* proto3_KitchenSinkPB_;
   const ProtoType* proto_ambiguous_has_;
   const ProtoType* proto_field_formats_proto_;
+  const ProtoType* proto_MessageWithMapField_;
 
   const StructType* struct_type_;
   const StructType* nested_struct_type_;

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import "zetasql/public/options.proto";
 import "zetasql/public/parse_location_range.proto";
 import "zetasql/public/parse_resume_location.proto";
 import "zetasql/public/type.proto";
+import "zetasql/public/value.proto";
 import "zetasql/resolved_ast/serialization.proto";
 
 // Wire format of Function related messages, these shouldn't be exposed to end
@@ -79,6 +80,17 @@ message FunctionArgumentTypeOptionsProto {
   optional FunctionEnums.ProcedureArgumentMode procedure_argument_mode = 14;
   optional bool argument_name_is_mandatory = 15 [default = false];
   optional int32 descriptor_resolution_table_offset = 16 [default = -1];
+  optional ValueProto default_value = 17;
+  // Type of `default_value`. Only serialized for templated arguments. For fixed
+  // type arguments, deserialization of `default_value` relies on the
+  // `FunctionArgumentTypeProto.type` instead.  Only one of `default_value_type`
+  // or `FunctionArgumentTypeProto.type` will ever be set.
+  optional TypeProto default_value_type = 18;
+}
+
+message ArgumentTypeLambdaProto {
+  repeated FunctionArgumentTypeProto argument = 5;
+  optional FunctionArgumentTypeProto body = 6;
 }
 
 message FunctionArgumentTypeProto {
@@ -87,12 +99,16 @@ message FunctionArgumentTypeProto {
   optional int32 num_occurrences = 4;
 
   optional FunctionArgumentTypeOptionsProto options = 3;
+
+  optional ArgumentTypeLambdaProto lambda = 5;
 }
 
 message FunctionSignatureOptionsProto {
   // optional uint64 timestamp_modes = 1;  bitset<TimestampMode>
   optional bool is_deprecated = 2 [default = false];
   repeated FreestandingDeprecationWarning additional_deprecation_warning = 3;
+  repeated LanguageFeature required_language_feature = 4;
+  optional bool is_aliased_signature = 5 [default = false];
 }
 
 message FunctionSignatureProto {

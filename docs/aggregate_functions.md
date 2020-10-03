@@ -3,8 +3,8 @@
 
 # Aggregate functions
 
-An *aggregate function* is a function that performs a calculation on a set of
-values. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
+An *aggregate function* is a function that summarizes the rows of a group into a
+single value. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
 
 ```sql
 SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
@@ -21,13 +21,20 @@ FROM (SELECT NULL as fruit UNION ALL
 +-------------+----------------+-------+------+
 ```
 
+When used in conjunction with a `GROUP BY` clause, the groups summarized
+typically have at least one row. When the associated `SELECT` has no `GROUP BY`
+clause or when certain aggregate function modifiers filter rows from the group
+to be summarized it is possible that the aggregate function needs to summarize
+an empty group. In this case, the `COUNT` and `COUNTIF` functions return `0`,
+while all other aggregate functions return `NULL`.
+
 The following sections describe the aggregate functions that ZetaSQL
 supports.
 
 ### ANY_VALUE
 
 ```
-ANY_VALUE(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+ANY_VALUE(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -50,17 +57,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -98,7 +98,7 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 
 ### ARRAY_AGG
 ```
-ARRAY_AGG([DISTINCT] expression [{IGNORE|RESPECT} NULLS] [HAVING (MAX | MIN) expression2]
+ARRAY_AGG([DISTINCT] expression [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2]
           [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
 [OVER (...)]
 ```
@@ -120,21 +120,12 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified,
-    the NULL values are excluded from the result. If `RESPECT NULLS` is
-    specified or if neither is specified,
-    the NULL values are included in the result.
+    specified, the `NULL` values are excluded from the result. If
+    `RESPECT NULLS` or if neither is specified, the `NULL` values are included
+    in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 1.  `ORDER BY`: Specifies the order of the values.
     *   For each sort key, the default sort direction is `ASC`.
     *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
@@ -152,6 +143,7 @@ The clauses are applied *in the following order*:
     result.
     The limit `n` must be a constant INT64.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -251,7 +243,7 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 ### ARRAY_CONCAT_AGG
 
 ```
-ARRAY_CONCAT_AGG(expression [HAVING (MAX | MIN) expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+ARRAY_CONCAT_AGG(expression [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
 ```
 
 **Description**
@@ -270,15 +262,8 @@ ARRAY
 The clauses are applied *in the following order*:
 
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 1.  `ORDER BY`: Specifies the order of the values.
     *   For each sort key, the default sort direction is `ASC`.
     *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
@@ -297,6 +282,7 @@ The clauses are applied *in the following order*:
     array is not counted.
     The limit `n` must be a constant INT64.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -368,7 +354,7 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 
 ### AVG
 ```
-AVG([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+AVG([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -391,17 +377,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -455,7 +434,7 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 
 ### BIT_AND
 ```
-BIT_AND([DISTINCT] expression [HAVING (MAX | MIN) expression2])
+BIT_AND([DISTINCT] expression [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -476,16 +455,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -507,7 +480,7 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 
 ### BIT_OR
 ```
-BIT_OR([DISTINCT] expression [HAVING (MAX | MIN) expression2])
+BIT_OR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -528,16 +501,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -559,7 +526,7 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 
 ### BIT_XOR
 ```
-BIT_XOR([DISTINCT] expression [HAVING (MAX | MIN) expression2])
+BIT_XOR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
 ```
 
 **Description**
@@ -580,16 +547,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -638,7 +599,7 @@ COUNT(*)  [OVER (...)]
 
 2.
 ```
-COUNT([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+COUNT([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -660,17 +621,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -730,7 +684,7 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 
 ### COUNTIF
 ```
-COUNTIF([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+COUNTIF([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -751,17 +705,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -805,7 +752,7 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 
 ### LOGICAL_AND
 ```
-LOGICAL_AND(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+LOGICAL_AND(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -824,17 +771,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -856,7 +796,7 @@ SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 
 ### LOGICAL_OR
 ```
-LOGICAL_OR(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+LOGICAL_OR(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -875,17 +815,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -907,7 +840,7 @@ SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 
 ### MAX
 ```
-MAX(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+MAX(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -918,10 +851,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except:
-`ARRAY`
-`STRUCT`
-`PROTO`
+Any data type except: `ARRAY` `STRUCT` `PROTO`
 
 **Optional Clauses**
 
@@ -930,17 +860,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -979,7 +902,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 ### MIN
 ```
-MIN(expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+MIN(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -990,10 +913,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except:
-`ARRAY`
-`STRUCT`
-`PROTO`
+Any data type except: `ARRAY` `STRUCT` `PROTO`
 
 **Optional Clauses**
 
@@ -1002,17 +922,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -1051,7 +964,7 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 
 ### STRING_AGG
 ```
-STRING_AGG([DISTINCT] expression [, delimiter] [HAVING (MAX | MIN) expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+STRING_AGG([DISTINCT] expression [, delimiter] [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
 [OVER (...)]
 ```
 
@@ -1077,16 +990,8 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 1.  `ORDER BY`: Specifies the order of the values.
     *   For each sort key, the default sort direction is `ASC`.
     *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
@@ -1107,6 +1012,7 @@ The clauses are applied *in the following order*:
     as 1. A NULL string is not counted.
     The limit `n` must be a constant INT64.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -1202,7 +1108,7 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 
 ### SUM
 ```
-SUM([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+SUM([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -1225,17 +1131,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -1250,6 +1149,8 @@ The clauses are applied *in the following order*:
 value.
 
 Returns `NULL` if the input contains only `NULL`s.
+
+Returns `NULL` if the input contains no rows.
 
 Returns `Inf` if the input contains `Inf`.
 
@@ -1323,5 +1224,92 @@ FROM UNNEST([1, 2, 3, 4, 5, 4, 3, 2, 1]) AS x;
 | 5 | 7   |
 | 2 | 7   |
 +---+-----+
+```
+
+```sql
+SELECT SUM(x) AS sum
+FROM UNNEST([]) AS x;
+
++------+
+| sum  |
++------+
+| NULL |
++------+
+```
+
+### Common clauses
+
+#### HAVING MAX and HAVING MIN clause {: #max_min_clause }
+
+Most aggregate functions support two optional clauses called `HAVING MAX` and
+`HAVING MIN`, which restricts the set of rows that a function aggregates to
+rows that have a maximal or minimal value in a particular column. The syntax
+generally looks like this:
+
+```sql
+aggregate_function(expression1 [HAVING {MAX | MIN} expression2])
+```
+
++ `HAVING MAX`: Restricts the set of rows that the
+  function aggregates to those having a value for `expression2` equal to the
+  maximum value for `expression2` within the group. The  maximum value is
+  equal to the result of `MAX(expression2)`.
++ `HAVING MIN` Restricts the set of rows that the
+  function aggregates to those having a value for `expression2` equal to the
+  minimum value for `expression2` within the group. The minimum value is
+  equal to the result of `MIN(expression2)`.
+
+These clauses ignore `NULL` values when computing the maximum or minimum
+value unless `expression2` evaluates to `NULL` for all rows.
+
+ These clauses do not support the following
+data types:
+`ARRAY`
+`STRUCT`
+`PROTO`
+
+**Example**
+
+In this example, the average rainfall is returned for the most recent year,
+2001.
+
+```sql
+WITH Precipitation AS
+ (SELECT 2001 as year, 'spring' as season, 9 as inches UNION ALL
+  SELECT 2001, 'winter', 1 UNION ALL
+  SELECT 2000, 'fall', 3 UNION ALL
+  SELECT 2000, 'summer', 5 UNION ALL
+  SELECT 2000, 'spring', 7 UNION ALL
+  SELECT 2000, 'winter', 2)
+SELECT AVG(inches HAVING MAX year) as average FROM Precipitation
+
++---------+
+| average |
++---------+
+| 5       |
++---------+
+```
+
+First, the query gets the rows with the maximum value in the `year` column.
+There are two:
+
+```sql
++------+--------+--------+
+| year | season | inches |
++------+--------+--------+
+| 2001 | spring | 9      |
+| 2001 | winter | 1      |
++------+--------+--------+
+```
+
+Finally, the query averages the values in the `inches` column (9 and 1) with
+this result:
+
+```sql
++---------+
+| average |
++---------+
+| 5       |
++---------+
 ```
 

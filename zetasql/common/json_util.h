@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,10 @@ namespace zetasql {
 // `value_string`.  This also adds double quotes to the beginning and end of
 // the string. We can't use CEscape because it isn't entirely JSON compatible.
 void JsonEscapeString(absl::string_view raw, std::string* value_string);
+
+// Returns true iff JsonEscapeString(...) would have found any characters that
+// need escaping in the given raw input string.
+bool JsonStringNeedsEscaping(absl::string_view raw);
 
 }  // namespace zetasql
 

@@ -1,5 +1,5 @@
 #
-# Copyright 2018 ZetaSQL Authors
+# Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,10 +106,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2020-03-03
-            url = "https://github.com/abseil/abseil-cpp/archive/b19ba96766db08b1f32605cb4424a0e7ea0c7584.tar.gz",
-            sha256 = "c7ff8decfbda0add222d44bdc27b47527ca4e76929291311474efe7354f663d3",
-            strip_prefix = "abseil-cpp-b19ba96766db08b1f32605cb4424a0e7ea0c7584",
+            # Commit from 2020-07-01
+            url = "https://github.com/abseil/abseil-cpp/archive/81f34df8347a73c617f244f49cb916238857dc34.tar.gz",
+            sha256 = "89b1c570dd59cebf5127ff96b9b46ae8a7fe352cab4f9198e20dc7749ab8aa16",
+            strip_prefix = "abseil-cpp-81f34df8347a73c617f244f49cb916238857dc34",
         )
 
     # Abseil (Python)
@@ -268,10 +268,10 @@ cc_proto_library(
     if not native.existing_rule("com_google_guava_guava"):
         jvm_maven_import_external(
             name = "com_google_guava_guava",
-            artifact = "com.google.guava:guava:26.0-android",
-            tags = ["maven_coordinates=com.google.guava:guava:26.0-android"],
+            artifact = "com.google.guava:guava:29.0-jre",
+            tags = ["maven_coordinates=com.google.guava:guava:29.0-jre"],
             server_urls = ["https://repo1.maven.org/maven2"],
-            artifact_sha256 = "1d044ebb866ef08b7d04e998b4260c9b52fab6e6d6b68d207859486bb3686cd5",
+            artifact_sha256 = "b22c5fb66d61e7b9522531d04b2f915b5158e80aa0b40ee7282c8bfb07b0da25",
             licenses = ["notice"],  # Apache 2.0
         )
         native.bind(
@@ -282,10 +282,10 @@ cc_proto_library(
     if not native.existing_rule("com_google_guava_testlib"):
         jvm_maven_import_external(
             name = "com_google_guava_testlib",
-            artifact = "com.google.guava:guava-testlib:26.0-jre",
-            tags = ["maven_coordinates=com.google.guava:testlib:26.0-jre"],
+            artifact = "com.google.guava:guava-testlib:29.0-jre",
+            tags = ["maven_coordinates=com.google.guava:testlib:29.0-jre"],
             server_urls = ["https://repo1.maven.org/maven2"],
-            artifact_sha256 = "3e738516af017c9de105bf3a7f0a9f69183e47520446cb6df9bc24050834011e",
+            artifact_sha256 = "f15908de80ff261adde7823d1df599b7447de4863f7c521068ecf881cb1fc79b",
             licenses = ["notice"],  # Apache 2.0
         )
 
@@ -529,10 +529,10 @@ cc_proto_library(
     if not native.existing_rule("com_google_auto_common"):
         java_import_external(
             name = "com_google_auto_common",
-            jar_sha256 = "eee75e0d1b1b8f31584dcbe25e7c30752545001b46673d007d468d75cf6b2c52",
+            jar_sha256 = "b876b5fddaceeba7d359667f6c4fb8c6f8658da1ab902ffb79ec9a415deede5f",
             jar_urls = [
-                "http://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/auto-common/0.7/auto-common-0.7.jar",
-                "http://repo1.maven.org/maven2/com/google/auto/auto-common/0.7/auto-common-0.7.jar",
+                "https://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/auto-common/0.10/auto-common-0.10.jar",
+                "https://repo1.maven.org/maven2/com/google/auto/auto-common/0.10/auto-common-0.10.jar",
             ],
             licenses = ["notice"],  # Apache 2.0
             deps = ["@com_google_guava_guava//jar"],
@@ -544,8 +544,8 @@ cc_proto_library(
             name = "com_google_auto_service",
             jar_sha256 = "46808c92276b4c19e05781963432e6ab3e920b305c0e6df621517d3624a35d71",
             jar_urls = [
-                "http://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/service/auto-service/1.0-rc2/auto-service-1.0-rc2.jar",
-                "http://repo1.maven.org/maven2/com/google/auto/service/auto-service/1.0-rc2/auto-service-1.0-rc2.jar",
+                "https://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/service/auto-service/1.0-rc2/auto-service-1.0-rc2.jar",
+                "https://repo1.maven.org/maven2/com/google/auto/service/auto-service/1.0-rc2/auto-service-1.0-rc2.jar",
             ],
             licenses = ["notice"],  # Apache 2.0
             neverlink = True,
@@ -577,10 +577,10 @@ cc_proto_library(
         # because none of these jars become runtime dependencies.
         java_import_external(
             name = "com_google_auto_value",
-            jar_sha256 = "fd811b92bb59ae8a4cf7eb9dedd208300f4ea2b6275d726e4df52d8334aaae9d",
+            jar_sha256 = "8320edb037b62d45bc05ae4e1e21941255ef489e950519ef14d636d66870da64",
             jar_urls = [
-                "https://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/value/auto-value/1.6/auto-value-1.6.jar",
-                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value/1.6/auto-value-1.6.jar",
+                "https://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/value/auto-value/1.7.4/auto-value-1.7.4.jar",
+                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value/1.7.4/auto-value-1.7.4.jar",
             ],
             licenses = ["notice"],  # Apache 2.0
             generated_rule_name = "processor",
@@ -626,10 +626,10 @@ cc_proto_library(
     if not native.existing_rule("com_google_auto_value_annotations"):
         java_import_external(
             name = "com_google_auto_value_annotations",
-            jar_sha256 = "d095936c432f2afc671beaab67433e7cef50bba4a861b77b9c46561b801fae69",
+            jar_sha256 = "fedd59b0b4986c342f6ab2d182f2a4ee9fceb2c7e2d5bdc4dc764c92394a23d3",
             jar_urls = [
-                "https://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.6/auto-value-annotations-1.6.jar",
-                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.6/auto-value-annotations-1.6.jar",
+                "https://mirror.bazel.build/repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.6/auto-value-annotations-1.7.4.jar",
+                "https://repo1.maven.org/maven2/com/google/auto/value/auto-value-annotations/1.7.4/auto-value-annotations-1.7.4.jar",
             ],
             licenses = ["notice"],  # Apache 2.0
             neverlink = True,
@@ -690,6 +690,15 @@ java_library(
             strip_prefix = "googletest-6f5fd0d7199b9a19faa9f499ecc266e6ae0329e7",
         )
 
+    # Google Benchmark framework. Used by benchmark tests.
+    if not native.existing_rule("com_github_google_benchmark"):
+        http_archive(
+            name = "com_github_google_benchmark",
+            url = "https://github.com/google/benchmark/archive/v1.5.1.tar.gz",
+            sha256 = "23082937d1663a53b90cb5b61df4bcc312f6dee7018da78ba00dd6bd669dfef2",
+            strip_prefix = "benchmark-1.5.1",
+        )
+
     # RE2 Regex Framework, mostly used in unit tests.
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
@@ -717,6 +726,21 @@ java_library(
 )""",
         )
 
+    # Json.
+    if not native.existing_rule("json"):
+        http_archive(
+            name = "json",
+            # JSON for Modern C++
+            url = "https://github.com/nlohmann/json/archive/v3.7.3.zip",
+            strip_prefix = "json-3.7.3",
+            sha256 = "e109cd4a9d1d463a62f0a81d7c6719ecd780a52fb80a22b901ed5b6fe43fb45b",
+            build_file_content = """cc_library(
+    name="json",
+    visibility=["//visibility:public"],
+    hdrs=["single_include/nlohmann/json.hpp"]
+)""",
+        )
+
     if not native.existing_rule("markupsafe"):
         http_archive(
             name = "markupsafe",
@@ -735,9 +759,9 @@ java_library(
     if not native.existing_rule("google_bazel_common"):
         http_archive(
             name = "google_bazel_common",
-            strip_prefix = "bazel-common-eb5c7e5d6d2c724fe410792c8be9f59130437e4a",
-            urls = ["https://github.com/google/bazel-common/archive/eb5c7e5d6d2c724fe410792c8be9f59130437e4a.zip"],
-            sha256 = "18f266d921db1daa2ee9837343938e37fa21e0a8b6a0e43a67eda4c30f62b812",
+            strip_prefix = "bazel-common-e768dbfea5bac239734b3f59b2a1d7464c6dbd26",
+            urls = ["https://github.com/google/bazel-common/archive/e768dbfea5bac239734b3f59b2a1d7464c6dbd26.zip"],
+            sha256 = "17f66ba76073a290add024a4ce7f5f92883832b7da85ffd7677e1f5de9a36153",
         )
 
     ##########################################################################

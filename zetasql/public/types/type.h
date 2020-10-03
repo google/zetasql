@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -59,12 +59,14 @@ class Type;
 class TypeFactory;
 class Value;
 class ValueContent;
+class ValueProto;
 
 namespace internal {
 class TypeStore;
 }  // namespace internal
 
 typedef std::vector<Type*> TypeList;
+typedef absl::Span<const Type* const> TypeListView;
 
 // In-memory representation of a ZetaSQL type.
 // See (broken link) for more information on the type system.
@@ -128,6 +130,7 @@ class Type {
   }
 
   bool IsGeography() const { return kind_ == TYPE_GEOGRAPHY; }
+  bool IsJson() const { return kind_ == TYPE_JSON; }
   bool IsEnum() const { return kind_ == TYPE_ENUM; }
   bool IsArray() const { return kind_ == TYPE_ARRAY; }
   bool IsStruct() const { return kind_ == TYPE_STRUCT; }
@@ -236,7 +239,7 @@ class Type {
   // NOT IN, USING and CASE.
   // Note that this means the ZetaSQL type supports equality, but there are
   // LanguageOptions that may restrict this for particular engines.
-  virtual bool SupportsEquality() const { return !IsGeography(); }
+  virtual bool SupportsEquality() const { return !IsGeography() && !IsJson(); }
 
   // Returns true if type supports equality with respect to the
   // 'language_options'. E.g. array type supports equality if the
@@ -268,6 +271,13 @@ class Type {
   // Equivalent types.
   bool Equivalent(const Type* other_type) const {
     return EqualsImpl(other_type, true /* equivalent */);
+  }
+
+  // Hashes a Type using absl::Hash library.
+  template <typename H>
+  friend H AbslHashValue(H state, const Type& value) {
+    value.Hash(absl::HashState::Create(&state));
+    return std::move(state);
   }
 
   // Serialize the Type to a fully self-contained protocol buffer into
@@ -428,29 +438,18 @@ class Type {
   static std::string TypeKindListToString(const std::vector<TypeKind>& kinds,
                                           ProductMode mode);
 
-  // Returns whether <type_name> identifies a simple Type.
-  // Assumes all language features are enabled.
-  ABSL_DEPRECATED("Use GetTypeKindIfSimple instead")
-  static bool IsSimpleTypeName(const std::string& type_name, ProductMode mode) {
-    return GetTypeKindIfSimple(type_name, mode) != TYPE_UNKNOWN;
-  }
-
-  // Returns the matching TypeKind associated with <type_name>, or crashes
-  // if the name does not identify a simple Type.
-  ABSL_DEPRECATED("Use GetTypeKindIfSimple instead")
-  static TypeKind SimpleTypeNameToTypeKindOrDie(const std::string& type_name,
-                                                ProductMode mode) {
-    TypeKind type_kind = GetTypeKindIfSimple(type_name, mode);
-    CHECK_NE(type_kind, TYPE_UNKNOWN);
-    return type_kind;
-  }
+  // Returns comma-separated list of names of given <types>. Type name is
+  // generated using Type::ShortTypeName(<mode>).
+  static std::string TypeListToString(TypeListView types, ProductMode mode);
 
   // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
   // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
+  // 'type_name' is case-insensitive.
   static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
                                       ProductMode mode);
   // Returns the type kind if 'type_name' is a simple type given
   // 'language_options', or TYPE_UNKNOWN otherwise.
+  // 'type_name' is case-insensitive.
   static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
                                       const LanguageOptions& language_options);
 
@@ -459,12 +458,14 @@ class Type {
   // Returns an integer identifying relative specificity, where lower values
   // mean more specific.  Specificity details are defined in:
   //   (broken link)
-  // TODO: Update document location to reflect the final
-  // cast/coercion/supertype document when it is available.
   static int KindSpecificity(TypeKind kind);
 
   // Compares whether one TypeKind specificity is less than another.
+  // REQUIRES: kind1 != TYPE_EXTENDED && kind2 != TYPE_EXTENDED.
   static bool KindSpecificityLess(TypeKind kind1, TypeKind kind2);
+  // Compares whether one built-in Type specificity is less than another.
+  // REQUIRES: !t1->IsExtended() && !t2->IsExtended().
+  static bool TypeSpecificityLess(const Type* t1, const Type* t2);
 
   // Returns an integer identifying the relative cost of coercing from one type
   // to another.  Always returns a non-negative result.  When considering
@@ -529,38 +530,6 @@ class Type {
   // (such as element types of arrays or field types of structs).
   virtual int64_t GetEstimatedOwnedMemoryBytesSize() const = 0;
 
-  // Functions below are used as an interface between zetasql::Value and Type
-  // to manage Values content life-cycle. Make Value a friend, so it can access
-  // them.
-  friend class Value;
-
-  // Initializes a value's content before it is used. This function is called
-  // from "Value::Value(const Type*)". It's expected that ValueContent is
-  // empty (all bytes are zeros) before this call.
-  // TODO: We need to consider removing "Value(const Type*)" together
-  // with this function: today that Value's constructor is used for creation of
-  // null, struct and array values. For null values we can just allocate nothing
-  // (also can save a space this way). For arrays and struct we can have a
-  // special factory function within corresponding Type subclasses.
-  virtual void InitializeValueContent(ValueContent* value) const {}
-
-  // Copies value's content to another value. Is called when one value is
-  // assigned to another. It's expected that content of destination is empty
-  // (doesn't contain any valid content that needs to be destructed): if
-  // operation is a replacement, it should have been cleaned with
-  // ClearValueContent before this call. Default implementation just copy
-  // ValueContent's memory.
-  virtual void CopyValueContent(const ValueContent& from,
-                                ValueContent* to) const;
-
-  // Releases value's content if it owns some memory allocation. This function
-  // is called from Value::Clear when value is replaced with another or freed.
-  // The value's content lifetime is managed by Value class, which also ensures
-  // that ClearValueContent is called only once for each constructed
-  // content. Note: this function must not be used outside of the Value
-  // destruction context.
-  virtual void ClearValueContent(const ValueContent& value) const {}
-
   // Contains value equality check options that can be provided to
   // ValueContentEquals function.
   struct ValueEqualityCheckOptions {
@@ -583,42 +552,6 @@ class Type {
     // explanation of what parts of values differ.
     std::string* reason = nullptr;
   };
-
-  // Checks two values for equality. The first value belongs to the current
-  // type, while the second one belongs to an equivalent type
-  // (this->Equivalent(other_value_type) == true). The pointer to the value of
-  // the second type can be found in 'options'. If both values are nulls, they
-  // are considered equal.
-  // Note: this function doesn't perform SQL equality.
-  // This function should only be used from zetasql::Value class.
-  bool ValueContentEquals(const ValueContent& x, const ValueContent& y,
-                          const ValueEqualityCheckOptions& options) const;
-
-  // Checks for equality a content of two values. It should be expected that
-  // both values that are passed to this function are not-null, the first value
-  // belongs to the current type and the second to the type that is equivalent
-  // to the current type (pointer to the actual type can be found in
-  // ValueEqualityCheckOptions::other_value_type). This function should only be
-  // called from ValueContentEquals that enforces these assumptions.
-  virtual bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const = 0;
-
-  // Returns memory size allocated by value's content (outside of Value class
-  // memory itself).
-  virtual uint64_t GetValueContentExternallyAllocatedByteSize(
-      const ValueContent& value) const {
-    return 0;
-  }
-
-  // Hashes the content of the value. This function is called from
-  // Value::HashValueInternal. It's not required that generated hash depends on
-  // type's information (like, a kind or a parameter), and from performance
-  // considerations it should only be based on a value's content (if dependence
-  // on a type is important for a caller, caller can use Type's Hash function
-  // after HashValueContent).
-  virtual absl::HashState HashValueContent(const ValueContent& value,
-                                           absl::HashState state) const = 0;
 
   // Formatting options that can be provided to FormatValueContent.
   struct FormatValueContentOptions {
@@ -653,16 +586,6 @@ class Type {
     bool verbose = false;  // Used with debug mode only.
   };
 
-  // Returns a string representation of the value content based on the given
-  // formatting options. Value content is required to be non-null. This function
-  // is called from Value::GetSQLInternal, which is used by Value::GetSQL,
-  // Value::GetSQLLiteral and Value::DebugString functions. Please check
-  // comments to these functions for the details of expected result
-  // representation.
-  virtual std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const = 0;
-
   // List of DebugStringImpl outputs. Used to serve as a stack in
   // DebugStringImpl to protect from stack overflows.
   // Note: SWIG will fail to process this file if we remove a white space
@@ -670,6 +593,10 @@ class Type {
   // "typedef".
   typedef std::vector<absl::variant<const Type*, std::string> >
       TypeOrStringVector;
+
+  // Returns an error status code in case serialized proto Value representation
+  // doesn't belong to the current type.
+  absl::Status TypeMismatchError(const ValueProto& value_proto) const;
 
  private:
   // Recursive implementation of SupportsGrouping, which returns in
@@ -704,6 +631,85 @@ class Type {
     return HAS_NO_FIELD;
   }
 
+  // *ValueContent* functions below are used as an interface between
+  // zetasql::Value and zetasql::Type to manage Value objects' content.
+  //
+  // Caveat: all *ValueContent* functions should be used only by
+  // zetasql::Value class, which enforces necessary invariants on their
+  // parameters before accessing them.
+  //
+  // Make Value a friend, so it can access *ValueContent* functions.
+  friend class Value;
+
+  // Copies value's content to another value. Is called when one value is
+  // assigned to another. It's expected that content of destination is empty
+  // (doesn't contain any valid content that needs to be destructed): if
+  // operation is a replacement, it should have been cleaned with
+  // ClearValueContent before this call. Default implementation just copies
+  // ValueContent's memory.
+  virtual void CopyValueContent(const ValueContent& from,
+                                ValueContent* to) const;
+
+  // Releases value's content if it owns some memory allocation. This function
+  // is called from Value::Clear when value is replaced with another or freed.
+  // The value's content lifetime is managed by Value class, which also ensures
+  // that ClearValueContent is called only once for each constructed
+  // content. Note: this function must not be used outside of the Value
+  // destruction context.
+  virtual void ClearValueContent(const ValueContent& value) const {}
+
+  // Checks for equality between the content of two values. It should be
+  // expected that the first value content belongs to the current type and the
+  // second to a type that is equivalent to the current type:
+  // this->Equivalent(other_value_type) == true. The pointer to the later type
+  // is stored in ValueEqualityCheckOptions::other_value_type. This function
+  // should only be called from the Value::EqualsInternal that enforces these
+  // assumptions.
+  // Note: this function doesn't perform SQL equality.
+  virtual bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const = 0;
+
+  // Returns true when <x> is smaller than <y>. The Type of <y> should be
+  // equivalent to the current Type (this->Equivalent(other_value_type) == true)
+  // and the pointer to the later Type is provided in <other_type>. Note: this
+  // function doesn't perform SQL comparison, but is used by Value::LessThan.
+  virtual bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                                const Type* other_type) const = 0;
+
+  // Returns memory size allocated by value's content (outside of Value class
+  // memory itself).
+  virtual uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const {
+    return 0;
+  }
+
+  // Hashes the content of the value. This function is called from
+  // Value::HashValueInternal. It's not required that generated hash depends on
+  // type's information (like, a kind or a parameter), and from performance
+  // considerations it should only be based on a value's content (if dependence
+  // on a type is important for a caller, caller can use Type's Hash function
+  // after HashValueContent).
+  virtual absl::HashState HashValueContent(const ValueContent& value,
+                                           absl::HashState state) const = 0;
+
+  // Returns a string representation of the value content based on the given
+  // formatting options. This function is called from Value::GetSQLInternal,
+  // which is used by Value::GetSQL, Value::GetSQLLiteral and Value::DebugString
+  // functions. Please check comments to these functions for the details of
+  // expected result representation.
+  virtual std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const = 0;
+
+  // Serializes the Value into ValueProto protocol buffer.
+  virtual absl::Status SerializeValueContent(const ValueContent& value,
+                                             ValueProto* value_proto) const = 0;
+
+  // Deserializes a ValueProto into Value.
+  virtual absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                               ValueContent* value) const = 0;
+
   // Make TypeFactory and TypeStore friend classes to provide an access to
   // type_store_ field.
   friend class TypeFactory;
@@ -720,13 +726,31 @@ typedef Type::FileDescriptorSetMap FileDescriptorSetMap;
 typedef Type::BuildFileDescriptorSetMapOptions BuildFileDescriptorMapOptions;
 
 #ifndef SWIG
-// Provides equality comparison operator for Types.  This primarily invokes
+// Provides equality comparison operator for Types. This primarily invokes
 // Type::Equals().
-struct TypeEquals {
+class TypeEquals {
  public:
-  bool operator()(const Type* const type1,
-                  const Type* const type2) const;
+  bool operator()(const Type* type1, const Type* type2) const;
 };
+
+// Provides equivalence comparison operator for Types. Uses Type::Equivalent().
+class TypeEquivalent {
+ public:
+  bool operator()(const Type* type1, const Type* type2) const;
+};
+
+// Provides hashing operator for Types.
+class TypeHash {
+ public:
+  size_t operator()(const Type* type) const;
+};
+
+template <class Hash = TypeHash, class Eq = TypeEquals>
+using TypeFlatHashSet = absl::flat_hash_set<const Type*, Hash, Eq>;
+
+template <class ValueT, class Hash = TypeHash, class Eq = TypeEquals>
+using TypeFlatHashMap = absl::flat_hash_map<const Type*, ValueT, Hash, Eq>;
+
 #endif  // SWIG
 
 typedef std::pair<TypeKind, TypeKind> TypeKindPair;

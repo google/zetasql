@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,10 +51,13 @@ TEST_P(RegexpTemplateTest, TestLib) {
   RegExp re;
   bool ok;
   absl::Status status;
+  RegExp::PositionUnit position_unit;
   if (args[1].type_kind() == TYPE_STRING) {
     ok = re.InitializePatternUtf8(args[1].string_value(), &status);
+    position_unit = RegExp::kUtf8Chars;
   } else {
     ok = re.InitializePatternBytes(args[1].bytes_value(), &status);
+    position_unit = RegExp::kBytes;
   }
   if (!ok) {
     ASSERT_FALSE(expected_ok);
@@ -77,11 +80,20 @@ TEST_P(RegexpTemplateTest, TestLib) {
     if (ok) {
       EXPECT_EQ(param.params.result().bool_value(), out);
     }
-  } else if (function == "regexp_extract") {
+  } else if (function == "regexp_extract" || function == "regexp_substr") {
     absl::string_view out;
     bool is_null;
     std::string in = StringValue(args[0]);
-    ok = re.Extract(in, &out, &is_null, &status);
+    int64_t position = 1;
+    int64_t occurrence = 1;
+    if (args.size() >= 3) {
+      position = args[2].int64_value();
+      if (args.size() == 4) {
+        occurrence = args[3].int64_value();
+      }
+    }
+    ok = re.Extract(in, position_unit, position, occurrence, &out, &is_null,
+                    &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {
@@ -132,8 +144,68 @@ TEST_P(RegexpTemplateTest, TestLib) {
   }
 }
 
+INSTANTIATE_TEST_SUITE_P(
+    Regexp2, RegexpTemplateTest,
+    testing::ValuesIn(GetFunctionTestsRegexp2(/*include_feature_set=*/false)));
+
 INSTANTIATE_TEST_SUITE_P(Regexp, RegexpTemplateTest,
                          testing::ValuesIn(GetFunctionTestsRegexp()));
+
+typedef testing::TestWithParam<FunctionTestCall> RegexpInstrTest;
+TEST_P(RegexpInstrTest, TestLib) {
+  const FunctionTestCall& param = GetParam();
+  const std::vector<Value>& args = param.params.params();
+  bool expected_ok = param.params.status().ok();
+  for (const Value& arg : args) {
+    // Ignore tests with null arguments.
+    if (arg.is_null()) return;
+  }
+  RegExp re;
+  bool ok;
+  absl::Status status;
+  RegExp::InstrParams options;
+  if (args[1].type_kind() == TYPE_STRING) {
+    ok = re.InitializePatternUtf8(args[1].string_value(), &status);
+    options.input_str = args[0].string_value();
+    options.position_unit = RegExp::kUtf8Chars;
+  } else {
+    ok = re.InitializePatternBytes(args[1].bytes_value(), &status);
+    options.input_str = args[0].bytes_value();
+    options.position_unit = RegExp::kBytes;
+  }
+  if (!ok) {
+    ASSERT_FALSE(expected_ok);
+    ASSERT_EQ(param.params.status().code(), status.code());
+    return;
+  }
+
+  if (args.size() >= 3) {
+    options.position = args[2].int64_value();
+    if (args.size() >= 4) {
+      options.occurrence_index = args[3].int64_value();
+      if (args.size() == 5) {
+        if (args[4].int64_value() == 1) {
+          options.return_position = RegExp::kEndOfMatch;
+        } else if (args[4].int64_value() == 0) {
+          options.return_position = RegExp::kStartOfMatch;
+        } else {
+          return;
+        }
+      }
+    }
+  }
+  int64_t out;
+  options.out = &out;
+  ok = re.Instr(options, &status);
+  ASSERT_EQ(expected_ok, ok);
+  ASSERT_EQ(param.params.status().code(), status.code());
+  if (ok) {
+    EXPECT_EQ(param.params.result().int64_value(), out);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(RegexpInstrTests, RegexpInstrTest,
+                         testing::ValuesIn(GetFunctionTestsRegexpInstr()));
 
 TEST(RegexpExtract, NullStringView) {
   // Tests for b/25378427.
@@ -173,6 +245,28 @@ TEST(RegexpReplace, MemLimit) {
   re.SetMaxOutSize(64 * 1024);
   EXPECT_TRUE(re.Replace(in, "B", &out, &error));
   EXPECT_FALSE(re.Replace(in, "BB", &out, &error));
+}
+
+TEST(RegexpReplace, NullStringView) {
+  // Tests for b/160737744.
+  absl::string_view null_string;
+  absl::string_view empty_string("", 0);
+  const std::vector<std::pair<absl::string_view, absl::string_view>>
+      patterns_and_inputs = {{null_string, null_string},
+                             {null_string, empty_string},
+                             {empty_string, null_string},
+                             {empty_string, empty_string}};
+
+  for (const auto& pattern_and_input : patterns_and_inputs) {
+    RegExp regexp;
+    absl::Status status;
+    ASSERT_TRUE(regexp.InitializePatternUtf8(pattern_and_input.first, &status))
+        << status;
+    std::string out;
+    ASSERT_TRUE(regexp.Replace(pattern_and_input.second, "foo", &out, &status))
+        << status;
+    EXPECT_EQ("foo", out);
+  }
 }
 
 }  // anonymous namespace

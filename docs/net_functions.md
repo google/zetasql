@@ -228,7 +228,7 @@ stored in the least significant bit of the integer, regardless of host or client
 architecture. For example, `1` means `0.0.0.1`, and `0x1FF` means `0.0.1.255`.
 
 This function checks that either all the most significant 32 bits are 0, or all
-the most significant 33 bits are 1 (sign-extended from a 32 bit integer).
+the most significant 33 bits are 1 (sign-extended from a 32-bit integer).
 In other words, the input should be in the range `[-0x80000000, 0xFFFFFFFF]`;
 otherwise, this function throws an error.
 
@@ -295,6 +295,7 @@ UNNEST([b"\x00\x00\x00\x00", b"\x00\xab\xcd\xef", b"\xff\xff\xff\xff"]) AS x;
 | b"\xff\xff\xff\xff" | 0xFFFFFFFF    |
 
 ### NET.FORMAT_IP (DEPRECATED)
+
 ```
 NET.FORMAT_IP(integer)
 ```
@@ -310,6 +311,7 @@ except that this function does not allow negative input values.
 STRING
 
 ### NET.PARSE_IP (DEPRECATED)
+
 ```
 NET.PARSE_IP(addr_str)
 ```
@@ -326,6 +328,7 @@ if any, while `NET.IP_FROM_STRING` treats `'\x00'` as invalid.
 INT64
 
 ### NET.FORMAT_PACKED_IP (DEPRECATED)
+
 ```
 NET.FORMAT_PACKED_IP(bytes_value)
 ```
@@ -339,6 +342,7 @@ This function is deprecated. It is the same as [`NET.IP_TO_STRING`][net-link-to-
 STRING
 
 ### NET.PARSE_PACKED_IP (DEPRECATED)
+
 ```
 NET.PARSE_PACKED_IP(addr_str)
 ```
@@ -355,6 +359,7 @@ treats `'\x00'` as invalid.
 BYTES
 
 ### NET.IP_IN_NET
+
 ```
 NET.IP_IN_NET(address, subnet)
 ```
@@ -381,6 +386,7 @@ considered invalid, an `OUT_OF_RANGE` error occurs.
 BOOL
 
 ### NET.MAKE_NET
+
 ```
 NET.MAKE_NET(address, prefix_length)
 ```
@@ -421,6 +427,7 @@ considered invalid, an `OUT_OF_RANGE` error occurs.
 STRING
 
 ### NET.HOST
+
 ```
 NET.HOST(url)
 ```
@@ -474,6 +481,7 @@ FROM (
 | "mailto:?to=&subject=&body="                                        | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
 ### NET.PUBLIC_SUFFIX
+
 ```
 NET.PUBLIC_SUFFIX(url)
 ```
@@ -549,6 +557,7 @@ FROM (
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
 ### NET.REG_DOMAIN
+
 ```
 NET.REG_DOMAIN(url)
 ```

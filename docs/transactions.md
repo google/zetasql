@@ -2,8 +2,6 @@
 
 # Transactions
 
-<!-- BEGIN CONTENT -->
-
 ZetaSQL specifies the syntax for transaction statements, such as
 `BEGIN`.
 
@@ -60,6 +58,4 @@ ROLLBACK [TRANSACTION];
 Rolls back a transaction.
 
 [begin-transaction]: #begin
-
-<!-- END CONTENT -->
 

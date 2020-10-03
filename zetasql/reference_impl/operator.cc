@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,16 +71,39 @@ std::string AlgebraArg::DebugInternal(const std::string& indent,
   std::string result;
   if (has_variable()) {
     absl::StrAppend(&result, "$", variable().ToString());
-    if (verbose) {
-      absl::StrAppend(&result, "[",
-                      node()->AsValueExpr()->output_type()->DebugString(), "]");
-    }
     if (has_node()) {
+      if (verbose) {
+        absl::StrAppend(&result, "[",
+                        node()->AsValueExpr()->output_type()->DebugString(),
+                        "]");
+      }
       absl::StrAppend(&result, " := ");
     }
   }
   if (has_node()) {
     absl::StrAppend(&result, node()->DebugInternal(indent, verbose));
+  }
+  return result;
+}
+
+// -------------------------------------------------------
+// CppValueArg
+// -------------------------------------------------------
+CppValueArg::CppValueArg(const VariableId variable,
+                         absl::string_view value_debug_string)
+    : AlgebraArg(variable, nullptr), value_debug_string_(value_debug_string) {}
+
+std::string CppValueArg::DebugInternal(const std::string& indent,
+                                       bool verbose) const {
+  std::string result;
+  if (has_variable()) {
+    absl::StrAppend(&result, "$", variable().ToString());
+    if (!value_debug_string_.empty()) {
+      absl::StrAppend(&result, " := ");
+    }
+  }
+  if (value_debug_string_.empty()) {
+    absl::StrAppend(&result, "CppValue {", value_debug_string_, "}");
   }
   return result;
 }

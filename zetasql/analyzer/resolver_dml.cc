@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -58,7 +59,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -904,7 +904,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       absl::string_view function_name;
       const ASTExpression* unwrapped_ast_position_expr;
       // Verifies that 'info.target->type()' is an array.
-      ZETASQL_RETURN_IF_ERROR(ResolveArrayElementPosition(
+      ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
           info.target.get(), array_element->position(), expr_resolution_info,
           &function_name, &unwrapped_ast_position_expr, &info.array_offset));
       if (function_name == kSafeArrayAtOffset) {

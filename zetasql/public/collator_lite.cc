@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "zetasql/public/collator.h"
 #include "absl/base/thread_annotations.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status_builder.h"

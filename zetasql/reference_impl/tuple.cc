@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include "zetasql/public/value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
@@ -38,6 +39,12 @@ TupleSchema::TupleSchema(absl::Span<const VariableId> variables)
   for (int i = 0; i < variables_.size(); ++i) {
     vars_to_idxs_.insert(i);
   }
+}
+
+void TupleSchema::AddVariable(VariableId variable) {
+  variables_.push_back(variable);
+  vars_to_idxs_.reserve(variables_.size());
+  vars_to_idxs_.insert(static_cast<int>(variables_.size() - 1));
 }
 
 absl::optional<int> TupleSchema::FindIndexForVariable(

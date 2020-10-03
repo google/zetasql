@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,44 +16,90 @@
 
 #include "zetasql/analyzer/recursive_queries.h"
 
+#include "zetasql/analyzer/container_hash_equals.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
 
 namespace {
-class AnalyzeWithDependenciesVisitor : public NonRecursiveParseTreeVisitor {
+
+// Helper class for examining table references under a series of "root" nodes,
+// determining which "root" nodes are referenced by other root nodes.
+//   <NodeType> denotes the type of each root node being examined, and must
+//   derive from ASTNode.
+template <typename NodeType>
+class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
  public:
-  AnalyzeWithDependenciesVisitor() = default;
-  AnalyzeWithDependenciesVisitor(const AnalyzeWithDependenciesVisitor&) =
-      delete;
-  AnalyzeWithDependenciesVisitor& operator=(
-      const AnalyzeWithDependenciesVisitor&) = delete;
+  // Map which associates each node with a set of nodes referenced by it.
+  // All nodes contained within any value sets are also keys in the map.
+  using NodeReferenceMap =
+      absl::flat_hash_map<const NodeType*,
+                          absl::flat_hash_set<const NodeType*>>;
 
-  absl::Status Run(const ASTWithClause* with_clause) {
-    for (const ASTWithClauseEntry* entry : with_clause->with()) {
-      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&name_entry_map_,
-                                        entry->alias()->GetAsIdString(), entry))
-          << "Duplicate WITH aliases should have been screened for earlier";
-      dependencies_[entry] = absl::flat_hash_set<const ASTWithClauseEntry*>{};
-      inner_aliases_[entry->alias()->GetAsIdString()] = 0;
-    }
+  // Map which associates each node with a table name used to reference that
+  // node within a query.
+  using NodeNameMap =
+      absl::flat_hash_map<const NodeType*, std::vector<IdString>>;
 
-    for (const ASTWithClauseEntry* entry : with_clause->with()) {
-      root_ = entry;
-      ZETASQL_RETURN_IF_ERROR(entry->TraverseNonRecursive(this));
-    }
-    return absl::OkStatus();
+  // Searches the descendants of each node in 'roots', returning a map
+  // describing which nodes each nodes are referenced by which other nodes.
+  //
+  // <roots> specifies the nodes to search. The key is the node, the value
+  //    is the qualified name associated with the node. Any table reference
+  //    which matches the value name is assumed to be a reference to the node
+  //    key, unless the name is shadowed by an inner WITH alias.
+  //
+  //    For example, if a key is an ASTWithEntry, the value should be
+  //    single-element vector corresponding to the WITH alias.
+  //    TODO: If the key is the subquery of an
+  //    ASTCreateViewStatement, the value should be the name of the view being
+  //    created.
+  //
+  //    Table references are matched to values using case-insensitive semantics.
+  //
+  // Returns a map associating every node in <roots> with a set of nodes in
+  // <roots> which it references.
+  static zetasql_base::StatusOr<NodeReferenceMap> Run(const NodeNameMap& roots) {
+    FindTableReferencesVisitor visitor;
+    return visitor.RunInternal(roots);
   }
 
-  const auto& dependency_graph() const { return dependencies_; }
-
  private:
+  zetasql_base::StatusOr<NodeReferenceMap> RunInternal(const NodeNameMap& roots) {
+    for (const auto& pair : roots) {
+      if (pair.second.size() == 1) {
+        inner_aliases_[pair.second.front()] = 0;
+      }
+      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&name_to_node_map_, pair.second,
+                                        pair.first))
+          << "Multiple roots have same name";
+      references_[pair.first] = absl::flat_hash_set<const NodeType*>{};
+    }
+    for (const auto& pair : roots) {
+      root_node_ = pair.first;
+      root_name_ = pair.second;
+      ZETASQL_RETURN_IF_ERROR(root_node_->TraverseNonRecursive(this));
+    }
+    return references_;
+  }
+
+  using IdStringVectorNodeMap = absl::flat_hash_map<
+      std::vector<IdString>, const NodeType*,
+      ContainerHash<std::vector<IdString>, IdStringCaseHash>,
+      ContainerEquals<std::vector<IdString>, IdStringCaseEqualFunc>>;
+
+  FindTableReferencesVisitor() {}
+  FindTableReferencesVisitor(const FindTableReferencesVisitor&) = delete;
+  FindTableReferencesVisitor& operator=(const FindTableReferencesVisitor&) =
+      delete;
+
   zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
   }
@@ -75,7 +121,7 @@ class AnalyzeWithDependenciesVisitor : public NonRecursiveParseTreeVisitor {
   zetasql_base::StatusOr<VisitResult> visitASTWithClauseEntry(
       const ASTWithClauseEntry* node) override {
     return VisitResult::VisitChildren(node, [this, node]() {
-      if (node != root_ &&
+      if (node != static_cast<const ASTNode*>(root_node_) &&
           !node->parent()->GetAsOrDie<ASTWithClause>()->recursive()) {
         // After visiting the entry of an inner, non-recursive WITH, we need
         // to associate the alias as belonging to an inner WITH entry for the
@@ -121,53 +167,43 @@ class AnalyzeWithDependenciesVisitor : public NonRecursiveParseTreeVisitor {
       // Table path expression does not have a direct path. Example: UNNEST(...)
       return VisitResult::VisitChildren(node);
     }
-    if (node->path_expr()->num_names() != 1) {
-      // Multi-part table name - cannot reference any WITH alias
+    std::vector<IdString> alias_name = node->path_expr()->ToIdStringVector();
+    if (!name_to_node_map_.contains(alias_name)) {
+      // Table name does not correspond to one of our root nodes.
       return VisitResult::Empty();
     }
-    IdString alias_name = node->path_expr()->first_name()->GetAsIdString();
-    if (!inner_aliases_.contains(alias_name)) {
-      // Table name not an alias at all in current WITH clause
-      return VisitResult::Empty();
-    }
-    if (inner_aliases_[alias_name] > 0) {
-      // This is actually a reference to an alias from an inner WITH clause;
-      // ignore
+    if (alias_name.size() == 1 && inner_aliases_[alias_name.front()] > 0) {
+      // The reference to the root node has been shadowed by an inner WITH
+      // alias - ignore.
       return VisitResult::Empty();
     }
 
-    // TODO: If we detect a query referencing itself, verify that
-    // we have a union and that all self-references are confined to the
-    // recursive term.
-
-    // This is indeed a reference to a WITH alias we care about.
-    dependencies_[root_].insert(name_entry_map_[alias_name]);
+    // This is indeed a reference to one of our root nodes.
+    references_.at(root_node_).insert(name_to_node_map_.at(alias_name));
     return VisitResult::Empty();
   }
 
- private:
-  // The root WITH clause entry being traversed.
-  const ASTWithClauseEntry* root_;
+  // Keeps track of internal WITH aliases declared within <root_>, which shadow
+  // table names in the search list.
+  //   Key = Table name (only names in the search list are present, and only if
+  //     they have length 1).
+  //   Value = Number of nested WITH clauses, currently being processed, which
+  //     shadow the name described in <Key>.
+  absl::flat_hash_map<IdString, int, IdStringCaseHash, IdStringCaseEqualFunc>
+      inner_aliases_;
 
-  // Maps the name of each WITH clause entry belonging to the ASTWithClause
-  // passed to Run() with the corresponding ASTWithClauseEntry.
-  absl::flat_hash_map<IdString, const ASTWithClauseEntry*, IdStringCaseHash,
-                      IdStringCaseEqualFunc>
-      name_entry_map_;
+  // Root node to traverse.
+  const NodeType* root_node_;
+  std::vector<IdString> root_name_;
 
   // Maps each WITH clause entry belonging to the ASTWithClause passed to Run()
   // with a list of other entries in the same WITH clause directly depended
   // upon.
-  absl::flat_hash_map<const ASTWithClauseEntry*,
-                      absl::flat_hash_set<const ASTWithClauseEntry*>>
-      dependencies_;
+  absl::flat_hash_map<const NodeType*, absl::flat_hash_set<const NodeType*>>
+      references_;
 
-  // Associates the name of each WITH clause entry in <root_> with the number of
-  // nested WITH clause entries of the same name currently being processed.
-  // Used to distinguish between references to an entry in <root_> vs. an entry
-  // of some nested WITH clause inside of it.
-  absl::flat_hash_map<IdString, int, IdStringCaseHash, IdStringCaseEqualFunc>
-      inner_aliases_;
+  // Maps the name of each root node with the node itself.
+  IdStringVectorNodeMap name_to_node_map_;
 };
 
 // Helper class which sorts the WITH entries based on the dependency graph.
@@ -271,15 +307,22 @@ zetasql_base::StatusOr<WithEntrySortResult> WithEntrySorter::Run(
 zetasql_base::StatusOr<WithEntrySortResult> WithEntrySorter::RunInternal(
     const ASTWithClause* with_clause) {
   with_clause_ = with_clause;
-  AnalyzeWithDependenciesVisitor visitor;
-  ZETASQL_RETURN_IF_ERROR(visitor.Run(with_clause_));
+
+  using FindRefsInWithClause = FindTableReferencesVisitor<ASTWithClauseEntry>;
+
+  absl::flat_hash_map<const ASTWithClauseEntry*, std::vector<IdString>> roots;
+  for (const ASTWithClauseEntry* entry : with_clause_->with()) {
+    roots[entry] = {entry->alias()->GetAsIdString()};
+  }
+  ZETASQL_ASSIGN_OR_RETURN(FindRefsInWithClause::NodeReferenceMap references,
+                   FindRefsInWithClause::Run(roots));
 
   absl::flat_hash_map<const ASTWithClauseEntry*, int> entry_index_map;
   for (const ASTWithClauseEntry* entry : with_clause->with()) {
     entry_index_map[entry] = entry_index_map.size();
   }
 
-  for (const auto& pair : visitor.dependency_graph()) {
+  for (const auto& pair : references) {
     // Sort references in the order they appear in the with clause so that the
     // order they are traversed in is stable; while not strictly necessary for
     // correctness, this step is necessary to keep test output stable, which
@@ -370,6 +413,23 @@ absl::Status WithEntrySorter::PopCurrentChain() {
 zetasql_base::StatusOr<WithEntrySortResult> SortWithEntries(
     const ASTWithClause* with_clause) {
   return WithEntrySorter::Run(with_clause);
+}
+
+zetasql_base::StatusOr<bool> IsViewSelfRecursive(
+    const ASTCreateViewStatementBase* stmt) {
+  if (!stmt->recursive()) {
+    return false;
+  }
+
+  using FindViewRefsVisitor = FindTableReferencesVisitor<ASTQuery>;
+  FindViewRefsVisitor::NodeNameMap roots;
+  roots[stmt->query()] = stmt->name()->ToIdStringVector();
+
+  ZETASQL_ASSIGN_OR_RETURN(FindViewRefsVisitor::NodeReferenceMap references,
+                   FindViewRefsVisitor::Run(roots));
+  ZETASQL_RET_CHECK_EQ(references.size(), 1);
+  ZETASQL_RET_CHECK(references.contains(stmt->query()));
+  return !references.at(stmt->query()).empty();
 }
 
 }  // namespace zetasql

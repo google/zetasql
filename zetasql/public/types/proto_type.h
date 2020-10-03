@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 
+#include "google/protobuf/descriptor.h"
 #include "zetasql/public/types/type.h"
 
 namespace zetasql {
@@ -32,6 +33,12 @@ class ProtoType : public Type {
   const ProtoType* AsProto() const override { return this; }
 
   const google::protobuf::Descriptor* descriptor() const;
+
+  // Returns the value of descriptor()->map_key().
+  const google::protobuf::FieldDescriptor* map_key() const;
+
+  // Returns the value of descriptor()->map_value().
+  const google::protobuf::FieldDescriptor* map_value() const;
 
   // Helper function to determine equality or equivalence for proto types.
   static bool EqualsImpl(const ProtoType* type1, const ProtoType* type2,
@@ -146,6 +153,14 @@ class ProtoType : public Type {
   static FieldFormat::Format GetFormatAnnotation(
       const google::protobuf::FieldDescriptor* field);
 
+  // Returns true if <field>/<descriptor> or any of its descendent fields have
+  // <format> as a ZetaSQL annotation as returned by
+  // GetFormatAnnotation(). Otherwise, returns false.
+  static bool HasSubfieldWithFormat(const google::protobuf::Descriptor* descriptor,
+                                    FieldFormat::Format format);
+  static bool HasSubfieldWithFormat(const google::protobuf::FieldDescriptor* field,
+                                    FieldFormat::Format format);
+
   // Returns true if default value for <field> should be used.
   // Returns false if SQL NULL should be used instead.
   // This is based on the zetasql.use_defaults annotation on the field and
@@ -204,22 +219,6 @@ class ProtoType : public Type {
     return sizeof(*this);
   }
 
-  void InitializeValueContent(ValueContent* value) const override;
-  void CopyValueContent(const ValueContent& from,
-                        ValueContent* to) const override;
-  void ClearValueContent(const ValueContent& value) const override;
-  uint64_t GetValueContentExternallyAllocatedByteSize(
-      const ValueContent& value) const override;
-  absl::HashState HashTypeParameter(absl::HashState state) const override;
-  absl::HashState HashValueContent(const ValueContent& value,
-                                   absl::HashState state) const override;
-  bool ValueContentEqualsImpl(
-      const ValueContent& x, const ValueContent& y,
-      const ValueEqualityCheckOptions& options) const override;
-  std::string FormatValueContent(
-      const ValueContent& value,
-      const FormatValueContentOptions& options) const override;
-
  private:
   // Returns true iff <validated_descriptor_set> is not null and already
   // contains <descriptor>.  Otherwise returns false and, if
@@ -277,6 +276,27 @@ class ProtoType : public Type {
 
   HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
                               bool include_pseudo_fields) const override;
+
+  void CopyValueContent(const ValueContent& from,
+                        ValueContent* to) const override;
+  void ClearValueContent(const ValueContent& value) const override;
+  uint64_t GetValueContentExternallyAllocatedByteSize(
+      const ValueContent& value) const override;
+  absl::HashState HashTypeParameter(absl::HashState state) const override;
+  absl::HashState HashValueContent(const ValueContent& value,
+                                   absl::HashState state) const override;
+  bool ValueContentEquals(
+      const ValueContent& x, const ValueContent& y,
+      const ValueEqualityCheckOptions& options) const override;
+  bool ValueContentLess(const ValueContent& x, const ValueContent& y,
+                        const Type* other_type) const override;
+  std::string FormatValueContent(
+      const ValueContent& value,
+      const FormatValueContentOptions& options) const override;
+  absl::Status SerializeValueContent(const ValueContent& value,
+                                     ValueProto* value_proto) const override;
+  absl::Status DeserializeValueContent(const ValueProto& value_proto,
+                                       ValueContent* value) const override;
 
   const google::protobuf::Descriptor* descriptor_;  // Not owned.
 
@@ -411,6 +431,16 @@ absl::Status ProtoType::ValidateTypeAnnotations(
           return MakeSqlError()
                  << "Proto " << field->containing_type()->full_name()
                  << " has invalid zetasql.format for BYTES field: "
+                 << field->DebugString();
+        }
+        }
+        break;
+      case google::protobuf::FieldDescriptor::TYPE_STRING:
+        {
+        if (field_format != FieldFormat::JSON) {
+          return MakeSqlError()
+                 << "Proto " << field->containing_type()->full_name()
+                 << " has invalid zetasql.format for STRING field: "
                  << field->DebugString();
         }
         }

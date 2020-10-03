@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,24 @@
 #include "zetasql/public/functions/percentile.h"
 
 #include <limits>
+
 #include "zetasql/base/logging.h"
+#include "zetasql/common/multiprecision_int.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
+template <typename T>
+inline absl::Status CheckPercentileArgument(T percentile) {
+  if (!(percentile >= T(0) && percentile <= T(1))) {  // handles NaN
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Percentile argument must be in [0, 1]; got " << percentile;
+  }
+  return absl::OkStatus();
+}
 
-size_t PercentileEvaluator::ComputePercentileIndex(
+size_t PercentileHelper<double>::ComputePercentileIndex(
     size_t max_index, long double* left_weight,
     long double* right_weight) const {
   // Some fast paths for common use cases.
@@ -79,13 +90,134 @@ size_t PercentileEvaluator::ComputePercentileIndex(
 }
 
 // static
-zetasql_base::StatusOr<PercentileEvaluator> PercentileEvaluator::Create(
+zetasql_base::StatusOr<PercentileHelper<double>> PercentileHelper<double>::Create(
     double percentile) {
-  ZETASQL_RET_CHECK_GE(percentile, 0);
-  ZETASQL_RET_CHECK_LE(percentile, 1);
+  ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   const zetasql_base::MathUtil::DoubleParts parts = zetasql_base::MathUtil::Decompose(percentile);
   ZETASQL_RET_CHECK_GE(parts.mantissa, 0);
-  return PercentileEvaluator(percentile, parts.mantissa, parts.exponent);
+  return PercentileHelper<double>(percentile, parts.mantissa, parts.exponent);
+}
+
+size_t PercentileHelper<NumericValue>::ComputePercentileIndex(
+    size_t max_index, NumericValue* left_weight,
+    NumericValue* right_weight) const {
+  FixedUint<64, 2> scaled_index(static_cast<uint64_t>(max_index));
+  scaled_index *= scaled_percentile_;
+  uint32_t scaled_mod;
+  scaled_index.DivMod(NumericValue::kScalingFactor, &scaled_index, &scaled_mod);
+  *left_weight =
+      NumericValue::FromScaledValue(NumericValue::kScalingFactor - scaled_mod);
+  *right_weight = NumericValue::FromScaledValue(scaled_mod);
+  DCHECK_EQ(scaled_index.number()[1], 0);
+  return scaled_index.number()[0];
+}
+
+// static
+NumericValue PercentileHelper<NumericValue>::ComputeLinearInterpolation(
+    NumericValue left_value, NumericValue left_weight, NumericValue right_value,
+    NumericValue right_weight) {
+  DCHECK_GE(left_weight, NumericValue(0));
+  DCHECK_LE(left_weight, NumericValue(1));
+  DCHECK_GE(right_weight, NumericValue(0));
+  DCHECK_LE(right_weight, NumericValue(1));
+  DCHECK_EQ(left_weight.low_bits() + right_weight.low_bits(),
+            NumericValue::kScalingFactor)
+      << "left_weight + right_weight must be 1";
+  __int128 packed_left_value = left_value.as_packed_int();
+  __int128 packed_right_value = right_value.as_packed_int();
+  FixedInt<64, 3> scaled_left_value(packed_left_value);
+  FixedInt<64, 3> scaled_right_value(packed_right_value);
+  scaled_left_value *= left_weight.low_bits();
+  scaled_right_value *= right_weight.low_bits();
+  scaled_left_value += scaled_right_value;
+  scaled_left_value.DivAndRoundAwayFromZero(NumericValue::kScalingFactor);
+  __int128 packed_result = static_cast<__int128>(scaled_left_value);
+  DCHECK(scaled_left_value == (FixedInt<64, 3>(packed_result)));
+  auto status_or_result = NumericValue::FromPackedInt(packed_result);
+  if (ABSL_PREDICT_TRUE(status_or_result.ok())) {
+    return status_or_result.value();
+  }
+  // This branch is reached only on error cases, i.e., when the weights are not
+  // in [0, 1] or do not sum to 1. Adjust the value to avoid crash in .value().
+  __int128 max_packed_value = std::max(packed_left_value, packed_right_value);
+  if (packed_result > max_packed_value) {
+    packed_result = max_packed_value;
+  }
+  __int128 min_packed_value = std::min(packed_left_value, packed_right_value);
+  if (packed_result < min_packed_value) {
+    packed_result = min_packed_value;
+  }
+  return NumericValue::FromPackedInt(packed_result).value();
+}
+
+// static
+zetasql_base::StatusOr<PercentileHelper<NumericValue>>
+PercentileHelper<NumericValue>::Create(NumericValue percentile) {
+  ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
+  return PercentileHelper<NumericValue>(
+      static_cast<uint32_t>(percentile.low_bits()));
+}
+
+size_t PercentileHelper<BigNumericValue>::ComputePercentileIndex(
+    size_t max_index, BigNumericValue* left_weight,
+    BigNumericValue* right_weight) const {
+  FixedUint<64, 3> scaled_index = ExtendAndMultiply(
+      scaled_percentile_, FixedUint<64, 1>(static_cast<uint64_t>(max_index)));
+  FixedUint<64, 2> index =
+      BigNumericValue::RemoveScalingFactor</* round = */ false>(scaled_index);
+  DCHECK_EQ(index.number()[1], 0);
+  uint64_t result = index.number()[0];
+  FixedUint<64, 2> scaled_left_weight(BigNumericValue::kScalingFactor);
+  scaled_index -=
+      ExtendAndMultiply(scaled_left_weight, FixedUint<64, 1>(result));
+  DCHECK(scaled_index < (FixedUint<64, 3>(BigNumericValue::kScalingFactor)));
+  scaled_left_weight -= FixedUint<64, 2>(scaled_index);
+  *left_weight = BigNumericValue::FromPackedLittleEndianArray(
+      FixedUint<64, 4>(scaled_left_weight).number());
+  *right_weight = BigNumericValue::FromPackedLittleEndianArray(
+      FixedUint<64, 4>(scaled_index).number());
+  return result;
+}
+
+inline FixedInt<64, 6> MultiplyValueByWeight(const BigNumericValue& value,
+                                             const BigNumericValue& weight) {
+  DCHECK_GE(weight, BigNumericValue(0));
+  DCHECK_LE(weight, BigNumericValue(1));
+  FixedInt<64, 2> scaled_weight(
+      FixedInt<64, 4>(weight.ToPackedLittleEndianArray()));
+  return ExtendAndMultiply(FixedInt<64, 4>(value.ToPackedLittleEndianArray()),
+                           scaled_weight);
+}
+
+// static
+BigNumericValue PercentileHelper<BigNumericValue>::ComputeLinearInterpolation(
+    const BigNumericValue& left_value, const BigNumericValue& left_weight,
+    const BigNumericValue& right_value, const BigNumericValue& right_weight) {
+  DCHECK_EQ(left_weight.Add(right_weight).value(), BigNumericValue(1))
+      << "left_weight + right_weight must be 1";
+  FixedInt<64, 6> scaled_sum = MultiplyValueByWeight(left_value, left_weight);
+  bool overflow =
+      scaled_sum.AddOverflow(MultiplyValueByWeight(right_value, right_weight));
+  DCHECK(!overflow) << "Unexpected overflow: " << left_value << " * "
+                    << left_weight << " + " << right_value << " * "
+                    << right_weight;
+  FixedUint<64, 5> sum_abs =
+      BigNumericValue::RemoveScalingFactor</* round = */ true>(
+          scaled_sum.abs());
+  DCHECK_EQ(sum_abs.number()[4], 0);
+  FixedInt<64, 4> result(sum_abs);
+  if (scaled_sum.is_negative()) {
+    result = -result;
+  }
+  return BigNumericValue::FromPackedLittleEndianArray(result.number());
+}
+
+// static
+zetasql_base::StatusOr<PercentileHelper<BigNumericValue>>
+PercentileHelper<BigNumericValue>::Create(BigNumericValue percentile) {
+  ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
+  return PercentileHelper<BigNumericValue>(FixedUint<64, 2>(
+      FixedUint<64, 4>(percentile.ToPackedLittleEndianArray())));
 }
 
 }  // namespace zetasql

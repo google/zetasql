@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,6 +51,13 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_DECIMAL_ALIAS);
       features.insert(FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
       features.insert(FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON);
+      features.insert(FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS);
+      features.insert(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+      features.insert(FEATURE_V_1_3_DATE_ARITHMETICS);
+      features.insert(FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
+      features.insert(FEATURE_V_1_3_WITH_GROUP_ROWS);
+      features.insert(FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES);
+      features.insert(FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.
@@ -126,6 +133,13 @@ LanguageOptions::LanguageOptions(const LanguageOptionsProto& proto)
       enabled_language_features_.insert(proto.enabled_language_features(i));
     }
   }
+  if (proto.supported_generic_entity_types_size() > 0) {
+    supported_generic_entity_types_.clear();
+    for (int i = 0; i <  proto.supported_generic_entity_types_size(); ++i) {
+      supported_generic_entity_types_.insert(
+          proto.supported_generic_entity_types(i));
+    }
+  }
 }
 
 void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
@@ -138,6 +152,9 @@ void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
   }
   for (LanguageFeature feature : enabled_language_features_) {
     proto->add_enabled_language_features(feature);
+  }
+  for (const std::string& entity_type : supported_generic_entity_types_) {
+    proto->add_supported_generic_entity_types(entity_type);
   }
 }
 

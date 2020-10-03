@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,12 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/public/json_value.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "absl/strings/string_view.h"
 #include "zetasql/base/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 namespace functions {
@@ -88,6 +89,13 @@ class JsonPathEvaluator {
   absl::Status Extract(absl::string_view json, std::string* value,
                        bool* is_null) const;
 
+  // Similar to the string version above, but for JSON types.
+  // Returns absl::nullopt to indicate that:
+  // * json_path does not match anything.
+  // * json_path uses an array index but the value is not an array, or the path
+  //   uses a name but the value is not an object.
+  absl::optional<JSONValueConstRef> Extract(JSONValueConstRef input) const;
+
   // Similar to the above, but the 'json_path' provided in Create() must refer
   // to a scalar value in 'json'.
   // For example:
@@ -104,6 +112,14 @@ class JsonPathEvaluator {
   // * json_path does not correspond to a scalar value in json.
   absl::Status ExtractScalar(absl::string_view json, std::string* value,
                              bool* is_null) const;
+
+  // Similar to the string version above, but for JSON types.
+  // Returns absl::nullopt to indicate that:
+  // * json_path does not match anything.
+  // * json_path uses an array index but the value is not an array, or the path
+  //   uses a name but the value is not an object.
+  // * json_path does not correspond to a scalar value in json.
+  absl::optional<std::string> ExtractScalar(JSONValueConstRef input) const;
 
   // Extracts an array from 'json' according to the JSONPath string 'json_path'
   // provided in Create(). The value in 'json' that 'json_path' refers to should
@@ -137,11 +153,19 @@ class JsonPathEvaluator {
   // This implementation follows the proto3 JSON spec ((broken link),
   // (broken link)), where special characters include the
   // following:
-  //    * Quotation mark, "
-  //    * Reverse solidus, \
+  //    * Quotation mark, '"'
+  //    * Reverse solidus, '\'
   //    * Control characters (U+0000 through U+001F).
   void enable_special_character_escaping() {
     escape_special_characters_ = true;
+  }
+
+  // Sets the callback to be invoked when a string with special characters was
+  // returned for JSON_EXTRACT, but special character escaping was turned off.
+  // No callback will be made if this is set to an empty target.
+  void set_escaping_needed_callback(
+      std::function<void(absl::string_view)> callback) {
+    escaping_needed_callback_ = std::move(callback);
   }
 
  private:
@@ -149,7 +173,24 @@ class JsonPathEvaluator {
       std::unique_ptr<json_internal::ValidJSONPathIterator> itr);
   const std::unique_ptr<json_internal::ValidJSONPathIterator> path_iterator_;
   bool escape_special_characters_ = false;
+  std::function<void(absl::string_view)> escaping_needed_callback_;
 };
+
+// Converts a non SQL standard JSONPath (JSONPaths used by
+// JSON_EXTRACT for example) into a SQL standard JSONPath (used by JSON_QUERY
+// for example).
+// Examples:
+// $['a.b'] is converted to $."a.b"
+// $['an "array" field'][3] to $."an \"array\" field".3
+//
+// See (broken link) for more info.
+zetasql_base::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
+    absl::string_view json_path);
+
+// Merges JSONPaths into a SQL standard JSONPath. Each JSONPath input can be in
+// either SQL standard mode.
+zetasql_base::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
+    absl::Span<const std::string> json_paths);
 
 }  // namespace functions
 }  // namespace zetasql

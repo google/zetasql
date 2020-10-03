@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
-import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.LocalService.EvaluateRequest;
 import com.google.zetasql.LocalService.EvaluateResponse;
 import com.google.zetasql.LocalService.PrepareRequest;
@@ -27,7 +26,6 @@ import com.google.zetasql.LocalService.PrepareResponse;
 import com.google.zetasql.LocalService.UnprepareRequest;
 import io.grpc.StatusRuntimeException;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -123,9 +121,31 @@ public class PreparedExpression implements AutoCloseable {
    * @return The evaluation result.
    */
   public Value execute(Map<String, Value> columns, Map<String, Value> parameters) {
+    return execute(buildRequest(columns, parameters));
+  }
+
+  private Value execute(EvaluateRequest request) {
+    Preconditions.checkState(!closed);
+
+    final EvaluateResponse resp;
+    try {
+      resp = Client.getStub().evaluate(request);
+    } catch (StatusRuntimeException e) {
+      throw new SqlException(e);
+    }
+
+    if (!prepared) {
+      outputType =
+          factory.deserialize(resp.getType(), fileDescriptorSetsBuilder.getDescriptorPools());
+      preparedId = resp.getPreparedExpressionId();
+      prepared = true;
+    }
+    return Value.deserialize(outputType, resp.getValue());
+  }
+
+  private EvaluateRequest buildRequest(Map<String, Value> columns, Map<String, Value> parameters) {
     Preconditions.checkNotNull(columns);
     Preconditions.checkNotNull(parameters);
-    Preconditions.checkState(!closed);
     EvaluateRequest.Builder request = EvaluateRequest.newBuilder();
     if (prepared) {
       request.setPreparedExpressionId(preparedId);
@@ -144,13 +164,11 @@ public class PreparedExpression implements AutoCloseable {
     }
 
     for (Entry<String, Value> entry : columns.entrySet()) {
-      request.addColumns(
-          serializeParameter(entry.getKey(), entry.getValue(), fileDescriptorSetsBuilder));
+      request.addColumns(serializeParameter(entry.getKey(), entry.getValue()));
     }
 
     for (Entry<String, Value> entry : parameters.entrySet()) {
-      request.addParams(
-          serializeParameter(entry.getKey(), entry.getValue(), fileDescriptorSetsBuilder));
+      request.addParams(serializeParameter(entry.getKey(), entry.getValue()));
     }
 
     if (!prepared) {
@@ -160,22 +178,7 @@ public class PreparedExpression implements AutoCloseable {
       }
     }
 
-    List<ZetaSQLDescriptorPool> pools = fileDescriptorSetsBuilder.getDescriptorPools();
-
-    EvaluateResponse resp;
-    try {
-      resp = Client.getStub().evaluate(request.build());
-    } catch (StatusRuntimeException e) {
-      throw new SqlException(e);
-    }
-
-    Type type = factory.deserialize(resp.getType(), pools);
-    if (!prepared) {
-      outputType = type;
-      preparedId = resp.getPreparedExpressionId();
-      prepared = true;
-    }
-    return Value.deserialize(type, resp.getValue());
+    return request.build();
   }
 
   private void validateParameters(
@@ -219,17 +222,10 @@ public class PreparedExpression implements AutoCloseable {
     close();
   }
 
-  private EvaluateRequest.Parameter serializeParameter(
-      String name, Value value, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    Type type = value.getType();
-
-    TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
-    type.serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-
+  private static EvaluateRequest.Parameter serializeParameter(String name, Value value) {
     return EvaluateRequest.Parameter.newBuilder()
         .setName(name)
         .setValue(value.serialize())
-        .setType(typeProtoBuilder.build())
         .build();
   }
 }

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,8 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
+#include "zetasql/common/testing/proto_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/convert_type_to_proto.h"
 #include "zetasql/public/language_options.h"
@@ -40,12 +42,13 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include "zetasql/common/testing/proto_matchers.h"
-#include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>
+#include "absl/functional/bind_front.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -90,6 +93,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_GEOGRAPHY);
     language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
     language_options.EnableLanguageFeature(FEATURE_BIGNUMERIC_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_JSON_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(
         expression_sql, AnalyzerOptions(language_options), &catalog_,
         &type_factory_, &output));
@@ -260,6 +264,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(CAST(-12345678901234567890123456789.1234567890123456789012345678 "
       "AS BIGNUMERIC))",
       "STRUCT(CAST(NULL AS GEOGRAPHY))",
+      "STRUCT(CAST('123' AS JSON))",
+      "STRUCT(CAST(NULL AS JSON))",
 
       // STRUCT containing a proto.
       R"(
@@ -311,6 +317,7 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(-2.000000001 AS NUMERIC)]",
       "[CAST(-12345678901234567890123456789.1234567890123456789012345678 AS "
       "BIGNUMERIC)]",
+      "[CAST('123' AS JSON)]",
       // ARRAYs containing ARRAYs would go here, but those aren't allowed
       // in ZetaSQL.  Instead, we do ARRAY<STRUCT<ARRAY>>.
       "[STRUCT([1,2,3])]",
@@ -355,7 +362,8 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(NULL AS zetasql.ProtoTypeProto)]",
       "[CAST(NULL AS NUMERIC)]",
       "[CAST(NULL AS BIGNUMERIC)]",
-      "[CAST(NULL AS GEOGRAPHY)]"
+      "[CAST(NULL AS GEOGRAPHY)]",
+      "[CAST(NULL AS JSON)]"
   };
 
   for (bool array_wrappers : {true, false}) {

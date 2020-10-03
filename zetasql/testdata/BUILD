@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 #
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 exports_files(["external_extension.proto"])
@@ -136,7 +136,6 @@ proto_library(
     srcs = [
         "ambiguous_has.proto",
     ],
-    deps = [],
 )
 
 cc_proto_library(
@@ -157,12 +156,13 @@ cc_library(
     srcs = ["sample_system_variables.cc"],
     hdrs = ["sample_system_variables.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":test_schema_cc_proto",
@@ -179,12 +179,13 @@ cc_library(
     srcs = ["sample_catalog.cc"],
     hdrs = ["sample_catalog.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":ambiguous_has_cc_proto",
@@ -228,12 +229,13 @@ cc_library(
     srcs = ["error_catalog.cc"],
     hdrs = ["error_catalog.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         "//zetasql/base:ret_check",
@@ -251,12 +253,13 @@ cc_library(
     srcs = ["populate_sample_tables.cc"],
     hdrs = ["populate_sample_tables.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":sample_catalog",

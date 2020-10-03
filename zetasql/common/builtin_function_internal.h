@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -106,6 +107,10 @@ std::string SafeArrayAtOffsetFunctionSQL(
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs);
 
+std::string ProtoMapAtKeySQL(const std::vector<std::string>& inputs);
+
+std::string SafeProtoMapAtKeySQL(const std::vector<std::string>& inputs);
+
 std::string GenerateDateTimestampArrayFunctionSQL(
     const std::string& function_name, const std::vector<std::string>& inputs);
 
@@ -120,11 +125,6 @@ std::string ExtractDateOrTimeFunctionSQL(
 
 bool ArgumentIsStringLiteral(const InputArgumentType& argument);
 
-absl::Status CheckDateDiffArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
 absl::Status CheckBitwiseOperatorArgumentsHaveSameType(
     const std::string& operator_string,
     const std::vector<InputArgumentType>& arguments,
@@ -135,12 +135,12 @@ absl::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckDateTruncArguments(
+absl::Status CheckDateDatetimeTimeTimestampTruncArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckTimeTruncArguments(
+absl::Status CheckLastDayArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -153,7 +153,12 @@ absl::Status CheckExtractPostResolutionArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckDateAddDateSubArguments(
+absl::Status CheckDateDatetimeTimestampAddSubArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
+absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -171,17 +176,7 @@ zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
-absl::Status CheckTimestampAddTimestampSubArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
-absl::Status CheckTimestampDiffArguments(
-    const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
-absl::Status CheckTimestampTruncArguments(
+absl::Status CheckTimeAddSubArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -196,6 +191,10 @@ absl::Status CheckGenerateTimestampArrayArguments(
 
 absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
                                 const LanguageOptions& options);
+
+absl::Status CheckFormatPostResolutionArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
 
 absl::Status CheckIsSupportedKeyType(
     absl::string_view function_name,
@@ -310,6 +309,10 @@ absl::Status CheckArrayConcatArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
+absl::Status CheckArrayIsDistinctArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
 absl::Status CheckInArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
@@ -320,15 +323,29 @@ absl::Status CheckRangeBucketArguments(
 
 // Returns true if an arithmetic operation has a floating point type as its
 // input.
-bool HasFloatingPointArgument(const std::vector<InputArgumentType>& arguments);
+bool HasFloatingPointArgument(const FunctionSignature& matched_signature,
+                              const std::vector<InputArgumentType>& arguments);
 
-// Returns true if an arithmetic operation has a numeric type as its
-// input.
-bool HasNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
+// Returns true if at least one input argument has NUMERIC type.
+bool HasNumericTypeArgument(const FunctionSignature& matched_signature,
+                            const std::vector<InputArgumentType>& arguments);
 
-// Returns true if an arithmetic operation has a bignumeric type as its
-// input.
-bool HasBigNumericTypeArgument(const std::vector<InputArgumentType>& arguments);
+// Returns true if all input arguments have NUMERIC or BIGNUMERIC type,
+// including the case without input arguments.
+bool AllArgumentsHaveNumericOrBigNumericType(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
+
+// Returns true if there is at least one input argument and the last argument
+// has NUMERIC type or BIGNUMERIC type.
+bool LastArgumentHasNumericOrBigNumericType(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
+
+// Returns true if at least one input argument has BIGNUMERIC type.
+bool HasBigNumericTypeArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
 
 // Returns true if FN_CONCAT_STRING function can coerce argument of given type
 // to STRING.
@@ -342,6 +359,16 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);
 zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
     CycleDetector* cycle_detector,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options);
+
+// Compute the result type for ST_NEAREST_NEIGHBORS.
+// The output type is
+//   ARRAY<
+//     STRUCT<`neighbor` <arguments[0].type>,
+//            `distance` Double> >
+zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
@@ -395,7 +422,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions);
 
-void GetDatetimeDiffTruncFunctions(
+void GetDatetimeDiffTruncLastFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 

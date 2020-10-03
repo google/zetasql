@@ -1,9 +1,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-<!-- BEGIN CONTENT -->
-
-# Function Reference
+# Function reference
 
 This page explains ZetaSQL expressions, including functions and
 operators.
@@ -74,6 +72,4 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 [link-to-SAFE_DIVIDE]: #safe_divide
 [link-to-SAFE_CAST]: #safe-casting
 [link-to-operators]: #operators
-
-<!-- END CONTENT -->
 

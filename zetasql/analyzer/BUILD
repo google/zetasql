@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,21 +12,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 cc_library(
     name = "container_hash_equals",
     hdrs = ["container_hash_equals.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         "@com_google_absl//absl/hash",
@@ -38,21 +40,22 @@ cc_test(
     name = "container_hash_equals_test",
     srcs = ["container_hash_equals_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":container_hash_equals",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:map_util",
         "//zetasql/public:id_string",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -90,12 +93,13 @@ cc_library(
         "//zetasql/public:analyzer.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":container_hash_equals",
@@ -148,6 +152,7 @@ cc_library(
         "//zetasql/resolved_ast:make_node_vector",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:rewrite_utils",
         "//zetasql/resolved_ast:validator",
         "//zetasql/scripting:parsed_script",
         "@com_google_absl//absl/algorithm:container",
@@ -176,17 +181,18 @@ cc_test(
     size = "small",
     srcs = ["resolver_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":analyzer",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
+        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/parser",
         "//zetasql/public:simple_catalog",
@@ -197,6 +203,7 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -205,19 +212,19 @@ cc_test(
     size = "small",
     srcs = ["analyzer_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     data = [
         "//zetasql/testdata:external_extension.proto",
         "//zetasql/testdata:test_schema_proto",
     ],
     deps = [
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:path",
@@ -242,6 +249,7 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )

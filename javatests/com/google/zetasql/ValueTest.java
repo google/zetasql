@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,10 @@ import com.google.zetasql.ZetaSQLValue.ValueProto;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -1030,6 +1034,11 @@ public class ValueTest {
     Value zero = Value.createDateValue(0);
     Value o = Value.createDateValue(0);
 
+    assertThat(y1m1d1).isEqualTo(Value.createDateValue(LocalDate.ofEpochDay(-719162)));
+    assertThat(y9999m12d31).isEqualTo(Value.createDateValue(LocalDate.ofEpochDay(2932896)));
+    assertThat(zero).isEqualTo(Value.createDateValue(LocalDate.ofEpochDay(0)));
+    assertThat(o).isEqualTo(Value.createDateValue(LocalDate.ofEpochDay(0)));
+
     assertThat(y1m1d1.isNull()).isFalse();
     assertThat(y9999m12d31.isNull()).isFalse();
     assertThat(zero.isNull()).isFalse();
@@ -1065,6 +1074,11 @@ public class ValueTest {
     checkSerializeAndDeserialize(y9999m12d31);
     checkSerializeAndDeserialize(zero);
     checkSerializeAndDeserialize(o);
+
+    assertThat(y1m1d1.getLocalDateValue()).isEqualTo(LocalDate.of(0001, 01, 01));
+    assertThat(y9999m12d31.getLocalDateValue()).isEqualTo(LocalDate.of(9999, 12, 31));
+    assertThat(zero.getLocalDateValue()).isEqualTo(LocalDate.of(1970, 01, 01));
+    assertThat(o.getLocalDateValue()).isEqualTo(LocalDate.of(1970, 01, 01));
 
     assertThat(zero.toInt64()).isEqualTo(0L);
     assertThat(y1m1d1.toInt64()).isEqualTo(-719162L);
@@ -1185,6 +1199,9 @@ public class ValueTest {
     Value someTimeNanos = Value.createTimeValue(0x21083ADE68B1L); // 08:16:32.987654321
     Value zero = Value.createTimeValue(0); // 00:00:00
 
+    assertThat(Value.createTimeValue(LocalTime.of(0, 0, 0))).isEqualTo(midnight);
+    assertThat(midnight.getLocalTimeValue()).isEqualTo(LocalTime.MIDNIGHT);
+
     assertThat(midnight.isNull()).isFalse();
     assertThat(beforeMidnightMicros.isNull()).isFalse();
     assertThat(beforeMidnightNanos.isNull()).isFalse();
@@ -1262,6 +1279,11 @@ public class ValueTest {
     // 2006-01-02 03:04:05.123456789
     Value someDatetimeNanos = Value.createDatetimeValue(0x1F58443105L, 123456789);
     Value year1970 = Value.createDatetimeValue(132208787456L, 0); // 1970-01-01 00:00:00
+
+    assertThat(Value.createDatetimeValue(LocalDateTime.of(1970, 01, 01, 0, 0, 0)))
+        .isEqualTo(year1970);
+    assertThat(someDatetimeNanos.getLocalDateTimeValue())
+        .isEqualTo(LocalDateTime.of(2006, 01, 02, 3, 4, 5, 123456789));
 
     assertThat(epoch.isNull()).isFalse();
     assertThat(beginningOfDatetime.isNull()).isFalse();
@@ -1704,6 +1726,17 @@ public class ValueTest {
   }
 
   @Test
+  public void testJSONValue() throws IOException {
+    Value jsonValue = Value.createJsonValue("123");
+
+    assertThat(jsonValue).isNotNull();
+    assertThat(jsonValue.isValid()).isTrue();
+    assertThat(jsonValue.getJsonValue())
+        .isEqualTo("123");
+    checkSerializeAndDeserialize(jsonValue);
+  }
+
+  @Test
   public void testCreateNullValue() {
     SimpleType int32 = TypeFactory.createSimpleType(TypeKind.TYPE_INT32);
     Value int32Null = Value.createNullValue(int32);
@@ -2016,7 +2049,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(21);
+        .hasSize(22);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")

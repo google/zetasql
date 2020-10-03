@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
+#include <cstdint>
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -849,91 +851,5 @@ std::vector<QueryParamsWithResult> GetFunctionTestsStringConcatOperator() {
   return results;
 }
 
-// Defines the test cases for string normalization functions.
-// The second argument represents the expected results under each
-// normalize mode following exact same order as {NFC, NFKC, NFD, NFKD}.
-static std::vector<NormalizeTestCase> GetNormalizeTestCases() {
-  return {
-    // normalize(string [, mode]) -> string
-    {NullString(), {NullString(), NullString(), NullString(), NullString()}},
-    {"", {"", "", "", ""}},
-    {"abcABC", {"abcABC", "abcABC", "abcABC", "abcABC"}},
-    {"abcABCжщфЖЩФ", {"abcABCжщфЖЩФ", "abcABCжщфЖЩФ", "abcABCжщфЖЩФ",
-        "abcABCжщфЖЩФ"}},
-    {"Ḋ", {"Ḋ", "Ḋ", "D\u0307", "D\u0307"}},
-    {"D\u0307", {"Ḋ", "Ḋ", "D\u0307", "D\u0307"}},
-    {"Google™", {"Google™", "GoogleTM", "Google™", "GoogleTM"}},
-    {"龟", {"龟", "\u9F9F", "龟", "\u9F9F"}},
-    {"10¹²³", {"10¹²³", "10123", "10¹²³", "10123"}},
-    {"ẛ̣", {"ẛ̣", "ṩ", "\u017f\u0323\u0307", "s\u0323\u0307"}},
-    {"Google™Ḋ龟10¹²³", {"Google™Ḋ龟10¹²³", "GoogleTMḊ\u9F9F10123",
-        "Google™D\u0307龟10¹²³", "GoogleTMD\u0307\u9F9F10123"}},
-
-    // normalize_and_casefold(string [, mode]) -> string
-    {NullString(), {NullString(), NullString(), NullString(), NullString()},
-        true /* is_casefold */},
-    {"", {"", "", "", ""}, true},
-    {"abcABC", {"abcabc", "abcabc", "abcabc", "abcabc"}, true},
-    {"abcabcжщфЖЩФ", {"abcabcжщфжщф", "abcabcжщфжщф", "abcabcжщфжщф",
-        "abcabcжщфжщф"}, true},
-    {"Ḋ", {"ḋ", "ḋ", "d\u0307", "d\u0307"}, true},
-    {"D\u0307", {"ḋ", "ḋ", "d\u0307", "d\u0307"}, true},
-    {"Google™", {"google™", "googletm", "google™", "googletm"}, true},
-    {"龟", {"龟", "\u9F9F", "龟", "\u9F9F"}, true},
-    {"10¹²³", {"10¹²³", "10123", "10¹²³", "10123"}, true},
-    {"ẛ̣", {"ṩ", "ṩ", "s\u0323\u0307", "s\u0323\u0307"}, true},
-    {"Google™Ḋ龟10¹²³", {"google™ḋ龟10¹²³", "googletmḋ\u9F9F10123",
-        "google™d\u0307龟10¹²³", "googletmd\u0307\u9F9F10123"}, true},
-  };
-}
-
-std::vector<FunctionTestCall> GetFunctionTestsNormalize() {
-  const zetasql::EnumType* enum_type = nullptr;
-  ZETASQL_CHECK_OK(type_factory()->MakeEnumType(
-      zetasql::functions::NormalizeMode_descriptor(), &enum_type));
-
-  // For each NormalizeTestCase, constructs 5 FunctionTestCalls for each
-  // normalize mode (default/NFC, NFC, NFKC, NFD, NFKD), respectively.
-  std::vector<FunctionTestCall> ret;
-  for (const NormalizeTestCase& test_case : GetNormalizeTestCases()) {
-    CHECK_EQ(functions::NormalizeMode_ARRAYSIZE, test_case.expected_nfs.size());
-    const std::string function_name =
-        test_case.is_casefold ? "normalize_and_casefold" : "normalize";
-    ret.push_back(
-        {function_name, {test_case.input}, test_case.expected_nfs[0]});
-    for (int mode = 0; mode < functions::NormalizeMode_ARRAYSIZE; ++mode) {
-      ret.push_back({function_name,
-                     {test_case.input, Value::Enum(enum_type, mode)},
-                     test_case.expected_nfs[mode]});
-    }
-
-    if (test_case.is_casefold) continue;
-    // Adds more tests cases for NORMALIZE to verify the invariants between
-    // normal forms.
-    // 1. NFC(NFD(s)) = NFC(s)
-    ret.push_back({"normalize",
-                   {test_case.expected_nfs[functions::NormalizeMode::NFD],
-                    Value::Enum(enum_type, functions::NormalizeMode::NFC)},
-                   test_case.expected_nfs[functions::NormalizeMode::NFC]});
-    // 2. NFD(NFC(s)) = NDF(s)
-    ret.push_back({"normalize",
-                   {test_case.expected_nfs[functions::NormalizeMode::NFC],
-                    Value::Enum(enum_type, functions::NormalizeMode::NFD)},
-                   test_case.expected_nfs[functions::NormalizeMode::NFD]});
-    for (int mode = 0; mode < functions::NormalizeMode_ARRAYSIZE; ++mode) {
-      // 3. NFKC(s) = NFKC(NFC(s)) = NFKC(NFD(s)) = NFKC(NFKC(s) = NFKC(NFKD(s))
-      ret.push_back({"normalize",
-                     {test_case.expected_nfs[mode],
-                      Value::Enum(enum_type, functions::NormalizeMode::NFKC)},
-                     test_case.expected_nfs[functions::NormalizeMode::NFKC]});
-      // 4. NFKD(s) = NFKD(NFC(s)) = NFKD(NFD(s)) = NFKD(NFKC(s) = NFKD(NFKD(s))
-      ret.push_back({"normalize",
-                     {test_case.expected_nfs[mode],
-                      Value::Enum(enum_type, functions::NormalizeMode::NFKD)},
-                     test_case.expected_nfs[functions::NormalizeMode::NFKD]});
-    }
-  }
-  return ret;
-}
 
 }  // namespace zetasql

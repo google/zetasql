@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,10 +47,10 @@
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 #ifndef __has_builtin
 #define __has_builtin(x) 0
@@ -138,12 +138,13 @@ inline bool Multiply(double in1, double in2, double *out, absl::Status* error) {
 }
 template <>
 inline bool Divide(double in1, double in2, double *out, absl::Status* error) {
+  if (ABSL_PREDICT_FALSE(in2 == 0)) {
+    return internal::UpdateError(error,
+                                 internal::DivisionByZeroMessage(in1, in2));
+  }
   *out = in1 / in2;
   if (ABSL_PREDICT_TRUE(std::isfinite(*out))) {
     return true;
-  } else if (in2 == 0) {
-    return internal::UpdateError(error,
-                                 internal::DivisionByZeroMessage(in1, in2));
   } else if (!std::isfinite(in1) || !std::isfinite(in2)) {
     return true;
   } else {
@@ -349,6 +350,13 @@ inline bool Modulo(T in1, T in2, T *out, absl::Status* error) {
     return internal::UpdateError(
         error, absl::StrCat("division by zero: MOD(", in1, ", ", in2, ")"));
   }
+  if constexpr (std::is_same_v<int64_t, T>) {
+    if (ABSL_PREDICT_FALSE(in2 == -1)) {
+      // Workaround for -9223372035808 % -1 triggering floating point exception.
+      *out = 0;
+      return true;
+    }
+  }
   *out = in1 % in2;
   return true;
 }
@@ -526,7 +534,7 @@ inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                 absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -540,7 +548,7 @@ inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
                      BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -554,7 +562,7 @@ inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
                      BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -568,7 +576,7 @@ inline bool Divide(BigNumericValue in1, BigNumericValue in2,
                    BigNumericValue* out, absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {
@@ -582,7 +590,7 @@ inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
                        absl::Status* error) {
   zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in.Negate();
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
-    *out = bignumeric_status.ValueOrDie();
+    *out = *bignumeric_status;
     return true;
   }
   if (error != nullptr) {

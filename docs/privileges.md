@@ -2,8 +2,6 @@
 
 # Privileges
 
-<!-- BEGIN CONTENT -->
-
 ZetaSQL specifies the syntax for the privilege statements `GRANT` and
 `REVOKE`.
 
@@ -32,6 +30,4 @@ Both of these statements use the following variables:
   list of identifiers in parentheses. These identifiers are usually column
   names.
 + `grantees` is a comma-separated list of strings.
-
-<!-- END CONTENT -->
 

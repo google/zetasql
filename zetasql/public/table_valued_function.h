@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,11 +39,11 @@
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -465,7 +465,7 @@ class TVFInputArgumentType {
   bool is_descriptor() const {
     return kind_ == TVFInputArgumentTypeKind::DESCRIPTOR;
   }
-  ::zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
+  zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
     ZETASQL_RET_CHECK(kind_ == TVFInputArgumentTypeKind::SCALAR);
     if (scalar_arg_value_ != nullptr) {
       return InputArgumentType(*scalar_arg_value_);

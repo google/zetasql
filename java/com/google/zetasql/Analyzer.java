@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -144,9 +144,24 @@ public class Analyzer implements Serializable {
    * @return List of table names. Every table name is a list of string segments, to retain original
    *     naming structure.
    */
-  public static List<List<String>> extractTableNamesFromStatement(String sql) {
+  public static List<List<String>> extractTableNamesFromStatement(
+      String sql, AnalyzerOptions options) {
+    return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ false);
+  }
+
+  public static List<List<String>> extractTableNamesFromScript(
+      String sql, AnalyzerOptions options) {
+    return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ true);
+  }
+
+  private static List<List<String>> extractTableNamesFromStatementInternal(
+      String sql, AnalyzerOptions options, boolean allowScript) {
     ExtractTableNamesFromStatementRequest request =
-        ExtractTableNamesFromStatementRequest.newBuilder().setSqlStatement(sql).build();
+        ExtractTableNamesFromStatementRequest.newBuilder()
+            .setSqlStatement(sql)
+            .setOptions(options.getLanguageOptions().serialize())
+            .setAllowScript(allowScript)
+            .build();
 
     ExtractTableNamesFromStatementResponse response;
     try {
@@ -162,6 +177,10 @@ public class Analyzer implements Serializable {
       result.add(nameList);
     }
     return result;
+  }
+
+  public static List<List<String>> extractTableNamesFromStatement(String sql) {
+    return extractTableNamesFromStatement(sql, new AnalyzerOptions());
   }
 
   public ResolvedStatement analyzeNextStatement(ParseResumeLocation parseResumeLocation) {

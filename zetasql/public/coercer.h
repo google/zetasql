@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
 #include "absl/time/time.h"
 
@@ -43,17 +44,27 @@ namespace zetasql {
 // depends on their types as per Type::GetTypeCoercionCost().
 int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type);
 
+class ExtendedCompositeCastEvaluator;
 
 class Coercer {
  public:
-  // Does not take ownership of <type_factory>.  The <default_timezone> is
-  // used for coercions between dates/strings and timestamps.
+  // Does not take ownership of <catalog> or <type_factory>.
   // <*language_options> should outlive this Coercer.
+  // <catalog> is optional and used only if either source or destination type is
+  // extended.
+  Coercer(TypeFactory* type_factory, const LanguageOptions* language_options,
+          Catalog* catalog = nullptr)
+      : type_factory_(type_factory),
+        catalog_(catalog),
+        language_options_(*language_options) {}
+
+  // Deprecate the constructor below since default_timezone shouldn't impact the
+  // decision on whether cast/coercion is possible.
+  ABSL_DEPRECATED(
+      "use Coercer(type_factory, language_options, catalog) instead")
   Coercer(TypeFactory* type_factory, const absl::TimeZone default_timezone,
           const LanguageOptions* language_options)
-      : type_factory_(type_factory),
-        default_timezone_(default_timezone),
-        language_options_(*language_options) {}
+      : Coercer(type_factory, language_options) {}
 
   Coercer(const Coercer&) = delete;
   Coercer& operator=(const Coercer&) = delete;
@@ -78,6 +89,10 @@ class Coercer {
   //    argument only.
   //  - For equivalent proto types (e.g. different versions of the same proto),
   //    we consider the first non-NULL proto argument as the supertype.
+  absl::Status GetCommonSuperType(const InputArgumentTypeSet& argument_set,
+                                  const Type** common_supertype) const;
+
+  ABSL_DEPRECATED("use GetCommonSuperType(argument_set, super_type)")
   const Type* GetCommonSuperType(
       const InputArgumentTypeSet& argument_set) const;
 
@@ -89,8 +104,32 @@ class Coercer {
   // incremented and the <result> distance is updated to reflect how 'close'
   // the types were (same types have distance 0, lower distance indicates
   // closer types and a better match).
+  //
+  // Caveat: If a Catalog is not set for this Coercer and extended type is
+  // encountered this function will crash in debug mode (DCHECK) and return
+  // false in release mode. The same approach will be applied if Catalog's
+  // FindConversion function returns a Status different from Ok or NotFound
+  // (NotFound benignly means "conversion is not found" and thus CoercesTo just
+  // returns false when it gets such Status from a Catalog).
+  ABSL_DEPRECATED(
+      "use CoercesTo(from_argument, to_type, is_explicit, result, "
+      "extended_conversion) instead")
   bool CoercesTo(const InputArgumentType& from_argument, const Type* to_type,
                  bool is_explicit, SignatureMatchResult* result) const;
+
+  // Works similarly to the CoercesTo function above. The difference is that it
+  // returns an error Status if any internal error occurred (e.g. Catalog is not
+  // set when extended type is being resolved). If checked conversion contains
+  // extended type and this conversion is valid (based on a result of a call to
+  // Catalog::FindConversion), the Catalog's function for this conversion
+  // (Conversion::function()) is returned in extended_conversion argument.
+  //
+  // TODO: retire/deprecate all other *CoerceTo* methods in this
+  // class.
+  zetasql_base::StatusOr<bool> CoercesTo(
+      const InputArgumentType& from_argument, const Type* to_type,
+      bool is_explicit, SignatureMatchResult* result,
+      ExtendedCompositeCastEvaluator* extended_conversion_evaluator) const;
 
   // Allows everything that CoercesTo allows plus the following two rules:
   // * INT64 -> INT32
@@ -108,8 +147,9 @@ class Coercer {
   // common supertype candidates, or whether they are treated like
   // literals and are checked to see if they coerce to the candidate
   // supertypes.
-  const Type* GetCommonSuperTypeImpl(const InputArgumentTypeSet& argument_set,
-                                     bool treat_parameters_as_literals) const;
+  zetasql_base::StatusOr<const Type*> GetCommonSuperTypeImpl(
+      const InputArgumentTypeSet& argument_set,
+      bool treat_parameters_as_literals) const;
 
   // Returns whether <from_type> can be coerced to <to_type>, for
   // either explicit or implicit coercion.  Does not consider if <from_type>
@@ -162,13 +202,13 @@ class Coercer {
   //
   // Returns NULL if there is no common supertype for all the argument types,
   // or if any of the arguments is a non-struct type.
-  const StructType* GetCommonStructSuperType(
+  zetasql_base::StatusOr<const StructType*> GetCommonStructSuperType(
       const InputArgumentTypeSet& argument_set) const;
 
   // Returns the common super type of <arguments>. Returns NULL if there is no
   // common supertype for all the argument types, or if any of the arguments is
   // a non-array type.
-  const ArrayType* GetCommonArraySuperType(
+  zetasql_base::StatusOr<const ArrayType*> GetCommonArraySuperType(
       const InputArgumentTypeSet& argument_set,
       bool treat_query_parameters_as_literals) const;
 
@@ -176,14 +216,39 @@ class Coercer {
   // nested structs).
   void StripFieldAliasesFromStructType(const Type** struct_type) const;
 
-  TypeFactory* type_factory_;  // Not owned.
+  class ContextBase;
+  class Context;
 
-  // Used for coercions between dates/strings and timestamps.  Not relevant
-  // for other coercions.
-  const absl::TimeZone default_timezone_;
+  TypeFactory* type_factory_;  // Not owned.
+  Catalog* catalog_;           // Not owned. Can be null.
+
   const LanguageOptions& language_options_;  // Not owned.
   friend class CoercerTest;
 };
+
+// Returns a list of supertypes (doesn't include itself) of the given <type>
+// (built-in or extended). The returned list is sorted according to the order in
+// which these types should be considered in a common supertype calculation
+// algorithm. If <type> is extended, the <catalog> should point to the Catalog
+// that exposes this <type>.
+//
+// This function accepts only leaf (not compound, like STRUCT or ARRAY) built-in
+// types.
+//
+// REQUIRES: !type->IsExtended() || catalog != nullptr.
+// REQUIRES: !type->IsStruct && !type->IsArray().
+zetasql_base::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
+                                                    Catalog* catalog = nullptr);
+
+// Checks that there is a global preference order of supertypes and this order
+// is respected for all <types> and their supertypes. Please see the comment to
+// Catalog::GetSuperTypes for the details of supertype global preference order
+// properties. To ensure correctness, <types> should include both built-in
+// simple types and extended types.
+// TODO: reference to the documentation describing the preference
+// order of simple built-in types when it's available.
+absl::Status CheckSuperTypePreferenceGlobalOrder(TypeListView types,
+                                                 Catalog* catalog = nullptr);
 
 }  // namespace zetasql
 

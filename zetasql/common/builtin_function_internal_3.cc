@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
@@ -41,6 +42,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -49,7 +51,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -64,7 +65,10 @@ void GetStringFunctions(TypeFactory* type_factory,
   const Type* bytes_type = type_factory->get_bytes();
   const Type* int64_type = type_factory->get_int64();
   const Type* bool_type = type_factory->get_bool();
+  const Type* date_type = type_factory->get_date();
   const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* time_type = type_factory->get_time();
+  const Type* datetime_type = type_factory->get_datetime();
   const Type* normalize_mode_type = types::NormalizeModeEnumType();
 
   const Function::Mode SCALAR = Function::SCALAR;
@@ -112,7 +116,8 @@ void GetStringFunctions(TypeFactory* type_factory,
 
   InsertFunction(functions, options, "byte_length", SCALAR,
                  {{int64_type, {string_type}, FN_BYTE_LENGTH_STRING},
-                  {int64_type, {bytes_type}, FN_BYTE_LENGTH_BYTES}});
+                  {int64_type, {bytes_type}, FN_BYTE_LENGTH_BYTES}},
+                 FunctionOptions().set_alias_name("octet_length"));
 
   InsertFunction(functions, options, "char_length", SCALAR,
                  {{int64_type, {string_type}, FN_CHAR_LENGTH_STRING}},
@@ -188,10 +193,36 @@ void GetStringFunctions(TypeFactory* type_factory,
         FN_REPLACE_STRING},
        {bytes_type, {bytes_type, bytes_type, bytes_type}, FN_REPLACE_BYTES}});
 
-  InsertFunction(functions, options, "string", SCALAR,
+  InsertFunction(functions, options, "format", SCALAR,
                  {{string_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_STRING_FROM_TIMESTAMP}});
+                   {string_type, {ARG_TYPE_ARBITRARY, REPEATED}},
+                   FN_FORMAT_STRING}},
+                 FunctionOptions().set_post_resolution_argument_constraint(
+                     &CheckFormatPostResolutionArguments));
+
+  FunctionSignatureOptions date_time_constructor_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+  std::vector<FunctionSignatureOnHeap> string_signatures{
+      {string_type,
+       {timestamp_type, {string_type, OPTIONAL}},
+       FN_STRING_FROM_TIMESTAMP}};
+  string_signatures.push_back({string_type,
+                               {date_type},
+                               FN_STRING_FROM_DATE,
+                               date_time_constructor_options});
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_2_CIVIL_TIME)) {
+    string_signatures.push_back({string_type,
+                                 {time_type},
+                                 FN_STRING_FROM_TIME,
+                                 date_time_constructor_options});
+    string_signatures.push_back({string_type,
+                                 {datetime_type},
+                                 FN_STRING_FROM_DATETIME,
+                                 date_time_constructor_options});
+  }
+  InsertFunction(functions, options, "string", SCALAR, string_signatures);
 
   const ArrayType* string_array_type = types::StringArrayType();
   const ArrayType* bytes_array_type = types::BytesArrayType();
@@ -239,15 +270,55 @@ void GetStringFunctions(TypeFactory* type_factory,
                  {{string_type, {int64_array_type}, FN_CODE_POINTS_TO_STRING}});
   InsertFunction(functions, options, "code_points_to_bytes", SCALAR,
                  {{bytes_type, {int64_array_type}, FN_CODE_POINTS_TO_BYTES}});
+  InsertFunction(functions, options, "ascii", SCALAR,
+                 {{int64_type, {string_type}, FN_ASCII_STRING},
+                  {int64_type, {bytes_type}, FN_ASCII_BYTES}});
+  InsertFunction(functions, options, "unicode", SCALAR,
+                 {{int64_type, {string_type}, FN_UNICODE_STRING}});
+  InsertFunction(functions, options, "chr", SCALAR,
+                 {{string_type, {int64_type}, FN_CHR_STRING}});
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS)) {
+    InsertFunction(functions, options, "instr", SCALAR,
+                   {{int64_type,
+                     {string_type,
+                      string_type,
+                      {int64_type, OPTIONAL},
+                      {int64_type, OPTIONAL}},
+                     FN_INSTR_STRING},
+                    {int64_type,
+                     {bytes_type,
+                      bytes_type,
+                      {int64_type, OPTIONAL},
+                      {int64_type, OPTIONAL}},
+                     FN_INSTR_BYTES}});
+    InsertFunction(functions, options, "soundex", SCALAR,
+                   {{string_type, {string_type}, FN_SOUNDEX_STRING}});
+    InsertFunction(functions, options, "translate", SCALAR,
+                   {{string_type,
+                     {string_type, string_type, string_type},
+                     FN_TRANSLATE_STRING},
+                    {bytes_type,
+                     {bytes_type, bytes_type, bytes_type},
+                     FN_TRANSLATE_BYTES}});
+    InsertFunction(functions, options, "initcap", SCALAR,
+                   {{string_type,
+                     {string_type, {string_type, OPTIONAL}},
+                     FN_INITCAP_STRING}});
+  }
 }
 
 void GetRegexFunctions(TypeFactory* type_factory,
-
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions) {
   const Type* string_type = type_factory->get_string();
   const Type* bytes_type = type_factory->get_bytes();
   const Type* bool_type = type_factory->get_bool();
+  const Type* int64_type = type_factory->get_int64();
+
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -261,10 +332,35 @@ void GetRegexFunctions(TypeFactory* type_factory,
       {{bool_type, {string_type, string_type}, FN_REGEXP_CONTAINS_STRING},
        {bool_type, {bytes_type, bytes_type}, FN_REGEXP_CONTAINS_BYTES}});
 
+  FunctionArgumentTypeList regexp_extract_string_args = {string_type,
+                                                         string_type};
+  FunctionArgumentTypeList regexp_extract_bytes_args = {bytes_type, bytes_type};
+  FunctionOptions regexp_extract_options;
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS)) {
+    regexp_extract_string_args.insert(
+        regexp_extract_string_args.end(),
+        {{int64_type, OPTIONAL}, {int64_type, OPTIONAL}});
+    regexp_extract_bytes_args.insert(
+        regexp_extract_bytes_args.end(),
+        {{int64_type, OPTIONAL}, {int64_type, OPTIONAL}});
+    regexp_extract_options.set_alias_name("regexp_substr");
+  }
   InsertFunction(
       functions, options, "regexp_extract", SCALAR,
-      {{string_type, {string_type, string_type}, FN_REGEXP_EXTRACT_STRING},
-       {bytes_type, {bytes_type, bytes_type}, FN_REGEXP_EXTRACT_BYTES}});
+      {{string_type, regexp_extract_string_args, FN_REGEXP_EXTRACT_STRING},
+       {bytes_type, regexp_extract_bytes_args, FN_REGEXP_EXTRACT_BYTES}},
+      regexp_extract_options);
+
+  InsertFunction(
+      functions, options, "regexp_instr", SCALAR,
+      {{int64_type, {string_type, string_type,
+                     {int64_type, OPTIONAL}, {int64_type, OPTIONAL},
+                     {int64_type, OPTIONAL}}, FN_REGEXP_INSTR_STRING},
+       {int64_type, {bytes_type, bytes_type,
+                     {int64_type, OPTIONAL}, {int64_type, OPTIONAL},
+                     {int64_type, OPTIONAL}}, FN_REGEXP_INSTR_BYTES}}
+      );
 
   InsertFunction(functions, options, "regexp_replace", SCALAR,
                  {{string_type,
@@ -453,6 +549,7 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Type* double_array_type = types::DoubleArrayType();
   const Type* date_array_type = types::DateArrayType();
   const Type* timestamp_array_type = types::TimestampArrayType();
+  const Type* json_type = types::JsonType();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -485,6 +582,16 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   // ARRAY_LENGTH(expr1): returns the length of the array
   InsertFunction(functions, options, "array_length", SCALAR,
                  {{int64_type, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_LENGTH}});
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+    // This function is only used during internal resolution and will never
+    // appear in a resolved AST. Instead a ResolvedFlatten node will be
+    // generated.
+    InsertFunction(
+        functions, options, "flatten", SCALAR,
+        {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_FLATTEN}});
+  }
 
   // array[OFFSET(i)] gets an array element by zero-based position.
   // array[ORDINAL(i)] gets an array element by one-based position.
@@ -525,6 +632,28 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                      .set_supports_safe_error_mode(false)
                      .set_sql_name("array[safe_ordinal()]")
                      .set_get_sql_callback(&SafeArrayAtOrdinalFunctionSQL));
+
+  // array[KEY(key)] gets the array element corresponding to key if present, or
+  // an error if not present.
+  // array[SAFE_KEY(key)] gets the array element corresponding to a key if
+  // present, or else NULL.
+  // In both cases, if the array or the arg is NULL, the result is NULL.
+  InsertFunction(functions, options, "$proto_map_at_key", SCALAR,
+                 {{ARG_PROTO_MAP_VALUE_ANY,
+                   {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                   FN_PROTO_MAP_AT_KEY}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("array[key()]")
+                     .set_get_sql_callback(&ProtoMapAtKeySQL));
+  InsertFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
+                 {{ARG_PROTO_MAP_VALUE_ANY,
+                   {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                   FN_SAFE_PROTO_MAP_AT_KEY}},
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("array[safe_key()]")
+                     .set_get_sql_callback(&SafeProtoMapAtKeySQL));
 
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].
@@ -587,6 +716,12 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertFunction(
       functions, options, "array_reverse", SCALAR,
       {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_REVERSE}});
+
+  // ARRAY_IS_DISTINCT: returns true if the array has no duplicate entries.
+  InsertFunction(functions, options, "array_is_distinct", SCALAR,
+                 {{bool_type, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_IS_DISTINCT}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckArrayIsDistinctArguments));
 
   // RANGE_BUCKET: returns the bucket of the item in the array.
   InsertFunction(
@@ -726,24 +861,42 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "generate_uuid", SCALAR,
                  {{string_type, {}, FN_GENERATE_UUID}}, function_is_volatile);
 
+  std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_EXTRACT}};
+  std::vector<FunctionSignatureOnHeap> json_query_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_QUERY}};
+  std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_EXTRACT_SCALAR}};
+  std::vector<FunctionSignatureOnHeap> json_value_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_VALUE}};
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    json_extract_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_EXTRACT_JSON});
+    json_query_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_QUERY_JSON});
+    json_extract_scalar_signatures.push_back(
+        {string_type, {json_type, string_type}, FN_JSON_EXTRACT_SCALAR_JSON});
+    json_value_signatures.push_back(
+        {string_type, {json_type, string_type}, FN_JSON_VALUE_JSON});
+  }
+
   InsertFunction(functions, options, "json_extract", SCALAR,
-                 {{string_type, {string_type, string_type}, FN_JSON_EXTRACT}},
+                 json_extract_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
   InsertFunction(functions, options, "json_query", SCALAR,
-                 {{string_type, {string_type, string_type}, FN_JSON_QUERY}},
+                 json_query_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_extract_scalar", SCALAR,
+                 json_extract_scalar_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_value", SCALAR,
+                 json_value_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
 
-  InsertFunction(
-      functions, options, "json_extract_scalar", SCALAR,
-      {{string_type, {string_type, string_type}, FN_JSON_EXTRACT_SCALAR}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          &CheckJsonArguments));
-  InsertFunction(functions, options, "json_value", SCALAR,
-                 {{string_type, {string_type, string_type}, FN_JSON_VALUE}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
   InsertFunction(functions, options, "json_extract_array", SCALAR,
                  {{array_string_type,
                    {string_type, {string_type, OPTIONAL}},
@@ -1048,25 +1201,77 @@ void GetNumericFunctions(TypeFactory* type_factory,
                    has_bignumeric_type_argument}},
                  FunctionOptions().set_arguments_are_coercible(false));
 
-  InsertFunction(functions, options, "sqrt", SCALAR,
-                 {{double_type, {double_type}, FN_SQRT_DOUBLE}});
+  std::vector<FunctionSignatureOnHeap> sqrt_signatures = {
+      {double_type, {double_type}, FN_SQRT_DOUBLE},
+      {bignumeric_type,
+       {bignumeric_type},
+       FN_SQRT_BIGNUMERIC,
+       has_bignumeric_type_argument}};
   InsertFunction(functions, options, "pow", SCALAR,
                  {{double_type, {double_type, double_type}, FN_POW_DOUBLE},
                   {numeric_type,
                    {numeric_type, numeric_type},
                    FN_POW_NUMERIC,
-                   has_numeric_type_argument}},
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_POW_BIGNUMERIC,
+                   has_bignumeric_type_argument}},
                  FunctionOptions().set_alias_name("power"));
-  InsertFunction(functions, options, "exp", SCALAR,
-                 {{double_type, {double_type}, FN_EXP_DOUBLE}});
-  InsertFunction(functions, options, "ln", SCALAR,
-                 {{double_type, {double_type}, FN_NATURAL_LOGARITHM_DOUBLE}});
-  InsertFunction(functions, options, "log", SCALAR,
-                 {{double_type,
-                   {double_type, {double_type, OPTIONAL}},
-                   FN_LOGARITHM_DOUBLE}});
-  InsertFunction(functions, options, "log10", SCALAR,
-                 {{double_type, {double_type}, FN_DECIMAL_LOGARITHM_DOUBLE}});
+  std::vector<FunctionSignatureOnHeap> exp_signatures = {
+      {double_type, {double_type}, FN_EXP_DOUBLE},
+      {bignumeric_type,
+       {bignumeric_type},
+       FN_EXP_BIGNUMERIC,
+       has_bignumeric_type_argument}};
+  std::vector<FunctionSignatureOnHeap> ln_signatures = {
+      {double_type, {double_type}, FN_NATURAL_LOGARITHM_DOUBLE},
+      {bignumeric_type,
+       {bignumeric_type},
+       FN_NATURAL_LOGARITHM_BIGNUMERIC,
+       has_bignumeric_type_argument}};
+  std::vector<FunctionSignatureOnHeap> log_signatures = {
+      {double_type,
+       {double_type, {double_type, OPTIONAL}},
+       FN_LOGARITHM_DOUBLE},
+      {bignumeric_type,
+       {bignumeric_type, {bignumeric_type, OPTIONAL}},
+       FN_LOGARITHM_BIGNUMERIC,
+       has_bignumeric_type_argument}};
+  std::vector<FunctionSignatureOnHeap> log10_signatures = {
+      {double_type, {double_type}, FN_DECIMAL_LOGARITHM_DOUBLE},
+      {bignumeric_type,
+       {bignumeric_type},
+       FN_DECIMAL_LOGARITHM_BIGNUMERIC,
+       has_bignumeric_type_argument}};
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES)) {
+    sqrt_signatures.push_back({numeric_type,
+                               {numeric_type},
+                               FN_SQRT_NUMERIC,
+                               has_numeric_type_argument});
+    exp_signatures.push_back({numeric_type,
+                              {numeric_type},
+                              FN_EXP_NUMERIC,
+                              has_numeric_type_argument});
+    ln_signatures.push_back({numeric_type,
+                             {numeric_type},
+                             FN_NATURAL_LOGARITHM_NUMERIC,
+                             has_numeric_type_argument});
+    log_signatures.push_back({numeric_type,
+                              {numeric_type, {numeric_type, OPTIONAL}},
+                              FN_LOGARITHM_NUMERIC,
+                              has_numeric_type_argument});
+    log10_signatures.push_back({numeric_type,
+                                {numeric_type},
+                                FN_DECIMAL_LOGARITHM_NUMERIC,
+                                has_numeric_type_argument});
+  }
+  InsertFunction(functions, options, "sqrt", SCALAR, sqrt_signatures);
+  InsertFunction(functions, options, "exp", SCALAR, exp_signatures);
+  InsertFunction(functions, options, "ln", SCALAR, ln_signatures);
+  InsertFunction(functions, options, "log", SCALAR, log_signatures);
+  InsertFunction(functions, options, "log10", SCALAR, log10_signatures);
 }
 
 void GetTrigonometricFunctions(TypeFactory* type_factory,
@@ -1178,6 +1383,7 @@ void GetHllCountFunctions(TypeFactory* type_factory,
   const Type* uint64_type = type_factory->get_uint64();
   const Type* string_type = type_factory->get_string();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
   const Function::Mode SCALAR = Function::SCALAR;
@@ -1186,6 +1392,9 @@ void GetHllCountFunctions(TypeFactory* type_factory,
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   // The second argument must be an integer literal between 10 and 24,
   // and cannot be NULL.
@@ -1211,6 +1420,10 @@ void GetHllCountFunctions(TypeFactory* type_factory,
                             {numeric_type, {int64_type, hll_init_arg}},
                             FN_HLL_COUNT_INIT_NUMERIC,
                             has_numeric_type_argument},
+                           {bytes_type,
+                            {bignumeric_type, {int64_type, hll_init_arg}},
+                            FN_HLL_COUNT_INIT_BIGNUMERIC,
+                            has_bignumeric_type_argument},
                            {bytes_type,
                             {string_type, {int64_type, hll_init_arg}},
                             FN_HLL_COUNT_INIT_STRING},
@@ -1516,6 +1729,7 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                            NameToFunctionMap* functions) {
   const Function::Mode SCALAR = Function::SCALAR;
   const Function::Mode AGGREGATE = Function::AGGREGATE;
+  const Function::Mode ANALYTIC = Function::ANALYTIC;
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
       FunctionArgumentType::OPTIONAL;
 
@@ -1531,9 +1745,15 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       FunctionOptions().add_required_language_feature(
           zetasql::FEATURE_GEOGRAPHY);
 
+  const FunctionOptions geography_required_analytic =
+      FunctionOptions(geography_required)
+          .set_supports_over_clause(true)
+          .set_window_ordering_support(FunctionOptions::ORDER_OPTIONAL);
+
   const FunctionArgumentTypeOptions optional_const_arg_options =
       FunctionArgumentTypeOptions().set_must_be_constant().set_cardinality(
           OPTIONAL);
+
 
   // Constructors
   InsertFunction(
@@ -1605,6 +1825,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "st_boundary", SCALAR,
                  {{geography_type, {geography_type}, FN_ST_BOUNDARY}},
                  geography_required);
+  InsertFunction(functions, options, "st_convexhull", SCALAR,
+                 {{geography_type, {geography_type}, FN_ST_CONVEXHULL}},
+                 geography_required);
 
   // Predicates
   InsertFunction(functions, options, "st_equals", SCALAR,
@@ -1662,7 +1885,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                  {{int64_type, {geography_type}, FN_ST_NUM_POINTS}},
                  geography_required.Copy().set_alias_name("st_npoints"));
   InsertFunction(functions, options, "st_dump", SCALAR,
-                 {{geography_array_type, {geography_type}, FN_ST_DUMP}},
+                 {{geography_array_type,
+                   {geography_type, {int64_type, OPTIONAL}},
+                   FN_ST_DUMP}},
                  geography_required);
 
   // Measures
@@ -1713,18 +1938,40 @@ void GetGeographyFunctions(TypeFactory* type_factory,
       {{geography_type, {string_type}, FN_ST_GEOG_POINT_FROM_GEOHASH}},
       geography_required);
 
-  // TODO: when named parameters are available, make second
-  // parameter a mandatory named argument `oriented`.
+  auto const_with_mandatory_name = [](const std::string& name) {
+    return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+        .set_must_be_constant()
+        .set_argument_name_is_mandatory(true)
+        .set_argument_name(name);
+  };
+
+  // Extended signatures for ST_GeogFromText/FromGeoJson/etc.
+  FunctionSignatureOptions extended_parser_signatures =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
+
   InsertFunction(functions, options, "st_geogfromtext", SCALAR,
                  {{geography_type,
                    {string_type, {bool_type, optional_const_arg_options}},
-                   FN_ST_GEOG_FROM_TEXT}},
+                   FN_ST_GEOG_FROM_TEXT},
+                  {geography_type,
+                   {string_type,
+                    {bool_type, const_with_mandatory_name("oriented")},
+                    {bool_type, const_with_mandatory_name("planar")},
+                    {bool_type, const_with_mandatory_name("make_valid")}},
+                   FN_ST_GEOG_FROM_TEXT_EXT,
+                   extended_parser_signatures}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromkml", SCALAR,
                  {{geography_type, {string_type}, FN_ST_GEOG_FROM_KML}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromgeojson", SCALAR,
-                 {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON}},
+                 {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON},
+                  {geography_type,
+                   {string_type,
+                    {bool_type, const_with_mandatory_name("make_valid")}},
+                   FN_ST_GEOG_FROM_GEO_JSON_EXT,
+                   extended_parser_signatures}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromwkb", SCALAR,
                  {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_WKB}},
@@ -1740,6 +1987,12 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "st_centroid_agg", AGGREGATE,
                  {{geography_type, {geography_type}, FN_ST_CENTROID_AGG}},
                  geography_required);
+  InsertFunction(functions, options, "st_nearest_neighbors", AGGREGATE,
+                 {{ARG_TYPE_ANY_1,  //  Return type will be overridden.
+                   {ARG_TYPE_ANY_1, geography_type, geography_type, int64_type},
+                   FN_ST_NEAREST_NEIGHBORS}},
+                 FunctionOptions().set_compute_result_type_callback(
+                     &ComputeResultTypeForNearestNeighborsStruct));
 
   // Other
   InsertFunction(functions, options, "st_x", SCALAR,
@@ -1748,6 +2001,20 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "st_y", SCALAR,
                  {{double_type, {geography_type}, FN_ST_Y}},
                  geography_required);
+
+  const FunctionArgumentTypeOptions dbscan_arg_options =
+      FunctionArgumentTypeOptions()
+          .set_must_be_constant()
+          .set_must_be_non_null()
+          .set_min_value(0);
+
+  InsertFunction(functions, options, "st_clusterdbscan", ANALYTIC,
+                 {{int64_type,
+                   {geography_type,
+                    {double_type, dbscan_arg_options},
+                    {int64_type, dbscan_arg_options}},
+                   FN_ST_CLUSTERDBSCAN}},
+                 geography_required_analytic);
 }
 
 }  // namespace zetasql

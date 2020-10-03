@@ -1,5 +1,5 @@
 #
-# Copyright 2018 ZetaSQL Authors
+# Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 licenses(["notice"])  # Apache v2.0
 
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 cc_library(
     name = "status_matchers",
@@ -24,19 +24,20 @@ cc_library(
     srcs = ["status_matchers.cc"],
     hdrs = ["status_matchers.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
-        "@com_google_googletest//:gtest",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -45,18 +46,19 @@ cc_test(
     size = "small",
     srcs = ["status_matchers_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":status_matchers",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_googletest//:gtest",
         "//zetasql/base:status",
         "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
     ],
 )

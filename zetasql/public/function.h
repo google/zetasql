@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,10 +32,10 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "absl/base/attributes.h"
+#include "zetasql/base/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 // ZetaSQL's Catalog interface class allows an implementing query engine
 // to define the functions available in the engine.  The caller initially
@@ -179,40 +179,40 @@ struct FunctionOptions {
 
   FunctionOptions& set_pre_resolution_argument_constraint(
       ArgumentConstraintsCallback constraint) {
-    pre_resolution_constraint = constraint;
+    pre_resolution_constraint = std::move(constraint);
     return *this;
   }
   FunctionOptions& set_post_resolution_argument_constraint(
       ArgumentConstraintsCallback constraint) {
-    post_resolution_constraint = constraint;
+    post_resolution_constraint = std::move(constraint);
     return *this;
   }
   FunctionOptions& set_compute_result_type_callback(
       ComputeResultTypeCallback callback) {
-    compute_result_type_callback = callback;
+    compute_result_type_callback = std::move(callback);
     return *this;
   }
 
   FunctionOptions& set_get_sql_callback(FunctionGetSQLCallback callback) {
-    get_sql_callback = callback;
+    get_sql_callback = std::move(callback);
     return *this;
   }
 
   FunctionOptions& set_no_matching_signature_callback(
       NoMatchingSignatureCallback callback) {
-    no_matching_signature_callback = callback;
+    no_matching_signature_callback = std::move(callback);
     return *this;
   }
 
   FunctionOptions& set_supported_signatures_callback(
       SupportedSignaturesCallback callback) {
-    supported_signatures_callback = callback;
+    supported_signatures_callback = std::move(callback);
     return *this;
   }
 
   FunctionOptions& set_bad_argument_error_prefix_callback(
       BadArgumentErrorPrefixCallback callback) {
-    bad_argument_error_prefix_callback = callback;
+    bad_argument_error_prefix_callback = std::move(callback);
     return *this;
   }
 
@@ -582,8 +582,10 @@ class Function {
   // of all its function signatures.
   virtual std::string DebugString(bool verbose = false) const;
 
-  // Returns SQL to perform a function call with the given SQL arguments.
-  std::string GetSQL(const std::vector<std::string>& inputs) const;
+  // Returns SQL to perform a function call with the given SQL arguments,
+  // using given FunctionSignature if provided.
+  std::string GetSQL(std::vector<std::string> inputs,
+                     const FunctionSignature* signature = nullptr) const;
 
   // Returns Status indicating whether or not any specified constraints
   // were violated.  If <constraints_callback> is NULL returns OK.
@@ -619,8 +621,9 @@ class Function {
   // message) listing supported function signatures. For example:
   // "DATE_DIFF(DATE, DATE, DATE_TIME_PART)"
   // "INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE"
+  // In num_signatures returns number of signatures used to build a string.
   const std::string GetSupportedSignaturesUserFacingText(
-      const LanguageOptions& language_options) const;
+      const LanguageOptions& language_options, int* num_signatures) const;
 
   const BadArgumentErrorPrefixCallback&
   GetBadArgumentErrorPrefixCallback() const;

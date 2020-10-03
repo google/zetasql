@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -219,6 +219,7 @@ TEST(InputArgumentTypeTest, TypeNameAndDebugString) {
       {InputArgumentType(types::DoubleType()), "FLOAT64", "DOUBLE"},
       {InputArgumentType(types::DoubleType(), true /* is_query_parameter */),
        "FLOAT64", "DOUBLE"},
+      {InputArgumentType::LambdaInputArgumentType(), "LAMBDA", "LAMBDA"},
   };
 
   for (const auto& test_case : test_cases) {
@@ -229,6 +230,10 @@ TEST(InputArgumentTypeTest, TypeNameAndDebugString) {
               argument_type.UserFacingName(PRODUCT_EXTERNAL));
     EXPECT_EQ(test_case.expected_debug_string, argument_type.DebugString());
   }
+}
+
+TEST(InputArgumentTypeTest, LambdaIsLambda) {
+  EXPECT_TRUE(InputArgumentType::LambdaInputArgumentType().is_lambda());
 }
 
 TEST(InputArgumentTypeTest, LongArgumentsString) {

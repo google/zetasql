@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
 load("//bazel:bison.bzl", "genyacc")
 load("//bazel:flex.bzl", "genlex")
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 genrule(
@@ -29,7 +30,7 @@ genrule(
         "parse_tree_accept_methods.inc",
     ],
     cmd = "$(location :gen_extra_files_tool) $(SRCS) $(OUTS)",
-    tools = [":gen_extra_files_tool"],
+    exec_tools = [":gen_extra_files_tool"],
 )
 
 py_binary(
@@ -63,12 +64,13 @@ cc_library(
         "unparser.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -135,14 +137,15 @@ cc_library(
     # fail in fastbuild with default 64KB stack sizes, or to start failing
     # when the parser is extended further.
     copts = [
+        "-Wno-char-subscripts",
         "-Wno-implicit-fallthrough",
         "-O2",
-        "-Wno-pessimizing-move",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -161,6 +164,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],
@@ -182,12 +186,13 @@ cc_library(
         "visit_result.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -225,19 +230,20 @@ cc_test(
     size = "small",
     srcs = ["parse_tree_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parse_tree",
         ":parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
@@ -247,6 +253,7 @@ cc_test(
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -255,23 +262,25 @@ cc_test(
     size = "small",
     srcs = ["parse_tree_errors_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parse_tree",
         ":parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:status_payload_utils",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -280,17 +289,18 @@ cc_test(
     size = "small",
     srcs = ["unparser_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":parser",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base/testing:status_matchers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -303,12 +313,13 @@ cc_library(
         "keywords.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":bison_keyword_token_codes_inc",
@@ -324,12 +335,13 @@ cc_library(
 cc_library(
     name = "bison_keyword_token_codes_inc",
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     textual_hdrs = ["bison_keyword_token_codes.inc"],
 )
@@ -345,12 +357,13 @@ cc_test(
     name = "keywords_test",
     srcs = ["keywords_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     data = [
         "bison_parser.y",
@@ -358,10 +371,10 @@ cc_test(
     ],
     deps = [
         ":keywords",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:path",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_googlesource_code_re2//:re2",
     ],
 )

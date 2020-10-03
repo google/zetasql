@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -49,11 +49,13 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -61,7 +63,6 @@
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -230,6 +231,13 @@ class Resolver {
     return analyzer_options_.language();
   }
 
+  const AnalyzerOutputProperties& analyzer_output_properties() const {
+    return analyzer_output_properties_;
+  }
+
+  // Returns the highest column id that has been allocated.
+  int max_column_id() const { return max_column_id_; }
+
   // Clear state so this can be used to resolve a second statement whose text
   // is contained in <sql>.
   void Reset(absl::string_view sql);
@@ -302,6 +310,7 @@ class Resolver {
   // Next unique column_id to allocate.  Pointer may come from AnalyzerOptions.
   zetasql_base::SequenceNumber* next_column_id_sequence_ = nullptr;  // Not owned.
   std::unique_ptr<zetasql_base::SequenceNumber> owned_column_id_sequence_;
+  int max_column_id_ = 0;
 
   // Next unique subquery ID to allocate. Used for display only.
   int next_subquery_id_;
@@ -345,14 +354,17 @@ class Resolver {
   // True if we are analyzing check constraint expression.
   bool analyzing_check_constraint_expression_;
 
+  AnalyzerOutputProperties analyzer_output_properties_;
+
   // Store list of named subqueries currently visible.
   // This is updated as we traverse the query to implement scoping of
   // WITH subquery names.
   struct NamedSubquery {
-    NamedSubquery(IdString unique_alias_in,
+    NamedSubquery(IdString unique_alias_in, bool is_recursive_in,
                   const ResolvedColumnList& column_list_in,
                   const std::shared_ptr<const NameList>& name_list_in)
         : unique_alias(unique_alias_in),
+          is_recursive(is_recursive_in),
           column_list(column_list_in),
           name_list(name_list_in) {}
 
@@ -362,6 +374,10 @@ class Resolver {
     // The globally uniquified alias for this table alias which we will use in
     // the resolved AST.
     const IdString unique_alias;
+
+    // True if references to this subquery should resolve to a
+    // ResolvedRecursiveRefScan, rather than a ResolvedWithRefScan.
+    bool is_recursive;
 
     // The columns produced by the table alias.
     // These will be matched 1:1 with newly created columns in future
@@ -381,11 +397,40 @@ class Resolver {
   //        names, in addition to single-path WITH entry names.
   // Value: Vector of active subqueries with that name, with the innermost
   //        subquery last. This vector is never empty.
+  //
+  //        Note: While resolving the non-recursive term of a recursive UNION,
+  //        a nullptr entry is added to this vector to indicate that any
+  //        references to this alias should result in an error.
   absl::flat_hash_map<
       std::vector<IdString>, std::vector<std::unique_ptr<NamedSubquery>>,
       ContainerHash<std::vector<IdString>, IdStringCaseHash>,
       ContainerEquals<std::vector<IdString>, IdStringCaseEqualFunc>>
       named_subquery_map_;
+
+  // Stores additional information about each ResolvedRecursiveRefScan node
+  // needed by the resolver, but not persisted in the tree.
+  struct RecursiveRefScanInfo {
+    // ASTPathExpression representing the table reference; used for error
+    // reporting only.
+    const ASTPathExpression* path;
+
+    // Unique name of the recursive query being referenced. Used to identify
+    // cases where an inner WITH alias contains a recursive reference to an
+    // outer WITH query. Since such cases always result in an error, this
+    // information does not need to be persisted in the resolved tree; by the
+    // time the resolver completes, it is guaranteed that every recursive
+    // reference points to the innermost ResolvedRecursiveScan.
+    IdString recursive_query_unique_name;
+  };
+
+  // Stores additional information about each ResolvedRecursiveRefScan node
+  // created, which is needed for validation checks later in the resolver, but
+  // is not persisted into the resolved AST.
+  //
+  // All node pointers are owned externally, as part of the resolved tree being
+  // generated.
+  absl::flat_hash_map<const ResolvedRecursiveRefScan*, RecursiveRefScanInfo>
+      recursive_ref_info_;
 
   void AddNamedSubquery(const std::vector<IdString>& alias,
                         std::unique_ptr<NamedSubquery> named_subquery);
@@ -572,7 +617,8 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
           column_definition_list,
       std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
-      bool* is_value_table);
+      bool* is_value_table,
+      bool* is_recursive);
 
   // Creates the ResolvedGeneratedColumnInfo from an ASTGeneratedColumnInfo.
   // - <ast_generated_column>: Is a pointer to the Generated Column
@@ -646,6 +692,8 @@ class Resolver {
   //   be null.
   // - <internal_table_name> should be a static IdString such as
   //   kCreateAsId and kViewId; it's used as an alias of the SELECT query.
+  // - <is_recursive_view> is true only for views which are actually recursive.
+  //   This affects the resolved tree respresentation.
   // - If <column_definition_list> is not null, then <column_definition_list>
   //   will be populated based on the output column list and
   //   <table_name_id_string> (the name of the table to be created).
@@ -654,7 +702,9 @@ class Resolver {
   //   TABLE/MATERIALIZED_VIEW/MODEL the <column_definition_list> is non-null.
   absl::Status ResolveQueryAndOutputColumns(
       const ASTQuery* query, absl::string_view object_type,
-      IdString table_name_id_string, IdString internal_table_name,
+      bool is_recursive_view,
+      const std::vector<IdString>& table_name_id_string,
+      IdString internal_table_name,
       std::unique_ptr<const ResolvedScan>* query_scan, bool* is_value_table,
       std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
           output_column_list,
@@ -811,6 +861,11 @@ class Resolver {
       const ASTCreateDatabaseStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  // Resolve a CREATE SCHEMA statement.
+  absl::Status ResolveCreateSchemaStatement(
+      const ASTCreateSchemaStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   // Resolves a CREATE VIEW statement
   absl::Status ResolveCreateViewStatement(
       const ASTCreateViewStatement* ast_statement,
@@ -917,6 +972,10 @@ class Resolver {
 
   absl::Status ResolveExportDataStatement(
       const ASTExportDataStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  absl::Status ResolveExportModelStatement(
+      const ASTExportModelStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   absl::Status ResolveCallStatement(const ASTCallStatement* ast_call,
@@ -1161,7 +1220,7 @@ class Resolver {
   // entry. Verifies that the query is a UNION and returns the ASTSetOperation
   // node representing that UNION.
   zetasql_base::StatusOr<const ASTSetOperation*> GetRecursiveUnion(
-      IdString query_name, const ASTQuery* query);
+      const ASTQuery* query);
 
   // Resolve an ASTQueryExpression.
   //
@@ -1175,6 +1234,21 @@ class Resolver {
       IdString query_alias,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
+
+  // If the query contains a WITH clause, resolves all WITH entries and returns
+  // them. Otherwise, just returns an empty vector.
+  zetasql_base::StatusOr<std::vector<std::unique_ptr<const ResolvedWithEntry>>>
+  ResolveWithClauseIfPresent(const ASTQuery* query, bool is_outer_query);
+
+  // Called immediately after resolving the main body of a query. If the query
+  // contained a WITH clause, removes the WITH entries from named_subquery_map_
+  // and wraps the query scan in a ResolvedWithScan node. Ownership of elements
+  // in <with_entries> is transferred to the new ResolvedWithScan node, which
+  // replaces <*output>.
+  absl::Status FinishResolveWithClauseIfPresent(
+      const ASTQuery* query,
+      std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entries,
+      std::unique_ptr<const ResolvedScan>* output);
 
   // Resolve an ASTSelect.  Resolves everything within the scope of the related
   // query block, including the FROM, WHERE, GROUP BY, HAVING, and ORDER BY
@@ -1565,7 +1639,7 @@ class Resolver {
   // Returns the FieldDescriptor corresponding to a top level field with the
   // given <name>. The field is looked up  with respect to <descriptor>. Returns
   // nullptr if no matching field was found.
-  ::zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> FindFieldDescriptor(
+  zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> FindFieldDescriptor(
       const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
       absl::string_view name);
 
@@ -1629,6 +1703,109 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // Visitor to walk the resolver tree of a recursive UNION and verify that
+  // recursive references appear only in a supported context.
+  class ValidateRecursiveTermVisitor : public ResolvedASTVisitor {
+   public:
+    ValidateRecursiveTermVisitor(const Resolver* resolver,
+                                 IdString recursive_query_name);
+
+   private:
+    absl::Status DefaultVisit(const ResolvedNode* node) override;
+
+    absl::Status VisitResolvedAggregateScan(
+        const ResolvedAggregateScan* node) override;
+
+    absl::Status VisitResolvedLimitOffsetScan(
+        const ResolvedLimitOffsetScan* node) override;
+
+    absl::Status VisitResolvedAnalyticScan(
+        const ResolvedAnalyticScan* node) override;
+
+    absl::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override;
+
+    absl::Status VisitResolvedSubqueryExpr(
+        const ResolvedSubqueryExpr* node) override;
+
+    absl::Status VisitResolvedRecursiveRefScan(
+        const ResolvedRecursiveRefScan* node) override;
+
+    absl::Status VisitResolvedRecursiveScan(
+        const ResolvedRecursiveScan* node) override;
+
+    absl::Status VisitResolvedSampleScan(
+        const ResolvedSampleScan* node) override;
+
+    absl::Status VisitResolvedOrderByScan(
+        const ResolvedOrderByScan* node) override;
+
+    absl::Status VisitResolvedFunctionArgument(
+        const ResolvedFunctionArgument* node) override;
+
+    absl::Status VisitResolvedWithEntry(const ResolvedWithEntry* node) override;
+
+    // Returns either the address of right_operand_of_left_join_count_,
+    // left_operand_of_right_join_count_, or full_join_operand_count_,
+    // depending on the arguments, or nullptr if none of the above apply.
+    //
+    // Used to increment or decrement the appropriate join count field when
+    // starting and finishing the processing of an operand.
+    int* GetJoinCountField(const ResolvedJoinScan::JoinType join_type,
+                           bool left_operand);
+
+    // Adjusts the values of the appropriate join count field by <offset>,
+    // in response to entering or exiting a join operand.
+    void MaybeAdjustJoinCount(const ResolvedJoinScan::JoinType join_type,
+                         bool left_operand, int offset);
+
+    const Resolver* resolver_;
+
+    // Name of the recursive table currently being resolved. Used to distinguish
+    // between recursive references to that table itself vs. recursive
+    // references to some outer table. The latter results in an error, as it
+    // is not supported.
+    IdString recursive_query_name_;
+
+    // Number of nested WITH entries we are inside of (relative to the recursive
+    // term of the recursive query being validated). It is illegal to reference
+    // a recursive table through any inner WITH entry.
+    int nested_with_entry_count_ = 0;
+
+    // Number of aggregate scans we are inside of.
+    int aggregate_scan_count_ = 0;
+
+    // Number of analytic scans we are inside of.
+    int analytic_scan_count_ = 0;
+
+    // Number of limit/offset scans we are inside of.
+    int limit_offset_scan_count_ = 0;
+
+    // Number of order by scans we are inside of.
+    int order_by_scan_count_ = 0;
+
+    // Number of sample sacns we are inside of.
+    int sample_scan_count_ = 0;
+
+    // Number of subquery expressions we are inside of.
+    int subquery_expr_count_ = 0;
+
+    // Number of times we are inside the right operand of a left join.
+    int right_operand_of_left_join_count_ = 0;
+
+    // Number of times we are inside the left operand of a right join.
+    int left_operand_of_right_join_count_ = 0;
+
+    // Number of times we are inside any operand of a full join.
+    int full_join_operand_count_ = 0;
+
+    // Number of TVF arguments we are inside of.
+    int tvf_argument_count_ = 0;
+
+    // True if we've already encountered a recursive reference to the current
+    // query. Multiple recursive references to the same query are disallowed.
+    bool seen_recursive_reference_ = false;
+  };
+
   // Helper class used to implement ResolveSetOperation().
   class SetOperationResolver {
    public:
@@ -1641,6 +1818,21 @@ class Resolver {
     absl::Status Resolve(const NameScope* scope,
                          std::unique_ptr<const ResolvedScan>* output,
                          std::shared_ptr<const NameList>* output_name_list);
+
+    // Resolves the UNION representing a recursive query.
+    // <scope>: the NameScope used to resolve the union's components.
+    // <recursive_alias>: the name of the alias used in the query to
+    //   refer to the recursive table reference.
+    // <recursive_query_unique_name>: A unique name to associate with the
+    //   recursive query in the resolved tree.
+    // <output>: Receives a scan containing the result.
+    // <output_name_list>: Receives a NameList containing the columns of the
+    //   result.
+    absl::Status ResolveRecursive(
+        const NameScope* scope, const std::vector<IdString>& recursive_alias,
+        const IdString& recursive_query_unique_name,
+        std::unique_ptr<const ResolvedScan>* output,
+        std::shared_ptr<const NameList>* output_name_list);
 
    private:
     // Represents the result of resolving one input to the set operation.
@@ -1662,8 +1854,7 @@ class Resolver {
     // column_type_lists[column_idx][scan_idx] specifies the type for the given
     // column index/input index combination.
     zetasql_base::StatusOr<std::vector<std::vector<InputArgumentType>>>
-    BuildColumnTypeLists(
-        const std::vector<ResolvedInputResult>& resolved_inputs) const;
+    BuildColumnTypeLists(absl::Span<ResolvedInputResult> resolved_inputs) const;
 
     zetasql_base::StatusOr<ResolvedColumnList> BuildColumnLists(
         const std::vector<std::vector<InputArgumentType>>& column_type_lists,
@@ -1673,8 +1864,8 @@ class Resolver {
     // column to the respective final column type of the set operation.
     absl::Status CreateWrapperScansWithCasts(
         const ResolvedColumnList& column_list,
-        std::vector<std::unique_ptr<ResolvedSetOperationItem>>*
-            resolved_inputs);
+        absl::Span<std::unique_ptr<ResolvedSetOperationItem>> resolved_inputs)
+        const;
 
     // Builds the final name list for the resolution of the set operation.
     zetasql_base::StatusOr<std::shared_ptr<const NameList>> BuildFinalNameList(
@@ -2329,7 +2520,7 @@ class Resolver {
   // zetasql.use_defaults=false. Element in <resolved_arguments> is
   // transferred to <resolved_expr_out>.
   absl::Status ResolveProtoDefaultIfNull(
-      const ASTNode* ast_location, ExprResolutionInfo* expr_resolution_info,
+      const ASTNode* ast_location,
       std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -2442,6 +2633,18 @@ class Resolver {
       const std::unique_ptr<const ResolvedExpr>& resolved_argument,
       const Type* to_type);
 
+  // Checks whether explicit cast of the <resolved_argument> to the type
+  // <to_type> is possible. CheckExplicitCast can return a status that is
+  // different from Ok if it gets such error status from a Catalog's
+  // FindConversion method or if a Catalog returns a conversion that breaks some
+  // of Coercer invariants. If this happens Resolver should abort a resolution
+  // request by returning the error status. If cast involves extended types the
+  // function for such extended conversion is returned in
+  // <extended_type_conversion> argument.
+  zetasql_base::StatusOr<bool> CheckExplicitCast(
+      const ResolvedExpr* resolved_argument, const Type* to_type,
+      ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
+
   absl::Status ResolveExplicitCast(
       const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
@@ -2465,15 +2668,18 @@ class Resolver {
   // Function names returned by ResolvedArrayPosition().
   static const char kArrayAtOffset[];
   static const char kArrayAtOrdinal[];
+  static const char kProtoMapAtKey[];
   static const char kSafeArrayAtOffset[];
   static const char kSafeArrayAtOrdinal[];
+  static const char kSafeProtoMapAtKey[];
 
   // Verifies that <resolved_array> is an array and that <ast_position> is an
   // appropriate array element function call (e.g., to OFFSET) and populates
   // <function_name> and <unwrapped_ast_position_expr> accordingly. Also
   // resolves <unwrapped_ast_position_expr> into <resolved_expr_out> and coerces
-  // it to INT64 if necessary.
-  absl::Status ResolveArrayElementPosition(
+  // it to the correct type if necessary. For most arrays, this will be an
+  // INT64, but for proto maps, it will be the key type of the map.
+  absl::Status ResolveArrayElementAccess(
       const ResolvedExpr* resolved_array, const ASTExpression* ast_position,
       ExprResolutionInfo* expr_resolution_info,
       absl::string_view* function_name,
@@ -2504,6 +2710,11 @@ class Resolver {
     const ASTExtractExpression* extract_expression,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::Status ResolveCollateExpression(
+      const ASTCollateExpression* ast_collate_expr,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveNewConstructor(
       const ASTNewConstructor* ast_new_constructor,
@@ -2831,6 +3042,21 @@ class Resolver {
       const ASTExecuteImmediateStatement* ast_statement,
       std::unique_ptr<const ResolvedStatement>* output);
 
+  // Resolves a generic CREATE <entity_type> statement.
+  absl::Status ResolveCreateEntityStatement(
+      const ASTCreateEntityStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  // Resolves a generic ALTER <entity_type> statement.
+  absl::Status ResolveAlterEntityStatement(
+      const ASTAlterEntityStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  // Resolves a generic DROP <entity_type> statement.
+  absl::Status ResolveDropEntityStatement(
+      const ASTDropEntityStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
  public:
   absl::Status ResolveFunctionCallWithResolvedArguments(
       const ASTNode* ast_location,
@@ -3055,7 +3281,7 @@ class Resolver {
 
   // Returns true if two values of the given types can be tested for equality
   // either directly or by coercing the values to a common supertype.
-  bool SupportsEquality(const Type* type1, const Type* type2);
+  zetasql_base::StatusOr<bool> SupportsEquality(const Type* type1, const Type* type2);
 
   // Returns the column alias from <expr_resolution_info> if <ast_expr> matches
   // the top level expression in <expr_resolution_info>. Returns an empty
@@ -3093,8 +3319,6 @@ class Resolver {
   // Struct to control the features to be resolved by
   // ResolveCreateTableStmtBaseProperties.
   struct ResolveCreateTableStmtBasePropertiesArgs {
-    const bool partition_by_enabled;
-    const bool cluster_by_enabled;
     const bool table_element_list_enabled;
   };
 
@@ -3113,6 +3337,7 @@ class Resolver {
         check_constraint_list;
     std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
     std::vector<std::unique_ptr<const ResolvedExpr>> cluster_by_list;
+    std::unique_ptr<const ResolvedWithPartitionColumns> with_partition_columns;
     bool is_value_table;
     std::unique_ptr<const ResolvedScan> query_scan;
     std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
@@ -3125,9 +3350,19 @@ class Resolver {
   absl::Status ResolveCreateTableStmtBaseProperties(
       const ASTCreateTableStmtBase* ast_statement,
       const std::string& statement_type, const ASTQuery* query,
+      const ASTPartitionBy* partition_by, const ASTClusterBy* cluster_by,
+      const ASTWithPartitionColumnsClause* with_partition_columns_clause,
       const ResolveCreateTableStmtBasePropertiesArgs&
           resolved_properties_control_args,
       ResolveCreateTableStatementBaseProperties* statement_base_properties);
+
+  // Resolve WithPartitionColumnsClause and also update column_indexes with all
+  // the resolved columns from WithPartitionColumnsClause.
+  absl::Status ResolveWithPartitionColumns(
+      const ASTWithPartitionColumnsClause* with_partition_columns_clause,
+      const IdString table_name_id_string, ColumnIndexMap* column_indexes,
+      std::unique_ptr<const ResolvedWithPartitionColumns>*
+          resolved_with_partition_columns);
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

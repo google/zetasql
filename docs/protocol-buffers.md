@@ -2,9 +2,7 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Protocol Buffers
-
-<!-- BEGIN CONTENT -->
+# Protocol buffers
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
 data. They are easy to create, small in size, and efficient to send over RPCs.
@@ -26,8 +24,7 @@ how they work in languages other than SQL, see the
 
 This section covers how to construct protocol buffers using ZetaSQL.
 
-<a id=using_new></a>
-### Using NEW
+### Using NEW {: #using_new }
 
 You can create a protocol buffer using the keyword `NEW`:
 
@@ -161,7 +158,7 @@ to a query like this:
 SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
 ```
 
-## Casting Protocol Buffers
+## Casting protocol buffers
 
 You can cast `PROTO` to or from `BYTES` or `STRING`.
 
@@ -185,8 +182,7 @@ to `PROTO`. If the literal value cannot be parsed using the expected `PROTO`
 type, an error will be raised. To return `NULL`
 instead, use [`SAFE_CAST`][link_to_safe_cast].
 
-<a id=type_mapping></a>
-## Type mapping
+## Type mapping {: #type_mapping }
 
 Protocol buffers are represented using the `PROTO` data type.  A column can
 contain `PROTO` values the same way it can contain `INT32` or `STRING` values.
@@ -226,7 +222,7 @@ default, protocol buffer fields do not return <code>NULL</code>.
 <code>optional int64 int = 1 [( zetasql.use_defaults ) = false];</code><br>
 When reading, if this field isn't set, a <code>NULL</code> value is returned.
 This example uses an annotation, which is described in
-<a href="#defaults_and_nulls">Defaults and <code>NULL</code>s</a>.
+<a href="#default_values_and_nulls">Defaults and <code>NULL</code>s</a>.
 </td>
 <td><code>INT64</code></td>
 </tr>
@@ -253,8 +249,7 @@ This example uses an annotation, which is described in
 </tbody>
 </table>
 
-<a name="defaults_and_nulls"></a>
-### Default values and `NULL`s
+### Default values and `NULL`s  {#default_values_and_nulls}
 
 Protocol buffer messages themselves do not have a default value &mdash; only the
 fields contained inside a protocol buffer have defaults. When a full protocol
@@ -332,8 +327,7 @@ message AnotherSimpleMessage {
 }
 ```
 
-<a id=checking_if_a_field_has_a_value></a>
-### Checking if a non-repeated field has a value
+### Checking if a non-repeated field has a value {: #checking_if_a_field_has_a_value }
 
 You can detect whether `optional` fields are set using a virtual field, `has_X`,
 where `X` is the name of the field being checked. The type of the `has_X` field
@@ -365,8 +359,7 @@ If `has_country` returns `TRUE`, it indicates that the value for the `country`
 field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
 value is not explicitly set.
 
-<a id=checking_for_a_repeated_value></a>
-### Checking for a repeated value
+### Checking for a repeated value {: #checking_for_a_repeated_value }
 
 You can use an `EXISTS` subquery to scan inside a repeated field and check if
 any value exists with some desired property. For example, the following query
@@ -447,8 +440,7 @@ FROM
      CAST("" as some.package.OuterMessage) as proto_field);
 ```
 
-<a id="proto_annotations"></a>
-### Annotations to extend the type system
+### Annotations to extend the type system {: #proto_annotations }
 
 The ZetaSQL type system contains more types than the protocol buffer
 type system.
@@ -479,16 +471,14 @@ SELECT
   DATE_FROM_UNIX_DATE(date)...
 ```
 
-<a id=querying_protocol_buffers></a>
-## Querying protocol buffers
+## Querying protocol buffers {: #querying_protocol_buffers }
 
 You use the dot operator to access the fields contained within a protocol
 buffer. This can not be used to get values of ambiguous fields.
 If you need to reference an ambiguous field,
 see [`EXTRACT`][proto-extract].
 
-<a id=example_protocol_buffer_message></a>
-### Example protocol buffer message
+### Example protocol buffer message {: #example_protocol_buffer_message }
 
 To illustrate how to query protocol buffers, consider a table, `Customers`, that
 contains a column `Orders` of type `PROTO`. The proto stored in `Orders`
@@ -546,8 +536,7 @@ An instance of this message might be:
 }
 ```
 
-<a id=querying_top-level_fields></a>
-### Querying top-level fields
+### Querying top-level fields {: #querying_top-level_fields }
 
 You can write a query to return an entire protocol buffer message, or to return
 a top-level or nested field of the message.
@@ -572,8 +561,7 @@ FROM
   Customers c;
 ```
 
-<a id=querying_nested_paths></a>
-### Querying nested paths
+### Querying nested paths {: #querying_nested_paths }
 
 Notice that the `Order` protocol buffer contains another protocol buffer
 message, `Address`, in the `shipping_address` field. You can create a query that
@@ -643,15 +631,12 @@ WHERE
            label.key = "color" AND label.value = "red");
 ```
 
-<a id="extensions_and_weak_field"></a>
-
 ## Extensions
 
 [extensions][protocol-extensions]
 can be queried from `PROTO` values.
 
-<a id="extensions"></a>
-### Top-level extensions
+### Top-level extensions {: #extensions }
 
 If your `PROTO` value contains extensions, you can query those fields using the
 following syntax:
@@ -856,6 +841,4 @@ FROM
 
 [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
 [proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions#proto_extract
-
-<!-- END CONTENT -->
 

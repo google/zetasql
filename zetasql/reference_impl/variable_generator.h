@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,8 +28,8 @@
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/types/variant.h"
 #include "zetasql/base/statusor.h"
+#include "absl/types/variant.h"
 
 namespace zetasql {
 
@@ -93,7 +93,7 @@ class ColumnToVariableMapping {
   VariableId GetVariableNameFromColumn(const ResolvedColumn* column);
 
   // Same as above, but returns NOT_FOUND if the column is missing.
-  ::zetasql_base::StatusOr<VariableId> LookupVariableNameForColumn(
+  zetasql_base::StatusOr<VariableId> LookupVariableNameForColumn(
       const ResolvedColumn* column) const;
 
   const Map& map() const { return column_to_variable_; }

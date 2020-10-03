@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/macros.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 // ZetaSQL dates are represented as an int32_t value, indicating the offset
 // in days from the epoch 1970-01-01.  ZetaSQL dates are not timezone aware,
@@ -650,6 +650,26 @@ absl::Status DiffDatetimes(const DatetimeValue& datetime1,
 absl::Status TruncateDatetime(const DatetimeValue& datetime,
                               DateTimestampPart part, DatetimeValue* output);
 
+// Returns the last day of the specified date part that contains the date.
+// Commonly used to return the last day of the month.
+// part is the date part for which the last day is returned.
+// Possible values are YEAR, QUARTER, MONTH, WEEK or WEEK(MONDAY/SUNDAY etc..),
+// ISO_WEEK and ISO_YEAR.
+// When date_part is WEEK, users can use WEEK(<WEEKDAY>) to specify the starting
+// date of the week. For example, WEEK(MONDAY) means a week starts on MONDAY..
+// The rule is the same as the current ZetaSQL date_part.
+// For example:
+//  LastDayOfDate("2001-01-01", YEAR) -> "2001-12-31"
+//  LastDayOfDate("2001-01-01", ISOYEAR) -> "2001-12-30"
+//  LastDayOfDate("2001-01-01", QUARTER) -> "2001-03-31"
+//  LastDayOfDate("2001-12-31", WEEK) -> "2002-01-05"
+//  LastDayOfDate("2001-12-31", ISOWEEK) -> "2002-01-06"
+//  LastDayOfDate("2001-12-31", WEEK_FRIDAY) -> "2002-01-03"
+absl::Status LastDayOfDate(int32_t date, DateTimestampPart part, int32_t* output);
+
+absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
+                               DateTimestampPart part, int32_t* output);
+
 // Returns the diff (signed integer) of the specified DateTimestampPart
 // between a given timestamp pair, based on timestamp1 - timestamp2.
 // Returns the number of whole <part> differences between the two
@@ -726,6 +746,12 @@ absl::Status AddTimestamp(absl::Time timestamp,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
                           absl::Time* output);
+
+// Similar to AddTimestamp() above, but it doesn't return an error when overflow
+// occurs.
+absl::Status AddTimestampOverflow(absl::Time timestamp, absl::TimeZone timezone,
+                                  DateTimestampPart part, int64_t interval,
+                                  absl::Time* output, bool* had_overflow);
 
 // Same as above, but subtracts an interval from part of the given Timestamp
 // value. Prefer these over invoking AddTimestamp with a negated interval in

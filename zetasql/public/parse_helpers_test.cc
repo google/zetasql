@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -424,12 +424,12 @@ TEST(GetNextStatementPropertiesTest, BasicStatements) {
         << test_case.sql;
 
     std::string expected_hints;
-    for (const auto map_entry : test_case.hint_map) {
+    for (const auto& map_entry : test_case.hint_map) {
       absl::StrAppend(&expected_hints, map_entry.first, "=", map_entry.second,
                       ";");
     }
     std::string fetched_hints;
-    for (const auto map_entry : statement_properties_hint_map) {
+    for (const auto& map_entry : statement_properties_hint_map) {
       absl::StrAppend(&fetched_hints, map_entry.first, "=", map_entry.second,
                     ";");
     }

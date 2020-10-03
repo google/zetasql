@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"

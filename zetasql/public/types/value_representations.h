@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
 #ifndef ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 #define ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "absl/types/optional.h"
+#include "absl/types/variant.h"
 #include "zetasql/base/simple_reference_counted.h"
 
 // This file contains classes that are used to represent values of ZetaSQL
@@ -126,6 +129,64 @@ class StringRef : public zetasql_base::SimpleReferenceCounted {
 
  private:
   const std::string value_;
+};
+
+// -------------------------------------------------------
+// JsonRef is ref count wrapper around JSONValue and String. The JSON value is
+// either represented using a json 'document' object (DOM) or an unparsed
+// string. When storing an unparsed string, there is no guarantee that the
+// string is a valid JSON document. An instance of JSONValue can only store one
+// of the two and not both.
+// -------------------------------------------------------
+class JSONRef : public zetasql_base::SimpleReferenceCounted {
+ public:
+  // Constructs a JSON value holding a null JSON document.
+  JSONRef() {}
+  // Constructs a JSON value holding an unparsed JSON string. The constructor
+  // does not verify if 'str' is a valid JSON document.
+  explicit JSONRef(std::string value) : value_(std::move(value)) {}
+  explicit JSONRef(JSONValue value) : value_(std::move(value)) {}
+
+  JSONRef(const JSONRef&) = delete;
+  JSONRef& operator=(const JSONRef&) = delete;
+
+  // Returns the json document representation if the value is represented
+  // through the document object. Otherwrise, returns null.
+  absl::optional<JSONValueConstRef> document() {
+    JSONValue* document = absl::get_if<JSONValue>(&value_);
+    if (document != nullptr) {
+      return document->GetConstRef();
+    }
+    return absl::nullopt;
+  }
+
+  // Returns the unparsed string representation if the value is represented
+  // through an unparsed string. Otherwrise, returns null. There is no guarantee
+  // that the unparsed string is a valid JSON document.
+  const std::string* unparsed_string() const {
+    return absl::get_if<std::string>(&value_);
+  }
+
+  uint64_t physical_byte_size() const {
+    if (absl::holds_alternative<std::string>(value_)) {
+      return sizeof(JSONRef) + absl::get<std::string>(value_).size();
+    } else {
+      return sizeof(JSONRef) +
+             absl::get<JSONValue>(value_).GetConstRef().SpaceUsed();
+    }
+  }
+
+  // Returns the string representation of the JSONValue.
+  std::string ToString() const {
+    if (absl::holds_alternative<std::string>(value_)) {
+      return absl::get<std::string>(value_);
+    } else {
+      return absl::get<JSONValue>(value_).GetConstRef().ToString();
+    }
+  }
+
+ private:
+  absl::variant<JSONValue, std::string> value_;
 };
 
 }  // namespace internal

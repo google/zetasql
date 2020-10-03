@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -141,6 +141,8 @@ std::string InputArgumentType::UserFacingName(ProductMode product_mode) const {
     return "MODEL";
   } else if (is_connection()) {
     return "CONNECTION";
+  } else if (is_lambda()) {
+    return "LAMBDA";
   }
   if (type() == nullptr) {
     return DebugString(false);
@@ -149,6 +151,10 @@ std::string InputArgumentType::UserFacingName(ProductMode product_mode) const {
 }
 
 std::string InputArgumentType::DebugString(bool verbose) const {
+  if (is_lambda()) {
+    return "LAMBDA";
+  }
+
   std::string prefix;
   if (is_untyped_null()) {
     absl::StrAppend(&prefix, verbose ? "untyped" : "", "NULL");
@@ -219,6 +225,12 @@ InputArgumentType InputArgumentType::ConnectionInputArgumentType(
 InputArgumentType InputArgumentType::DescriptorInputArgumentType() {
   InputArgumentType type;
   type.category_ = kDescriptor;
+  return type;
+}
+
+InputArgumentType InputArgumentType::LambdaInputArgumentType() {
+  InputArgumentType type;
+  type.category_ = kLambda;
   return type;
 }
 

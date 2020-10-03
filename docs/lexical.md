@@ -1,16 +1,14 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Lexical Structure and Syntax
+# Lexical structure and syntax
 
-<!-- BEGIN CONTENT -->
 A ZetaSQL statement comprises a series of tokens. Tokens include
 *identifiers*, *quoted identifiers*, *literals*, *keywords*, *operators*, and
 *special characters*. You can separate tokens with whitespace (for example, space, backspace,
 tab, newline) or comments.
 
-<a id=identifiers></a>
-## Identifiers
+## Identifiers {: #identifiers }
 
 Identifiers are names that are associated with columns, tables, and other
 database objects. They can be unquoted or quoted.
@@ -84,14 +82,12 @@ SELECT * FROM data-customers-287.mydatabase.mytable
 SELECT * FROM `data-customers-287`.mydatabase.mytable
 ```
 
-<a id=literals></a>
-## Literals
+## Literals {: #literals }
 
 A literal represents a constant value of a built-in data type. Some, but not
 all, data types can be expressed as literals.
 
-<a id=string_and_bytes_literals></a>
-### String and Bytes Literals
+### String and bytes literals {: #string_and_bytes_literals }
 
 Both string and bytes literals must be *quoted*, either with single (`'`) or
 double (`"`) quotation marks, or *triple-quoted* with groups of three single
@@ -231,8 +227,7 @@ Any sequence not in this table produces an error.
 </tbody>
 </table>
 
-<a id=integer_literals></a>
-### Integer Literals
+### Integer literals {: #integer_literals }
 
 Integer literals are either a sequence of decimal digits (0–9) or a hexadecimal
 value that is prefixed with "`0x`" or "`0X`". Integers can be prefixed by "`+`"
@@ -253,7 +248,7 @@ if casting does not result in truncation. For example, if the integer 55 of type
 literal value 77 is coerced into type `INT32` because
 `77` can be represented by the `INT32` type.
 
-### NUMERIC Literals
+### NUMERIC literals
 
 You can construct NUMERIC literals using the
 `NUMERIC` keyword followed by a floating point value in quotes.
@@ -269,8 +264,7 @@ SELECT NUMERIC '1.23456e05';
 SELECT NUMERIC '-9.876e-3';
 ```
 
-<a id=floating_point_literals></a>
-### Floating Point Literals
+### Floating point literals {: #floating_point_literals }
 
 Syntax options:
 
@@ -305,8 +299,7 @@ can be explicitly cast to float:
  + "inf" or "+inf"
  + "-inf"
 
-<a id=array_literals></a>
-### Array Literals
+### Array literals {: #array_literals }
 
 Array literals are comma-separated lists of elements
 enclosed in square brackets. The `ARRAY` keyword is optional, and an explicit
@@ -328,7 +321,7 @@ ARRAY<int64>[]
 []
 ```
 
-### Struct Literals
+### Struct literals
 
 Syntax:
 
@@ -360,7 +353,7 @@ matching the types of the input expressions.
 </tbody>
 </table>
 
-### Date Literals
+### Date literals
 
 Syntax:
 
@@ -388,7 +381,7 @@ the string literal `"2014-09-27"` will be coerced to a date literal.
 
  
 
-### Time Literals
+### Time literals
 Syntax:
 
 ```sql
@@ -404,7 +397,7 @@ For example, the following time represents 12:30 p.m.:
 TIME '12:30:00.45'
 ```
 
-### Datetime Literals
+### Datetime literals
 Syntax:
 
 ```sql
@@ -506,8 +499,7 @@ TIMESTAMP '2017-01-18 12:34:56.123456z'
 TIMESTAMP '2017-01-18 12:34:56.123456Z'
 ```
 
-<a id=timezone></a>
-#### Time zone
+#### Time zone {: #timezone }
 
 Since timestamp literals must be mapped to a specific point in time, a time zone
 is necessary to correctly interpret a literal. If a time zone is not specified
@@ -550,13 +542,11 @@ TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
 TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 ```
 
-<a id=enum_literals></a>
-### Enum Literals
+### Enum literals {: #enum_literals }
 
 There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators][functions-reference].
 
-<a id=case_sensitivity></a>
-## Case Sensitivity
+## Case sensitivity {: #case_sensitivity }
 
 ZetaSQL follows these rules for case sensitivity:
 
@@ -574,11 +564,13 @@ ZetaSQL follows these rules for case sensitivity:
 <td>No</td>
 <td>&nbsp;</td>
 </tr>
+
 <tr>
 <td>Function names</td>
 <td>No</td>
 <td>&nbsp;</td>
 </tr>
+
 <tr>
 <td>Table names</td>
 
@@ -631,8 +623,7 @@ ZetaSQL follows these rules for case sensitivity:
 </tbody>
 </table>
 
-<a id=reserved_keywords></a>
-## Reserved Keywords
+## Reserved keywords {: #reserved_keywords }
 
 Keywords are a group of tokens that have special meaning in the ZetaSQL
 language, and  have the following characteristics:
@@ -752,8 +743,7 @@ WITHIN<br />
 </tbody>
 </table>
 
-<a id=terminating_semicolons></a>
-## Terminating Semicolons
+## Terminating semicolons {: #terminating_semicolons }
 
 You can optionally use a terminating semicolon (`;`) when you submit a query
 string statement through an Application Programming Interface (API).
@@ -762,8 +752,7 @@ In a request containing multiple statements, you must separate statements with
 semicolons, but the semicolon is generally optional after the final statement.
 Some interactive tools require statements to have a terminating semicolon.
 
-<a id=trailing_commas></a>
-## Trailing Commas
+## Trailing commas {: #trailing_commas }
 
 You can optionally use a trailing comma (`,`) at the end of a list in a `SELECT`
 statement.
@@ -774,8 +763,7 @@ statement.
 SELECT name, release_date, FROM Books
 ```
 
-<a id=query_parameters></a>
-## Query Parameters
+## Query parameters {: #query_parameters }
 
 You can use query parameters to substitute arbitrary expressions.
 However, query parameters cannot be used to substitute identifiers,
@@ -788,7 +776,7 @@ substitutes a bound value for a parameter at execution time.
 Query parameters cannot be used in the SQL body of these statements:
 `CREATE FUNCTION`, `CREATE TABLE FUNCTION`, `CREATE VIEW`, `CREATE MATERIALIZED VIEW`, and `CREATE PROCEDURE`.
 
-### Named Query Parameters
+### Named query parameters
 
 Syntax:
 
@@ -796,9 +784,10 @@ Syntax:
 @parameter_name
 ```
 
-A named query parameter is denoted using an identifier preceded by the
-`@` character. Named query parameters cannot
-be used alongside [positional query parameters][positional-query-parameters].
+A named query parameter is denoted using an [identifier][lexical-identifiers]
+preceded by the `@` character. Named query
+parameters cannot be used alongside [positional query
+parameters][positional-query-parameters].
 
 **Example:**
 
@@ -809,7 +798,7 @@ named query parameter `myparam`.
 SELECT * FROM Roster WHERE LastName = @myparam
 ```
 
-### Positional Query Parameters
+### Positional query parameters
 
 Positional query parameters are denoted using the `?` character.
 Positional parameters are evaluated by the order in which they are passed in.
@@ -827,8 +816,7 @@ expected results will not be returned.
 SELECT * FROM Roster WHERE FirstName = ? and LastName = ?
 ```
 
-<a id=hints></a>
-## Hints
+## Hints {: #hints }
 
 ```sql
 @{ hint [, ...] }
@@ -876,8 +864,7 @@ The value for the hint is different for each database engine.
 Comments are sequences of characters that the parser ignores.
 ZetaSQL supports the following types of comments.
 
-<a name="single-line-comments"></a>
-### Single-line comments
+### Single-line comments {: #single-line-comments }
 
 Use a single-line comment if you want the comment to appear on a line by itself.
 
@@ -965,6 +952,4 @@ WHERE book = "Ulysses";
 [lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
 
 [functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference
-
-<!-- END CONTENT -->
 

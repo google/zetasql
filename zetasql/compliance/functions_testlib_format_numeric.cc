@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,13 +26,12 @@
 namespace zetasql {
 
 static zetasql::Value NumericFromString(absl::string_view numeric_str) {
-  return Value::Numeric(
-      NumericValue::FromStringStrict(numeric_str).ValueOrDie());
+  return Value::Numeric(NumericValue::FromStringStrict(numeric_str).value());
 }
 
 static zetasql::Value BigNumericFromString(absl::string_view numeric_str) {
   return Value::BigNumeric(
-      (BigNumericValue::FromStringStrict(numeric_str).ValueOrDie()));
+      (BigNumericValue::FromStringStrict(numeric_str).value()));
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric() {
@@ -339,9 +338,12 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric() {
       {{"%10.*f", Int32(3), NumericFromString("1.5")}, "     1.500"},
       {{"%*.3f", Int32(10), NumericFromString("1.5")}, "     1.500"},
       {{"%*.*f", Int32(10), Int32(3), NumericFromString("1.5")}, "     1.500"},
+      // negative precision means 'ignore; use default of 6'
       {{"%*.*f", Int32(10), Int32(-10), NumericFromString("1.5")},
        "  1.500000"},
-      {{"%*.*f", Int32(-10), Int32(-2), NumericFromString("1.5")}, "1.500000"},
+      // negative width means 'left just; use positive width'
+      {{"%*.*f", Int32(-10), Int32(-2), NumericFromString("1.5")},
+       "1.500000  "},
 
       {{"%10.*e", Int32(3), NumericFromString("1.5")}, " 1.500e+00"},
       {{"%*.3E", Int32(10), NumericFromString("1.5")}, " 1.500E+00"},
@@ -389,10 +391,12 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric() {
       {{"%*.3f", Int32(10), BigNumericFromString("1.5")}, "     1.500"},
       {{"%*.*f", Int32(10), Int32(3), BigNumericFromString("1.5")},
        "     1.500"},
+      // negative precision means 'ignore; use default of 6'
       {{"%*.*f", Int32(10), Int32(-10), BigNumericFromString("1.5")},
        "  1.500000"},
+      // negative width means 'left just; use positive width'
       {{"%*.*f", Int32(-10), Int32(-2), BigNumericFromString("1.5")},
-       "1.500000"},
+       "1.500000  "},
 
       {{"%10.*e", Int32(3), BigNumericFromString("1.5")}, " 1.500e+00"},
       {{"%*.3E", Int32(10), BigNumericFromString("1.5")}, " 1.500E+00"},

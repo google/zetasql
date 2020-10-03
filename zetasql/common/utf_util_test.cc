@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #include "zetasql/common/utf_util.h"
 
+#include "zetasql/compliance/functions_testlib_common.h"
 #include "gtest/gtest.h"
 #include "absl/strings/string_view.h"
 
@@ -180,6 +181,93 @@ TEST(UtfUtilTest, PrettyTruncateUTF8) {
   // Be error tolerant, worse case, return empty string.
   EXPECT_EQ(PrettyTruncateUTF8(str3, 0), "");
   EXPECT_EQ(PrettyTruncateUTF8(str3, -4500), "");
+}
+
+TEST(UtfUtilTest, CheckAndCastStrLengthAll) {
+  {
+    int32_t length;
+    std::string str("string");
+    EXPECT_TRUE(CheckAndCastStrLength(str, &length));
+    EXPECT_EQ(length, str.length());
+  }
+  {
+    int32_t length;
+    std::string str(int32max - 1, ' ');
+    EXPECT_TRUE(CheckAndCastStrLength(str, &length));
+  }
+  {
+    int32_t length;
+    std::string str(int32max, ' ');
+    EXPECT_TRUE(CheckAndCastStrLength(str, &length));
+    EXPECT_EQ(length, str.length());
+  }
+  {
+    int32_t length;
+    std::string str(static_cast<int64_t>(int32max) + 1, ' ');
+    EXPECT_FALSE(CheckAndCastStrLength(str, &length));
+  }
+}
+
+TEST(UtfUtilTest, ForwardNAll) {
+  {
+    absl::string_view str = "abcd";
+    // Move forward 0 code points.
+    auto offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                           /*num_code_points=*/0);
+    EXPECT_EQ(offset.value(), 0);
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/1);
+    EXPECT_EQ(offset.value(), 1);
+    str.remove_prefix(offset.value());
+    // 'bcd' left.
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/2);
+    EXPECT_EQ(offset.value(), 2);
+    str.remove_prefix(offset.value());
+    // 'd' left. Move past end of string.
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/2);
+    EXPECT_EQ(offset.value(), 1);
+  }
+  {
+    // Hex equivalent per character (0x61) (0xed 0x9f 0xbf) (0xd1 0x84).
+    absl::string_view str = "a퟿ф";
+    auto offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                           /*num_code_points=*/1);
+    EXPECT_EQ(offset.value(), 1);
+    str.remove_prefix(offset.value());
+    // '퟿ф' left.
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/1);
+    EXPECT_EQ(offset.value(), 3);
+    str.remove_prefix(offset.value());
+    // 'ф' left.
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/1);
+    EXPECT_EQ(offset.value(), 2);
+  }
+  {
+    // Return error on invalid utf-8 data.
+    // 2nd byte is invalid.
+    absl::string_view str = "\x61\xa7\x65\x71";
+    auto offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                           /*num_code_points=*/1);
+    EXPECT_EQ(offset.value(), 1);
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/2);
+    EXPECT_EQ(offset, absl::nullopt);
+  }
+  {
+    absl::string_view str = "abcd";
+    // Moving negative number of code points does nothing.
+    auto offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                           /*num_code_points=*/-1);
+    EXPECT_EQ(offset.value(), 0);
+    // Move number of code points larger than string length.
+    offset = ForwardN(str, static_cast<int32_t>(str.length()),
+                      /*num_code_points=*/str.length() + 1);
+    EXPECT_EQ(offset.value(), str.length());
+  }
 }
 
 }  // namespace zetasql

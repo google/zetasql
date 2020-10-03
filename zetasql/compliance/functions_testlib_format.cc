@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -46,7 +47,6 @@
 #include "zetasql/base/map_util.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -60,6 +60,7 @@ extern std::vector<FunctionTestCall> GetFunctionTestsFormatIntegral();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatNulls();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatStrings();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric();
+extern std::vector<FunctionTestCall> GetFunctionTestsFormatJson();
 
 static std::string Zeros(absl::string_view fmt, int zeros) {
   return absl::Substitute(fmt, std::string(zeros, '0'));
@@ -310,7 +311,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%u", String("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%u", Bytes("ab")}, NullString(), OUT_OF_RANGE},
       {"format", {"%u", enum_value}, NullString(), OUT_OF_RANGE},
-      {"format", {"%i", proto_value}, NullString(), OUT_OF_RANGE},
+      {"format", {"%u", proto_value}, NullString(), OUT_OF_RANGE},
 
       {"format", {"%x", Int32(30)}, "1e"},
       {"format", {"%x", Int64(30)}, "1e"},
@@ -592,6 +593,11 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
   test_cases.insert(test_cases.end(),
                     std::make_move_iterator(numeric_test_cases.begin()),
                     std::make_move_iterator(numeric_test_cases.end()));
+
+  std::vector<FunctionTestCall> json_test_cases = GetFunctionTestsFormatJson();
+  test_cases.insert(test_cases.end(),
+                    std::make_move_iterator(json_test_cases.begin()),
+                    std::make_move_iterator(json_test_cases.end()));
 
   const std::vector<CivilTimeTestCase> civil_time_test_cases({
       {{{"%t", datetime_micros}}, String("2016-04-26 15:23:27.123456")},

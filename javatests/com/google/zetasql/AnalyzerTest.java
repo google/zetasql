@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Volatility;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
 import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
@@ -208,9 +209,45 @@ public class AnalyzerTest {
   @Test
   public void testExtractTableNamesFromStatement() {
     List<List<String>> tableNames =
-        Analyzer.extractTableNamesFromStatement("select count(1) from foo.bar");
+        Analyzer.extractTableNamesFromStatement("select count(1) from foo.bar",
+            new AnalyzerOptions());
 
     assertThat(tableNames).containsExactly(Arrays.asList("foo", "bar"));
+  }
+
+  @Test
+  public void testExtractTableNamesFromScriptGivenStatement() {
+    List<List<String>> tableNames =
+        Analyzer.extractTableNamesFromScript("select count(1) from foo.bar", new AnalyzerOptions());
+
+    assertThat(tableNames).containsExactly(Arrays.asList("foo", "bar"));
+  }
+
+  @Test
+  public void testExtractTableNamesFromScript() {
+    List<List<String>> tableNames =
+        Analyzer.extractTableNamesFromScript(
+            "select count(1) from foo.bar; select count(1) from x.y.z", new AnalyzerOptions());
+
+    assertThat(tableNames)
+        .containsExactly(Arrays.asList("foo", "bar"), Arrays.asList("x", "y", "z"));
+  }
+
+  @Test
+  public void testExtractTableNamesFromStatementWithAnalyzerOptions() {
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions
+        .getLanguageOptions()
+        .setSupportedStatementKinds(
+            ImmutableSet.of(
+                ResolvedNodeKind.RESOLVED_INSERT_STMT,
+                ResolvedNodeKind.RESOLVED_QUERY_STMT));
+
+    List<List<String>> tableNames =
+        Analyzer.extractTableNamesFromStatement(
+            "insert into baz select count(1) from foo.bar", analyzerOptions);
+
+    assertThat(tableNames).containsExactly(Arrays.asList("baz"), Arrays.asList("foo", "bar"));
   }
 
   @Test
@@ -259,7 +296,9 @@ public class AnalyzerTest {
                 TVFRelation.Column.create(
                     "append_col_1", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)),
                 TVFRelation.Column.create(
-                    "append_col_2", TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP))));
+                    "append_col_2", TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP))),
+            "customContext",
+            Volatility.STABLE);
 
     SimpleCatalog catalog = new SimpleCatalog("catalog1");
     catalog.addTableValuedFunction(tvf);

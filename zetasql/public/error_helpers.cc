@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"  
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"

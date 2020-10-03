@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@
 #include "zetasql/testdata/test_proto3.pb.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -53,7 +54,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -247,6 +247,8 @@ void SampleCatalog::LoadTypes() {
       GetProtoType(zetasql_test::Proto3KitchenSink::descriptor());
   proto_field_formats_proto_ =
       GetProtoType(zetasql_test::FieldFormatsProto::descriptor());
+  proto_MessageWithMapField_ =
+      GetProtoType(zetasql_test::MessageWithMapField::descriptor());
 
   // We want to pull AmbiguousHasPB from the descriptor pool where it was
   // modified, not the generated pool.
@@ -429,7 +431,8 @@ void SampleCatalog::LoadTables() {
        // Real types resume here.
        {"timestamp", types_->get_timestamp()},
        {"numeric", types_->get_numeric()},
-       {"bignumeric", types_->get_bignumeric()}}));
+       {"bignumeric", types_->get_bignumeric()},
+       {"json", types_->get_json()}}));
 
   AddOwnedTable(
       new SimpleTable("GeographyTable", {{"key", types_->get_int64()},
@@ -443,15 +446,22 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(new SimpleTable(
       "BigNumericTypeTable", {{"bignumeric_col", types_->get_bignumeric()}}));
 
-  AddOwnedTable(new SimpleTable(
-      "TwoIntegers",
-      {{"key", types_->get_int64()}, {"value", types_->get_int64()}}));
-
   AddOwnedTable(
+      new SimpleTable("JSONTable", {{"json_col", types_->get_json()}}));
+
+  SimpleTable* two_integers = new SimpleTable(
+      "TwoIntegers",
+      {{"key", types_->get_int64()}, {"value", types_->get_int64()}});
+  ZETASQL_CHECK_OK(two_integers->SetPrimaryKey({0}));
+  AddOwnedTable(two_integers);
+
+  SimpleTable* four_integers =
       new SimpleTable("FourIntegers", {{"key1", types_->get_int64()},
                                        {"value1", types_->get_int64()},
                                        {"key2", types_->get_int64()},
-                                       {"value2", types_->get_int64()}}));
+                                       {"value2", types_->get_int64()}});
+  ZETASQL_CHECK_OK(four_integers->SetPrimaryKey({0, 2}));
+  AddOwnedTable(four_integers);
 
   // Tables with no columns are legal.
   AddOwnedTable(new SimpleTable("NoColumns"));
@@ -510,6 +520,10 @@ void SampleCatalog::LoadProtoTables() {
        new SimpleColumn("EnumTable", "RowId", types_->get_bytes(),
                         true /* is_pseudo_column */)},
       true /* take_ownership */));
+
+  AddOwnedTable(new SimpleTable(
+      "MapFieldTable", {{"key", types_->get_int32()},
+                        {"MessageWithMapField", proto_MessageWithMapField_}}));
 
   AddOwnedTable(new SimpleTable(
       "Proto3Table", {{"key", types_->get_int32()},
@@ -576,13 +590,15 @@ void SampleCatalog::LoadProtoTables() {
       },
       true /* take_ownership */));
 
-  AddOwnedTable(
+  SimpleTable* complex_types =
       new SimpleTable("ComplexTypes", {{"key", types_->get_int32()},
                                        {"TestEnum", enum_TestEnum_},
                                        {"KitchenSink", proto_KitchenSinkPB_},
                                        {"Int32Array", int32array_type_},
                                        {"TestStruct", nested_struct_type_},
-                                       {"TestProto", proto_TestExtraPB_}}));
+                                       {"TestProto", proto_TestExtraPB_}});
+  ZETASQL_CHECK_OK(complex_types->SetPrimaryKey({0}));
+  AddOwnedTable(complex_types);
 
   AddOwnedTable(new SimpleTable(
       "MoreComplexTypes",
@@ -644,6 +660,7 @@ void SampleCatalog::LoadProtoTables() {
                                       types_->get_int64())},
                     /*take_ownership=*/true));
   int64_value_table->set_is_value_table(true);
+  ZETASQL_CHECK_OK(int64_value_table->SetPrimaryKey({0}));
 
   AddOwnedTable(new SimpleTable(
       "ArrayTypes",
@@ -1218,6 +1235,13 @@ void SampleCatalog::LoadFunctions() {
           types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                     .set_argument_name("date_string")
                                     .set_argument_name_is_mandatory(true));
+  const auto named_optional_date_arg_error_if_positional =
+      zetasql::FunctionArgumentType(
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionArgumentType::OPTIONAL)
+              .set_argument_name("date_string")
+              .set_argument_name_is_mandatory(true));
   const auto named_optional_format_arg = zetasql::FunctionArgumentType(
       types_->get_string(), zetasql::FunctionArgumentTypeOptions()
                                 .set_cardinality(FunctionArgumentType::OPTIONAL)
@@ -1245,7 +1269,16 @@ void SampleCatalog::LoadFunctions() {
       types_->get_string(),
       zetasql::FunctionArgumentTypeOptions()
           .set_cardinality(FunctionArgumentType::OPTIONAL));
+  const auto named_optional_arg_named_not_null =
+      zetasql::FunctionArgumentType(
+          types_->get_string(),
+          zetasql::FunctionArgumentTypeOptions()
+              .set_cardinality(FunctionArgumentType::OPTIONAL)
+              .set_must_be_non_null()
+              .set_argument_name("arg")
+              .set_argument_name_is_mandatory(true));
   const auto mode = Function::SCALAR;
+
   function = new Function("fn_named_args", "sample_functions", mode);
   function->AddSignature({types_->get_bool(),
                           {named_required_format_arg, named_required_date_arg},
@@ -1321,6 +1354,105 @@ void SampleCatalog::LoadFunctions() {
                           {named_required_format_arg,
                            named_required_date_arg_error_if_positional},
                           /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two named arguments, one required and one optional,
+  // and neither may be specified positionally.
+  function = new Function("fn_named_optional_args_error_if_positional",
+                          "sample_functions", mode);
+  function->AddSignature({types_->get_bool(),
+                          {named_required_format_arg_error_if_positional,
+                           named_optional_date_arg_error_if_positional},
+                          /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two optional arguments, one regular and one named that
+  // cannot be specified positionally.
+  function =
+      new Function("fn_optional_named_optional_args", "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::OPTIONAL},
+        named_optional_date_arg_error_if_positional},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with three optional arguments, one regular and two named,
+  // both cannot be specified positionally and first cannot be NULL.
+  function = new Function("fn_optional_named_optional_not_null_args",
+                          "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::OPTIONAL},
+        named_optional_arg_named_not_null,
+        named_optional_date_arg_error_if_positional},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with two signatures, one using regular arguments and one
+  // using named arguments that cannot be specified positionally.
+  function = new Function("fn_regular_and_named_signatures",
+                          "sample_functions", mode);
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::REQUIRED},
+        {types_->get_string(), FunctionArgumentType::OPTIONAL}},
+       /*context_id=*/-1});
+  function->AddSignature(
+      {types_->get_bool(),
+       {{types_->get_string(), FunctionArgumentType::REQUIRED},
+        named_optional_date_arg_error_if_positional},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Add a function with an argument constraint that verifies the concrete
+  // arguments in signature matches the input argument list, and rejects
+  // any NULL arguments.
+  auto sanity_check_nonnull_arg_constraints =
+      [](const FunctionSignature& signature,
+         const std::vector<InputArgumentType>& arguments) {
+        CHECK(signature.IsConcrete());
+        CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+        for (int i = 0; i < arguments.size(); ++i) {
+          CHECK(
+              arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
+          if (arguments[i].is_null()) {
+            return false;
+          }
+        }
+        return true;
+      };
+  function = new Function("fn_named_opt_args_nonnull_constraints",
+                          "sample_functions", mode);
+  FunctionSignature signature_with_constraints{
+      types_->get_bool(),
+      {{types_->get_string(),
+        FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o1_string")},
+       {types_->get_int64(),
+        FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o2_int64")},
+       {types_->get_double(),
+        FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+            .set_argument_name("o3_double")}},
+      /*context_id=*/-1,
+      FunctionSignatureOptions().set_constraints(
+          sanity_check_nonnull_arg_constraints)};
+  function->AddSignature(signature_with_constraints);
+  catalog_->AddOwnedFunction(function);
+
+  // Similar as the previous function, but the arguments are unnamed.
+  function = new Function("fn_unnamed_opt_args_nonnull_constraints",
+                          "sample_functions", mode);
+  FunctionSignature signature_with_unnamed_args_constraints{
+      types_->get_bool(),
+      {{types_->get_string(), FunctionArgumentType::OPTIONAL},
+       {types_->get_int64(), FunctionArgumentType::OPTIONAL},
+       {types_->get_double(), FunctionArgumentType::OPTIONAL}},
+      /*context_id=*/-1,
+      FunctionSignatureOptions().set_constraints(
+          sanity_check_nonnull_arg_constraints)};
+  function->AddSignature(signature_with_unnamed_args_constraints);
   catalog_->AddOwnedFunction(function);
 }
 
@@ -2497,6 +2629,8 @@ void SampleCatalog::LoadTVFWithExtraColumns() {
                            zetasql::types::NumericType()),
            TVFSchemaColumn("append_col_bignumeric",
                            zetasql::types::BigNumericType()),
+           TVFSchemaColumn("append_col_json",
+                           zetasql::types::JsonType()),
            TVFSchemaColumn("append_col_string",
                            zetasql::types::StringType())}));
 

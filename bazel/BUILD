@@ -1,5 +1,5 @@
 #
-# Copyright 2018 ZetaSQL Authors
+# Copyright 2018 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ load(":ar_wrapper.bzl", "ar_wrapper")
 licenses(["notice"])  # Apache v2.0
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 exports_files([

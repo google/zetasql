@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -603,42 +603,42 @@ $0
                   "34992332820282019728792003956564819968\"")},
           {BigNumericValue::FromStringStrict(
                "99999999999999999999999999999.000000001")
-               .ValueOrDie(),
+               .value(),
            String("\"99999999999999999999999999999.000000001\"")},
           {BigNumericValue::FromStringStrict(
                "-99999999999999999999999999999.000000001")
-               .ValueOrDie(),
+               .value(),
            String("\"-99999999999999999999999999999.000000001\"")},
           {BigNumericValue::FromStringStrict(
                "10000000000000000000000000000000000000.1")
-               .ValueOrDie(),
+               .value(),
            String("\"10000000000000000000000000000000000000.1\"")},
           {BigNumericValue::FromStringStrict(
                "-10000000000000000000000000000000000000.1")
-               .ValueOrDie(),
+               .value(),
            String("\"-10000000000000000000000000000000000000.1\"")},
-          {BigNumericValue::FromStringStrict("1e38").ValueOrDie(),
+          {BigNumericValue::FromStringStrict("1e38").value(),
            String("\"100000000000000000000000000000000000000\"")},
-          {BigNumericValue::FromStringStrict("1e-38").ValueOrDie(),
+          {BigNumericValue::FromStringStrict("1e-38").value(),
            String("\"0.00000000000000000000000000000000000001\"")},
           {BigNumericValue::FromStringStrict(
                "1.00000000000000000000000000000000000001")
-               .ValueOrDie(),
+               .value(),
            String("\"1.00000000000000000000000000000000000001\"")},
           {BigNumericValue::FromStringStrict(
                "-1.00000000000000000000000000000000000001")
-               .ValueOrDie(),
+               .value(),
            String("\"-1.00000000000000000000000000000000000001\"")},
           {BigNumericValue::FromStringStrict(
                "10000000000000000000000000000000000000."
                "00000000000000000000000000000000000001")
-               .ValueOrDie(),
+               .value(),
            String("\"10000000000000000000000000000000000000."
                   "00000000000000000000000000000000000001\"")},
           {BigNumericValue::FromStringStrict(
                "-10000000000000000000000000000000000000."
                "00000000000000000000000000000000000001")
-               .ValueOrDie(),
+               .value(),
            String("\"-10000000000000000000000000000000000000."
                   "00000000000000000000000000000000000001\"")},
       };

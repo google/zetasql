@@ -1,13 +1,13 @@
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Statistical Aggregate Functions
+# Statistical aggregate functions
 
 ZetaSQL supports the following statistical aggregate functions.
 
 ### CORR
 ```
-CORR(X1, X2 [HAVING (MAX | MIN) expression2])  [OVER (...)]
+CORR(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -33,17 +33,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -53,7 +46,7 @@ DOUBLE
 
 ### COVAR_POP
 ```
-COVAR_POP(X1, X2 [HAVING (MAX | MIN) expression2])  [OVER (...)]
+COVAR_POP(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -78,17 +71,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -98,7 +84,7 @@ DOUBLE
 
 ### COVAR_SAMP
 ```
-COVAR_SAMP(X1, X2 [HAVING (MAX | MIN) expression2])  [OVER (...)]
+COVAR_SAMP(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -123,17 +109,10 @@ The clauses are applied *in the following order*:
 1.  `OVER`: Specifies a window. See
     [Analytic Functions][analytic-functions].
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -143,7 +122,7 @@ DOUBLE
 
 ### STDDEV_POP
 ```
-STDDEV_POP([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+STDDEV_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -169,17 +148,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -189,7 +161,7 @@ DOUBLE
 
 ### STDDEV_SAMP
 ```
-STDDEV_SAMP([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+STDDEV_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -213,17 +185,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -233,7 +198,7 @@ DOUBLE
 
 ### STDDEV
 ```
-STDDEV([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+STDDEV([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -242,7 +207,7 @@ An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ### VAR_POP
 ```
-VAR_POP([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+VAR_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -268,17 +233,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -288,7 +246,7 @@ DOUBLE
 
 ### VAR_SAMP
 ```
-VAR_SAMP([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+VAR_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**
@@ -312,17 +270,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates to those having a value for `expression2` equal to the
-    maximum or minimum value for `expression2`. The  maximum or minimum value is
-    equal to the result of `MAX(expression2)` or `MIN(expression2)`. This clause
-    ignores `NULL` values when computing the maximum or minimum value unless
-    `expression2` evaluates to `NULL` for all rows.
-    This clause is not compatible with the `OVER` clause. This clause
-    does not support the following data types:
-    `ARRAY`
-    `STRUCT`
-    `PROTO`
+    function aggregates by a maximum or minimum value. See
+    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+[max_min_clause]: #max_min_clause
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
@@ -332,7 +283,7 @@ DOUBLE
 
 ### VARIANCE
 ```
-VARIANCE([DISTINCT] expression [HAVING (MAX | MIN) expression2])  [OVER (...)]
+VARIANCE([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 ```
 
 **Description**

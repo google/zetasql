@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,19 +38,20 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls   (NextId: 266)
-  // 1000-1099 String functions              (NextId: 1069)
+  // 0002-0999 Non-standard function calls   (NextId: 269)
+  // 1000-1099 String functions              (NextId: 1081)
   // 1100-1199 Control flow functions        (NextId: 1104)
   // 1200-1299 Time functions                (Fully used)
   // 1300-1399 Math functions                (Fully used)
-  // 1400-1499 Aggregate functions           (NextId: 1481)
+  // 1400-1499 Aggregate functions           (NextId: 1489)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1684)
+  // 1600-1699 Misc functions                (NextId: 1688)
   // 1700-1799 Net functions                 (NextId: 1716)
-  // 1800-1899 More time functions           (NextId: 1833)
+  // 1800-1899 More time functions           (NextId: 1845)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
-  // 2000-2199 Geography functions           (NextId: 2065)
-  // 2300-2499 More math functions           (NextId: 2303)
+  // 2000-2199 Geography functions           (NextId: 2068)
+  // 2300-2499 More math functions           (NextId: 2314)
+  // 2500-2599 Array functions               (NextId: 2504)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -59,6 +60,8 @@ enum FunctionSignatureId {
   FN_ADD_UINT64 = 119;                     // $add
   FN_ADD_NUMERIC = 248;                    // $add
   FN_ADD_BIGNUMERIC = 261;                 // $add
+  FN_ADD_DATE_INT64 = 266;                 // $add
+  FN_ADD_INT64_DATE = 267;                 // $add
   FN_AND = 5;                              // $and
   FN_CASE_NO_VALUE = 6;                    // $case_no_value
   FN_CASE_WITH_VALUE = 7;                  // $case_with_value
@@ -109,6 +112,7 @@ enum FunctionSignatureId {
   FN_SUBTRACT_UINT64 = 117;                // $subtract
   FN_SUBTRACT_NUMERIC = 249;               // $subtract
   FN_SUBTRACT_BIGNUMERIC = 262;            // $subtract
+  FN_SUBTRACT_DATE_INT64 = 268;            // $subtract
 
   FN_UNARY_MINUS_INT32 = 83;        // $unary_minus
   FN_UNARY_MINUS_INT64 = 84;        // $unary_minus
@@ -161,21 +165,6 @@ enum FunctionSignatureId {
   FN_BIT_COUNT_UINT64 = 146;  // bit_count(uint64) -> int64
   FN_BIT_COUNT_BYTES = 247;   // bit_count(bytes) -> int64
 
-  // TODO: Need to assign these proper ids since they have
-  // standard function call syntax.
-  FN_ARRAY_LENGTH = 220;           // array_length(array) -> int64
-  FN_MAKE_ARRAY = 218;             // $make_array
-  FN_ARRAY_AT_OFFSET = 234;        // $array_at_offset
-  FN_ARRAY_AT_ORDINAL = 235;       // $array_at_ordinal
-  FN_SAFE_ARRAY_AT_OFFSET = 239;   // $safe_array_at_offset
-  FN_SAFE_ARRAY_AT_ORDINAL = 240;  // $safe_array_at_ordinal
-  FN_ARRAY_CONCAT = 236;           // array_concat(repeated array) -> array
-  FN_ARRAY_CONCAT_OP = 260;        // array_concat(array, array) -> array
-  // array_to_string(array, string[, string]) -> string
-  FN_ARRAY_TO_STRING = 237;
-  // array_to_string(array, bytes[, bytes]) -> bytes
-  FN_ARRAY_TO_BYTES = 238;
-
   FN_ERROR = 253;  // error(string) -> {unused result, coercible to any type}
 
   FN_COUNT_STAR = 57;  // $count_star
@@ -185,12 +174,16 @@ enum FunctionSignatureId {
   // separating them from true built-in functions declared above.
 
   // String functions
-  FN_CONCAT_STRING = 1000;          // concat(repeated string) -> string
-  FN_CONCAT_BYTES = 1001;           // concat(repeated bytes) -> bytes
-  FN_CONCAT_OP_STRING = 1063;       // concat(string, string) -> string
-  FN_CONCAT_OP_BYTES = 1064;        // concat(bytes, bytes) -> bytes
-  FN_STRPOS_STRING = 1002;          // strpos(string, string) -> int64
-  FN_STRPOS_BYTES = 1003;           // strpos(bytes, bytes) -> int64
+  FN_CONCAT_STRING = 1000;     // concat(repeated string) -> string
+  FN_CONCAT_BYTES = 1001;      // concat(repeated bytes) -> bytes
+  FN_CONCAT_OP_STRING = 1063;  // concat(string, string) -> string
+  FN_CONCAT_OP_BYTES = 1064;   // concat(bytes, bytes) -> bytes
+  FN_STRPOS_STRING = 1002;     // strpos(string, string) -> int64
+  FN_STRPOS_BYTES = 1003;      // strpos(bytes, bytes) -> int64
+  // instr(string, string[, int64[, int64]]) -> int64
+  FN_INSTR_STRING = 1070;
+  // instr(bytes, bytes[, int64[, int64]]) -> int64
+  FN_INSTR_BYTES = 1071;
   FN_LOWER_STRING = 1006;           // lower(string) -> string
   FN_LOWER_BYTES = 1007;            // lower(bytes) -> bytes
   FN_UPPER_STRING = 1008;           // upper(string) -> string
@@ -228,8 +221,9 @@ enum FunctionSignatureId {
                                  // semantically identical to FN_LENGTH_BYTES
   FN_CHAR_LENGTH_STRING = 1036;  // char_length(string) -> int64
                                  // semantically identical to FN_LENGTH_STRING
-  FN_SPLIT_STRING = 1038;            // split(string, string) -> array of string
-  FN_SPLIT_BYTES = 1039;             // split(bytes, bytes) -> array of bytes
+  FN_FORMAT_STRING = 1037;       // format(string, ...) -> string
+  FN_SPLIT_STRING = 1038;        // split(string, string) -> array of string
+  FN_SPLIT_BYTES = 1039;         // split(bytes, bytes) -> array of bytes
   FN_REGEXP_CONTAINS_STRING = 1040;  // regexp_contains(string, string) -> bool
   FN_REGEXP_CONTAINS_BYTES = 1041;   // regexp_contains(bytes, bytes) -> bool
   // Converts bytes to string by replacing invalid UTF-8 characters with
@@ -253,18 +247,30 @@ enum FunctionSignatureId {
   FN_CODE_POINTS_TO_STRING = 1049;
   // code_points_to_bytes(array<int64>) -> bytes
   FN_CODE_POINTS_TO_BYTES = 1050;
-  FN_LPAD_BYTES = 1051;      // lpad(bytes, int64[, bytes]) -> bytes
-  FN_LPAD_STRING = 1052;     // lpad(string, int64[, string]) -> string
-  FN_RPAD_BYTES = 1053;      // rpad(bytes, int64[, bytes]) -> bytes
-  FN_RPAD_STRING = 1054;     // rpad(string, int64[, string]) -> string
-  FN_LEFT_STRING = 1065;     // left(string, int64) -> string
-  FN_LEFT_BYTES = 1066;      // left(bytes, int64) -> bytes
-  FN_RIGHT_STRING = 1067;    // right(string, int64) -> string
-  FN_RIGHT_BYTES = 1068;     // right(bytes, int64) -> bytes
-  FN_REPEAT_BYTES = 1055;    // repeat(bytes, int64) -> bytes
-  FN_REPEAT_STRING = 1056;   // repeat(string, int64) -> string
-  FN_REVERSE_STRING = 1057;  // reverse(string) -> string
-  FN_REVERSE_BYTES = 1058;   // reverse(bytes) -> bytes
+  FN_LPAD_BYTES = 1051;        // lpad(bytes, int64[, bytes]) -> bytes
+  FN_LPAD_STRING = 1052;       // lpad(string, int64[, string]) -> string
+  FN_RPAD_BYTES = 1053;        // rpad(bytes, int64[, bytes]) -> bytes
+  FN_RPAD_STRING = 1054;       // rpad(string, int64[, string]) -> string
+  FN_LEFT_STRING = 1065;       // left(string, int64) -> string
+  FN_LEFT_BYTES = 1066;        // left(bytes, int64) -> bytes
+  FN_RIGHT_STRING = 1067;      // right(string, int64) -> string
+  FN_RIGHT_BYTES = 1068;       // right(bytes, int64) -> bytes
+  FN_REPEAT_BYTES = 1055;      // repeat(bytes, int64) -> bytes
+  FN_REPEAT_STRING = 1056;     // repeat(string, int64) -> string
+  FN_REVERSE_STRING = 1057;    // reverse(string) -> string
+  FN_REVERSE_BYTES = 1058;     // reverse(bytes) -> bytes
+  FN_SOUNDEX_STRING = 1069;    // soundex(string) -> string
+  FN_ASCII_STRING = 1072;      // ASCII(string) -> int64
+  FN_ASCII_BYTES = 1073;       // ASCII(bytes) -> int64
+  FN_TRANSLATE_STRING = 1074;  // translate(string, string, string) -> string
+  FN_TRANSLATE_BYTES = 1075;   // soundex(bytes, bytes, bytes) -> bytes
+  FN_INITCAP_STRING = 1076;    // initcap(string[, string]) -> string
+  FN_UNICODE_STRING = 1077;    // unicode(string) -> int64
+  FN_CHR_STRING = 1078;        // chr(int64) -> string
+  FN_REGEXP_INSTR_STRING =
+      1079;  // regex_instr(string, string[, int64[, int64[, int64]]])
+  FN_REGEXP_INSTR_BYTES =
+      1080;  // regex_instr(bytes, bytes[, int64[, int64[, int64]]])
 
   // Control flow functions
   FN_IF = 1100;  // if
@@ -312,19 +318,29 @@ enum FunctionSignatureId {
   FN_UNIX_MICROS_FROM_TIMESTAMP = 1270;
   FN_DATE_FROM_TIMESTAMP = 1271;  // date
   FN_DATE_FROM_DATETIME = 1826;   // date
+  FN_DATE_FROM_DATE = 1833;       // date
+  FN_DATE_FROM_STRING = 1837;     // date
   FN_DATE_FROM_YEAR_MONTH_DAY = 1297;  // date
   FN_TIMESTAMP_FROM_STRING = 1272;     // timestamp
   FN_TIMESTAMP_FROM_DATE = 1273;       // timestamp
   FN_TIMESTAMP_FROM_DATETIME = 1801;   // timestamp
+  FN_TIMESTAMP_FROM_TIMESTAMP = 1834;  // timestamp
   FN_TIME_FROM_HOUR_MINUTE_SECOND = 1298;                     // time
   FN_TIME_FROM_TIMESTAMP = 1802;                              // time
   FN_TIME_FROM_DATETIME = 1825;                               // time
+  FN_TIME_FROM_TIME = 1836;                                   // time
+  FN_TIME_FROM_STRING = 1838;                                 // time
   FN_DATETIME_FROM_DATE_AND_TIME = 1299;                      // datetime
   FN_DATETIME_FROM_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND = 1800;  // datetime
   FN_DATETIME_FROM_TIMESTAMP = 1803;                          // datetime
   FN_DATETIME_FROM_DATE = 1824;                               // datetime
+  FN_DATETIME_FROM_DATETIME = 1835;                           // datetime
+  FN_DATETIME_FROM_STRING = 1839;                             // datetime
 
+  FN_STRING_FROM_DATE = 1840;       // string
   FN_STRING_FROM_TIMESTAMP = 1274;  // string
+  FN_STRING_FROM_DATETIME = 1841;   // string
+  FN_STRING_FROM_TIME = 1842;       // string
 
   // Signatures for extracting date parts, taking a date/timestamp
   // and the target date part as arguments.
@@ -354,6 +370,9 @@ enum FunctionSignatureId {
   FN_PARSE_DATETIME = 1822;    // parse_datetime
   FN_PARSE_TIME = 1823;        // parse_time
   FN_PARSE_TIMESTAMP = 1296;   // parse_timestamp
+
+  FN_LAST_DAY_DATE = 1843;      // last_day date
+  FN_LAST_DAY_DATETIME = 1844;  // last_day datetime
 
   // Math functions
   FN_ABS_INT32 = 1300;        // abs
@@ -441,13 +460,26 @@ enum FunctionSignatureId {
   FN_GREATEST = 1321;  // greatest
   FN_LEAST = 1322;     // least
 
-  FN_SQRT_DOUBLE = 1323;               // sqrt
-  FN_POW_DOUBLE = 1324;                // pow
-  FN_POW_NUMERIC = 1370;               // pow(numeric, numeric) -> numeric
-  FN_EXP_DOUBLE = 1325;                // exp
+  FN_SQRT_DOUBLE = 1323;      // sqrt
+  FN_SQRT_NUMERIC = 2308;     // sqrt(numeric) -> numeric
+  FN_SQRT_BIGNUMERIC = 2309;  // sqrt(bignumeric) -> bignumeric
+  FN_POW_DOUBLE = 1324;       // pow
+  FN_POW_NUMERIC = 1370;      // pow(numeric, numeric) -> numeric
+  FN_POW_BIGNUMERIC = 2303;   // pow(bignumeric, bignumeric) -> bignumeric
+  FN_EXP_DOUBLE = 1325;       // exp
+  FN_EXP_NUMERIC = 2304;      // exp(numeric) -> numeric
+  FN_EXP_BIGNUMERIC = 2305;   // exp(bignumeric) -> bignumeric
   FN_NATURAL_LOGARITHM_DOUBLE = 1326;  // ln and log
-  FN_DECIMAL_LOGARITHM_DOUBLE = 1345;  // log10
-  FN_LOGARITHM_DOUBLE = 1327;          // log
+  // ln(numeric) -> numeric and log(numeric) -> numeric
+  FN_NATURAL_LOGARITHM_NUMERIC = 2306;
+  // ln(bignumeric) -> bignumeric and log(bignumeric) -> bignumeric
+  FN_NATURAL_LOGARITHM_BIGNUMERIC = 2307;
+  FN_DECIMAL_LOGARITHM_DOUBLE = 1345;      // log10
+  FN_DECIMAL_LOGARITHM_NUMERIC = 2310;     // log10(numeric) -> numeric
+  FN_DECIMAL_LOGARITHM_BIGNUMERIC = 2311;  // log10(bignumeric) -> bignumeric
+  FN_LOGARITHM_DOUBLE = 1327;              // log
+  FN_LOGARITHM_NUMERIC = 2312;             // log(numeric, numeric) -> numeric
+  FN_LOGARITHM_BIGNUMERIC = 2313;  // log(bignumeric, bignumeric) -> bignumeric
 
   FN_COS_DOUBLE = 1328;    // cos
   FN_COSH_DOUBLE = 1329;   // cosh
@@ -512,30 +544,38 @@ enum FunctionSignatureId {
   // Approximate count functions that expose the intermediate sketch.
   // These are all found in the "hll_count.*" namespace.
   //
-  FN_HLL_COUNT_MERGE = 1444;          // hll_count.merge(bytes)
-  FN_HLL_COUNT_EXTRACT = 1445;        // hll_count.extract(bytes), scalar
-  FN_HLL_COUNT_INIT_INT64 = 1446;     // hll_count.init(int64)
-  FN_HLL_COUNT_INIT_UINT64 = 1447;    // hll_count.init(uint64)
-  FN_HLL_COUNT_INIT_NUMERIC = 1470;   // hll_count.init(numeric)
-  FN_HLL_COUNT_INIT_STRING = 1448;    // hll_count.init(string)
-  FN_HLL_COUNT_INIT_BYTES = 1449;     // hll_count.init(bytes)
-  FN_HLL_COUNT_MERGE_PARTIAL = 1450;  // hll_count.merge_partial(bytes)
+  FN_HLL_COUNT_MERGE = 1444;            // hll_count.merge(bytes)
+  FN_HLL_COUNT_EXTRACT = 1445;          // hll_count.extract(bytes), scalar
+  FN_HLL_COUNT_INIT_INT64 = 1446;       // hll_count.init(int64)
+  FN_HLL_COUNT_INIT_UINT64 = 1447;      // hll_count.init(uint64)
+  FN_HLL_COUNT_INIT_NUMERIC = 1470;     // hll_count.init(numeric)
+  FN_HLL_COUNT_INIT_BIGNUMERIC = 1481;  // hll_count.init(bignumeric)
+  FN_HLL_COUNT_INIT_STRING = 1448;      // hll_count.init(string)
+  FN_HLL_COUNT_INIT_BYTES = 1449;       // hll_count.init(bytes)
+  FN_HLL_COUNT_MERGE_PARTIAL = 1450;    // hll_count.merge_partial(bytes)
 
   // Statistical aggregate functions.
-  FN_CORR = 1435;                 // corr
-  FN_CORR_NUMERIC = 1471;         // corr
-  FN_COVAR_POP = 1436;            // covar_pop
-  FN_COVAR_POP_NUMERIC = 1472;    // covar_pop
-  FN_COVAR_SAMP = 1437;           // covar_samp
-  FN_COVAR_SAMP_NUMERIC = 1473;   // covar_samp
-  FN_STDDEV_POP = 1438;           // stddev_pop
-  FN_STDDEV_POP_NUMERIC = 1474;   // stddev_pop
-  FN_STDDEV_SAMP = 1439;          // stddev_samp
-  FN_STDDEV_SAMP_NUMERIC = 1475;  // stddev_samp
-  FN_VAR_POP = 1440;              // var_pop
-  FN_VAR_POP_NUMERIC = 1476;      // var_pop
-  FN_VAR_SAMP = 1441;             // var_samp
-  FN_VAR_SAMP_NUMERIC = 1477;     // var_samp
+  FN_CORR = 1435;                    // corr
+  FN_CORR_NUMERIC = 1471;            // corr
+  FN_CORR_BIGNUMERIC = 1488;         // corr
+  FN_COVAR_POP = 1436;               // covar_pop
+  FN_COVAR_POP_NUMERIC = 1472;       // covar_pop
+  FN_COVAR_POP_BIGNUMERIC = 1486;    // covar_pop
+  FN_COVAR_SAMP = 1437;              // covar_samp
+  FN_COVAR_SAMP_NUMERIC = 1473;      // covar_samp
+  FN_COVAR_SAMP_BIGNUMERIC = 1487;   // covar_samp
+  FN_STDDEV_POP = 1438;              // stddev_pop
+  FN_STDDEV_POP_NUMERIC = 1474;      // stddev_pop
+  FN_STDDEV_POP_BIGNUMERIC = 1482;   // stddev_pop
+  FN_STDDEV_SAMP = 1439;             // stddev_samp
+  FN_STDDEV_SAMP_NUMERIC = 1475;     // stddev_samp
+  FN_STDDEV_SAMP_BIGNUMERIC = 1483;  // stddev_samp
+  FN_VAR_POP = 1440;                 // var_pop
+  FN_VAR_POP_NUMERIC = 1476;         // var_pop
+  FN_VAR_POP_BIGNUMERIC = 1484;      // var_pop
+  FN_VAR_SAMP = 1441;                // var_samp
+  FN_VAR_SAMP_NUMERIC = 1477;        // var_samp
+  FN_VAR_SAMP_BIGNUMERIC = 1485;     // var_samp
 
   FN_COUNTIF = 1443;  // countif
 
@@ -560,19 +600,23 @@ enum FunctionSignatureId {
   FN_KLL_QUANTILES_EXTRACT_POINT_DOUBLE = 1466;  // scalar
 
   // Analytic functions.
-  FN_DENSE_RANK = 1500;       // dense_rank
-  FN_RANK = 1501;             // rank
-  FN_ROW_NUMBER = 1502;       // row_number
-  FN_PERCENT_RANK = 1503;     // percent_rank
-  FN_CUME_DIST = 1504;        // cume_dist
-  FN_NTILE = 1505;            // ntile
-  FN_LEAD = 1506;             // lead
-  FN_LAG = 1507;              // lag
-  FN_FIRST_VALUE = 1508;      // first_value
-  FN_LAST_VALUE = 1509;       // last_value
-  FN_NTH_VALUE = 1510;        // nth_value
-  FN_PERCENTILE_CONT = 1511;  // percentile_cont
-  FN_PERCENTILE_DISC = 1512;  // percentile_disc
+  FN_DENSE_RANK = 1500;                  // dense_rank
+  FN_RANK = 1501;                        // rank
+  FN_ROW_NUMBER = 1502;                  // row_number
+  FN_PERCENT_RANK = 1503;                // percent_rank
+  FN_CUME_DIST = 1504;                   // cume_dist
+  FN_NTILE = 1505;                       // ntile
+  FN_LEAD = 1506;                        // lead
+  FN_LAG = 1507;                         // lag
+  FN_FIRST_VALUE = 1508;                 // first_value
+  FN_LAST_VALUE = 1509;                  // last_value
+  FN_NTH_VALUE = 1510;                   // nth_value
+  FN_PERCENTILE_CONT = 1511;             // percentile_cont
+  FN_PERCENTILE_CONT_NUMERIC = 1513;     // percentile_cont
+  FN_PERCENTILE_CONT_BIGNUMERIC = 1515;  // percentile_cont
+  FN_PERCENTILE_DISC = 1512;             // percentile_disc
+  FN_PERCENTILE_DISC_NUMERIC = 1514;     // percentile_disc
+  FN_PERCENTILE_DISC_BIGNUMERIC = 1516;  // percentile_disc
 
   //
   // Misc functions.
@@ -603,14 +647,20 @@ enum FunctionSignatureId {
   FN_RAND = 1618;           // rand() -> double
   FN_GENERATE_UUID = 1679;  // generate_uuid() -> string
 
-  FN_JSON_EXTRACT = 1619;         // json_extract(string, string)
-  FN_JSON_EXTRACT_SCALAR = 1620;  // json_extract_scalar(string, string)
+  FN_JSON_EXTRACT = 1619;       // json_extract(string, string) -> string
+  FN_JSON_EXTRACT_JSON = 1684;  // json_extract(json, string) -> json
+  FN_JSON_EXTRACT_SCALAR =
+      1620;  // json_extract_scalar(string, string) -> string
+  FN_JSON_EXTRACT_SCALAR_JSON =
+      1685;  // json_extract_scalar(json, string) -> string
   FN_JSON_EXTRACT_ARRAY =
       1681;  // json_extract_array(string[, string]) -> array
 
-  FN_TO_JSON_STRING = 1622;  // to_json_string(any[, bool]) -> string
-  FN_JSON_QUERY = 1623;      // json_query(string, string)
-  FN_JSON_VALUE = 1624;      // json_value(string, string)
+  FN_TO_JSON_STRING = 1622;   // to_json_string(any[, bool]) -> string
+  FN_JSON_QUERY = 1623;       // json_query(string, string) -> string
+  FN_JSON_QUERY_JSON = 1686;  // json_query(json, string) -> json
+  FN_JSON_VALUE = 1624;       // json_value(string, string) -> string
+  FN_JSON_VALUE_JSON = 1687;  // json_value(json, string) -> string
   FN_FROM_PROTO_TIMESTAMP =
       1626;  // from_proto(google.protobuf.Timestamp) -> timestamp
   FN_FROM_PROTO_DATE = 1627;  // from_proto(google.type.Date) -> date
@@ -771,6 +821,7 @@ enum FunctionSignatureId {
   FN_ST_SNAP_TO_GRID = 2016;
   FN_ST_CLOSEST_POINT = 2017;
   FN_ST_BOUNDARY = 2018;
+  FN_ST_CONVEXHULL = 2065;
 
   // Predicates
   FN_ST_EQUALS = 2020;
@@ -800,8 +851,10 @@ enum FunctionSignatureId {
 
   // Parsers/formatters
   FN_ST_GEOG_FROM_TEXT = 2050;
+  FN_ST_GEOG_FROM_TEXT_EXT = 2060;
   FN_ST_GEOG_FROM_KML = 2051;
   FN_ST_GEOG_FROM_GEO_JSON = 2052;
+  FN_ST_GEOG_FROM_GEO_JSON_EXT = 2068;
   FN_ST_GEOG_FROM_WKB = 2056;
   FN_ST_AS_TEXT = 2053;
   FN_ST_AS_KML = 2054;
@@ -814,8 +867,30 @@ enum FunctionSignatureId {
   FN_ST_UNION_AGG = 2061;
   FN_ST_ACCUM = 2062;
   FN_ST_CENTROID_AGG = 2063;
+  FN_ST_NEAREST_NEIGHBORS = 2067;
 
   // Other geography functions
   FN_ST_X = 2070;
   FN_ST_Y = 2071;
+
+  FN_ST_CLUSTERDBSCAN = 2066;
+
+  // Array functions.
+  FN_FLATTEN = 2500;  // flatten(array path) -> array
+  // TODO: Move these to the array function section (2500-2599).
+  FN_ARRAY_AT_OFFSET = 234;   // $array_at_offset
+  FN_ARRAY_AT_ORDINAL = 235;  // $array_at_ordinal
+  FN_ARRAY_CONCAT = 236;      // array_concat(repeated array) -> array
+  FN_ARRAY_CONCAT_OP = 260;   // array_concat(array, array) -> array
+  FN_ARRAY_LENGTH = 220;      // array_length(array) -> int64
+  // array_to_string(array, bytes[, bytes]) -> bytes
+  FN_ARRAY_TO_BYTES = 238;
+  // array_to_string(array, string[, string]) -> string
+  FN_ARRAY_TO_STRING = 237;
+  FN_MAKE_ARRAY = 218;              // $make_array
+  FN_SAFE_ARRAY_AT_OFFSET = 239;    // $safe_array_at_offset
+  FN_SAFE_ARRAY_AT_ORDINAL = 240;   // $safe_array_at_ordinal
+  FN_ARRAY_IS_DISTINCT = 2501;      // array_is_distinct(array) -> bool
+  FN_PROTO_MAP_AT_KEY = 2502;       // $proto_map_at_key
+  FN_SAFE_PROTO_MAP_AT_KEY = 2503;  // $safe_proto_map_at_key
 }

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 
 #include "zetasql/public/numeric_value.h"
 #include "absl/random/random.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -26,7 +27,8 @@ namespace zetasql {
 // and scales when enough numbers are generated. Do not assume the result to
 // follow any specific distribution.
 template <typename T>
-T MakeRandomNumericValue(absl::BitGen* random) {
+T MakeRandomNumericValue(absl::BitGen* random,
+                         int* num_truncated_digits = nullptr) {
   constexpr int kNumWords = sizeof(T) / sizeof(uint64_t);
   constexpr int kNumBits = sizeof(T) * 8;
   std::array<uint64_t, kNumWords> value;
@@ -34,8 +36,11 @@ T MakeRandomNumericValue(absl::BitGen* random) {
     elem = absl::Uniform<uint64_t>(*random);
   }
   FixedInt<64, kNumWords> fixed_int(value);
-  uint32_t shift_bits = absl::Uniform<uint32_t>(*random, 0, kNumBits);
+  uint32_t num_non_trivial_bits = fixed_int.abs().FindMSBSetNonZero() + 1;
+  uint32_t shift_bits =
+      absl::Uniform<uint32_t>(*random, 0, num_non_trivial_bits + 1);
   fixed_int >>= shift_bits;
+  num_non_trivial_bits -= shift_bits;
   T result;
   if constexpr (std::is_same_v<T, NumericValue>) {
     __int128 v = std::max(
@@ -50,19 +55,47 @@ T MakeRandomNumericValue(absl::BitGen* random) {
   }
   constexpr int scale = T::kMaxFractionalDigits;
   constexpr int precision = T::kMaxIntegerDigits + scale;
-  int32_t digits_to_trunc = absl::Uniform<uint32_t>(
-      *random, 0, (kNumBits - shift_bits) * precision / kNumBits);
+  int num_approx_digits = num_non_trivial_bits * precision / kNumBits;
+  int digits_to_trunc =
+      num_approx_digits == 0
+          ? 0
+          : absl::Uniform<uint>(*random, 0, num_approx_digits);
+  if (num_truncated_digits != nullptr) {
+    *num_truncated_digits = digits_to_trunc;
+  }
   return result.Trunc(scale - digits_to_trunc);
 }
 
-// Generates a random vald numeric value using a static RNG.
-// Prefer using the other variant of this function.
 template <typename T>
-T MakeRandomNumericValue() {
-  thread_local absl::BitGen generator;
-  return MakeRandomNumericValue<T>(&generator);
+T MakeRandomNonZeroNumericValue(absl::BitGen* random) {
+  T result = MakeRandomNumericValue<T>(random);
+  if (result == T()) {
+    int64_t v = absl::Uniform<uint32_t>(*random);
+    return T::FromScaledValue(v + 1);
+  }
+  return result;
 }
 
+template <typename T>
+T MakeRandomPositiveNumericValue(absl::BitGen* random) {
+  zetasql_base::StatusOr<T> abs = MakeRandomNonZeroNumericValue<T>(random).Abs();
+  // Abs fails only when result = T::MinValue().
+  return abs.ok() ? abs.value() : T::MaxValue();
+}
+
+// Generate a random double value that can be losslessly converted to T.
+template <typename T>
+double MakeLosslessRandomDoubleValue(uint max_integer_bits,
+                                     absl::BitGen* random) {
+  uint max_mantissa_bits =
+      std::min<uint>(53, T::kMaxFractionalDigits + max_integer_bits);
+  int64_t mantissa = absl::Uniform<int64_t>(*random, 1 - (1LL << max_mantissa_bits),
+                                        (1LL << max_mantissa_bits));
+  int exponent_bits = absl::Uniform<int>(absl::IntervalClosedClosed, *random,
+                                         -T::kMaxFractionalDigits,
+                                         max_integer_bits - max_mantissa_bits);
+  return std::ldexp(mantissa, exponent_bits);
+}
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_

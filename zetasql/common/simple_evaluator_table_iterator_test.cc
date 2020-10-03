@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/clock.h"
 
 namespace zetasql {
@@ -74,7 +74,7 @@ class ColumnFilterTest : public ::testing::Test {
     }
 
     iter_ = absl::WrapUnique(new SimpleEvaluatorTableIterator(
-        columns, column_major_values_for_iter,
+        columns, column_major_values_for_iter, /*num_rows=*/4,
         /*end_status=*/absl::OkStatus(), filter_column_idxs,
         /*cancel_cb=*/[]() {}, /*set_deadline_cb=*/[](absl::Time) {},
         zetasql_base::Clock::RealClock()));

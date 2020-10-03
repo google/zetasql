@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -352,13 +352,27 @@ std::string Function::DebugString(bool verbose) const {
   return FullName();
 }
 
-std::string Function::GetSQL(const std::vector<std::string>& inputs) const {
+std::string Function::GetSQL(std::vector<std::string> inputs,
+                             const FunctionSignature* signature) const {
   if (GetSQLCallback() != nullptr) {
     return GetSQLCallback()(inputs);
   }
   std::string name = FullName(/*include_group=*/false);
   if (function_options_.uses_upper_case_sql_name) {
     absl::AsciiStrToUpper(&name);
+  }
+  if (signature != nullptr) {
+    // If the argument is mandatory-named, we have to use that name.
+    for (int i = 0; i < signature->arguments().size(); ++i) {
+      if (i >= inputs.size() || signature->argument(i).repeated()) {
+        break;
+      }
+      if (signature->argument(i).options().argument_name_is_mandatory()) {
+        DCHECK(!signature->argument(i).argument_name().empty());
+        inputs[i] = absl::StrCat(signature->argument(i).argument_name(), " => ",
+                                 inputs[i]);
+      }
+    }
   }
   return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
 }
@@ -401,16 +415,21 @@ const std::string Function::GetNoMatchingFunctionSignatureErrorMessage(
 // take templated args like ANY, the error messages aren't very good.  Fix
 // this.
 const std::string Function::GetSupportedSignaturesUserFacingText(
-    const LanguageOptions& language_options) const {
+    const LanguageOptions& language_options, int* num_signatures) const {
+  // Make a good guess
+  *num_signatures = NumSignatures();
   if (GetSupportedSignaturesCallback() != nullptr) {
     return GetSupportedSignaturesCallback()(language_options, *this);
   }
   std::string supported_signatures;
+  *num_signatures = 0;
   for (const FunctionSignature& signature : signatures()) {
     // Ignore deprecated signatures, and signatures that include
     // unsupported data types.
     if (signature.IsDeprecated() ||
-        signature.HasUnsupportedType(language_options)) {
+        signature.HasUnsupportedType(language_options) ||
+        !signature.options().check_all_required_features_are_enabled(
+            language_options.GetEnabledLanguageFeatures())) {
       continue;
     }
     if (!supported_signatures.empty()) {
@@ -421,6 +440,7 @@ const std::string Function::GetSupportedSignaturesUserFacingText(
       argument_texts.push_back(argument.UserFacingNameWithCardinality(
           language_options.product_mode()));
     }
+    (*num_signatures)++;
     absl::StrAppend(&supported_signatures, GetSQL(argument_texts));
   }
   return supported_signatures;

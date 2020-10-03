@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -42,12 +42,12 @@
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 using absl::nullopt;
 
@@ -467,10 +467,10 @@ static std::vector<AggregateFunctionTemplate> AggregateFunctionTemplates() {
 typedef TestWithParam<AggregateFunctionTemplate> AggregateFunctionTemplateTest;
 
 // Evaluates an aggregation function and returns the result.
-static ::zetasql_base::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& agg,
-                                       absl::Span<const Value> values,
-                                       EvaluationContext* context,
-                                       absl::Span<const Value> args = {}) {
+static zetasql_base::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& agg,
+                                     absl::Span<const Value> values,
+                                     EvaluationContext* context,
+                                     absl::Span<const Value> args = {}) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateAccumulator> accumulator,
                    agg.CreateAccumulator(args, context));
   bool stop_accumulation;

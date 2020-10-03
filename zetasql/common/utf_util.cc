@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -89,6 +89,27 @@ std::string PrettyTruncateUTF8(absl::string_view input, int max_bytes) {
     return absl::StrCat(input.substr(0, new_width), "...");
   else
     return std::string(input.substr(0, new_width));
+}
+
+bool CheckAndCastStrLength(absl::string_view str, int32_t* str_length32) {
+  if (str.length() > std::numeric_limits<int32_t>::max()) {
+    return false;
+  }
+  *str_length32 = static_cast<int32_t>(str.length());
+  return true;
+}
+
+absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
+                               int64_t num_code_points) {
+  int32_t str_offset = 0;
+  for (int64_t i = 0; i < num_code_points && str_offset < str_length32; ++i) {
+    UChar32 character;
+    U8_NEXT(str, str_offset, str_length32, character);
+    if (character < 0) {
+      return absl::nullopt;
+    }
+  }
+  return str_offset;
 }
 
 }  // namespace zetasql

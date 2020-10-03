@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -374,6 +374,7 @@ between {
   yy_push_state(IN_BETWEEN);
   return BisonParserImpl::token::KW_BETWEEN;
 }
+bigdecimal { return BisonParserImpl::token::KW_BIGDECIMAL; }
 bignumeric { return BisonParserImpl::token::KW_BIGNUMERIC; }
 break { return BisonParserImpl::token::KW_BREAK; }
 by { return BisonParserImpl::token::KW_BY; }
@@ -385,6 +386,7 @@ check { return BisonParserImpl::token::KW_CHECK; }
 cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
 column { return BisonParserImpl::token::KW_COLUMN; }
+columns { return BisonParserImpl::token::KW_COLUMNS; }
 commit { return BisonParserImpl::token::KW_COMMIT; }
 connection { return BisonParserImpl::token::KW_CONNECTION; }
 constant { return BisonParserImpl::token::KW_CONSTANT; }
@@ -399,6 +401,7 @@ data { return BisonParserImpl::token::KW_DATA; }
 database { return BisonParserImpl::token::KW_DATABASE; }
 date { return BisonParserImpl::token::KW_DATE; }
 datetime { return BisonParserImpl::token::KW_DATETIME; }
+decimal { return BisonParserImpl::token::KW_DECIMAL; }
 declare { return BisonParserImpl::token::KW_DECLARE; }
 default { return BisonParserImpl::token::KW_DEFAULT; }
 define { return BisonParserImpl::token::KW_DEFINE; }
@@ -447,6 +450,7 @@ false { return BisonParserImpl::token::KW_FALSE; }
 fetch { return BisonParserImpl::token::KW_FETCH; }
 fill { return BisonParserImpl::token::KW_FILL; }
 filter { return BisonParserImpl::token::KW_FILTER; }
+filter_fields { return BisonParserImpl::token::KW_FILTER_FIELDS; }
 first { return BisonParserImpl::token::KW_FIRST; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }
@@ -457,6 +461,7 @@ function { return BisonParserImpl::token::KW_FUNCTION; }
 generated { return BisonParserImpl::token::KW_GENERATED; }
 grant { return BisonParserImpl::token::KW_GRANT; }
 group { return BisonParserImpl::token::KW_GROUP; }
+group_rows { return BisonParserImpl::token::KW_GROUP_ROWS; }
 grouping { return BisonParserImpl::token::KW_GROUPING; }
 groups { return BisonParserImpl::token::KW_GROUPS; }
 hash { return BisonParserImpl::token::KW_HASH; }
@@ -480,6 +485,7 @@ invoker { return BisonParserImpl::token::KW_INVOKER; }
 is { return BisonParserImpl::token::KW_IS; }
 isolation { return BisonParserImpl::token::KW_ISOLATION; }
 join { return BisonParserImpl::token::KW_JOIN; }
+json { return BisonParserImpl::token::KW_JSON; }
 key { return BisonParserImpl::token::KW_KEY; }
 language { return BisonParserImpl::token::KW_LANGUAGE; }
 last { return BisonParserImpl::token::KW_LAST; }
@@ -564,6 +570,7 @@ row { return BisonParserImpl::token::KW_ROW; }
 rows { return BisonParserImpl::token::KW_ROWS; }
 run { return BisonParserImpl::token::KW_RUN; }
 safe_cast { return BisonParserImpl::token::KW_SAFE_CAST; }
+schema { return BisonParserImpl::token::KW_SCHEMA; }
 security { return BisonParserImpl::token::KW_SECURITY; }
 select { return BisonParserImpl::token::KW_SELECT; }
 set { return BisonParserImpl::token::KW_SET; }
@@ -803,6 +810,9 @@ zone { return BisonParserImpl::token::KW_ZONE; }
 "<<"                      { return BisonParserImpl::token::KW_SHIFT_LEFT; }
 "=>"                      {
   return BisonParserImpl::token::KW_NAMED_ARGUMENT_ASSIGNMENT;
+}
+"->"                      {
+  return BisonParserImpl::token::KW_LAMBDA_ARROW;
 }
 "<"                       {
   if (prev_token_ == BisonParserImpl::token::KW_ARRAY ||

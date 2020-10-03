@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -144,20 +144,20 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
   // through as-is since they do not parse successfully.
   EXPECT_THAT(
       FormatSql(
-          " drop foo;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
+          " drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
           " select sum(f1) as a from T having a > 5 having a > 5;select 1",
           &formatted_sql),
       StatusIs(
           _,
           HasSubstr(
-              "Syntax error: Unexpected identifier \"foo\" [at 1:7]\n"
-              " drop foo;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
-              "      ^\n"
+              "Syntax error: Unexpected \".\" [at 1:10]\n"
+              " drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
+              "         ^\n"
               "Syntax error: Expected end of input but got keyword HAVING [at "
               "2:42]\n"
               " select sum(f1) as a from T having a > 5 having a > 5;select 1\n"
               "                                         ^")));
-  EXPECT_EQ("drop foo;\n"
+  EXPECT_EQ("drop foo.bar;\n"
             "DEFINE TABLE t1(a = 1, b = \"a\", c = 1.4, d = true);\n"
             "select sum(f1) as a from T having a > 5 having a > 5;\n"
             "SELECT\n"

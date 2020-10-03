@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
@@ -31,13 +32,13 @@
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
 #include <cstdint>
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -150,6 +151,7 @@ static absl::Status CheckFieldFormat(const Value& value,
     case TYPE_GEOGRAPHY:
     case TYPE_NUMERIC:
     case TYPE_BIGNUMERIC:
+    case TYPE_JSON:
       break;
 
     default:
@@ -404,6 +406,11 @@ absl::Status MergeValueToProtoField(const Value& value,
           << value.FullDebugString();
 
       for (const Value& element : value.elements()) {
+        if (!use_wire_format_annotations && element.is_null()) {
+          return ::zetasql_base::OutOfRangeErrorBuilder()
+             << "Cannot encode a null value " << element.FullDebugString()
+             << " in repeated protocol message field " << field->full_name();
+        }
         ZETASQL_RETURN_IF_ERROR(MergeValueToProtoField(element, field,
                                                use_wire_format_annotations,
                                                message_factory, proto_out));
@@ -450,6 +457,16 @@ absl::Status MergeValueToProtoField(const Value& value,
         reflection->AddString(proto_out, field, serialized_value);
       } else {
         reflection->SetString(proto_out, field, serialized_value);
+      }
+      return absl::OkStatus();
+    }
+    case TYPE_JSON: {
+      ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_STRING);
+      std::string json_string = value.json_string();
+      if (field->is_repeated()) {
+        reflection->AddString(proto_out, field, std::move(json_string));
+      } else {
+        reflection->SetString(proto_out, field, std::move(json_string));
       }
       return absl::OkStatus();
     }
@@ -507,7 +524,8 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
       ProtoType::GetFormatAnnotation(field);
   if (!type->IsDate() && !type->IsTimestamp() && !type->IsArray() &&
       !type->IsTime() && !type->IsDatetime() && !type->IsGeography() &&
-      !type->IsNumericType() && !type->IsBigNumericType()) {
+      !type->IsNumericType() && !type->IsBigNumericType() &&
+      !type->IsJsonType()) {
     ZETASQL_RET_CHECK_EQ(FieldFormat::DEFAULT_FORMAT, field_format)
         << "Format " << FieldFormat::Format_Name(field_format)
         << " not supported for zetasql type " << type->DebugString();
@@ -824,6 +842,21 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
           BigNumericValue bignumeric_value,
           BigNumericValue::DeserializeFromProtoBytes(value));
       *value_out = Value::BigNumeric(bignumeric_value);
+      return absl::OkStatus();
+    }
+    case TypeKind::TYPE_JSON: {
+      ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
+          << field->DebugString();
+      ZETASQL_RET_CHECK_EQ(FieldFormat::JSON, field_format)
+          << FieldFormat::Format_Name(field_format);
+      std::string value =
+          field->is_repeated() ?
+          reflection->GetRepeatedString(proto, field, index) :
+          reflection->GetString(proto, field);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValue json_value,
+          JSONValue::ParseJSONString(value));
+      *value_out = Value::Json(std::move(json_value));
       return absl::OkStatus();
     }
     default:

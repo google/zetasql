@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,8 +18,10 @@
 
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
@@ -179,6 +181,15 @@ std::string Type::TypeKindListToString(const std::vector<TypeKind>& kinds,
   return absl::StrJoin(kind_strings, ", ");
 }
 
+std::string Type::TypeListToString(TypeListView types, ProductMode mode) {
+  std::vector<std::string> type_strings;
+  type_strings.reserve(types.size());
+  for (const Type* type : types) {
+    type_strings.push_back(type->ShortTypeName(mode));
+  }
+  return absl::StrJoin(type_strings, ", ");
+}
+
 int Type::KindSpecificity(TypeKind kind) {
   if (ABSL_PREDICT_TRUE(kind > TypeKind_MIN && kind <= TypeKind_MAX)) {
     return kTypeKindInfo[kind].specificity;
@@ -200,7 +211,14 @@ int Type::GetTypeCoercionCost(TypeKind kind1, TypeKind kind2) {
 }
 
 bool Type::KindSpecificityLess(TypeKind kind1, TypeKind kind2) {
+  DCHECK_NE(kind1, TypeKind::TYPE_EXTENDED);
+  DCHECK_NE(kind2, TypeKind::TYPE_EXTENDED);
+
   return KindSpecificity(kind1) < KindSpecificity(kind2);
+}
+
+bool Type::TypeSpecificityLess(const Type* t1, const Type* t2) {
+  return KindSpecificityLess(t1->kind(), t2->kind());
 }
 
 absl::Status Type::SerializeToProtoAndFileDescriptors(
@@ -368,7 +386,8 @@ bool Type::SupportsPartitioning(const LanguageOptions& language_options,
 
 bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
                                     const Type** no_partitioning_type) const {
-  bool supports_partitioning = !this->IsGeography() && !this->IsFloatingPoint();
+  bool supports_partitioning =
+      !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson();
   if (no_partitioning_type != nullptr) {
     *no_partitioning_type = supports_partitioning ? nullptr : this;
   }
@@ -377,7 +396,7 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
 
 bool Type::SupportsOrdering(const LanguageOptions& language_options,
                             std::string* type_description) const {
-  if (IsGeography()) {
+  if (IsGeography() || IsJson()) {
     if (type_description != nullptr) {
       *type_description = TypeKindToString(this->kind(),
                                            language_options.product_mode());
@@ -427,29 +446,46 @@ absl::HashState Type::Hash(absl::HashState state) const {
   return HashTypeParameter(std::move(state));
 }
 
-bool Type::ValueContentEquals(
-    const ValueContent& x, const ValueContent& y,
-    const Type::ValueEqualityCheckOptions& options) const {
-  DCHECK(options.other_value_type && Equivalent(options.other_value_type));
-
-  if (x.is_null() || y.is_null()) {
-    return x.is_null() == y.is_null();
-  }
-
-  return ValueContentEqualsImpl(x, y, options);
+absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {
+  return absl::Status(
+      absl::StatusCode::kInternal,
+      absl::StrCat("Type mismatch: provided type ", DebugString(),
+                   " but proto <", value_proto.ShortDebugString(),
+                   "> doesn't have field of that type and is not null"));
 }
 
 bool TypeEquals::operator()(const Type* const type1,
                             const Type* const type2) const {
   if (type1 == type2) {
-    // Note that two NULL types will compare to TRUE.
+    // Note that two nullptr Type pointers will compare to TRUE.
     return true;
   }
   if (type1 == nullptr || type2 == nullptr) {
-    // If one is NULL and the other not NULL, then they cannot be equal.
+    // If one is nullptr and the other not nullptr, then they cannot be equal.
     return false;
   }
   return type1->Equals(type2);
+}
+
+bool TypeEquivalent::operator()(const Type* const type1,
+                                const Type* const type2) const {
+  if (type1 == type2) {
+    // Note that two nullptr Type pointers will compare to TRUE.
+    return true;
+  }
+  if (type1 == nullptr || type2 == nullptr) {
+    // If one is nullptr and the other not nullptr, then they cannot be equal.
+    return false;
+  }
+  return type1->Equivalent(type2);
+}
+
+size_t TypeHash::operator()(const Type* const type) const {
+  if (type == nullptr) {
+    return 17 * 23;  // Some random number to represent nullptr.
+  }
+
+  return absl::Hash<Type>()(*type);
 }
 
 }  // namespace zetasql

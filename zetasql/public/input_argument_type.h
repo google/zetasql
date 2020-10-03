@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,6 +124,7 @@ class InputArgumentType {
   bool is_relation() const { return category_ == kRelation; }
   bool is_model() const { return category_ == kModel; }
   bool is_connection() const { return category_ == kConnection; }
+  bool is_lambda() const { return category_ == kLambda; }
 
   // Argument type name to be used in user facing text (i.e. error messages).
   std::string UserFacingName(ProductMode product_mode) const;
@@ -184,6 +185,10 @@ class InputArgumentType {
   // argument, see table_valued_function.h.
   static InputArgumentType DescriptorInputArgumentType();
 
+  // Constructor for lambda arguments. Only for use when analyzing lambda
+  // arguments.
+  static InputArgumentType LambdaInputArgumentType();
+
   bool has_relation_input_schema() const {
     return relation_input_schema_ != nullptr;
   }
@@ -211,6 +216,7 @@ class InputArgumentType {
     kModel,
     kConnection,
     kDescriptor,
+    kLambda,
   };
 
   explicit InputArgumentType(Category category, const Type* type)

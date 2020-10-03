@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,16 @@ absl::CivilDay GetFirstDayOfIsoYear(absl::CivilDay day) {
       NextWeekdayOrToday(first_day, absl::Weekday::thursday);
   // The first day of the iso year is the prior monday.
   return absl::PrevWeekday(first_thursay, absl::Weekday::monday);
+}
+
+absl::CivilDay GetLastDayOfIsoYear(absl::CivilDay day) {
+  absl::civil_year_t iso_year = GetIsoYear(day);
+  // Find the last Thursday.
+  absl::CivilDay last_day(iso_year, 12, 31);
+  absl::CivilDay last_thursday =
+      PrevWeekdayOrToday(last_day, absl::Weekday::thursday);
+  // The last day of the iso year is the next sunday.
+  return absl::NextWeekday(last_thursday, absl::Weekday::sunday);
 }
 
 int GetIsoWeek(absl::CivilDay day) {

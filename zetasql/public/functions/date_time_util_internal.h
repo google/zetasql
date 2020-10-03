@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,6 +65,14 @@ inline absl::CivilDay PrevWeekdayOrToday(absl::CivilDay day,
 // GetIsoYear(day).year() == GetIsoYear(GetFirstDayOfIsoYear(day)).year()
 // however, day.year() may not equal GetFirstDayOfIsoYear().year().
 absl::CivilDay GetFirstDayOfIsoYear(absl::CivilDay day);
+
+// Returns the last day of the iso year that `day` is part of. Note, the `year`
+// that day is in is defined by the Gregorian year of the Thursday of the same
+// week (starting Monday) of that day:
+//
+// GetIsoYear(day).year() == GetIsoYear(GetLastDayOfIsoYear(day)).year()
+// however, day.year() may not equal GetLastDayOfIsoYear().year().
+absl::CivilDay GetLastDayOfIsoYear(absl::CivilDay day);
 
 // Returns the ISO year for any date between 0001-01-01 and 9999-12-31.
 // See above for the definition of a 'year'.

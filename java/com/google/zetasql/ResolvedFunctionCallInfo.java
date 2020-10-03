@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 ZetaSQL Authors
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import java.util.List;
 
 /** TODO: Add implementation. */
 public class ResolvedFunctionCallInfo implements Serializable {
-  ResolvedFunctionCallInfo() { }
+  public ResolvedFunctionCallInfo() {}
 
   public static ResolvedFunctionCallInfo deserialize(
       ResolvedFunctionCallInfoProto proto, final List<ZetaSQLDescriptorPool> pools) {

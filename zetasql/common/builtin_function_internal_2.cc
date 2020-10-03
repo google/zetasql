@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,10 +25,12 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -36,6 +38,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -44,7 +47,6 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -144,6 +146,20 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                          bind_front(ExtractDateOrTimeFunctionSQL, "DATETIME")));
 }
 
+namespace {
+
+bool NoStringLiterals(const FunctionSignature& matched_signature,
+                      const std::vector<InputArgumentType>& arguments) {
+  for (const InputArgumentType& argument : arguments) {
+    if (argument.is_literal() && argument.type()->IsString()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}  // namespace
+
 void GetDatetimeConversionFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
@@ -161,14 +177,29 @@ void GetDatetimeConversionFunctions(
   // date/timestamp.
   InsertFunction(functions, options, "date_from_unix_date", SCALAR,
                  {{date_type, {int64_type}, FN_DATE_FROM_UNIX_DATE}});
+
+  FunctionSignatureOptions date_time_constructor_options =
+      FunctionSignatureOptions()
+          .set_constraints(&NoStringLiterals)
+          .add_required_language_feature(FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
   InsertFunction(functions, options, "date", SCALAR,
-                 {{date_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_DATE_FROM_TIMESTAMP},
-                  {date_type, {datetime_type}, FN_DATE_FROM_DATETIME},
-                  {date_type,
-                   {int64_type, int64_type, int64_type},
-                   FN_DATE_FROM_YEAR_MONTH_DAY}});
+                 {
+                     {date_type,
+                      {timestamp_type, {string_type, OPTIONAL}},
+                      FN_DATE_FROM_TIMESTAMP},
+                     {date_type, {datetime_type}, FN_DATE_FROM_DATETIME},
+                     {date_type,
+                      {int64_type, int64_type, int64_type},
+                      FN_DATE_FROM_YEAR_MONTH_DAY},
+                     {date_type,
+                      {date_type},
+                      FN_DATE_FROM_DATE,
+                      date_time_constructor_options},
+                     {date_type,
+                      {string_type},
+                      FN_DATE_FROM_STRING,
+                      date_time_constructor_options},
+                 });
   InsertFunction(
       functions, options, "timestamp_from_unix_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
@@ -187,6 +218,16 @@ void GetDatetimeConversionFunctions(
        {timestamp_type,
         {timestamp_type},
         FN_TIMESTAMP_FROM_UNIX_MICROS_TIMESTAMP}});
+  std::vector<FunctionSignatureOnHeap> timestamp_signatures{
+      {timestamp_type,
+       {string_type, {string_type, OPTIONAL}},
+       FN_TIMESTAMP_FROM_STRING},
+      {timestamp_type,
+       {date_type, {string_type, OPTIONAL}},
+       FN_TIMESTAMP_FROM_DATE},
+      {timestamp_type,
+       {datetime_type, {string_type, OPTIONAL}},
+       FN_TIMESTAMP_FROM_DATETIME}};
   InsertFunction(functions, options, "timestamp", SCALAR,
                  {{timestamp_type,
                    {string_type, {string_type, OPTIONAL}},
@@ -196,7 +237,12 @@ void GetDatetimeConversionFunctions(
                    FN_TIMESTAMP_FROM_DATE},
                   {timestamp_type,
                    {datetime_type, {string_type, OPTIONAL}},
-                   FN_TIMESTAMP_FROM_DATETIME}});
+                   FN_TIMESTAMP_FROM_DATETIME},
+                  {timestamp_type,
+                   {timestamp_type},
+                   FN_TIMESTAMP_FROM_TIMESTAMP,
+                   FunctionSignatureOptions().add_required_language_feature(
+                       FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)}});
   InsertFunction(
       functions, options, "timestamp_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_INT64_SECONDS}});
@@ -240,59 +286,75 @@ void GetTimeAndDatetimeConstructionAndConversionFunctions(
 
   FunctionOptions time_and_datetime_function_options =
       FunctionOptions().add_required_language_feature(FEATURE_V_1_2_CIVIL_TIME);
+  FunctionSignatureOptions date_time_constructor_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
 
   InsertFunction(functions, options, "time", SCALAR,
-                 {
-                     {time_type,
-                      {
-                          int64_type,  // hour
-                          int64_type,  // minute
-                          int64_type,  // second
-                      },
-                      FN_TIME_FROM_HOUR_MINUTE_SECOND},
-                     {time_type,
-                      {
-                          timestamp_type,           // timestamp
-                          {string_type, OPTIONAL},  // timezone
-                      },
-                      FN_TIME_FROM_TIMESTAMP},
-                     {time_type,
-                      {
-                          datetime_type,  // datetime
-                      },
-                      FN_TIME_FROM_DATETIME},
-                 },
+                 {{time_type,
+                   {
+                       int64_type,  // hour
+                       int64_type,  // minute
+                       int64_type,  // second
+                   },
+                   FN_TIME_FROM_HOUR_MINUTE_SECOND},
+                  {time_type,
+                   {
+                       timestamp_type,           // timestamp
+                       {string_type, OPTIONAL},  // timezone
+                   },
+                   FN_TIME_FROM_TIMESTAMP},
+                  {time_type,
+                   {
+                       datetime_type,  // datetime
+                   },
+                   FN_TIME_FROM_DATETIME},
+                  {time_type,
+                   {time_type},
+                   FN_TIME_FROM_TIME,
+                   date_time_constructor_options},
+                  {time_type,
+                   {string_type},
+                   FN_TIME_FROM_STRING,
+                   date_time_constructor_options}},
                  time_and_datetime_function_options);
+
   InsertFunction(functions, options, "datetime", SCALAR,
-                 {
-                     {datetime_type,
-                      {
-                          int64_type,  // year
-                          int64_type,  // month
-                          int64_type,  // day
-                          int64_type,  // hour
-                          int64_type,  // minute
-                          int64_type,  // second
-                      },
-                      FN_DATETIME_FROM_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND},
-                     {datetime_type,
-                      {
-                          date_type,  // date
-                          time_type,  // time
-                      },
-                      FN_DATETIME_FROM_DATE_AND_TIME},
-                     {datetime_type,
-                      {
-                          timestamp_type,           // timestamp
-                          {string_type, OPTIONAL},  // timezone
-                      },
-                      FN_DATETIME_FROM_TIMESTAMP},
-                     {datetime_type,
-                      {
-                          date_type,  // date
-                      },
-                      FN_DATETIME_FROM_DATE},
-                 },
+                 {{datetime_type,
+                   {
+                       int64_type,  // year
+                       int64_type,  // month
+                       int64_type,  // day
+                       int64_type,  // hour
+                       int64_type,  // minute
+                       int64_type,  // second
+                   },
+                   FN_DATETIME_FROM_YEAR_MONTH_DAY_HOUR_MINUTE_SECOND},
+                  {datetime_type,
+                   {
+                       date_type,  // date
+                       time_type,  // time
+                   },
+                   FN_DATETIME_FROM_DATE_AND_TIME},
+                  {datetime_type,
+                   {
+                       timestamp_type,           // timestamp
+                       {string_type, OPTIONAL},  // timezone
+                   },
+                   FN_DATETIME_FROM_TIMESTAMP},
+                  {datetime_type,
+                   {
+                       date_type,  // date
+                   },
+                   FN_DATETIME_FROM_DATE},
+                  {datetime_type,
+                   {datetime_type},
+                   FN_DATETIME_FROM_DATETIME,
+                   date_time_constructor_options},
+                  {datetime_type,
+                   {string_type},
+                   FN_DATETIME_FROM_STRING,
+                   date_time_constructor_options}},
                  time_and_datetime_function_options);
 }
 
@@ -347,22 +409,30 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
   require_civil_time_types.add_required_language_feature(
       FEATURE_V_1_2_CIVIL_TIME);
 
-  // Common signature for both DATE_ADD and DATE_SUB
-#define DATE_ADDSUB_SIGNATURE(timestamp_type, function_id) \
-  timestamp_type, \
-  {timestamp_type, int64_type, datepart_type, {string_type, OPTIONAL}}, \
-  function_id
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true);
 
   InsertFunction(
       functions, options, "date_add", SCALAR,
       {
           {date_type, {date_type, int64_type, datepart_type}, FN_DATE_ADD_DATE},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_ADD,
+           extended_datetime_signatures},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_ADD,
+           extended_datetime_signatures},
       },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDateAddDateSubArguments, "DATE_ADD"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATE_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATE_ADD")));
 
@@ -372,12 +442,16 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           {datetime_type,
            {datetime_type, int64_type, datepart_type},
            FN_DATETIME_ADD},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_ADD,
+           extended_datetime_signatures},
       },
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDatetimeAddSubDiffArguments, "DATETIME_ADD"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATETIME_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATETIME_ADD")));
 
@@ -389,22 +463,27 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          // time_add is sharing the same argument constraint as timestamp_add
           .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampAddTimestampSubArguments, "TIME_ADD"))
+              bind_front(&CheckTimeAddSubArguments, "TIME_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIME_ADD")));
 
   InsertFunction(
       functions, options, "timestamp_add", SCALAR,
-      {{timestamp_type,
-        {timestamp_type, int64_type, datepart_type},
-        FN_TIMESTAMP_ADD}},
+      {
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_ADD},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_ADD,
+           extended_datetime_signatures},
+      },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
           .set_pre_resolution_argument_constraint(bind_front(
-              &CheckTimestampAddTimestampSubArguments, "TIMESTAMP_ADD"))
+              &CheckDateDatetimeTimestampAddSubArguments, "TIMESTAMP_ADD"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIMESTAMP_ADD")));
 
@@ -412,12 +491,20 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       functions, options, "date_sub", SCALAR,
       {
           {date_type, {date_type, int64_type, datepart_type}, FN_DATE_SUB_DATE},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_SUB,
+           extended_datetime_signatures},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_SUB,
+           extended_datetime_signatures},
       },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDateAddDateSubArguments, "DATE_SUB"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATE_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATE_SUB")));
 
@@ -427,12 +514,16 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           {datetime_type,
            {datetime_type, int64_type, datepart_type},
            FN_DATETIME_SUB},
+          {timestamp_type,
+           {timestamp_type, int64_type, datepart_type},
+           FN_TIMESTAMP_SUB,
+           extended_datetime_signatures},
       },
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckDatetimeAddSubDiffArguments, "DATETIME_SUB"))
+          .set_pre_resolution_argument_constraint(bind_front(
+              &CheckDateDatetimeTimestampAddSubArguments, "DATETIME_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATETIME_SUB")));
 
@@ -444,9 +535,8 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       require_civil_time_types.Copy()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
-          // time_sub is sharing the same argument constraint as timestamp_sub
           .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampAddTimestampSubArguments, "TIME_SUB"))
+              bind_front(&CheckTimeAddSubArguments, "TIME_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIME_SUB")));
 
@@ -456,17 +546,21 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           {timestamp_type,
            {timestamp_type, int64_type, datepart_type},
            FN_TIMESTAMP_SUB},
+          {datetime_type,
+           {datetime_type, int64_type, datepart_type},
+           FN_DATETIME_SUB,
+           extended_datetime_signatures},
       },
       FunctionOptions()
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForDateOrTimeAddOrSubFunction)
           .set_pre_resolution_argument_constraint(bind_front(
-              &CheckTimestampAddTimestampSubArguments, "TIMESTAMP_SUB"))
+              &CheckDateDatetimeTimestampAddSubArguments, "TIMESTAMP_SUB"))
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "TIMESTAMP_SUB")));
 }
 
-void GetDatetimeDiffTruncFunctions(
+void GetDatetimeDiffTruncLastFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   const Type* date_type = type_factory->get_date();
@@ -485,20 +579,29 @@ void GetDatetimeDiffTruncFunctions(
   require_civil_time_types.add_required_language_feature(
       FEATURE_V_1_2_CIVIL_TIME);
 
-#define DATE_DIFF_SIGNATURE(timestamp_type, function_id) \
-  int64_type, \
-  {timestamp_type, timestamp_type, datepart_type, {string_type, OPTIONAL}}, \
-  function_id
-
   const Type* diff_type = int64_type;
+
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true);
 
   InsertFunction(
       functions, options, "date_diff", SCALAR,
       {
           {diff_type, {date_type, date_type, datepart_type}, FN_DATE_DIFF_DATE},
+          {diff_type,
+           {datetime_type, datetime_type, datepart_type},
+           FN_DATETIME_DIFF,
+           extended_datetime_signatures},
+          {diff_type,
+           {timestamp_type, timestamp_type, datepart_type},
+           FN_TIMESTAMP_DIFF,
+           extended_datetime_signatures},
       },
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckDateDiffArguments, "DATE_DIFF")));
+      FunctionOptions().set_pre_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampDiffArguments, "DATE_DIFF")));
 
   InsertFunction(
       functions, options, "datetime_diff", SCALAR,
@@ -506,65 +609,103 @@ void GetDatetimeDiffTruncFunctions(
           {int64_type,
            {datetime_type, datetime_type, datepart_type},
            FN_DATETIME_DIFF},
+          {int64_type,
+           {timestamp_type, timestamp_type, datepart_type},
+           FN_TIMESTAMP_DIFF,
+           extended_datetime_signatures},
       },
-      require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
-          bind_front(&CheckDatetimeAddSubDiffArguments, "DATETIME_DIFF")));
+      require_civil_time_types.Copy().set_post_resolution_argument_constraint(
+          bind_front(&CheckDateDatetimeTimeTimestampDiffArguments,
+                     "DATETIME_DIFF")));
 
   InsertFunction(
       functions, options, "time_diff", SCALAR,
       {
           {int64_type, {time_type, time_type, datepart_type}, FN_TIME_DIFF},
       },
-      require_civil_time_types
-          .Copy()
-          // time_diff is sharing the same argument constraint as timestamp_diff
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampDiffArguments, "TIME_DIFF")));
+      require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
+          bind_front(&CheckDateDatetimeTimeTimestampDiffArguments,
+                     "TIME_DIFF")));
 
   InsertFunction(
       functions, options, "timestamp_diff", SCALAR,
-      {{int64_type,
-        {timestamp_type, timestamp_type, datepart_type},
-        FN_TIMESTAMP_DIFF}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckTimestampDiffArguments, "TIMESTAMP_DIFF")));
-
-#define DATE_TRUNC_SIGNATURE(timestamp_type, function_id) \
-  timestamp_type, \
-  {timestamp_type, datepart_type, {string_type, OPTIONAL}}, \
-  function_id
+      {
+          {int64_type,
+           {timestamp_type, timestamp_type, datepart_type},
+           FN_TIMESTAMP_DIFF},
+          {int64_type,
+           {datetime_type, datetime_type, datepart_type},
+           FN_DATETIME_DIFF,
+           extended_datetime_signatures},
+      },
+      FunctionOptions().set_post_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampDiffArguments, "TIMESTAMP_DIFF")));
 
   InsertFunction(
       functions, options, "date_trunc", SCALAR,
       {
           {date_type, {date_type, datepart_type}, FN_DATE_TRUNC_DATE},
+          {datetime_type,
+           {datetime_type, datepart_type},
+           FN_DATETIME_TRUNC,
+           extended_datetime_signatures},
+          {timestamp_type,
+           {timestamp_type, datepart_type, {string_type, OPTIONAL}},
+           FN_TIMESTAMP_TRUNC,
+           extended_datetime_signatures},
       },
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckDateTruncArguments, "DATE_TRUNC")));
+      FunctionOptions().set_pre_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampTruncArguments, "DATE_TRUNC")));
 
   InsertFunction(
       functions, options, "datetime_trunc", SCALAR,
-      {{datetime_type, {datetime_type, datepart_type}, FN_DATETIME_TRUNC}},
-      require_civil_time_types
-          .Copy()
-          // datetime_trunc is sharing the same argument constraint as
-          // timestamp_trunc
-          .set_pre_resolution_argument_constraint(
-              bind_front(&CheckTimestampTruncArguments, "DATETIME_TRUNC")));
+      {
+          {datetime_type, {datetime_type, datepart_type}, FN_DATETIME_TRUNC},
+          {timestamp_type,
+           {timestamp_type, datepart_type, {string_type, OPTIONAL}},
+           FN_TIMESTAMP_TRUNC,
+           extended_datetime_signatures},
+      },
+      require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
+          bind_front(&CheckDateDatetimeTimeTimestampTruncArguments,
+                     "DATETIME_TRUNC")));
 
   InsertFunction(
       functions, options, "time_trunc", SCALAR,
       {{time_type, {time_type, datepart_type}, FN_TIME_TRUNC}},
       require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
-          bind_front(&CheckTimeTruncArguments, "TIME_TRUNC")));
+          bind_front(&CheckDateDatetimeTimeTimestampTruncArguments,
+                     "TIME_TRUNC")));
 
   InsertFunction(
       functions, options, "timestamp_trunc", SCALAR,
-      {{timestamp_type,
-        {timestamp_type, datepart_type, {string_type, OPTIONAL}},
-        FN_TIMESTAMP_TRUNC}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          bind_front(&CheckTimestampTruncArguments, "TIMESTAMP_TRUNC")));
+      {
+          {timestamp_type,
+           {timestamp_type, datepart_type, {string_type, OPTIONAL}},
+           FN_TIMESTAMP_TRUNC},
+          {datetime_type,
+           {datetime_type, datepart_type},
+           FN_DATETIME_TRUNC,
+           extended_datetime_signatures},
+      },
+      FunctionOptions().set_pre_resolution_argument_constraint(bind_front(
+          &CheckDateDatetimeTimeTimestampTruncArguments, "TIMESTAMP_TRUNC")));
+
+  if (options.language_options.LanguageFeatureEnabled(
+           FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS) &&
+      options.language_options.LanguageFeatureEnabled(
+           FEATURE_V_1_2_CIVIL_TIME)) {
+    InsertFunction(
+        functions, options, "last_day", SCALAR,
+        {
+            {date_type,
+             {date_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATE},
+            {date_type,
+             {datetime_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATETIME}
+        },
+        FunctionOptions().set_pre_resolution_argument_constraint(
+            bind_front(&CheckLastDayArguments, "LAST_DAY")));
+  }
 }
 
 void GetDatetimeFormatFunctions(TypeFactory* type_factory,
@@ -584,19 +725,43 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
   require_civil_time_types.add_required_language_feature(
       FEATURE_V_1_2_CIVIL_TIME);
 
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true);
+
   InsertFunction(functions, options, "format_date", SCALAR,
-                 {{string_type, {string_type, date_type}, FN_FORMAT_DATE}});
+                 {{string_type, {string_type, date_type}, FN_FORMAT_DATE},
+                  {string_type,
+                   {string_type, datetime_type},
+                   FN_FORMAT_DATETIME,
+                   extended_datetime_signatures},
+                  {string_type,
+                   {string_type, timestamp_type, {string_type, OPTIONAL}},
+                   FN_FORMAT_TIMESTAMP,
+                   extended_datetime_signatures}});
   InsertFunction(
       functions, options, "format_datetime", SCALAR,
-      {{string_type, {string_type, datetime_type}, FN_FORMAT_DATETIME}},
+      {{string_type, {string_type, datetime_type}, FN_FORMAT_DATETIME},
+       {string_type,
+        {string_type, timestamp_type, {string_type, OPTIONAL}},
+        FN_FORMAT_TIMESTAMP,
+        extended_datetime_signatures}},
       require_civil_time_types.Copy());
   InsertFunction(functions, options, "format_time", SCALAR,
                  {{string_type, {string_type, time_type}, FN_FORMAT_TIME}},
                  require_civil_time_types.Copy());
   InsertFunction(functions, options, "format_timestamp", SCALAR,
-                 {{string_type,
-                   {string_type, timestamp_type, {string_type, OPTIONAL}},
-                   FN_FORMAT_TIMESTAMP}});
+                 {
+                     {string_type,
+                      {string_type, timestamp_type, {string_type, OPTIONAL}},
+                      FN_FORMAT_TIMESTAMP},
+                     {string_type,
+                      {string_type, datetime_type},
+                      FN_FORMAT_DATETIME,
+                      extended_datetime_signatures},
+                 });
 
   InsertFunction(functions, options, "parse_date", SCALAR,
                  {{date_type, {string_type, string_type},
@@ -623,7 +788,7 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
   GetDatetimeExtractFunctions(type_factory, options, functions);
   GetDatetimeFormatFunctions(type_factory, options, functions);
   GetDatetimeAddSubFunctions(type_factory, options, functions);
-  GetDatetimeDiffTruncFunctions(type_factory, options, functions);
+  GetDatetimeDiffTruncLastFunctions(type_factory, options, functions);
 
   GetTimeAndDatetimeConstructionAndConversionFunctions(type_factory, options,
                                                        functions);
@@ -639,6 +804,7 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
   const Type* bignumeric_type = type_factory->get_bignumeric();
+  const Type* date_type = type_factory->get_date();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -656,43 +822,61 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   // Note that these arithmetic operators (+, -, *, /, <unary minus>) have
   // related SAFE versions (SAFE_ADD, SAFE_SUBTRACT, etc.) that must have
   // the same signatures as these operators.
-  InsertFunction(
-      functions, options, "$add", SCALAR,
-      {{int64_type, {int64_type, int64_type}, FN_ADD_INT64},
-       {uint64_type, {uint64_type, uint64_type}, FN_ADD_UINT64},
-       {double_type,
-        {double_type, double_type},
-        FN_ADD_DOUBLE,
-        has_floating_point_argument},
-       {numeric_type,
-        {numeric_type, numeric_type},
-        FN_ADD_NUMERIC,
-        has_numeric_type_argument},
-       {bignumeric_type,
-        {bignumeric_type, bignumeric_type},
-        FN_ADD_BIGNUMERIC,
-        has_bignumeric_type_argument}},
-      FunctionOptions()
-          .set_supports_safe_error_mode(false)
-          .set_sql_name("+")
-          .set_get_sql_callback(bind_front(&InfixFunctionSQL, "+")));
+  FunctionSignatureOptions date_arithmetics_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_DATE_ARITHMETICS);
+  InsertFunction(functions, options, "$add", SCALAR,
+                 {
+                     {int64_type, {int64_type, int64_type}, FN_ADD_INT64},
+                     {uint64_type, {uint64_type, uint64_type}, FN_ADD_UINT64},
+                     {double_type,
+                      {double_type, double_type},
+                      FN_ADD_DOUBLE,
+                      has_floating_point_argument},
+                     {numeric_type,
+                      {numeric_type, numeric_type},
+                      FN_ADD_NUMERIC,
+                      has_numeric_type_argument},
+                     {bignumeric_type,
+                      {bignumeric_type, bignumeric_type},
+                      FN_ADD_BIGNUMERIC,
+                      has_bignumeric_type_argument},
+                     {date_type,
+                      {date_type, int64_type},
+                      FN_ADD_DATE_INT64,
+                      date_arithmetics_options},
+                     {date_type,
+                      {int64_type, date_type},
+                      FN_ADD_INT64_DATE,
+                      date_arithmetics_options},
+                 },
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_sql_name("+")
+                     .set_get_sql_callback(bind_front(&InfixFunctionSQL, "+")));
 
   InsertFunction(
       functions, options, "$subtract", SCALAR,
-      {{int64_type, {int64_type, int64_type}, FN_SUBTRACT_INT64},
-       {int64_type, {uint64_type, uint64_type}, FN_SUBTRACT_UINT64},
-       {numeric_type,
-        {numeric_type, numeric_type},
-        FN_SUBTRACT_NUMERIC,
-        has_numeric_type_argument},
-       {bignumeric_type,
-        {bignumeric_type, bignumeric_type},
-        FN_SUBTRACT_BIGNUMERIC,
-        has_bignumeric_type_argument},
-       {double_type,
-        {double_type, double_type},
-        FN_SUBTRACT_DOUBLE,
-        has_floating_point_argument}},
+      {
+          {int64_type, {int64_type, int64_type}, FN_SUBTRACT_INT64},
+          {int64_type, {uint64_type, uint64_type}, FN_SUBTRACT_UINT64},
+          {numeric_type,
+           {numeric_type, numeric_type},
+           FN_SUBTRACT_NUMERIC,
+           has_numeric_type_argument},
+          {bignumeric_type,
+           {bignumeric_type, bignumeric_type},
+           FN_SUBTRACT_BIGNUMERIC,
+           has_bignumeric_type_argument},
+          {double_type,
+           {double_type, double_type},
+           FN_SUBTRACT_DOUBLE,
+           has_floating_point_argument},
+          {date_type,
+           {date_type, int64_type},
+           FN_SUBTRACT_DATE_INT64,
+           date_arithmetics_options},
+      },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("-")
@@ -1073,87 +1257,93 @@ void GetStatisticalFunctions(TypeFactory* type_factory,
                              NameToFunctionMap* functions) {
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
   FunctionSignatureOptions has_numeric_type_argument;
+  FunctionSignatureOptions has_bignumeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
   // Support statistical functions:
   // CORR, COVAR_POP, COVAR_SAMP,
   // STDDEV_POP, STDDEV_SAMP, STDDEV (alias for STDDEV_SAMP),
   // VAR_POP, VAR_SAMP, VARIANCE (alias for VAR_SAMP)
   // in both modes: aggregate and analytic.
-  // Enable the language feature to have signatures with numeric input.
-  // Binary functions
-  if (!options.language_options.LanguageFeatureEnabled(
-          FEATURE_NUMERIC_COVAR_CORR_SIGNATURES)) {
-    InsertFunction(functions, options, "corr", AGGREGATE,
-                   {{double_type, {double_type, double_type}, FN_CORR}});
-    InsertFunction(functions, options, "covar_pop", AGGREGATE,
-                   {{double_type, {double_type, double_type}, FN_COVAR_POP}});
-    InsertFunction(functions, options, "covar_samp", AGGREGATE,
-                   {{double_type, {double_type, double_type}, FN_COVAR_SAMP}});
-  } else {
-    InsertFunction(functions, options, "corr", AGGREGATE,
-                   {{double_type,
-                     {numeric_type, numeric_type},
-                     FN_CORR_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type, double_type}, FN_CORR}});
-    InsertFunction(functions, options, "covar_pop", AGGREGATE,
-                   {{double_type,
-                     {numeric_type, numeric_type},
-                     FN_COVAR_POP_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type, double_type}, FN_COVAR_POP}});
-    InsertFunction(functions, options, "covar_samp", AGGREGATE,
-                   {{double_type,
-                     {numeric_type, numeric_type},
-                     FN_COVAR_SAMP_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type, double_type}, FN_COVAR_SAMP}});
-  }
+  InsertFunction(functions, options, "corr", AGGREGATE,
+                 {{double_type,
+                   {numeric_type, numeric_type},
+                   FN_CORR_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_CORR_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type, double_type}, FN_CORR}});
+  InsertFunction(functions, options, "covar_pop", AGGREGATE,
+                 {{double_type,
+                   {numeric_type, numeric_type},
+                   FN_COVAR_POP_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_COVAR_POP_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type, double_type}, FN_COVAR_POP}});
+  InsertFunction(functions, options, "covar_samp", AGGREGATE,
+                 {{double_type,
+                   {numeric_type, numeric_type},
+                   FN_COVAR_SAMP_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type, bignumeric_type},
+                   FN_COVAR_SAMP_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type, double_type}, FN_COVAR_SAMP}});
+
   // Unary functions
-  if (!options.language_options.LanguageFeatureEnabled(
-          FEATURE_NUMERIC_VARIANCE_STDDEV_SIGNATURES)) {
-    InsertFunction(functions, options, "stddev_pop", AGGREGATE,
-                   {{double_type, {double_type}, FN_STDDEV_POP}});
-    InsertFunction(functions, options, "stddev_samp", AGGREGATE,
-                   {{double_type, {double_type}, FN_STDDEV_SAMP}},
-                   FunctionOptions().set_alias_name("stddev"));
-    InsertFunction(functions, options, "var_pop", AGGREGATE,
-                   {{double_type, {double_type}, FN_VAR_POP}});
-    InsertFunction(functions, options, "var_samp", AGGREGATE,
-                   {{double_type, {double_type}, FN_VAR_SAMP}},
-                   FunctionOptions().set_alias_name("variance"));
-  } else {
-    InsertFunction(functions, options, "stddev_pop", AGGREGATE,
-                   {{double_type,
-                     {numeric_type},
-                     FN_STDDEV_POP_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type}, FN_STDDEV_POP}});
-    InsertFunction(functions, options, "stddev_samp", AGGREGATE,
-                   {{double_type,
-                     {numeric_type},
-                     FN_STDDEV_SAMP_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type}, FN_STDDEV_SAMP}},
-                   FunctionOptions().set_alias_name("stddev"));
-    InsertFunction(functions, options, "var_pop", AGGREGATE,
-                   {{double_type,
-                     {numeric_type},
-                     FN_VAR_POP_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type}, FN_VAR_POP}});
-    InsertFunction(functions, options, "var_samp", AGGREGATE,
-                   {{double_type,
-                     {numeric_type},
-                     FN_VAR_SAMP_NUMERIC,
-                     has_numeric_type_argument},
-                    {double_type, {double_type}, FN_VAR_SAMP}},
-                   FunctionOptions().set_alias_name("variance"));
-  }
+  InsertFunction(functions, options, "stddev_pop", AGGREGATE,
+                 {{double_type,
+                   {numeric_type},
+                   FN_STDDEV_POP_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type},
+                   FN_STDDEV_POP_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type}, FN_STDDEV_POP}});
+  InsertFunction(functions, options, "stddev_samp", AGGREGATE,
+                 {{double_type,
+                   {numeric_type},
+                   FN_STDDEV_SAMP_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type},
+                   FN_STDDEV_SAMP_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type}, FN_STDDEV_SAMP}},
+                 FunctionOptions().set_alias_name("stddev"));
+  InsertFunction(functions, options, "var_pop", AGGREGATE,
+                 {{double_type,
+                   {numeric_type},
+                   FN_VAR_POP_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type},
+                   FN_VAR_POP_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type}, FN_VAR_POP}});
+  InsertFunction(functions, options, "var_samp", AGGREGATE,
+                 {{double_type,
+                   {numeric_type},
+                   FN_VAR_SAMP_NUMERIC,
+                   has_numeric_type_argument},
+                  {double_type,
+                   {bignumeric_type},
+                   FN_VAR_SAMP_BIGNUMERIC,
+                   has_bignumeric_type_argument},
+                  {double_type, {double_type}, FN_VAR_SAMP}},
+                 FunctionOptions().set_alias_name("variance"));
 }
 
 void GetAnalyticFunctions(TypeFactory* type_factory,
@@ -1161,6 +1351,8 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                           NameToFunctionMap* functions) {
   const Type* int64_type = type_factory->get_int64();
   const Type* double_type = type_factory->get_double();
+  const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
   const Function::Mode ANALYTIC = Function::ANALYTIC;
 
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
@@ -1266,17 +1458,45 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
                    FN_NTH_VALUE}},
                  required_order_allowed_frame_and_null_handling);
 
+  FunctionSignatureOptions all_args_are_numeric_or_bignumeric;
+  all_args_are_numeric_or_bignumeric.set_constraints(
+      &AllArgumentsHaveNumericOrBigNumericType);
   InsertFunction(
       functions, options, "percentile_cont", ANALYTIC,
-      {{double_type,
-        {double_type, {double_type, non_null_non_agg_between_0_and_1}},
-        FN_PERCENTILE_CONT}},
+      {
+          {double_type,
+           {double_type, {double_type, non_null_non_agg_between_0_and_1}},
+           FN_PERCENTILE_CONT},
+          {numeric_type,
+           {numeric_type, {numeric_type, non_null_non_agg_between_0_and_1}},
+           FN_PERCENTILE_CONT_NUMERIC,
+           all_args_are_numeric_or_bignumeric},
+          {bignumeric_type,
+           {bignumeric_type,
+            {bignumeric_type, non_null_non_agg_between_0_and_1}},
+           FN_PERCENTILE_CONT_BIGNUMERIC,
+           all_args_are_numeric_or_bignumeric},
+      },
       disallowed_order_and_frame_allowed_null_handling);
+
+  FunctionSignatureOptions last_arg_is_numeric_or_bignumeric;
+  last_arg_is_numeric_or_bignumeric.set_constraints(
+      &LastArgumentHasNumericOrBigNumericType);
   InsertFunction(functions, options, "percentile_disc", ANALYTIC,
                  {{ARG_TYPE_ANY_1,
                    {{ARG_TYPE_ANY_1, comparable},
                     {double_type, non_null_non_agg_between_0_and_1}},
-                   FN_PERCENTILE_DISC}},
+                   FN_PERCENTILE_DISC},
+                  {ARG_TYPE_ANY_1,
+                   {{ARG_TYPE_ANY_1, comparable},
+                    {numeric_type, non_null_non_agg_between_0_and_1}},
+                   FN_PERCENTILE_DISC_NUMERIC,
+                   last_arg_is_numeric_or_bignumeric},
+                  {ARG_TYPE_ANY_1,
+                   {{ARG_TYPE_ANY_1, comparable},
+                    {bignumeric_type, non_null_non_agg_between_0_and_1}},
+                   FN_PERCENTILE_DISC_BIGNUMERIC,
+                   last_arg_is_numeric_or_bignumeric}},
                  disallowed_order_and_frame_allowed_null_handling);
 }
 

@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,12 +61,17 @@ void QueryExpression::ClearAllClauses() {
   order_by_hints_.clear();
   limit_.clear();
   offset_.clear();
+  with_recursive_ = false;
 }
 
 std::string QueryExpression::GetSQLQuery() const {
   std::string sql;
   if (!with_list_.empty()) {
-    absl::StrAppend(&sql, "WITH ", JoinListWithAliases(with_list_, ", "), " ");
+    absl::StrAppend(&sql, "WITH ");
+    if (with_recursive_) {
+      absl::StrAppend(&sql, "RECURSIVE ");
+    }
+    absl::StrAppend(&sql, JoinListWithAliases(with_list_, ", "), " ");
   }
   if (!select_list_.empty()) {
     DCHECK(set_op_type_.empty() && set_op_modifier_.empty() &&
@@ -164,11 +169,13 @@ void QueryExpression::Wrap(const std::string& alias) {
 }
 
 bool QueryExpression::TrySetWithClause(
-    const std::vector<std::pair<std::string, std::string>>& with_list) {
+    const std::vector<std::pair<std::string, std::string>>& with_list,
+    bool recursive) {
   if (!CanSetWithClause()) {
     return false;
   }
   with_list_ = with_list;
+  with_recursive_ = recursive;
   return true;
 }
 

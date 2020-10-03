@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/bison_parser.bison.h"
+#include "absl/memory/memory.h"
 
 namespace zetasql {
 namespace parser {
@@ -386,13 +387,22 @@ static bool ContainsCommaJoin(const ASTNode* node) {
   return false;
 }
 
+static const ASTJoin::ParseError* GetParseError(const ASTNode* node) {
+  if (node->node_kind() == AST_JOIN) {
+    const ASTJoin* join = node->GetAsOrDie<ASTJoin>();
+    return join->parse_error();
+  }
+
+  return nullptr;
+}
+
 ASTNode* JoinRuleAction(
     const zetasql_bison_parser::location& start_location,
     const zetasql_bison_parser::location& end_location, ASTNode* lhs,
     bool natural, ASTJoin::JoinType join_type, ASTJoin::JoinHint join_hint,
     ASTNode* hint, ASTNode* table_primary, ASTNode* on_or_using_clause_list,
     BisonParser* parser,
-    ErrorInfo *error_info) {
+    ErrorInfo* error_info) {
   auto clause_list =
       on_or_using_clause_list == nullptr
           ? nullptr
@@ -419,21 +429,6 @@ ASTNode* JoinRuleAction(
               "Unexpected keyword ",
               (error_node->node_kind() == AST_ON_CLAUSE ? "ON" : "USING")));
     }
-
-    // If there are more ON/USING clauses than JOINs, returns error.
-    if (clause_count > unmatched_join_count) {
-      auto* error_node =
-          clause_list->child(unmatched_join_count);
-      return MakeSyntaxError(
-          error_info,
-          parser->GetBisonLocation(error_node->GetParseLocationRange()),
-          absl::StrCat(
-              "The number of join conditions is ", clause_count,
-              " but the number of joins that require a join condition is "
-              "only ",
-              unmatched_join_count, ". Unexpected keyword ",
-              (error_node->node_kind() == AST_ON_CLAUSE ? "ON" : "USING")));
-    }
   }
 
   // Create the JOIN node
@@ -458,6 +453,37 @@ ASTNode* JoinRuleAction(
   join->set_join_hint(join_hint);
   join->set_unmatched_join_count(unmatched_join_count - clause_count);
   join->set_contains_comma_join(ContainsCommaJoin(lhs));
+
+  // Detects and processes the error when there are more ON/USING clauses than
+  // JOINs.
+  const ASTJoin::ParseError* parse_error = GetParseError(lhs);
+  if (parse_error != nullptr || clause_count > unmatched_join_count) {
+    auto* error_node = parse_error != nullptr ?
+                       parse_error->error_node :
+                       clause_list->child(unmatched_join_count);
+    std::string message =
+        parse_error != nullptr ?
+        parse_error->message :
+        absl::StrCat(
+            "The number of join conditions is ", clause_count,
+            " but the number of joins that require a join condition is "
+            "only ",
+            unmatched_join_count, ". Unexpected keyword ",
+            (error_node->node_kind() == AST_ON_CLAUSE ? "ON" : "USING"));
+
+    if (clause_count >= 2) {
+      // Consecutive ON/USING clauses are used. Returns the error in this case.
+      return MakeSyntaxError(
+          error_info,
+          parser->GetBisonLocation(error_node->GetParseLocationRange()),
+          message);
+    } else {
+      // Does not throw the error to maintain the backward compatibility. Saves
+      // the error instead.
+      join->set_parse_error(absl::make_unique<ASTJoin::ParseError>(
+          ASTJoin::ParseError{error_node, message}));
+    }
+  }
 
   return join;
 }

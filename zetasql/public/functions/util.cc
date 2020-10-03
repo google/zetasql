@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,6 +41,18 @@ bool UpdateError(absl::Status* status, absl::string_view msg) {
     *status = absl::Status(absl::StatusCode::kOutOfRange, error);
   }
   return false;
+}
+
+absl::Status ValidatePositionAndOccurrence(int64_t position, int64_t occurrence) {
+  if (position < 1) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Position must be positive");
+  }
+  if (occurrence < 1) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        "Occurrence must be positive");
+  }
+  return absl::OkStatus();
 }
 
 template <typename T>

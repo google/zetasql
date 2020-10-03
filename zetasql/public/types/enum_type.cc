@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 
@@ -147,10 +149,6 @@ bool EnumType::IsSupportedType(const LanguageOptions& language_options) const {
   return true;
 }
 
-void EnumType::InitializeValueContent(ValueContent* value) const {
-  value->set(this);
-}
-
 absl::HashState EnumType::HashTypeParameter(absl::HashState state) const {
   // Enum types are equivalent if they have the same full name, so hash it.
   return absl::HashState::combine(std::move(state),
@@ -162,10 +160,15 @@ absl::HashState EnumType::HashValueContent(const ValueContent& value,
   return absl::HashState::combine(std::move(state), GetEnumValue(value));
 }
 
-bool EnumType::ValueContentEqualsImpl(
+bool EnumType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
   return GetEnumValue(x) == GetEnumValue(y);
+}
+
+bool EnumType::ValueContentLess(const ValueContent& x, const ValueContent& y,
+                                const Type* other_type) const {
+  return GetEnumValue(x) < GetEnumValue(y);
 }
 
 std::string EnumType::FormatValueContent(
@@ -185,6 +188,30 @@ std::string EnumType::FormatValueContent(
   return options.as_literal() ? literal
                               : internal::GetCastExpressionString(
                                     literal, this, options.product_mode);
+}
+
+absl::Status EnumType::SerializeValueContent(const ValueContent& value,
+                                             ValueProto* value_proto) const {
+  value_proto->set_enum_value(GetEnumValue(value));
+  return absl::OkStatus();
+}
+
+absl::Status EnumType::DeserializeValueContent(const ValueProto& value_proto,
+                                               ValueContent* value) const {
+  if (!value_proto.has_enum_value()) {
+    return TypeMismatchError(value_proto);
+  }
+
+  if (enum_descriptor()->FindValueByNumber(value_proto.enum_value()) ==
+      nullptr) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        absl::StrCat("Invalid value for ", DebugString(), ": ",
+                                     value_proto.enum_value()));
+  }
+
+  value->set(value_proto.enum_value());
+
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

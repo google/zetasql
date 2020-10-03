@@ -1,6 +1,6 @@
 
 
-# Navigation Functions
+# Navigation functions
 
 The following sections describe the navigation functions that ZetaSQL
 supports. Navigation functions are a subset of analytic functions. For an

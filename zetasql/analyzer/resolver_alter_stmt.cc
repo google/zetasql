@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,16 +23,17 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -48,6 +49,7 @@ absl::Status Resolver::ResolveAlterActions(
 
   IdStringSetCase new_columns, column_to_drop;
   const Table* altered_table = nullptr;
+  bool existing_rename_to_action = false;
   // We keep status, but don't fail unless we have ADD/DROP.
   absl::Status table_status = FindTable(ast_statement->path(), &altered_table);
 
@@ -114,6 +116,39 @@ absl::Status Resolver::ResolveAlterActions(
         }
         alter_actions->push_back(std::move(resolved_action));
       } break;
+      case AST_SET_AS_ACTION: {
+        if (ast_statement->node_kind() != AST_ALTER_ENTITY_STATEMENT) {
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        std::unique_ptr<const ResolvedAlterAction> resolved_action =
+            MakeResolvedSetAsAction(
+                action->GetAsOrDie<ASTSetAsAction>()->body()->string_value());
+        alter_actions->push_back(std::move(resolved_action));
+      } break;
+      case AST_RENAME_TO_CLAUSE: {
+        if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+          // only rename table is supported
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        if (!ast_statement->is_if_exists()) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        if (existing_rename_to_action) {
+          return MakeSqlErrorAt(action)
+              << "Multiple RENAME TO actions are not supported";
+        }
+        existing_rename_to_action = true;
+        auto* rename_to = action->GetAsOrDie<ASTRenameToClause>();
+        std::unique_ptr<const ResolvedAlterAction> resolved_action =
+            MakeResolvedRenameToAction(
+                rename_to->new_name()->ToIdentifierVector());
+        alter_actions->push_back(std::move(resolved_action));
+        break;
+      }
       default:
         return MakeSqlErrorAt(action)
                << "ALTER " << alter_statement_kind << " doesn't support "
@@ -287,6 +322,22 @@ absl::Status Resolver::ResolveDropColumnAction(
   *alter_action = MakeResolvedDropColumnAction(action->is_if_exists(),
                                                column_name.ToString(),
                                                std::move(column_reference));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterEntityStatement(
+    const ASTAlterEntityStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(
+      ast_statement, ast_statement->type()->GetAsString(), output,
+      &has_only_set_options_action, &resolved_alter_actions));
+  *output = MakeResolvedAlterEntityStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists(),
+      ast_statement->type()->GetAsString());
   return absl::OkStatus();
 }
 

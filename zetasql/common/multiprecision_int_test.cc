@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@
 // Most methods should be tested with 2), which has higher coverage than 1), but
 // if the derivation logic is not trivial, then 1) is also necessary.
 
-#include "zetasql/common/fixed_int.h"
+#include "zetasql/common/multiprecision_int.h"
 
 #include <functional>
 #include <limits>
@@ -35,6 +35,7 @@
 #include <string>
 #include <type_traits>
 
+#include "zetasql/common/multiprecision_int_impl.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>
@@ -75,7 +76,7 @@ constexpr int64_t kint32max = kuint32max >> 1;
 constexpr int64_t kint32min = ~kint32max;
 constexpr uint32_t k1e9 = 1000000000;
 static constexpr std::array<uint128, 39> kPowersOf10 =
-    fixed_int_internal::PowersAsc<uint128, 1, 10, 39>();
+    multiprecision_int_impl::PowersAsc<uint128, 1, 10, 39>();
 
 template <typename V>
 constexpr V max128();
@@ -103,8 +104,8 @@ constexpr uint128 min128<uint128>() {
   return 0;
 }
 
-// Cannot use fixed_int_internal::SafeAbs because std::make_unsigned_t<int128>
-// doesn't compile in zetasql
+// Cannot use multiprecision_int_impl::SafeAbs because
+// std::make_unsigned_t<int128> doesn't compile in zetasql
 inline uint128 SafeAbs(int128 x) {
   return x < 0 ? -static_cast<uint128>(x) : x;
 }
@@ -1212,6 +1213,7 @@ TYPED_TEST(FixedIntGoldenDataTest, DivMod) {
 template <typename T, typename V>
 void TestNegate(V x, T expected_result, bool expected_overflow) {
   T value(x);
+  auto number = value.number();
   T negated_value = -value;
   EXPECT_EQ(negated_value, expected_result)
       << std::hex << std::showbase << "-(" << x << ")";
@@ -1219,6 +1221,11 @@ void TestNegate(V x, T expected_result, bool expected_overflow) {
   EXPECT_EQ(value.NegateOverflow(), expected_overflow)
       << std::hex << std::showbase << "-(" << x << ")";
   EXPECT_EQ(value, expected_result)
+      << std::hex << std::showbase << "-(" << x << ")";
+
+  VarIntRef<sizeof(typename T::Word) * 8> ref(number);
+  ref.Negate();
+  EXPECT_EQ(T(number), expected_result)
       << std::hex << std::showbase << "-(" << x << ")";
 }
 
@@ -1288,8 +1295,14 @@ TYPED_TEST(FixedUintGoldenDataTest, SerializeToBytes) {
   constexpr absl::string_view kExistingValue("\xff\0", 2);
   for (auto pair : kSerializedUnsignedValues) {
     std::string output(kExistingValue);
-    TypeParam(pair.first).SerializeToBytes(&output);
+    TypeParam fixed_uint(pair.first);
+    fixed_uint.SerializeToBytes(&output);
     EXPECT_EQ(output, absl::StrCat(kExistingValue, pair.second));
+    std::string output2(kExistingValue);
+    multiprecision_int_impl::SerializeNoOptimization<false>(
+        absl::MakeSpan(fixed_uint.number().data(), fixed_uint.number().size()),
+        &output2);
+    EXPECT_EQ(output, output2);
   }
 }
 
@@ -1308,8 +1321,14 @@ TYPED_TEST(FixedIntGoldenDataTest, SerializeToBytes) {
   constexpr absl::string_view kExistingValue("\xff\0", 2);
   for (auto pair : kSerializedSignedValues) {
     std::string output(kExistingValue);
-    TypeParam(pair.first).SerializeToBytes(&output);
+    TypeParam fixed_int(pair.first);
+    fixed_int.SerializeToBytes(&output);
     EXPECT_EQ(output, absl::StrCat(kExistingValue, pair.second));
+    std::string output2(kExistingValue);
+    multiprecision_int_impl::SerializeNoOptimization<true>(
+        absl::MakeSpan(fixed_int.number().data(), fixed_int.number().size()),
+        &output2);
+    EXPECT_EQ(output, output2);
   }
 }
 
@@ -1328,6 +1347,10 @@ TYPED_TEST(FixedUintGoldenDataTest, ToString) {
   for (auto pair : kUnsignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
+    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint32_t)) {
+      auto number = value.number();
+      EXPECT_EQ(pair.second, VarUintRef<32>(number).ToString());
+    }
   }
   for (size_t i = 1; i < kPowersOf10.size(); ++i) {
     uint128 v = kPowersOf10[i];
@@ -1340,6 +1363,10 @@ TYPED_TEST(FixedIntGoldenDataTest, ToString) {
   for (auto pair : kSignedValueStrings) {
     TypeParam value(pair.first);
     EXPECT_EQ(pair.second, value.ToString());
+    if constexpr (sizeof(typename TypeParam::Word) == sizeof(uint32_t)) {
+      auto number = value.number();
+      EXPECT_EQ(pair.second, VarIntRef<32>(number).ToString());
+    }
   }
   for (size_t i = 1; i < kPowersOf10.size(); ++i) {
     int128 v = kPowersOf10[i];
@@ -1917,44 +1944,53 @@ void TestDivModWithSelfInput(V x) {
   }
 }
 
-template <typename T, uint32_t divisor, typename V>
-void TestArithmeticOperatorsWithConstUnsignedWordForType(V x) {
-  std::integral_constant<uint32_t, divisor> const_divisor;
-  EXPECT_EQ(T(x) /= const_divisor, T(x) /= typename T::UnsignedWord{divisor});
-  EXPECT_EQ(T(x) %= const_divisor, T(x) %= typename T::UnsignedWord{divisor});
-  EXPECT_EQ(T(x).DivAndRoundAwayFromZero(const_divisor),
-            T(x).DivAndRoundAwayFromZero(typename T::UnsignedWord{divisor}));
-}
-
 template <typename T, typename W, W divisor, typename V>
 void TestArithmeticOperatorsWithConstWordForType(V x) {
+  using DivisorWord = std::conditional_t<std::is_signed_v<W>, typename T::Word,
+                                         typename T::UnsignedWord>;
   std::integral_constant<W, divisor> const_divisor;
-  EXPECT_EQ(T(x) /= const_divisor, T(x) /= typename T::Word{divisor});
-  EXPECT_EQ(T(x) %= const_divisor, T(x) %= typename T::Word{divisor});
+  EXPECT_EQ(T(x) /= const_divisor, T(x) /= DivisorWord{divisor});
+  EXPECT_EQ(T(x) %= const_divisor, T(x) %= DivisorWord{divisor});
   EXPECT_EQ(T(x).DivAndRoundAwayFromZero(const_divisor),
-            T(x).DivAndRoundAwayFromZero(typename T::Word{divisor}));
-  T t(x);
-  T quotient1, quotient2;
-  W remainder1;
-  typename T::Word remainder2;
-  t.DivMod(const_divisor, &quotient1, &remainder1);
-  t.DivMod(divisor, &quotient2, &remainder2);
-  EXPECT_EQ(quotient1, quotient2);
-  EXPECT_EQ(remainder1, remainder2);
+            T(x).DivAndRoundAwayFromZero(DivisorWord{divisor}));
 
-  t.DivMod(const_divisor, &quotient1, nullptr);
-  EXPECT_EQ(quotient1, quotient2);
+  // DivMod(std::integral_constant<W, divisor>) is defined only for W with the
+  // same sign of Word.
+  if constexpr (std::is_signed_v<typename T::Word> == std::is_signed_v<W>) {
+    T t(x);
+    T quotient1, quotient2;
+    W remainder1;
+    typename T::Word remainder2;
+    t.DivMod(const_divisor, &quotient1, &remainder1);
+    t.DivMod(divisor, &quotient2, &remainder2);
+    EXPECT_EQ(quotient1, quotient2);
+    EXPECT_EQ(remainder1, remainder2);
 
-  t.DivMod(const_divisor, nullptr, &remainder1);
-  EXPECT_EQ(remainder1, remainder2);
+    t.DivMod(const_divisor, &quotient1, nullptr);
+    EXPECT_EQ(quotient1, quotient2);
 
-  t.DivMod(const_divisor, &t, &remainder1);
-  EXPECT_EQ(t, quotient2);
-  EXPECT_EQ(remainder1, remainder2);
+    t.DivMod(const_divisor, nullptr, &remainder1);
+    EXPECT_EQ(remainder1, remainder2);
 
-  t = T(x);
-  t.DivMod(const_divisor, &t, nullptr);
-  EXPECT_EQ(t, quotient2);
+    t.DivMod(const_divisor, &t, &remainder1);
+    EXPECT_EQ(t, quotient2);
+    EXPECT_EQ(remainder1, remainder2);
+
+    t = T(x);
+    t.DivMod(const_divisor, &t, nullptr);
+    EXPECT_EQ(t, quotient2);
+
+    if constexpr (std::is_same_v<typename T::Word, uint32_t>) {
+      auto number = T(x).number();
+      VarUintRef<32> ref(number);
+      EXPECT_EQ(ref.DivMod(const_divisor), remainder2);
+      EXPECT_EQ(T(number), quotient2);
+
+      number = T(x).number();
+      EXPECT_EQ(ref.DivMod(divisor), remainder2);
+      EXPECT_EQ(T(number), quotient2);
+    }
+  }
 }
 
 template <typename T>
@@ -1979,12 +2015,12 @@ void TestArithmeticOperatorsWithConstWord(int128 x) {
   TestArithmeticOperatorsWithConstWordForType<T, int32_t, -kint32max>(x);
   TestArithmeticOperatorsWithConstWordForType<T, int32_t, kint32min>(x);
 
-  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 1>(x);
-  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 2>(x);
-  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 100>(x);
-  TestArithmeticOperatorsWithConstUnsignedWordForType<T, kint32max>(x);
-  TestArithmeticOperatorsWithConstUnsignedWordForType<T, 0x80000000U>(x);
-  TestArithmeticOperatorsWithConstUnsignedWordForType<T, kuint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 1>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 2>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 100>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kint32max>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, 0x80000000U>(x);
+  TestArithmeticOperatorsWithConstWordForType<T, uint32_t, kuint32max>(x);
 }
 
 #if !defined(ADDRESS_SANITIZER)
@@ -2030,6 +2066,12 @@ TYPED_TEST(FixedIntGeneratedDataTest, SerializationRoundTrip) {
     t.SerializeToBytes(&serialized);
     EXPECT_TRUE(deserialized.DeserializeFromBytes(serialized));
     EXPECT_EQ(deserialized, t);
+
+    constexpr bool is_signed = std::is_signed_v<typename TypeParam::Word>;
+    std::string serialized2;
+    multiprecision_int_impl::SerializeNoOptimization<is_signed>(
+        absl::MakeSpan(t.number().data(), t.number().size()), &serialized2);
+    EXPECT_EQ(serialized2, serialized);
   }
 }
 
@@ -2050,8 +2092,16 @@ TYPED_TEST(FixedIntGeneratedDataTest, ToString) {
     std::ostringstream oss;
     oss << value;
     std::string expect = oss.str();
-    std::string actual = T(value).ToString();
+    T v(value);
+    std::string actual = v.ToString();
     EXPECT_EQ(expect, actual);
+
+    if constexpr (sizeof(typename T::Word) == sizeof(uint32_t)) {
+      auto number = v.number();
+      actual = VarIntBase<std::is_signed_v<typename T::Word>, uint32_t>(number)
+                   .ToString();
+      EXPECT_EQ(expect, actual);
+    }
   }
 }
 
@@ -2083,7 +2133,7 @@ TYPED_TEST(FixedIntGeneratedDataTest, CountDecimalDigits) {
 template <template <int, int> class Dest, int k1, int n1, int k2, int n2,
           template <int, int> class Src>
 Dest<k1, n1> Convert(const Src<k2, n2>& src, bool negative) {
-  return Dest<k1, n1>(fixed_int_internal::Convert<k1, n1, k2, n2, false>(
+  return Dest<k1, n1>(multiprecision_int_impl::Convert<k1, n1, k2, n2, false>(
       src.number(), negative));
 }
 

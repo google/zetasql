@@ -1,5 +1,5 @@
 //
-// Copyright 2019 ZetaSQL Authors
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "zetasql/scripting/parse_helpers.h"
 
 #include "zetasql/scripting/parsed_script.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

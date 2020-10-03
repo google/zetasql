@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@
 # the linker to prune unused modules.
 
 package(
-    default_visibility = ["//:__subpackages__"],
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
 cc_library(
@@ -30,12 +30,13 @@ cc_library(
     srcs = ["register_all.cc"],
     hdrs = ["register_all.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":hash",
@@ -50,12 +51,13 @@ cc_library(
     srcs = ["hash.cc"],
     hdrs = ["hash.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         "//zetasql/base:statusor",
@@ -70,14 +72,17 @@ cc_library(
     srcs = ["json.cc"],
     hdrs = ["json.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:statusor",
+        "//zetasql/public:type_cc_proto",
         "//zetasql/public/functions:json",
         "//zetasql/reference_impl:evaluation",
     ],
@@ -88,14 +93,16 @@ cc_library(
     srcs = ["uuid.cc"],
     hdrs = ["uuid.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:statusor",
         "//zetasql/public:value",
         "//zetasql/public/functions:uuid",
         "//zetasql/reference_impl:evaluation",

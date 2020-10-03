@@ -1,5 +1,5 @@
 #
-# Copyright 2019 ZetaSQL Authors
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 
 # ZetaSQL Server
-package(default_visibility = ["//:__subpackages__"])
+package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 cc_library(
     name = "local_service",
@@ -28,12 +28,13 @@ cc_library(
         "state.h",
     ],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":local_service_cc_proto",
@@ -76,12 +77,13 @@ cc_test(
     name = "local_service_test",
     srcs = ["local_service_test.cc"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     data = [
         "//zetasql/testdata:test_schema_proto",
@@ -89,7 +91,6 @@ cc_test(
     tags = ["requires-net:loopback"],
     deps = [
         ":local_service",
-        "@com_google_googletest//:gtest_main",
         "//zetasql/base",
         "//zetasql/base:path",
         "//zetasql/base:status",
@@ -107,8 +108,33 @@ cc_test(
         "//zetasql/public:value_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "local_service_benchmark",
+    srcs = ["local_service_benchmark.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":local_service",
+        ":local_service_cc_proto",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "@com_github_google_benchmark//:benchmark_main",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -147,12 +173,13 @@ cc_library(
     srcs = ["local_service_grpc.cc"],
     hdrs = ["local_service_grpc.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     deps = [
         ":local_service",
@@ -186,12 +213,13 @@ cc_library(
     srcs = ["local_service_jni.cc"],
     hdrs = ["local_service_jni.h"],
     copts = [
-        "-Wno-pessimizing-move",
+        "-Wno-char-subscripts",
         "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
         "-Wno-unused-function",
+        "-Wnonnull-compare",
     ],
     linkstatic = 1,
     deps = [
