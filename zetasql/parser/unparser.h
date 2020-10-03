@@ -585,17 +585,15 @@ class Unparser : public ParseTreeVisitor {
   void UnparseVectorWithSeparator(
       absl::Span<const NodeType* const> node_vector, void* data,
       const std::string& separator, const bool break_line = false) {
-    bool first = true;
-    for (const NodeType* node : node_vector) {
-      if (first) {
-        first = false;
-      } else {
+    const int size = node_vector.size();
+    for (int i = 0; i < size; ++i) {
+      if (i != 0 || i != size - 1) {
         print(separator);
         if (break_line) {
           println();
         }
       }
-      node->Accept(this, data);
+      node_vector[i]->Accept(this, data);
     }
   }
 

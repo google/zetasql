@@ -48,9 +48,8 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
   options.include_comments = true;
 
   std::unique_ptr<ParserOutput> parser_output;
-  const auto parser_options = ParserOptions();
 
-  ZETASQL_RETURN_IF_ERROR(ParseScript(sql, parser_options,
+  ZETASQL_RETURN_IF_ERROR(ParseScript(sql, ParserOptions(),
                           ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, &parser_output));
   std::deque<std::pair<std::string, ParseLocationPoint>> comments;
   std::vector<ParseToken> parse_tokens;
@@ -67,27 +66,16 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
         comments.push_back(std::make_pair(parse_token.GetSQL(), parse_token.GetLocationRange().start()));
       }
     }
-    *formatted_sql = UnparseWithComments(parser_output->statement(), comments);
+    *formatted_sql = UnparseWithComments(parser_output->script(), comments);
   } else {
     // If GetParseTokens fails, just ignores comments.
-    *formatted_sql = Unparse(parser_output->statement());
+    *formatted_sql = Unparse(parser_output->script());
   }
 
-  // The result from Unparse always ends with '\n'. Strips whitespaces so ';'
-  // can follow the statement immediately rather than starting a new line.
-  absl::StripAsciiWhitespace(formatted_sql);
+  // for (const auto& comment : comments) {
+  //   *formatted_sql = absl::StrCat(*formatted_sql, comment.first);
+  // }
 
-  std::string suffix;
-  if (last_token_is_comment) {
-    suffix = "\n";
-  } else {
-    suffix = ";\n";
-  }
-  *formatted_sql = absl::StrCat(*formatted_sql, suffix);
-  
-  for (const auto& comment : comments) {
-    *formatted_sql = absl::StrCat(*formatted_sql, comment.first);
-  }
   return absl::OkStatus();
 }
 

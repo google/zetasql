@@ -241,7 +241,7 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
 std::string Unparse(const ASTNode* root);
 
 std::string UnparseWithComments(const ASTNode* node, std::deque<std::pair<std::string,
-                                ParseLocationPoint>> parse_tokens);
+                                ParseLocationPoint>>& parse_tokens);
 
 // Parse the first few keywords from <input> (ignoring whitespace, comments and
 // hints) to determine what kind of statement it is (if it is valid).
