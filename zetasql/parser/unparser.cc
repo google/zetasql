@@ -44,7 +44,7 @@ std::string Unparse(const ASTNode* node) {
 }
 
 std::string UnparseWithComments(const ASTNode* node, std::deque<std::pair<std::string,
-                                ParseLocationPoint>> parse_tokens) {
+                                ParseLocationPoint>>& parse_tokens) {
   std::string unparsed_;
   parser::Unparser unparser(&unparsed_);
   // Print comments by visitors and pop.

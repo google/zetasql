@@ -85,7 +85,7 @@ TEST(TestUnparser, ExpressionTest) {
                     expression_string, unparsed_expression_string);
 }
 
-TEST(TestUnparser, QueryTest) {
+TEST(TestUnparser, BEGINEND) {
   std::string query_string(
       "BEGIN\n"
       "END\n");
