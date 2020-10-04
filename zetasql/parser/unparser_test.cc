@@ -22,6 +22,7 @@
 #include "zetasql/parser/parser.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/public/options.pb.h"
 
 namespace zetasql {
 
@@ -90,8 +91,10 @@ TEST(TestUnparser, BEGINEND) {
       "BEGIN\n"
       "END;\n");
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_EXPECT_OK(ParseScript(query_string, ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARE,
-                                ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(ParseScript(query_string,
+                                ParserOptions(), 
+                                ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
+                                &parser_output));
   ASSERT_THAT(parser_output->script(), NotNull());
   std::string unparsed_string = Unparse(parser_output->script());
   // Cannot generally do string equality because of capitalization and white
@@ -99,8 +102,8 @@ TEST(TestUnparser, BEGINEND) {
   EXPECT_EQ(query_string, unparsed_string);
   std::unique_ptr<ParserOutput> unparsed_query_parser_output;
   ZETASQL_EXPECT_OK(ParseScript(unparsed_string,
-                           ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARE,
                            ParserOptions(),
+                           ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET,
                            &unparsed_query_parser_output));
   CompareParseTrees(parser_output->script(),
                     unparsed_query_parser_output->script(), query_string,
