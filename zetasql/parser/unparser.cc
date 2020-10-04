@@ -266,6 +266,7 @@ bool Unparser::PrintCommentsPassedBy(const ParseLocationPoint point, void* data)
       break;
     }
   }
+  last_token_is_comment = emitted;
   return emitted;
 }
 
@@ -3154,7 +3155,15 @@ void Unparser::visitASTStatementList(const ASTStatementList* node, void* data) {
   PrintCommentsPassedBy(node->GetParseLocationRange().start(), data);
   for (const ASTStatement* statement : node->statement_list()) {
     statement->Accept(this, data);
-    println(";");
+    if (last_token_is_comment) {
+      println(";");
+    } else {
+      // The result from Unparse always ends with '\n'. Strips whitespaces so ';'
+      // can follow the statement immediately rather than starting a new line.
+      println();
+      absl::StripAsciiWhitespace(_unparsed);
+      println(";");
+    }
   }
   PrintCommentsPassedBy(node->GetParseLocationRange().end(), data);
 }

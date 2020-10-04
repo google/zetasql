@@ -107,10 +107,14 @@ class Formatter {
 
 class Unparser : public ParseTreeVisitor {
  public:
-  explicit Unparser(std::string* unparsed) : formatter_(unparsed) {}
+  explicit Unparser(std::string* unparsed) : formatter_(unparsed) {
+    _unparsed = unparsed;
+  }
   Unparser(const Unparser&) = delete;
   Unparser& operator=(const Unparser&) = delete;
   ~Unparser() override {}
+  bool last_token_is_comment = false;
+  std::string* _unparsed;
 
   virtual void defaultVisit(const ASTNode* node, void* data) {
     LOG(FATAL) << "Unimplemented node: " << node->SingleNodeDebugString();
@@ -587,7 +591,7 @@ class Unparser : public ParseTreeVisitor {
       const std::string& separator, const bool break_line = false) {
     const int size = node_vector.size();
     for (int i = 0; i < size; ++i) {
-      if (i != 0 || i != size - 1) {
+      if (i != 0) {
         print(separator);
         if (break_line) {
           println();

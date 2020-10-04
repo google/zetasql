@@ -53,16 +53,13 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
                           ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET, &parser_output));
   std::deque<std::pair<std::string, ParseLocationPoint>> comments;
   std::vector<ParseToken> parse_tokens;
-  bool last_token_is_comment = false;
   ParseResumeLocation location = ParseResumeLocation::FromStringView(sql);
   const absl::Status token_status =
       GetParseTokens(options, &location, &parse_tokens);
   if (token_status.ok()) {
     for (const auto& parse_token : parse_tokens) {
       if (parse_token.IsEndOfInput()) break;
-      last_token_is_comment = false;
       if (parse_token.IsComment()) {
-        last_token_is_comment = true;
         comments.push_back(std::make_pair(parse_token.GetSQL(), parse_token.GetLocationRange().start()));
       }
     }
@@ -71,10 +68,6 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
     // If GetParseTokens fails, just ignores comments.
     *formatted_sql = Unparse(parser_output->script());
   }
-
-  // for (const auto& comment : comments) {
-  //   *formatted_sql = absl::StrCat(*formatted_sql, comment.first);
-  // }
 
   return absl::OkStatus();
 }
