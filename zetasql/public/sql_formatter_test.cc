@@ -60,7 +60,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                         &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword HAVING [at 1:36]")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5",
             formatted_sql);
 
   // With semicolon as the last char.
@@ -68,7 +68,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                         &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword HAVING [at 1:36]")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;",
             formatted_sql);
 
   // With semicolon and trailing whitespaces.
@@ -76,7 +76,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                         &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword HAVING [at 1:36]")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;    ",
             formatted_sql);
 
   // With semicolon and trailing comment.
@@ -85,33 +85,27 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
                 &formatted_sql),
       StatusIs(_,
                HasSubstr(
-                   "Syntax error: Expected end of input but got keyword HAVING "
-                   "[at 1:36]\n"
-                   "select f1 as a from T having a > 5 having a > 5; # foo\n"
-                   "                                   ^\n"
-                   "Syntax error: Unexpected end of statement [at 1:55]\n"
-                   "select f1 as a from T having a > 5 having a > 5; # foo\n"
-                   "                                                      ^")));
-  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5;\n",
+                   "INVALID_ARGUMENT: Syntax error: Expected end of input but got keyword HAVING")));
+  EXPECT_EQ("select f1 as a from T having a > 5 having a > 5; # foo",
             formatted_sql);
 
   // Empty statement.
   EXPECT_THAT(
       FormatSql(";", &formatted_sql),
-      StatusIs(_, HasSubstr("Syntax error: Unexpected \";\" [at 1:1]")));
-  EXPECT_EQ(";\n", formatted_sql);
+      StatusIs(_, HasSubstr("INVALID_ARGUMENT: Syntax error: Expected end of input but got")));
+  EXPECT_EQ(";", formatted_sql);
 
   // Semicolon in string.
   EXPECT_THAT(FormatSql("select ' ; ' as a as b;", &formatted_sql),
               StatusIs(_, HasSubstr("Syntax error: Expected end of input but "
                                     "got keyword AS [at 1:19]")));
-  EXPECT_EQ("select ' ; ' as a as b;\n", formatted_sql);
+  EXPECT_EQ("select ' ; ' as a as b;", formatted_sql);
 
   EXPECT_THAT(
       FormatSql("select a group by 1 where a < 'xxx;yyy';", &formatted_sql),
       StatusIs(_, HasSubstr("Syntax error: Expected end of input but got "
                             "keyword WHERE [at 1:21]")));
-  EXPECT_EQ("select a group by 1 where a < 'xxx;yyy';\n", formatted_sql);
+  EXPECT_EQ("select a group by 1 where a < 'xxx;yyy';", formatted_sql);
 }
 
 TEST(SqlFormatterTest, ValidMultipleStatements) {
@@ -150,27 +144,16 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
       StatusIs(
           _,
           HasSubstr(
-              "Syntax error: Unexpected \".\" [at 1:10]\n"
-              " drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
-              "         ^\n"
-              "Syntax error: Expected end of input but got keyword HAVING [at "
-              "2:42]\n"
-              " select sum(f1) as a from T having a > 5 having a > 5;select 1\n"
-              "                                         ^")));
-  EXPECT_EQ("drop foo.bar;\n"
-            "DEFINE TABLE t1(a = 1, b = \"a\", c = 1.4, d = true);\n"
-            "select sum(f1) as a from T having a > 5 having a > 5;\n"
-            "SELECT\n"
-            "  1;\n",
+              "INVALID_ARGUMENT: Syntax error: Unexpected")));
+  EXPECT_EQ(" drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
+            " select sum(f1) as a from T having a > 5 having a > 5;select 1",
             formatted_sql);
 
   // The second statement is an invalid empty statement.
   EXPECT_THAT(
       FormatSql("select 1;  ;", &formatted_sql),
-      StatusIs(_, HasSubstr("Syntax error: Unexpected \";\" [at 1:12]")));
-  EXPECT_EQ("SELECT\n"
-            "  1;\n"
-            ";\n",
+      StatusIs(_, HasSubstr("INVALID_ARGUMENT: Syntax error: Expected end of input but got")));
+  EXPECT_EQ("select 1;  ;",
             formatted_sql);
 
   // The second statement contains invalid input character '$', which makes
