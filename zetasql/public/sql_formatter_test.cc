@@ -184,5 +184,13 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
   EXPECT_EQ("select 1;  select $d ;", formatted_sql);
 }
 
+TEST(SqlFormatterTest, Script) {
+  std::string formatted_sql;
+  ZETASQL_ASSERT_OK(FormatSql("BEGIN\nEND\n", &formatted_sql));
+  EXPECT_EQ("BEGIN\n"
+            "END;\n",
+            formatted_sql);
+}
+
 }  // namespace
 }  // namespace zetasql

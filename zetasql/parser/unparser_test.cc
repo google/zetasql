@@ -88,19 +88,19 @@ TEST(TestUnparser, ExpressionTest) {
 TEST(TestUnparser, BEGINEND) {
   std::string query_string(
       "BEGIN\n"
-      "END\n");
+      "END;\n");
   std::unique_ptr<ParserOutput> parser_output;
-  ZETASQL_EXPECT_OK(ParseStatement(query_string, ParserOptions(), &parser_output));
-  ASSERT_THAT(parser_output->statement(), NotNull());
-  std::string unparsed_string = Unparse(parser_output->statement());
+  ZETASQL_EXPECT_OK(ParseScript(query_string, ParserOptions(), &parser_output));
+  ASSERT_THAT(parser_output->script(), NotNull());
+  std::string unparsed_string = Unparse(parser_output->script());
   // Cannot generally do string equality because of capitalization and white
   // space issues, so we will reparse and also compare the parse trees.
   EXPECT_EQ(query_string, unparsed_string);
   std::unique_ptr<ParserOutput> unparsed_query_parser_output;
-  ZETASQL_EXPECT_OK(ParseStatement(unparsed_string, ParserOptions(),
+  ZETASQL_EXPECT_OK(ParseScript(unparsed_string, ParserOptions(),
                            &unparsed_query_parser_output));
-  CompareParseTrees(parser_output->statement(),
-                    unparsed_query_parser_output->statement(), query_string,
+  CompareParseTrees(parser_output->script(),
+                    unparsed_query_parser_output->script(), query_string,
                     unparsed_string);
 }
 
