@@ -84,8 +84,7 @@ TEST(SqlFormatterTest, InvalidSingleStatement) {
       FormatSql("select f1 as a from T having a > 5 having a > 5; # foo",
                 &formatted_sql),
       StatusIs(_,
-               HasSubstr(
-                   "INVALID_ARGUMENT: Syntax error: Expected end of input but got keyword HAVING")));
+               HasSubstr("INVALID_ARGUMENT: Syntax error: Expected end of input but got keyword HAVING")));
   EXPECT_EQ("select f1 as a from T having a > 5 having a > 5; # foo",
             formatted_sql);
 
@@ -143,8 +142,7 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
           &formatted_sql),
       StatusIs(
           _,
-          HasSubstr(
-              "INVALID_ARGUMENT: Syntax error: Unexpected")));
+          HasSubstr("INVALID_ARGUMENT: Syntax error: Unexpected")));
   EXPECT_EQ(" drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
             " select sum(f1) as a from T having a > 5 having a > 5;select 1",
             formatted_sql);
