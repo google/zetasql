@@ -211,6 +211,7 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
@@ -497,6 +498,7 @@ cc_library(
     deps = [
         ":resolved_ast",
         "//zetasql/base",
+        "//zetasql/base:statusor",
     ],
 )
 
@@ -515,6 +517,28 @@ cc_test(
     ],
     deps = [
         ":rewrite_utils",
+        "//zetasql/public/types",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "validator_test",
+    srcs = ["validator_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":make_node_vector",
+        ":resolved_ast",
+        ":validator",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/public/types",
         "@com_google_googletest//:gtest_main",
     ],

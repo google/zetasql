@@ -1032,20 +1032,20 @@ TEST_P(FormatComplianceTests, Test) {
   SCOPED_TRACE(named_format_function.ScopeLabel());
   FormatF FormatFunction = named_format_function.FormatFunction;
 
-  DCHECK_GE(test.params.num_params(), 1);
+  ZETASQL_DCHECK_GE(test.params.num_params(), 1);
 
-  DCHECK(test.params.param(0).type()->IsString());
+  ZETASQL_DCHECK(test.params.param(0).type()->IsString());
   if (test.params.param(0).is_null()) {
     // This is handled outside the library.
     return;
   }
   const std::string pattern = test.params.param(0).string_value();
-  LOG(INFO) << "pattern: " << pattern;
+  ZETASQL_LOG(INFO) << "pattern: " << pattern;
   std::vector<Value> args;
   bool using_any_civil_time_values = false;
   for (int i = 1; i < test.params.num_params(); ++i) {
     const Value& arg = test.params.param(i);
-    LOG(INFO) << "arg " << (i - 1) << ": "
+    ZETASQL_LOG(INFO) << "arg " << (i - 1) << ": "
               << arg.FullDebugString();
     if (arg.type()->UsingFeatureV12CivilTimeType()) {
       using_any_civil_time_values = true;

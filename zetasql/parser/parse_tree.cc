@@ -314,7 +314,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WITH_PARTITION_COLUMNS_CLAUSE] = "WithPartitionColumnsClause";
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
-    DCHECK(zetasql_base::ContainsKey(map, static_cast<ASTNodeKind>(kind)))
+    ZETASQL_DCHECK(zetasql_base::ContainsKey(map, static_cast<ASTNodeKind>(kind)))
         << "kind=" << kind;
   }
   return map;
@@ -331,7 +331,7 @@ static const absl::flat_hash_map<ASTNodeKind, std::string>& GetNodeNamesMap() {
 ASTNode::~ASTNode() {}
 
 void ASTNode::AddChild(ASTNode* child) {
-  DCHECK(child != nullptr);
+  ZETASQL_DCHECK(child != nullptr);
   children_.push_back(child);
   child->set_parent(this);
 }
@@ -832,7 +832,7 @@ std::string ASTWindowFrame::FrameUnitToString(FrameUnit unit) {
     case RANGE:
       return "RANGE";
     default:
-      LOG(DFATAL) << "Unknown analytic window frame unit: " << unit;
+      ZETASQL_LOG(DFATAL) << "Unknown analytic window frame unit: " << unit;
       return "";
   }
 }
@@ -860,7 +860,7 @@ std::string ASTWindowFrameExpr::BoundaryTypeToString(BoundaryType type) {
     case UNBOUNDED_FOLLOWING:
       return "UNBOUNDED FOLLOWING";
     default:
-      LOG(DFATAL) << "Unknown analytic window frame expression type:" << type;
+      ZETASQL_LOG(DFATAL) << "Unknown analytic window frame expression type:" << type;
       return "";
   }
 }
@@ -1223,13 +1223,13 @@ std::string ASTMergeWhenClause::GetSQLForMatchType() const {
     case NOT_MATCHED_BY_TARGET:
       return "NOT_MATCHED_BY_TARGET";
     case NOT_SET:
-      LOG(DFATAL) << "Match type of merge match clause is not set.";
+      ZETASQL_LOG(DFATAL) << "Match type of merge match clause is not set.";
       return "";
   }
 }
 
 std::string ASTSampleSize::GetSQLForUnit() const {
-  DCHECK_NE(unit_, NOT_SET);
+  ZETASQL_DCHECK_NE(unit_, NOT_SET);
   if (unit_ == NOT_SET) return "<UNKNOWN UNIT>";
   return unit_ == ROWS ? "ROWS" : "PERCENT";
 }

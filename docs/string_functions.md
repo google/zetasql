@@ -440,7 +440,8 @@ FROM items;
 +---------+
 ```
 
-### FORMAT {: #format_string }
+### FORMAT 
+<a id="format_string"></a>
 
 ZetaSQL supports a `FORMAT()` function for formatting strings. This
 function is similar to the C `printf` function. It produces a `STRING` from a
@@ -870,7 +871,8 @@ flags are not relevant for some element type, they are ignored.
   </tr>
 </table>
 
-#### %g and %G behavior {: #g_and_g_behavior }
+#### %g and %G behavior 
+<a id="g_and_g_behavior"></a>
 The `%g` and `%G` format specifiers choose either the decimal notation (like
 the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
 specifiers), depending on the input value's exponent and the specified
@@ -887,7 +889,8 @@ Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
 are removed, and the decimal point is also removed if there is no digit after
 it.
 
-#### %t and %T behavior {: #t_and_t_behavior }
+#### %t and %T behavior 
+<a id="t_and_t_behavior"></a>
 
 The `%t` and `%T` format specifiers are defined for all types. The
 [width](#width), [precision](#precision), and [flags](#flags) act as they do

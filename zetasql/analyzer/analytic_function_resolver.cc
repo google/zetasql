@@ -63,7 +63,7 @@ static absl::Status CompareWindowBoundaryValues(
                 "the ending framing expression value for PRECEDING";
     }
   } else {
-    DCHECK_EQ(ast_start_frame_expr->boundary_type(),
+    ZETASQL_DCHECK_EQ(ast_start_frame_expr->boundary_type(),
               ASTWindowFrameExpr::OFFSET_FOLLOWING);
     if (start_boundary_offset > end_boudary_offset) {
       return MakeSqlErrorAt(ast_start_frame_expr)
@@ -150,7 +150,7 @@ AnalyticFunctionResolver::AnalyticFunctionResolver(
 
 AnalyticFunctionResolver::~AnalyticFunctionResolver() {
   if (is_create_analytic_scan_successful_) {
-    DCHECK(window_columns_to_compute_.empty())
+    ZETASQL_DCHECK(window_columns_to_compute_.empty())
         << "Output columns for window expressions have not been attached to "
            "the tree";
   }
@@ -190,7 +190,7 @@ AnalyticFunctionResolver::NamedWindowInfoMap*
 
 void AnalyticFunctionResolver::DisableNamedWindowRefs(
     const char* clause_name) {
-  CHECK_NE(clause_name[0], '\0');
+  ZETASQL_CHECK_NE(clause_name[0], '\0');
   named_window_not_allowed_here_name_ = clause_name;
 }
 
@@ -332,6 +332,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       resolved_function_call->type(), resolved_function_call->function(),
       resolved_function_call->signature(),
       resolved_function_call->release_argument_list(),
+      resolved_function_call->release_generic_argument_list(),
       resolved_function_call->error_mode(), is_distinct,
       resolved_null_handling_modifier_kind, std::move(resolved_window_frame));
   const ResolvedColumn resolved_column(
@@ -589,7 +590,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
 absl::Status AnalyticFunctionResolver::ValidateOrderByInRangeBasedWindow(
     const ASTOrderBy* ast_order_by, const ASTWindowFrame* ast_window_frame,
     WindowExprInfoList* order_by_info) {
-  DCHECK_EQ(ast_window_frame->frame_unit(), ASTWindowFrame::RANGE);
+  ZETASQL_DCHECK_EQ(ast_window_frame->frame_unit(), ASTWindowFrame::RANGE);
   if (order_by_info == nullptr) {
     if (ast_window_frame->start_expr()->boundary_type() ==
             ASTWindowFrameExpr::UNBOUNDED_PRECEDING &&
@@ -787,8 +788,8 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
           false /* return_null_on_error */, resolved_offset_expr));
     }
   } else {
-    DCHECK_EQ(frame_unit, ResolvedWindowFrame::RANGE);
-    DCHECK(ordering_expr_type != nullptr);
+    ZETASQL_DCHECK_EQ(frame_unit, ResolvedWindowFrame::RANGE);
+    ZETASQL_DCHECK(ordering_expr_type != nullptr);
 
     if (!(*resolved_offset_expr)->type()->Equals(ordering_expr_type)) {
       SignatureMatchResult result;
@@ -1243,7 +1244,7 @@ absl::Status AnalyticFunctionResolver::CheckForConflictsWithReferencedWindow(
 }
 
 const Coercer& AnalyticFunctionResolver::coercer() const {
-  DCHECK(resolver_ != nullptr);
+  ZETASQL_DCHECK(resolver_ != nullptr);
   return resolver_->coercer_;
 }
 

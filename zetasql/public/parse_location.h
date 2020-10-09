@@ -131,7 +131,7 @@ class ParseLocationRange {
   zetasql_base::StatusOr<ParseLocationRangeProto> ToProto() const {
     // The ParseLocationProto only has a single field for the filename, so it
     // cannot represent a ParseLocationRange where the start and end locations
-    // have different filenames. We CHECK that condition here.
+    // have different filenames. We ZETASQL_CHECK that condition here.
     ZETASQL_RET_CHECK_EQ(start().filename(), end().filename());
     ParseLocationRangeProto proto;
     proto.set_filename(std::string(start().filename()));

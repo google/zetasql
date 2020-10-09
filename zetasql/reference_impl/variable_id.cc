@@ -24,8 +24,8 @@ namespace zetasql {
 
 VariableId::VariableId(const std::string& name) : name_(name) {
   // Make sure we don't use certain special characters for ease of debugging.
-  DCHECK(name.find("$") == std::string::npos);  // used in the resolved AST
-  DCHECK(name.find("@") == std::string::npos);  // used for query parameters
+  ZETASQL_DCHECK(name.find("$") == std::string::npos);  // used in the resolved AST
+  ZETASQL_DCHECK(name.find("@") == std::string::npos);  // used for query parameters
 }
 
 std::ostream& operator<<(std::ostream& out, const VariableId& id) {

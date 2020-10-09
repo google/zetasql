@@ -559,7 +559,7 @@ std::string EvaluatorTableScanOp::DebugInternal(const std::string& indent,
   const std::string indent_input = absl::StrCat(indent, kIndentFork);
 
   std::vector<std::string> column_strings;
-  CHECK_EQ(column_names_.size(), column_idxs_.size());
+  ZETASQL_CHECK_EQ(column_names_.size(), column_idxs_.size());
   column_strings.reserve(column_names_.size());
   for (int i = 0; i < column_names_.size(); ++i) {
     column_strings.push_back(
@@ -3312,7 +3312,7 @@ std::string ArrayScanOp::DebugInternal(const std::string& indent,
 ArrayScanOp::ArrayScanOp(const VariableId& element, const VariableId& position,
                          absl::Span<const std::pair<VariableId, int>> fields,
                          std::unique_ptr<ValueExpr> array) {
-  CHECK(array->output_type()->IsArray());
+  ZETASQL_CHECK(array->output_type()->IsArray());
   const Type* element_type = array->output_type()->AsArray()->element_type();
   SetArg(kElement, !element.is_valid()
                        ? nullptr

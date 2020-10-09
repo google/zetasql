@@ -180,7 +180,7 @@ class CppValue : public CppValueBase {
 
     // In debug builds, add an extra sanity check that the value is of the
     // correct type.
-    DCHECK(dynamic_cast<CppValue<T>*>(value) == value);
+    ZETASQL_DCHECK(dynamic_cast<CppValue<T>*>(value) == value);
 
     return &(static_cast<CppValue<T>*>(value)->value_);
   }
@@ -285,8 +285,8 @@ struct AnalyticWindow {
   AnalyticWindow(int start_tuple_id_in, int num_tuples_in)
       : start_tuple_id(start_tuple_id_in),
         num_tuples(num_tuples_in) {
-    DCHECK_GE(start_tuple_id, 0);
-    DCHECK_GT(num_tuples, 0);
+    ZETASQL_DCHECK_GE(start_tuple_id, 0);
+    ZETASQL_DCHECK_GT(num_tuples, 0);
   }
 
   bool operator==(const AnalyticWindow& other) const {
@@ -1216,7 +1216,7 @@ class RelationalOp : public AlgebraNode {
   RelationalOp* AsMutableRelationalOp() override { return this; }
 
   const Type* output_type() const override {
-    LOG(FATAL) << "Relational operators have no type";
+    ZETASQL_LOG(FATAL) << "Relational operators have no type";
   }
 
   // Order-preservation is copied from the resolved AST.
@@ -2383,7 +2383,7 @@ class ArrayNestExpr : public ValueExpr {
                             bool verbose) const override;
 
   const ArrayType* output_type() const override {
-    DCHECK(ValueExpr::output_type()->IsArray());
+    ZETASQL_DCHECK(ValueExpr::output_type()->IsArray());
     return ValueExpr::output_type()->AsArray();
   }
 

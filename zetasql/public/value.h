@@ -496,7 +496,7 @@ class Value {
 // Creates a struct of the specified 'type' by moving 'values'. The size of
 // the 'values' vector must agree with the number of fields in 'type', and the
 // types of those values must match the corresponding struct fields. However,
-// this is only CHECK'd in debug mode.
+// this is only ZETASQL_CHECK'd in debug mode.
 #ifndef SWIG
   static Value UnsafeStruct(const StructType* type,
                             std::vector<Value>&& values);
@@ -509,7 +509,7 @@ class Value {
                      absl::Span<const Value> values);
 // Creates an array of the given 'array_type' initialized by moving 'values'.
 // The type of each value must be the same as array_type->element_type(), but
-// this is only CHECK'd in debug mode.
+// this is only ZETASQL_CHECK'd in debug mode.
 #ifndef SWIG
   static Value UnsafeArray(const ArrayType* array_type,
                            std::vector<Value>&& values);
@@ -653,7 +653,7 @@ class Value {
 // Creates an array of the given 'array_type' initialized by moving from
 // 'values'.  The type of each value must be the same as
 // array_type->element_type(). If 'safe' is true or we are in debug mode, this
-// is CHECK'd.
+// is ZETASQL_CHECK'd.
 #ifndef SWIG
   static Value ArrayInternal(bool safe, const ArrayType* array_type,
                              OrderPreservationKind order_kind,
@@ -662,7 +662,7 @@ class Value {
 
 // Creates a struct of the given 'struct_type' initialized by moving from
 // 'values'. Each value must have the proper type. If 'safe' is true or we are
-// in debug mode, this is CHECK'd.
+// in debug mode, this is ZETASQL_CHECK'd.
 #ifndef SWIG
   static Value StructInternal(bool safe, const StructType* struct_type,
                               std::vector<Value>&& values);
@@ -708,8 +708,8 @@ class Value {
 
   // Nanoseconds for TYPE_TIMESTAMP, TYPE_TIME and TYPE_DATETIME types
   int32_t subsecond_nanos() const {
-    DCHECK(metadata_.can_store_value_extended_content());
-    DCHECK(metadata_.type_kind() == TypeKind::TYPE_TIMESTAMP ||
+    ZETASQL_DCHECK(metadata_.can_store_value_extended_content());
+    ZETASQL_DCHECK(metadata_.type_kind() == TypeKind::TYPE_TIMESTAMP ||
            metadata_.type_kind() == TypeKind::TYPE_TIME ||
            metadata_.type_kind() == TypeKind::TYPE_DATETIME);
     return metadata_.value_extended_content();

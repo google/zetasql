@@ -451,18 +451,25 @@ TEST(SimpleBuiltinFunctionTests, NumericFunctions) {
             (*function)->GetSignature(0)->DebugString());
 }
 
-static ArgumentConstraintsCallback GetArgumentConstraints(
-    FunctionSignatureId function_id, const NameToFunctionMap& functions,
-    bool pre_resolution = true) {
+static ArgumentConstraintsCallback GetPreResolutionArgumentConstraints(
+    FunctionSignatureId function_id, const NameToFunctionMap& functions) {
   std::unique_ptr<Function> const* function =
       zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(function_id));
   if (function == nullptr) {
     return nullptr;
   }
-  ArgumentConstraintsCallback constraints =
-      pre_resolution ? (*function)->PreResolutionConstraints()
-                     : (*function)->PostResolutionConstraints();
-  return constraints;
+  return (*function)->PreResolutionConstraints();
+}
+
+static PostResolutionArgumentConstraintsCallback
+GetPostResolutionArgumentConstraints(FunctionSignatureId function_id,
+                                     const NameToFunctionMap& functions) {
+  std::unique_ptr<Function> const* function =
+      zetasql_base::FindOrNull(functions, FunctionSignatureIdToName(function_id));
+  if (function == nullptr) {
+    return nullptr;
+  }
+  return (*function)->PostResolutionConstraints();
 }
 
 TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
@@ -495,41 +502,49 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
 
   Value delimiter = Value::String(", ");
 
-  ArgumentConstraintsCallback constraints;
-
+  FunctionSignature dummy_signature{int64_type,
+                                    {{int64_type, /*num_occurrences=*/1},
+                                     {int64_type, /*num_occurrences=*/1}},
+                                    /*context_id=*/-1};
   const std::vector<FunctionSignatureId> function_ids =
       {FN_LESS, FN_LESS_OR_EQUAL, FN_GREATER_OR_EQUAL, FN_GREATER, FN_EQUAL,
        FN_NOT_EQUAL};
   for (const FunctionSignatureId function_id : function_ids) {
-    constraints = GetArgumentConstraints(function_id, functions,
-                                         true /* pre_resolution */);
-    ASSERT_THAT(constraints, IsNull());
-    constraints = GetArgumentConstraints(function_id, functions,
-                                         false /* pre_resolution */);
-    ASSERT_THAT(constraints, NotNull());
-    ZETASQL_EXPECT_OK(constraints(
+    ASSERT_THAT(GetPreResolutionArgumentConstraints(function_id, functions),
+                IsNull());
+    PostResolutionArgumentConstraintsCallback post_constraints =
+        GetPostResolutionArgumentConstraints(function_id, functions);
+    ASSERT_THAT(post_constraints, NotNull());
+    ZETASQL_EXPECT_OK(post_constraints(
+        dummy_signature,
         {InputArgumentType(int64_type), InputArgumentType(int64_type)},
         LanguageOptions()));
 
-    ZETASQL_EXPECT_OK(constraints(
+    ZETASQL_EXPECT_OK(post_constraints(
+        dummy_signature,
         {InputArgumentType(bool_type), InputArgumentType(bool_type)},
         LanguageOptions()));
-    ZETASQL_EXPECT_OK(constraints(
+    ZETASQL_EXPECT_OK(post_constraints(
+        dummy_signature,
         {InputArgumentType(enum_type), InputArgumentType(enum_type)},
         LanguageOptions()));
 
-    const absl::Status struct_type_status = constraints(
+    const absl::Status struct_type_status = post_constraints(
+        dummy_signature,
         {InputArgumentType(struct_type), InputArgumentType(struct_type)},
         LanguageOptions());
     LanguageOptions language_options;
 
     language_options.EnableLanguageFeature(FEATURE_V_1_1_ARRAY_EQUALITY);
-    const absl::Status array_type_status = constraints(
+    const absl::Status array_type_status = post_constraints(
+        dummy_signature,
         {InputArgumentType(array_type), InputArgumentType(array_type)},
         LanguageOptions());
-    const absl::Status array_type_status_with_equality_support = constraints(
-        {InputArgumentType(array_type), InputArgumentType(array_type)},
-        language_options);
+    const absl::Status array_type_status_with_equality_support =
+        post_constraints(
+            dummy_signature,
+            {InputArgumentType(array_type), InputArgumentType(array_type)},
+            language_options);
 
     if (function_id == FN_EQUAL || function_id == FN_NOT_EQUAL) {
       ZETASQL_EXPECT_OK(struct_type_status);
@@ -540,13 +555,14 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
       EXPECT_FALSE(array_type_status.ok());
     }
 
-    EXPECT_FALSE(constraints({InputArgumentType(proto_type),
-                              InputArgumentType(proto_type)},
-                             LanguageOptions())
+    EXPECT_FALSE(post_constraints(dummy_signature,
+                                  {InputArgumentType(proto_type),
+                                   InputArgumentType(proto_type)},
+                                  LanguageOptions())
                      .ok());
   }
 
-  constraints = GetArgumentConstraints(FN_MIN, functions);
+  auto constraints = GetPreResolutionArgumentConstraints(FN_MIN, functions);
   ASSERT_THAT(constraints, NotNull());
   ZETASQL_EXPECT_OK(constraints({InputArgumentType(int64_type)}, LanguageOptions()));
   ZETASQL_EXPECT_OK(constraints({InputArgumentType(enum_type)}, LanguageOptions()));
@@ -557,7 +573,7 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
   EXPECT_FALSE(
       constraints({InputArgumentType(proto_type)}, LanguageOptions()).ok());
 
-  constraints = GetArgumentConstraints(FN_MAX, functions);
+  constraints = GetPreResolutionArgumentConstraints(FN_MAX, functions);
   ASSERT_THAT(constraints, NotNull());
   ZETASQL_EXPECT_OK(constraints({InputArgumentType(int64_type)}, LanguageOptions()));
   ZETASQL_EXPECT_OK(constraints({InputArgumentType(enum_type)}, LanguageOptions()));
@@ -568,7 +584,7 @@ TEST(SimpleFunctionTests, TestCheckArgumentConstraints) {
   EXPECT_FALSE(
       constraints({InputArgumentType(proto_type)}, LanguageOptions()).ok());
 
-  constraints = GetArgumentConstraints(FN_ARRAY_AGG, functions);
+  constraints = GetPreResolutionArgumentConstraints(FN_ARRAY_AGG, functions);
   ASSERT_THAT(constraints, NotNull());
   ZETASQL_EXPECT_OK(constraints({InputArgumentType(int64_type)}, LanguageOptions()));
   ZETASQL_EXPECT_OK(constraints({InputArgumentType(enum_type)}, LanguageOptions()));

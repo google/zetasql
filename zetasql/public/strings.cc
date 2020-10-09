@@ -152,7 +152,7 @@ static bool CUnescapeInternal(absl::string_view source,
     *dest_len = 0;
     return true;
   }
-  CHECK(source.data() != dest) << "Source and destination cannot be the same";
+  ZETASQL_CHECK(source.data() != dest) << "Source and destination cannot be the same";
 
   // Strip off the closing_str from the end before unescaping.
   source = source.substr(0, source.size() - closing_str.size());
@@ -635,7 +635,7 @@ static bool MayBeRawBytesLiteral(const absl::string_view str) {
 absl::Status ParseStringLiteral(absl::string_view str, std::string* out,
                                 std::string* error_string, int* error_offset) {
   if (error_offset) *error_offset = 0;
-  CHECK_NE(str.data(), out->data())
+  ZETASQL_CHECK_NE(str.data(), out->data())
       << "Source and destination cannot be the same";
 
   const bool is_string_literal = MayBeStringLiteral(str);
@@ -676,7 +676,7 @@ absl::Status ParseStringLiteral(absl::string_view str, std::string* out,
 absl::Status ParseBytesLiteral(absl::string_view str, std::string* out,
                                std::string* error_string, int* error_offset) {
   if (error_offset) *error_offset = 0;
-  CHECK_NE(str.data(), out->data())
+  ZETASQL_CHECK_NE(str.data(), out->data())
       << "Source and destination cannot be the same";
 
   const bool is_bytes_literal = MayBeBytesLiteral(str);
@@ -692,7 +692,7 @@ absl::Status ParseBytesLiteral(absl::string_view str, std::string* out,
     // Strip off the prefix {"rb", "br"} from the raw bytes content before
     copy_str = absl::ClippedSubstr(copy_str, 2);
   } else {
-    DCHECK(is_bytes_literal);
+    ZETASQL_DCHECK(is_bytes_literal);
     // Strip off the prefix 'b' from the bytes content before parsing.
     copy_str = absl::ClippedSubstr(copy_str, 1);
   }

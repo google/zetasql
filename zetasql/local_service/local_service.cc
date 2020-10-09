@@ -82,12 +82,12 @@ void PopulateExistingPoolsToFileDescriptorSetMap(
   for (int i = 0; i < pools.size(); ++i) {
     std::unique_ptr<Type::FileDescriptorEntry>& entry =
         (*file_descriptor_set_map)[pools[i]];
-    CHECK_EQ(entry.get(), nullptr);
+    ZETASQL_CHECK_EQ(entry.get(), nullptr);
     entry = absl::make_unique<Type::FileDescriptorEntry>();
     entry->descriptor_set_index = i;
   }
 
-  CHECK_EQ(pools.size(), file_descriptor_set_map->size());
+  ZETASQL_CHECK_EQ(pools.size(), file_descriptor_set_map->size());
 }
 
 absl::Status SerializeTypeUsingExistingPools(
@@ -114,7 +114,7 @@ class BaseSavedState : public GenericState {
 
   absl::Status Init(const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets) {
     absl::MutexLock lock(&mutex_);
-    CHECK(!initialized_);
+    ZETASQL_CHECK(!initialized_);
 
     // In case Init() failed half way and called again.
     pools_.clear();
@@ -168,14 +168,14 @@ class BaseSavedState : public GenericState {
  public:
   TypeFactory* GetTypeFactory() {
     absl::MutexLock lock(&mutex_);
-    CHECK(initialized_);
+    ZETASQL_CHECK(initialized_);
 
     return &factory_;
   }
 
   const std::vector<const google::protobuf::DescriptorPool*>& GetDescriptorPools() {
     absl::MutexLock lock(&mutex_);
-    CHECK(initialized_);
+    ZETASQL_CHECK(initialized_);
 
     return const_pools_;
   }
@@ -218,14 +218,14 @@ class PreparedExpressionState : public BaseSavedState {
 
   PreparedExpression* GetPreparedExpression() {
     absl::MutexLock lock(&mutex_);
-    CHECK(initialized_);
+    ZETASQL_CHECK(initialized_);
 
     return exp_.get();
   }
 
   const AnalyzerOptions& GetAnalyzerOptions() {
     absl::MutexLock lock(&mutex_);
-    CHECK(initialized_);
+    ZETASQL_CHECK(initialized_);
 
     return options_;
   }
@@ -256,7 +256,7 @@ class RegisteredCatalogState : public BaseSavedState {
 
   SimpleCatalog* GetCatalog() {
     absl::MutexLock lock(&mutex_);
-    CHECK(initialized_);
+    ZETASQL_CHECK(initialized_);
     return catalog_.get();
   }
 

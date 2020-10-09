@@ -9,8 +9,8 @@ FARM_FINGERPRINT(value)
 
 **Description**
 
-Computes the fingerprint of the STRING or BYTES input using the `Fingerprint64`
-function from the
+Computes the fingerprint of the `STRING` or `BYTES` input using the
+`Fingerprint64` function from the
 [open-source FarmHash library][hash-link-to-farmhash-github]. The output
 of this function for a particular input will never change.
 
@@ -48,8 +48,8 @@ FINGERPRINT(input)
 
 **Description**
 
-Computes the fingerprint of the STRING
-or BYTES input using Fingerprint.
+Computes the fingerprint of the `STRING`
+or `BYTES` input using Fingerprint.
 
 **Return type**
 
@@ -76,13 +76,13 @@ MD5(input)
 
 Computes the hash of the input using the
 [MD5 algorithm][hash-link-to-md5-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 16 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -105,13 +105,13 @@ SHA1(input)
 
 Computes the hash of the input using the
 [SHA-1 algorithm][hash-link-to-sha-1-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 20 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -134,13 +134,13 @@ SHA256(input)
 
 Computes the hash of the input using the
 [SHA-256 algorithm][hash-link-to-sha-2-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 32 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -157,13 +157,13 @@ SHA512(input)
 
 Computes the hash of the input using the
 [SHA-512 algorithm][hash-link-to-sha-2-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 64 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 

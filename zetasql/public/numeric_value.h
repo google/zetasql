@@ -1320,7 +1320,7 @@ template <bool round, int N>
   value /= std::integral_constant<uint32_t, internal::k5to13>();
   value /= std::integral_constant<uint32_t, internal::k5to12>();
   // 5^38 > 2^64, so the highest uint64_t must be 0, even after adding 2^38.
-  DCHECK_EQ(value.number()[N - 1], 0);
+  ZETASQL_DCHECK_EQ(value.number()[N - 1], 0);
   FixedUint<64, N - 1> value_trunc(value);
   if (round &&
       (value_trunc.number()[0] & (1ULL << (kMaxFractionalDigits - 1)))) {
@@ -1362,7 +1362,7 @@ inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() co
   abs_value /= std::integral_constant<uint32_t, internal::k5to10>();
   abs_value /= std::integral_constant<uint32_t, internal::k5to10>();
   abs_value /= std::integral_constant<uint32_t, internal::k5to9>();
-  DCHECK_EQ(abs_value.number()[3], 0);
+  ZETASQL_DCHECK_EQ(abs_value.number()[3], 0);
   FixedUint<64, 3> abs_value_trunc(abs_value);
   if (abs_value_trunc.number()[0] & (1ULL << 28)) {
     abs_value_trunc += (uint64_t{1} << 29);

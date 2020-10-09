@@ -139,7 +139,7 @@ bool Type::IsSimpleType(TypeKind kind) {
 
 bool Type::IsSupportedSimpleTypeKind(TypeKind kind,
                                      const LanguageOptions& language_options) {
-  DCHECK(IsSimpleType(kind));
+  ZETASQL_DCHECK(IsSimpleType(kind));
   const zetasql::Type* type = types::TypeFromSimpleTypeKind(kind);
   return type->IsSupportedType(language_options);
 }
@@ -195,7 +195,7 @@ int Type::KindSpecificity(TypeKind kind) {
     return kTypeKindInfo[kind].specificity;
   }
 
-  LOG(FATAL) << "Out of range: " << kind;
+  ZETASQL_LOG(FATAL) << "Out of range: " << kind;
 }
 
 static int KindCost(TypeKind kind) {
@@ -203,7 +203,7 @@ static int KindCost(TypeKind kind) {
     return kTypeKindInfo[kind].cost;
   }
 
-  LOG(FATAL) << "Out of range: " << kind;
+  ZETASQL_LOG(FATAL) << "Out of range: " << kind;
 }
 
 int Type::GetTypeCoercionCost(TypeKind kind1, TypeKind kind2) {
@@ -211,8 +211,8 @@ int Type::GetTypeCoercionCost(TypeKind kind1, TypeKind kind2) {
 }
 
 bool Type::KindSpecificityLess(TypeKind kind1, TypeKind kind2) {
-  DCHECK_NE(kind1, TypeKind::TYPE_EXTENDED);
-  DCHECK_NE(kind2, TypeKind::TYPE_EXTENDED);
+  ZETASQL_DCHECK_NE(kind1, TypeKind::TYPE_EXTENDED);
+  ZETASQL_DCHECK_NE(kind2, TypeKind::TYPE_EXTENDED);
 
   return KindSpecificity(kind1) < KindSpecificity(kind2);
 }

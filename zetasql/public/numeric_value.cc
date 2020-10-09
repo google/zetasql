@@ -110,7 +110,7 @@ inline void SerializeFixedInt(std::string* dest, const FixedInt<64, n1>& num1,
   size_t old_size = dest->size();
   dest->push_back('\0');  // add a place holder for size
   num1.SerializeToBytes(dest);
-  DCHECK_LE(dest->size() - old_size, 128);
+  ZETASQL_DCHECK_LE(dest->size() - old_size, 128);
   (*dest)[old_size] = static_cast<char>(dest->size() - old_size - 1);
   SerializeFixedInt(dest, num...);
 }
@@ -415,9 +415,9 @@ FixedUint<64, 4> UnsignedCeiling(FixedUint<64, 4> value) {
 
 template <int n>
 void ShiftRightAndRound(uint num_bits, FixedUint<64, n>* value) {
-  DCHECK_GT(num_bits, 0);
+  ZETASQL_DCHECK_GT(num_bits, 0);
   constexpr uint kNumBits = n * 64;
-  DCHECK_LT(num_bits, kNumBits);
+  ZETASQL_DCHECK_LT(num_bits, kNumBits);
   uint bit_idx = num_bits - 1;
   uint64_t round_up = (value->number()[bit_idx / 64] >> (bit_idx % 64)) & 1;
   *value >>= num_bits;
@@ -443,8 +443,8 @@ class UnsignedBinaryFraction {
   }
   // Constructs an instance representing value * 2 ^ scale_bits.
   UnsignedBinaryFraction(uint64_t value, int scale_bits) : value_(value) {
-    DCHECK_GE(scale_bits, -kFractionalBits);
-    DCHECK_LE(kFractionalBits + scale_bits + 64, kNumWords * 64);
+    ZETASQL_DCHECK_GE(scale_bits, -kFractionalBits);
+    ZETASQL_DCHECK_LE(kFractionalBits + scale_bits + 64, kNumWords * 64);
     value_ <<= (kFractionalBits + scale_bits);
   }
   static UnsignedBinaryFraction FromScaledValue(
@@ -724,7 +724,7 @@ FixedUint<64, 6> MultiplyByScaledLn2(uint64_t x, uint scale_bits) {
   static constexpr FixedUint<64, 5> kScaledLn2(std::array<uint64_t, 5>{
       0xe7b876206debac98, 0x8a0d175b8baafa2b, 0x40f343267298b62d,
       0xc9e3b39803f2f6af, 0xb17217f7d1cf79ab});
-  DCHECK_LE(scale_bits, 320);
+  ZETASQL_DCHECK_LE(scale_bits, 320);
   FixedUint<64, 6> result = ExtendAndMultiply(kScaledLn2, FixedUint<64, 1>(x));
   ShiftRightAndRound(320 - scale_bits, &result);
   return result;
@@ -1075,7 +1075,7 @@ bool ScaleAndRoundAwayFromZero(S scale, double value, T* result) {
   }
   constexpr int kNumOutputBits = sizeof(T) * 8;
   zetasql_base::MathUtil::DoubleParts parts = zetasql_base::MathUtil::Decompose(value);
-  DCHECK_NE(parts.mantissa, 0) << value;
+  ZETASQL_DCHECK_NE(parts.mantissa, 0) << value;
   if (parts.exponent <= -kNumOutputBits) {
     *result = T();
     return true;
@@ -1113,7 +1113,7 @@ bool ScaleAndRoundAwayFromZero(S scale, double value, T* result) {
   // where parts.exponent != 0. Therefore, we do not need to check overflow in
   // negation.
   T rv(abs_result);
-  DCHECK(rv >= T()) << value;
+  ZETASQL_DCHECK(rv >= T()) << value;
   *result = negative ? -rv : rv;
   return true;
 }
@@ -1246,7 +1246,9 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Log(NumericValue base) const 
   if (as_packed_int() <= 0 || base.as_packed_int() <= 0 ||
       base == NumericValue(1)) {
     return MakeEvalError() << "LOG is undefined for zero or negative value, or "
-                              "when base equals 1: LOG("
+                              "when base equals 1: "
+
+                              "LOG("
                            << ToString() << ", " << base.ToString() << ")";
   }
   UnsignedBinaryFraction<3, 94> abs_value =
@@ -1265,12 +1267,14 @@ zetasql_base::StatusOr<NumericValue> NumericValue::Log(NumericValue base) const 
     return result;
   }
   // A theoretical max is
-  // LOG(99999999999999999999999999999.999999999, 1.000000001) ~=
+  // ZETASQL_LOG(99999999999999999999999999999.999999999, 1.000000001) ~=
   // 66774967730.214808679 and theoretical min is
-  // LOG(99999999999999999999999999999.999999999, 0.999999999) ~=
+  // ZETASQL_LOG(99999999999999999999999999999.999999999, 0.999999999) ~=
   // -66774967663.439840983
   return zetasql_base::InternalErrorBuilder()
-         << "LOG(NumericValue, NumericValue) should never overflow: LOG("
+         << "LOG(NumericValue, NumericValue) should never overflow: "
+
+            "LOG("
          << ToString() << ", " << base.ToString() << ")";
 }
 
@@ -1508,7 +1512,7 @@ void AppendExponent(int exponent, char e, std::string* output) {
     exponent_sign = '-';
     exponent = -exponent;
   }
-  DCHECK_LE(exponent, 99);
+  ZETASQL_DCHECK_LE(exponent, 99);
   char* p = &(*output)[size];
   p[0] = e;
   p[1] = exponent_sign;
@@ -1850,8 +1854,8 @@ zetasql_base::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
                                             scale);
     }
     int scale_up_digits = max_fractional_digits - scale;
-    DCHECK_GE(scale_up_digits, 0);
-    DCHECK_LT(scale_up_digits, max_fractional_digits + max_integer_digits);
+    ZETASQL_DCHECK_GE(scale_up_digits, 0);
+    ZETASQL_DCHECK_LT(scale_up_digits, max_fractional_digits + max_integer_digits);
     if (scale_up_digits > 0 &&
         value.MultiplyOverflow(FixedInt<64, 4>::PowerOf10(scale_up_digits))) {
       return FromScaledValueOutOfRangeError(type_name, original_input_len,
@@ -1865,7 +1869,7 @@ zetasql_base::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
       (little_endian_value.size() + sizeof(uint32_t) - 1) / sizeof(uint32_t));
   VarIntRef<32> var_int_ref(dividend);
   bool success = var_int_ref.DeserializeFromBytes(little_endian_value);
-  DCHECK(success);
+  ZETASQL_DCHECK(success);
   if (is_negative) {
     var_int_ref.Negate();
     if (dividend.back() == 0) {
@@ -2460,7 +2464,9 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Log(
   if (value_.is_negative() || value_.is_zero() || base.value_.is_negative() ||
       base.value_.is_zero() || base == BigNumericValue(1)) {
     return MakeEvalError() << "LOG is undefined for zero or negative value, or "
-                              "when base equals 1: LOG("
+                              "when base equals 1: "
+
+                              "LOG("
                            << ToString() << ", " << base.ToString() << ")";
   }
   UnsignedBinaryFraction<6, 254> abs_value =
@@ -2478,8 +2484,10 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Log(
       ABSL_PREDICT_TRUE(log.To(&result))) {
     return result;
   }
-  return MakeEvalError() << "BIGNUMERIC overflow: LOG(" << ToString() << ", "
-                         << base.ToString() << ")";
+  return MakeEvalError() << "BIGNUMERIC overflow: "
+
+                            "LOG("
+                         << ToString() << ", " << base.ToString() << ")";
 }
 
 zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Sqrt() const {
@@ -2859,13 +2867,13 @@ VarNumericValue VarNumericValue::FromScaledValue(
                          sizeof(uint32_t));
     VarIntRef<32> var_int_ref(result.value_);
     bool success = var_int_ref.DeserializeFromBytes(little_endian_value);
-    DCHECK(success);
+    ZETASQL_DCHECK(success);
   }
   return result;
 }
 
 void VarNumericValue::AppendToString(std::string* output) const {
-  DCHECK(output != nullptr);
+  ZETASQL_DCHECK(output != nullptr);
   size_t first_digit_index = output->size();
   ConstVarIntRef<32>(value_).AppendToString(output);
   if (output->size() == first_digit_index + 1 &&

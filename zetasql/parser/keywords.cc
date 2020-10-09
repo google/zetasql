@@ -303,18 +303,18 @@ class CaseInsensitiveAsciiAlphaTrie {
   void Insert(absl::string_view key, const ValueType* value) {
     int node_index = 0;
     for (int i = 0; i < key.size(); ++i) {
-      CHECK(isalpha(key[i]) || key[i] == '_') << key;
+      ZETASQL_CHECK(isalpha(key[i]) || key[i] == '_') << key;
       unsigned char c = absl::ascii_toupper(key[i]) - '0';
       int next_node_index = nodes_[node_index].children[c];
       if (next_node_index == 0) {
-        CHECK_LT(nodes_.size(), std::numeric_limits<uint16_t>::max());
+        ZETASQL_CHECK_LT(nodes_.size(), std::numeric_limits<uint16_t>::max());
         next_node_index = nodes_.size();
         nodes_[node_index].children[c] = next_node_index;
         nodes_.emplace_back();
       }
       node_index = next_node_index;
     }
-    CHECK(nodes_[node_index].value == nullptr) << "Duplicate key " << key;
+    ZETASQL_CHECK(nodes_[node_index].value == nullptr) << "Duplicate key " << key;
     nodes_[node_index].value = value;
   }
 

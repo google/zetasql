@@ -29,7 +29,9 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -76,6 +78,10 @@ ProtoFieldDefaultOptions ProtoFieldDefaultOptions::FromFieldAndLanguage(
           FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS)) {
     options.ignore_use_default_annotations = true;
   }
+  if (field->containing_type()->options().map_entry() &&
+      language_options.LanguageFeatureEnabled(FEATURE_V_1_3_PROTO_MAPS)) {
+    options.map_fields_always_nonnull = true;
+  }
   return options;
 }
 
@@ -110,13 +116,26 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
     return absl::OkStatus();
   }
 
+  const bool is_map_entry_with_special_handling =
+      options.map_fields_always_nonnull &&
+      field->containing_type()->options().map_entry();
+
   if (field->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE ||
       field->type() == google::protobuf::FieldDescriptor::TYPE_GROUP) {
-    *default_value = Value::Null(type);
+    if (is_map_entry_with_special_handling) {
+      // Map entry fields are considered to always be set, so we always use
+      // defaults for them, even when they are messages!
+      *default_value = Value::Proto(type->AsProto(), absl::Cord());
+    } else {
+      *default_value = Value::Null(type);
+    }
     return absl::OkStatus();
   }
 
-  const bool use_defaults = ProtoType::GetUseDefaultsExtension(field);
+  // Map entry fields are considered to always be set, so we always use defaults
+  // for them.
+  const bool use_defaults = ProtoType::GetUseDefaultsExtension(field) ||
+                            is_map_entry_with_special_handling;
   if (!use_defaults && !options.ignore_use_default_annotations) {
     *default_value = Value::Null(type);
     return absl::OkStatus();
@@ -289,7 +308,7 @@ absl::Status GetProtoFieldTypeAndDefault(
     ZETASQL_RETURN_IF_ERROR(GetProtoFieldDefault(options, field, *type, default_value));
   }
 
-  DCHECK(default_value == nullptr ||
+  ZETASQL_DCHECK(default_value == nullptr ||
          !default_value->is_valid() ||
          default_value->type_kind() == (*type)->kind());
 

@@ -48,9 +48,9 @@ class OpenSSLHasher final : public Hasher {
   std::string Hash(absl::string_view input) final {
     init_f(&ctx_);
     memset(digest_, 0, sizeof(digest_));
-    CHECK_EQ(update_f(&ctx_, input.data(), input.length()), 1);
+    ZETASQL_CHECK_EQ(update_f(&ctx_, input.data(), input.length()), 1);
 
-    CHECK_EQ(finalize_f(digest_, &ctx_), 1);
+    ZETASQL_CHECK_EQ(finalize_f(digest_, &ctx_), 1);
     return std::string(reinterpret_cast<const char*>(digest_), sizeof(digest_));
   }
 

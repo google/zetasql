@@ -50,7 +50,7 @@ class ProtoRep : public zetasql_base::SimpleReferenceCounted {
  public:
   ProtoRep(const ProtoType* type, absl::Cord value)
       : type_(type), value_(std::move(value)) {
-    CHECK(type != nullptr);
+    ZETASQL_CHECK(type != nullptr);
   }
 
   ProtoRep(const ProtoRep&) = delete;

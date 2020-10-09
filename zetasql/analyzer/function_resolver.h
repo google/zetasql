@@ -250,7 +250,7 @@ class FunctionResolver {
     // Changes the set to kind UNTYPED_EMPTY_ARRAY. Cannot be called if
     // InsertTypedArgument() has already been called.
     void SetToUntypedEmptyArray() {
-      DCHECK(kind_ != TYPED_ARGUMENTS);
+      ZETASQL_DCHECK(kind_ != TYPED_ARGUMENTS);
       kind_ = UNTYPED_EMPTY_ARRAY;
     }
 
@@ -258,7 +258,7 @@ class FunctionResolver {
     // the set of typed arguments.
     bool InsertTypedArgument(const InputArgumentType& input_argument) {
       // Typed arguments have precedence over untyped arguments.
-      DCHECK(!input_argument.is_untyped());
+      ZETASQL_DCHECK(!input_argument.is_untyped());
       kind_ = TYPED_ARGUMENTS;
       return typed_arguments_.Insert(input_argument);
     }
@@ -266,7 +266,7 @@ class FunctionResolver {
     // Returns the set of typed arguments corresponding to this object. Can only
     // be called if 'kind() == TYPED_ARGUMENTS'.
     const InputArgumentTypeSet& typed_arguments() const {
-      DCHECK_EQ(kind_, TYPED_ARGUMENTS);
+      ZETASQL_DCHECK_EQ(kind_, TYPED_ARGUMENTS);
       return typed_arguments_;
     }
 

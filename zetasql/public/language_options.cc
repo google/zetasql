@@ -58,6 +58,7 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_WITH_GROUP_ROWS);
       features.insert(FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES);
       features.insert(FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
+      features.insert(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.
@@ -90,7 +91,7 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
     case VERSION_1_0:
       break;
     case __LanguageVersion__switch_must_have_a_default__:
-      LOG(DFATAL) << "GetLanguageFeaturesForVersion called with " << version;
+      ZETASQL_LOG(DFATAL) << "GetLanguageFeaturesForVersion called with " << version;
       break;
   }
   return features;

@@ -62,15 +62,15 @@ QueryParamsWithResult::QueryParamsWithResult(
       results_({{kEmptyFeatureSet, {result, code}}}) {}
 
 const Value& QueryParamsWithResult::result() const {
-  CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
+  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   return result(kEmptyFeatureSet);
 }
 const absl::Status& QueryParamsWithResult::status() const {
-  CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
+  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   return status(kEmptyFeatureSet);
 }
 const FloatMargin& QueryParamsWithResult::float_margin() const {
-  CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
+  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   return float_margin(kEmptyFeatureSet);
 }
 
@@ -92,14 +92,14 @@ QueryParamsWithResult::Result::Result(const ValueConstructor& result_in,
 QueryParamsWithResult::QueryParamsWithResult(
     const std::vector<ValueConstructor>& params, const ResultMap& results)
     : params_(ValueConstructor::ToValues(params)), results_(results) {
-  CHECK(!results_.empty()) << *this;
+  ZETASQL_CHECK(!results_.empty()) << *this;
 }
 
 QueryParamsWithResult QueryParamsWithResult::CopyWithInvertedResult() const {
-  CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
+  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   const Result& result = zetasql_base::FindOrDie(results_, kEmptyFeatureSet);
   const Value& value = result.result;
-  CHECK_EQ(value.type_kind(), TYPE_BOOL);
+  ZETASQL_CHECK_EQ(value.type_kind(), TYPE_BOOL);
   return QueryParamsWithResult(
       std::vector<ValueConstructor>(params_.begin(), params_.end()),
       {{kEmptyFeatureSet,
@@ -116,7 +116,7 @@ QueryParamsWithResult QueryParamsWithResult::WrapWithFeature(
 
 QueryParamsWithResult QueryParamsWithResult::WrapWithFeatureSet(
     FeatureSet feature_set) const {
-  CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
+  ZETASQL_CHECK(HasEmptyFeatureSetAndNothingElse()) << *this;
   const Result& result = zetasql_base::FindOrDie(results_, kEmptyFeatureSet);
   ResultMap result_map;
   result_map.emplace(feature_set, result);

@@ -28,15 +28,15 @@ namespace statusor_internal {
 void Helper::HandleInvalidStatusCtorArg(absl::Status* status) {
   const char* kMessage =
       "An OK status is not a valid constructor argument to StatusOr<T>";
-  LOG(DFATAL) << kMessage;
+  ZETASQL_LOG(DFATAL) << kMessage;
   // In optimized builds, we will fall back to absl::INTERNAL.
   *status = absl::InternalError(kMessage);
 }
 
 void Helper::Crash(const absl::Status& status) {
-  LOG(FATAL) << "Attempting to fetch value instead of handling error "
+  ZETASQL_LOG(FATAL) << "Attempting to fetch value instead of handling error "
              << status;
-  CHECK(false);
+  ZETASQL_CHECK(false);
 }
 
 }  // namespace statusor_internal

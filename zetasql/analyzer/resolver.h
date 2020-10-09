@@ -280,6 +280,7 @@ class Resolver {
   static const IdString& kOffsetAlias;
   static const IdString& kWeightAlias;
   static const IdString& kArrayOffsetId;
+  static const IdString& kLambdaArgId;
 
   // Input SQL query text. Set before resolving a statement, expression or
   // type.
@@ -794,7 +795,7 @@ class Resolver {
       const ASTForeignKeyReference* ast_foreign_key_reference,
       ResolvedForeignKey* foreign_key);
 
-  // Resolves CHECK constraints.
+  // Resolves ZETASQL_CHECK constraints.
   // - <name_scope>: used for resolving column names in the expression.
   // - <constraint_names>: contains list of constraint names already encountered
   //   so far, for checking uniqueness of new constraint names. The method is
@@ -1953,6 +1954,16 @@ class Resolver {
       IdString query_alias, std::vector<OrderByItemInfo>* order_by_info,
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
           computed_columns);
+
+  // Resolves the lambda with the provided list of <arg_types> and expected
+  // lambda type of <body_result_type>.
+  // If <body_result_type> is not nullptr, then the result of the body
+  // expression will be coerced to <body_result_type> if necessary
+  absl::Status ResolveLambda(
+      const ASTLambda* ast_lambda, absl::Span<const IdString> arg_names,
+      absl::Span<const Type* const> arg_types, const Type* body_result_type,
+      const NameScope* name_scope,
+      std::unique_ptr<const ResolvedInlineLambda>* resolved_expr_out);
 
   // Resolves the given LIMIT or OFFSET clause <ast_expr> and stores the
   // resolved expression in <resolved_expr>.

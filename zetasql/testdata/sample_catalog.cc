@@ -41,6 +41,7 @@
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/ambiguous_has.pb.h"
 #include "zetasql/testdata/test_proto3.pb.h"
@@ -106,8 +107,8 @@ const ProtoType* SampleCatalog::GetProtoType(
     const google::protobuf::Descriptor* descriptor) {
   const Type* type;
   ZETASQL_CHECK_OK(catalog_->FindType({descriptor->full_name()}, &type));
-  CHECK(type != nullptr);
-  CHECK(type->IsProto());
+  ZETASQL_CHECK(type != nullptr);
+  ZETASQL_CHECK(type->IsProto());
   return type->AsProto();
 }
 
@@ -115,17 +116,19 @@ const EnumType* SampleCatalog::GetEnumType(
     const google::protobuf::EnumDescriptor* descriptor) {
   const Type* type;
   ZETASQL_CHECK_OK(catalog_->FindType({descriptor->full_name()}, &type));
-  CHECK(type != nullptr);
-  CHECK(type->IsEnum());
+  ZETASQL_CHECK(type != nullptr);
+  ZETASQL_CHECK(type->IsEnum());
   return type->AsEnum();
 }
 
 static zetasql_base::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options) {
-  const LanguageOptions& language_options = analyzer_options.language();
   ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
+  ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+  const LanguageOptions& language_options = analyzer_options.language();
   if (!arguments[0].is_literal() || arguments[0].is_literal_null()) {
     return MakeSqlError()
            << "Argument to NULL_OF_TYPE must be a literal string";
@@ -142,6 +145,53 @@ static zetasql_base::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfTyp
   }
   // We could parse complex type names here too by calling the type analyzer.
   return type_factory->MakeSimpleType(type_kind);
+}
+
+// A ComputeResultTypeCallback that looks for the 'type_name' argument from the
+// input list and uses its value to generate the result type.
+static zetasql_base::StatusOr<const Type*> ComputeResultTypeFromStringArgumentValue(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const AnalyzerOptions& analyzer_options) {
+  ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+  const LanguageOptions& language_options = analyzer_options.language();
+  std::string type_name;
+  for (int i = 0; i < arguments.size(); ++i) {
+    if (!signature.ConcreteArgument(i).has_argument_name() ||
+        signature.ConcreteArgument(i).argument_name() != "type_name") {
+      continue;
+    }
+
+    const InputArgumentType& arg = arguments[i];
+    ZETASQL_RET_CHECK(arg.type()->IsString());
+    ZETASQL_RET_CHECK(arg.is_literal());
+    if (arg.is_literal_null()) {
+      return MakeSqlError() << "Argument 'type_name' cannot be NULL";
+    }
+
+    const Value& value = *arg.literal_value();
+    ZETASQL_RET_CHECK(!value.is_null());
+    type_name = value.string_value();
+    const TypeKind type_kind =
+        Type::GetTypeKindIfSimple(type_name, language_options);
+    if (type_kind != TYPE_UNKNOWN) {
+      return type_factory->MakeSimpleType(type_kind);
+    }
+    // Try to find the type in catalog.
+    const Type* type = nullptr;
+    std::vector<std::string> path;
+    ZETASQL_RETURN_IF_ERROR(ParseIdentifierPath(type_name, &path));
+    if (catalog->FindType(path, &type).ok()) {
+      return type;
+    }
+    break;
+  }
+  if (!type_name.empty()) {
+    return MakeSqlError() << "Invalid type name provided: " << type_name;
+  }
+  // Use INT64 as return type if not overridden.
+  return type_factory->get_int64();
 }
 
 void SampleCatalog::LoadCatalog(const LanguageOptions& language_options) {
@@ -196,10 +246,10 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
           break;
         }
       }
-      CHECK(found_field) << message_descriptor_proto.DebugString();
+      ZETASQL_CHECK(found_field) << message_descriptor_proto.DebugString();
     }
   }
-  CHECK(found_message) << modified_descriptor_proto.DebugString();
+  ZETASQL_CHECK(found_message) << modified_descriptor_proto.DebugString();
   ambiguous_has_descriptor_pool_ = absl::make_unique<google::protobuf::DescriptorPool>();
   ambiguous_has_descriptor_pool_->BuildFile(modified_descriptor_proto);
 
@@ -255,7 +305,7 @@ void SampleCatalog::LoadTypes() {
   const google::protobuf::Descriptor* ambiguous_has_descriptor =
       ambiguous_has_descriptor_pool_->FindMessageTypeByName(
           "zetasql_test.AmbiguousHasPB");
-  CHECK(ambiguous_has_descriptor);
+  ZETASQL_CHECK(ambiguous_has_descriptor);
   ZETASQL_CHECK_OK(
       types_->MakeProtoType(ambiguous_has_descriptor, &proto_ambiguous_has_));
 
@@ -1405,16 +1455,15 @@ void SampleCatalog::LoadFunctions() {
        /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
-  // Add a function with an argument constraint that verifies the concrete
-  // arguments in signature matches the input argument list, and rejects
-  // any NULL arguments.
+  // A FunctionSignatureArgumentConstraintsCallback that checks for NULL
+  // arguments.
   auto sanity_check_nonnull_arg_constraints =
       [](const FunctionSignature& signature,
          const std::vector<InputArgumentType>& arguments) {
-        CHECK(signature.IsConcrete());
-        CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+        ZETASQL_CHECK(signature.IsConcrete());
+        ZETASQL_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
         for (int i = 0; i < arguments.size(); ++i) {
-          CHECK(
+          ZETASQL_CHECK(
               arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
           if (arguments[i].is_null()) {
             return false;
@@ -1422,8 +1471,39 @@ void SampleCatalog::LoadFunctions() {
         }
         return true;
       };
-  function = new Function("fn_named_opt_args_nonnull_constraints",
-                          "sample_functions", mode);
+
+  // A PostResolutionArgumentConstraintsCallback that restricts all the provided
+  // INT64 arguments to be nonnegative if they are literals.
+  auto post_resolution_arg_constraints =
+      [](const FunctionSignature& signature,
+         const std::vector<InputArgumentType>& arguments,
+         const LanguageOptions& language_options) -> absl::Status {
+        for (int i = 0; i < arguments.size(); ++i) {
+          ZETASQL_CHECK(
+              arguments[i].type()->Equals(signature.ConcreteArgumentType(i)));
+          if (!arguments[i].type()->IsInt64() || !arguments[i].is_literal()) {
+            continue;
+          }
+          if (arguments[i].literal_value()->int64_value() < 0) {
+            return MakeSqlError()
+                   << "Argument "
+                   << (signature.ConcreteArgument(i).has_argument_name()
+                           ? signature.ConcreteArgument(i).argument_name()
+                           : std::to_string(i+1))
+                   << " must not be negative";
+          }
+        }
+        return absl::OkStatus();
+      };
+
+  // Add a function with an argument constraint that verifies the concrete
+  // arguments in signature matches the input argument list, and rejects
+  // any NULL arguments.
+  function =
+      new Function("fn_named_opt_args_nonnull_nonnegative_constraints",
+                   "sample_functions", mode,
+                   FunctionOptions().set_post_resolution_argument_constraint(
+                       post_resolution_arg_constraints));
   FunctionSignature signature_with_constraints{
       types_->get_bool(),
       {{types_->get_string(),
@@ -1442,8 +1522,11 @@ void SampleCatalog::LoadFunctions() {
   catalog_->AddOwnedFunction(function);
 
   // Similar as the previous function, but the arguments are unnamed.
-  function = new Function("fn_unnamed_opt_args_nonnull_constraints",
-                          "sample_functions", mode);
+  function =
+      new Function("fn_unnamed_opt_args_nonnull_nonnegative_constraints",
+                   "sample_functions", mode,
+                   FunctionOptions().set_post_resolution_argument_constraint(
+                       post_resolution_arg_constraints));
   FunctionSignature signature_with_unnamed_args_constraints{
       types_->get_bool(),
       {{types_->get_string(), FunctionArgumentType::OPTIONAL},
@@ -1453,6 +1536,22 @@ void SampleCatalog::LoadFunctions() {
       FunctionSignatureOptions().set_constraints(
           sanity_check_nonnull_arg_constraints)};
   function->AddSignature(signature_with_unnamed_args_constraints);
+  catalog_->AddOwnedFunction(function);
+
+  // Adds a templated function that generates its result type via the callback.
+  function = new Function(
+      "fn_result_type_from_arg", "sample_functions", mode,
+      FunctionOptions().set_compute_result_type_callback(
+          &ComputeResultTypeFromStringArgumentValue));
+  function->AddSignature(
+      {{types_->get_string()},
+       {{types_->get_string(),
+         FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+             .set_argument_name("o1")},
+        {types_->get_string(),
+         FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+             .set_argument_name("type_name")}},
+       /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 }
 
@@ -1964,6 +2063,15 @@ void SampleCatalog::LoadTableValuedFunctions1() {
                           {FunctionArgumentType(kv.second)}, context_id++),
         output_schema_two_types));
   }
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_exactly_one_proto"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_two_types,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType(proto_KitchenSinkPB_)},
+                        context_id++),
+      output_schema_two_types));
 
   // Add a TVF with a repeating final argument of type int64_t.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(

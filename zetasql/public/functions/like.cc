@@ -106,7 +106,7 @@ absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
 
 absl::Status CreateLikeRegexp(absl::string_view pattern, TypeKind type,
                               std::unique_ptr<RE2>* regexp) {
-  DCHECK(type == TYPE_STRING || type == TYPE_BYTES);
+  ZETASQL_DCHECK(type == TYPE_STRING || type == TYPE_BYTES);
   RE2::Options options;
   options.set_encoding(type == TYPE_STRING ? RE2::Options::EncodingUTF8
                                            : RE2::Options::EncodingLatin1);

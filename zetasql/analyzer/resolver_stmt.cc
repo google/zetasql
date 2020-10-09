@@ -1066,7 +1066,7 @@ absl::Status Resolver::ResolvePrimaryKey(
     const ASTPrimaryKey* ast_primary_key,
     std::unique_ptr<ResolvedPrimaryKey>* resolved_primary_key) {
   ZETASQL_RET_CHECK(!column_indexes.empty());
-  if (!analyzer_options_.language_options().LanguageFeatureEnabled(
+  if (!analyzer_options_.language().LanguageFeatureEnabled(
           FEATURE_UNENFORCED_PRIMARY_KEYS) &&
       !ast_primary_key->enforced()) {
     return MakeSqlErrorAt(ast_primary_key)
@@ -1128,7 +1128,7 @@ absl::Status Resolver::ResolvePrimaryKey(
           return MakeSqlErrorAt(column) << multiple_primary_keys_error;
         }
         const ASTPrimaryKeyColumnAttribute* attribute = primary_key.front();
-        if (!analyzer_options_.language_options().LanguageFeatureEnabled(
+        if (!analyzer_options_.language().LanguageFeatureEnabled(
                 FEATURE_UNENFORCED_PRIMARY_KEYS) &&
             !attribute->enforced()) {
           return MakeSqlErrorAt(attribute) << "NOT ENFORCED primary key column "
@@ -1176,7 +1176,7 @@ absl::Status Resolver::ResolveForeignKeys(
         ast_foreign_key_nodes.push_back(attribute);
       }
     }
-    DCHECK_EQ(foreign_keys.size(), ast_foreign_key_nodes.size());
+    ZETASQL_DCHECK_EQ(foreign_keys.size(), ast_foreign_key_nodes.size());
     for (int i = 0; i < foreign_keys.size(); i++) {
       auto& foreign_key = foreign_keys[i];
       const auto& constraint_name = foreign_key->constraint_name();
@@ -1373,8 +1373,7 @@ absl::Status Resolver::ResolveForeignKeyReference(
     ZETASQL_ASSIGN_OR_RETURN(const bool supports_equality,
                      SupportsEquality(referencing_type, referenced_type));
     if (!supports_equality) {
-      if (!referencing_type->SupportsEquality(
-          analyzer_options_.language_options())) {
+      if (!referencing_type->SupportsEquality(analyzer_options_.language())) {
         return MakeSqlErrorAt(ast_referencing_column_identifier)
             << "The type of the referencing column " << referencing_column_name
             << " does not support equality ('=') and therefore is not"
@@ -1831,7 +1830,7 @@ absl::Status Resolver::ResolveCreateModelStatement(
   std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>
       transform_analytic_function_group_list;
   if (transform_clause != nullptr) {
-    DCHECK_EQ(query_output_column_list.size(),
+    ZETASQL_DCHECK_EQ(query_output_column_list.size(),
               transform_input_column_list.size());
     std::shared_ptr<NameList> query_column_definition_name_list(new NameList);
     query_column_definition_name_list->ReserveColumns(
@@ -2027,7 +2026,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
 
   // Resolve the query, if any, before resolving the PARTITION BY and
   // CLUSTER BY clauses. These clauses may reference the columns in the output
-  // of the query. CHECK constraints may also reference these columns.
+  // of the query. ZETASQL_CHECK constraints may also reference these columns.
   if (query != nullptr) {
     if (!(statement_base_properties->column_definition_list).empty()) {
       ZETASQL_RETURN_IF_ERROR(ResolveAndAdaptQueryAndOutputColumns(
@@ -2051,7 +2050,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
   if (partition_by != nullptr || cluster_by != nullptr ||
       has_check_constraint) {
     // Set up the name scope for the table columns, which may appear in
-    // PARTITION BY and CLUSTER BY expressions, or CHECK constraint
+    // PARTITION BY and CLUSTER BY expressions, or ZETASQL_CHECK constraint
     // expressions. The column definition list is populated even for CREATE
     // TABLE AS statements with no explicit list.
     NameList create_table_names;
@@ -2595,7 +2594,7 @@ static std::string CreateScopeErrorString(
     case ResolvedCreateStatement::CREATE_TEMP:
       return "TEMP";
     case ResolvedCreateStatement::CREATE_DEFAULT_SCOPE:
-      LOG(FATAL) << "Unexpected error scope default.";
+      ZETASQL_LOG(FATAL) << "Unexpected error scope default.";
   }
 }
 
@@ -3371,12 +3370,12 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
                                      &resolved_options));
 
   ZETASQL_RETURN_IF_ERROR(FailIfContainsParameterExpr(
-      ast_statement->begin_end_block(), "procedure",
+      ast_statement->body(), "procedure",
       ast_statement->name()->ToIdentifierPathString()));
 
   // Copy procedure body from BEGIN <statement_list> END block
-  const ParseLocationRange& range = ast_statement->begin_end_block()
-                                        ->GetParseLocationRange();
+  const ParseLocationRange& range =
+      ast_statement->body()->GetParseLocationRange();
   ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
   absl::string_view procedure_body =
       sql_.substr(range.start().GetByteOffset(),
@@ -3393,7 +3392,7 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
   }
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<const ParsedScript> parsed_script,
-      ParsedScript::CreateForRoutine(procedure_body, ParserOptions(),
+      ParsedScript::CreateForRoutine(sql_, ast_statement->body(),
                                      analyzer_options_.error_message_mode(),
                                      std::move(arguments_map)));
   ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(absl::nullopt));
@@ -3511,7 +3510,7 @@ absl::Status Resolver::ResolveFunctionParameters(
     const IdString name = function_param->name()->GetAsIdString();
     argument_names->push_back(name.ToString());
     if (!zetasql_base::InsertIfNotPresent(&unique_argument_names, name)) {
-      return MakeSqlErrorAt(function_param)
+      return MakeSqlErrorAt(function_param->name())
           << "Duplicate argument name " << name;
     }
     if (function_param->IsTableParameter()) {
@@ -4180,6 +4179,18 @@ absl::Status Resolver::ResolveAbortBatchStatement(
   return absl::OkStatus();
 }
 
+static ResolvedDropStmtEnums::DropMode ConvertDropMode(
+    ASTDropStatement::DropMode drop_mode) {
+  switch (drop_mode) {
+    case ASTDropStatement::DropMode::DROP_MODE_UNSPECIFIED:
+      return ResolvedDropStmtEnums::DROP_MODE_UNSPECIFIED;
+    case ASTDropStatement::DropMode::RESTRICT:
+      return ResolvedDropStmtEnums::RESTRICT;
+    case ASTDropStatement::DropMode::CASCADE:
+      return ResolvedDropStmtEnums::CASCADE;
+  }
+}
+
 absl::Status Resolver::ResolveDropStatement(
     const ASTDropStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -4187,7 +4198,8 @@ absl::Status Resolver::ResolveDropStatement(
       ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedDropStmt(
       std::string(SchemaObjectKindToName(ast_statement->schema_object_kind())),
-      ast_statement->is_if_exists(), name);
+      ast_statement->is_if_exists(), name,
+      ConvertDropMode(ast_statement->drop_mode()));
   return absl::OkStatus();
 }
 
@@ -4197,7 +4209,8 @@ absl::Status Resolver::ResolveDropEntityStatement(
   const std::vector<std::string> name =
       ast_statement->name()->ToIdentifierVector();
   *output = MakeResolvedDropStmt(ast_statement->entity_type()->GetAsString(),
-                                 ast_statement->is_if_exists(), name);
+                                 ast_statement->is_if_exists(), name,
+                                 ResolvedDropStmtEnums::DROP_MODE_UNSPECIFIED);
   return absl::OkStatus();
 }
 

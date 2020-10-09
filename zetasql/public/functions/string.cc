@@ -606,7 +606,7 @@ namespace {
 bool StrPositivePosUtf8(absl::string_view str, absl::string_view substr,
                         int64_t pos, int64_t occurrence, int64_t* out,
                         absl::Status* error) {
-  DCHECK_GT(pos, 0);
+  ZETASQL_DCHECK_GT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -673,7 +673,7 @@ bool StrPositivePosUtf8(absl::string_view str, absl::string_view substr,
 bool StrNegativePosUtf8(absl::string_view str, absl::string_view substr,
                         int64_t pos, int64_t occurrence, int64_t* out,
                         absl::Status* error) {
-  DCHECK_LT(pos, 0);
+  ZETASQL_DCHECK_LT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -824,7 +824,7 @@ bool StrPosOccurrenceBytes(absl::string_view str, absl::string_view substr,
 // In this case pos identifies a character counting from the end of the string.
 static bool SubstrSuffixUtf8(absl::string_view str, int64_t pos, int64_t length,
                              absl::string_view* out, absl::Status* error) {
-  DCHECK_LT(pos, 0);
+  ZETASQL_DCHECK_LT(pos, 0);
   int32_t str_length32;
   if (!CheckAndCastStrLength(str, &str_length32, error)) {
     return false;
@@ -1303,7 +1303,7 @@ bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
     U8_NEXT(str.data(), i, str_length32, character);
     if (character < 0) {
       std::string hexFirstChar = absl::BytesToHexString(str.substr(0, i));
-      DCHECK_EQ(hexFirstChar.size() % 2, 0);
+      ZETASQL_DCHECK_EQ(hexFirstChar.size() % 2, 0);
       std::string bytesFirstChar;
       size_t sizeOfFirstBytes = hexFirstChar.size() + hexFirstChar.size() / 2;
       bytesFirstChar.reserve(sizeOfFirstBytes);

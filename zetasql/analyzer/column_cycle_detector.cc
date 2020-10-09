@@ -32,7 +32,7 @@
 
 namespace zetasql {
 
-ColumnCycleDetector::~ColumnCycleDetector() { DCHECK(visiting_stack_.empty()); }
+ColumnCycleDetector::~ColumnCycleDetector() { ZETASQL_DCHECK(visiting_stack_.empty()); }
 
 absl::Status ColumnCycleDetector::VisitNewColumn(const IdString& column) {
   ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&visiting_, column));

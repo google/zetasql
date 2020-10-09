@@ -315,7 +315,7 @@ AnalyzerOptions::AnalyzerOptions()
 
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
     : language_options_(language_options) {
-  CHECK(LoadTimeZone("America/Los_Angeles", &default_timezone_));
+  ZETASQL_CHECK(LoadTimeZone("America/Los_Angeles", &default_timezone_));
 }
 
 AnalyzerOptions::~AnalyzerOptions() {
@@ -336,7 +336,7 @@ absl::Status AnalyzerOptions::Deserialize(
     TypeFactory* factory,
     AnalyzerOptions* result) {
   *result = AnalyzerOptions();
-  result->set_language_options(LanguageOptions(proto.language_options()));
+  result->set_language(LanguageOptions(proto.language_options()));
 
   for (const auto& param : proto.query_parameters()) {
     const Type* type;
@@ -697,15 +697,15 @@ static absl::Status FinishAnalyzeStatementImpl(
     Resolver* resolver, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory,
     std::unique_ptr<const ResolvedStatement>* resolved_statement) {
-  VLOG(5) << "Parsed AST:\n" << ast_statement.DebugString();
+  ZETASQL_VLOG(5) << "Parsed AST:\n" << ast_statement.DebugString();
 
   ZETASQL_RETURN_IF_ERROR(
       resolver->ResolveStatement(sql, &ast_statement, resolved_statement));
 
-  VLOG(3) << "Resolved AST:\n" << (*resolved_statement)->DebugString();
+  ZETASQL_VLOG(3) << "Resolved AST:\n" << (*resolved_statement)->DebugString();
 
   if (absl::GetFlag(FLAGS_zetasql_validate_resolved_ast)) {
-    Validator validator(options.language_options());
+    Validator validator(options.language());
     ZETASQL_RETURN_IF_ERROR(
         validator.ValidateResolvedStatement(resolved_statement->get()));
   }
@@ -750,7 +750,7 @@ static absl::Status AnalyzeStatementImpl(
 
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
 
-  VLOG(1) << "Parsing statement:\n" << sql;
+  ZETASQL_VLOG(1) << "Parsing statement:\n" << sql;
   std::unique_ptr<ParserOutput> parser_output;
   const absl::Status status = ParseStatement(
       sql, options.GetParserOptions(), &parser_output);
@@ -787,9 +787,9 @@ static absl::Status AnalyzeNextStatementImpl(
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
 
   if (resume_location->byte_position() == 0) {
-    VLOG(1) << "Parsing first statement from:\n" << resume_location->input();
+    ZETASQL_VLOG(1) << "Parsing first statement from:\n" << resume_location->input();
   } else {
-    VLOG(2) << "Parsing next statement at position "
+    ZETASQL_VLOG(2) << "Parsing next statement at position "
             << resume_location->byte_position();
   }
 
@@ -941,7 +941,7 @@ static absl::Status AnalyzeExpressionFromParserASTImpl(
   Resolver resolver(catalog, type_factory, &options);
   ZETASQL_RETURN_IF_ERROR(resolver.ResolveStandaloneExpr(
       sql, &ast_expression, &resolved_expr));
-  VLOG(3) << "Resolved AST:\n" << resolved_expr->DebugString();
+  ZETASQL_VLOG(3) << "Resolved AST:\n" << resolved_expr->DebugString();
 
   if (target_type != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ConvertExprToTargetType(ast_expression, sql, options,
@@ -950,7 +950,7 @@ static absl::Status AnalyzeExpressionFromParserASTImpl(
   }
 
   if (absl::GetFlag(FLAGS_zetasql_validate_resolved_ast)) {
-    Validator validator(options.language_options());
+    Validator validator(options.language());
     ZETASQL_RETURN_IF_ERROR(
         validator.ValidateStandaloneResolvedExpr(resolved_expr.get()));
   }
@@ -988,7 +988,7 @@ static absl::Status AnalyzeExpressionImpl(
     std::unique_ptr<const AnalyzerOutput>* output) {
   output->reset();
 
-  VLOG(1) << "Parsing expression:\n" << sql;
+  ZETASQL_VLOG(1) << "Parsing expression:\n" << sql;
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
@@ -997,7 +997,7 @@ static absl::Status AnalyzeExpressionImpl(
   ParserOptions parser_options = options.GetParserOptions();
   ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, &parser_output));
   const ASTExpression* expression = parser_output->expression();
-  VLOG(5) << "Parsed AST:\n" << expression->DebugString();
+  ZETASQL_VLOG(5) << "Parsed AST:\n" << expression->DebugString();
 
   return AnalyzeExpressionFromParserASTImpl(
       *expression, std::move(parser_output), sql, options, catalog,
@@ -1053,12 +1053,12 @@ static absl::Status AnalyzeTypeImpl(const std::string& type_name,
   *output_type = nullptr;
 
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
-  VLOG(1) << "Resolving type: " << type_name;
+  ZETASQL_VLOG(1) << "Resolving type: " << type_name;
 
   Resolver resolver(catalog, type_factory, &options);
   ZETASQL_RETURN_IF_ERROR(resolver.ResolveTypeName(type_name, output_type));
 
-  VLOG(3) << "Resolved type: " << (*output_type)->DebugString();
+  ZETASQL_VLOG(3) << "Resolved type: " << (*output_type)->DebugString();
   return absl::OkStatus();
 }
 
@@ -1077,11 +1077,11 @@ static absl::Status ExtractTableNamesFromStatementImpl(
     absl::string_view sql, const AnalyzerOptions& options,
     TableNamesSet* table_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
-  VLOG(3) << "Extracting table names from statement:\n" << sql;
+  ZETASQL_VLOG(3) << "Extracting table names from statement:\n" << sql;
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(
       ParseStatement(sql, options.GetParserOptions(), &parser_output));
-  VLOG(5) << "Parsed AST:\n" << parser_output->statement()->DebugString();
+  ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->statement()->DebugString();
 
   return table_name_resolver::FindTables(sql, *parser_output->statement(),
                                          options, table_names);
@@ -1093,10 +1093,10 @@ static absl::Status ExtractTableResolutionTimeFromStatementImpl(
     TableResolutionTimeInfoMap* table_resolution_time_info_map,
     std::unique_ptr<ParserOutput>* parser_output) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
-  VLOG(3) << "Extracting table resolution time from statement:\n" << sql;
+  ZETASQL_VLOG(3) << "Extracting table resolution time from statement:\n" << sql;
   ZETASQL_RETURN_IF_ERROR(
       ParseStatement(sql, options.GetParserOptions(), parser_output));
-  VLOG(5) << "Parsed AST:\n" << (*parser_output)->statement()->DebugString();
+  ZETASQL_VLOG(5) << "Parsed AST:\n" << (*parser_output)->statement()->DebugString();
 
   TableNamesSet table_names;
   ZETASQL_RETURN_IF_ERROR(table_name_resolver::FindTableNamesAndResolutionTime(
@@ -1140,13 +1140,13 @@ static absl::Status ExtractTableNamesFromNextStatementImpl(
     TableNamesSet* table_names, bool* at_end_of_input) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
 
-  VLOG(2) << "Extracting table names from next statement at position "
+  ZETASQL_VLOG(2) << "Extracting table names from next statement at position "
           << resume_location->byte_position();
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseNextStatement(resume_location,
                                      options.GetParserOptions(), &parser_output,
                                      at_end_of_input));
-  VLOG(5) << "Parsed AST:\n" << parser_output->statement()->DebugString();
+  ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->statement()->DebugString();
 
   return table_name_resolver::FindTables(resume_location->input(),
                                          *parser_output->statement(),
@@ -1181,7 +1181,7 @@ static absl::Status ExtractTableResolutionTimeFromASTStatementImpl(
     Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
-  VLOG(3) << "Extracting table resolution time from parsed AST statement:\n"
+  ZETASQL_VLOG(3) << "Extracting table resolution time from parsed AST statement:\n"
           << ast_statement.DebugString();
 
   TableNamesSet table_names;
@@ -1214,13 +1214,13 @@ absl::Status ExtractTableNamesFromScript(absl::string_view sql,
                                          const AnalyzerOptions& options_in,
                                          TableNamesSet* table_names) {
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options_in));
-  VLOG(3) << "Extracting table names from script:\n" << sql;
+  ZETASQL_VLOG(3) << "Extracting table names from script:\n" << sql;
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseScript(sql, options.GetParserOptions(),
                               options.error_message_mode(), &parser_output));
-  VLOG(5) << "Parsed AST:\n" << parser_output->script()->DebugString();
+  ZETASQL_VLOG(5) << "Parsed AST:\n" << parser_output->script()->DebugString();
 
   absl::Status status = table_name_resolver::FindTableNamesInScript(
       sql, *(parser_output->script()), options, table_names);

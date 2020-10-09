@@ -405,7 +405,7 @@ zetasql_base::StatusOr<Value> DoMapEntryCast(const Value& from_value,
 
   absl::Cord bytes;
   std::string bytes_str;
-  CHECK(message->SerializeToString(&bytes_str));
+  ZETASQL_CHECK(message->SerializeToString(&bytes_str));
   bytes = absl::Cord(bytes_str);
   return Value::Proto(to_proto_type, bytes);
 }

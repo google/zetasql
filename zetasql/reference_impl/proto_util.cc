@@ -327,7 +327,7 @@ static absl::Status WriteValue(const google::protobuf::FieldDescriptor* field_de
     } else {
       // This should never fail because CheckIsSupportedFieldFormat would
       // have rejected any other types.
-      DCHECK(IsInt64FieldType(field_descr->type()))
+      ZETASQL_DCHECK(IsInt64FieldType(field_descr->type()))
           << field_descr->DebugString();
       encoded_value = Value::Int64(encoded_date);
     }

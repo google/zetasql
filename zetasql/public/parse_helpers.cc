@@ -166,7 +166,7 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
     default:
       break;
   }
-  VLOG(1) << "Unrecognized parse node kind: "
+  ZETASQL_VLOG(1) << "Unrecognized parse node kind: "
           << ASTNode::NodeKindToString(node_kind);
   return RESOLVED_LITERAL;
 }

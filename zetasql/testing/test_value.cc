@@ -31,7 +31,7 @@ TypeFactory* static_type_factory() {
 Value Struct(absl::Span<const std::string> names,
              absl::Span<const ValueConstructor> values,
              TypeFactory* type_factory) {
-  CHECK_EQ(names.size(), values.size());
+  ZETASQL_CHECK_EQ(names.size(), values.size());
   const StructType* struct_type;
   std::vector<StructType::StructField> fields;
   type_factory = type_factory ? type_factory : static_type_factory();
@@ -59,7 +59,7 @@ Value Struct(absl::Span<const std::pair<std::string, Value>> pairs,
 
 Value Array(absl::Span<const ValueConstructor> values,
             OrderPreservationKind order_kind, TypeFactory* type_factory) {
-  CHECK(!values.empty());
+  ZETASQL_CHECK(!values.empty());
   std::vector<Value> value_list = ValueConstructor::ToValues(values);
   return InternalValue::ArrayChecked(
       MakeArrayType(values[0].get().type(), type_factory), order_kind,

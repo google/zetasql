@@ -432,6 +432,46 @@ inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
                              /*literal_id=*/ 0);
 }
 
+// This is here for backward compatibility because we added a field
+// generic_argument_list. May be removed in the future.
+//
+// Overloaded factory method for the construction of ResolvedFunctionCall with
+// a wider range of inputs for node-vector inputs.  In particular allows:
+// 1. unique_ptr element type can be non-const.
+// 2. unique_ptr element type can be any descendant of the required type.
+// 3. input container can be any object with a `begin()` and `end()`.
+//
+// Note, initializer lists cannot be used to pass
+//  argument_list
+// due to incompatibility with unique_ptr.  Use zetasql::MakeNodeVector
+// instead.
+template <
+  typename argument_list_t
+      = std::vector<std::unique_ptr<const ResolvedExpr>>>
+ABSL_DEPRECATED("use the other MakeResolvedFunctionCall")
+std::unique_ptr<ResolvedFunctionCall> MakeResolvedFunctionCall(
+    const Type* type,
+    const Function* function,
+    const FunctionSignature& signature,
+    argument_list_t argument_list,
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    const std::shared_ptr<ResolvedFunctionCallInfo>& function_call_info) {
+  static_assert(std::is_base_of<
+      ResolvedExpr,
+      typename std::decay<decltype(**(argument_list.begin()))>::type>::value,
+      "argument_list must be a container of unique_ptr with elements of type "
+      "ResolvedExpr (or its descendants).");
+  return MakeResolvedFunctionCall(
+      type,
+      function,
+      signature,
+      {std::make_move_iterator(argument_list.begin()),
+       std::make_move_iterator(argument_list.end())},
+      /*generic_argument_list=*/{},
+      error_mode,
+      function_call_info);
+}
+
 // Helper constructor to create a new ResolvedFunctionCall with an
 // empty <function_call_info> field, for convenience. Also, supports wider
 // variety of inputs for `argument_list`.
@@ -469,6 +509,7 @@ MakeResolvedAggregateFunctionCall(
       type, function, signature,
       {std::make_move_iterator(argument_list.begin()),
        std::make_move_iterator(argument_list.end())},
+      /*generic_argument_list=*/{},
       error_mode, distinct, null_handling_modifier, std::move(having_modifier),
       {std::make_move_iterator(order_by_item_list.begin()),
        std::make_move_iterator(order_by_item_list.end())},
@@ -508,7 +549,8 @@ inline std::unique_ptr<ResolvedTVFArgument> MakeResolvedTVFArgument(
         std::move(model),
         std::move(connection),
         std::move(descriptor_arg),
-        argument_column_list);
+        argument_column_list,
+        /*inline_lambda=*/nullptr);
 }
 
 }  // namespace zetasql

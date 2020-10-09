@@ -58,7 +58,7 @@ HashFunction::HashFunction(FunctionKind kind)
                 return functions::Hasher::kSha512;
               default:
                 // Crash in debug mode, for non-debug mode fall back to MD5.
-                DLOG(FATAL)
+                ZETASQL_DLOG(FATAL)
                     << "Unexpected function kind: " << static_cast<int>(kind);
                 return functions::Hasher::kMd5;
             }

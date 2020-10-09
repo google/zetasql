@@ -1635,7 +1635,7 @@ TEST(FunctionSignatureTests, TestArgumentConstraints) {
       /*context_id=*/-1,
       FunctionSignatureOptions().set_constraints(noop_constraints_callback));
   // Calling the argument constraint callback on a non-concrete signature should
-  // result in a DCHECK failure.
+  // result in a ZETASQL_DCHECK failure.
   EXPECT_THAT(
       nonconcrete_signature.CheckArgumentConstraints(/*arguments=*/{}),
       StatusIs(absl::StatusCode::kInternal,

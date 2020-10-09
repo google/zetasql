@@ -226,8 +226,8 @@ absl::Status Function::Serialize(
 // static
 void Function::RegisterDeserializer(const std::string& group_name,
                                     FunctionDeserializer deserializer) {
-  // CHECK validated -- This is used at initialization time only.
-  CHECK(zetasql_base::InsertIfNotPresent(FunctionDeserializers(), group_name,
+  // ZETASQL_CHECK validated -- This is used at initialization time only.
+  ZETASQL_CHECK(zetasql_base::InsertIfNotPresent(FunctionDeserializers(), group_name,
                                 deserializer));
 }
 
@@ -368,7 +368,7 @@ std::string Function::GetSQL(std::vector<std::string> inputs,
         break;
       }
       if (signature->argument(i).options().argument_name_is_mandatory()) {
-        DCHECK(!signature->argument(i).argument_name().empty());
+        ZETASQL_DCHECK(!signature->argument(i).argument_name().empty());
         inputs[i] = absl::StrCat(signature->argument(i).argument_name(), " => ",
                                  inputs[i]);
       }
@@ -377,14 +377,30 @@ std::string Function::GetSQL(std::vector<std::string> inputs,
   return absl::StrCat(name, "(", absl::StrJoin(inputs, ", "), ")");
 }
 
-absl::Status Function::CheckArgumentConstraints(
+absl::Status Function::CheckPreResolutionArgumentConstraints(
     const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options,
-    const ArgumentConstraintsCallback& constraints_callback) {
-  if (constraints_callback == nullptr) {
+    const LanguageOptions& language_options) const {
+  if (PreResolutionConstraints() == nullptr) {
     return absl::OkStatus();
   }
-  return constraints_callback(arguments, language_options);
+  return PreResolutionConstraints()(arguments, language_options);
+}
+
+absl::Status Function::CheckPostResolutionArgumentConstraints(
+    const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) const {
+  if (PostResolutionConstraints() == nullptr) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK(signature.IsConcrete())
+      << "CheckPostResolutionArgumentConstraints of function "
+      << QualifiedSQLName()
+      << " must be called with a concrete signature";
+  ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size())
+      << "Concrete arguments of function " << QualifiedSQLName()
+      << " must match the actual argument list";
+  return PostResolutionConstraints()(signature, arguments, language_options);
 }
 
 // static
@@ -450,7 +466,8 @@ const ArgumentConstraintsCallback& Function::PreResolutionConstraints() const {
   return function_options_.pre_resolution_constraint;
 }
 
-const ArgumentConstraintsCallback& Function::PostResolutionConstraints() const {
+const PostResolutionArgumentConstraintsCallback&
+Function::PostResolutionConstraints() const {
   return function_options_.post_resolution_constraint;
 }
 

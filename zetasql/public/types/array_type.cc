@@ -25,7 +25,7 @@ namespace zetasql {
 ArrayType::ArrayType(const TypeFactory* factory, const Type* element_type)
     : Type(factory, TYPE_ARRAY),
       element_type_(element_type) {
-  CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
+  ZETASQL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
 }
 
 ArrayType::~ArrayType() {}
@@ -36,7 +36,7 @@ bool ArrayType::IsSupportedType(const LanguageOptions& language_options) const {
 
 bool ArrayType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const ArrayType* other = that->AsArray();
-  DCHECK(other);
+  ZETASQL_DCHECK(other);
   return EqualsImpl(this, other, equivalent);
 }
 
@@ -162,26 +162,26 @@ absl::HashState ArrayType::HashValueContent(const ValueContent& value,
   // dependency cycle). In the future we will create a virtual list factory
   // interface defined outside of "value", but which Value can provide to
   // Array/Struct to use to construct lists.
-  LOG(FATAL) << "HashValueContent should never be called for ArrayType, since "
+  ZETASQL_LOG(FATAL) << "HashValueContent should never be called for ArrayType, since "
                 "its value content is created in Value class";
 }
 
 bool ArrayType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  LOG(FATAL) << "ValueContentEquals should never be called for ArrayType,"
+  ZETASQL_LOG(FATAL) << "ValueContentEquals should never be called for ArrayType,"
                 "since its value content is compared in Value class";
 }
 
 bool ArrayType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  LOG(FATAL) << "ValueContentLess should never be called for ArrayType,"
+  ZETASQL_LOG(FATAL) << "ValueContentLess should never be called for ArrayType,"
                 "since its value content is compared in Value class";
 }
 
 std::string ArrayType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
-  LOG(FATAL)
+  ZETASQL_LOG(FATAL)
       << "FormatValueContent should never be called for ArrayType, since "
          "its value content is maintained in the Value class";
 }

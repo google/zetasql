@@ -610,7 +610,9 @@ COUNT([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 
 **Supported Argument Types**
 
-`expression` can be any data type.
+`expression` can be any data type. If
+`DISTINCT` is present, `expression` can only be a data type that is
+[groupable][agg-data-type-properties].
 
 **Optional Clauses**
 
@@ -1239,7 +1241,8 @@ FROM UNNEST([]) AS x;
 
 ### Common clauses
 
-#### HAVING MAX and HAVING MIN clause {: #max_min_clause }
+#### HAVING MAX and HAVING MIN clause 
+<a id="max_min_clause"></a>
 
 Most aggregate functions support two optional clauses called `HAVING MAX` and
 `HAVING MIN`, which restricts the set of rows that a function aggregates to
@@ -1312,4 +1315,6 @@ this result:
 | 5       |
 +---------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
 

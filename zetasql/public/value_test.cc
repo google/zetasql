@@ -107,7 +107,7 @@ static Value TestGetSQL(const Value& value) {
   // Test round tripping GetSQL for non-legacy types.
   if (testable_type) {
     const std::string sql = value.GetSQL();
-    VLOG(1) << "sql: " << sql;
+    ZETASQL_VLOG(1) << "sql: " << sql;
 
     // We have to use the expression evaluator rather than just the analyzer
     // because the returned SQL may be a non-literal.
@@ -134,7 +134,7 @@ static Value TestGetSQL(const Value& value) {
   // Test round tripping GetSQLLiteral for non-legacy types.
   if (testable_type) {
     const std::string sql = value.GetSQLLiteral();
-    VLOG(1) << "sql literal: " << sql;
+    ZETASQL_VLOG(1) << "sql literal: " << sql;
 
     // For GetSQLLiteral, we re-parse without a catalog because we don't
     // expect any type names to show up.  e.g. For enums, we'll just get
@@ -150,7 +150,7 @@ static Value TestGetSQL(const Value& value) {
         ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
         if (result.ok()) {
           const Value& new_value = result.value();
-          VLOG(1) << "New value: " << new_value.DebugString();
+          ZETASQL_VLOG(1) << "New value: " << new_value.DebugString();
           if (value.type()->Equivalent(new_value.type())) {
             EXPECT_TRUE(value.Equals(new_value))
                 << "Value: " << value.FullDebugString()
@@ -1370,7 +1370,7 @@ TEST_F(ValueTest, NestedArrayBag) {
   EXPECT_FALSE(
       InternalValue::Equals(array_x, array_z, kExactFloatMargin, &reason));
   EXPECT_FALSE(reason.empty());
-  LOG(INFO) << "Reason: " << reason;
+  ZETASQL_LOG(INFO) << "Reason: " << reason;
 }
 
 // This tests that InternalValue::Equals takes a wholeistic view of
@@ -1807,7 +1807,7 @@ TEST_F(ValueTest, Proto) {
       InternalValue::Equals(proto1, proto4, kExactFloatMargin, &reason));
   // We test that get a reason but don't compare the actual reason string.
   EXPECT_FALSE(reason.empty());
-  LOG(INFO) << "Reason: " << reason;
+  ZETASQL_LOG(INFO) << "Reason: " << reason;
 
   // Proto with an unknown tag.
   bytes = "";  // clear bytes;
@@ -2411,7 +2411,7 @@ void ValueTest::TestParameterizedValueAfterReleaseOfTypeFactory(
         // We don't keep track of references under release mode (NDEBUG) when
         // keep_alive_while_referenced_from_value is disabled. Thus, just
         // emulate an error message.
-        LOG(FATAL) << "Type factory is released while there are still some "
+        ZETASQL_LOG(FATAL) << "Type factory is released while there are still some "
                       "objects that reference it";
       }
 #endif

@@ -22,6 +22,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
@@ -29,8 +31,12 @@ import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 
 
+import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Queue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -591,6 +597,156 @@ public class PreparedExpressionTest {
       fail();
     } catch (SqlException expected) {
       checkSqlExceptionErrorSubstr(expected, "Unexpected query parameter 'b'");
+    }
+  }
+
+  @Test
+  public void testStreamWithLiteral() {
+    try (PreparedExpression exp = new PreparedExpression("\"hello\"")) {
+      exp.prepare(new AnalyzerOptions());
+      PreparedExpression.Stream stream = exp.stream();
+      Future<Value> future = stream.execute(ImmutableMap.of(), ImmutableMap.of());
+      final Value value;
+      try {
+        value = future.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
+      assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_STRING);
+      assertThat(value.getStringValue()).isEqualTo("hello");
+    }
+  }
+
+  @Test
+  public void testStreamOrder() {
+    try (PreparedExpression exp = new PreparedExpression("a")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("a", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      exp.prepare(options);
+
+      PreparedExpression.Stream stream = exp.stream();
+      Queue<Future<Value>> futures = new ArrayDeque<>();
+
+      final int requestCount = 3;
+      for (int i = 0; i < requestCount; i++) {
+        ImmutableMap<String, Value> columns = ImmutableMap.of("a", Value.createInt32Value(i));
+        futures.add(stream.execute(columns, ImmutableMap.of()));
+      }
+
+      for (int i = 0; i < requestCount; i++) {
+        final Value value;
+        try {
+          Future<Value> future = futures.remove();
+
+          value = future.get();
+        } catch (InterruptedException | ExecutionException e) {
+          throw new RuntimeException(e);
+        }
+        assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_INT32);
+        assertThat(value.getInt32Value()).isEqualTo(i);
+      }
+    }
+  }
+
+  @Test
+  public void testStreamBigResponse() {
+    try (PreparedExpression exp = new PreparedExpression("REPEAT('a', 1024*1024)")) {
+      exp.prepare(new AnalyzerOptions());
+
+      PreparedExpression.Stream stream = exp.stream();
+      Queue<Future<Value>> futures = new ArrayDeque<>();
+
+      final int requestCount = 8;
+      for (int i = 0; i < requestCount; i++) {
+        futures.add(stream.execute(ImmutableMap.of(), ImmutableMap.of()));
+      }
+
+      for (int i = 0; i < requestCount; i++) {
+        try {
+          Future<Value> future = futures.remove();
+
+          future.get();
+        } catch (InterruptedException | ExecutionException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testStreamBigRequest() {
+    try (PreparedExpression exp = new PreparedExpression("a")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("a", TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
+      exp.prepare(options);
+
+      PreparedExpression.Stream stream = exp.stream();
+      Queue<Future<Value>> futures = new ArrayDeque<>();
+
+      final int requestCount = 8;
+      ImmutableMap<String, Value> columns =
+          ImmutableMap.of("a", Value.createStringValue(Strings.repeat("a", 1024 * 1024)));
+      for (int i = 0; i < requestCount; i++) {
+        futures.add(stream.execute(columns, ImmutableMap.of()));
+      }
+
+      for (int i = 0; i < requestCount; i++) {
+        try {
+          Future<Value> future = futures.remove();
+
+          future.get();
+        } catch (InterruptedException | ExecutionException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testExecuteError() {
+    try (PreparedExpression exp = new PreparedExpression("REPEAT('a', a)")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("a", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      exp.prepare(options);
+
+      ImmutableMap<String, Value> columns =
+          ImmutableMap.of("a", Value.createInt32Value(2 * 1024 * 1024));
+
+      try {
+        exp.execute(columns, ImmutableMap.of());
+        fail();
+      } catch (SqlException expected) {
+        checkSqlExceptionErrorSubstr(
+            expected, "Output of REPEAT exceeds max allowed output size of 1MB");
+      }
+    }
+  }
+
+  @Test
+  public void testStreamError() {
+    try (PreparedExpression exp = new PreparedExpression("REPEAT('a', a)")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("a", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      exp.prepare(options);
+
+      PreparedExpression.Stream stream = exp.stream();
+      ImmutableMap<String, Value> columns =
+          ImmutableMap.of("a", Value.createInt32Value(2 * 1024 * 1024));
+      Future<Value> future = stream.execute(columns, ImmutableMap.of());
+
+      try {
+        future.get();
+        fail();
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      } catch (ExecutionException e) {
+        if (!(e.getCause() instanceof SqlException)) {
+          throw new RuntimeException(e);
+        }
+        SqlException expected = (SqlException) e.getCause();
+        checkSqlExceptionErrorSubstr(
+            expected, "Output of REPEAT exceeds max allowed output size of 1MB");
+      }
     }
   }
 

@@ -292,7 +292,7 @@ TEST(ParseTreeTest, GetDescendantsWithKinds) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   const ASTStatement* statement = parser_output->statement();
 
-  LOG(INFO) << "Parse tree:\n" << statement->DebugString();
+  ZETASQL_LOG(INFO) << "Parse tree:\n" << statement->DebugString();
 
   std::vector<const ASTNode*> found_nodes;
   // Look up empty set of node kinds.
@@ -600,7 +600,7 @@ postVisit(default): IntLiteral(1)
 
 // Returns a copy of <s> repeated <count> times.
 std::string Repeat(absl::string_view s, int count) {
-  CHECK_GT(count, 0);
+  ZETASQL_CHECK_GT(count, 0);
   return absl::StrJoin(std::vector<absl::string_view>(count, s), "");
 }
 

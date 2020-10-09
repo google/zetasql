@@ -35,7 +35,7 @@ TEST(ContainerHash, StdUnorderedMapOfVector) {
   std::vector<IdString> values2 = {ID("Abc"), ID("Def")};
   std::vector<IdString> values3 = {ID("abc"), ID("defg")};
 
-  std::unordered_map<
+  absl::flat_hash_map<
       std::vector<IdString>, int,
       ContainerHash<std::vector<IdString>, IdStringCaseHash>,
       ContainerEquals<std::vector<IdString>, IdStringCaseEqualFunc>>

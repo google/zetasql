@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -26,6 +27,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/error_catalog.h"
 #include "zetasql/testdata/sample_catalog.h"
@@ -33,8 +35,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
 
 namespace zetasql {
 
@@ -194,6 +198,63 @@ class ResolverTest : public ::testing::Test {
     ASSERT_THAT(resolved_function_call, NotNull());
     EXPECT_EQ(expected_case_function_name,
               resolved_function_call->function()->FullName());
+  }
+
+  NameScope CreateNameScope(std::string name, const Type* type) {
+    NameList name_list;
+    const ResolvedColumn table_column(resolver_->AllocateColumnId(),
+                                      "TestTable", name, type);
+    ZETASQL_CHECK_OK(name_list.AddColumn(table_column.name_id(), table_column, true));
+    return NameScope(name_list);
+  }
+
+  absl::Status ParseAndResolveLambda(
+      const std::string& lambda_sql, std::vector<const Type*> arg_types,
+      const Type* body_result_type,
+      std::unique_ptr<const ResolvedInlineLambda>* resolved_lambda = nullptr,
+      NameScope* name_scope = nullptr) {
+    resolver_->Reset(lambda_sql);
+    std::unique_ptr<const ResolvedExpr> resolved_expression;
+    // Wrap lambda argument in a function call, which is an expression.
+    std::string func_sql = absl::Substitute("func($0)", lambda_sql);
+    ZETASQL_RETURN_IF_ERROR(
+        ParseExpression(func_sql, ParserOptions(), &parser_output_));
+
+    // Check the shape of the function call.
+    const ASTExpression* ast_expr = parser_output_->expression();
+    ZETASQL_RET_CHECK(ast_expr->Is<ASTFunctionCall>());
+    const absl::Span<const ASTExpression* const>& func_args =
+        ast_expr->GetAs<ASTFunctionCall>()->arguments();
+    ZETASQL_RET_CHECK_EQ(func_args.size(), 1);
+    ZETASQL_RET_CHECK(func_args[0]->Is<ASTLambda>());
+    const ASTLambda* lambda = func_args[0]->GetAs<ASTLambda>();
+
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<IdString> arg_names,
+                     ExtractLambdaArgumentNames(lambda));
+    // Resolve the lambda
+    if (resolved_lambda == nullptr) {
+      std::unique_ptr<const ResolvedInlineLambda> resolved_expr_out;
+      ZETASQL_RETURN_IF_ERROR(resolver_->ResolveLambda(lambda, arg_names, arg_types,
+                                               body_result_type, name_scope,
+                                               &resolved_expr_out));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(resolver_->ResolveLambda(lambda, arg_names, arg_types,
+                                               body_result_type, name_scope,
+                                               resolved_lambda));
+    }
+    return absl::OkStatus();
+  }
+
+  void TestParseAndResolveLambda(const std::string& lambda_sql,
+                                 std::vector<const Type*> arg_types,
+                                 const Type* body_result_type,
+                                 std::string lambda_debug_string = "",
+                                 NameScope* name_scope = nullptr) {
+    std::unique_ptr<const ResolvedInlineLambda> resolved_lambda;
+    ZETASQL_ASSERT_OK(ParseAndResolveLambda(lambda_sql, arg_types, body_result_type,
+                                    &resolved_lambda, name_scope));
+    ASSERT_EQ(lambda_debug_string, resolved_lambda->DebugString())
+        << lambda_sql;
   }
 
   void ParseAndResolveFunction(const std::string& query,
@@ -386,6 +447,9 @@ class ResolverTest : public ::testing::Test {
   AnalyzerOptions analyzer_options_;
   std::unique_ptr<Resolver> resolver_;
   std::unique_ptr<const NameScope> name_scope_;
+  // Save the parser output so that memories are not freed when we use them in
+  // resolver outputs.
+  std::unique_ptr<ParserOutput> parser_output_;
 };
 
 TEST_F(ResolverTest, TestResolveTypeName) {
@@ -966,6 +1030,164 @@ TEST_F(ResolverTest, TestHasFlatten) {
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
                         /*aggregation_allowed=*/true));
   EXPECT_TRUE(resolver_->analyzer_output_properties().has_flatten);
+}
+
+// TODO: Remove after we can add tests in a .test file.
+TEST_F(ResolverTest, TestResolveLambda) {
+  const Type* int32_type = type_factory_.get_int32();
+  const Type* int64_type = type_factory_.get_int64();
+  const Type* bool_type = type_factory_.get_bool();
+  const Type* string_type = type_factory_.get_string();
+
+  TestParseAndResolveLambda("a -> a > 0", /*arg_types=*/{int32_type},
+                            /*body_result_type=*/nullptr, R"(InlineLambda
++-argument_list=[$lambda_arg.a#1]
++-body=
+  +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
+    +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    +-Literal(type=INT32, value=0)
+)");
+
+  // Body type is expected type.
+  TestParseAndResolveLambda("a -> a > 0",
+                            /*arg_types=*/{int32_type},
+                            /*body_result_type=*/bool_type,
+                            R"(InlineLambda
++-argument_list=[$lambda_arg.a#1]
++-body=
+  +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
+    +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    +-Literal(type=INT32, value=0)
+)");
+
+  // Body type can be coerced to expected type.
+  TestParseAndResolveLambda("a -> a + 1",
+                            /*arg_types=*/{int32_type},
+                            /*body_result_type=*/int64_type,
+                            R"(InlineLambda
++-argument_list=[$lambda_arg.a#1]
++-body=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-Cast(INT32 -> INT64)
+    | +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    +-Literal(type=INT64, value=1)
+)");
+
+  // Cannot coerce body to specified body type.
+  EXPECT_THAT(ParseAndResolveLambda("(a) -> a > 0",
+                                    /*arg_types=*/{int32_type},
+                                    /*body_result_type=*/string_type),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kInvalidArgument,
+                  testing::HasSubstr(
+                      "Lambda should return type STRING, but returns BOOL")));
+
+  // Body type cannot be coered by expected type.
+  EXPECT_THAT(ParseAndResolveLambda("a -> a > 1",
+                                    /*arg_types=*/{int32_type},
+                                    /*body_result_type=*/int64_type),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kInvalidArgument,
+                  testing::HasSubstr(
+                      "Lambda should return type INT64, but returns BOOL")));
+
+  // Multiple lambda arguments.
+  TestParseAndResolveLambda("(a, b) -> a + b",
+                            /*arg_types=*/{int32_type, int32_type},
+                            /*body_result_type=*/int64_type,
+                            R"(InlineLambda
++-argument_list=$lambda_arg.[a#1, b#2]
++-body=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-Cast(INT32 -> INT64)
+    | +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    +-Cast(INT32 -> INT64)
+      +-ColumnRef(type=INT32, column=$lambda_arg.b#2)
+)");
+
+  // Lambda body contains query.
+  TestParseAndResolveLambda("(a, b) -> (SELECT a + b)",
+                            /*arg_types=*/{int32_type, int32_type},
+                            /*body_result_type=*/int64_type,
+                            R"(InlineLambda
++-argument_list=$lambda_arg.[a#1, b#2]
++-body=
+  +-SubqueryExpr
+    +-type=INT64
+    +-subquery_type=SCALAR
+    +-parameter_list=
+    | +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    | +-ColumnRef(type=INT32, column=$lambda_arg.b#2)
+    +-subquery=
+      +-ProjectScan
+        +-column_list=[$expr_subquery.$col1#3]
+        +-expr_list=
+        | +-$col1#3 :=
+        |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |     +-Cast(INT32 -> INT64)
+        |     | +-ColumnRef(type=INT32, column=$lambda_arg.a#1, is_correlated=TRUE)
+        |     +-Cast(INT32 -> INT64)
+        |       +-ColumnRef(type=INT32, column=$lambda_arg.b#2, is_correlated=TRUE)
+        +-input_scan=
+          +-SingleRowScan
+)");
+
+  EXPECT_THAT(
+      ParseAndResolveLambda("a -> a > b",
+                            /*arg_types=*/{int32_type},
+                            /*body_result_type=*/bool_type),
+      zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument,
+                                testing::HasSubstr("Unrecognized name: b")));
+
+  // Duplicate lambda argument name.
+  EXPECT_THAT(ParseAndResolveLambda("(a, a) -> a > 0",
+                                    /*arg_types=*/{int32_type, int32_type},
+                                    /*body_result_type=*/bool_type),
+              zetasql_base::testing::StatusIs(
+                  absl::StatusCode::kInvalidArgument,
+                  testing::HasSubstr("Column name a is ambiguous")));
+
+  {
+    NameScope name_scope = CreateNameScope("b", int32_type);
+    EXPECT_THAT(
+        ParseAndResolveLambda("a -> a > bb", {int32_type}, bool_type, nullptr,
+                              &name_scope),
+        zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument,
+                                  testing::HasSubstr("Unrecognized name: bb")));
+  }
+
+  {
+    // Lambda body access a column that's not lambda arguments.
+    std::unique_ptr<const ResolvedInlineLambda> resolved_lambda;
+    NameScope name_scope = CreateNameScope("b", int32_type);
+    TestParseAndResolveLambda("a -> a > b", {int32_type}, bool_type,
+                              R"(InlineLambda
++-argument_list=[$lambda_arg.a#1]
++-parameter_list=
+| +-ColumnRef(type=INT32, column=TestTable.b#2)
++-body=
+  +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
+    +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    +-ColumnRef(type=INT32, column=TestTable.b#2, is_correlated=TRUE)
+)",
+                              &name_scope);
+  }
+
+  {
+    // argument of lambda shadows call site column.
+    std::unique_ptr<const ResolvedInlineLambda> resolved_lambda;
+    NameScope name_scope = CreateNameScope("b", int32_type);
+    TestParseAndResolveLambda("(a, b)  -> a > b", {int32_type, int32_type},
+                              bool_type,
+                              R"(InlineLambda
++-argument_list=$lambda_arg.[a#1, b#2]
++-body=
+  +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
+    +-ColumnRef(type=INT32, column=$lambda_arg.a#1)
+    +-ColumnRef(type=INT32, column=$lambda_arg.b#2)
+)",
+                              &name_scope);
+  }
 }
 
 }  // namespace zetasql

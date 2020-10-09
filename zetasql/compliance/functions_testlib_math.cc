@@ -128,7 +128,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsUnaryMinus() {
   };
 }
 
-// TODO: Add test cases for coerced operations with BIGNUMERIC.
 std::vector<QueryParamsWithResult> GetFunctionTestsCoercedAdd() {
   return {
       // int32_t
@@ -1529,7 +1528,7 @@ std::vector<FunctionTestCall> GetFunctionTestsMath() {
       {"log", {double_neg_inf}, double_nan},
       {"log", {double_pos_inf}, double_pos_inf},
 
-      // LOG(X, Y)
+      // ZETASQL_LOG(X, Y)
       {"log", {NullDouble(), NullDouble()}, NullDouble()},
       {"log", {NullDouble(), 0.0}, NullDouble()},
       {"log", {0.0, NullDouble()}, NullDouble()},

@@ -20,7 +20,8 @@ The following functions can be used as analytic functions:
 [numbering functions][numbering-functions-reference], and
 [aggregate analytic functions][aggregate-analytic-functions-reference]
 
-## Analytic function syntax {: #syntax }
+## Analytic function syntax 
+<a id="syntax"></a>
 
 <pre>
 analytic_function_name ( [ argument_list ] ) OVER over_clause
@@ -94,7 +95,8 @@ aggregate functions can be used as input operands to analytic functions.
 
 A single result for each row in the input.
 
-### Defining the `OVER` clause {: #def_over_clause }
+### Defining the `OVER` clause 
+<a id="def_over_clause"></a>
 
 ```zetasql
 analytic_function_name ( [ argument_list ] ) OVER over_clause
@@ -134,7 +136,8 @@ These queries use a named window:
 +  [Get the last value in a range][analytic-functions-get-last-value-range]
 +  [Use a named window in a window frame clause][analytic-functions-use-named-window]
 
-### Defining the window specification {: #def_window_spec }
+### Defining the window specification 
+<a id="def_window_spec"></a>
 
 ```zetasql
 window_specification:
@@ -262,7 +265,8 @@ These queries define how rows are ordered in a partition:
 +  [Compute rank][analytic-functions-compute-rank]
 +  [Use a named window in a window frame clause][analytic-functions-use-named-window]
 
-### Defining the window frame clause {: #def_window_frame }
+### Defining the window frame clause 
+<a id="def_window_frame"></a>
 
 ```zetasql
 window_frame_clause:
@@ -402,7 +406,8 @@ These queries compute values with the current row as a boundary:
 +  [Compute a subtotal][analytic-functions-compute-subtotal]
 +  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
 
-### Referencing a named window {: #ref_named_window }
+### Referencing a named window 
+<a id="ref_named_window"></a>
 
 ```zetasql
 SELECT query_expr,
@@ -931,7 +936,8 @@ FROM Employees;
 +--------------------------------------------+
 ```
 
-### Use a named window in a window frame clause {: #def_use_named_window }
+### Use a named window in a window frame clause 
+<a id="def_use_named_window"></a>
 
 You can define some of your logic in a named window and some of it in a
 window frame clause. This logic is combined. Here is an example, using the

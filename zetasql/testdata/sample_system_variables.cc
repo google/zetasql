@@ -29,15 +29,15 @@ namespace zetasql {
 static absl::Status AddSystemVariable(const std::vector<std::string>& name_path,
                                       const Type* type,
                                       AnalyzerOptions* options) {
-  if (!type->IsSupportedType(options->language_options())) {
+  if (!type->IsSupportedType(options->language())) {
     // Skip system variable whose type is not supported by the language.  This
     // is to prevent tests which use a reduced feature set (which don't test
     // system variables) from being blocked by failure to set them.
-    VLOG(1) << "Skipping system variable " << absl::StrJoin(name_path, ".")
+    ZETASQL_VLOG(1) << "Skipping system variable " << absl::StrJoin(name_path, ".")
             << " due to unsupported type: " << type->DebugString();
     return absl::OkStatus();
   }
-  VLOG(1) << "Adding system variable " << absl::StrJoin(name_path, ".")
+  ZETASQL_VLOG(1) << "Adding system variable " << absl::StrJoin(name_path, ".")
           << " of type: " << type->DebugString();
   return options->AddSystemVariable(name_path, type);
 }

@@ -75,7 +75,7 @@ bool CanHaveDefaultValue(SignatureArgumentKind kind) {
     case ARG_TYPE_DESCRIPTOR:
       return false;
     default:
-      DCHECK(false) << "Invalid signature argument kind: " << kind;
+      ZETASQL_DCHECK(false) << "Invalid signature argument kind: " << kind;
       return false;
   }
 }
@@ -492,7 +492,7 @@ FunctionArgumentType::FunctionArgumentType(
       num_occurrences_(num_occurrences),
       type_(type),
       options_(options) {
-  DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
+  ZETASQL_DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
 }
 
 FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
@@ -710,7 +710,7 @@ std::string FunctionArgumentType::UserFacingName(
       case ARG_TYPE_FIXED:
       default:
         // We really should have had type() != nullptr in this case.
-        DCHECK(type() != nullptr) << DebugString();
+        ZETASQL_DCHECK(type() != nullptr) << DebugString();
         return "?";
     }
   } else {

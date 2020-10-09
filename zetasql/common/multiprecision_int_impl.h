@@ -158,8 +158,8 @@ inline uint32_t ShiftRightAndGetLowWord(const uint32_t x[2], uint bits) {
 template <typename Word>
 inline void ShiftLeftFast(Word* number, int num_words, uint bits) {
   constexpr int kNumBitsPerWord = sizeof(Word) * 8;
-  DCHECK_GT(bits, 0);
-  DCHECK_LT(bits, kNumBitsPerWord);
+  ZETASQL_DCHECK_GT(bits, 0);
+  ZETASQL_DCHECK_LT(bits, kNumBitsPerWord);
   int s = kNumBitsPerWord - bits;
   for (int i = num_words - 1; i > 0; --i) {
     number[i] = ShiftRightAndGetLowWord(number + (i - 1), s);
@@ -190,8 +190,8 @@ void ShiftLeft(Word* number, int num_words, uint bits) {
 template <typename LastWord, typename Word>
 inline void ShiftRightFast(Word* number, int num_words, uint bits) {
   constexpr int kNumBitsPerWord = sizeof(Word) * 8;
-  DCHECK_GT(bits, 0);
-  DCHECK_LT(bits, kNumBitsPerWord);
+  ZETASQL_DCHECK_GT(bits, 0);
+  ZETASQL_DCHECK_LT(bits, kNumBitsPerWord);
   for (int i = 0; i < num_words - 1; ++i) {
     number[i] = ShiftRightAndGetLowWord(number + i, bits);
   }
@@ -477,7 +477,7 @@ inline Word MulWord(Word lhs[], int size, Word rhs) {
 template <typename Word>
 inline void DivModWord(Word dividend_hi, Word dividend_lo, Word divisor,
                        Word* quotient, Word* remainder) {
-  DCHECK_LT(dividend_hi, divisor);
+  ZETASQL_DCHECK_LT(dividend_hi, divisor);
   constexpr int kNumBitsPerWord = sizeof(Word) * 8;
   Uint<kNumBitsPerWord* 2> dividend =
       static_cast<Uint<kNumBitsPerWord * 2>>(dividend_hi) << kNumBitsPerWord |
@@ -493,7 +493,7 @@ inline void DivModWord(Word dividend_hi, Word dividend_lo, Word divisor,
 // In other cases, RawDivModWord is much more efficient.
 inline void RawDivModWord(uint32_t dividend_hi, uint32_t dividend_lo,
                           uint32_t divisor, uint32_t* quotient, uint32_t* remainder) {
-  DCHECK_LT(dividend_hi, divisor);
+  ZETASQL_DCHECK_LT(dividend_hi, divisor);
   __asm__("divl %[v]"
           : "=a"(*quotient), "=d"(*remainder)
           : [ v ] "r"(divisor), "a"(dividend_lo), "d"(dividend_hi));
@@ -501,7 +501,7 @@ inline void RawDivModWord(uint32_t dividend_hi, uint32_t dividend_lo,
 
 inline void RawDivModWord(uint64_t dividend_hi, uint64_t dividend_lo,
                           uint64_t divisor, uint64_t* quotient, uint64_t* remainder) {
-  DCHECK_LT(dividend_hi, divisor);
+  ZETASQL_DCHECK_LT(dividend_hi, divisor);
   __asm__("divq %[v]"
           : "=a"(*quotient), "=d"(*remainder)
           : [ v ] "r"(divisor), "a"(dividend_lo), "d"(dividend_hi));
@@ -631,7 +631,7 @@ int LongDiv(std::array<uint32_t, size + 1>* dividend,
       // digit, so this loop will not be executed more than 2 iterations.
       uint8_t carry;
       do {
-        DCHECK_LE(++iter, 2);
+        ZETASQL_DCHECK_LE(++iter, 2);
         --quotient_candidate;
         carry = AddWithVariableSize(dividend_data, divisor->data(), n);
         carry = AddWithCarry(&dividend_data[n], uint32_t{0}, carry);
@@ -711,7 +711,7 @@ inline constexpr std::make_unsigned_t<V> SafeAbs(V x) {
 template <bool is_signed, typename Word>
 void SerializeNoOptimization(absl::Span<const Word> number,
                              std::string* bytes) {
-  DCHECK(!number.empty());
+  ZETASQL_DCHECK(!number.empty());
   const char extension =
       is_signed && static_cast<std::make_signed_t<Word>>(number.back()) < 0
           ? '\xff'

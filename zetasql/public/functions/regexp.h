@@ -108,7 +108,7 @@ class RegExp {
   // ...
   // ExtractAllReset(input);
   // while (ExtractAllNext(&output, &error)) {
-  //  LOG(INFO) << output;
+  //  ZETASQL_LOG(INFO) << output;
   // }
   // ZETASQL_RETURN_IF_ERROR(error);
   //
@@ -196,7 +196,7 @@ class RegExp {
   // Accessor to the initialized RE2 object. Must Initialize() first before
   // calling this.
   const RE2& re() const {
-    DCHECK(re_ != nullptr) << "Not initialized";
+    ZETASQL_DCHECK(re_ != nullptr) << "Not initialized";
     return *re_;
   }
 

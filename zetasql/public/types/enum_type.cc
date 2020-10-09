@@ -34,7 +34,7 @@ static int32_t GetEnumValue(const ValueContent& value) {
 EnumType::EnumType(const TypeFactory* factory,
                    const google::protobuf::EnumDescriptor* enum_descr)
     : Type(factory, TYPE_ENUM), enum_descriptor_(enum_descr) {
-  CHECK(enum_descriptor_ != nullptr);
+  ZETASQL_CHECK(enum_descriptor_ != nullptr);
 }
 
 EnumType::~EnumType() {
@@ -42,7 +42,7 @@ EnumType::~EnumType() {
 
 bool EnumType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const EnumType* other = that->AsEnum();
-  DCHECK(other);
+  ZETASQL_DCHECK(other);
   return EnumType::EqualsImpl(this, other, equivalent);
 }
 
@@ -175,7 +175,7 @@ std::string EnumType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
   const std::string* enum_name = nullptr;
   int32_t enum_value = GetEnumValue(value);
-  CHECK(FindName(enum_value, &enum_name))
+  ZETASQL_CHECK(FindName(enum_value, &enum_name))
       << "Value " << enum_value << " not in "
       << enum_descriptor()->DebugString();
 

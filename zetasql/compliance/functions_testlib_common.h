@@ -174,11 +174,11 @@ struct ComparisonTest {
       : left(left_in.get()), right(right_in.get()), result(result_in) {}
   // Returns NaN of the correct type when result == UNORDERED.
   Value GetNaN() const {
-    CHECK_EQ(result, UNORDERED);
+    ZETASQL_CHECK_EQ(result, UNORDERED);
     if (left.type_kind() == TYPE_DOUBLE) {
       return Value::Double(double_nan);
     }
-    CHECK_EQ(left.type_kind(), TYPE_FLOAT);
+    ZETASQL_CHECK_EQ(left.type_kind(), TYPE_FLOAT);
     return Value::Float(float_nan);
   }
   Value left;

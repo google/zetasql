@@ -85,6 +85,14 @@ inline zetasql_base::StatusBuilder AssignmentToReadOnlySystemVariable(
          << assignment->system_variable()->path()->ToIdentifierPathString();
 }
 
+// Returns a handleable error indicating that a script variable does not exist.
+// <ast_var> denotes both the variable name, which will appear in the error
+// message and the location.
+inline absl::Status MakeUndeclaredVariableError(const ASTIdentifier* ast_var) {
+  return MakeScriptExceptionAt(ast_var)
+         << "Undeclared variable: " << ast_var->GetAsString();
+}
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_SCRIPTING_ERROR_HELPERS_H_

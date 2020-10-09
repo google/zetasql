@@ -71,10 +71,10 @@ class ResolvedColumn {
                  IdString name, const Type* type)
       : column_id_(column_id), table_name_(table_name),
         name_(name), type_(type) {
-    DCHECK_GT(column_id, 0) << "column_id should be positive";
-    DCHECK(!table_name.empty());
-    DCHECK(!name.empty());
-    DCHECK(type != nullptr);
+    ZETASQL_DCHECK_GT(column_id, 0) << "column_id should be positive";
+    ZETASQL_DCHECK(!table_name.empty());
+    ZETASQL_DCHECK(!name.empty());
+    ZETASQL_DCHECK(type != nullptr);
   }
 
   // Return true if this ResolvedColumn has been initialized.

@@ -18,16 +18,25 @@
 package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Queues;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.zetasql.LocalService.EvaluateRequest;
+import com.google.zetasql.LocalService.EvaluateRequestBatch;
 import com.google.zetasql.LocalService.EvaluateResponse;
+import com.google.zetasql.LocalService.EvaluateResponseBatch;
 import com.google.zetasql.LocalService.PrepareRequest;
 import com.google.zetasql.LocalService.PrepareResponse;
 import com.google.zetasql.LocalService.UnprepareRequest;
+import io.grpc.Channel;
+import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
+import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 
 /**
  * ZetaSQL expression evaluation using Service RPC.
@@ -199,9 +208,91 @@ public class PreparedExpression implements AutoCloseable {
     }
   }
 
-  /**
-   * Release the server side state for this prepared expression.
-   */
+  /** Opens a handle for streaming execution */
+  public Stream stream() {
+    Preconditions.checkState(prepared);
+    Preconditions.checkState(!closed);
+    return new Stream();
+  }
+
+  /** ZetaSQL streaming expression evaluation. */
+  public class Stream implements AutoCloseable {
+    private final Channel channel;
+    private final StreamObserver<EvaluateRequestBatch> requestObserver;
+    private final Queue<SettableFuture<Value>> pending;
+
+    private Stream() {
+      channel = ClientChannelProvider.loadChannel();
+      ZetaSqlLocalServiceGrpc.ZetaSqlLocalServiceStub stub =
+          ZetaSqlLocalServiceGrpc.newStub(channel);
+      requestObserver = stub.evaluateStream(new ResponseObserver());
+      pending = Queues.newConcurrentLinkedQueue();
+    }
+
+    public ListenableFuture<Value> execute(
+        Map<String, Value> columns, Map<String, Value> parameters) {
+      final SettableFuture<Value> f = SettableFuture.create();
+      pending.add(f);
+
+      requestObserver.onNext(
+          EvaluateRequestBatch.newBuilder().addRequest(buildRequest(columns, parameters)).build());
+
+      return f;
+    }
+
+    private class ResponseObserver implements StreamObserver<EvaluateResponseBatch> {
+      @Override
+      public void onNext(EvaluateResponseBatch respb) {
+        for (EvaluateResponse resp : respb.getResponseList()) {
+          final SettableFuture<Value> f = pending.remove();
+          final Value v;
+          try {
+            v = Value.deserialize(outputType, resp.getValue());
+          } catch (RuntimeException e) {
+            f.setException(e);
+            continue;
+          }
+          f.set(v);
+        }
+      }
+
+      private void setException(Throwable t) {
+        for (SettableFuture<Value> f; (f = pending.poll()) != null; ) {
+          f.setException(t);
+        }
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        if (t instanceof StatusRuntimeException) {
+          setException(new SqlException((StatusRuntimeException) t));
+        } else {
+          setException(t);
+        }
+      }
+
+      @Override
+      public void onCompleted() {
+        setException(new RuntimeException("Stream closed"));
+      }
+    }
+
+    @Override
+    public void close() {
+      requestObserver.onCompleted();
+      if (channel instanceof ManagedChannel) {
+        ((ManagedChannel) channel).shutdown();
+      }
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+      super.finalize();
+      close();
+    }
+  }
+
+  /** Release the server side state for this prepared expression. */
   @Override
   public void close() {
     if (prepared && !closed) {

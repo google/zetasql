@@ -259,6 +259,7 @@ SCALAR_FOREIGN_KEY_ACTION_OPERATION = EnumScalarType(
 SCALAR_SQL_SECURITY = EnumScalarType('SqlSecurity', 'ResolvedCreateStatement')
 SCALAR_DETERMINISM_LEVEL = EnumScalarType('DeterminismLevel',
                                           'ResolvedCreateStatement')
+SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
 
 
 def _Trim(s):
@@ -600,7 +601,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 159.
+          Next tag_id: 160.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1181,6 +1182,41 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ResolvedInlineLambda',
+      tag_id=159,
+      parent='ResolvedArgument',
+      comment="""
+      A lambda expression, used inline as a function argument.
+      This represents both the definition of the lambda and the resolution of
+      its templated signature and body for this function call.
+      Currently can only be used as an argument of a function.
+
+      <argument_list> defines the argument types and names for the lambda, and
+      creates new ResolvedColumns which can be used to reference the arguments
+      inside <body>.
+
+      The return type of the lambda function is the type of <body>.
+
+      In addition to the <argument_list>, the body of a lambda expression can
+      reference columns visible to the scope of the function call for which this
+      lambda is provided as an argument. Columns in this scope accessed by the
+      body are stored in <parameter_list>.
+
+      For example, the following query
+        SELECT ARRAY_FILTER([1,2,3], e -> e = key) FROM KeyValue;
+      would have a lambda with <parameter_list> ['key'] and <argument_list>
+      ['e'].
+
+      <body> is the body expression of the lambda. The expression can only
+      reference columns in <parameter_list> and <argument_list>.
+      """,
+      fields=[
+          Field('argument_list', SCALAR_RESOLVED_COLUMN, tag_id=2, vector=True),
+          Field('parameter_list', 'ResolvedColumnRef', tag_id=3, vector=True),
+          Field('body', 'ResolvedExpr', tag_id=4),
+      ])
+
+  gen.AddNode(
       name='ResolvedFunctionCallBase',
       tag_id=7,
       parent='ResolvedExpr',
@@ -1189,6 +1225,17 @@ def main(argv):
       use_custom_debug_string=True,
       comment="""
       Common base class for scalar and aggregate function calls.
+
+      <argument_list> contains a list of arguments of type ResolvedExpr.
+
+      <generic_argument_list> contains an alternative list of generic arguments.
+      This is used for function calls that accept non-expression arguments (i.e.
+      arguments that aren't part of the type system, like lambdas).
+
+      If all arguments of this function call are ResolvedExprs, <argument_list>
+      is used. If any of the argument is not a ResolvedExpr,
+      <generic_argument_list> will be used. Only one of <argument_list> or
+      <generic_argument_list> can be non-empty.
               """,
       fields=[
           Field(
@@ -1208,7 +1255,21 @@ def main(argv):
               function, in which case this node must be either
               ResolvedAggregateFunctionCall or ResolvedAnalyticFunctionCall.
                       """),
-          Field('argument_list', 'ResolvedExpr', tag_id=4, vector=True),
+          Field(
+              'argument_list',
+              'ResolvedExpr',
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+          ),
+          Field(
+              'generic_argument_list',
+              'ResolvedFunctionArgument',
+              is_optional_constructor_arg=True,
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+          ),
           Field(
               'error_mode',
               SCALAR_ERROR_MODE,
@@ -1917,11 +1978,15 @@ value.
       parent='ResolvedArgument',
       comment="""
       Represents a descriptor object as a TVF argument.
-      <descriptor_column_list> contains resolved columns from the related input
-      table argument if FunctionArgumentTypeOptions.get_resolve_descriptor_names_table_offset()
-      returns a valid argument offset.
-      <descriptor_column_name_list> contains strings which represent columns
-      names.
+      A descriptor is basically a list of unresolved column names, written
+        DESCRIPTOR(column1, column2)
+
+      <descriptor_column_name_list> contains the column names.
+
+      If FunctionArgumentTypeOptions.get_resolve_descriptor_names_table_offset()
+      is true, then <descriptor_column_list> contains resolved columns from
+      the sibling ResolvedFunctionArgument of scan type, and will match
+      positionally with <descriptor_column_name_list>.
       """,
       fields=[
           Field(
@@ -2872,7 +2937,12 @@ right.
               SCALAR_RESOLVED_COLUMN,
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'inline_lambda',
+              'ResolvedInlineLambda',
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -3754,18 +3824,25 @@ right.
       tag_id=50,
       parent='ResolvedStatement',
       comment="""
-      This statement: DROP <object_type> [IF EXISTS] <name_path>;
+      This statement: DROP <object_type> [IF EXISTS] <name_path> [<drop_mode>];
 
       <object_type> is an string identifier,
                     e.g., "TABLE", "VIEW", "INDEX", "FUNCTION", "TYPE", etc.
       <name_path> is a vector giving the identifier path for the object to be
                   dropped.
       <is_if_exists> silently ignore the "name_path does not exist" error.
+      <drop_mode> specifies drop mode RESTRICT/CASCASE, if any.
+
               """,
       fields=[
           Field('object_type', SCALAR_STRING, tag_id=2),
           Field('is_if_exists', SCALAR_BOOL, tag_id=3),
-          Field('name_path', SCALAR_STRING, tag_id=4, vector=True)
+          Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
+          Field(
+              'drop_mode',
+              SCALAR_DROP_MODE,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.AddNode(

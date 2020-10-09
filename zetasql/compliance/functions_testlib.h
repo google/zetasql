@@ -182,6 +182,7 @@ std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsUnicode();
 std::vector<FunctionTestCall> GetFunctionTestsChr();
 std::vector<FunctionTestCall> GetFunctionTestsOctetLength();
+std::vector<FunctionTestCall> GetFunctionTestsSubstring();
 std::vector<FunctionTestCall> GetFunctionTestsString();
 std::vector<FunctionTestCall> GetFunctionTestsInstr1();
 std::vector<FunctionTestCall> GetFunctionTestsInstr2();

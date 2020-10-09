@@ -21,6 +21,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
@@ -52,6 +53,16 @@ class ColumnFactory {
   int max_col_id_;
   zetasql_base::SequenceNumber* sequence_;
 };
+
+// Returns a copy of 'expr' where all ResolvedColumnRef are updated to be marked
+// as correlated column refs.
+zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
+    const ResolvedExpr& expr);
+
+// Fills column_refs with a copy of all ResolvedColumnRef nodes under 'node'.
+absl::Status CollectColumnRefs(
+    const ResolvedNode& node,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs);
 
 }  // namespace zetasql
 

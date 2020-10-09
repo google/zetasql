@@ -99,10 +99,6 @@ class LanguageOptions {
   void EnableLanguageFeature(LanguageFeature feature) {
     zetasql_base::InsertIfNotPresent(&enabled_language_features_, feature);
   }
-  // DEPRECATED.  This is the old name for EnableLanguageFeature.
-  void EnableOptionalFeature(LanguageFeature feature) {
-    EnableLanguageFeature(feature);
-  }
 
   void SetEnabledLanguageFeatures(const std::set<LanguageFeature>& features) {
     enabled_language_features_ = features;

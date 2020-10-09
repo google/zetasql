@@ -83,11 +83,11 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 
   DashedIdentifierTmpNode() : ASTNode(kConcreteNodeKind) {}
   void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
-    LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
+    ZETASQL_LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
   }
   zetasql_base::StatusOr<zetasql::VisitResult> Accept(
       zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
-    LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
+    ZETASQL_LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
   }
   // This is used to represent an unquoted full identifier path that may contain
   // dashes ('-'). This requires special handling because of the ambiguity
@@ -517,7 +517,7 @@ inline int zetasql_bison_parserlex(
     zetasql_bison_parser::BisonParserImpl::semantic_type* yylval,
     zetasql_bison_parser::location* yylloc,
     zetasql::parser::ZetaSqlFlexTokenizer* tokenizer) {
-  DCHECK(tokenizer != nullptr);
+  ZETASQL_DCHECK(tokenizer != nullptr);
   return tokenizer->GetNextTokenFlex(yylloc);
 }
 
@@ -1008,7 +1008,7 @@ using zetasql::ASTDropStatement;
 %type <node> join_input
 %type <expression> json_literal
 %type <expression> lambda_argument
-%type <node> lambda_parameter_list
+%type <node> lambda_argument_list
 %type <node> merge_action
 %type <node> merge_insert_value_list_or_source_row
 %type <node> merge_source
@@ -1946,8 +1946,11 @@ create_procedure_statement:
     "CREATE" opt_or_replace opt_create_scope "PROCEDURE" opt_if_not_exists
     path_expression procedure_parameters opt_options_list begin_end_block
       {
+        zetasql::ASTStatementList* stmt_list = MAKE_NODE(
+            ASTStatementList, @9, {$9});
+        zetasql::ASTScript* body = MAKE_NODE(ASTScript, @9, {stmt_list});
         auto* create =
-            MAKE_NODE(ASTCreateProcedureStatement, @$, {$6, $7, $8, $9});
+            MAKE_NODE(ASTCreateProcedureStatement, @$, {$6, $7, $8, body});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($5);
@@ -5766,16 +5769,16 @@ named_argument:
     ;
 
 lambda_argument:
-    lambda_parameter_list KW_LAMBDA_ARROW expression
+    lambda_argument_list KW_LAMBDA_ARROW expression
       {
         $$ = MAKE_NODE(ASTLambda, @$, {$1, $3});
       }
     ;
 
-// Lambda parameter list could be:
-//  * one parameter without parenthesis, e.g. e.
-//  * one parameter with parenthesis, e.g. (e).
-//  * multiple parameter with parenthesis, e.g. (e, i).
+// Lambda argument list could be:
+//  * one argument without parenthesis, e.g. e.
+//  * one argument with parenthesis, e.g. (e).
+//  * multiple argument with parenthesis, e.g. (e, i).
 // All of the above could be parsed as expression. (e, i) is parsed as struct
 // constructor with parenthesis. We use expression rule to cover them all and to
 // avoid conflict.
@@ -5784,7 +5787,7 @@ lambda_argument:
 // expression function argument. For ''(a, b) -> a + b', bison parser was not
 // able to decide what to do with the following working stack: ['(', ID('a')]
 // and seeing ID('b'), as bison parser won't look ahead to the '->' token.
-lambda_parameter_list:
+lambda_argument_list:
     expression
       {
         auto expr_kind = $1->node_kind();
@@ -6138,7 +6141,7 @@ string_literal:
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ", error_string));
           }
-          DLOG(FATAL) << "ParseStringLiteral did not return an error string";
+          ZETASQL_DLOG(FATAL) << "ParseStringLiteral did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
                                             parse_status.message()));
@@ -6169,7 +6172,7 @@ bytes_literal:
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ", error_string));
           }
-          DLOG(FATAL) << "ParseBytesLiteral did not return an error string";
+          ZETASQL_DLOG(FATAL) << "ParseBytesLiteral did not return an error string";
           YYERROR_AND_ABORT_AT(location,
                                absl::StrCat("Syntax error: ",
                                             parse_status.message()));
@@ -6263,7 +6266,7 @@ identifier:
                                    absl::StrCat("Syntax error: ",
                                                 error_string));
             }
-            DLOG(FATAL) << "ParseIdentifier did not return an error string";
+            ZETASQL_DLOG(FATAL) << "ParseIdentifier did not return an error string";
             YYERROR_AND_ABORT_AT(location,
                                  absl::StrCat("Syntax error: ",
                                               parse_status.message()));

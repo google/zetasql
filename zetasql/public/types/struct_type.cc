@@ -44,7 +44,7 @@ bool StructType::IsSupportedType(
 
 bool StructType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const StructType* other = that->AsStruct();
-  DCHECK(other);
+  ZETASQL_DCHECK(other);
   return StructType::EqualsImpl(this, other, equivalent);
 }
 
@@ -322,26 +322,26 @@ absl::HashState StructType::HashValueContent(const ValueContent& value,
   // dependency cycle). In the future we will create a virtual list factory
   // interface defined outside of "value", but which Value can provide to
   // Array/Struct to use to construct lists.
-  LOG(FATAL) << "HashValueContent should never be called for StructType, since "
+  ZETASQL_LOG(FATAL) << "HashValueContent should never be called for StructType, since "
                 "its value content is created in Value class";
 }
 
 bool StructType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  LOG(FATAL) << "ValueContentEquals should never be called for StructType,"
+  ZETASQL_LOG(FATAL) << "ValueContentEquals should never be called for StructType,"
                 "since its value content is compared in Value class";
 }
 
 bool StructType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                   const Type* other_type) const {
-  LOG(FATAL) << "ValueContentLess should never be called for StructType,"
+  ZETASQL_LOG(FATAL) << "ValueContentLess should never be called for StructType,"
                 "since its value content is compared in Value class";
 }
 
 std::string StructType::FormatValueContent(
     const ValueContent& value, const FormatValueContentOptions& options) const {
-  LOG(FATAL)
+  ZETASQL_LOG(FATAL)
       << "FormatValueContent should never be called for StructType, since "
          "its value content is maintained in the Value class";
 }

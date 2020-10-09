@@ -163,8 +163,8 @@ Saturated<T>::Saturated()
       did_overflow_(false),
       did_underflow_(false),
       did_become_indeterminate_(false) {
-  CHECK_LE(Min(), t_);
-  CHECK_LE(t_, Max());
+  ZETASQL_CHECK_LE(Min(), t_);
+  ZETASQL_CHECK_LE(t_, Max());
 }
 
 template <class T>
@@ -173,8 +173,8 @@ Saturated<T>::Saturated(T t)
       did_overflow_(false),
       did_underflow_(false),
       did_become_indeterminate_(false) {
-  CHECK_LE(Min(), t_);
-  CHECK_LE(t_, Max());
+  ZETASQL_CHECK_LE(Min(), t_);
+  ZETASQL_CHECK_LE(t_, Max());
 }
 
 template <class T>
@@ -228,8 +228,8 @@ inline Saturated<T>& Saturated<T>::Mul(T t2) {
   }
 
   if (t_ < 0 && t2 < 0) {
-    CHECK_LE(t_, -1);
-    CHECK_LE(t2, -1);
+    ZETASQL_CHECK_LE(t_, -1);
+    ZETASQL_CHECK_LE(t2, -1);
     // Overflow-safe version of "Max() < 0 - t_"
     // Overflow-safe version of "Max() < 0 - t2"
     if (Max() + t_ < 0 || Max() + t2 < 0) {
@@ -247,8 +247,8 @@ inline Saturated<T>& Saturated<T>::Mul(T t2) {
   }
 
   if (t_ > 0 && t2 > 0) {
-    CHECK_GE(t_, 1);
-    CHECK_GE(t2, 1);
+    ZETASQL_CHECK_GE(t_, 1);
+    ZETASQL_CHECK_GE(t2, 1);
     // Overflow-safe version of "Max() < t_ * t2"
     if (Max() / t2 < t_) {
       t_ = Max();
@@ -261,23 +261,23 @@ inline Saturated<T>& Saturated<T>::Mul(T t2) {
   }
 
   if (t_ > 0 && t2 < 0) {
-    CHECK_GE(t_, 1);
-    CHECK_LE(t2, -1);
+    ZETASQL_CHECK_GE(t_, 1);
+    ZETASQL_CHECK_LE(t2, -1);
     using std::swap;
     swap(t_, t2);
     // fall through
   }
 
   if (t_ < 0 && t2 > 0) {
-    CHECK_LE(t_, -1);
-    CHECK_GE(t2, 1);
+    ZETASQL_CHECK_LE(t_, -1);
+    ZETASQL_CHECK_GE(t2, 1);
     // Similar to above, we want to compute Min() / t2.
     // Sadly, c++03 leaves division implementation-defined.
     T q = Min() / t2;
     T r = Min() % t2;
     if (r > 0) {
-      CHECK_LT(r, t2);  // or % is broken
-      CHECK_LT(q, 0);
+      ZETASQL_CHECK_LT(r, t2);  // or % is broken
+      ZETASQL_CHECK_LT(q, 0);
       q = q + 1;  // q < 0, ergo q+1 is in range
     }
     if (q > t_) {
@@ -331,7 +331,7 @@ inline Saturated<T>& Saturated<T>::Div(T t2) {
     // positive divisor
     // quotient sign is same as dividend sign
     // quotient magnitude is same or smaller as dividend magnitude
-    CHECK_GE(t2, 1);
+    ZETASQL_CHECK_GE(t2, 1);
     t_ = t_ / t2;
   } else if (t2 < 0) {
     // negative divisor
@@ -342,7 +342,7 @@ inline Saturated<T>& Saturated<T>::Div(T t2) {
     // Some representations are asymmetric
     // We accommodate twos complement.
     // DIV(MIN, -1) or DIV(MAX, -1) are the worst cases
-    CHECK_LE(t2, -1);
+    ZETASQL_CHECK_LE(t2, -1);
     if (Max() + Min() == -1) {
       // DIV(MIN, -1) is only failure case
       // representations: twos complement
@@ -375,7 +375,7 @@ inline Saturated<T>& Saturated<T>::Rem(T t2) {
     did_become_indeterminate_ = true;
   } else {
     T t_new = t_ % t2;
-    CHECK_EQ(t3.Value() * t2 + t_new, t_);
+    ZETASQL_CHECK_EQ(t3.Value() * t2 + t_new, t_);
     t_ = t_new;
   }
   return *this;

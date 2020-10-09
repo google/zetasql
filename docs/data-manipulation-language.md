@@ -9,11 +9,13 @@ ZetaSQL supports the following statements for manipulating data:
 + `UPDATE`
 + `DELETE`
 
-## Example data {: #example-data }
+## Example data 
+<a id="example-data"></a>
 
 The sections in this topic use the following table schemas.
 
-### Singers table {: #singers-table }
+### Singers table 
+<a id="singers-table"></a>
 
 <table>
 <thead>
@@ -97,7 +99,8 @@ message Album {
 }
 </pre>
 
-### Concerts table {: #concerts-table }
+### Concerts table 
+<a id="concerts-table"></a>
 
 <table>
 <thead>
@@ -199,7 +202,8 @@ SELECT c.VenueId, c.SingerId, DATE "2015-06-01", c.BeginTime, c.EndTime, c.Ticke
   FROM Concerts c WHERE c.SingerId = 1;
 ```
 
-### Value type compatibility {: #compatible-types }
+### Value type compatibility 
+<a id="compatible-types"></a>
 
 Values added with an `INSERT` statement must be compatible with the target
 column's type. A value's type is considered compatible with the target column's

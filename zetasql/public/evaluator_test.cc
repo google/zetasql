@@ -1380,7 +1380,7 @@ TEST(EvaluatorTest, CurrentTimestamp) {
 
 absl::Time GetTestTime() {
   absl::TimeZone gst;
-  CHECK(absl::LoadTimeZone("America/Los_Angeles", &gst));
+  ZETASQL_CHECK(absl::LoadTimeZone("America/Los_Angeles", &gst));
   return absl::FromCivil(absl::CivilSecond(2016, 11, 22, 1, 2, 3), gst);
 }
 
@@ -2831,7 +2831,7 @@ class PreparedQueryTest : public ::testing::Test {
   void SetupContextCallback(PreparedQuery* query) {
     query->SetCreateEvaluationCallbackTestOnly([this](EvaluationContext* cb) {
       // There should only be one EvaluationContext in each of these tests.
-      CHECK(context_ == nullptr);
+      ZETASQL_CHECK(context_ == nullptr);
       context_ = cb;
     });
   }

@@ -84,17 +84,17 @@ BaseArena::BaseArena(char* first, const size_t orig_block_size,
       page_aligned_(align_to_page),
       blocks_alloced_(1) {
   // Trivial check that aligned objects can actually be allocated.
-  CHECK_GT(block_size_, kDefaultAlignment)
+  ZETASQL_CHECK_GT(block_size_, kDefaultAlignment)
       << "orig_block_size = " << orig_block_size;
   if (page_aligned_) {
     // kPageSize must be power of 2, so make sure of this.
-    CHECK(kPageSize > 0 && 0 == (kPageSize & (kPageSize - 1)))
+    ZETASQL_CHECK(kPageSize > 0 && 0 == (kPageSize & (kPageSize - 1)))
                               << "kPageSize[ " << kPageSize << "] is not "
                               << "correctly initialized: not a power of 2.";
   }
 
   if (first) {
-    CHECK(!page_aligned_ ||
+    ZETASQL_CHECK(!page_aligned_ ||
           (reinterpret_cast<uintptr_t>(first) & (kPageSize - 1)) == 0);
     first_blocks_[0].mem = first;
     first_blocks_[0].size = orig_block_size;
@@ -102,11 +102,11 @@ BaseArena::BaseArena(char* first, const size_t orig_block_size,
     if (page_aligned_) {
       // Make sure the blocksize is page multiple, as we need to end on a page
       // boundary.
-      CHECK_EQ(block_size_ & (kPageSize - 1), 0) << "block_size is not a"
+      ZETASQL_CHECK_EQ(block_size_ & (kPageSize - 1), 0) << "block_size is not a"
                                                  << "multiple of kPageSize";
       first_blocks_[0].mem = reinterpret_cast<char*>(aligned_malloc(block_size_,
                                                                     kPageSize));
-      PCHECK(nullptr != first_blocks_[0].mem);
+      ZETASQL_PCHECK(nullptr != first_blocks_[0].mem);
     } else {
       first_blocks_[0].mem = reinterpret_cast<char*>(malloc(block_size_));
     }
@@ -152,7 +152,7 @@ bool BaseArena::SatisfyAlignment(size_t alignment) {
     freestart_ += waste;
     remaining_ -= waste;
   }
-  DCHECK_EQ(0, reinterpret_cast<size_t>(freestart_) & (alignment - 1));
+  ZETASQL_DCHECK_EQ(0, reinterpret_cast<size_t>(freestart_) & (alignment - 1));
   return true;
 }
 
@@ -174,7 +174,7 @@ void BaseArena::Reset() {
 
   // There is no guarantee the first block is properly aligned, so
   // enforce that now.
-  CHECK(SatisfyAlignment(kDefaultAlignment));
+  ZETASQL_CHECK(SatisfyAlignment(kDefaultAlignment));
 
   freestart_when_empty_ = freestart_;
 }
@@ -190,7 +190,7 @@ void BaseArena::MakeNewBlock(const uint32_t alignment) {
   AllocatedBlock *block = AllocNewBlock(block_size_, alignment);
   freestart_ = block->mem;
   remaining_ = block->size;
-  CHECK(SatisfyAlignment(alignment));
+  ZETASQL_CHECK(SatisfyAlignment(alignment));
 }
 
 // The following simple numeric routines also exist in util/math/mathutil.h
@@ -250,7 +250,7 @@ BaseArena::AllocatedBlock*  BaseArena::AllocNewBlock(const size_t block_size,
   const uint32_t adjusted_alignment =
       page_aligned_ ? LeastCommonMultiple(kPageSize, alignment)
       : (alignment > 1 ? LeastCommonMultiple(alignment, kDefaultAlignment) : 1);
-  CHECK_LE(adjusted_alignment, 1 << 20)
+  ZETASQL_CHECK_LE(adjusted_alignment, 1 << 20)
       << "Alignment on boundaries greater than 1MB not supported.";
 
   // If block_size > alignment we force block_size to be a multiple
@@ -273,7 +273,7 @@ BaseArena::AllocatedBlock*  BaseArena::AllocNewBlock(const size_t block_size,
     block->mem = reinterpret_cast<char*>(malloc(adjusted_block_size));
   }
   block->size = adjusted_block_size;
-  PCHECK(nullptr != block->mem)
+  ZETASQL_PCHECK(nullptr != block->mem)
       << "block_size=" << block_size
       << " adjusted_block_size=" << adjusted_block_size
       << " alignment=" << alignment
@@ -300,10 +300,10 @@ const BaseArena::AllocatedBlock *BaseArena::IndexToBlock(int index) const {
   if (index < ABSL_ARRAYSIZE(first_blocks_)) {
     return &first_blocks_[index];
   }
-  CHECK(overflow_blocks_ != nullptr);
+  ZETASQL_CHECK(overflow_blocks_ != nullptr);
   int index_in_overflow_blocks = index - ABSL_ARRAYSIZE(first_blocks_);
-  CHECK_GE(index_in_overflow_blocks, 0);
-  CHECK_LT(static_cast<size_t>(index_in_overflow_blocks),
+  ZETASQL_CHECK_GE(index_in_overflow_blocks, 0);
+  ZETASQL_CHECK_LT(static_cast<size_t>(index_in_overflow_blocks),
            overflow_blocks_->size());
   return &(*overflow_blocks_)[index_in_overflow_blocks];
 }
@@ -324,7 +324,7 @@ void* BaseArena::GetMemoryFallback(const size_t size, const int alignment) {
   }
 
   // alignment must be a positive power of 2.
-  CHECK(alignment > 0 && 0 == (alignment & (alignment - 1)));
+  ZETASQL_CHECK(alignment > 0 && 0 == (alignment & (alignment - 1)));
 
   // If the object is more than a quarter of the block size, allocate
   // it separately to avoid wasting too much space in leftover bytes.
@@ -343,7 +343,7 @@ void* BaseArena::GetMemoryFallback(const size_t size, const int alignment) {
   if (!SatisfyAlignment(alignment) || size > remaining_) {
     MakeNewBlock(alignment);
   }
-  CHECK_LE(size, remaining_);
+  ZETASQL_CHECK_LE(size, remaining_);
 
   remaining_ -= size;
   last_alloc_ = freestart_;

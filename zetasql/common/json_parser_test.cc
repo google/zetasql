@@ -267,7 +267,7 @@ TEST(JSONParserTest, ParseStringFail) {
     ParseAndExpectFail(test);
   }
 
-  // Parse special case to test the DCHECK in ParseOctalDigits.
+  // Parse special case to test the ZETASQL_DCHECK in ParseOctalDigits.
   // Resizing to special.size() because it strips out the null terminator.
   std::string special = "\"\\4";
   special.resize(special.size());

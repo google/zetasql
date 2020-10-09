@@ -172,10 +172,10 @@ absl::Status TableValuedFunction::Deserialize(
 // static
 void TableValuedFunction::RegisterDeserializer(
     FunctionEnums::TableValuedFunctionType type, TVFDeserializer deserializer) {
-  // CHECK validated -- This is used at initialization time only.
-  CHECK(FunctionEnums::TableValuedFunctionType_IsValid(type)) << type;
-  // CHECK validated -- This is used at initialization time only.
-  CHECK(!(*TvfDeserializers())[type]) << type;
+  // ZETASQL_CHECK validated -- This is used at initialization time only.
+  ZETASQL_CHECK(FunctionEnums::TableValuedFunctionType_IsValid(type)) << type;
+  // ZETASQL_CHECK validated -- This is used at initialization time only.
+  ZETASQL_CHECK(!(*TvfDeserializers())[type]) << type;
   (*TvfDeserializers())[type] = std::move(deserializer);
 }
 

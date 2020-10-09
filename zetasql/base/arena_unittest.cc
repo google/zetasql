@@ -66,14 +66,14 @@ static void TestMemory(void* mem, int size) {
 //------------------------------------------------------------------------
 // Check memory ptr
 static void CheckMemory(void* mem, int size) {
-  CHECK(mem != nullptr);
+  ZETASQL_CHECK(mem != nullptr);
   TestMemory(mem, size);
 }
 
 //------------------------------------------------------------------------
 // Check memory ptr and alignment
 static void CheckAlignment(void* mem, int size, int alignment) {
-  CHECK(mem != nullptr);
+  ZETASQL_CHECK(mem != nullptr);
   ASSERT_EQ(0, (reinterpret_cast<uintptr_t>(mem) & (alignment - 1)))
     << "mem=" << mem << " alignment=" << alignment;
   TestMemory(mem, size);
@@ -82,20 +82,20 @@ static void CheckAlignment(void* mem, int size, int alignment) {
 //------------------------------------------------------------------------
 template<class A>
 void TestArena(const char* name, A* a, int blksize) {
-  LOG(INFO) << "Testing arena '" << name << "': blksize = " << blksize
+  ZETASQL_LOG(INFO) << "Testing arena '" << name << "': blksize = " << blksize
             << ": actual blksize = " << a->block_size();
 
   int s;
   blksize = a->block_size();
 
   // Allocate zero bytes
-  CHECK(a->is_empty());
+  ZETASQL_CHECK(a->is_empty());
   a->Alloc(0);
-  CHECK(a->is_empty());
+  ZETASQL_CHECK(a->is_empty());
 
   // Allocate same as blksize
   CheckMemory(a->Alloc(blksize), blksize);
-  CHECK(!a->is_empty());
+  ZETASQL_CHECK(!a->is_empty());
 
   // Allocate some chunks adding up to blksize
   s = blksize / 4;
@@ -133,34 +133,34 @@ void TestArena(const char* name, A* a, int blksize) {
   for (int i = 0; i < 500; i++)
     mem[i] = i & 255;
   char* mem2 = a->Memdup(mem, sizeof(mem));
-  CHECK_EQ(0, memcmp(mem, mem2, sizeof(mem)));
+  ZETASQL_CHECK_EQ(0, memcmp(mem, mem2, sizeof(mem)));
 
   // MemdupPlusNUL
   const char* msg_mpn = "won't use all this length";
   char* msg2_mpn = a->MemdupPlusNUL(msg_mpn, 10);
-  CHECK_EQ(0, strcmp(msg2_mpn, "won't use "));
+  ZETASQL_CHECK_EQ(0, strcmp(msg2_mpn, "won't use "));
   a->Free(msg2_mpn, 11);
 
   // Strdup
   const char* msg = "arena unit test is cool...";
   char* msg2 = a->Strdup(msg);
-  CHECK_EQ(0, strcmp(msg, msg2));
+  ZETASQL_CHECK_EQ(0, strcmp(msg, msg2));
   a->Free(msg2, strlen(msg) + 1);
 
   // Strndup
   char* msg3 = a->Strndup(msg, 10);
-  CHECK_EQ(0, strncmp(msg3, msg, 10));
+  ZETASQL_CHECK_EQ(0, strncmp(msg3, msg, 10));
   a->Free(msg3, 10);
-  CHECK(!a->is_empty());
+  ZETASQL_CHECK(!a->is_empty());
 
   // Reset
   a->Reset();
-  CHECK(a->is_empty());
+  ZETASQL_CHECK(a->is_empty());
 
   // Realloc
   char* m1 = a->Alloc(blksize/2);
   CheckMemory(m1, blksize / 2);
-  CHECK(!a->is_empty());
+  ZETASQL_CHECK(!a->is_empty());
   CheckMemory(a->Alloc(blksize / 2), blksize / 2);  // Allocate another block
   m1 = a->Realloc(m1, blksize/2, blksize);
   CheckMemory(m1, blksize);
@@ -175,48 +175,48 @@ void TestArena(const char* name, A* a, int blksize) {
   m1 = a->Shrink(m1, 1);
   CheckMemory(m1, 1);
   a->Free(m1, 1);
-  CHECK(!a->is_empty());
+  ZETASQL_CHECK(!a->is_empty());
 
   // Calloc
   char* m2 = a->Calloc(2000);
   for (int i = 0; i < 2000; ++i) {
-    CHECK_EQ(0, m2[i]);
+    ZETASQL_CHECK_EQ(0, m2[i]);
   }
 
   // bytes_until_next_allocation
   a->Reset();
-  CHECK(a->is_empty());
+  ZETASQL_CHECK(a->is_empty());
   int alignment = blksize - a->bytes_until_next_allocation();
-  LOG(INFO) << "Alignment overhead in initial block = " << alignment;
+  ZETASQL_LOG(INFO) << "Alignment overhead in initial block = " << alignment;
 
   s = a->bytes_until_next_allocation() - 1;
   CheckMemory(a->Alloc(s), s);
-  CHECK_EQ(a->bytes_until_next_allocation(), 1);
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), 1);
   CheckMemory(a->Alloc(1), 1);
-  CHECK_EQ(a->bytes_until_next_allocation(), 0);
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), 0);
 
   CheckMemory(a->Alloc(2*blksize), 2*blksize);
-  CHECK_EQ(a->bytes_until_next_allocation(), 0);
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), 0);
 
   CheckMemory(a->Alloc(1), 1);
-  CHECK_EQ(a->bytes_until_next_allocation(), blksize - 1);
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), blksize - 1);
 
   s = blksize / 2;
   char* m0 = a->Alloc(s);
   CheckMemory(m0, s);
-  CHECK_EQ(a->bytes_until_next_allocation(), blksize - s - 1);
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), blksize - s - 1);
   m0 = a->Shrink(m0, 1);
   CheckMemory(m0, 1);
-  CHECK_EQ(a->bytes_until_next_allocation(), blksize - 2);
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), blksize - 2);
 
   a->Reset();
-  CHECK(a->is_empty());
-  CHECK_EQ(a->bytes_until_next_allocation(), blksize - alignment);
+  ZETASQL_CHECK(a->is_empty());
+  ZETASQL_CHECK_EQ(a->bytes_until_next_allocation(), blksize - alignment);
 }
 
 static void EnsureNoAddressInRangeIsPoisoned(void* buffer, size_t range_size) {
 #ifdef ADDRESS_SANITIZER
-  CHECK_EQ(nullptr, __asan_region_is_poisoned(buffer, range_size));
+  ZETASQL_CHECK_EQ(nullptr, __asan_region_is_poisoned(buffer, range_size));
 #endif
 }
 
@@ -288,7 +288,7 @@ TEST_P(BasicTest, DoTest) {
 class Test : public Gladiator {
  public:
   double d, d2;
-  void verify(void) { CHECK(d2 == 3.0 * d); }
+  void verify(void) { ZETASQL_CHECK(d2 == 3.0 * d); }
   explicit Test(const double inp) {
     d = inp;
     d2 = 3.0 * inp;
@@ -350,25 +350,25 @@ void TestArena2(UnsafeArena* const arena) {
   char* s12 = arena->Strdup(s9);
   char* s13 = arena->Realloc(s9, sizeof(sshort)-1, 100000);  // won't fit :-)
 
-  CHECK_EQ(0, strcmp(s1, sshort));
-  CHECK_EQ(0, strcmp(s2, slong));
-  CHECK_EQ(0, strcmp(s3, sshort));
+  ZETASQL_CHECK_EQ(0, strcmp(s1, sshort));
+  ZETASQL_CHECK_EQ(0, strcmp(s2, slong));
+  ZETASQL_CHECK_EQ(0, strcmp(s3, sshort));
   // s4 was realloced so it is not safe to read from
-  CHECK_EQ(0, strncmp(s5, sshort, 10));
-  CHECK_EQ(0, strncmp(s6, sshort, 10));
-  CHECK_EQ(s5, s6);      // Should have room to grow here
+  ZETASQL_CHECK_EQ(0, strncmp(s5, sshort, 10));
+  ZETASQL_CHECK_EQ(0, strncmp(s6, sshort, 10));
+  ZETASQL_CHECK_EQ(s5, s6);      // Should have room to grow here
   // only the first 5 bytes of s7 should match; the realloc should have
   // caused the next byte to actually go to s9
-  CHECK_EQ(0, strncmp(s7, slong, 5));
-  CHECK_EQ(s7, s8);      // Realloc-smaller should cause us to realloc in place
+  ZETASQL_CHECK_EQ(0, strncmp(s7, slong, 5));
+  ZETASQL_CHECK_EQ(s7, s8);      // Realloc-smaller should cause us to realloc in place
   // s9 was realloced so it is not safe to read from
-  CHECK_EQ(s10, s4);     // Realloc-smaller should cause us to realloc in place
+  ZETASQL_CHECK_EQ(s10, s4);     // Realloc-smaller should cause us to realloc in place
   // Even though we're back to prev size, we had to move the pointer.  Thus
   // only the first 10 bytes are known since we grew from 10 to 100
-  CHECK_NE(s11, s4);
-  CHECK_EQ(0, strncmp(s11, slong, 10));
-  CHECK_EQ(0, strcmp(s12, s1));
-  CHECK_NE(s12, s13);    // too big to grow-in-place, so we should move
+  ZETASQL_CHECK_NE(s11, s4);
+  ZETASQL_CHECK_EQ(0, strncmp(s11, slong, 10));
+  ZETASQL_CHECK_EQ(0, strcmp(s12, s1));
+  ZETASQL_CHECK_NE(s12, s13);    // too big to grow-in-place, so we should move
 }
 
 //--------------------------------------------------------------------
@@ -523,15 +523,15 @@ TEST(ArenaTest, STL) {
         // it was put into the proper order.
         int_set_.insert(test_ints[int_size - (1 + i)]);
       }
-      CHECK_EQ(string_vec_.size(), string_size);
-      CHECK_EQ(char_vec_.size(), char_size);
-      CHECK_EQ(string_hset_.size(), string_size);
-      CHECK_EQ(int_vec_.size(), int_size);
-      CHECK_EQ(int_hset_.size(), int_size);
+      ZETASQL_CHECK_EQ(string_vec_.size(), string_size);
+      ZETASQL_CHECK_EQ(char_vec_.size(), char_size);
+      ZETASQL_CHECK_EQ(string_hset_.size(), string_size);
+      ZETASQL_CHECK_EQ(int_vec_.size(), int_size);
+      ZETASQL_CHECK_EQ(int_hset_.size(), int_size);
       uint32_t last = 0;
       for (IntSet::iterator i = int_set_.begin();
            int_set_.end() != i; ++i) {
-        CHECK_GT(*i, last);
+        ZETASQL_CHECK_GT(*i, last);
         last = *i;
       }
     }
@@ -587,15 +587,15 @@ TEST(ArenaTest, STL) {
         // it was put into the proper order.
         int_set_.insert(test_ints[int_size - (1 + i)]);
       }
-      CHECK_EQ(string_vec_.size(), string_size);
-      CHECK_EQ(char_vec_.size(), char_size);
-      CHECK_EQ(string_hset_.size(), string_size);
-      CHECK_EQ(int_vec_.size(), int_size);
-      CHECK_EQ(int_hset_.size(), int_size);
+      ZETASQL_CHECK_EQ(string_vec_.size(), string_size);
+      ZETASQL_CHECK_EQ(char_vec_.size(), char_size);
+      ZETASQL_CHECK_EQ(string_hset_.size(), string_size);
+      ZETASQL_CHECK_EQ(int_vec_.size(), int_size);
+      ZETASQL_CHECK_EQ(int_hset_.size(), int_size);
       uint32_t last = 0;
       for (IntSet::iterator i = int_set_.begin();
            int_set_.end() != i; ++i) {
-        CHECK_GT(*i, last);
+        ZETASQL_CHECK_GT(*i, last);
         last = *i;
       }
     }
@@ -649,17 +649,17 @@ void DoTest(UnsafeArena* const risky, SafeArena* const tame) {
     tests.pop_back();
     ++c;
   }
-  CHECK_EQ(numobjects, c);
+  ZETASQL_CHECK_EQ(numobjects, c);
 
   c = 0;
   while (!chars.empty()) {
     char* const ch = chars.back();
-    CHECK_EQ(0, strcmp("Y", ch));
+    ZETASQL_CHECK_EQ(0, strcmp("Y", ch));
     risky->Free(ch, 2);
     chars.pop_back();
     ++c;
   }
-  CHECK_EQ(numobjects, c);
+  ZETASQL_CHECK_EQ(numobjects, c);
 }
 
 TEST(ArenaTest, TestInl) {
@@ -727,7 +727,7 @@ TEST(ArenaTest, TestInl) {
 //      kDefaultAlignment.
 template <class T>
 void DoTestArenaAllocator() {
-  LOG(INFO) << "Testing ArenaAllocator<T, UnsafeArena>: "
+  ZETASQL_LOG(INFO) << "Testing ArenaAllocator<T, UnsafeArena>: "
             << "sizeof(T) = " << sizeof(T) << ", alignof(T) = " << alignof(T);
   // Create the buffer used by the UnsafeArena.
   alignas(2 * alignof(T)) alignas(std::max_align_t) char buffer[512];
@@ -750,7 +750,7 @@ void DoTestArenaAllocator() {
 // NewInArena<T> instead of using an ArenaAllocator<T>.
 template <class T>
 void DoTestNewInArenaScalar() {
-  LOG(INFO) << "Testing NewInArena<T, UnsafeArena>: "
+  ZETASQL_LOG(INFO) << "Testing NewInArena<T, UnsafeArena>: "
             << "sizeof(T) = " << sizeof(T) << ", alignof(T) = " << alignof(T);
   // Create the buffer used by the UnsafeArena.
   alignas(2 * alignof(T)) alignas(std::max_align_t) char buffer[512];
@@ -772,7 +772,7 @@ void DoTestNewInArenaScalar() {
 // NewInArena<T[]> instead of using an ArenaAllocator<T>.
 template <class T>
 void DoTestNewInArenaArray(size_t n) {
-  LOG(INFO) << "Testing NewInArena<T[], UnsafeArena>: "
+  ZETASQL_LOG(INFO) << "Testing NewInArena<T[], UnsafeArena>: "
             << "sizeof(T) = " << sizeof(T) << ", alignof(T) = " << alignof(T)
             << ", array size = " << n;
   // Create the buffer used by the UnsafeArena.
@@ -857,18 +857,18 @@ TEST(ArenaTest, TestDeleteInArena) {
 
 void DoPoisonTest(BaseArena* b, size_t size) {
 #ifdef ADDRESS_SANITIZER
-  LOG(INFO) << "DoPoisonTest(" << static_cast<void*>(b) << ", " << size << ")";
+  ZETASQL_LOG(INFO) << "DoPoisonTest(" << static_cast<void*>(b) << ", " << size << ")";
   char* c1 = b->SlowAlloc(size);
   char* c2 = b->SlowAlloc(size);
-  CHECK_EQ(nullptr, __asan_region_is_poisoned(c1, size));
-  CHECK_EQ(nullptr, __asan_region_is_poisoned(c2, size));
+  ZETASQL_CHECK_EQ(nullptr, __asan_region_is_poisoned(c1, size));
+  ZETASQL_CHECK_EQ(nullptr, __asan_region_is_poisoned(c2, size));
   char* c3 = b->SlowRealloc(c2, size, size/2);
-  CHECK_EQ(nullptr, __asan_region_is_poisoned(c3, size/2));
-  CHECK_NE(nullptr, __asan_region_is_poisoned(c2, size));
+  ZETASQL_CHECK_EQ(nullptr, __asan_region_is_poisoned(c3, size/2));
+  ZETASQL_CHECK_NE(nullptr, __asan_region_is_poisoned(c2, size));
   b->Reset();
-  CHECK_NE(nullptr, __asan_region_is_poisoned(c1, size));
-  CHECK_NE(nullptr, __asan_region_is_poisoned(c2, size));
-  CHECK_NE(nullptr, __asan_region_is_poisoned(c3, size/2));
+  ZETASQL_CHECK_NE(nullptr, __asan_region_is_poisoned(c1, size));
+  ZETASQL_CHECK_NE(nullptr, __asan_region_is_poisoned(c2, size));
+  ZETASQL_CHECK_NE(nullptr, __asan_region_is_poisoned(c3, size/2));
 #endif
 }
 
@@ -919,7 +919,7 @@ void TestStrndupUnterminated() {
   memcpy(source, kFoo, sizeof(kFoo));
   A arena(4096);
   char* dup = arena.Strndup(source, sizeof(kFoo));
-  CHECK_EQ(0, memcmp(dup, kFoo, sizeof(kFoo)));
+  ZETASQL_CHECK_EQ(0, memcmp(dup, kFoo, sizeof(kFoo)));
   delete[] source;
 }
 

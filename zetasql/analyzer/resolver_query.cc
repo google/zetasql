@@ -97,6 +97,8 @@ const IdString& Resolver::kWeightAlias =
     *new IdString(IdString::MakeGlobal("weight"));
 const IdString& Resolver::kArrayOffsetId =
     *new IdString(IdString::MakeGlobal("$array_offset"));
+const IdString& Resolver::kLambdaArgId =
+    *new IdString(IdString::MakeGlobal("$lambda_arg"));
 
 STATIC_IDSTRING(kDistinctId, "$distinct");
 STATIC_IDSTRING(kFullJoinId, "$full_join");
@@ -1784,7 +1786,7 @@ static bool ExcludeOrReplaceColumn(
         zetasql_base::FindOrDie(column_replacements->replaced_columns, column_name)
             .release());
     // I'd use ZETASQL_RET_CHECK here, except then I'd have to return StatusOr<bool>.
-    DCHECK(select_column_state_list->select_column_state_list().back() !=
+    ZETASQL_DCHECK(select_column_state_list->select_column_state_list().back() !=
            nullptr);
     return true;
   }
@@ -2864,7 +2866,7 @@ absl::Status Resolver::ResolveGroupByExprs(
 
     ExprResolutionInfo no_aggregation(from_clause_scope, "GROUP BY");
 
-    DCHECK_NE(ast_group_by_expr->node_kind(), AST_IDENTIFIER)
+    ZETASQL_DCHECK_NE(ast_group_by_expr->node_kind(), AST_IDENTIFIER)
         << "We expect to get PathExpressions, not Identifiers here";
 
     const SelectColumnState* group_by_column_state = nullptr;
@@ -3212,7 +3214,7 @@ absl::Status Resolver::ResolveSelectAs(
     *output_scan = std::move(input_scan);
     return absl::OkStatus();
   } else {
-    DCHECK(select_as->type_name() != nullptr);
+    ZETASQL_DCHECK(select_as->type_name() != nullptr);
 
     const Type* type;
     ZETASQL_RETURN_IF_ERROR(
@@ -3800,12 +3802,10 @@ absl::Status Resolver::SetOperationResolver::ResolveRecursive(
              << "Cannot coerce column " << (i + 1) << " of recursive term "
              << "("
              << recursive_column_type_lists.at(i).at(0).type()->TypeName(
-                    resolver_->analyzer_options_.language_options()
-                        .product_mode())
+                    resolver_->analyzer_options_.language().product_mode())
              << ") to column type in non-recursive term ( "
              << column_list.at(i).type()->TypeName(
-                    resolver_->analyzer_options_.language_options()
-                        .product_mode())
+                    resolver_->analyzer_options_.language().product_mode())
              << ")";
     }
   }
@@ -3829,11 +3829,22 @@ absl::Status Resolver::SetOperationResolver::ResolveRecursive(
     // operand.
     ResolvedSetOperationScan::SetOperationType op_type;
     ZETASQL_RETURN_IF_ERROR(GetSetScanEnumType(set_operation_, &op_type));
+
+    // Clone the column list so that the columns in the inner set operation used
+    // for the non-recursive term have unique ids.
+    ResolvedColumnList inner_set_op_column_list;
+    for (const auto& column : column_list) {
+      inner_set_op_column_list.push_back(
+          ResolvedColumn(resolver_->AllocateColumnId(), op_type_str_,
+                         column.name_id(), column.type()));
+      resolver_->RecordColumnAccess(inner_set_op_column_list.back());
+    }
+
     auto set_op_scan = MakeResolvedSetOperationScan(
-        column_list, op_type,
+        inner_set_op_column_list, op_type,
         std::move(resolved_nonrecursive_input_set_op_items));
-    auto non_recursive_operand =
-        MakeResolvedSetOperationItem(std::move(set_op_scan), column_list);
+    auto non_recursive_operand = MakeResolvedSetOperationItem(
+        std::move(set_op_scan), inner_set_op_column_list);
     recursive_scan = MakeResolvedRecursiveScan(
         column_list, recursive_op_type, std::move(non_recursive_operand),
         std::move(resolved_recursive_input.node));
@@ -4069,7 +4080,7 @@ absl::Status Resolver::ResolveLimitOrOffsetExpr(
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_expr, expr_resolution_info, resolved_expr));
-  DCHECK(resolved_expr != nullptr);
+  ZETASQL_DCHECK(resolved_expr != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateParameterOrLiteralAndCoerceToInt64IfNeeded(
       clause_name, ast_expr, resolved_expr));
   return absl::OkStatus();
@@ -4101,7 +4112,7 @@ absl::Status Resolver::ResolveHavingModifier(
            << resolved_expr->type()->ShortTypeName(product_mode());
   }
 
-  DCHECK(resolved_having != nullptr);
+  ZETASQL_DCHECK(resolved_having != nullptr);
   ResolvedAggregateHavingModifier::HavingModifierKind kind;
   if (ast_having_modifier->modifier_kind() ==
       ASTHavingModifier::ModifierKind::MAX) {
@@ -4899,7 +4910,7 @@ absl::Status Resolver::ResolveColumnInUsing(
   compute_expr_for_found_column->reset();
   // <ast_identifier> and <found_column> are redundant but we pass the
   // string in to avoid doing extra string copy.
-  DCHECK_EQ(ast_identifier->GetAsIdString(), key_name);
+  ZETASQL_DCHECK_EQ(ast_identifier->GetAsIdString(), key_name);
 
   NameTarget found_name;
   if (!name_list.LookupName(key_name, &found_name)) {

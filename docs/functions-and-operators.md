@@ -104,13 +104,13 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <tr>
 <td>INT32</td>
 <td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>DOUBLE</span><br /><span>INT64</span><br /><span>NUMERIC</span><br /></td>
+<td><span>INT64</span><br /><span>NUMERIC</span><br /><span>DOUBLE</span><br /></td>
 </tr>
 
 <tr>
 <td>INT64</td>
 <td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>DOUBLE</span><br /><span>NUMERIC</span><br /></td>
+<td><span>NUMERIC</span><br /><span>DOUBLE</span><br /></td>
 </tr>
 
 <tr>
@@ -122,7 +122,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <tr>
 <td>UINT64</td>
 <td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>DOUBLE</span><br /><span>NUMERIC</span><br /></td>
+<td><span>NUMERIC</span><br /><span>DOUBLE</span><br /></td>
 </tr>
 
 <tr>
@@ -145,7 +145,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 
 <tr>
 <td>BOOL</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>STRING</span><br /><span>UINT32</span><br /><span>UINT64</span><br /></td>
+<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>STRING</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
@@ -157,19 +157,19 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 
 <tr>
 <td>BYTES</td>
-<td><span>BYTES</span><br /><span>PROTO</span><br /><span>STRING</span><br /></td>
+<td><span>STRING</span><br /><span>BYTES</span><br /><span>PROTO</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
 <tr>
 <td>DATE</td>
-<td><span>DATE</span><br /><span>DATETIME</span><br /><span>STRING</span><br /><span>TIMESTAMP</span><br /></td>
+<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIMESTAMP</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
 <tr>
 <td>DATETIME</td>
-<td><span>DATE</span><br /><span>DATETIME</span><br /><span>STRING</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
+<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
@@ -181,7 +181,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 
 <tr>
 <td>TIMESTAMP</td>
-<td><span>DATE</span><br /><span>DATETIME</span><br /><span>STRING</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
+<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
@@ -196,7 +196,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <td><span>
 ENUM
 (with the same ENUM name)
-</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>STRING</span><br /><span>UINT32</span><br /><span>UINT64</span><br /></td>
+</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>STRING</span><br /></td>
 <td>ENUM
 (with the same ENUM name)</td>
 </tr>
@@ -212,7 +212,7 @@ ENUM
 <td><span>
 PROTO
 (with the same PROTO name)
-</span><br /><span>BYTES</span><br /><span>STRING</span><br /></td>
+</span><br /><span>STRING</span><br /><span>BYTES</span><br /></td>
 <td>PROTO
 (with the same PROTO name)</td>
 </tr>
@@ -292,8 +292,7 @@ Halfway cases such as 1.5 or -0.5 round away from zero.</td>
 <tr>
 <td>Floating Point</td>
 <td>NUMERIC</td>
-<td>If the floating point number has more than nine digits after the decimal
-  point, it will round
+<td>The floating point number will round
   <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
   half away from zero</a>. Casting a <code>NaN</code>, <code>+inf</code> or
   <code>-inf</code> will return an error. Casting a value outside the range of
@@ -562,7 +561,8 @@ An error is produced if the `string_expression` is invalid, has more than six
 subsecond digits (i.e. precision greater than microseconds), or represents a
 time outside of the supported timestamp range.
 
-#### Casting between date, datetime and timestamp types {: #casting-date-time-timestamp }
+#### Casting between date, datetime and timestamp types 
+<a id="casting-date-time-timestamp"></a>
 
 ZetaSQL supports casting between date, datetime and timestamp types as shown in
 the [conversion rules table][conversion-rules-table].
@@ -637,7 +637,7 @@ ZetaSQL supports the following literal coercions:
 
 <tr>
 <td>Integer literal</td>
-<td><span> ENUM</span><br /><span> INT32</span><br /><span> UINT32</span><br /><span> UINT64</span><br /></td>
+<td><span> INT32</span><br /><span> UINT32</span><br /><span> UINT64</span><br /><span> ENUM</span><br /></td>
 <td>
 
 Integer literals will implicitly coerce to ENUM type when necessary, or can
@@ -660,7 +660,7 @@ be explicitly CAST to a specific ENUM type name.
 
 <tr>
 <td>STRING literal</td>
-<td><span> DATE</span><br /><span> DATETIME</span><br /><span> ENUM</span><br /><span> PROTO</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /></td>
+<td><span> DATE</span><br /><span> DATETIME</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /><span> ENUM</span><br /><span> PROTO</span><br /></td>
 <td>
 
 String literals will implicitly coerce to PROTO
@@ -730,7 +730,8 @@ ZetaSQL supports the following parameter coercions:
 If the parameter value cannot be coerced successfully to the target type, an
 error is provided.
 
-### Additional conversion functions {: #additional_date_and_timestamp_conversion_functions }
+### Additional conversion functions 
+<a id="additional_date_and_timestamp_conversion_functions"></a>
 
 ZetaSQL provides the following additional conversion functions:
 
@@ -1359,7 +1360,9 @@ COUNT([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 
 **Supported Argument Types**
 
-`expression` can be any data type.
+`expression` can be any data type. If
+`DISTINCT` is present, `expression` can only be a data type that is
+[groupable][agg-data-type-properties].
 
 **Optional Clauses**
 
@@ -1988,7 +1991,8 @@ FROM UNNEST([]) AS x;
 
 ### Common clauses
 
-#### HAVING MAX and HAVING MIN clause {: #max_min_clause }
+#### HAVING MAX and HAVING MIN clause 
+<a id="max_min_clause"></a>
 
 Most aggregate functions support two optional clauses called `HAVING MAX` and
 `HAVING MIN`, which restricts the set of rows that a function aggregates to
@@ -2061,6 +2065,8 @@ this result:
 | 5       |
 +---------+
 ```
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
 
 ## Statistical aggregate functions
 
@@ -2912,7 +2918,8 @@ FROM (
 +------------+---------+-----------------+
 ```
 
-### About the HLL++ algorithm {: #about-hll-alg }
+### About the HLL++ algorithm 
+<a id="about-hll-alg"></a>
 
 The [HLL++ algorithm][hll-link-to-research-whitepaper]
 improves on the [HLL][hll-link-to-hyperloglog-wikipedia]
@@ -2921,7 +2928,8 @@ The HLL++ algorithm includes a 64-bit hash function, sparse
 representation to reduce memory requirements for small cardinality estimates,
 and empirical bias correction for small cardinality estimates.
 
-### About sketches {: #sketches-hll }
+### About sketches 
+<a id="sketches-hll"></a>
 
 A sketch is a summary of a large data stream. You can extract statistics
 from a sketch to estimate particular statistics of the original data, or
@@ -3570,7 +3578,8 @@ but accepts sketches initialized on data of type of type
 
 `DOUBLE`
 
-### About quantiles {: #about-kll-quantiles }
+### About quantiles 
+<a id="about-kll-quantiles"></a>
 
 [Quantiles][quantiles] can be defined in two ways. First, for a positive integer *q*,
 *q-quantiles* are a set of values that partition an input set into *q* subsets
@@ -3604,12 +3613,14 @@ To extract individual Φ-quantiles, use the following functions, where Φ is the
 + `KLL_QUANTILES.EXTRACT_POINT_UINT64`
 + `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
 
-### About the KLL algorithm {: #about-kll-alg }
+### About the KLL algorithm 
+<a id="about-kll-alg"></a>
 
 The [KLL16 algorithm][link-to-kll-paper] improves on the [MP80 algorithm][mp80]
 by using variable-size buffers to reduce memory use for large data sets.
 
-### About sketches {: #sketches-kll }
+### About sketches 
+<a id="sketches-kll"></a>
 
 A sketch is a summary of a large data stream. You can extract statistics
 from a sketch to estimate particular statistics of the original data, or
@@ -4068,7 +4079,8 @@ computes the logarithm of X to base Y. Generates an error in these cases:
 
 The behavior of `LOG(X, Y)` is further illustrated in the table below.
 
-#### Special cases for `LOG(X, Y)` {: #special_log }
+#### Special cases for `LOG(X, Y)` 
+<a id="special_log"></a>
 
 <table>
 <thead>
@@ -4201,6 +4213,7 @@ SAFE_SUBTRACT(X, Y)
 
 **Description**
 
+Returns the result of Y subtracted from X.
 Equivalent to the subtraction operator (<code>-</code>), but returns
 <code>NULL</code> if overflow occurs.
 
@@ -4217,7 +4230,8 @@ value has the same sign as X. An error is generated if Y is 0. See
 [Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
 result types.
 
-#### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #mod_div_results }
+#### Result types for `DIV(X, Y)` and `MOD(X, Y)` 
+<a id="mod_div_results"></a>
 
 <table>
 <thead>
@@ -4226,7 +4240,8 @@ result types.
 <tbody><tr><td>DOUBLE</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>DOUBLE</td><td>UINT64</td><td>UINT64</td></tr><tr><td>INT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>NUMERIC</td><td>DOUBLE</td><td>ERROR</td><td>NUMERIC</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr></tbody>
 </table>
 
-### ROUND {: #rounding_functions }
+### ROUND 
+<a id="rounding_functions"></a>
 
 ```
 ROUND(X [, N])
@@ -4370,7 +4385,8 @@ Example behavior of ZetaSQL rounding functions:
 </tbody>
 </table>
 
-### COS {: #trigonometric_and_hyperbolic_functions }
+### COS 
+<a id="trigonometric_and_hyperbolic_functions"></a>
 
 ```
 COS(X)
@@ -4516,7 +4532,8 @@ the two arguments to determine the quadrant. The return value is in the range
 The behavior of this function is further illustrated in <a
 href="#special_atan2">the table below</a>.
 
-#### Special cases for `ATAN2()` {: #special_atan2 }
+#### Special cases for `ATAN2()` 
+<a id="special_atan2"></a>
 
 <table>
 <thead>
@@ -4570,7 +4587,8 @@ href="#special_atan2">the table below</a>.
 </tbody>
 </table>
 
-#### Special cases for trigonometric and hyperbolic rounding functions {: #special_trig_hyperbolic }
+#### Special cases for trigonometric and hyperbolic rounding functions 
+<a id="special_trig_hyperbolic"></a>
 
 <table>
 <thead>
@@ -5366,8 +5384,8 @@ FARM_FINGERPRINT(value)
 
 **Description**
 
-Computes the fingerprint of the STRING or BYTES input using the `Fingerprint64`
-function from the
+Computes the fingerprint of the `STRING` or `BYTES` input using the
+`Fingerprint64` function from the
 [open-source FarmHash library][hash-link-to-farmhash-github]. The output
 of this function for a particular input will never change.
 
@@ -5405,8 +5423,8 @@ FINGERPRINT(input)
 
 **Description**
 
-Computes the fingerprint of the STRING
-or BYTES input using Fingerprint.
+Computes the fingerprint of the `STRING`
+or `BYTES` input using Fingerprint.
 
 **Return type**
 
@@ -5433,13 +5451,13 @@ MD5(input)
 
 Computes the hash of the input using the
 [MD5 algorithm][hash-link-to-md5-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 16 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -5462,13 +5480,13 @@ SHA1(input)
 
 Computes the hash of the input using the
 [SHA-1 algorithm][hash-link-to-sha-1-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 20 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -5491,13 +5509,13 @@ SHA256(input)
 
 Computes the hash of the input using the
 [SHA-256 algorithm][hash-link-to-sha-2-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 32 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -5514,13 +5532,13 @@ SHA512(input)
 
 Computes the hash of the input using the
 [SHA-512 algorithm][hash-link-to-sha-2-wikipedia]. The input can either be
-STRING or BYTES. The string version treats the input as an array of bytes.
+`STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
 This function returns 64 bytes.
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -5973,7 +5991,8 @@ FROM items;
 +---------+
 ```
 
-### FORMAT {: #format_string }
+### FORMAT 
+<a id="format_string"></a>
 
 ZetaSQL supports a `FORMAT()` function for formatting strings. This
 function is similar to the C `printf` function. It produces a `STRING` from a
@@ -6403,7 +6422,8 @@ flags are not relevant for some element type, they are ignored.
   </tr>
 </table>
 
-#### %g and %G behavior {: #g_and_g_behavior }
+#### %g and %G behavior 
+<a id="g_and_g_behavior"></a>
 The `%g` and `%G` format specifiers choose either the decimal notation (like
 the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
 specifiers), depending on the input value's exponent and the specified
@@ -6420,7 +6440,8 @@ Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
 are removed, and the decimal point is also removed if there is no digit after
 it.
 
-#### %t and %T behavior {: #t_and_t_behavior }
+#### %t and %T behavior 
+<a id="t_and_t_behavior"></a>
 
 The `%t` and `%T` format specifiers are defined for all types. The
 [width](#width), [precision](#precision), and [flags](#flags) act as they do
@@ -8756,10 +8777,10 @@ JSON-formatted strings.
 ### JSON_EXTRACT or JSON_EXTRACT_SCALAR
 
 <a id="json_extract"></a>`JSON_EXTRACT(json_string_expr,
-json_path_string_literal)`, which returns JSON values as STRINGs.
+json_path_format)`, which returns JSON values as STRINGs.
 
 <a id="json_extract_scalar"></a>`JSON_EXTRACT_SCALAR(json_string_expr,
-json_path_string_literal)`, which returns scalar JSON values as STRINGs.
+json_path_format)`, which returns scalar JSON values as STRINGs.
 
 **Description**
 
@@ -8770,9 +8791,9 @@ Extracts JSON values or JSON scalar values as strings.
     ```
     {"class" : {"students" : [{"name" : "Jane"}]}}
     ```
-+  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
++  `json_path_format`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   JSON-formatted string. If `json_path_format` returns a JSON `null`,
    this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape
@@ -8882,10 +8903,10 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
 
 ### JSON_QUERY or JSON_VALUE
 
-<a id="json_query"></a>`JSON_QUERY(json_string_expr, json_path_string_literal)`,
+<a id="json_query"></a>`JSON_QUERY(json_string_expr, json_path_format)`,
 which returns JSON values as STRINGs.
 
-<a id="json_value"></a>`JSON_VALUE(json_string_expr, json_path_string_literal)`,
+<a id="json_value"></a>`JSON_VALUE(json_string_expr, json_path_format)`,
 which returns scalar JSON values as STRINGs.
 
 **Description**
@@ -8897,9 +8918,9 @@ Extracts JSON values or JSON scalar values as strings.
   ```
   {"class" : {"students" : [{"name" : "Jane"}]}}
   ```
-+  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
++  `json_path_format`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   JSON-formatted string. If `json_path_format` returns a JSON `null`,
    this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters,
@@ -9281,9 +9302,9 @@ The above query produces the following result:
 
 ### JSONPath format
 
-Most JSON functions pass in a `json_string_expr` and `json_path_string_literal`
+Most JSON functions pass in a `json_string_expr` and `json_path_format`
 parameter. The `json_string_expr` parameter passes in a JSON-formatted
-string, and the `json_path_string_literal` parameter identifies the value or
+string, and the `json_path_format` parameter identifies the value or
 values you want to obtain from the JSON-formatted string.
 
 The `json_string_expr` parameter must be a JSON string that is
@@ -9293,7 +9314,7 @@ formatted like this:
 {"class" : {"students" : [{"name" : "Jane"}]}}
 ```
 
-You construct the `json_path_string_literal` parameter using the
+You construct the `json_path_format` parameter using the
 [JSONPath][json-path] format. As part of this format, this parameter must start
 with a `$` symbol, which refers to the outermost level of the JSON-formatted
 string. You can identify child values using dots. If the JSON object is an
@@ -9307,7 +9328,7 @@ $        | Root object or element | "$"                   | `{"class":{"students
 .        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
 []       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
 
-A JSON functions returns `NULL` if the `json_path_string_literal` parameter does
+A JSON functions returns `NULL` if the `json_path_format` parameter does
 not match a value in `json_string_expr`. If the selected value for a scalar
 function is not scalar, such as an object or an array, the function
 returns `NULL`.
@@ -9459,8 +9480,7 @@ WITH items AS
   (SELECT ["coffee", NULL, "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie"] as list)
-
-SELECT list, ARRAY_LENGTH(list) AS size
+SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
 FROM items
 ORDER BY size DESC;
 
@@ -13562,7 +13582,8 @@ year.</td>
  </tr>
 </table>
 
-### Time zone definitions {: #timezone_definitions }
+### Time zone definitions 
+<a id="timezone_definitions"></a>
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying

@@ -138,7 +138,11 @@ struct ConvertTypeToProtoOptions {
 //  - The proto is annotated with zetasql.is_struct.
 //  - The proto is annotated with zetasql.use_field_defaults=false to
 //    support NULL field values.
-//  - The proto has N fields, with tag 1..N, for the N struct fields.
+//  - The proto has N fields. Generally tag numbers are assigned incrementally
+//    from 1,2 ... N for N struct fields, with the exception of the case when N
+//    is >= 19000. Protobuf library reserves range [19000, 20000) and thus we
+//    shift up 1000 when assigning tag numbers after field_19000. In this case,
+//    the assigned tag numbers are 1, 2 ... 18999, 20000, 20001 ... N + 1000.
 //  - Proto fields use either the struct field name, or a generic name
 //    "_field_<tag>" with a zetasql.struct_field_name annotation indicating
 //    the original name.

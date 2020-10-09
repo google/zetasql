@@ -134,22 +134,22 @@ ExprArg::ExprArg(std::unique_ptr<ValueExpr> expr)
 AlgebraNode::~AlgebraNode() { zetasql_base::STLDeleteElements(&args_); }
 
 const ValueExpr* AlgebraNode::AsValueExpr() const {
-  LOG(FATAL);
+  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 
 ValueExpr* AlgebraNode::AsMutableValueExpr() {
-  LOG(FATAL);
+  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 
 const RelationalOp* AlgebraNode::AsRelationalOp() const {
-  LOG(FATAL);
+  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 
 RelationalOp* AlgebraNode::AsMutableRelationalOp() {
-  LOG(FATAL);
+  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 
@@ -162,14 +162,14 @@ void AlgebraNode::SetArg(int kind, std::unique_ptr<AlgebraArg> argument) {
   } else {
     SetArgs<AlgebraArg>(kind, {});
   }
-  DCHECK_EQ(GetArg(kind), argument_ptr);
+  ZETASQL_DCHECK_EQ(GetArg(kind), argument_ptr);
 }
 
 const AlgebraArg* AlgebraNode::GetArg(int kind) const {
   int start = arg_slices_[kind].start;
   int size = arg_slices_[kind].size;
   if (size > 0) {
-    DCHECK_EQ(1, size);
+    ZETASQL_DCHECK_EQ(1, size);
     return args_[start];
   } else {
     return nullptr;
@@ -180,7 +180,7 @@ AlgebraArg* AlgebraNode::GetMutableArg(int kind) {
   int start = arg_slices_[kind].start;
   int size = arg_slices_[kind].size;
   if (size > 0) {
-    DCHECK_EQ(1, size);
+    ZETASQL_DCHECK_EQ(1, size);
     return args_[start];
   } else {
     return nullptr;
@@ -205,7 +205,7 @@ std::string AlgebraNode::ArgDebugString(absl::Span<const std::string> arg_names,
                                         absl::Span<const ArgPrintMode> arg_mode,
                                         const std::string& indent,
                                         bool verbose) const {
-  CHECK_EQ(arg_names.size(), arg_mode.size());
+  ZETASQL_CHECK_EQ(arg_names.size(), arg_mode.size());
   std::string result;
   std::string separator;
   for (int kind = 0; kind < arg_names.size(); kind++) {
@@ -230,7 +230,7 @@ std::string AlgebraNode::ArgDebugString(absl::Span<const std::string> arg_names,
         break;
       }
       case k1:
-        CHECK_EQ(1, args.size());
+        ZETASQL_CHECK_EQ(1, args.size());
         if (args[0] != nullptr) {
           absl::StrAppend(&result, separator, indent, kIndentFork,
                           arg_names[kind], ": ",
@@ -239,7 +239,7 @@ std::string AlgebraNode::ArgDebugString(absl::Span<const std::string> arg_names,
         }
         break;
       case k0:
-        CHECK(args.empty());
+        ZETASQL_CHECK(args.empty());
         break;
     }
   }

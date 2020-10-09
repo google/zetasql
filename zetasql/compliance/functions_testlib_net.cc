@@ -345,7 +345,7 @@ std::vector<FunctionTestCall> GetFunctionTestsNet() {
   for (const QueryParamsWithResult& item : ip_from_string_test_items) {
     result.push_back({"net.ip_from_string", item});
 
-    CHECK(item.HasEmptyFeatureSetAndNothingElse());
+    ZETASQL_CHECK(item.HasEmptyFeatureSetAndNothingElse());
     QueryParamsWithResult::ResultMap new_result_map = item.results();
     zetasql_base::FindOrDie(new_result_map, QueryParamsWithResult::kEmptyFeatureSet)
         .status = absl::OkStatus();

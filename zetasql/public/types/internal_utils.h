@@ -76,7 +76,7 @@ static size_t GetArrayAllocationMemoryEstimate(size_t elements_count) {
 // Rounds up the capacity to the next power of 2
 inline int64_t RoundUpToNextPowerOfTwo(int64_t n) {
   if (n < 0 || (n & (1L << 62)) != 0) {
-    LOG(DFATAL) << "Out of range: " << n;
+    ZETASQL_LOG(DFATAL) << "Out of range: " << n;
     // Restrict to the valid range.
     return n < 0 ? 1 : 1L << 62;
   }

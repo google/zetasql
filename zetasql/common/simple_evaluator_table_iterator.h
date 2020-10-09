@@ -71,9 +71,9 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
         column_major_values_(column_major_values),
         num_rows_(num_rows),
         clock_(clock) {
-    CHECK_EQ(columns.size(), column_major_values_.size());
+    ZETASQL_CHECK_EQ(columns.size(), column_major_values_.size());
     for (const auto& values_for_column : column_major_values_) {
-      CHECK_EQ(num_rows_, values_for_column->size());
+      ZETASQL_CHECK_EQ(num_rows_, values_for_column->size());
     }
   }
 

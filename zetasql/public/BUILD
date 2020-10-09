@@ -578,6 +578,54 @@ cc_test(
 )
 
 cc_library(
+    name = "interval_value",
+    srcs = ["interval_value.cc"],
+    hdrs = [
+        "interval_value.h",
+    ],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:endian",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:errors",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "interval_value_test",
+    srcs = ["interval_value_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":interval_value",
+        "//zetasql/base/testing:status_matchers",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:distributions",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "value",
     srcs = [
         "proto_util.cc",
@@ -1031,11 +1079,12 @@ cc_test(
         ":value",
         "//zetasql/base",
         "//zetasql/base:path",
-        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//:cc_wkt_protos",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         # buildcleaner: keep (text format proto)

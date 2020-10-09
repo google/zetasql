@@ -74,7 +74,7 @@ bool CanRepresentMaxPrecisely() {
   } else if (sizeof(FloatType) == 16) {
     fraction_bits = 113;
   } else {
-    LOG(FATAL) << "FloatType is not supported";
+    ZETASQL_LOG(FATAL) << "FloatType is not supported";
   }
   return fraction_bits >= std::numeric_limits<IntType>::digits;
 }

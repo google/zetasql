@@ -126,7 +126,7 @@ static std::string ToStringImpl(
   for (const ResolvedStatement::ObjectAccess& value : value_vector) {
     std::string name = ResolvedStatementEnums::ObjectAccess_Name(value);
     if (name.empty()) {
-      LOG(DFATAL) << "Invalid ObjectAccess: " << value;
+      ZETASQL_LOG(DFATAL) << "Invalid ObjectAccess: " << value;
       name = absl::StrCat("INVALID_OBJECT_ACCESS(", value, ")");
     }
     if (!ret.empty()) ret += ",";
@@ -137,49 +137,56 @@ static std::string ToStringImpl(
 static std::string ToStringImpl(ResolvedJoinScan::JoinType join_type) {
   std::string name = ResolvedJoinScanEnums::JoinType_Name(join_type);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid JoinType: " << join_type;
+  ZETASQL_LOG(DFATAL) << "Invalid JoinType: " << join_type;
   return absl::StrCat("INVALID_JOIN_TYPE(", join_type, ")");
 }
 static std::string ToStringImpl(ResolvedSubqueryExpr::SubqueryType type) {
   std::string name = ResolvedSubqueryExprEnums::SubqueryType_Name(type);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid SubqueryType: " << type;
+  ZETASQL_LOG(DFATAL) << "Invalid SubqueryType: " << type;
   return absl::StrCat("INVALID_SUBQUERY_TYPE(", type, ")");
 }
 static std::string ToStringImpl(ResolvedSetOperationScan::SetOperationType type) {
   std::string name = ResolvedSetOperationScanEnums::SetOperationType_Name(type);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid SetType: " << type;
+  ZETASQL_LOG(DFATAL) << "Invalid SetType: " << type;
   return absl::StrCat("INVALID_SET_TYPE(", type, ")");
 }
 static std::string ToStringImpl(ResolvedRecursiveScan::RecursiveSetOperationType type) {
   std::string name = ResolvedRecursiveScanEnums::RecursiveSetOperationType_Name(type);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid RecursiveSetType: " << type;
+  ZETASQL_LOG(DFATAL) << "Invalid RecursiveSetType: " << type;
   return absl::StrCat("INVALID_SET_TYPE(", type, ")");
 }
 static std::string ToStringImpl(ResolvedCreateStatement::CreateScope scope) {
   std::string name = ResolvedCreateStatementEnums::CreateScope_Name(scope);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid CreateScope: " << scope;
+  ZETASQL_LOG(DFATAL) << "Invalid CreateScope: " << scope;
   return absl::StrCat("INVALID_CREATE_SCOPE(", scope, ")");
 }
 static std::string ToStringImpl(ResolvedCreateStatement::CreateMode mode) {
   std::string name = ResolvedCreateStatementEnums::CreateMode_Name(mode);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid CreateMode: " << mode;
+  ZETASQL_LOG(DFATAL) << "Invalid CreateMode: " << mode;
   return absl::StrCat("INVALID_CREATE_MODE(", mode, ")");
+}
+
+static std::string ToStringImpl(ResolvedDropStmtEnums::DropMode mode) {
+  std::string name = ResolvedDropStmtEnums::DropMode_Name(mode);
+  if (!name.empty()) return name;
+  ZETASQL_LOG(DFATAL) << "Invalid DropMode: " << mode;
+  return absl::StrCat("INVALID_DROP_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedBeginStmt::ReadWriteMode mode) {
   std::string name = ResolvedBeginStmtEnums::ReadWriteMode_Name(mode);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid ReadWriteMode: " << mode;
+  ZETASQL_LOG(DFATAL) << "Invalid ReadWriteMode: " << mode;
   return absl::StrCat("INVALID_READ_WRITE_MODE(", mode, ")");
 }
 static std::string ToStringImpl(ResolvedSampleScan::SampleUnit unit) {
   std::string name = ResolvedSampleScanEnums::SampleUnit_Name(unit);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid SampleUnit: " << unit;
+  ZETASQL_LOG(DFATAL) << "Invalid SampleUnit: " << unit;
   return absl::StrCat("INVALID_SAMPLE_UNIT(", unit, ")");
 }
 static std::string ToStringImpl(FieldFormat::Format format) {
@@ -277,47 +284,47 @@ static std::string ToStringImpl(const std::vector<std::string>& value_vector,
 static std::string ToStringImpl(const ResolvedMergeWhen::MatchType match_type) {
   std::string name = ResolvedMergeWhenEnums::MatchType_Name(match_type);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid MatchType: " << match_type;
+  ZETASQL_LOG(DFATAL) << "Invalid MatchType: " << match_type;
   return absl::StrCat("INVALID_MATCH_TYPE(", match_type, ")");
 }
 static std::string ToStringImpl(const ResolvedMergeWhen::ActionType action_type) {
   std::string name = ResolvedMergeWhenEnums::ActionType_Name(action_type);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid ActionType: " << action_type;
+  ZETASQL_LOG(DFATAL) << "Invalid ActionType: " << action_type;
   return absl::StrCat("INVALID_ACTION_TYPE(", action_type, ")");
 }
 static std::string ToStringImpl(ResolvedForeignKeyEnums::MatchMode match_mode) {
   std::string name = ResolvedForeignKeyEnums::MatchMode_Name(match_mode);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid MatchMode: " << match_mode;
+  ZETASQL_LOG(DFATAL) << "Invalid MatchMode: " << match_mode;
   return absl::StrCat("INVALID_MATCH_MODE(", match_mode, ")");
 }
 static std::string ToStringImpl(
     ResolvedForeignKeyEnums::ActionOperation action_operation) {
   std::string name = ResolvedForeignKeyEnums::ActionOperation_Name(action_operation);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid ActionOperation: " << action_operation;
+  ZETASQL_LOG(DFATAL) << "Invalid ActionOperation: " << action_operation;
   return absl::StrCat("INVALID_ACTION_OPERATION(", action_operation, ")");
 }
 static std::string ToStringImpl(
     ResolvedCreateStatementEnums::SqlSecurity sql_security) {
   std::string name = ResolvedCreateStatementEnums::SqlSecurity_Name(sql_security);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid SqlSecurity: " << sql_security;
+  ZETASQL_LOG(DFATAL) << "Invalid SqlSecurity: " << sql_security;
   return absl::StrCat("INVALID_SQL_SECURITY(", sql_security, ")");
 }
 static std::string ToStringImpl(
     ResolvedOrderByItemEnums::NullOrderMode null_order) {
   std::string name = ResolvedOrderByItemEnums::NullOrderMode_Name(null_order);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid NullOrderMode: " << null_order;
+  ZETASQL_LOG(DFATAL) << "Invalid NullOrderMode: " << null_order;
   return absl::StrCat("INVALID_NULL_ORDER(", null_order, ")");
 }
 static std::string ToStringImpl(
     ResolvedCreateStatementEnums::DeterminismLevel level) {
   std::string name = ResolvedCreateStatementEnums::DeterminismLevel_Name(level);
   if (!name.empty()) return name;
-  LOG(DFATAL) << "Invalid DeterminismLevel: " << level;
+  ZETASQL_LOG(DFATAL) << "Invalid DeterminismLevel: " << level;
   return absl::StrCat("INVALID_DETERMINISM_LEVEL(", level, ")");
 }
 

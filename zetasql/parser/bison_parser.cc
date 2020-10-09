@@ -71,7 +71,7 @@ static std::string GetBisonParserModeName(BisonParserMode mode) {
       return "script";
     case BisonParserMode::kTokenizer:
     case BisonParserMode::kTokenizerPreserveComments:
-      LOG(FATAL) << "CleanUpBisonError called in tokenizer mode";
+      ZETASQL_LOG(FATAL) << "CleanUpBisonError called in tokenizer mode";
   }
 }
 
@@ -319,7 +319,7 @@ static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
                           actual_token_description);
     }
   }
-  LOG(DFATAL) << "Syntax error location not found in input";
+  ZETASQL_LOG(DFATAL) << "Syntax error location not found in input";
   return MakeSqlErrorAtPoint(error_location) << bison_error_message;
 }
 

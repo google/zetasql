@@ -56,9 +56,9 @@ class Constant {
   // Creates a named constant with <name_path>. Crashes if <name_path> is empty.
   explicit Constant(const std::vector<std::string>& name_path)
       : name_path_(name_path) {
-    // CHECK validated: Constants must have names. A call to Name() would fail
+    // ZETASQL_CHECK validated: Constants must have names. A call to Name() would fail
     // anyway.
-    CHECK(!name_path_.empty()) << FullName();
+    ZETASQL_CHECK(!name_path_.empty()) << FullName();
   }
 
   virtual ~Constant() {}

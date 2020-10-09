@@ -31,7 +31,7 @@
 //     DataObject d;
 //     while (ReadDataObject(fp, &d)) {
 //       if (d.IsBad()) {
-//         LOG(ERROR) << "Bad Data";
+//         ZETASQL_LOG(ERROR) << "Bad Data";
 //         return;
 //       }
 //       PushGoodData(d);

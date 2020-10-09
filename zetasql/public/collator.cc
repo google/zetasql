@@ -38,7 +38,7 @@ static bool ExtractCollationParts(const std::string& collation_name,
   collation_attribute->clear();
 
   const std::vector<std::string> parts = absl::StrSplit(collation_name, ':');
-  DCHECK_GT(parts.size(), 0);
+  ZETASQL_DCHECK_GT(parts.size(), 0);
   if (parts[0].empty()) {
     return false;
   }
@@ -141,7 +141,7 @@ ZetaSqlCollator* ZetaSqlCollator::CreateFromCollationName(
   const bool is_unicode = (language_tag == "unicode");
 
   std::unique_ptr<icu::Collator> icu_collator;
-  DCHECK(!language_tag.empty());
+  ZETASQL_DCHECK(!language_tag.empty());
   // No need to instantiate icu::Collator for case-sensitive Unicode collation.
   // In that case we can just compare strings as binary BLOBs.
   if (!is_unicode || is_case_insensitive) {

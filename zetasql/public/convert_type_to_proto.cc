@@ -145,7 +145,7 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
   proto_field->set_number(field_number);
   proto_field->set_label(label);
 
-  DCHECK(!proto_field->has_type());
+  ZETASQL_DCHECK(!proto_field->has_type());
   switch (field_type->kind()) {
     case TYPE_INT32:
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_INT32);
@@ -329,6 +329,13 @@ absl::Status TypeToProtoConverter::MakeStructProto(
 
   for (int i = 0; i < struct_type->num_fields(); ++i) {
     const StructType::StructField& struct_field = struct_type->field(i);
+    int field_number = i + 1;
+    // Note that [19000, 20000) are reserved tag numbers for protobuf and we
+    // cannot use them.
+    if (field_number >= google::protobuf::FieldDescriptor::kFirstReservedNumber) {
+      field_number += (google::protobuf::FieldDescriptor::kLastReservedNumber + 1 -
+                       google::protobuf::FieldDescriptor::kFirstReservedNumber);
+    }
 
     ZETASQL_RETURN_IF_ERROR(MakeFieldDescriptor(
         struct_field.type, struct_field.name,
@@ -336,8 +343,8 @@ absl::Status TypeToProtoConverter::MakeStructProto(
         // or invalid as a proto field name.
         (!IsValidFieldName(struct_field.name) ||
          !zetasql_base::InsertIfNotPresent(&field_names, struct_field.name)),
-        i + 1 /* field_number */, google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL,
-        struct_proto));
+        field_number /* field_number */,
+        google::protobuf::FieldDescriptorProto::LABEL_OPTIONAL, struct_proto));
   }
 
   return absl::OkStatus();

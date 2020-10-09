@@ -617,7 +617,7 @@ static const ASTGeneralizedPathExpression* GetTargetPath(
   } else if (ast_update_item->update_statement() != nullptr) {
     return ast_update_item->update_statement()->GetTargetPathForNested();
   } else {
-    DCHECK(ast_update_item->insert_statement() != nullptr);
+    ZETASQL_DCHECK(ast_update_item->insert_statement() != nullptr);
     return ast_update_item->insert_statement()->GetTargetPathForNested();
   }
 }
@@ -660,7 +660,7 @@ static std::string GeneralizedPathAsString(
       const std::string ret =
           absl::StrCat("Unexpected node kind in GeneralizedPathAsString: ",
                        path->GetNodeKindString());
-      DCHECK(false) << ret;
+      ZETASQL_DCHECK(false) << ret;
       return ret;
   }
 }
@@ -673,7 +673,7 @@ static const ASTAlias* GetTargetAlias(const ASTUpdateItem* ast_update_item) {
   } else if (ast_update_item->delete_statement() != nullptr) {
     return ast_update_item->delete_statement()->alias();
   } else {
-    DCHECK(ast_update_item->update_statement() != nullptr);
+    ZETASQL_DCHECK(ast_update_item->update_statement() != nullptr);
     return ast_update_item->update_statement()->alias();
   }
 }
@@ -691,7 +691,7 @@ static int GetFieldPathDepth(const ResolvedExpr* expr) {
     return 1 +
            GetFieldPathDepth(expr->GetAs<ResolvedGetStructField>()->expr());
   } else {
-    DCHECK_EQ(node_kind, RESOLVED_COLUMN_REF);
+    ZETASQL_DCHECK_EQ(node_kind, RESOLVED_COLUMN_REF);
     return 0;
   }
 }
@@ -707,7 +707,7 @@ static const ResolvedExpr* StripLastnFields(const ResolvedExpr* expr, int n) {
     return StripLastnFields(expr->GetAs<ResolvedGetProtoField>()->expr(),
                             n - 1);
   } else {
-    DCHECK_EQ(node_kind, RESOLVED_GET_STRUCT_FIELD);
+    ZETASQL_DCHECK_EQ(node_kind, RESOLVED_GET_STRUCT_FIELD);
     return StripLastnFields(expr->GetAs<ResolvedGetStructField>()->expr(),
                             n - 1);
   }
@@ -1022,7 +1022,7 @@ static absl::Status VerifyNestedStatementsOrdering(
     const ResolvedUpdateItem* resolved_update_item, bool is_nested_delete,
     bool is_nested_update) {
   // Both cannot be true for a nested statement.
-  DCHECK(!is_nested_delete || !is_nested_update);
+  ZETASQL_DCHECK(!is_nested_delete || !is_nested_update);
 
   const std::string err_message_suffix =
       "nested statements referencing the same field must be written in the"
@@ -1848,7 +1848,7 @@ absl::Status Resolver::ResolveAssertRowsModified(
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_node->num_rows(),
                                     empty_name_scope_.get(),
                                     "assert_rows_modified", &resolved_expr));
-  DCHECK(resolved_expr != nullptr);
+  ZETASQL_DCHECK(resolved_expr != nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateParameterOrLiteralAndCoerceToInt64IfNeeded(
       "ASSERT_ROWS_MODIFIED" /* clause_name */, ast_node->num_rows(),
       &resolved_expr));

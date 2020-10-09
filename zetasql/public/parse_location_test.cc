@@ -313,7 +313,7 @@ TEST(ParseLocationTranslator, GetLineTextWithOutOfBoundsLineNumbers) {
       "ghi";
   ParseLocationTranslator translator(str);
 
-  // Out of bounds locations will hit DCHECKs and DLOG(FATAL)s.
+  // Out of bounds locations will hit DCHECKs and ZETASQL_DLOG(FATAL)s.
   EXPECT_THAT(translator.GetLineText(0), StatusIs(absl::StatusCode::kInternal));
   EXPECT_THAT(translator.GetLineText(4), StatusIs(absl::StatusCode::kInternal));
 }

@@ -25,11 +25,13 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -64,8 +66,23 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
         return false;
       }
       for (const std::unique_ptr<const ResolvedExpr>& arg :
-              function_call->argument_list()) {
+           function_call->argument_list()) {
         if (!IsConstantExpression(arg.get())) {
+          return false;
+        }
+      }
+      for (const std::unique_ptr<const ResolvedFunctionArgument>& arg :
+           function_call->generic_argument_list()) {
+        if (arg->expr() != nullptr) {
+          if (!IsConstantExpression(arg->expr())) {
+            return false;
+          }
+        } else if (arg->inline_lambda() != nullptr) {
+          return false;
+        } else {
+          ZETASQL_DCHECK(false) << "Unexpected function argument: "
+                        << arg->DebugString() << "\n of function call: "
+                        << function_call->DebugString();
           return false;
         }
       }
@@ -142,7 +159,7 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
     default:
       // Update the static_assert above if adding or removing cases in
       // this switch.
-      LOG(DFATAL)
+      ZETASQL_LOG(DFATAL)
           << "Unhandled expression type " << expr->node_kind_string()
           << " in IsConstantExpression";
       return false;
@@ -205,7 +222,7 @@ SelectColumnState* SelectColumnStateList::AddSelectColumn(
 
 void SelectColumnStateList::AddSelectColumn(
     SelectColumnState* select_column_state) {
-  DCHECK_EQ(select_column_state->select_list_position, -1);
+  ZETASQL_DCHECK_EQ(select_column_state->select_list_position, -1);
   select_column_state->select_list_position = select_column_state_list_.size();
   // Save a mapping from the alias to this SelectColumnState. The mapping is
   // later used for validations performed by
@@ -296,15 +313,15 @@ absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
 
 SelectColumnState* SelectColumnStateList::GetSelectColumnState(
     int select_list_position) {
-  CHECK_GE(select_list_position, 0);
-  CHECK_LT(select_list_position, select_column_state_list_.size());
+  ZETASQL_CHECK_GE(select_list_position, 0);
+  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
   return select_column_state_list_[select_list_position].get();
 }
 
 const SelectColumnState* SelectColumnStateList::GetSelectColumnState(
     int select_list_position) const {
-  CHECK_GE(select_list_position, 0);
-  CHECK_LT(select_list_position, select_column_state_list_.size());
+  ZETASQL_CHECK_GE(select_list_position, 0);
+  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
   return select_column_state_list_[select_list_position].get();
 }
 
@@ -655,7 +672,7 @@ bool IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
   status.Update(expr1->CheckFieldsAccessed());
   status.Update(expr2->CheckFieldsAccessed());
   if (!status.ok()) {
-    LOG(DFATAL) << status;
+    ZETASQL_LOG(DFATAL) << status;
     return false;
   }
 
@@ -671,11 +688,11 @@ static absl::Status ExtractArgumentNameFromExpr(const ASTExpression* arg_expr,
       arg_expr->GetAsOrNull<ASTPathExpression>();
   if (path_expr == nullptr) {
     return MakeSqlErrorAt(arg_expr)
-           << "Expecting lambda argument as a single identifier";
+           << "Lambda argument name must be a single identifier";
   }
   if (path_expr->num_names() != 1) {
     return MakeSqlErrorAt(arg_expr)
-           << "Expecting lambda argument as a single identifier";
+           << "Lambda argument name must be a single identifier";
   }
   if (names != nullptr) {
     names->push_back(path_expr->name(0)->GetAsIdString());
@@ -715,7 +732,8 @@ zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
   return names;
 }
 
-absl::Status CheckLambdaArgument(const ASTLambda* ast_lambda) {
+absl::Status ValidateLambdaArgumentListIsIdentifierList(
+    const ASTLambda* ast_lambda) {
   return ExtractLambdaArgumentNames(ast_lambda, /*names=*/nullptr);
 }
 

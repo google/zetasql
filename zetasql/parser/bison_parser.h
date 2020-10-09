@@ -111,7 +111,7 @@ class BisonParser {
   // returned characters will remain valid throughout Parse().
   absl::string_view GetInputText(
       const zetasql_bison_parser::location& bison_location) const {
-    DCHECK_GE(bison_location.end.column, bison_location.begin.column);
+    ZETASQL_DCHECK_GE(bison_location.end.column, bison_location.begin.column);
     return absl::string_view(
         input_.data() + bison_location.begin.column,
         bison_location.end.column - bison_location.begin.column);

@@ -428,7 +428,7 @@ TEST(TupleDataOrderedQueue, InsertAndPopTest) {
   TupleDataOrderedQueue q(*comparator, &accountant);
 
   for (const bool pop_back : {false, true}) {
-    LOG(INFO) << "Testing with pop_back: " << pop_back;
+    ZETASQL_LOG(INFO) << "Testing with pop_back: " << pop_back;
 
     // Insert a few tuples.
     int num_tuples = 0;
@@ -730,7 +730,7 @@ TEST(ArrayBuilder, MoveAndCopyValues) {
 TEST(ReorderingTupleIterator, BasicTest) {
   for (int size = 0; size <= 500; ++size) {
     for (bool error : {false, true}) {
-      LOG(INFO) << "Testing with iterator size " << size << " and ending with "
+      ZETASQL_LOG(INFO) << "Testing with iterator size " << size << " and ending with "
                 << (error ? "error" : "success");
       std::vector<Value> values;
       values.reserve(size);

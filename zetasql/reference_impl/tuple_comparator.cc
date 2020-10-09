@@ -106,8 +106,8 @@ bool TupleComparator::operator()(const TupleData& t1,
     }
 
     if (collator != nullptr) {
-      DCHECK(v1.type()->IsString());
-      DCHECK(v2.type()->IsString());
+      ZETASQL_DCHECK(v1.type()->IsString());
+      ZETASQL_DCHECK(v2.type()->IsString());
       absl::Status status;
       int64_t result =
           collator->CompareUtf8(v1.string_value(), v2.string_value(), &status);

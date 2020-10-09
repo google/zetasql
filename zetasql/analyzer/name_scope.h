@@ -372,7 +372,7 @@ class NameTarget {
   Kind kind() const { return kind_; }
 
   Kind original_kind() const {
-    DCHECK(IsAccessError());
+    ZETASQL_DCHECK(IsAccessError());
     return original_kind_;
   }
 
@@ -425,19 +425,19 @@ class NameTarget {
   }
 
   const std::shared_ptr<const NameList>& scan_columns() const {
-    DCHECK_EQ(kind_, RANGE_VARIABLE);
+    ZETASQL_DCHECK_EQ(kind_, RANGE_VARIABLE);
     return scan_columns_;
   }
   const ResolvedColumn& column() const {
-    DCHECK(IsColumn()) << DebugString();
+    ZETASQL_DCHECK(IsColumn()) << DebugString();
     return column_;
   }
   const ResolvedColumn& column_containing_field() const {
-    DCHECK(IsFieldOf()) << DebugString();
+    ZETASQL_DCHECK(IsFieldOf()) << DebugString();
     return column_;
   }
   int field_id() const {
-    DCHECK(IsFieldOf()) << DebugString();
+    ZETASQL_DCHECK(IsFieldOf()) << DebugString();
     return field_id_;
   }
 
@@ -458,8 +458,8 @@ class NameTarget {
   // must not be AMBIGUOUS since if the original NameTarget was
   // AMBIGUOUS then accessing fields from it cannot be valid.
   void AddNamePathToColumn(const ValidNamePath& info) {
-    DCHECK(IsAccessError()) << DebugString();
-    DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
+    ZETASQL_DCHECK(IsAccessError()) << DebugString();
+    ZETASQL_DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
     valid_name_path_list_.push_back(info);
   }
 
@@ -467,8 +467,8 @@ class NameTarget {
   // must not be AMBIGUOUS since if the original NameTarget was
   // AMBIGUOUS then accessing fields from it cannot be valid.
   void AppendValidNamePathList(const ValidNamePathList& info_list) {
-    DCHECK(IsAccessError()) << DebugString();
-    DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
+    ZETASQL_DCHECK(IsAccessError()) << DebugString();
+    ZETASQL_DCHECK(!IsAmbiguousKind(original_kind_)) << DebugString();
     valid_name_path_list_.insert(valid_name_path_list_.end(),
                                  info_list.begin(), info_list.end());
   }

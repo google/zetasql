@@ -156,7 +156,7 @@ static std::vector<Type> ConcatTests(
 
 static Value KitchenSink_equivalent(const std::string& proto_str) {
   zetasql_test::KitchenSinkPB kitchen_sink_message;
-  CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
   return Value::Proto(KitchenSinkProtoType_equivalent(),
                       SerializeToCord(kitchen_sink_message));
@@ -2010,47 +2010,47 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   // Scratch message.
   zetasql_test::KitchenSinkPB kitchen_sink_message;
 
-  CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_1,
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_1,
                                             &kitchen_sink_message));
   absl::Cord kitchen_sink_cord_1 = SerializeToCord(kitchen_sink_message);
 
   const google::protobuf::Reflection* reflection = kitchen_sink_message.GetReflection();
   google::protobuf::UnknownFieldSet* unknown_fields =
       reflection->MutableUnknownFields(&kitchen_sink_message);
-  CHECK(unknown_fields->empty());
+  ZETASQL_CHECK(unknown_fields->empty());
   const int reserved_tag_number = 103;
-  CHECK(kitchen_sink_message.GetDescriptor()->IsReservedNumber(
+  ZETASQL_CHECK(kitchen_sink_message.GetDescriptor()->IsReservedNumber(
       reserved_tag_number));
   unknown_fields->AddVarint(reserved_tag_number, /*value=*/1000);
   absl::Cord kitchen_sink_cord_5 = SerializeToCord(kitchen_sink_message);
 
-  CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_2,
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_2,
                                             &kitchen_sink_message));
   absl::Cord kitchen_sink_cord_2 = SerializeToCord(kitchen_sink_message);
-  CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_3,
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_3,
                                             &kitchen_sink_message));
   absl::Cord kitchen_sink_cord_3 = SerializeToCord(kitchen_sink_message);
-  CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_4,
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_4,
                                             &kitchen_sink_message));
   absl::Cord kitchen_sink_cord_4 = SerializeToCord(kitchen_sink_message);
 
   zetasql_test::NullableInt nullable_int_message;
   const std::string nullable_int_string_1("value: 1");
-  CHECK(google::protobuf::TextFormat::ParseFromString(nullable_int_string_1,
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(nullable_int_string_1,
                                             &nullable_int_message));
   absl::Cord nullable_int_cord_1 = SerializeToCord(nullable_int_message);
 
   // Set up some equivalent but not equal enums and protos, both null and
   // non-null.
-  CHECK(!enum_value.type()->Equals(TestEnumType_equivalent()));
-  CHECK(enum_value.type()->Equivalent(TestEnumType_equivalent()));
+  ZETASQL_CHECK(!enum_value.type()->Equals(TestEnumType_equivalent()));
+  ZETASQL_CHECK(enum_value.type()->Equivalent(TestEnumType_equivalent()));
 
-  CHECK(!null_proto.type()->Equals(KitchenSinkProtoType_equivalent()));
-  CHECK(null_proto.type()->Equivalent(KitchenSinkProtoType_equivalent()));
+  ZETASQL_CHECK(!null_proto.type()->Equals(KitchenSinkProtoType_equivalent()));
+  ZETASQL_CHECK(null_proto.type()->Equivalent(KitchenSinkProtoType_equivalent()));
 
-  CHECK(!KitchenSink(kitchen_sink_string_1).type()->Equals(
+  ZETASQL_CHECK(!KitchenSink(kitchen_sink_string_1).type()->Equals(
           KitchenSink_equivalent(kitchen_sink_string_1).type()));
-  CHECK(KitchenSink(kitchen_sink_string_1).type()->Equivalent(
+  ZETASQL_CHECK(KitchenSink(kitchen_sink_string_1).type()->Equivalent(
           KitchenSink_equivalent(kitchen_sink_string_1).type()));
 
   const Value enum_value_equivalent = Value::Enum(TestEnumType_equivalent(), 1);
@@ -2076,7 +2076,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       google::protobuf::MessageFactory::generated_factory()
           ->GetPrototype(string_int32_descriptor)
           ->New());
-  CHECK(google::protobuf::TextFormat::ParseFromString("key: 'aaa' value: 777",
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString("key: 'aaa' value: 777",
                                             string_int32_message.get()));
   const Value string_int32_map_entry = Value::Proto(
       StringInt32MapEntryType(), SerializeToCord(*string_int32_message));
@@ -2293,7 +2293,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
 std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast() {
   std::vector<QueryParamsWithResult> tests;
   for (const QueryParamsWithResult& test : GetFunctionTestsCast()) {
-    CHECK_EQ(1, test.params().size()) << test;
+    ZETASQL_CHECK_EQ(1, test.params().size()) << test;
 
     using FeatureSet = QueryParamsWithResult::FeatureSet;
     using Result = QueryParamsWithResult::Result;
@@ -2333,7 +2333,7 @@ std::vector<QueryParamsWithResult>
 GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
   std::vector<QueryParamsWithResult> tests;
   for (const QueryParamsWithResult& test : GetFunctionTestsCast()) {
-    CHECK_EQ(1, test.params().size()) << test;
+    ZETASQL_CHECK_EQ(1, test.params().size()) << test;
 
     for (const auto& test_result : test.results()) {
       const QueryParamsWithResult::FeatureSet& feature_set = test_result.first;
@@ -2355,7 +2355,7 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
         Value from_array = Value::Array(from_array_type, {cast_value});
         Value to_array = Value::Array(to_array_type, {result_value});
 
-        CHECK_EQ(0,
+        ZETASQL_CHECK_EQ(0,
                  feature_set.count(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
         tests.push_back(QueryParamsWithResult(
             {from_array},

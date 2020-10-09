@@ -166,7 +166,7 @@ template <typename OutType, typename InType = OutType>
 bool InvokeUnary(typename UnaryExecutor<OutType, InType>::ptr function,
                  absl::Span<const Value> args, Value* result,
                  absl::Status* status) {
-  CHECK_EQ(1, args.size());
+  ZETASQL_CHECK_EQ(1, args.size());
   OutType out;
   if (!function(args[0].template Get<InType>(), &out, status)) {
     return false;
@@ -195,7 +195,7 @@ template <typename OutType, typename InType1 = OutType,
 bool InvokeBinary(
     typename BinaryExecutor<OutType, InType1, InType2>::ptr function,
     absl::Span<const Value> args, Value* result, absl::Status* status) {
-  CHECK_EQ(2, args.size());
+  ZETASQL_CHECK_EQ(2, args.size());
   OutType out;
   if (!function(args[0].template Get<InType1>(),
                 args[1].template Get<InType2>(), &out, status)) {
@@ -388,11 +388,11 @@ class FunctionMap {
   // implications here since it is called once per process invocation.
   void RegisterFunction(FunctionKind kind, absl::string_view name,
                         absl::string_view debug_name) {
-    CHECK(zetasql_base::InsertIfNotPresent(&function_debug_name_by_kind_, kind,
+    ZETASQL_CHECK(zetasql_base::InsertIfNotPresent(&function_debug_name_by_kind_, kind,
                                   std::string(debug_name)))
         << "Duplicate function debug_name: " << debug_name;
     if (!name.empty()) {
-      CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, std::string(name),
+      ZETASQL_CHECK(zetasql_base::InsertIfNotPresent(&function_kind_by_name_, std::string(name),
                                     kind))
           << "Duplicate function name: " << name;
     }
@@ -1075,7 +1075,7 @@ BuiltinFunctionRegistry::GetFunctionMap() {
 // given array has more than one element and is not order-preserving.
 void MaybeSetNonDeterministicArrayOutput(const Value& array,
                                          EvaluationContext* context) {
-  DCHECK(array.type()->IsArray());
+  ZETASQL_DCHECK(array.type()->IsArray());
   if (!array.is_null() && array.num_elements() > 1 &&
       (InternalValue::GetOrderKind(array) == InternalValue::kIgnoresOrder)) {
     context->SetNonDeterministicOutput();
@@ -1664,7 +1664,7 @@ static bool HasNaNs(absl::Span<const Value> args) {
 bool LeastFunction::Eval(absl::Span<const Value> args,
                          EvaluationContext* context, Value* result,
                          absl::Status* status) const {
-  DCHECK_GT(args.size(), 0);
+  ZETASQL_DCHECK_GT(args.size(), 0);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -1685,7 +1685,7 @@ bool LeastFunction::Eval(absl::Span<const Value> args,
 bool GreatestFunction::Eval(absl::Span<const Value> args,
                             EvaluationContext* context, Value* result,
                             absl::Status* status) const {
-  DCHECK_GT(args.size(), 0);
+  ZETASQL_DCHECK_GT(args.size(), 0);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -1705,7 +1705,7 @@ bool GreatestFunction::Eval(absl::Span<const Value> args,
 
 zetasql_base::StatusOr<Value> ToCodePointsFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 1);
+  ZETASQL_DCHECK_EQ(args.size(), 1);
   if (args[0].is_null()) return Value::Null(output_type());
 
   std::vector<int64_t> codepoints;
@@ -1732,7 +1732,7 @@ zetasql_base::StatusOr<Value> ToCodePointsFunction::Eval(
 
 zetasql_base::StatusOr<Value> CodePointsToFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 1);
+  ZETASQL_DCHECK_EQ(args.size(), 1);
   if (args[0].is_null()) return Value::Null(output_type());
 
   MaybeSetNonDeterministicArrayOutput(args[0], context);
@@ -1766,9 +1766,9 @@ zetasql_base::StatusOr<Value> CodePointsToFunction::Eval(
 
 zetasql_base::StatusOr<Value> FormatFunction::Eval(absl::Span<const Value> args,
                                            EvaluationContext* context) const {
-  DCHECK_GE(args.size(), 1);
+  ZETASQL_DCHECK_GE(args.size(), 1);
   if (args[0].is_null()) return Value::NullString();
-  DCHECK(args[0].type()->IsString());
+  ZETASQL_DCHECK(args[0].type()->IsString());
 
   std::string output;
   bool is_null;
@@ -1802,8 +1802,8 @@ zetasql_base::StatusOr<Value> FormatFunction::Eval(absl::Span<const Value> args,
 
 zetasql_base::StatusOr<Value> GenerateArrayFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_GE(args.size(), 2);
-  DCHECK_LE(args.size(), 4);
+  ZETASQL_DCHECK_GE(args.size(), 2);
+  ZETASQL_DCHECK_LE(args.size(), 4);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -1909,7 +1909,7 @@ absl::Status CheckArrayElementInRangeBucket(absl::Span<const Value> elements,
 
 zetasql_base::StatusOr<Value> RangeBucketFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  ZETASQL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args) || IsNaN(args[0])) {
     return Value::NullInt64();
   }
@@ -1937,9 +1937,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
                               absl::Status* status) const {
   if (kind() == FunctionKind::kUnaryMinus ||
       kind() == FunctionKind::kSafeNegate) {
-    DCHECK_EQ(1, args.size());
+    ZETASQL_DCHECK_EQ(1, args.size());
   } else {
-    DCHECK_EQ(2, args.size());
+    ZETASQL_DCHECK_EQ(2, args.size());
   }
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
@@ -2167,7 +2167,7 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
 bool ComparisonFunction::Eval(absl::Span<const Value> args,
                               EvaluationContext* context, Value* result,
                               absl::Status* status) const {
-  DCHECK_EQ(2, args.size());
+  ZETASQL_DCHECK_EQ(2, args.size());
 
   const Value& x = args[0];
   const Value& y = args[1];
@@ -2302,7 +2302,7 @@ bool ComparisonFunction::Eval(absl::Span<const Value> args,
 bool ExistsFunction::Eval(absl::Span<const Value> args,
                           EvaluationContext* context, Value* result,
                           absl::Status* status) const {
-  DCHECK_EQ(1, args.size());
+  ZETASQL_DCHECK_EQ(1, args.size());
   *result = Value::Bool(!args[0].empty());
   return true;
 }
@@ -2310,7 +2310,7 @@ bool ExistsFunction::Eval(absl::Span<const Value> args,
 bool ArrayConcatFunction::Eval(absl::Span<const Value> args,
                                EvaluationContext* context, Value* result,
                                absl::Status* status) const {
-  DCHECK_LE(1, args.size());
+  ZETASQL_DCHECK_LE(1, args.size());
   if (HasNulls(args)) {
     Value tracked_value = Value::Null(output_type());
     if (tracked_value.physical_byte_size() >
@@ -2353,7 +2353,7 @@ bool ArrayConcatFunction::Eval(absl::Span<const Value> args,
 bool ArrayLengthFunction::Eval(absl::Span<const Value> args,
                                EvaluationContext* context, Value* result,
                                absl::Status* status) const {
-  DCHECK_EQ(1, args.size());
+  ZETASQL_DCHECK_EQ(1, args.size());
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -2365,7 +2365,7 @@ bool ArrayLengthFunction::Eval(absl::Span<const Value> args,
 bool ArrayElementFunction::Eval(absl::Span<const Value> args,
                                 EvaluationContext* context, Value* result,
                                 absl::Status* status) const {
-  DCHECK_EQ(2, args.size());
+  ZETASQL_DCHECK_EQ(2, args.size());
   const Value& array = args[0];
   // If any of the arguments to the function is NULL, it should return NULL
   // of the element type.
@@ -2404,8 +2404,8 @@ bool ArrayElementFunction::Eval(absl::Span<const Value> args,
 
 zetasql_base::StatusOr<Value> ArrayToStringFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_GE(args.size(), 2);
-  DCHECK_LE(args.size(), 3);
+  ZETASQL_DCHECK_GE(args.size(), 2);
+  ZETASQL_DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string delim = args[1].type()->IsString() ? args[1].string_value()
                                                  : args[1].bytes_value();
@@ -2439,7 +2439,7 @@ zetasql_base::StatusOr<Value> ArrayToStringFunction::Eval(
 
 zetasql_base::StatusOr<Value> ArrayReverseFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 1);
+  ZETASQL_DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -2453,7 +2453,7 @@ zetasql_base::StatusOr<Value> ArrayReverseFunction::Eval(
 
 zetasql_base::StatusOr<Value> ArrayIsDistinctFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 1);
+  ZETASQL_DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -2486,7 +2486,7 @@ zetasql_base::StatusOr<Value> ArrayIsDistinctFunction::Eval(
 
 bool IsFunction::Eval(absl::Span<const Value> args, EvaluationContext* context,
                       Value* result, absl::Status* status) const {
-  DCHECK_EQ(1, args.size());
+  ZETASQL_DCHECK_EQ(1, args.size());
   const Value& val = args[0];
   switch (kind()) {
     case FunctionKind::kIsNull:
@@ -2507,7 +2507,7 @@ bool IsFunction::Eval(absl::Span<const Value> args, EvaluationContext* context,
 
 zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
-  DCHECK_GE(args.size(), 1);
+  ZETASQL_DCHECK_GE(args.size(), 1);
   const Value& v = args[0];
   const bool return_null_on_error =
       args.size() == 2 ? args[1].bool_value() : false;
@@ -2531,7 +2531,7 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
 bool BitCastFunction::Eval(absl::Span<const Value> args,
                            EvaluationContext* context, Value* result,
                            absl::Status* status) const {
-  DCHECK_EQ(args.size(), 1);
+  ZETASQL_DCHECK_EQ(args.size(), 1);
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -2579,7 +2579,7 @@ bool LogicalFunction::Eval(absl::Span<const Value> args,
           known_false = true;
         }
       }
-      DCHECK(!(known_true && known_false));
+      ZETASQL_DCHECK(!(known_true && known_false));
       *result = known_true
                     ? Value::Bool(true)
                     : (known_false ? Value::Bool(false) : Value::NullBool());
@@ -2597,14 +2597,14 @@ bool LogicalFunction::Eval(absl::Span<const Value> args,
           known_false = false;
         }
       }
-      DCHECK(!(known_true && known_false));
+      ZETASQL_DCHECK(!(known_true && known_false));
       *result = known_true
                     ? Value::Bool(true)
                     : (known_false ? Value::Bool(false) : Value::NullBool());
       return true;
     }
     case FCT(FunctionKind::kNot, TYPE_BOOL): {
-      DCHECK_EQ(1, args.size());
+      ZETASQL_DCHECK_EQ(1, args.size());
       *result =
           args[0].is_null() ? args[0] : Value::Bool(!args[0].bool_value());
       return true;
@@ -3782,7 +3782,7 @@ BinaryStatFunction::CreateAccumulator(absl::Span<const Value> args,
 
 zetasql_base::StatusOr<Value> LikeFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
-  CHECK_EQ(2, args.size());
+  ZETASQL_CHECK_EQ(2, args.size());
   if (HasNulls(args)) return Value::Null(output_type());
   const std::string& text = args[0].type_kind() == TYPE_STRING
                                 ? args[0].string_value()
@@ -3921,7 +3921,7 @@ bool BitwiseFunction::Eval(absl::Span<const Value> args,
 bool BitCountFunction::Eval(absl::Span<const Value> args,
                             EvaluationContext* context, Value* result,
                             absl::Status* status) const {
-  CHECK_EQ(1, args.size());
+  ZETASQL_CHECK_EQ(1, args.size());
   if (HasNulls(args)) {
     *result = Value::Null(output_type());
     return true;
@@ -4573,7 +4573,7 @@ zetasql_base::StatusOr<Value> CaseConverterFunction::Eval(
 
 zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  CHECK_EQ(args.size(), fields_.size());
+  ZETASQL_CHECK_EQ(args.size(), fields_.size());
   absl::Cord proto_cord;
   std::string bytes_str;
   {
@@ -4792,8 +4792,8 @@ zetasql_base::StatusOr<Value> DateTimeUnaryFunction::Eval(
 
 zetasql_base::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_GE(args.size(), 2);
-  DCHECK_LE(args.size(), 3);
+  ZETASQL_DCHECK_GE(args.size(), 2);
+  ZETASQL_DCHECK_LE(args.size(), 3);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string result_string;
   switch (args[1].type_kind()) {
@@ -4827,7 +4827,7 @@ zetasql_base::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
 
 zetasql_base::StatusOr<Value> FormatTimeFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  ZETASQL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   std::string result_string;
   ZETASQL_RETURN_IF_ERROR(functions::FormatTimeToString(
@@ -4928,8 +4928,13 @@ zetasql_base::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
       } else if (args.size() == 1 && args[0].type()->IsDate()) {
         return args[0];
       } else if (args.size() == 1 && args[0].type()->IsString()) {
-        ZETASQL_RETURN_IF_ERROR(
-            functions::ConvertStringToDate(args[0].string_value(), &date));
+        int64_t timestamp_micros;
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
+            args[0].string_value(), context->GetDefaultTimeZone(),
+            functions::kMicroseconds, true, &timestamp_micros));
+        ZETASQL_RETURN_IF_ERROR(functions::ExtractFromTimestamp(
+            functions::DATE, timestamp_micros, functions::kMicroseconds,
+            context->GetDefaultTimeZone(), &date));
       } else {
         return ::zetasql_base::UnimplementedErrorBuilder()
                << "Unsupported function: " << debug_name();
@@ -5155,7 +5160,7 @@ zetasql_base::StatusOr<Value> StringConversionFunction::Eval(
 
 zetasql_base::StatusOr<Value> ParseDateFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  ZETASQL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   int32_t date;
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDate(
@@ -5165,7 +5170,7 @@ zetasql_base::StatusOr<Value> ParseDateFunction::Eval(
 
 zetasql_base::StatusOr<Value> ParseDatetimeFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  ZETASQL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   DatetimeValue datetime;
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToDatetime(
@@ -5176,7 +5181,7 @@ zetasql_base::StatusOr<Value> ParseDatetimeFunction::Eval(
 
 zetasql_base::StatusOr<Value> ParseTimeFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  ZETASQL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) return Value::Null(output_type());
   TimeValue time;
   ZETASQL_RETURN_IF_ERROR(functions::ParseStringToTime(
@@ -6328,7 +6333,7 @@ absl::Status NthValueFunction::Eval(
 // the bound, otherwise returns 'default_value'.
 static Value GetOutputAtOffset(int offset, const std::vector<Value>& arg_values,
                                const Value& default_value) {
-  DCHECK(!arg_values.empty());
+  ZETASQL_DCHECK(!arg_values.empty());
   if (offset < 0 || offset >= arg_values.size()) {
     return default_value;
   }

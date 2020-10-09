@@ -76,11 +76,11 @@ size_t PercentileHelper<double>::ComputePercentileIndex(
       *left_weight = 1 - *right_weight;
     }
     const size_t index = static_cast<size_t>(product >> num_fractional_bits_);
-    DCHECK_LE(index, max_index);
-    DCHECK_GE(*left_weight, 0);
-    DCHECK_LE(*left_weight, 1);
-    DCHECK_GE(*right_weight, 0);
-    DCHECK_LE(*right_weight, 1);
+    ZETASQL_DCHECK_LE(index, max_index);
+    ZETASQL_DCHECK_GE(*left_weight, 0);
+    ZETASQL_DCHECK_LE(*left_weight, 1);
+    ZETASQL_DCHECK_GE(*right_weight, 0);
+    ZETASQL_DCHECK_LE(*right_weight, 1);
     return index;
   }
   *right_weight = std::ldexp(static_cast<long double>(product),
@@ -108,7 +108,7 @@ size_t PercentileHelper<NumericValue>::ComputePercentileIndex(
   *left_weight =
       NumericValue::FromScaledValue(NumericValue::kScalingFactor - scaled_mod);
   *right_weight = NumericValue::FromScaledValue(scaled_mod);
-  DCHECK_EQ(scaled_index.number()[1], 0);
+  ZETASQL_DCHECK_EQ(scaled_index.number()[1], 0);
   return scaled_index.number()[0];
 }
 
@@ -116,11 +116,11 @@ size_t PercentileHelper<NumericValue>::ComputePercentileIndex(
 NumericValue PercentileHelper<NumericValue>::ComputeLinearInterpolation(
     NumericValue left_value, NumericValue left_weight, NumericValue right_value,
     NumericValue right_weight) {
-  DCHECK_GE(left_weight, NumericValue(0));
-  DCHECK_LE(left_weight, NumericValue(1));
-  DCHECK_GE(right_weight, NumericValue(0));
-  DCHECK_LE(right_weight, NumericValue(1));
-  DCHECK_EQ(left_weight.low_bits() + right_weight.low_bits(),
+  ZETASQL_DCHECK_GE(left_weight, NumericValue(0));
+  ZETASQL_DCHECK_LE(left_weight, NumericValue(1));
+  ZETASQL_DCHECK_GE(right_weight, NumericValue(0));
+  ZETASQL_DCHECK_LE(right_weight, NumericValue(1));
+  ZETASQL_DCHECK_EQ(left_weight.low_bits() + right_weight.low_bits(),
             NumericValue::kScalingFactor)
       << "left_weight + right_weight must be 1";
   __int128 packed_left_value = left_value.as_packed_int();
@@ -132,7 +132,7 @@ NumericValue PercentileHelper<NumericValue>::ComputeLinearInterpolation(
   scaled_left_value += scaled_right_value;
   scaled_left_value.DivAndRoundAwayFromZero(NumericValue::kScalingFactor);
   __int128 packed_result = static_cast<__int128>(scaled_left_value);
-  DCHECK(scaled_left_value == (FixedInt<64, 3>(packed_result)));
+  ZETASQL_DCHECK(scaled_left_value == (FixedInt<64, 3>(packed_result)));
   auto status_or_result = NumericValue::FromPackedInt(packed_result);
   if (ABSL_PREDICT_TRUE(status_or_result.ok())) {
     return status_or_result.value();
@@ -165,12 +165,12 @@ size_t PercentileHelper<BigNumericValue>::ComputePercentileIndex(
       scaled_percentile_, FixedUint<64, 1>(static_cast<uint64_t>(max_index)));
   FixedUint<64, 2> index =
       BigNumericValue::RemoveScalingFactor</* round = */ false>(scaled_index);
-  DCHECK_EQ(index.number()[1], 0);
+  ZETASQL_DCHECK_EQ(index.number()[1], 0);
   uint64_t result = index.number()[0];
   FixedUint<64, 2> scaled_left_weight(BigNumericValue::kScalingFactor);
   scaled_index -=
       ExtendAndMultiply(scaled_left_weight, FixedUint<64, 1>(result));
-  DCHECK(scaled_index < (FixedUint<64, 3>(BigNumericValue::kScalingFactor)));
+  ZETASQL_DCHECK(scaled_index < (FixedUint<64, 3>(BigNumericValue::kScalingFactor)));
   scaled_left_weight -= FixedUint<64, 2>(scaled_index);
   *left_weight = BigNumericValue::FromPackedLittleEndianArray(
       FixedUint<64, 4>(scaled_left_weight).number());
@@ -181,8 +181,8 @@ size_t PercentileHelper<BigNumericValue>::ComputePercentileIndex(
 
 inline FixedInt<64, 6> MultiplyValueByWeight(const BigNumericValue& value,
                                              const BigNumericValue& weight) {
-  DCHECK_GE(weight, BigNumericValue(0));
-  DCHECK_LE(weight, BigNumericValue(1));
+  ZETASQL_DCHECK_GE(weight, BigNumericValue(0));
+  ZETASQL_DCHECK_LE(weight, BigNumericValue(1));
   FixedInt<64, 2> scaled_weight(
       FixedInt<64, 4>(weight.ToPackedLittleEndianArray()));
   return ExtendAndMultiply(FixedInt<64, 4>(value.ToPackedLittleEndianArray()),
@@ -193,18 +193,18 @@ inline FixedInt<64, 6> MultiplyValueByWeight(const BigNumericValue& value,
 BigNumericValue PercentileHelper<BigNumericValue>::ComputeLinearInterpolation(
     const BigNumericValue& left_value, const BigNumericValue& left_weight,
     const BigNumericValue& right_value, const BigNumericValue& right_weight) {
-  DCHECK_EQ(left_weight.Add(right_weight).value(), BigNumericValue(1))
+  ZETASQL_DCHECK_EQ(left_weight.Add(right_weight).value(), BigNumericValue(1))
       << "left_weight + right_weight must be 1";
   FixedInt<64, 6> scaled_sum = MultiplyValueByWeight(left_value, left_weight);
   bool overflow =
       scaled_sum.AddOverflow(MultiplyValueByWeight(right_value, right_weight));
-  DCHECK(!overflow) << "Unexpected overflow: " << left_value << " * "
+  ZETASQL_DCHECK(!overflow) << "Unexpected overflow: " << left_value << " * "
                     << left_weight << " + " << right_value << " * "
                     << right_weight;
   FixedUint<64, 5> sum_abs =
       BigNumericValue::RemoveScalingFactor</* round = */ true>(
           scaled_sum.abs());
-  DCHECK_EQ(sum_abs.number()[4], 0);
+  ZETASQL_DCHECK_EQ(sum_abs.number()[4], 0);
   FixedInt<64, 4> result(sum_abs);
   if (scaled_sum.is_negative()) {
     result = -result;

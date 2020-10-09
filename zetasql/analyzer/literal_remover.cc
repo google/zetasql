@@ -48,8 +48,8 @@ namespace zetasql {
 struct LiteralParseLocationComparator {
   bool operator()(const ResolvedLiteral* l1, const ResolvedLiteral* l2)
       const {
-    DCHECK(l1->GetParseLocationRangeOrNULL() != nullptr);
-    DCHECK(l2->GetParseLocationRangeOrNULL() != nullptr);
+    ZETASQL_DCHECK(l1->GetParseLocationRangeOrNULL() != nullptr);
+    ZETASQL_DCHECK(l2->GetParseLocationRangeOrNULL() != nullptr);
     return l1->GetParseLocationRangeOrNULL()->start() <
            l2->GetParseLocationRangeOrNULL()->start();
   }
@@ -59,8 +59,8 @@ struct LiteralParseLocationComparator {
 // same value (and hence type). Such literals are created in analytical
 // functions. The ParseLocationRange must be set on all compared literals.
 static bool IsSameLiteral(const ResolvedLiteral* a, const ResolvedLiteral* b) {
-  DCHECK(a->GetParseLocationRangeOrNULL() != nullptr);
-  DCHECK(b->GetParseLocationRangeOrNULL() != nullptr);
+  ZETASQL_DCHECK(a->GetParseLocationRangeOrNULL() != nullptr);
+  ZETASQL_DCHECK(b->GetParseLocationRangeOrNULL() != nullptr);
   const ParseLocationRange& location_a = *a->GetParseLocationRangeOrNULL();
   const ParseLocationRange& location_b = *b->GetParseLocationRangeOrNULL();
   return location_a == location_b && a->value() == b->value();
@@ -86,7 +86,7 @@ absl::Status ReplaceLiteralsByParameters(
     const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql) {
-  CHECK(analyzer_output != nullptr);
+  ZETASQL_CHECK(analyzer_output != nullptr);
   literal_map->clear();
   generated_parameters->clear();
   result_sql->clear();

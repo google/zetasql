@@ -77,7 +77,7 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       id_string_pool_(analyzer_options_.id_string_pool().get()) {
   function_resolver_ =
       absl::make_unique<FunctionResolver>(catalog, type_factory, this);
-  DCHECK(analyzer_options_.AllArenasAreInitialized());
+  ZETASQL_DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
 Resolver::~Resolver() {
@@ -115,11 +115,11 @@ int Resolver::AllocateColumnId() {
   int64_t id = next_column_id_sequence_->GetNext();
   if (id == 0) {  // Avoid using column_id 0.
     id = next_column_id_sequence_->GetNext();
-    DCHECK_NE(id, 0);
+    ZETASQL_DCHECK_NE(id, 0);
   }
   // Should be impossible for this to happen unless sharing across huge
   // numbers of queries.  If it does, column_ids will wrap around as int32s.
-  DCHECK_LE(id, std::numeric_limits<int32_t>::max());
+  ZETASQL_DCHECK_LE(id, std::numeric_limits<int32_t>::max());
   max_column_id_ = static_cast<int>(id);
   return max_column_id_;
 }
@@ -576,7 +576,7 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
           (column_set != correlated_columns_sets.back());
       if (!zetasql_base::InsertIfNotPresent(column_set, column, is_already_correlated)) {
         // is_already_correlated should always be computed consistently.
-        DCHECK_EQ((*column_set)[column], is_already_correlated);
+        ZETASQL_DCHECK_EQ((*column_set)[column], is_already_correlated);
       }
     }
   }
@@ -603,7 +603,7 @@ absl::Status Resolver::ResolvePathExpressionAsType(
         Type::GetTypeKindIfSimple(identifier_path[0], language());
     if (type_kind != TYPE_UNKNOWN) {
       *resolved_type = type_factory_->MakeSimpleType(type_kind);
-      DCHECK((*resolved_type)->IsSupportedType(language()))
+      ZETASQL_DCHECK((*resolved_type)->IsSupportedType(language()))
           << identifier_path[0];
       return absl::OkStatus();
     }
@@ -1063,9 +1063,9 @@ absl::Status Resolver::FindTable(
 
 void Resolver::FindColumnIndex(const Table* table, const std::string& name,
                                int* index, bool* duplicate) {
-  DCHECK(table != nullptr);
-  DCHECK(index != nullptr);
-  DCHECK(duplicate != nullptr);
+  ZETASQL_DCHECK(table != nullptr);
+  ZETASQL_DCHECK(index != nullptr);
+  ZETASQL_DCHECK(duplicate != nullptr);
 
   *index = -1;
   *duplicate = false;
@@ -1087,7 +1087,7 @@ zetasql_base::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
 
   // Quick check for a common case.
   if (type1->Equals(type2)) {
-    return type1->SupportsEquality(analyzer_options_.language_options());
+    return type1->SupportsEquality(analyzer_options_.language());
   }
 
   // INT64 and UINT64 support equality but cannot be coerced to a common type.
@@ -1095,8 +1095,8 @@ zetasql_base::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
   // Although not all numerical types are coerceable to all other numerical
   // types, we nonetheless support equality between all numerical types.
   if (type1->IsNumerical() && type2->IsNumerical()) {
-    return type1->SupportsEquality(analyzer_options_.language_options())
-        && type2->SupportsEquality(analyzer_options_.language_options());
+    return type1->SupportsEquality(analyzer_options_.language()) &&
+           type2->SupportsEquality(analyzer_options_.language());
   }
 
   // Check if values of these types can be coerced to a common supertype that
@@ -1108,8 +1108,8 @@ zetasql_base::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
   arg_set.Insert(arg2);
   const Type* supertype = nullptr;
   ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(arg_set, &supertype));
-  return supertype != nullptr
-      && supertype->SupportsEquality(analyzer_options_.language_options());
+  return supertype != nullptr &&
+         supertype->SupportsEquality(analyzer_options_.language());
 }
 
 }  // namespace zetasql

@@ -193,7 +193,7 @@ class InputArgumentType {
     return relation_input_schema_ != nullptr;
   }
   const TVFRelation& relation_input_schema() const {
-    DCHECK(relation_input_schema_ != nullptr);
+    ZETASQL_DCHECK(relation_input_schema_ != nullptr);
     return *relation_input_schema_;
   }
 

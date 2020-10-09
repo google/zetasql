@@ -128,7 +128,7 @@ class QueryParamsWithResult {
   // directly because we need to ensure that it can never be empty.
   const ResultMap& results() const { return results_; }
   void set_results(const ResultMap& results) {
-    CHECK(!results.empty());
+    ZETASQL_CHECK(!results.empty());
     results_ = results;
   }
 

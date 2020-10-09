@@ -32,7 +32,7 @@
 //  if (result) {
 //    result->DoSomethingCool();
 //  } else {
-//    LOG(ERROR) << result.status();
+//    ZETASQL_LOG(ERROR) << result.status();
 //  }
 //
 // Example that is guaranteed crash if the result holds no value:
@@ -45,9 +45,9 @@
 //
 //  StatusOr<std::unique_ptr<Foo>> result = FooFactory::MakeNewFoo(arg);
 //  if (!result.ok()) {  // Don't omit .ok().
-//    LOG(ERROR) << result.status();
+//    ZETASQL_LOG(ERROR) << result.status();
 //  } else if (*result == nullptr) {
-//    LOG(ERROR) << "Unexpected null pointer";
+//    ZETASQL_LOG(ERROR) << "Unexpected null pointer";
 //  } else {
 //    (*result)->DoSomethingCool();
 //  }
@@ -210,7 +210,7 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
 
   // Constructs a new StatusOr with the given non-ok status. After calling this
   // constructor, this->ok() will be false and calls to ValueOrDie() will
-  // CHECK-fail.
+  // ZETASQL_CHECK-fail.
   //
   // NOTE: Not explicit - we want to use StatusOr<T> as a return
   // value, so it is convenient and sensible to be able to do 'return
@@ -277,7 +277,7 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   const absl::Status& status() const&;
   absl::Status status() &&;
 
-  // Returns a reference to our current value, or CHECK-fails if !this->ok(). If
+  // Returns a reference to our current value, or ZETASQL_CHECK-fails if !this->ok(). If
   // you have already checked the status using this->ok() or operator bool(),
   // then you probably want to use operator*() or operator->() to access the
   // current value instead of ValueOrDie().
@@ -315,7 +315,7 @@ class StatusOr : private statusor_internal::StatusOrData<T>,
   //
   // Use this->ok() or `operator bool()` to verify that there is a current
   // value. Alternatively, see ValueOrDie() for a similar API that guarantees
-  // CHECK-failing if there is no current value.
+  // ZETASQL_CHECK-failing if there is no current value.
   //
   const T& operator*() const&;
   T& operator*() &;

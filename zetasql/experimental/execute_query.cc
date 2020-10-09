@@ -176,7 +176,7 @@ int main(int argc, char* argv[]) {
       "Usage: execute_query [--table_spec=<table_spec>] <sql>\n";
   std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
   if (argc <= 1) {
-    LOG(QFATAL) << kUsage;
+    ZETASQL_LOG(QFATAL) << kUsage;
   }
   const std::string sql = absl::StrJoin(remaining_args.begin() + 1,
   remaining_args.end(), " ");

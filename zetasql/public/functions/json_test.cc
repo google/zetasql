@@ -231,7 +231,7 @@ TEST(JsonTest, StringJsonExtractScalarBadBehavior) {
 
 TEST(JsonTest, StringJsonExtractScalarExpectVeryLongIntegersPassthrough) {
   std::string long_integer_str(500, '1');
-  CHECK_EQ(long_integer_str.size(), 500);
+  ZETASQL_CHECK_EQ(long_integer_str.size(), 500);
   ExpectExtractScalar(absl::StrFormat(R"({"a": %s})", long_integer_str), "$.a",
                       long_integer_str);
 }
@@ -1077,7 +1077,7 @@ TEST(JSONPathExtractorTest, EscapedAccessTest) {
   std::string input_path(R"($."a\"b")");
   absl::string_view esc_input_path(input_path);
 
-  LOG(INFO) << input;
+  ZETASQL_LOG(INFO) << input;
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<ValidJSONPathIterator> path_itr,
                        ValidJSONPathIterator::Create(

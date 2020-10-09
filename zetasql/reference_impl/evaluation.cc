@@ -120,7 +120,7 @@ absl::Status EvaluationContext::VerifyNotAborted() const {
 
 void EvaluationContext::InitializeDefaultTimeZone() {
   absl::TimeZone timezone;
-  CHECK(absl::LoadTimeZone("America/Los_Angeles", &timezone));
+  ZETASQL_CHECK(absl::LoadTimeZone("America/Los_Angeles", &timezone));
   default_timezone_ = timezone;
 }
 
@@ -180,7 +180,7 @@ static bool IsSafeModeConvertibleError(const absl::Status& status) {
 
 bool ShouldSuppressError(const absl::Status& error,
                          ResolvedFunctionCallBase::ErrorMode error_mode) {
-  DCHECK(!error.ok());
+  ZETASQL_DCHECK(!error.ok());
   return error_mode == ResolvedFunctionCallBase::SAFE_ERROR_MODE &&
          IsSafeModeConvertibleError(error);
 }

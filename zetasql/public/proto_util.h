@@ -44,6 +44,9 @@ struct ProtoFieldDefaultOptions {
   // Whether the format annotations should be ignored.
   bool ignore_format_annotations = false;
 
+  // Whether to always use non-null values for map entry fields.
+  bool map_fields_always_nonnull = false;
+
   // Constructs a ProtoFieldDefaultOptions for a given field and language
   // settings.
   static ProtoFieldDefaultOptions FromFieldAndLanguage(

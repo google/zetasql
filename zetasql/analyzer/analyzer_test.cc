@@ -101,7 +101,7 @@ TEST_F(AnalyzerOptionsTest, AddSystemVariable) {
 
   // Unsupported type
   AnalyzerOptions external_mode(options_);
-  external_mode.mutable_language_options()->set_product_mode(
+  external_mode.mutable_language()->set_product_mode(
       ProductMode::PRODUCT_EXTERNAL);
   EXPECT_THAT(
       external_mode.AddSystemVariable({"zzz"}, type_factory_.get_int32()),
@@ -407,7 +407,7 @@ TEST_F(AnalyzerOptionsTest, SetDdlPseudoColumns) {
   LanguageOptions language_options;
   language_options.SetSupportsAllStatementKinds();
   language_options.EnableLanguageFeature(FEATURE_CREATE_TABLE_PARTITION_BY);
-  options_.set_language_options(language_options);
+  options_.set_language(language_options);
 
   // Each test case contains the statement to analyze and the expected table and
   // options that the DDL pseudo-column callback will receive.
@@ -744,7 +744,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
       new google::protobuf::compiler::Importer(&source_tree, &error_collector));
 
   for (const std::string& test_file : test_files) {
-    CHECK(proto_importer->Import(test_file) != nullptr)
+    ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
         << "Error importing " << test_file << ": "
         << error_collector.GetError();
   }
@@ -984,7 +984,7 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
       new google::protobuf::compiler::Importer(&source_tree, &error_collector));
 
   for (const std::string& test_file : test_files) {
-    CHECK(proto_importer->Import(test_file) != nullptr)
+    ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
         << "Error importing " << test_file << ": "
         << error_collector.GetError();
   }
@@ -1207,7 +1207,7 @@ TEST(AnalyzerSupportedFeaturesTest, SupportedFeaturesTest) {
     AnalyzerOptions options;
     options.mutable_language()->SetEnabledLanguageFeatures(
         input.supported_features);
-    LOG(INFO) << "Supported features: " << input.FeaturesToString();
+    ZETASQL_LOG(INFO) << "Supported features: " << input.FeaturesToString();
     SampleCatalog catalog(options.language());
     const absl::Status status = AnalyzeStatement(
         input.statement, options, catalog.catalog(), &type_factory, &output);
@@ -1287,7 +1287,7 @@ TEST(AnalyzerTest, ExternalExtension) {
       new google::protobuf::compiler::Importer(&source_tree, &error_collector));
 
   for (const std::string& test_file : test_files) {
-    CHECK(proto_importer->Import(test_file) != nullptr)
+    ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
         << "Error importing " << test_file << ": "
         << error_collector.GetError();
   }
@@ -1358,7 +1358,7 @@ TEST(AnalyzerTest, LanguageOptions) {
   language_options.SetSupportsAllStatementKinds();
   EXPECT_TRUE(language_options.SupportsStatementKind(RESOLVED_DELETE_STMT));
 
-  analyzer_options.set_language_options(language_options);
+  analyzer_options.set_language(language_options);
   EXPECT_TRUE(
       analyzer_options.language().SupportsStatementKind(RESOLVED_DELETE_STMT));
   EXPECT_TRUE(

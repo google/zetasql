@@ -19,10 +19,10 @@
 
 #include "absl/status/status.h"  
 
-// This is better than CHECK((val).ok()) because the embedded
-// error string gets printed by the CHECK_EQ.
-#define ZETASQL_CHECK_OK(val) CHECK_EQ(::absl::OkStatus(), (val))
-#define ZETASQL_DCHECK_OK(val) DCHECK_EQ(::absl::OkStatus(), (val))
-#define ZETASQL_ZETASQL_CHECK_OK(val) DCHECK_EQ(::absl::OkStatus(), (val))
+// This is better than ZETASQL_CHECK((val).ok()) because the embedded
+// error string gets printed by the ZETASQL_CHECK_EQ.
+#define ZETASQL_CHECK_OK(val) ZETASQL_CHECK_EQ(::absl::OkStatus(), (val))
+#define ZETASQL_DCHECK_OK(val) ZETASQL_DCHECK_EQ(::absl::OkStatus(), (val))
+#define ZETASQL_ZETASQL_CHECK_OK(val) ZETASQL_DCHECK_EQ(::absl::OkStatus(), (val))
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_H_

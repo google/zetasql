@@ -90,7 +90,7 @@ class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
 class ValidateRaiseStatementsVisitor : public NonRecursiveParseTreeVisitor {
  public:
   ~ValidateRaiseStatementsVisitor() override {
-    DCHECK_EQ(exception_handler_nesting_level_, 0);
+    ZETASQL_DCHECK_EQ(exception_handler_nesting_level_, 0);
   }
 
   zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
@@ -315,9 +315,9 @@ zetasql_base::StatusOr<const ASTNode*> ParsedScript::FindScriptNodeFromPosition(
   return visitor.match();
 }
 
-zetasql_base::StatusOr<ParsedScript::VariableTypeMap>
+zetasql_base::StatusOr<ParsedScript::VariableDeclarationMap>
 ParsedScript::GetVariablesInScopeAtNode(const ASTNode* next_node) const {
-  VariableTypeMap variables;
+  VariableDeclarationMap variables;
 
   for (const ASTNode* node = next_node->parent(); node != nullptr;
        node = node->parent()) {
@@ -339,7 +339,7 @@ ParsedScript::GetVariablesInScopeAtNode(const ASTNode* next_node) const {
             stmt->GetAs<ASTVariableDeclaration>();
         for (const ASTIdentifier* variable :
              decl->variable_list()->identifier_list()) {
-          variables.insert_or_assign(variable->GetAsIdString(), decl->type());
+          variables.insert_or_assign(variable->GetAsIdString(), decl);
         }
       } else {
         // Variable declarations are only allowed at the start of a block,
@@ -425,12 +425,22 @@ zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRou
                         std::move(routine_arguments));
 }
 
+zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
+    absl::string_view script_string, const ASTScript* ast_script,
+    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments) {
+  std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
+      new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
+                       error_message_mode, std::move(routine_arguments)));
+  ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
+  return parsed_script;
+}
+
 zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ASTScript* ast_script,
     ErrorMessageMode error_message_mode) {
-  std::unique_ptr<ParsedScript> parsed_script =
-      absl::WrapUnique(new ParsedScript(script_string, ast_script, nullptr,
-                                        error_message_mode, {}));
+  std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
+      new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
+                       error_message_mode, {}));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
   return parsed_script;
 }

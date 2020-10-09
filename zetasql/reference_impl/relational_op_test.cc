@@ -366,7 +366,7 @@ TEST(ColumnFilterArgTest, InList) {
 TEST(ColumnFilterArgTest, HalfUnbounded) {
   for (const HalfUnboundedColumnFilterArg::Kind kind :
        {HalfUnboundedColumnFilterArg::kLE, HalfUnboundedColumnFilterArg::kGE}) {
-    LOG(INFO) << "Testing kind: " << kind;
+    ZETASQL_LOG(INFO) << "Testing kind: " << kind;
 
     VariableId p("p");
     ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_p, DerefExpr::Create(p, Int64Type()));
@@ -405,7 +405,7 @@ TEST(ColumnFilterArgTest, HalfUnbounded) {
         default:
           FAIL() << "Unexpected value of i: " << i;
       }
-      LOG(INFO) << "Testing value: " << value;
+      ZETASQL_LOG(INFO) << "Testing value: " << value;
       const TupleData params_data = CreateTupleDataFromValues({value});
 
       EvaluationContext context((EvaluationOptions()));
@@ -923,7 +923,7 @@ class TestCppValuesOp : public RelationalOp {
       : cpp_vars_(cpp_vars), output_vars_(output_vars) {
     // Initialize slot indices for tuple variables to -1, we'll substitute in
     // the actual values during SetSchemasForEvaluation().
-    for (VariableId v : tuple_vars) {
+    for (const VariableId& v : tuple_vars) {
       tuple_vars_slots_[v] = std::make_pair(-1, -1);
     }
   }
@@ -3598,7 +3598,7 @@ TEST_F(CreateIteratorTest, LoopOp) {
   EXPECT_EQ(loop_op->IteratorDebugString(),
             "LoopTupleIterator: any_rows = false, inner iterator: "
             "FilterTupleIterator(ComputeTupleIterator(TestTupleIterator))");
-  LOG(ERROR) << loop_op->DebugString();
+  ZETASQL_LOG(ERROR) << loop_op->DebugString();
   EXPECT_EQ(loop_op->DebugString(), absl::StripAsciiWhitespace(R"(
 LoopOp(
 +-initial_assign: {
@@ -4216,7 +4216,7 @@ TEST_F(CreateIteratorTest, EnumerateOp) {
                "Enumerate requires non-null count"));
 
   for (int i = -1; i <= 3; ++i) {
-    LOG(INFO) << "Testing EnumerateOp with count = " << i;
+    ZETASQL_LOG(INFO) << "Testing EnumerateOp with count = " << i;
     params_data.mutable_slot(0)->SetValue(Int64(i));
 
     ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,

@@ -87,7 +87,7 @@ inline std::string PrimaryKeyModeName(PrimaryKeyMode mode) {
     case PrimaryKeyMode::NO_PRIMARY_KEY:
       return "NO_PRIMARY_KEY";
     default:
-      LOG(FATAL) << "Unknown PrimaryKeyMode: " << static_cast<int>(mode);
+      ZETASQL_LOG(FATAL) << "Unknown PrimaryKeyMode: " << static_cast<int>(mode);
   }
 }
 
@@ -109,8 +109,8 @@ class TestTableOptions {
 
   // Sets expected table size range.
   void set_expected_table_size_range(int min, int max) {
-    CHECK_GE(max, min);
-    CHECK_GE(min, 0);
+    ZETASQL_CHECK_GE(max, min);
+    ZETASQL_CHECK_GE(min, 0);
     expected_table_size_min_ = min;
     expected_table_size_max_ = max;
   }
@@ -290,7 +290,7 @@ class TestDriver {
 
   static absl::TimeZone GetDefaultDefaultTimeZone() {
     absl::TimeZone time_zone;
-    CHECK(absl::LoadTimeZone(default_default_time_zone, &time_zone));
+    ZETASQL_CHECK(absl::LoadTimeZone(default_default_time_zone, &time_zone));
     return time_zone;
   }
 

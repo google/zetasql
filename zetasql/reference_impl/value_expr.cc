@@ -442,7 +442,7 @@ absl::Status DerefExpr::SetSchemasForEvaluation(
 bool DerefExpr::Eval(absl::Span<const TupleData* const> params,
                      EvaluationContext* context, VirtualTupleSlot* result,
                      absl::Status* /* status */) const {
-  DCHECK(idx_in_params_ >= 0 && slot_ >= 0)
+  ZETASQL_DCHECK(idx_in_params_ >= 0 && slot_ >= 0)
       << "You forgot to call SetSchemasForEvaluation() " << name_;
   result->CopyFromSlot(params[idx_in_params_]->slot(slot_));
   return true;

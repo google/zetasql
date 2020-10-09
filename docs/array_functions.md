@@ -142,8 +142,7 @@ WITH items AS
   (SELECT ["coffee", NULL, "milk" ] as list
   UNION ALL
   SELECT ["cake", "pie"] as list)
-
-SELECT list, ARRAY_LENGTH(list) AS size
+SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
 FROM items
 ORDER BY size DESC;
 

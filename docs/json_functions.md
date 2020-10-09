@@ -9,10 +9,10 @@ JSON-formatted strings.
 ### JSON_EXTRACT or JSON_EXTRACT_SCALAR
 
 <a id="json_extract"></a>`JSON_EXTRACT(json_string_expr,
-json_path_string_literal)`, which returns JSON values as STRINGs.
+json_path_format)`, which returns JSON values as STRINGs.
 
 <a id="json_extract_scalar"></a>`JSON_EXTRACT_SCALAR(json_string_expr,
-json_path_string_literal)`, which returns scalar JSON values as STRINGs.
+json_path_format)`, which returns scalar JSON values as STRINGs.
 
 **Description**
 
@@ -23,9 +23,9 @@ Extracts JSON values or JSON scalar values as strings.
     ```
     {"class" : {"students" : [{"name" : "Jane"}]}}
     ```
-+  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
++  `json_path_format`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   JSON-formatted string. If `json_path_format` returns a JSON `null`,
    this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape
@@ -135,10 +135,10 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
 
 ### JSON_QUERY or JSON_VALUE
 
-<a id="json_query"></a>`JSON_QUERY(json_string_expr, json_path_string_literal)`,
+<a id="json_query"></a>`JSON_QUERY(json_string_expr, json_path_format)`,
 which returns JSON values as STRINGs.
 
-<a id="json_value"></a>`JSON_VALUE(json_string_expr, json_path_string_literal)`,
+<a id="json_value"></a>`JSON_VALUE(json_string_expr, json_path_format)`,
 which returns scalar JSON values as STRINGs.
 
 **Description**
@@ -150,9 +150,9 @@ Extracts JSON values or JSON scalar values as strings.
   ```
   {"class" : {"students" : [{"name" : "Jane"}]}}
   ```
-+  `json_path_string_literal`: The [JSONpath][jsonpath-format] format.
++  `json_path_format`: The [JSONpath][jsonpath-format] format.
    This identifies the value or values you want to obtain from the
-   JSON-formatted string. If `json_path_string_literal` returns a JSON `null`,
+   JSON-formatted string. If `json_path_format` returns a JSON `null`,
    this is converted into a SQL `NULL`.
 
 In cases where a JSON key uses invalid JSONPath characters,
@@ -534,9 +534,9 @@ The above query produces the following result:
 
 ### JSONPath format
 
-Most JSON functions pass in a `json_string_expr` and `json_path_string_literal`
+Most JSON functions pass in a `json_string_expr` and `json_path_format`
 parameter. The `json_string_expr` parameter passes in a JSON-formatted
-string, and the `json_path_string_literal` parameter identifies the value or
+string, and the `json_path_format` parameter identifies the value or
 values you want to obtain from the JSON-formatted string.
 
 The `json_string_expr` parameter must be a JSON string that is
@@ -546,7 +546,7 @@ formatted like this:
 {"class" : {"students" : [{"name" : "Jane"}]}}
 ```
 
-You construct the `json_path_string_literal` parameter using the
+You construct the `json_path_format` parameter using the
 [JSONPath][json-path] format. As part of this format, this parameter must start
 with a `$` symbol, which refers to the outermost level of the JSON-formatted
 string. You can identify child values using dots. If the JSON object is an
@@ -560,7 +560,7 @@ $        | Root object or element | "$"                   | `{"class":{"students
 .        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
 []       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
 
-A JSON functions returns `NULL` if the `json_path_string_literal` parameter does
+A JSON functions returns `NULL` if the `json_path_format` parameter does
 not match a value in `json_string_expr`. If the selected value for a scalar
 function is not scalar, such as an object or an array, the function
 returns `NULL`.

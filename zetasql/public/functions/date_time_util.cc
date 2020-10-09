@@ -238,7 +238,7 @@ static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
     if (scale - num_parsed_subsecond_digits < 0) {
       return false;
     }
-    CHECK_LE(num_parsed_subsecond_digits, 9);
+    ZETASQL_CHECK_LE(num_parsed_subsecond_digits, 9);
 
     // <scale> is at most 9, and <num_parsed_subsecond_digits> is at least
     // 1, so the difference is no larger than 8 so indexing into
@@ -664,7 +664,7 @@ static void AdjustYearMonthDay(int* year, int* month, int* day) {
   int m = *month % 12;
   *year += *month / 12;
   if (m <= 0) {
-    DCHECK_GT(m, -12);
+    ZETASQL_DCHECK_GT(m, -12);
     m += 12;
     (*year)--;
   }
@@ -848,7 +848,7 @@ static bool AddAtLeastDaysToCivilTime(DateTimestampPart part, int32_t interval,
       break;
     }
     default:
-      DCHECK(false) << "Should not reach here";
+      ZETASQL_DCHECK(false) << "Should not reach here";
       return false;
   }
   return true;
@@ -961,7 +961,7 @@ static absl::Status AddTimestampInternal(int64_t timestamp, TimestampScale scale
                                          DateTimestampPart part, int64_t interval,
                                          int64_t* output) {
   // Expected invariant.
-  DCHECK(IsValidTimestamp(timestamp, scale));
+  ZETASQL_DCHECK(IsValidTimestamp(timestamp, scale));
 
   ZETASQL_RETURN_IF_ERROR(CheckValidAddTimestampPart(part, false /* is_legacy */));
 
@@ -1066,7 +1066,7 @@ static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
     *output = micros_out * 1000l + nano_remains;
     // Given that the micros value is valid, the resulting nanoseconds
     // value must also be valid.  Check this invariant.
-    DCHECK(IsValidTimestamp(*output, kNanoseconds));
+    ZETASQL_DCHECK(IsValidTimestamp(*output, kNanoseconds));
   }
   return absl::OkStatus();
 }
@@ -2250,7 +2250,7 @@ absl::Status ConvertStringToDate(absl::string_view str, int32_t* date) {
     return MakeEvalError() << "Date value out of range: '" << str << "'";
   }
   *date = CivilDayToEpochDays(civil_day);
-  DCHECK(IsValidDate(*date));  // Invariant if MakeDate() succeeds.
+  ZETASQL_DCHECK(IsValidDate(*date));  // Invariant if MakeDate() succeeds.
   return absl::OkStatus();
 }
 
@@ -2904,7 +2904,7 @@ absl::Status ConvertProto3TimestampToTimestamp(
   // DecodeGoogleApiProto enforces the same valid timestamp range as ZetaSQL.
   // This check is meant to give us protection in case the contract of
   // DecodeGoogleApiProto changes in the future.
-  DCHECK(IsValidTime(*output));
+  ZETASQL_DCHECK(IsValidTime(*output));
   return absl::OkStatus();
 }
 
@@ -3470,9 +3470,9 @@ absl::Status SubTimestamp(absl::Time timestamp,
 // Requires that <radix> is positive, and <*field> is in range [0, <radix>).
 static void AddOnField(int64_t interval, int64_t radix, int* field, int64_t* carry) {
   // Expected invariants.
-  DCHECK_LE(0, *field);
-  DCHECK_LT(*field, radix);
-  DCHECK_LE(radix, 1000000000);  // number of nanos in a second.
+  ZETASQL_DCHECK_LE(0, *field);
+  ZETASQL_DCHECK_LT(*field, radix);
+  ZETASQL_DCHECK_LE(radix, 1000000000);  // number of nanos in a second.
 
   // <modulus> is the number of parts that we want to add to <field> for
   // the given <interval>.  For instance, if we want to add 30 hours
@@ -3493,7 +3493,7 @@ static void AddOnField(int64_t interval, int64_t radix, int* field, int64_t* car
   // Because both the original <*field> and the <modulus> should be in
   // [0, <radix>), then the updated <*field> should always be in
   // [0, <radix> * 2).
-  DCHECK(*field >= 0 && *field < radix * 2)
+  ZETASQL_DCHECK(*field >= 0 && *field < radix * 2)
       << "AddOnField() produced an unexpected result " << *field
       << " by adding " << interval << " on a field of radix " << radix;
 
@@ -3579,7 +3579,7 @@ static absl::Status AddTimeInternal(const TimeValue& time,
   }
   *output = TimeValue::FromHMSAndNanos(hour, minute, second, nanoseconds);
   // This check should never fail as all fields should be in range.
-  DCHECK(output->IsValid()) << output->DebugString();
+  ZETASQL_DCHECK(output->IsValid()) << output->DebugString();
   return absl::OkStatus();
 }
 

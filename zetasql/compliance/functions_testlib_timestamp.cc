@@ -4106,7 +4106,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp() {
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime() {
   static const Value common_datetime =
       DatetimeMicros(2015, 7, 8, 1, 2, 3, 456789);
-  CHECK_EQ(kCommonTestTimestamp, common_datetime.DebugString());
+  ZETASQL_CHECK_EQ(kCommonTestTimestamp, common_datetime.DebugString());
 
   std::vector<CivilTimeTestCase> test_cases = {
       // NULL handling
@@ -5712,7 +5712,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseTime() {
           &timestamp));
       TimeValue time;
       ZETASQL_CHECK_OK(functions::ConvertTimestampToTime(timestamp, timezone, &time));
-      CHECK(time.IsValid());
+      ZETASQL_CHECK(time.IsValid());
       return zetasql_base::StatusOr<Value>(Value::Time(time));
     };
     test_cases.push_back(CivilTimeTestCase(
@@ -5807,7 +5807,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
           DatetimeValue datetime;
           ZETASQL_CHECK_OK(functions::ConvertTimestampToDatetime(timestamp, timezone,
                                                          &datetime));
-          CHECK(datetime.IsValid());
+          ZETASQL_CHECK(datetime.IsValid());
           return zetasql_base::StatusOr<Value>(Value::Datetime(datetime));
         };
     test_cases.push_back(CivilTimeTestCase(
@@ -5952,7 +5952,7 @@ Value DateFormatToInt64(absl::string_view date_format, int32_t date) {
   std::string output_string;
   ZETASQL_CHECK_OK(functions::FormatDateToString(date_format, date, &output_string));
   int64_t result;
-  CHECK(absl::SimpleAtoi(output_string, &result)) << output_string;
+  ZETASQL_CHECK(absl::SimpleAtoi(output_string, &result)) << output_string;
   return Int64(result);
 }
 
@@ -6003,7 +6003,7 @@ static QueryParamsWithResult::ResultMap GetCustomWeekResultMap(
       *required_feature_set = {FEATURE_V_1_2_WEEK_WITH_WEEKDAY};
       return {{*required_feature_set, expected_result}};
     default:
-      LOG(FATAL) << "Unexpected date part: " << date_part;
+      ZETASQL_LOG(FATAL) << "Unexpected date part: " << date_part;
   }
 }
 
@@ -6241,12 +6241,12 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
       {absl::Weekday::friday, 2010},    {absl::Weekday::saturday, 2005},
       {absl::Weekday::sunday, 2006}};
   // Sanity check that we have all the weekdays.
-  CHECK_EQ(7, weekday_to_year.size());
+  ZETASQL_CHECK_EQ(7, weekday_to_year.size());
   for (const auto& weekday_year : weekday_to_year) {
     const absl::Weekday weekday = weekday_year.first;
     const absl::CivilYear year(weekday_year.second);
     // Sanity check that the year begins on the expected day.
-    CHECK_EQ(weekday, absl::GetWeekday(year));
+    ZETASQL_CHECK_EQ(weekday, absl::GetWeekday(year));
 
     for (const DateTimestampPart date_part :
          {WEEK, WEEK_MONDAY, WEEK_TUESDAY, WEEK_WEDNESDAY, WEEK_THURSDAY,
@@ -6269,7 +6269,7 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
           case WEEK:
             return absl::Weekday::sunday;
           default:
-            LOG(FATAL) << "Unexpected date part: "
+            ZETASQL_LOG(FATAL) << "Unexpected date part: "
                        << DateTimestampPart_Name(date_part);
         }
       };

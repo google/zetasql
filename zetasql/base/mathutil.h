@@ -54,7 +54,7 @@ class MathUtil {
   template <class T>
   static T NonnegativeMod(T a, T b) {
     static_assert(std::is_integral<T>::value, "Integral types only.");
-    DCHECK_GT(b, 0);
+    ZETASQL_DCHECK_GT(b, 0);
     // As of C++11 (per [expr.mul]/4), a%b is in (-b,0] for a<0, b>0.
     T c = a % b;
     return c + (c < 0) * b;
@@ -104,8 +104,8 @@ class MathUtil {
   static IntType RoundUpTo(IntType input_value, IntType rounding_value) {
     static_assert(MathLimits<IntType>::kIsInteger,
                   "RoundUpTo() operation type is not integer");
-    DCHECK_GE(input_value, 0);
-    DCHECK_GT(rounding_value, 0);
+    ZETASQL_DCHECK_GE(input_value, 0);
+    ZETASQL_DCHECK_GT(rounding_value, 0);
     const IntType remainder = input_value % rounding_value;
     return (remainder == 0) ? input_value
                             : (input_value - remainder + rounding_value);
@@ -344,7 +344,7 @@ class MathUtil {
   // absolute margin of error.
   template<typename T>
   static bool WithinMargin(const T x, const T y, const T margin) {
-    DCHECK_GE(margin, 0);
+    ZETASQL_DCHECK_GE(margin, 0);
     // this is a little faster than x <= y + margin  &&  x >= y - margin
     return AbsDiff(x, y) <= margin;
   }
@@ -386,7 +386,7 @@ class MathUtil {
   // You can also use any type for which operator*= is defined.
   template <typename T>
   static T IPow(T base, int exp) {
-    DCHECK_GE(exp, 0);
+    ZETASQL_DCHECK_GE(exp, 0);
     uint32_t uexp = exp;
 
     if (uexp < 16) {
@@ -476,8 +476,8 @@ IntegralType MathUtil::CeilOrFloorOfRatio(IntegralType numerator,
                                           IntegralType denominator) {
   static_assert(MathLimits<IntegralType>::kIsInteger,
                 "CeilOfRatio is only defined for integral types");
-  DCHECK_NE(0, denominator) << "Division by zero is not supported.";
-  DCHECK(!MathLimits<IntegralType>::kIsSigned ||
+  ZETASQL_DCHECK_NE(0, denominator) << "Division by zero is not supported.";
+  ZETASQL_DCHECK(!MathLimits<IntegralType>::kIsSigned ||
          numerator != MathLimits<IntegralType>::kMin ||
          denominator != -1)
       << "Dividing " << numerator << "by -1 is not supported: it would SIGFPE";

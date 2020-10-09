@@ -388,7 +388,8 @@ You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
 of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
 `ARRAY`s.
 
-### Querying STRUCT elements in an ARRAY {: #query_structs_in_an_array }
+### Querying STRUCT elements in an ARRAY 
+<a id="query_structs_in_an_array"></a>
 
 The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
 `STRUCT`s.

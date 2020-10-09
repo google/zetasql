@@ -74,7 +74,7 @@ class ValidJSONPathIterator {
       // like b/125933506.
       text_.remove_suffix(1);
     }
-    DCHECK(text_.empty());
+    ZETASQL_DCHECK(text_.empty());
   }
 
   inline bool End() { return !is_valid_; }
@@ -91,7 +91,7 @@ class ValidJSONPathIterator {
 
   // Precondition: End() is false.
   inline const Token& operator*() const {
-    DCHECK(depth_ > 0 && depth_ <= tokens_.size());
+    ZETASQL_DCHECK(depth_ > 0 && depth_ <= tokens_.size());
     return tokens_[depth_ - 1];
   }
 

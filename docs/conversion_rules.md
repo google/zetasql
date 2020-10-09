@@ -31,13 +31,13 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <tr>
 <td>INT32</td>
 <td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>DOUBLE</span><br /><span>INT64</span><br /><span>NUMERIC</span><br /></td>
+<td><span>INT64</span><br /><span>NUMERIC</span><br /><span>DOUBLE</span><br /></td>
 </tr>
 
 <tr>
 <td>INT64</td>
 <td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>DOUBLE</span><br /><span>NUMERIC</span><br /></td>
+<td><span>NUMERIC</span><br /><span>DOUBLE</span><br /></td>
 </tr>
 
 <tr>
@@ -49,7 +49,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <tr>
 <td>UINT64</td>
 <td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>NUMERIC</span><br /><span>FLOAT</span><br /><span>DOUBLE</span><br /><span>STRING</span><br /><span>ENUM</span><br /></td>
-<td><span>DOUBLE</span><br /><span>NUMERIC</span><br /></td>
+<td><span>NUMERIC</span><br /><span>DOUBLE</span><br /></td>
 </tr>
 
 <tr>
@@ -72,7 +72,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 
 <tr>
 <td>BOOL</td>
-<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>STRING</span><br /><span>UINT32</span><br /><span>UINT64</span><br /></td>
+<td><span>BOOL</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>STRING</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
@@ -84,19 +84,19 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 
 <tr>
 <td>BYTES</td>
-<td><span>BYTES</span><br /><span>PROTO</span><br /><span>STRING</span><br /></td>
+<td><span>STRING</span><br /><span>BYTES</span><br /><span>PROTO</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
 <tr>
 <td>DATE</td>
-<td><span>DATE</span><br /><span>DATETIME</span><br /><span>STRING</span><br /><span>TIMESTAMP</span><br /></td>
+<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIMESTAMP</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
 <tr>
 <td>DATETIME</td>
-<td><span>DATE</span><br /><span>DATETIME</span><br /><span>STRING</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
+<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
@@ -108,7 +108,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 
 <tr>
 <td>TIMESTAMP</td>
-<td><span>DATE</span><br /><span>DATETIME</span><br /><span>STRING</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
+<td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIME</span><br /><span>TIMESTAMP</span><br /></td>
 <td>&nbsp;</td>
 </tr>
 
@@ -123,7 +123,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <td><span>
 ENUM
 (with the same ENUM name)
-</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>STRING</span><br /><span>UINT32</span><br /><span>UINT64</span><br /></td>
+</span><br /><span>INT32</span><br /><span>INT64</span><br /><span>UINT32</span><br /><span>UINT64</span><br /><span>STRING</span><br /></td>
 <td>ENUM
 (with the same ENUM name)</td>
 </tr>
@@ -139,7 +139,7 @@ ENUM
 <td><span>
 PROTO
 (with the same PROTO name)
-</span><br /><span>BYTES</span><br /><span>STRING</span><br /></td>
+</span><br /><span>STRING</span><br /><span>BYTES</span><br /></td>
 <td>PROTO
 (with the same PROTO name)</td>
 </tr>
@@ -219,8 +219,7 @@ Halfway cases such as 1.5 or -0.5 round away from zero.</td>
 <tr>
 <td>Floating Point</td>
 <td>NUMERIC</td>
-<td>If the floating point number has more than nine digits after the decimal
-  point, it will round
+<td>The floating point number will round
   <a href="https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero">
   half away from zero</a>. Casting a <code>NaN</code>, <code>+inf</code> or
   <code>-inf</code> will return an error. Casting a value outside the range of
@@ -489,7 +488,8 @@ An error is produced if the `string_expression` is invalid, has more than six
 subsecond digits (i.e. precision greater than microseconds), or represents a
 time outside of the supported timestamp range.
 
-#### Casting between date, datetime and timestamp types {: #casting-date-time-timestamp }
+#### Casting between date, datetime and timestamp types 
+<a id="casting-date-time-timestamp"></a>
 
 ZetaSQL supports casting between date, datetime and timestamp types as shown in
 the [conversion rules table][conversion-rules-table].
@@ -564,7 +564,7 @@ ZetaSQL supports the following literal coercions:
 
 <tr>
 <td>Integer literal</td>
-<td><span> ENUM</span><br /><span> INT32</span><br /><span> UINT32</span><br /><span> UINT64</span><br /></td>
+<td><span> INT32</span><br /><span> UINT32</span><br /><span> UINT64</span><br /><span> ENUM</span><br /></td>
 <td>
 
 Integer literals will implicitly coerce to ENUM type when necessary, or can
@@ -587,7 +587,7 @@ be explicitly CAST to a specific ENUM type name.
 
 <tr>
 <td>STRING literal</td>
-<td><span> DATE</span><br /><span> DATETIME</span><br /><span> ENUM</span><br /><span> PROTO</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /></td>
+<td><span> DATE</span><br /><span> DATETIME</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /><span> ENUM</span><br /><span> PROTO</span><br /></td>
 <td>
 
 String literals will implicitly coerce to PROTO
@@ -657,7 +657,8 @@ ZetaSQL supports the following parameter coercions:
 If the parameter value cannot be coerced successfully to the target type, an
 error is provided.
 
-### Additional conversion functions {: #additional_date_and_timestamp_conversion_functions }
+### Additional conversion functions 
+<a id="additional_date_and_timestamp_conversion_functions"></a>
 
 ZetaSQL provides the following additional conversion functions:
 

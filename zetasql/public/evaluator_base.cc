@@ -185,7 +185,7 @@ class Evaluator {
   Evaluator& operator=(const Evaluator&) = delete;
 
   ~Evaluator() {
-    CHECK_EQ(num_live_iterators_, 0)
+    ZETASQL_CHECK_EQ(num_live_iterators_, 0)
         << "An iterator returned by PreparedQuery::Execute() cannot outlive "
         << "the PreparedQuery object.";
   }
@@ -251,7 +251,7 @@ class Evaluator {
   const ResolvedStatement* resolved_statement() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    CHECK(statement_ != nullptr);
+    ZETASQL_CHECK(statement_ != nullptr);
     return statement_;
   }
 
@@ -261,7 +261,7 @@ class Evaluator {
   const std::vector<NameAndType>& query_output_columns() const
       ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::ReaderMutexLock l(&mutex_);
-    CHECK(statement_ != nullptr);
+    ZETASQL_CHECK(statement_ != nullptr);
     return output_columns_;
   }
 
@@ -953,9 +953,9 @@ zetasql_base::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
 
 const Type* Evaluator::expression_output_type() const {
   absl::ReaderMutexLock l(&mutex_);
-  CHECK(is_expr_) << "Only expressions have output types";
-  CHECK(is_prepared()) << "Prepare or Execute must be called first";
-  CHECK(compiled_value_expr_ != nullptr) << "Invalid prepared expression";
+  ZETASQL_CHECK(is_expr_) << "Only expressions have output types";
+  ZETASQL_CHECK(is_prepared()) << "Prepare or Execute must be called first";
+  ZETASQL_CHECK(compiled_value_expr_ != nullptr) << "Invalid prepared expression";
   return compiled_value_expr_->output_type();
 }
 
@@ -1008,8 +1008,7 @@ absl::Status Evaluator::ValidateSystemVariables(
     const Type* expected_type = analyzer_options_sysvar.second;
     const Type* actual_type = it->second.type();
     if (!expected_type->Equals(actual_type)) {
-      ProductMode product_mode =
-          analyzer_options_.language_options().product_mode();
+      ProductMode product_mode = analyzer_options_.language().product_mode();
       return zetasql_base::InvalidArgumentErrorBuilder()
              << "Expected system variable '" << absl::StrJoin(sysvar_name, ".")
              << "' to be of type " << expected_type->TypeName(product_mode)
@@ -1388,12 +1387,12 @@ int PreparedQueryBase::num_columns() const {
 }
 
 std::string PreparedQueryBase::column_name(int i) const {
-  DCHECK_LT(i, evaluator_->query_output_columns().size());
+  ZETASQL_DCHECK_LT(i, evaluator_->query_output_columns().size());
   return evaluator_->query_output_columns()[i].first;
 }
 
 const Type* PreparedQueryBase::column_type(int i) const {
-  DCHECK_LT(i, evaluator_->query_output_columns().size());
+  ZETASQL_DCHECK_LT(i, evaluator_->query_output_columns().size());
   return evaluator_->query_output_columns()[i].second;
 }
 

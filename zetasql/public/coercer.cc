@@ -56,7 +56,7 @@ bool StatusToBool(const zetasql_base::StatusOr<bool>& status) {
   // convert StatusOr<bool> values returned by new CoercesTo API. Old API
   // functions should never be called for expressions that may involve extended
   // types and for built-in types new API functions should never return an error
-  // status unless some invariant is broken. Thus, DCHECK status here to crash
+  // status unless some invariant is broken. Thus, ZETASQL_DCHECK status here to crash
   // in debug mode to signal that some contract is violated.
   ZETASQL_DCHECK_OK(status.status());
   return status.value_or(false);
@@ -90,7 +90,7 @@ SuperTypesMap* CreateBuiltinSuperTypesMap() {
 
     std::vector<const Type*>& supertypes = (*map)[src_type_kind];
     const Type* dst_type = types::TypeFromSimpleTypeKind(dst_type_kind);
-    CHECK_NE(dst_type, nullptr);
+    ZETASQL_CHECK_NE(dst_type, nullptr);
 
     supertypes.push_back(dst_type);
   }
@@ -208,7 +208,7 @@ class TypeGlobalOrderChecker {
 
   Node& GetNode(const Type* type) {
     std::unique_ptr<Node>& node = graph_[type];
-    CHECK(node);
+    ZETASQL_CHECK(node);
 
     return *node;
   }
@@ -550,7 +550,7 @@ zetasql_base::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
     if (struct_type->num_fields() != num_struct_fields) {
       return nullptr;
     }
-    DCHECK_EQ(argument_type.field_types_size(), num_struct_fields);
+    ZETASQL_DCHECK_EQ(argument_type.field_types_size(), num_struct_fields);
     for (int i = 0; i < num_struct_fields; ++i) {
       struct_field_argument_sets[i].Insert(argument_type.field_type(i));
     }
@@ -770,7 +770,7 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
     non_literal_candidate_supertypes.emplace_back(it.type(), supertypes);
   }
 
-  VLOG(6) << "non_literal_candidate_supertypes.size(): "
+  ZETASQL_VLOG(6) << "non_literal_candidate_supertypes.size(): "
           << non_literal_candidate_supertypes.size();
 
   if (non_literal_candidate_supertypes.empty()) {
@@ -821,11 +821,11 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
     }
   }
   if (common_supertypes.empty()) {
-    VLOG(6) << "No common supertype found, return NULL";
+    ZETASQL_VLOG(6) << "No common supertype found, return NULL";
     return nullptr;
   }
 
-  VLOG(6) << "common_supertype_kinds: "
+  ZETASQL_VLOG(6) << "common_supertype_kinds: "
           << Type::TypeListToString(common_supertypes,
                                     language_options_.product_mode());
 
@@ -868,7 +868,7 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
         if (!(arg->is_literal() ||
               (treat_parameters_as_literals && arg->is_query_parameter())) &&
             !arg->type()->Equivalent(candidate_type)) {
-          VLOG(6) << "Argument " << arg->DebugString()
+          ZETASQL_VLOG(6) << "Argument " << arg->DebugString()
                   << " does not have equivalent type to "
                   << candidate_type->DebugString();
 
@@ -881,7 +881,7 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
       }
     }
     ZETASQL_RET_CHECK_NE(candidate_type, nullptr);
-    VLOG(6) << "candidate type: " << candidate_type->DebugString();
+    ZETASQL_VLOG(6) << "candidate type: " << candidate_type->DebugString();
 
     // We have a candidate.  Check parameters and literals to see if they
     // can all be implicitly coerced.
@@ -899,7 +899,7 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
                              .LiteralCoercesTo(*argument.literal_value(),
                                                candidate_type, &result));
         if (!coerced) {
-          VLOG(6) << "Literal argument "
+          ZETASQL_VLOG(6) << "Literal argument "
                   << argument.literal_value()->FullDebugString()
                   << " does not coerce to candidate type "
                   << candidate_type->DebugString();
@@ -914,7 +914,7 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
             Context(*this, /*is_explicit=*/false)
                 .ParameterCoercesTo(argument.type(), candidate_type, &result));
         if (!coerced) {
-          VLOG(6) << "Parameter argument " << argument.DebugString()
+          ZETASQL_VLOG(6) << "Parameter argument " << argument.DebugString()
                   << " does not coerce to candidate type "
                   << candidate_type->DebugString();
           parameters_and_literals_can_coerce = false;

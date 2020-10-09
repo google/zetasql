@@ -16,9 +16,38 @@
 
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
+#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 
 namespace zetasql {
+namespace {
+
+// A visitor that changes ResolvedColumnRef nodes to be correlated.
+class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
+ private:
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
+    PushNodeToStack(MakeResolvedColumnRef(node->type(), node->column(), true));
+    return absl::OkStatus();
+  }
+};
+
+// A visitor which collects the ResolvedColumnRef that are referenced.
+class ColumnRefCollector : public ResolvedASTVisitor {
+ public:
+  explicit ColumnRefCollector(
+      std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs)
+      : column_refs_(column_refs) {}
+
+ private:
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
+    column_refs_->push_back(MakeResolvedColumnRef(node->type(), node->column(),
+                                                  node->is_correlated()));
+    return ResolvedASTVisitor::VisitResolvedColumnRef(node);
+  }
+  std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs_;
+};
+
+}  // namespace
 
 ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
                                       const std::string& col_name,
@@ -37,6 +66,20 @@ ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
     }
   }
   return ResolvedColumn(max_col_id_, table_name, col_name, type);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
+    const ResolvedExpr& expr) {
+  CorrelateColumnRefVisitor correlator;
+  ZETASQL_RETURN_IF_ERROR(expr.Accept(&correlator));
+  return correlator.ConsumeRootNode<ResolvedExpr>();
+}
+
+absl::Status CollectColumnRefs(
+    const ResolvedNode& node,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs) {
+  ColumnRefCollector column_ref_collector(column_refs);
+  return node.Accept(&column_ref_collector);
 }
 
 }  // namespace zetasql

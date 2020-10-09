@@ -36,7 +36,7 @@ namespace zetasql {
 ProtoType::ProtoType(const TypeFactory* factory,
                      const google::protobuf::Descriptor* descriptor)
     : Type(factory, TYPE_PROTO), descriptor_(descriptor) {
-  CHECK(descriptor_ != nullptr);
+  ZETASQL_CHECK(descriptor_ != nullptr);
 }
 
 ProtoType::~ProtoType() {
@@ -48,7 +48,7 @@ bool ProtoType::IsSupportedType(const LanguageOptions& language_options) const {
 
 bool ProtoType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const ProtoType* other = that->AsProto();
-  DCHECK(other);
+  ZETASQL_DCHECK(other);
   return ProtoType::EqualsImpl(this, other, equivalent);
 }
 
@@ -635,7 +635,7 @@ bool ProtoType::ValueContentEquals(
   if (!differencer_reason.empty()) {
     absl::StrAppend(options.reason, differencer_reason);
     // The newline will be added already.
-    DCHECK_EQ(differencer_reason[differencer_reason.size() - 1], '\n')
+    ZETASQL_DCHECK_EQ(differencer_reason[differencer_reason.size() - 1], '\n')
         << differencer_reason;
   }
   return result;
@@ -643,7 +643,7 @@ bool ProtoType::ValueContentEquals(
 
 bool ProtoType::ValueContentLess(const ValueContent& x, const ValueContent& y,
                                  const Type* other_type) const {
-  LOG(DFATAL) << "Cannot compare " << DebugString() << " to "
+  ZETASQL_LOG(DFATAL) << "Cannot compare " << DebugString() << " to "
               << other_type->DebugString();
   return false;
 }

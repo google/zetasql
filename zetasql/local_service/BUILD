@@ -192,6 +192,33 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "local_service_grpc_test",
+    srcs = ["local_service_grpc_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    tags = ["requires-net:loopback"],
+    deps = [
+        ":local_service",
+        ":local_service_cc_grpc",
+        ":local_service_cc_proto",
+        ":local_service_grpc",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/proto:options_cc_proto",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value_cc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 java_proto_library(
     name = "local_service_java_proto",
     deps = [":local_service_proto"],

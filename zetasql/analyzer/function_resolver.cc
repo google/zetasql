@@ -208,7 +208,7 @@ static SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
     default:
       break;
   }
-  LOG(DFATAL) << "Unexpected RelatedTemplatedKind: "
+  ZETASQL_LOG(DFATAL) << "Unexpected RelatedTemplatedKind: "
               << FunctionArgumentType::SignatureArgumentKindToString(kind);
   // To placate the compiler.
   return kind;
@@ -219,7 +219,7 @@ bool FunctionResolver::GetConcreteArgument(
     int num_occurrences,
     const ArgKindToResolvedTypeMap& templated_argument_map,
     std::unique_ptr<FunctionArgumentType>* output_argument) const {
-  DCHECK_NE(argument.kind(), ARG_TYPE_ARBITRARY);
+  ZETASQL_DCHECK_NE(argument.kind(), ARG_TYPE_ARBITRARY);
   output_argument->reset();
   if (argument.IsTemplated() && !argument.IsRelation() && !argument.IsModel() &&
       !argument.IsConnection()) {
@@ -272,7 +272,7 @@ FunctionArgumentTypeList FunctionResolver::GetConcreteArguments(
         // GetConcreteArgument may fail if templated argument's type is not
         // in the map. This can only happen if num_occurrences=0, so it is
         // not expected here.
-        CHECK(GetConcreteArgument(argument, 1 /* num_occurrences */,
+        ZETASQL_CHECK(GetConcreteArgument(argument, 1 /* num_occurrences */,
                                   templated_argument_map, &argument_type));
         resolved_argument_list.push_back(*argument_type);
       }
@@ -320,7 +320,7 @@ FunctionArgumentTypeList FunctionResolver::GetConcreteArguments(
       // in the map. This can only happen if num_occurrences=0.
       if (!GetConcreteArgument(argument, num_occurrences,
                                templated_argument_map, &argument_type)) {
-        DCHECK_EQ(0, num_occurrences);
+        ZETASQL_DCHECK_EQ(0, num_occurrences);
         argument_type = absl::make_unique<FunctionArgumentType>(
             argument.kind(), argument.cardinality(), 0);
       }
@@ -338,7 +338,7 @@ FunctionArgumentTypeList FunctionResolver::GetConcreteArguments(
     }
     input_position += num_occurrences;
   }
-  DCHECK_EQ(0, optionals);
+  ZETASQL_DCHECK_EQ(0, optionals);
   return resolved_argument_list;
 }
 
@@ -479,11 +479,11 @@ bool FunctionResolver::CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
     ZETASQL_DCHECK_OK(status);
     if (!signature_matches) return false;
   } else if (signature_argument.IsModel()) {
-    DCHECK(input_argument.is_model());
+    ZETASQL_DCHECK(input_argument.is_model());
     // We currently only support ANY MODEL signatures and there is no need to
     // to check for coercion given that the models are templated.
   } else if (signature_argument.IsConnection()) {
-    DCHECK(input_argument.is_connection());
+    ZETASQL_DCHECK(input_argument.is_connection());
     // We currently only support ANY CONNECTION signatures and there is no
     // need to to check for coercion given that the connections are templated.
   } else if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
@@ -796,7 +796,7 @@ bool FunctionResolver::DetermineResolvedTypesForTemplatedArguments(
       const Type** element_type =
           zetasql_base::FindOrNull(*resolved_templated_arguments, related_kind);
       // ANY_K is handled before ARRAY_ANY_K.
-      DCHECK(element_type != nullptr);
+      ZETASQL_DCHECK(element_type != nullptr);
 
       if ((*element_type)->IsArray()) {
         // Arrays of arrays are not supported.
@@ -889,15 +889,15 @@ bool FunctionResolver::SignatureMatches(
           zetasql_base::FindOrNull(resolved_templated_arguments, kind.second);
       if (arg_related_type != nullptr) {
         if ((*arg_type)->IsArray()) {
-          DCHECK((*arg_type)->AsArray()->element_type()->
+          ZETASQL_DCHECK((*arg_type)->AsArray()->element_type()->
                    Equals(*arg_related_type))
               << "arg_type: " << (*arg_type)->DebugString()
               << "\nelement_type: "
               << (*arg_type)->AsArray()->element_type()->DebugString()
               << "\narg_related_type: " << (*arg_related_type)->DebugString();
         } else {
-          DCHECK((*arg_related_type)->IsArray());
-          DCHECK((*arg_related_type)->AsArray()->element_type()->
+          ZETASQL_DCHECK((*arg_related_type)->IsArray());
+          ZETASQL_DCHECK((*arg_related_type)->AsArray()->element_type()->
                    Equals(*arg_type));
         }
       }
@@ -984,7 +984,7 @@ bool FunctionResolver::SignatureMatches(
 //   return MakeSqlErrorAtPoint(GetLocationFromResolvedNode(node, ast_node))
 static ParseLocationPoint GetLocationFromResolvedNode(
     const ResolvedNode* node, const ASTNode* fallback) {
-  DCHECK(fallback != nullptr);
+  ZETASQL_DCHECK(fallback != nullptr);
   const ParseLocationRange* range = node->GetParseLocationOrNULL();
   if (range != nullptr) {
     return range->start();
@@ -1122,8 +1122,7 @@ absl::Status FunctionResolver::ProcessNamedArguments(
   }
   if (input_arg_types != nullptr) {
     if (num_provided_args.has_value()) {
-      ZETASQL_RET_CHECK_EQ(
-          *num_provided_args, input_arg_types->size());
+      ZETASQL_RET_CHECK_EQ(*num_provided_args, input_arg_types->size());
     }
     num_provided_args = input_arg_types->size();
   }
@@ -1324,7 +1323,7 @@ FunctionResolver::FindMatchingSignature(
   std::unique_ptr<FunctionSignature> best_result_signature;
   SignatureMatchResult best_result;
 
-  VLOG(6) << "FindMatchingSignature for function: "
+  ZETASQL_VLOG(6) << "FindMatchingSignature for function: "
           << function->DebugString(/*verbose=*/true) << "\n  for arguments: "
           << InputArgumentType::ArgumentsToString(
                  input_arguments_in, ProductMode::PRODUCT_INTERNAL);
@@ -1359,7 +1358,7 @@ FunctionResolver::FindMatchingSignature(
         continue;
       }
 
-      VLOG(6) << "Found signature for input arguments: "
+      ZETASQL_VLOG(6) << "Found signature for input arguments: "
               << InputArgumentType::ArgumentsToString(
                      input_arguments, ProductMode::PRODUCT_INTERNAL)
               << "\nfunction signature: "
@@ -1375,7 +1374,7 @@ FunctionResolver::FindMatchingSignature(
         best_result_signature = std::move(result_signature);
         best_result = signature_match_result;
       } else {
-        VLOG(4) << "Found duplicate signature matches for function: "
+        ZETASQL_VLOG(4) << "Found duplicate signature matches for function: "
                 << function->DebugString() << "\nGiven input arguments: "
                 << InputArgumentType::ArgumentsToString(
                        input_arguments, ProductMode::PRODUCT_INTERNAL)
@@ -1434,7 +1433,7 @@ absl::Status ExtractStructFieldLocations(
     case AST_STRUCT_CONSTRUCTOR_WITH_PARENS: {
       const ASTStructConstructorWithParens* ast_struct =
           cast_free_ast_location->GetAs<ASTStructConstructorWithParens>();
-      DCHECK_EQ(ast_struct->field_expressions().size(),
+      ZETASQL_DCHECK_EQ(ast_struct->field_expressions().size(),
                 to_struct_type->num_fields());
       *field_arg_locations = ToLocations(ast_struct->field_expressions());
       break;
@@ -1442,7 +1441,7 @@ absl::Status ExtractStructFieldLocations(
     case AST_STRUCT_CONSTRUCTOR_WITH_KEYWORD: {
       const ASTStructConstructorWithKeyword* ast_struct =
           cast_free_ast_location->GetAs<ASTStructConstructorWithKeyword>();
-      DCHECK_EQ(ast_struct->fields().size(), to_struct_type->num_fields());
+      ZETASQL_DCHECK_EQ(ast_struct->fields().size(), to_struct_type->num_fields());
       // Strip "AS <alias>" clauses from field arg locations.
       for (const ASTStructConstructorArg* arg : ast_struct->fields()) {
         field_arg_locations->push_back(arg->expression());
@@ -1658,7 +1657,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
                                target_field_type, scan, set_has_explicit_type,
                                return_null_on_error, &coerced_field_literal)
               .ok()) {
-        DCHECK_EQ(field_literal->node_kind(), RESOLVED_LITERAL);
+        ZETASQL_DCHECK_EQ(field_literal->node_kind(), RESOLVED_LITERAL);
         coerced_field_literals.push_back(coerced_field_literal->value());
       } else {
         success = false;
@@ -1812,9 +1811,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   // Check initial argument constraints, if any.
   if (function->PreResolutionConstraints() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(
-        function->CheckArgumentConstraints(
-            input_argument_types, resolver_->language(),
-            function->PreResolutionConstraints()),
+        function->CheckPreResolutionArgumentConstraints(input_argument_types,
+                                                        resolver_->language()),
         ast_location, include_leftmost_child));
   }
 
@@ -1974,6 +1972,11 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
           arg_locations[idx], target_type, nullptr /* scan */,
           false /* set_has_explicit_type */, false /* return_null_on_error */,
           &arguments[idx]));
+      // Update the argument type with the casted one, so that the
+      // PostResolutionArgumentConstraintsCallback and the
+      // ComputeResultTypeCallback can get the exact types passed to function.
+      input_argument_types[idx] =
+          GetInputArgumentTypeForExpr(arguments[idx].get());
     }
 
     // If we have a literal argument value, check it against the value
@@ -1987,29 +1990,22 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
 
   if (function->PostResolutionConstraints() != nullptr) {
-    std::vector<InputArgumentType> input_arguments;
-    GetInputArgumentTypesForExprList(arguments, &input_arguments);
     ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(
-        function->CheckArgumentConstraints(
-            input_arguments, resolver_->language(),
-            function->PostResolutionConstraints()),
+        function->CheckPostResolutionArgumentConstraints(
+            *result_signature, input_argument_types, resolver_->language()),
         ast_location, include_leftmost_child));
   }
 
   if (function->GetComputeResultTypeCallback() != nullptr) {
     // Note that the result type of SQL functions cannot be overridden, since
     // the result type is determined by the type of the resolved SQL expression.
-    ZETASQL_RET_CHECK(!function->Is<TemplatedSQLFunction>())
-        << function->DebugString();
-    ZETASQL_RET_CHECK(!function->Is<SQLFunctionInterface>())
-        << function->DebugString();
-    std::vector<InputArgumentType> input_arguments;
-    GetInputArgumentTypesForExprList(arguments, &input_arguments);
+    ZETASQL_RET_CHECK(!function->Is<TemplatedSQLFunction>()) << function->DebugString();
+    ZETASQL_RET_CHECK(!function->Is<SQLFunctionInterface>()) << function->DebugString();
     CycleDetector owned_cycle_detector;
     const zetasql_base::StatusOr<const Type*> result_type =
         function->GetComputeResultTypeCallback()(
-            catalog_, type_factory_, &owned_cycle_detector, input_arguments,
-            resolver_->analyzer_options());
+            catalog_, type_factory_, &owned_cycle_detector, *result_signature,
+            input_argument_types, resolver_->analyzer_options());
     ZETASQL_RETURN_IF_ERROR(StatusWithInternalErrorLocation(
         result_type.status(), ast_location, include_leftmost_child));
     ZETASQL_RET_CHECK(result_type.value() != nullptr);
@@ -2028,8 +2024,6 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   if (function->Is<TemplatedSQLFunction>()) {
     const TemplatedSQLFunction* sql_function =
         function->GetAs<TemplatedSQLFunction>();
-    std::vector<InputArgumentType> input_arguments;
-    GetInputArgumentTypesForExprList(arguments, &input_arguments);
     // Call the TemplatedSQLFunction::Resolve() method to get the output type.
     // Use a new empty cycle detector, or the cycle detector from an enclosing
     // Resolver if we are analyzing one or more templated function calls.
@@ -2040,7 +2034,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
           &owned_cycle_detector);
     }
     const absl::Status resolve_status = ResolveTemplatedSQLFunctionCall(
-        ast_location, *sql_function, analyzer_options, input_arguments,
+        ast_location, *sql_function, analyzer_options, input_argument_types,
         &function_call_info);
 
     if (!resolve_status.ok()) {
@@ -2389,7 +2383,7 @@ absl::Status FunctionResolver::CheckArgumentValueConstraints(
 }
 
 const Coercer& FunctionResolver::coercer() const {
-  DCHECK(resolver_ != nullptr);
+  ZETASQL_DCHECK(resolver_ != nullptr);
   return resolver_->coercer_;
 }
 

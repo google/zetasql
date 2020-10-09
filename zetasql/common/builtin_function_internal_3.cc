@@ -132,13 +132,19 @@ void GetStringFunctions(TypeFactory* type_factory,
                  {{bool_type, {string_type, string_type}, FN_ENDS_WITH_STRING},
                   {bool_type, {bytes_type, bytes_type}, FN_ENDS_WITH_BYTES}});
 
+  FunctionOptions substr_options;
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS)) {
+    substr_options.set_alias_name("substring");
+  }
   InsertFunction(functions, options, "substr", SCALAR,
                  {{string_type,
                    {string_type, int64_type, {int64_type, OPTIONAL}},
                    FN_SUBSTR_STRING},
                   {bytes_type,
                    {bytes_type, int64_type, {int64_type, OPTIONAL}},
-                   FN_SUBSTR_BYTES}});
+                   FN_SUBSTR_BYTES}},
+                 substr_options);
 
   InsertFunction(
       functions, options, "trim", SCALAR,
@@ -645,7 +651,9 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                  FunctionOptions()
                      .set_supports_safe_error_mode(false)
                      .set_sql_name("array[key()]")
-                     .set_get_sql_callback(&ProtoMapAtKeySQL));
+                     .set_get_sql_callback(&ProtoMapAtKeySQL)
+                     .add_required_language_feature(
+                         LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
   InsertFunction(functions, options, "$safe_proto_map_at_key", SCALAR,
                  {{ARG_PROTO_MAP_VALUE_ANY,
                    {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
@@ -653,7 +661,9 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                  FunctionOptions()
                      .set_supports_safe_error_mode(false)
                      .set_sql_name("array[safe_key()]")
-                     .set_get_sql_callback(&SafeProtoMapAtKeySQL));
+                     .set_get_sql_callback(&SafeProtoMapAtKeySQL)
+                     .add_required_language_feature(
+                         LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].

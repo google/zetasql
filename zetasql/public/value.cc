@@ -101,14 +101,14 @@ std::ostream& operator<<(std::ostream& out, const Value& value) {
 
 void Value::SetMetadataForNonSimpleType(const Type* type, bool is_null,
                                         bool preserves_order) {
-  DCHECK(!type->IsSimpleType());
+  ZETASQL_DCHECK(!type->IsSimpleType());
   metadata_ = Metadata(type, is_null, preserves_order);
   internal::TypeStoreHelper::RefFromValue(type->type_store_);
 }
 
 // Null value constructor.
 Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
-  CHECK(type != nullptr);
+  ZETASQL_CHECK(type != nullptr);
 
   if (type->IsSimpleType()) {
     metadata_ = Metadata(type->kind(), is_null, order_kind,
@@ -119,8 +119,8 @@ Value::Value(const Type* type, bool is_null, OrderPreservationKind order_kind) {
 }
 
 void Value::CopyFrom(const Value& that) {
-  // Self-copy check is done in the copy constructor. Here we just DCHECK that.
-  DCHECK_NE(this, &that);
+  // Self-copy check is done in the copy constructor. Here we just ZETASQL_DCHECK that.
+  ZETASQL_DCHECK_NE(this, &that);
   memcpy(this, &that, sizeof(Value));
   if (!is_valid()) {
     return;
@@ -144,17 +144,17 @@ void Value::CopyFrom(const Value& that) {
 Value::Value(TypeKind type_kind, int64_t value) : metadata_(type_kind) {
   switch (type_kind) {
     case TYPE_DATE:
-      CHECK_LE(value, types::kDateMax);
-      CHECK_GE(value, types::kDateMin);
+      ZETASQL_CHECK_LE(value, types::kDateMax);
+      ZETASQL_CHECK_GE(value, types::kDateMin);
       int32_value_ = value;
       break;
     default:
-      LOG(FATAL) << "Invalid use of private constructor: " << type_kind;
+      ZETASQL_LOG(FATAL) << "Invalid use of private constructor: " << type_kind;
   }
 }
 
 Value::Value(absl::Time t) {
-  CHECK(functions::IsValidTime(t));
+  ZETASQL_CHECK(functions::IsValidTime(t));
   timestamp_seconds_ = absl::ToUnixSeconds(t);
   const int32_t subsecond_nanos =
       (t - absl::FromUnixSeconds(timestamp_seconds_)) / absl::Nanoseconds(1);
@@ -164,13 +164,13 @@ Value::Value(absl::Time t) {
 Value::Value(TimeValue time)
     : metadata_(TypeKind::TYPE_TIME, time.Nanoseconds()),
       bit_field_32_value_(time.Packed32TimeSeconds()) {
-  CHECK(time.IsValid());
+  ZETASQL_CHECK(time.IsValid());
 }
 
 Value::Value(DatetimeValue datetime)
     : metadata_(TypeKind::TYPE_DATETIME, datetime.Nanoseconds()),
       bit_field_64_value_(datetime.Packed64DatetimeSeconds()) {
-  CHECK(datetime.IsValid());
+  ZETASQL_CHECK(datetime.IsValid());
 }
 
 Value::Value(const EnumType* enum_type, int64_t value) {
@@ -203,7 +203,7 @@ Value::Value(const ProtoType* proto_type, absl::Cord value)
 }
 
 Value::Value(const ExtendedType* extended_type, const ValueContent& value) {
-  DCHECK_EQ(value.simple_type_extended_content_, 0);
+  ZETASQL_DCHECK_EQ(value.simple_type_extended_content_, 0);
   SetMetadataForNonSimpleType(extended_type);
   SetContent(value);
 }
@@ -223,7 +223,7 @@ Value Value::ArrayInternal(bool safe, const ArrayType* array_type,
   value_list = std::move(values);
   if (kDebugMode || safe) {
     for (const Value& v : value_list) {
-      CHECK(v.type()->Equals(array_type->element_type()))
+      ZETASQL_CHECK(v.type()->Equals(array_type->element_type()))
           << "Array element " << v << " must be of type "
           << array_type->element_type()->DebugString();
     }
@@ -239,11 +239,11 @@ Value Value::StructInternal(bool safe, const StructType* struct_type,
   value_list = std::move(values);
   if (kDebugMode || safe) {
     // Check that values are compatible with the type.
-    CHECK_EQ(struct_type->num_fields(), value_list.size());
+    ZETASQL_CHECK_EQ(struct_type->num_fields(), value_list.size());
     for (int i = 0; i < value_list.size(); ++i) {
       const Type* field_type = struct_type->field(i).type;
       const Type* value_type = value_list[i].type();
-      CHECK(field_type->Equals(value_type))
+      ZETASQL_CHECK(field_type->Equals(value_type))
           << "\nField type: " << field_type->DebugString()
           << "\nvs\nValue type: " << value_type->DebugString();
     }
@@ -252,30 +252,30 @@ Value Value::StructInternal(bool safe, const StructType* struct_type,
 }
 
 const Type* Value::type() const {
-  CHECK(is_valid()) << DebugString();
+  ZETASQL_CHECK(is_valid()) << DebugString();
   return metadata_.type();
 }
 
 const std::vector<Value>& Value::fields() const {
-  CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK_EQ(TYPE_STRUCT, metadata_.type_kind());
+  ZETASQL_CHECK(!is_null()) << "Null value";
   return list_ptr_->values();
 }
 
 const std::vector<Value>& Value::elements() const {
-  CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK_EQ(TYPE_ARRAY, metadata_.type_kind());
+  ZETASQL_CHECK(!is_null()) << "Null value";
   return list_ptr_->values();
 }
 
 Value Value::TimestampFromUnixMicros(int64_t v) {
-  CHECK(functions::IsValidTimestamp(v, functions::kMicroseconds)) << v;
+  ZETASQL_CHECK(functions::IsValidTimestamp(v, functions::kMicroseconds)) << v;
   return Value(absl::FromUnixMicros(v));
 }
 
 Value Value::TimeFromPacked64Micros(int64_t v) {
   TimeValue time = TimeValue::FromPacked64Micros(v);
-  CHECK(time.IsValid()) << "int64 " << v
+  ZETASQL_CHECK(time.IsValid()) << "int64 " << v
                         << " decodes to an invalid time value: "
                         << time.DebugString();
   return Value(time);
@@ -283,24 +283,24 @@ Value Value::TimeFromPacked64Micros(int64_t v) {
 
 Value Value::DatetimeFromPacked64Micros(int64_t v) {
   DatetimeValue datetime = DatetimeValue::FromPacked64Micros(v);
-  CHECK(datetime.IsValid())
+  ZETASQL_CHECK(datetime.IsValid())
       << "int64 " << v
       << " decodes to an invalid datetime value: " << datetime.DebugString();
   return Value(datetime);
 }
 
 const std::string& Value::enum_name() const {
-  CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK_EQ(TYPE_ENUM, metadata_.type_kind()) << "Not an enum value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
   const std::string* enum_name = nullptr;
-  CHECK(type()->AsEnum()->FindName(enum_value(), &enum_name))
+  ZETASQL_CHECK(type()->AsEnum()->FindName(enum_value(), &enum_name))
       << "Value " << enum_value() << " not in "
       << type()->AsEnum()->enum_descriptor()->DebugString();
   return *enum_name;
 }
 
 int64_t Value::ToInt64() const {
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_INT64: return int64_value_;
     case TYPE_INT32: return int32_value_;
@@ -319,25 +319,25 @@ int64_t Value::ToInt64() const {
     case TYPE_TIME:
     case TYPE_DATETIME:
     default:
-      LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
                  << " to int64";
   }
 }
 
 uint64_t Value::ToUint64() const {
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_UINT64: return uint64_value_;
     case TYPE_UINT32: return uint32_value_;
     case TYPE_BOOL: return bool_value_;
     default:
-      LOG(FATAL) << "Cannot coerce to uint64";
+      ZETASQL_LOG(FATAL) << "Cannot coerce to uint64";
       return 0;
   }
 }
 
 double Value::ToDouble() const {
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_BOOL: return bool_value_;
     case TYPE_DATE: return int32_value_;
@@ -363,7 +363,7 @@ double Value::ToDouble() const {
     case TYPE_TIME:
     case TYPE_DATETIME:
     default:
-      LOG(FATAL) << "Cannot coerce to double";
+      ZETASQL_LOG(FATAL) << "Cannot coerce to double";
   }
 }
 
@@ -381,7 +381,7 @@ uint64_t Value::physical_byte_size() const {
 }
 
 absl::Cord Value::ToCord() const {
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
   switch (metadata_.type_kind()) {
     case TYPE_STRING:
     case TYPE_BYTES:
@@ -389,14 +389,14 @@ absl::Cord Value::ToCord() const {
     case TYPE_PROTO:
       return proto_ptr_->value();
     default:
-      LOG(FATAL) << "Cannot coerce to Cord";
+      ZETASQL_LOG(FATAL) << "Cannot coerce to Cord";
       return absl::Cord();
   }
 }
 
 absl::Time Value::ToTime() const {
-  CHECK(!is_null()) << "Null value";
-  CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
+  ZETASQL_CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK_EQ(TYPE_TIMESTAMP, metadata_.type_kind()) << "Not a timestamp value";
   return absl::FromUnixSeconds(timestamp_seconds_) +
          absl::Nanoseconds(subsecond_nanos());
 }
@@ -423,15 +423,15 @@ absl::Status Value::ToUnixNanos(int64_t* nanos) const {
 }
 
 ValueContent Value::extended_value() const {
-  CHECK_EQ(type_kind(), TYPE_EXTENDED);
+  ZETASQL_CHECK_EQ(type_kind(), TYPE_EXTENDED);
   return GetContent();
 }
 
 google::protobuf::Message* Value::ToMessage(
     google::protobuf::DynamicMessageFactory* message_factory,
     bool return_null_on_error) const {
-  CHECK(type()->IsProto());
-  CHECK(!is_null());
+  ZETASQL_CHECK(type()->IsProto());
+  ZETASQL_CHECK(!is_null());
   std::unique_ptr<google::protobuf::Message> m(
       message_factory->GetPrototype(type()->AsProto()->descriptor())->New());
   const bool success = m->ParsePartialFromString(std::string(ToCord()));
@@ -440,8 +440,8 @@ google::protobuf::Message* Value::ToMessage(
 }
 
 const Value& Value::FindFieldByName(absl::string_view name) const {
-  CHECK(type()->IsStruct());
-  CHECK(!is_null()) << "Null value";
+  ZETASQL_CHECK(type()->IsStruct());
+  ZETASQL_CHECK(!is_null()) << "Null value";
   if (!name.empty()) {
     // Find field position.
     for (int i = 0; i < type()->AsStruct()->num_fields(); i++) {
@@ -487,7 +487,7 @@ void Value::DeepOrderKindSpec::FillSpec(const Value& v) {
       if (children.empty()) {
         children.resize(v.num_fields());
       }
-      DCHECK_EQ(children.size(), v.num_fields());
+      ZETASQL_DCHECK_EQ(children.size(), v.num_fields());
       for (int i = 0; i < v.num_fields(); i++) {
         children[i].FillSpec(v.field(i));
       }
@@ -625,7 +625,7 @@ bool Value::EqualElementMultiSet(const Value& x, const Value& y,
   InternalComparer comparer(float_margin, deep_order_spec);
   ValueCountMap x_multiset(x.num_elements(), hasher, comparer);
   ValueCountMap y_multiset(x.num_elements(), hasher, comparer);
-  DCHECK_EQ(x.num_elements(), y.num_elements());
+  ZETASQL_DCHECK_EQ(x.num_elements(), y.num_elements());
   for (int i = 0; i < x.num_elements(); i++) {
     x_multiset[x.element(i)]++;
     y_multiset[y.element(i)]++;
@@ -669,7 +669,7 @@ bool Value::EqualElementMultiSet(const Value& x, const Value& y,
                                x.DebugString()));
       }
     }
-    DCHECK(!reason->empty());
+    ZETASQL_DCHECK(!reason->empty());
   }
   return false;
 }
@@ -1083,7 +1083,7 @@ static std::string CapitalizedNameForType(const Type* type) {
     case TYPE_STRUCT:
       return "Struct";
     case TYPE_PROTO:
-      CHECK(type->AsProto()->descriptor() != nullptr);
+      ZETASQL_CHECK(type->AsProto()->descriptor() != nullptr);
       return absl::StrCat("Proto<", type->AsProto()->descriptor()->full_name(),
                           ">");
     case TYPE_EXTENDED:
@@ -1092,7 +1092,7 @@ static std::string CapitalizedNameForType(const Type* type) {
       return type->ShortTypeName(ProductMode::PRODUCT_EXTERNAL);
     case TYPE_UNKNOWN:
     case __TypeKind__switch_must_have_a_default__:
-      LOG(FATAL) << "Unexpected type kind expected internally only: "
+      ZETASQL_LOG(FATAL) << "Unexpected type kind expected internally only: "
                  << type->kind();
   }
 }
@@ -1109,8 +1109,8 @@ std::string Value::ComplexValueToDebugString(const Value* root, bool verbose) {
   do {
     const Entry top = stack.top();
     const Type* type = top.value->type();
-    DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
-    DCHECK(!top.value->is_null());
+    ZETASQL_DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
+    ZETASQL_DCHECK(!top.value->is_null());
     const std::vector<Value>* children = nullptr;
     char closure = '\0';
     const StructType* struct_type = nullptr;
@@ -1236,8 +1236,8 @@ std::string ComplexValueToString(
   do {
     const Entry top = stack.top();
     const Type* type = top.value->type();
-    DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
-    DCHECK(!top.value->is_null());
+    ZETASQL_DCHECK(type->kind() == TYPE_STRUCT || type->kind() == TYPE_ARRAY);
+    ZETASQL_DCHECK(!top.value->is_null());
     const std::vector<Value>* children = nullptr;
     char closure = '\0';
     if (type->kind() == TYPE_STRUCT) {
@@ -1335,7 +1335,7 @@ std::string Value::GetSQLInternal(ProductMode mode) const {
 }
 
 std::string RepeatString(const std::string& text, int times) {
-  CHECK_GE(times, 0);
+  ZETASQL_CHECK_GE(times, 0);
   std::string result;
   result.reserve(text.size() * times);
   for (int i = 0; i < times; ++i) {
@@ -1525,7 +1525,7 @@ std::string FormatType(const Type* type, ArrayElemFormat elem_format,
     }
     return FormatBlock("STRUCT<$0>", fields, ",", indent_cols, WrapStyle::AUTO);
   } else if (type->IsProto()) {
-    CHECK(type->AsProto()->descriptor() != nullptr);
+    ZETASQL_CHECK(type->AsProto()->descriptor() != nullptr);
     return Substitute("PROTO<$0>", type->AsProto()->descriptor()->full_name());
   } else if (type->IsEnum()) {
     return Substitute("ENUM<$0>",
@@ -1819,14 +1819,14 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
 }
 
 ValueContent Value::GetContent() const {
-  DCHECK(has_content());
+  ZETASQL_DCHECK(has_content());
   return ValueContent(int64_value_, metadata_.can_store_value_extended_content()
                                         ? metadata_.value_extended_content()
                                         : 0);
 }
 
 void Value::SetContent(const ValueContent& content) {
-  DCHECK(metadata_.is_valid());
+  ZETASQL_DCHECK(metadata_.is_valid());
 
   int64_value_ = content.content_;
   metadata_ = metadata_.has_type_pointer()
@@ -1930,7 +1930,7 @@ class Value::Metadata::ContentLayout<8> {
   // Type (if set) must be set before other fields.
   void type(const Type* type) {
     const uint64_t type_ptr = reinterpret_cast<uint64_t>(type);
-    CHECK_EQ((type_ptr & kTagMask), 0);
+    ZETASQL_CHECK_EQ((type_ptr & kTagMask), 0);
     type_ = type_ptr | kHasTypeTag;
   }
 
@@ -1989,7 +1989,7 @@ bool Value::Metadata::can_store_value_extended_content() const {
 }
 
 int32_t Value::Metadata::value_extended_content() const {
-  CHECK(can_store_value_extended_content());
+  ZETASQL_CHECK(can_store_value_extended_content());
   return content()->value_extended_content();
 }
 
@@ -2002,8 +2002,8 @@ void Value::Metadata::SetFlags(bool is_null, bool preserves_order) {
   content()->is_null(is_null);
   content()->preserves_order(preserves_order);
 
-  DCHECK(content()->is_null() == is_null);
-  DCHECK(content()->preserves_order() == preserves_order);
+  ZETASQL_DCHECK(content()->is_null() == is_null);
+  ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
 }
 
 Value::Metadata::Metadata(const Type* type, bool is_null,
@@ -2011,8 +2011,8 @@ Value::Metadata::Metadata(const Type* type, bool is_null,
   content()->type(type);
   SetFlags(is_null, preserves_order);
 
-  DCHECK(content()->has_type_pointer());
-  DCHECK(content()->type() == type);
+  ZETASQL_DCHECK(content()->has_type_pointer());
+  ZETASQL_DCHECK(content()->type() == type);
 }
 
 Value::Metadata::Metadata(TypeKind kind, bool is_null, bool preserves_order,
@@ -2021,9 +2021,9 @@ Value::Metadata::Metadata(TypeKind kind, bool is_null, bool preserves_order,
   content()->value_extended_content(value_extended_content);
   SetFlags(is_null, preserves_order);
 
-  DCHECK(!content()->has_type_pointer());
-  DCHECK(content()->kind() == kind);
-  DCHECK(content()->value_extended_content() == value_extended_content);
+  ZETASQL_DCHECK(!content()->has_type_pointer());
+  ZETASQL_DCHECK(content()->kind() == kind);
+  ZETASQL_DCHECK(content()->value_extended_content() == value_extended_content);
 }
 
 }  // namespace zetasql

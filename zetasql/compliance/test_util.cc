@@ -166,7 +166,7 @@ static int64_t GetInt64FromEnv(absl::string_view env_var, int64_t def) {
   const char* env_val = getenv(std::string(env_var).c_str());
   if (env_val == nullptr) {return def;}
   int64_t val;
-  CHECK(absl::SimpleAtoi(env_val, &val));
+  ZETASQL_CHECK(absl::SimpleAtoi(env_val, &val));
   return val;
 }
 

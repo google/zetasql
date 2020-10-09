@@ -92,18 +92,34 @@ class LanguageOptions;
 using ArgumentConstraintsCallback = std::function<absl::Status(
     const std::vector<InputArgumentType>&, const LanguageOptions&)>;
 
-// This callback signature takes an argument list as input and returns the
-// computed output type for function call.  This is used for cases when the
-// output type is dependent on argument types and/or argument literal values.
-// The computed type overrides the return type stored in the FunctionSignature.
-// New types should be allocated in the provided TypeFactory.
+// This callback signature takes the function signature matched by resolution,
+// an argument list as input and returns status.
+// Callback implementations are intended to validate the argument list
+// and return status indicating if the arguments are valid with the given
+// signature or providing a relevant error message.
+using PostResolutionArgumentConstraintsCallback = std::function<absl::Status(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>&, const LanguageOptions&)>;
+
+// This callback signature takes a matched signature, an argument list as input
+// and returns the computed output type for function call.  This is used for
+// cases when the output type is dependent on argument types and/or argument
+// literal values. The computed type overrides the return type stored in the
+// FunctionSignature. New types should be allocated in the provided TypeFactory.
 //
 // This is invoked after the post_resolution_constraint callback.  If this
 // returns an error, that error is used as the reason a function call isn't
 // valid.
 using ComputeResultTypeCallback = std::function<zetasql_base::StatusOr<const Type*>(
     Catalog*, TypeFactory*, CycleDetector*,
-    const std::vector<InputArgumentType>&, const AnalyzerOptions&)>;
+    const FunctionSignature&, const std::vector<InputArgumentType>&,
+    const AnalyzerOptions&)>;
+// The legacy signature of the ComputeResultTypeCallback. It does not take the
+// matched signature as input.
+using LegacyComputeResultTypeCallback =
+    std::function<zetasql_base::StatusOr<const Type*>(
+        Catalog*, TypeFactory*, CycleDetector*,
+        const std::vector<InputArgumentType>&, const AnalyzerOptions&)>;
 
 // This callback signature takes a list of sql representation of function
 // inputs and returns the sql representation of the function call.
@@ -183,13 +199,42 @@ struct FunctionOptions {
     return *this;
   }
   FunctionOptions& set_post_resolution_argument_constraint(
-      ArgumentConstraintsCallback constraint) {
+      PostResolutionArgumentConstraintsCallback constraint) {
     post_resolution_constraint = std::move(constraint);
+    return *this;
+  }
+  ABSL_DEPRECATED(
+      "Please use the overload with PostResolutionArgumentConstraintsCallback")
+  FunctionOptions& set_post_resolution_argument_constraint(
+      ArgumentConstraintsCallback constraint) {
+    post_resolution_constraint =
+        [constraint = std::move(constraint)](
+            const FunctionSignature& signature,
+            const std::vector<InputArgumentType>& input_arguments,
+            const LanguageOptions& language_options) {
+          return constraint(input_arguments, language_options);
+        };
     return *this;
   }
   FunctionOptions& set_compute_result_type_callback(
       ComputeResultTypeCallback callback) {
     compute_result_type_callback = std::move(callback);
+    return *this;
+  }
+  ABSL_DEPRECATED(
+      "Use the overload that takes a ComputeResultTypeCallback instead")
+  FunctionOptions& set_compute_result_type_callback(
+      LegacyComputeResultTypeCallback callback) {
+    compute_result_type_callback =
+        [callback = std::move(callback)](
+            Catalog* catalog, TypeFactory* type_factory,
+            CycleDetector* cycle_detector,
+            const FunctionSignature& /*signature*/,
+            const std::vector<InputArgumentType>& input_arguments,
+            const AnalyzerOptions& analyzer_options) {
+          return callback(catalog, type_factory, cycle_detector,
+                          input_arguments, analyzer_options);
+        };
     return *this;
   }
 
@@ -325,7 +370,8 @@ struct FunctionOptions {
   //   arguments after a function signature has been matched. In both cases, if
   //   checks fail then the query immediately fails.
   ArgumentConstraintsCallback pre_resolution_constraint = nullptr;
-  ArgumentConstraintsCallback post_resolution_constraint = nullptr;
+  PostResolutionArgumentConstraintsCallback post_resolution_constraint =
+      nullptr;
 
   // If not nullptr, this is used after resolution to compute the result type
   // of the function, overriding the type stored in the FunctionSignature.
@@ -456,7 +502,7 @@ class Function {
   // <function_name_path>, identifying the full path name of the function
   // including its containing catalog names.
   //
-  // These constructors perform CHECK validations of basic invariants:
+  // These constructors perform ZETASQL_CHECK validations of basic invariants:
   // * Scalar functions cannot support the OVER clause.
   // * Analytic functions must support OVER clause.
   // * Signatures must satisfy FunctionSignature::IsValidForFunction().
@@ -587,16 +633,21 @@ class Function {
   std::string GetSQL(std::vector<std::string> inputs,
                      const FunctionSignature* signature = nullptr) const;
 
-  // Returns Status indicating whether or not any specified constraints
-  // were violated.  If <constraints_callback> is NULL returns OK.
-  static absl::Status CheckArgumentConstraints(
+  // Returns Status indicating whether or not any specified constraints were
+  // violated. If <constraints_callback> is NULL returns OK.
+  absl::Status CheckPreResolutionArgumentConstraints(
       const std::vector<InputArgumentType>& arguments,
-      const LanguageOptions& language_options,
-      const ArgumentConstraintsCallback& constraints_callback);
+      const LanguageOptions& language_options) const;
+  absl::Status CheckPostResolutionArgumentConstraints(
+      const FunctionSignature& signature,
+      const std::vector<InputArgumentType>& arguments,
+      const LanguageOptions& language_options) const;
 
   // Returns the requested callback;
-  const ArgumentConstraintsCallback& PreResolutionConstraints() const;
-  const ArgumentConstraintsCallback& PostResolutionConstraints() const;
+  const ArgumentConstraintsCallback& PreResolutionConstraints()
+      const;
+  const PostResolutionArgumentConstraintsCallback& PostResolutionConstraints()
+      const;
   const ComputeResultTypeCallback& GetComputeResultTypeCallback() const;
   const FunctionGetSQLCallback& GetSQLCallback() const;
 

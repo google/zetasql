@@ -594,6 +594,9 @@ enum LanguageFeature {
   // ((broken link)).
   FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS = 13023;
 
+  // Inline lambda function argument. (broken link)
+  FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT = 13024;
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.

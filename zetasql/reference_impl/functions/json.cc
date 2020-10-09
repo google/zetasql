@@ -33,7 +33,7 @@ class JsonFunction : public SimpleBuiltinScalarFunction {
  public:
   JsonFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {
-    DCHECK(output_type == types::JsonType() ||
+    ZETASQL_DCHECK(output_type == types::JsonType() ||
            output_type == types::StringType());
   }
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
@@ -105,7 +105,7 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
 
 zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
-  DCHECK_EQ(args.size(), 2);
+  ZETASQL_DCHECK_EQ(args.size(), 2);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
@@ -133,8 +133,8 @@ zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
 
 zetasql_base::StatusOr<Value> JsonExtractArrayFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  DCHECK_GE(args.size(), 1);
-  DCHECK_LE(args.size(), 2);
+  ZETASQL_DCHECK_GE(args.size(), 1);
+  ZETASQL_DCHECK_LE(args.size(), 2);
   if (HasNulls(args)) {
     return Value::Null(types::StringArrayType());
   }

@@ -159,7 +159,7 @@ ValidJSONPathIterator::ValidJSONPathIterator(absl::string_view input,
 void ValidJSONPathIterator::Init() {
   depth_ = 0;
   is_valid_ = RE2::Consume(&text_, *kBeginRegex);
-  DCHECK(is_valid_);
+  ZETASQL_DCHECK(is_valid_);
   // also consume "." in the case of the path begin just "$."
   if (text_ == ".") {
     absl::ConsumePrefix(&text_, ".");

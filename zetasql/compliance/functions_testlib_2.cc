@@ -276,20 +276,20 @@ static std::vector<ComparisonTest> GetStructComparisonTests() {
 
   // These DCHECKs are only here to more clearly show the contents of
   // all the struct values.
-  DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
-  DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
-  DCHECK_EQ("(NULL, 1)",       struct_with_null2.GetSQLLiteral());
-  DCHECK_EQ("(\"bar\", NULL)", struct_with_null3.GetSQLLiteral());
-  DCHECK_EQ("(NULL, NULL)",    struct_with_null4.GetSQLLiteral());
-  DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(NULL, 1)",       struct_with_null2.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"bar\", NULL)", struct_with_null3.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(NULL, NULL)",    struct_with_null4.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
 
-  DCHECK_EQ("NULL",                     null_nested_struct.GetSQLLiteral());
-  DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1.GetSQLLiteral());
-  DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1b.GetSQLLiteral());
-  DCHECK_EQ("(NULL, (\"bar\", 1))",     nested_struct_null1.GetSQLLiteral());
-  DCHECK_EQ("(\"x\", (NULL, 1))",       nested_struct_null2.GetSQLLiteral());
-  DCHECK_EQ("(\"x\", (\"bar\", NULL))", nested_struct_null3.GetSQLLiteral());
-  DCHECK_EQ("(\"x\", NULL)",            nested_struct_null4.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("NULL",                     null_nested_struct.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"x\", (\"bar\", 1))",    nested_struct1b.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(NULL, (\"bar\", 1))",     nested_struct_null1.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"x\", (NULL, 1))",       nested_struct_null2.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"x\", (\"bar\", NULL))", nested_struct_null3.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"x\", NULL)",            nested_struct_null4.GetSQLLiteral());
 
   std::vector<ComparisonTest> v = {
     // same non-null struct
@@ -1175,13 +1175,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsStructIn() {
   const Value null_struct = Value::Null(struct_type);
   // These DCHECKs are only here to more clearly show the contents of
   // all the struct values.
-  DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
-  DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
-  DCHECK_EQ("(\"baz\", 2)",    struct2.GetSQLLiteral());
-  DCHECK_EQ("(NULL, 1)",       struct1_with_null1.GetSQLLiteral());
-  DCHECK_EQ("(\"bar\", NULL)", struct1_with_null2.GetSQLLiteral());
-  DCHECK_EQ("(NULL, NULL)",    struct_with_all_nulls.GetSQLLiteral());
-  DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"foo\", 0)",    struct0.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"bar\", 1)",    struct1.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"baz\", 2)",    struct2.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(NULL, 1)",       struct1_with_null1.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(\"bar\", NULL)", struct1_with_null2.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("(NULL, NULL)",    struct_with_all_nulls.GetSQLLiteral());
+  ZETASQL_DCHECK_EQ("NULL",            null_struct.GetSQLLiteral());
 
   return {
     {{struct0, struct0}, True()},
@@ -1337,7 +1337,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
         // The UNEQUAL test result type is currently only used for ARRAY
         // comparisons, but GREATEST/LEAST do not support ARRAYS so this
         // is an unexpected condition.
-        CHECK_NE(test.result, UNEQUAL)
+        ZETASQL_CHECK_NE(test.result, UNEQUAL)
             << "Unexpected comparison test result type:" << test.result;
     }
     // Binary
@@ -1376,7 +1376,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
         // The UNEQUAL test result type is currently only used for ARRAY
         // comparisons, but GREATEST/LEAST do not support ARRAYS so this
         // is an unexpected condition.
-        CHECK_NE(test.result, UNEQUAL)
+        ZETASQL_CHECK_NE(test.result, UNEQUAL)
             << "Unexpected comparison test result type:" << test.result;
     }
     // Binary

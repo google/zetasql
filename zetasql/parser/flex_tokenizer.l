@@ -766,7 +766,7 @@ zone { return BisonParserImpl::token::KW_ZONE; }
   // If this triggers, then we pushed a non-INITIAL state on top of
   // STACK_BOTTOM. That should be impossible, because the only rules that are
   // active in state STACK_BOTTOM are the catch-all error rules.
-  DCHECK(YY_START != STACK_BOTTOM);
+  ZETASQL_DCHECK(YY_START != STACK_BOTTOM);
   if (YY_START != STACK_BOTTOM) {
     yy_pop_state();
   }

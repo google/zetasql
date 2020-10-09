@@ -470,7 +470,8 @@ FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
 +---------+
 ```
 
-### Supported external UDF types {: #supported-external-udf-data-types }
+### Supported external UDF types 
+<a id="supported-external-udf-data-types"></a>
 
 ## TVFs {#tvfs}
 

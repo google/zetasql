@@ -615,8 +615,12 @@ void GetDatetimeDiffTruncLastFunctions(
            extended_datetime_signatures},
       },
       require_civil_time_types.Copy().set_post_resolution_argument_constraint(
-          bind_front(&CheckDateDatetimeTimeTimestampDiffArguments,
-                     "DATETIME_DIFF")));
+          [](const FunctionSignature& /*signature*/,
+             const std::vector<InputArgumentType>& arguments,
+             const LanguageOptions& language_options) {
+            return CheckDateDatetimeTimeTimestampDiffArguments(
+                "DATETIME_DIFF", arguments, language_options);
+          }));
 
   InsertFunction(
       functions, options, "time_diff", SCALAR,
@@ -627,19 +631,23 @@ void GetDatetimeDiffTruncLastFunctions(
           bind_front(&CheckDateDatetimeTimeTimestampDiffArguments,
                      "TIME_DIFF")));
 
-  InsertFunction(
-      functions, options, "timestamp_diff", SCALAR,
-      {
-          {int64_type,
-           {timestamp_type, timestamp_type, datepart_type},
-           FN_TIMESTAMP_DIFF},
-          {int64_type,
-           {datetime_type, datetime_type, datepart_type},
-           FN_DATETIME_DIFF,
-           extended_datetime_signatures},
-      },
-      FunctionOptions().set_post_resolution_argument_constraint(bind_front(
-          &CheckDateDatetimeTimeTimestampDiffArguments, "TIMESTAMP_DIFF")));
+  InsertFunction(functions, options, "timestamp_diff", SCALAR,
+                 {
+                     {int64_type,
+                      {timestamp_type, timestamp_type, datepart_type},
+                      FN_TIMESTAMP_DIFF},
+                     {int64_type,
+                      {datetime_type, datetime_type, datepart_type},
+                      FN_DATETIME_DIFF,
+                      extended_datetime_signatures},
+                 },
+                 FunctionOptions().set_post_resolution_argument_constraint(
+                     [](const FunctionSignature& /*signature*/,
+                        const std::vector<InputArgumentType>& arguments,
+                        const LanguageOptions& language_options) {
+                       return CheckDateDatetimeTimeTimestampDiffArguments(
+                           "TIMESTAMP_DIFF", arguments, language_options);
+                     }));
 
   InsertFunction(
       functions, options, "date_trunc", SCALAR,

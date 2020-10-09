@@ -19,6 +19,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
@@ -209,7 +210,7 @@ TEST(LanguageOptions, EnableMaximumLanguageFeaturesForDevelopment) {
       __LanguageFeature__switch_must_have_a_default__));
 }
 
-TEST(LanguageOptions, Deserialize) {
+TEST(LanguageOptions, Serialization) {
   LanguageOptionsProto proto;
   proto.set_product_mode(PRODUCT_EXTERNAL);
   proto.set_name_resolution_mode(NAME_RESOLUTION_STRICT);

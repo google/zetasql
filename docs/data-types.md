@@ -180,7 +180,8 @@ scale.</td>
 
 `DECIMAL` is an alias for `NUMERIC`.
 
-### Floating point types {: #floating_point_types }
+### Floating point types 
+<a id="floating_point_types"></a>
 
 Floating point values are approximate numeric values with fractional components.
 

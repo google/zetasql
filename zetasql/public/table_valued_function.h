@@ -140,7 +140,7 @@ class TableValuedFunction {
   // TODO: Consider making this return a const reference instead.
   // This signature should be consistent with Function::GetSignature(), so
   // if we change it here we should also change it there.  Should it return
-  // Status, in case <idx> is out of range (rather than CHECK failing)?
+  // Status, in case <idx> is out of range (rather than ZETASQL_CHECK failing)?
   const FunctionSignature* GetSignature(int64_t idx) const;
 
   // Returns user facing text (to be used in error messages) listing function
@@ -478,31 +478,31 @@ class TVFInputArgumentType {
   // optional, and is not owned or serialized. If present, this class assumes
   // that it is consistent with scalar_arg_type_ and scalar_arg_value_.
   const ResolvedExpr* scalar_expr() const {
-    DCHECK(is_scalar());
+    ZETASQL_DCHECK(is_scalar());
     return scalar_expr_;
   }
   void set_scalar_expr(const ResolvedExpr* expr) {
-    DCHECK(is_scalar());
+    ZETASQL_DCHECK(is_scalar());
     scalar_expr_ = expr;
   }
 
   // TODO: Rename to GetRelation and return StatusOr to keep
   // consistent with GetScalarArgType above.
   const TVFRelation& relation() const {
-    DCHECK(is_relation());
+    ZETASQL_DCHECK(is_relation());
     return relation_;
   }
   const TVFModelArgument& model() const {
-    DCHECK(is_model());
+    ZETASQL_DCHECK(is_model());
     return model_;
   }
   const TVFConnectionArgument& connection() const {
-    DCHECK(is_connection());
+    ZETASQL_DCHECK(is_connection());
     return connection_;
   }
 
   const TVFDescriptorArgument& descriptor_argument() const {
-    DCHECK(is_descriptor());
+    ZETASQL_DCHECK(is_descriptor());
     return descriptor_argument_;
   }
 

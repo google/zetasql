@@ -764,6 +764,8 @@ class AnalyzerOutput {
   int max_column_id() const { return max_column_id_; }
 
  private:
+  friend class AnalyzerOutputMutator;
+
   // This IdStringPool and arena must be kept alive for the Resolved trees below
   // to be valid.
   std::shared_ptr<IdStringPool> id_string_pool_;
@@ -1149,6 +1151,17 @@ absl::Status ReplaceLiteralsByParameters(
     const std::string& sql, const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql);
+
+// Rewrites the resolved AST to use existing constructs for features that can be
+// enabled without needing native engine support for their AST nodes.
+//
+// If an engine wants to implement these features natively, they can be provided
+// as disabled_rewrites.
+zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteResolvedAst(
+    const AnalyzerOptions& analyzer_options,
+    std::unique_ptr<const AnalyzerOutput> analyzer_output,
+    const absl::flat_hash_set<LanguageFeature>& disabled_rewrites,
+    Catalog* catalog, TypeFactory* type_factory);
 
 }  // namespace zetasql
 

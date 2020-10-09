@@ -149,7 +149,7 @@ template <typename InType, typename OutType>
 void TestUnaryFunction(const QueryParamsWithResult& param,
                        bool (*function)(InType, OutType*,
                            absl::Status* error)) {
-  CHECK_EQ(1, param.num_params());
+  ZETASQL_CHECK_EQ(1, param.num_params());
   const Value& input1 = param.param(0);
   if (input1.is_null()) {
     return;
@@ -165,7 +165,7 @@ template <typename InType1, typename InType2, typename OutType>
 void TestBinaryFunction(const QueryParamsWithResult& param,
                         bool (*function)(InType1, InType2, OutType*,
                             absl::Status* error)) {
-  CHECK_EQ(2, param.num_params());
+  ZETASQL_CHECK_EQ(2, param.num_params());
   const Value& input1 = param.param(0);
   const Value& input2 = param.param(1);
   if (input1.is_null() || input2.is_null()) {

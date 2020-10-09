@@ -359,7 +359,7 @@ TEST_F(FunctionSerializationTests, BuiltinFunctions) {
   GetZetaSQLFunctions(&type_factory, language_options, &functions);
 
   for (const auto& pair : functions) {
-    LOG(INFO) << "Testing serialization of function " << pair.first;
+    ZETASQL_LOG(INFO) << "Testing serialization of function " << pair.first;
     CheckSerializationAndDeserialization(*pair.second);
   }
 

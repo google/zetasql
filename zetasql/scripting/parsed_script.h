@@ -43,10 +43,11 @@ class ParsedScript {
   // to its parent.  For each statement s, s->parent()->child(map[s]) == s.
   using NodeIndexMap = absl::flat_hash_map<const ASTNode*, int>;
 
-  // Mapping of variable name to ASTType.
-  using VariableTypeMap =
-      absl::flat_hash_map<IdString, const ASTType*, IdStringCaseHash,
-                          IdStringCaseEqualFunc>;
+  // Mapping of active variable names to the ASTVariableDeclaration statement
+  // which declares the variable.
+  using VariableDeclarationMap =
+      absl::flat_hash_map<IdString, const ASTVariableDeclaration*,
+                          IdStringCaseHash, IdStringCaseEqualFunc>;
 
   // Mapping of argument name to zetasql Type.
   using ArgumentTypeMap =
@@ -95,6 +96,13 @@ class ParsedScript {
       absl::string_view script_string, const ParserOptions& parser_options,
       ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments);
 
+  // Similar to the above functions, but allows the caller to provide an AST
+  // node when the script is contained with a larger script, for example,
+  // a CREATE PROCEDURE statement.
+  static zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> CreateForRoutine(
+      absl::string_view script_string, const ASTScript* ast_script,
+      ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments);
+
   const ASTScript* script() const { return ast_script_; }
   absl::string_view script_text() const { return script_string_; }
   ErrorMessageMode error_message_mode() const { return error_message_mode_; }
@@ -124,7 +132,7 @@ class ParsedScript {
 
   // Returns a map of all variables in scope immediately prior to the execution
   // of <next_node>.
-  zetasql_base::StatusOr<VariableTypeMap> GetVariablesInScopeAtNode(
+  zetasql_base::StatusOr<VariableDeclarationMap> GetVariablesInScopeAtNode(
       const ASTNode* node) const;
 
   // Validates the query parameters (e.g. no missing ones, not mixing named and
@@ -136,7 +144,22 @@ class ParsedScript {
       absl::string_view script_string, const ParserOptions& parser_options,
       ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments);
 
-  // <script_string> is owned externally.  Takes ownership of <parser_output>.
+  // script_string: The string of the entire script for which parse locations
+  //   within <ast_script> are based off of. Owned externally.
+  //
+  // ast_script: The parse tree for the current script or procedure body.
+  //   Owned by <parser_output> if <parser_output> is non-null; otherwise,
+  //   owned externally.
+  //
+  // parser_output: If non-null, owns the lifetime of <ast_script>.
+  //
+  // error_message_mode: Indicates how errors should be returned when validating
+  //   the script or procedure body.
+  //
+  // routine_arguments: If <ast_script> is a procedure body, specifies the
+  //   name and type of each argument. This is used in validation, for example,
+  //   to ensure that script variables do not shadow arguments. When
+  //   <ast_script> represents a top-level script, this should be empty.
   ParsedScript(absl::string_view script_string, const ASTScript* ast_script,
                std::unique_ptr<ParserOutput> parser_output,
                ErrorMessageMode error_message_mode,

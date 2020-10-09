@@ -35,9 +35,9 @@ class TestIntTraverser : public GeneralTrie<int, 0>::Traverser {
   }
 
   virtual void Process(const std::string& s, const int& data) {
-    CHECK_GT(expected_->size(), 0);
+    ZETASQL_CHECK_GT(expected_->size(), 0);
     std::list<int>::iterator it = expected_->begin();
-    CHECK_EQ(*it, data);
+    ZETASQL_CHECK_EQ(*it, data);
     expected_->erase(it);
   }
 
@@ -68,13 +68,13 @@ TEST(GeneralTrie, Basic) {
   expected.push_back(7);
   TestIntTraverser *traverser = new TestIntTraverser(&expected);
   trie.PreorderTraverse(traverser);
-  CHECK_EQ(expected.size(), 0);
+  ZETASQL_CHECK_EQ(expected.size(), 0);
   delete traverser;
 
   std::list<int> postorder_expected = {6, 5, 4, 1, 3, 7, 2};
   traverser = new TestIntTraverser(&postorder_expected);
   trie.PostorderTraverse(traverser);
-  CHECK_EQ(postorder_expected.size(), 0);
+  ZETASQL_CHECK_EQ(postorder_expected.size(), 0);
   delete traverser;
 
   expected.push_back(4);
@@ -82,7 +82,7 @@ TEST(GeneralTrie, Basic) {
   expected.push_back(6);
   traverser = new TestIntTraverser(&expected);
   trie.PreorderTraverseAllMatchingStrings("onefl", strlen("onefl"), traverser);
-  CHECK_EQ(expected.size(), 0);
+  ZETASQL_CHECK_EQ(expected.size(), 0);
   delete traverser;
 
   postorder_expected.push_back(6);
@@ -90,81 +90,81 @@ TEST(GeneralTrie, Basic) {
   postorder_expected.push_back(4);
   traverser = new TestIntTraverser(&postorder_expected);
   trie.PostorderTraverseAllMatchingStrings("onefl", strlen("onefl"), traverser);
-  CHECK_EQ(postorder_expected.size(), 0);
+  ZETASQL_CHECK_EQ(postorder_expected.size(), 0);
   delete traverser;
 
-  CHECK_EQ(trie.GetData("one"), 1);
-  CHECK_EQ(trie.GetData("two"), 2);
-  CHECK_EQ(trie.GetData("three"), 3);
-  CHECK_EQ(trie.GetData("oneflew"), 4);
-  CHECK_EQ(trie.GetData("oneflewover"), 5);
-  CHECK_EQ(trie.GetData("oneflewoverthe"), 6);
-  CHECK_EQ(trie.GetData("twoiscompany"), 7);
+  ZETASQL_CHECK_EQ(trie.GetData("one"), 1);
+  ZETASQL_CHECK_EQ(trie.GetData("two"), 2);
+  ZETASQL_CHECK_EQ(trie.GetData("three"), 3);
+  ZETASQL_CHECK_EQ(trie.GetData("oneflew"), 4);
+  ZETASQL_CHECK_EQ(trie.GetData("oneflewover"), 5);
+  ZETASQL_CHECK_EQ(trie.GetData("oneflewoverthe"), 6);
+  ZETASQL_CHECK_EQ(trie.GetData("twoiscompany"), 7);
   // test non existent entry
-  CHECK_EQ(trie.GetData("foo"), 0);
+  ZETASQL_CHECK_EQ(trie.GetData("foo"), 0);
 
   // Test GetData on const trie.
-  CHECK_EQ(const_trie.GetData("one"), 1);
-  CHECK_EQ(const_trie.GetData("foo"), 0);
+  ZETASQL_CHECK_EQ(const_trie.GetData("one"), 1);
+  ZETASQL_CHECK_EQ(const_trie.GetData("foo"), 0);
 
   int& one_data = trie.GetData("one");
   one_data--;
-  CHECK_EQ(trie.GetData("one"), 0);
+  ZETASQL_CHECK_EQ(trie.GetData("one"), 0);
   one_data++;
 
   int chars_matched = -1;
-  CHECK_EQ(trie.GetDataForMaximalPrefix("one", &chars_matched, nullptr), 1);
-  CHECK_EQ(chars_matched, 3);
+  ZETASQL_CHECK_EQ(trie.GetDataForMaximalPrefix("one", &chars_matched, nullptr), 1);
+  ZETASQL_CHECK_EQ(chars_matched, 3);
   bool is_terminators[256];
   is_terminators['b'] = true;
-  CHECK_EQ(
+  ZETASQL_CHECK_EQ(
       trie.GetDataForMaximalPrefix("oneby", &chars_matched, is_terminators),
       1);
-  CHECK_EQ(chars_matched, 3);
+  ZETASQL_CHECK_EQ(chars_matched, 3);
   std::vector<std::pair<std::string, int> > outdata;
   trie.GetAllMatchingStrings("onefl", strlen("onefl"), &outdata);
-  CHECK_EQ(outdata.size(), 3);
-  CHECK_EQ(outdata[0].first, "oneflew");
-  CHECK_EQ(outdata[0].second, 4);
-  CHECK_EQ(outdata[1].first, "oneflewover");
-  CHECK_EQ(outdata[1].second, 5);
-  CHECK_EQ(outdata[2].first, "oneflewoverthe");
-  CHECK_EQ(outdata[2].second, 6);
+  ZETASQL_CHECK_EQ(outdata.size(), 3);
+  ZETASQL_CHECK_EQ(outdata[0].first, "oneflew");
+  ZETASQL_CHECK_EQ(outdata[0].second, 4);
+  ZETASQL_CHECK_EQ(outdata[1].first, "oneflewover");
+  ZETASQL_CHECK_EQ(outdata[1].second, 5);
+  ZETASQL_CHECK_EQ(outdata[2].first, "oneflewoverthe");
+  ZETASQL_CHECK_EQ(outdata[2].second, 6);
 
   trie.GetAllMatchingStrings("two", strlen("two"), &outdata);
-  CHECK_EQ(outdata.size(), 2);
-  CHECK_EQ(outdata[0].first, "two");
-  CHECK_EQ(outdata[0].second, 2);
-  CHECK_EQ(outdata[1].first, "twoiscompany");
-  CHECK_EQ(outdata[1].second, 7);
+  ZETASQL_CHECK_EQ(outdata.size(), 2);
+  ZETASQL_CHECK_EQ(outdata[0].first, "two");
+  ZETASQL_CHECK_EQ(outdata[0].second, 2);
+  ZETASQL_CHECK_EQ(outdata[1].first, "twoiscompany");
+  ZETASQL_CHECK_EQ(outdata[1].second, 7);
 
   trie.GetAllMatchingStrings("three", strlen("three"), &outdata);
-  CHECK_EQ(outdata.size(), 1);
-  CHECK_EQ(outdata[0].first, "three");
-  CHECK_EQ(outdata[0].second, 3);
+  ZETASQL_CHECK_EQ(outdata.size(), 1);
+  ZETASQL_CHECK_EQ(outdata[0].first, "three");
+  ZETASQL_CHECK_EQ(outdata[0].second, 3);
 
   trie.GetAllMatchingStrings("foo", strlen("foo"), &outdata);
-  CHECK_EQ(outdata.size(), 0);
+  ZETASQL_CHECK_EQ(outdata.size(), 0);
 
   trie.SetData("two", -2);
   trie.SetData("twoiscompany", -7);
   // test non-existent entry
-  CHECK(!trie.SetData("foo", 1));
+  ZETASQL_CHECK(!trie.SetData("foo", 1));
 
-  CHECK_EQ(trie.GetData("two"), -2);
-  CHECK_EQ(trie.GetData("twoiscompany"), -7);
+  ZETASQL_CHECK_EQ(trie.GetData("two"), -2);
+  ZETASQL_CHECK_EQ(trie.GetData("twoiscompany"), -7);
   trie.GetAllMatchingStrings("two", strlen("two"), &outdata);
-  CHECK_EQ(outdata.size(), 2);
-  CHECK_EQ(outdata[0].first, "two");
-  CHECK_EQ(outdata[0].second, -2);
-  CHECK_EQ(outdata[1].first, "twoiscompany");
-  CHECK_EQ(outdata[1].second, -7);
+  ZETASQL_CHECK_EQ(outdata.size(), 2);
+  ZETASQL_CHECK_EQ(outdata[0].first, "two");
+  ZETASQL_CHECK_EQ(outdata[0].second, -2);
+  ZETASQL_CHECK_EQ(outdata[1].first, "twoiscompany");
+  ZETASQL_CHECK_EQ(outdata[1].second, -7);
 }
 
 TEST(GeneralTrie, TraverseIterator) {
   GeneralTrie<int, 0> trie;
   GeneralTrie<int, 0>::TraverseIterator iter = trie.Traverse();
-  CHECK(iter.Done());
+  ZETASQL_CHECK(iter.Done());
 
   trie.Insert("one", 1);
   trie.Insert("two", 2);
@@ -186,35 +186,35 @@ TEST(GeneralTrie, TraverseIterator) {
   int i = 0;
   for (GeneralTrie<int, 0>::TraverseIterator iter = trie.Traverse();
        !iter.Done(); iter.Next()) {
-    CHECK_EQ(expected[i].first, iter.Key());
-    CHECK_EQ(expected[i].second, iter.Value());
+    ZETASQL_CHECK_EQ(expected[i].first, iter.Key());
+    ZETASQL_CHECK_EQ(expected[i].second, iter.Value());
     i++;
   }
-  CHECK_EQ(7, i);
+  ZETASQL_CHECK_EQ(7, i);
 
   // Test a trie that has data at the root.
   GeneralTrie<int, 0> root_data_trie;
   root_data_trie.Insert("", 1234);
 
   iter = root_data_trie.Traverse();
-  CHECK(!iter.Done());
-  CHECK_EQ("", iter.Key());
-  CHECK_EQ(1234, iter.Value());
+  ZETASQL_CHECK(!iter.Done());
+  ZETASQL_CHECK_EQ("", iter.Key());
+  ZETASQL_CHECK_EQ(1234, iter.Value());
   iter.Next();
-  CHECK(iter.Done());
+  ZETASQL_CHECK(iter.Done());
 
   // Insert another item, and iterate through again.
   root_data_trie.Insert("a", 5678);
   iter = root_data_trie.Traverse();
-  CHECK(!iter.Done());
-  CHECK_EQ("", iter.Key());
-  CHECK_EQ(1234, iter.Value());
+  ZETASQL_CHECK(!iter.Done());
+  ZETASQL_CHECK_EQ("", iter.Key());
+  ZETASQL_CHECK_EQ(1234, iter.Value());
   iter.Next();
-  CHECK(!iter.Done());
-  CHECK_EQ("a", iter.Key());
-  CHECK_EQ(5678, iter.Value());
+  ZETASQL_CHECK(!iter.Done());
+  ZETASQL_CHECK_EQ("a", iter.Key());
+  ZETASQL_CHECK_EQ(5678, iter.Value());
   iter.Next();
-  CHECK(iter.Done());
+  ZETASQL_CHECK(iter.Done());
 }
 
 //

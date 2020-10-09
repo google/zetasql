@@ -54,6 +54,12 @@ service ZetaSqlLocalService {
   // and value as EvaluateResponse.
   rpc Evaluate(EvaluateRequest) returns (EvaluateResponse) {
   }
+  // Evaluate a Stream of prepared expression batches and return a stream of
+  // result batches. Requests will be evaluated and returned in the same order
+  // as received, but batches may be packed differently.
+  rpc EvaluateStream(stream EvaluateRequestBatch)
+      returns (stream EvaluateResponseBatch) {
+  }
   // Cleanup the prepared expression kept at server side with given id.
   rpc Unprepare(UnprepareRequest) returns (google.protobuf.Empty) {
   }
@@ -180,6 +186,14 @@ message EvaluateResponse {
   optional ValueProto value = 1;
   optional TypeProto type = 2;
   optional int64 prepared_expression_id = 3;
+}
+
+message EvaluateRequestBatch {
+  repeated EvaluateRequest request = 1;
+}
+
+message EvaluateResponseBatch {
+  repeated EvaluateResponse response = 1;
 }
 
 message UnprepareRequest {

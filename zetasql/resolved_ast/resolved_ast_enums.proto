@@ -107,6 +107,14 @@ message ResolvedCreateStatementEnums {
   }
 }
 
+message ResolvedDropStmtEnums {
+  enum DropMode {
+    DROP_MODE_UNSPECIFIED = 0;
+    RESTRICT = 1;
+    CASCADE = 2;
+  }
+}
+
 message ResolvedBeginStmtEnums {
   enum ReadWriteMode {
     MODE_UNSPECIFIED = 0;

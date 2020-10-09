@@ -98,7 +98,7 @@ void ResolvedNode::DebugStringImpl(const std::string& prefix1,
 
       if (!print_one_line) {
         for (const ResolvedNode* node : field.nodes) {
-          DCHECK(node != nullptr);
+          ZETASQL_DCHECK(node != nullptr);
           const std::string field_name_indent =
               print_field_name ? (&field != &fields.back() ? "| " : "  ") : "";
           const std::string field_value_indent =
@@ -227,7 +227,7 @@ void ResolvedNode::GetDescendantsSatisfying(
 //       ...
 void ResolvedNode::CollectDebugStringFieldsWithNameFormat(
     const ResolvedNode* node, std::vector<DebugStringField>* fields) const {
-  DCHECK(fields->empty());
+  ZETASQL_DCHECK(fields->empty());
   if (node->HasDebugStringFieldsWithNodes()) {
     fields->emplace_back(DebugStringField("" /* name */, node));
   } else {
@@ -291,7 +291,7 @@ std::string ResolvedComputedColumn::GetNameForDebugString() const {
 void ResolvedOutputColumn::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  DCHECK(fields->empty());
+  ZETASQL_DCHECK(fields->empty());
 }
 
 std::string ResolvedOutputColumn::GetNameForDebugString() const {
@@ -304,7 +304,7 @@ std::string ResolvedOutputColumn::GetNameForDebugString() const {
 void ResolvedConstant::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  DCHECK_LE(fields->size(), 2);  // type and parse location
+  ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse location
 
   fields->emplace(fields->begin(), "", constant()->FullName());
   if (constant()->Is<SimpleConstant>()) {
@@ -341,7 +341,7 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
 
-  DCHECK_LE(fields->size(), 2);  // type and parse_location
+  ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse_location
 
   // Clear the "type" field if present.
   fields->erase(std::remove_if(
@@ -370,7 +370,7 @@ std::string ResolvedFunctionCallBase::GetNameForDebugString() const {
 void ResolvedCast::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  DCHECK_LE(fields->size(), 2);  // type and parse location
+  ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse location
 
   // Clear the "type" field if present.
   fields->erase(std::remove_if(
@@ -400,7 +400,7 @@ std::string ResolvedCast::GetNameForDebugString() const {
 void ResolvedExtendedCastElement::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  DCHECK_LE(fields->size(), 1);  // function
+  ZETASQL_DCHECK_LE(fields->size(), 1);  // function
 }
 
 std::string ResolvedExtendedCastElement::GetNameForDebugString() const {
@@ -467,7 +467,7 @@ std::string ResolvedWindowFrame::FrameUnitToString(FrameUnit frame_unit) {
     case ResolvedWindowFrame::RANGE:
       return "RANGE";
     default:
-      LOG(DFATAL) << "Invalid frame unit: " << frame_unit;
+      ZETASQL_LOG(DFATAL) << "Invalid frame unit: " << frame_unit;
       return absl::StrCat("INVALID_FRAME_UNIT(", frame_unit, ")");
   }
 }
@@ -486,7 +486,7 @@ std::string ResolvedWindowFrameExpr::BoundaryTypeToString(
     case ResolvedWindowFrameExpr::UNBOUNDED_FOLLOWING:
       return "UNBOUNDED FOLLOWING";
     default:
-      LOG(DFATAL) << "Invalid boundary Type: " << boundary_type;
+      ZETASQL_LOG(DFATAL) << "Invalid boundary Type: " << boundary_type;
       return absl::StrCat("INVALID_BOUNDARY_TYPE(", boundary_type, ")");
   }
 }
@@ -536,7 +536,7 @@ std::string ResolvedInsertStmt::InsertModeToString(InsertMode insert_mode) {
     case ResolvedInsertStmt::OR_UPDATE:
       return "OR UPDATE";
     default:
-      LOG(DFATAL) << "Invalid insert mode: " << insert_mode;
+      ZETASQL_LOG(DFATAL) << "Invalid insert mode: " << insert_mode;
       return absl::StrCat("INVALID_INSERT_MODE(", insert_mode, ")");
   }
 }
@@ -553,7 +553,7 @@ std::string ResolvedAggregateHavingModifier::HavingModifierKindToString(
     case ResolvedAggregateHavingModifier::MIN:
       return "MIN";
     default:
-      LOG(DFATAL) << "Invalid having modifier kind: " << kind;
+      ZETASQL_LOG(DFATAL) << "Invalid having modifier kind: " << kind;
       return absl::StrCat("INVALID_HAVING_MODIFIER_KIND(", kind, ")");
   }
 }
@@ -570,7 +570,7 @@ std::string ResolvedImportStmt::ImportKindToString(ImportKind kind) {
     case PROTO:
       return "PROTO";
     default:
-      LOG(DFATAL) << "Invalid import kind: " << kind;
+      ZETASQL_LOG(DFATAL) << "Invalid import kind: " << kind;
       return absl::StrCat("INVALID_IMPORT_KIND(", kind, ")");
   }
 }

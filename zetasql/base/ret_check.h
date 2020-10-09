@@ -18,7 +18,7 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_RET_CHECK_H_
 
 // Macros for non-fatal assertions.  The `ZETASQL_RET_CHECK` family of macros
-// mirrors the `CHECK` family from "base/logging.h", but instead of aborting the
+// mirrors the `ZETASQL_CHECK` family from "base/logging.h", but instead of aborting the
 // process on failure, these return a absl::Status with code
 // `zetasql::StatusCode::kInternal` from the current method.
 //

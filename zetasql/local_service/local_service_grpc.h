@@ -42,6 +42,11 @@ class ZetaSqlLocalServiceGrpcImpl
                         const EvaluateRequest* req,
                         EvaluateResponse* resp) override;
 
+  grpc::Status EvaluateStream(
+      grpc::ServerContext* context,
+      grpc::ServerReaderWriter<EvaluateResponseBatch, EvaluateRequestBatch>*
+          stream) override;
+
   grpc::Status GetTableFromProto(grpc::ServerContext* context,
                                  const TableFromProtoRequest* req,
                                  SimpleTableProto* resp) override;

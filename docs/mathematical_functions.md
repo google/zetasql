@@ -282,7 +282,8 @@ computes the logarithm of X to base Y. Generates an error in these cases:
 
 The behavior of `LOG(X, Y)` is further illustrated in the table below.
 
-#### Special cases for `LOG(X, Y)` {: #special_log }
+#### Special cases for `LOG(X, Y)` 
+<a id="special_log"></a>
 
 <table>
 <thead>
@@ -415,6 +416,7 @@ SAFE_SUBTRACT(X, Y)
 
 **Description**
 
+Returns the result of Y subtracted from X.
 Equivalent to the subtraction operator (<code>-</code>), but returns
 <code>NULL</code> if overflow occurs.
 
@@ -431,7 +433,8 @@ value has the same sign as X. An error is generated if Y is 0. See
 [Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
 result types.
 
-#### Result types for `DIV(X, Y)` and `MOD(X, Y)` {: #mod_div_results }
+#### Result types for `DIV(X, Y)` and `MOD(X, Y)` 
+<a id="mod_div_results"></a>
 
 <table>
 <thead>
@@ -440,7 +443,8 @@ result types.
 <tbody><tr><td>DOUBLE</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>DOUBLE</td><td>UINT64</td><td>UINT64</td></tr><tr><td>INT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>NUMERIC</td><td>DOUBLE</td><td>ERROR</td><td>NUMERIC</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr></tbody>
 </table>
 
-### ROUND {: #rounding_functions }
+### ROUND 
+<a id="rounding_functions"></a>
 
 ```
 ROUND(X [, N])
@@ -584,7 +588,8 @@ Example behavior of ZetaSQL rounding functions:
 </tbody>
 </table>
 
-### COS {: #trigonometric_and_hyperbolic_functions }
+### COS 
+<a id="trigonometric_and_hyperbolic_functions"></a>
 
 ```
 COS(X)
@@ -730,7 +735,8 @@ the two arguments to determine the quadrant. The return value is in the range
 The behavior of this function is further illustrated in <a
 href="#special_atan2">the table below</a>.
 
-#### Special cases for `ATAN2()` {: #special_atan2 }
+#### Special cases for `ATAN2()` 
+<a id="special_atan2"></a>
 
 <table>
 <thead>
@@ -784,7 +790,8 @@ href="#special_atan2">the table below</a>.
 </tbody>
 </table>
 
-#### Special cases for trigonometric and hyperbolic rounding functions {: #special_trig_hyperbolic }
+#### Special cases for trigonometric and hyperbolic rounding functions 
+<a id="special_trig_hyperbolic"></a>
 
 <table>
 <thead>

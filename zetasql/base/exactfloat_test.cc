@@ -546,7 +546,7 @@ TEST_F(ExactFloatTest, ToString) {
   EXPECT_EQ(3, ExactFloat::NumSignificantDigitsForPrec(6));
   EXPECT_EQ(4, ExactFloat::NumSignificantDigitsForPrec(7));
 
-  LOG(INFO) << "Test of ExactFloat stream output: " << ExactFloat(1.23456);
+  ZETASQL_LOG(INFO) << "Test of ExactFloat stream output: " << ExactFloat(1.23456);
 }
 
 TEST_F(ExactFloatTest, ToUniqueString) {

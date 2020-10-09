@@ -217,7 +217,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // The stack must be non-empty for this to be valid.
   template <typename ResolvedNodeType>
   ResolvedNodeType* GetUnownedTopOfStack() const {
-    DCHECK(!stack_.empty());
+    ZETASQL_DCHECK(!stack_.empty());
     return static_cast<ResolvedNodeType*>(stack_.top().get());
   }
 
@@ -225,7 +225,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // the top of the stack.
   template <typename ResolvedNodeType>
   std::unique_ptr<ResolvedNodeType> ConsumeTopOfStack() {
-    DCHECK(!stack_.empty());
+    ZETASQL_DCHECK(!stack_.empty());
     std::unique_ptr<ResolvedNodeType> node(
         static_cast<ResolvedNodeType*>(stack_.top().release()));
     stack_.pop();
@@ -236,7 +236,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   template <typename ResolvedNodeType>
   zetasql_base::StatusOr<std::unique_ptr<ResolvedNodeType>> ProcessNode(
       const ResolvedNodeType* node) {
-    DCHECK(stack_.empty());
+    ZETASQL_DCHECK(stack_.empty());
     if (node == nullptr) {
       return std::unique_ptr<ResolvedNodeType>();
     }

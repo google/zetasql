@@ -203,8 +203,8 @@ static void TestGetCaret(const std::string& query,
 }
 
 static ErrorLocation MakeErrorLocation(int line, int column) {
-  DCHECK_GE(line, 1) << "with line = " << line << ", column = " << column;
-  DCHECK_GE(column, 1) << "with line = " << line << ", column = " << column;
+  ZETASQL_DCHECK_GE(line, 1) << "with line = " << line << ", column = " << column;
+  ZETASQL_DCHECK_GE(column, 1) << "with line = " << line << ", column = " << column;
 
   ErrorLocation location;
   location.set_line(line);
@@ -291,13 +291,13 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
     absl::StrAppend(&line, block.substr(0, block_size - 1), " ");
     block_size += 3;
   }
-  LOG(INFO) << "Made line '" << line << "' with length " << line.length();
+  ZETASQL_LOG(INFO) << "Made line '" << line << "' with length " << line.length();
   const int kMaxWidth = 56;
   std::vector<std::string> outputs;
   for (int i = 1; i < line.length() - 1; i += 7) {
     outputs.push_back(
         GetErrorStringWithCaret(line, MakeErrorLocation(1, i), kMaxWidth));
-    LOG(INFO) << "Error at column " << i << "\n" << outputs.back();
+    ZETASQL_LOG(INFO) << "Error at column " << i << "\n" << outputs.back();
 
     // Should be less than max_width chars before the newline.
     EXPECT_LE(outputs.back().find('\n'), kMaxWidth);

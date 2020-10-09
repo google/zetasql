@@ -170,6 +170,7 @@ javadoc_library(
     name = "jni_channel_darwin_javadoc",
     srcs = JNI_CHANNEL_SRCS,
     root_packages = ["com.google.zetasql"],
+    deps = [":jni_channel"],
 )
 
 java_library(
@@ -208,6 +209,7 @@ javadoc_library(
     name = "jni_channel_linux_javadoc",
     srcs = JNI_CHANNEL_SRCS,
     root_packages = ["com.google.zetasql"],
+    deps = [":jni_channel"],
 )
 
 java_library(
@@ -329,6 +331,7 @@ java_library(
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
         "@io_grpc_grpc_core//jar",
+        "@io_grpc_grpc_stub//jar",
         "@javax_annotation_javax_annotation_api",
     ],
 )

@@ -498,11 +498,13 @@ class ResolvedTVFArg {
   std::shared_ptr<const NameList> name_list_;
 };
 
-// Checks if the lambda argument list ASTNode is a list of identifiers.
+// Validates if the lambda argument list of <ast_lambda> is a list of
+// identifiers.
 //
 // See lambda_parameter_list rule in bison_parser.y about why we cannot simply
 // use a list of identifiers.
-absl::Status CheckLambdaArgument(const ASTLambda* ast_lambda);
+absl::Status ValidateLambdaArgumentListIsIdentifierList(
+    const ASTLambda* ast_lambda);
 
 // Returns the list of lambda argument names.
 zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(

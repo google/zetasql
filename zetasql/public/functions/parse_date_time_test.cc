@@ -210,7 +210,7 @@ static void ValidateResult(
     const std::function<bool(const Value& expected_result,
                              const std::string& actual_string_value)>&
         result_validator) {
-  CHECK(result != nullptr);
+  ZETASQL_CHECK(result != nullptr);
   const absl::Status& expected_status = result->status;
   const Value& expected_result = result->result;
 
@@ -271,7 +271,7 @@ static void TestCivilTimeFunction(
 
 static void TestParseTime(const FunctionTestCall& testcase) {
   auto ShouldSkipTestCase = [](const FunctionTestCall& testcase) {
-    DCHECK_EQ(testcase.params.num_params(), 2);
+    ZETASQL_DCHECK_EQ(testcase.params.num_params(), 2);
     // Ignore test cases with NULL value inputs.  The date/time function
     // library is only implemented for non-NULL values.
     if (testcase.params.param(0).is_null() ||
@@ -303,7 +303,7 @@ static void TestParseTime(const FunctionTestCall& testcase) {
 
 static void TestParseDatetime(const FunctionTestCall& testcase) {
   auto ShouldSkipTestCase = [](const FunctionTestCall& testcase) {
-    DCHECK_EQ(testcase.params.num_params(), 2);
+    ZETASQL_DCHECK_EQ(testcase.params.num_params(), 2);
     // Ignore test cases with NULL value inputs.  The date/time function
     // library is only implemented for non-NULL values.
     if (testcase.params.param(0).is_null() ||

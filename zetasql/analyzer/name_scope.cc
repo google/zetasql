@@ -159,8 +159,8 @@ void NameScope::CopyStateFrom(const NameScope& other) {
 }
 
 void NameScope::AddNameTarget(IdString name, const NameTarget& target) {
-  DCHECK(!name.empty()) << "Empty name not expected in NameScope";
-  DCHECK(!IsInternalAlias(name)) << "Internal names not expected in NameScope";
+  ZETASQL_DCHECK(!name.empty()) << "Empty name not expected in NameScope";
+  ZETASQL_DCHECK(!IsInternalAlias(name)) << "Internal names not expected in NameScope";
 
   // This is InsertOrReturnExisting, but we're not using the helper because
   // this code path is hot, and we we want to get out both the existence bit
@@ -176,7 +176,7 @@ void NameScope::AddNameTarget(IdString name, const NameTarget& target) {
       if (existing_is_range_variable) {
         // Duplicate range variables cannot happen through public interfaces
         // because NameLists will not allow adding duplicates.
-        LOG(DFATAL) << "Cannot add duplicate table alias: " << name;
+        ZETASQL_LOG(DFATAL) << "Cannot add duplicate table alias: " << name;
       } else {
         // Duplicate column names become ambiguous.
         existing->SetAmbiguous();
@@ -186,7 +186,7 @@ void NameScope::AddNameTarget(IdString name, const NameTarget& target) {
       // No-op because columns don't override range variables.
       return;
     } else {
-      DCHECK(new_is_range_variable);
+      ZETASQL_DCHECK(new_is_range_variable);
       // Replace the old NameTarget with this one.
       // NOTE: We remove the old entry first because we don't want to inherit
       // its case, and if we just do update, the map key doesn't change.
@@ -607,7 +607,7 @@ Type::HasFieldResult NameScope::LookupFieldTargetLocalOnly(
           // we return an error NameTarget for "a" with valid name
           // path of "b.c" that can be accessed from "a".
           //
-          // CHECK validated: !value_table_column.is_valid_to_access.
+          // ZETASQL_CHECK validated: !value_table_column.is_valid_to_access.
           ZETASQL_CHECK_OK(CreateGetFieldTargetFromInvalidValueTableColumn(
               value_table_column, name, field_target));
         }
@@ -621,10 +621,10 @@ Type::HasFieldResult NameScope::LookupFieldTargetLocalOnly(
     field_target->SetAmbiguous();
     result = Type::HAS_AMBIGUOUS_FIELD;
   } else if (found_count == 1) {
-    DCHECK(result == Type::HAS_FIELD || result == Type::HAS_PSEUDO_FIELD);
+    ZETASQL_DCHECK(result == Type::HAS_FIELD || result == Type::HAS_PSEUDO_FIELD);
   } else {
-    DCHECK_EQ(found_count, 0);
-    DCHECK_EQ(result, Type::HAS_NO_FIELD);
+    ZETASQL_DCHECK_EQ(found_count, 0);
+    ZETASQL_DCHECK_EQ(result, Type::HAS_NO_FIELD);
   }
   return result;
 }
@@ -1040,7 +1040,7 @@ absl::Status NameScope::CreateNewLocalNameTargetsGivenValidNamePaths(
                 // If a non-empty name_path() needs to be handled then
                 // ignoring it potentially produces a wrong result NameScope
                 // (and therefore an invalid AST when used for resolution),
-                // so we CHECK on this condition instead.
+                // so we ZETASQL_CHECK on this condition instead.
                 ZETASQL_RET_CHECK_FAIL() << "Unexpected ValidNamePath for "
                                  << "an ACCESS_ERROR target";
               }
@@ -1266,7 +1266,7 @@ absl::Status NameList::AddValueTableColumn(
 absl::Status NameList::AddPseudoColumn(
     IdString name, const ResolvedColumn& column,
     const ASTNode* ast_location) {
-  DCHECK(ast_location != nullptr);
+  ZETASQL_DCHECK(ast_location != nullptr);
   // Pseudo-columns go in the NameScope as implicit columns, but don't show
   // up in the columns_ list because they don't show up in SELECT *.
   if (!IsInternalAlias(name)) {
@@ -1333,8 +1333,8 @@ absl::Status NameList::MergeFromExceptColumns(
     const NameList& other,
     const IdStringSetCase* excluded_field_names,  // May be NULL
     const ASTNode* ast_location) {
-  DCHECK_NE(&other, this) << "Merging NameList with itself";
-  DCHECK(ast_location != nullptr);
+  ZETASQL_DCHECK_NE(&other, this) << "Merging NameList with itself";
+  ZETASQL_DCHECK(ast_location != nullptr);
 
   if ((excluded_field_names == nullptr || excluded_field_names->empty()) &&
       columns_.empty() && name_scope_.IsEmpty()) {
@@ -1405,7 +1405,7 @@ absl::Status NameList::MergeFromExceptColumns(
                << " in the same FROM clause";
       }
     } else {
-      DCHECK(!target.IsFieldOf());
+      ZETASQL_DCHECK(!target.IsFieldOf());
     }
 
     name_scope_.AddNameTarget(name, target);
@@ -1466,7 +1466,7 @@ Type::HasFieldResult NameList::SelectStarHasColumn(IdString name) const {
           fields_found += 2;
           break;
         case Type::HAS_PSEUDO_FIELD:
-          DLOG(FATAL) << "Type::HasField returned unexpected HAS_PSEUDO_FIELD "
+          ZETASQL_DLOG(FATAL) << "Type::HasField returned unexpected HAS_PSEUDO_FIELD "
                          "value when "
                          "called with include_pseudo_fields=false argument";
           break;

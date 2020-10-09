@@ -261,6 +261,16 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedExpr* expr);
 
+  absl::Status ValidateResolvedAggregateFunctionCall(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedAggregateFunctionCall* aggregate_function);
+
+  absl::Status ValidateResolvedAnalyticFunctionCall(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedAnalyticFunctionCall* call);
+
   absl::Status ValidateResolvedGetProtoFieldExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -278,6 +288,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedReplaceField* replace_field);
 
+  absl::Status ValidateResolvedInlineLambda(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedInlineLambda* resolved_lambda);
+
   absl::Status ValidateResolvedSubqueryExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -289,6 +304,12 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const std::vector<std::unique_ptr<const ResolvedExpr>>& expr_list);
+
+  absl::Status ValidateResolvedFunctionArgumentList(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const std::vector<std::unique_ptr<const ResolvedFunctionArgument>>&
+          expr_list);
 
   absl::Status ValidateResolvedComputedColumn(
       const std::set<ResolvedColumn>& visible_columns,
@@ -339,20 +360,23 @@ class Validator {
   absl::Status ValidateColumnAnnotations(
       const ResolvedColumnAnnotations* annotations);
 
+  absl::Status ValidatePercentArgument(const ResolvedExpr* expr);
+
   // Verifies that only one of the parameter name and position is set.
   absl::Status ValidateResolvedParameter(
       const ResolvedParameter* resolved_param);
 
-  absl::Status ValidateResolvedTVFArgument(
+  absl::Status ValidateResolvedFunctionArgument(
+      const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const ResolvedTVFArgument* resolved_tvf_arg);
+      const ResolvedFunctionArgument* resolved_arg);
 
   // Validates TVF relation argument schema against the required input schema
   // in function signature.
-  absl::Status ValidateRelationSchemaInResolvedTVFArgument(
+  absl::Status ValidateRelationSchemaInResolvedFunctionArgument(
       const TVFRelation& required_input_schema,
       const TVFRelation& input_relation,
-      const ResolvedTVFArgument* resolved_tvf_arg);
+      const ResolvedFunctionArgument* resolved_arg);
 
   absl::Status CheckColumnIsPresentInColumnSet(
       const ResolvedColumn& column,
@@ -372,6 +396,11 @@ class Validator {
       const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
           computed_column_list,
       std::set<ResolvedColumn>* visible_columns);
+
+  absl::Status ValidateResolvedOrderByItem(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedOrderByItem* item);
 
   absl::Status ValidateResolvedAnalyticFunctionGroup(
       const ResolvedAnalyticFunctionGroup* group,
@@ -425,6 +454,13 @@ class Validator {
   // should be of type int64_t.
   absl::Status ValidateArgumentIsInt64Constant(const ResolvedExpr* expr);
 
+  // Validates that CheckUniqueColumnId() was never previously called with the
+  // same column id as that of <column>.
+  absl::Status CheckUniqueColumnId(const ResolvedColumn& column);
+
+  // Clears internal Validator state from prior validation.
+  void Reset();
+
   // Which ArgumentKinds are allowed in the current expression.
   // Set using scoped VarSetters.
   typedef absl::flat_hash_set<ResolvedArgumentDefEnums::ArgumentKind>
@@ -457,6 +493,10 @@ class Validator {
   // term of. Used to ensure that each ResolvedRecursiveRefScan matches up
   // with a ResolvedRecursiveScan.
   std::vector<RecursiveScanInfo> nested_recursive_scans_;
+
+  // List of column ids seen so far. Used to ensure that every unique column
+  // has a distinct id.
+  absl::flat_hash_set<int> column_ids_seen_;
 };
 
 }  // namespace zetasql

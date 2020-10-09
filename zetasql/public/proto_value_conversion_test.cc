@@ -24,6 +24,8 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
+#include "google/protobuf/compiler/parser.h"
+#include "google/protobuf/io/tokenizer.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
@@ -39,6 +41,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -58,7 +61,13 @@
 namespace zetasql {
 
 using zetasql::testing::EqualsProto;
+using ::google::protobuf::DescriptorPool;
+using ::google::protobuf::FieldDescriptor;
 using ::google::protobuf::FieldDescriptorProto;
+using ::google::protobuf::FileDescriptor;
+using ::google::protobuf::FileDescriptorProto;
+using ::google::protobuf::Message;
+
 using ::testing::HasSubstr;
 using ::testing::NotNull;
 using ::testing::Pointee;
@@ -486,6 +495,68 @@ TEST_F(ProtoValueConversionTest, TimestampSeconds) {
         << test_expression;
     ASSERT_TRUE(RoundTripTest(test_expression, options));
   }
+}
+
+class SimpleErrorCollector : public DescriptorPool::ErrorCollector {
+ public:
+  SimpleErrorCollector() {}
+
+  void AddError(const std::string& filename, const std::string& element_name,
+                const Message* descriptor, ErrorLocation location,
+                const std::string& message) override {
+    absl::StrAppend(&errors_, message);
+  }
+
+  const std::string& errors() const { return errors_; }
+
+ private:
+  std::string errors_;
+};
+
+TEST_F(ProtoValueConversionTest, WideSchemaTest) {
+  std::vector<StructField> fields;
+  TypeFactory type_factory;
+
+  for (int i = 0; i < 30000; i++) {
+    fields.push_back({absl::StrCat("int64_col_", i), type_factory.get_int64()});
+  }
+
+  const StructType* schema = nullptr;
+  ZETASQL_CHECK_OK(type_factory.MakeStructType(fields, &schema));
+
+  google::protobuf::FileDescriptorProto file_descriptor_proto;
+  ConvertTypeToProtoOptions options;
+  ZETASQL_CHECK_OK(ConvertStructToProto(schema, &file_descriptor_proto, options));
+
+  file_descriptor_proto.set_name("wide_schema");
+  SimpleErrorCollector error_collector;
+
+  auto pool = absl::make_unique<google::protobuf::DescriptorPool>(
+      /*underlay=*/google::protobuf::DescriptorPool::generated_pool());
+
+  const FileDescriptor* result =
+      pool->BuildFileCollectingErrors(file_descriptor_proto, &error_collector);
+
+  ZETASQL_CHECK_NE(result, nullptr) << error_collector.errors();
+  ASSERT_EQ(error_collector.errors(), "");
+
+  ASSERT_EQ(result->name(), "wide_schema");
+  ASSERT_EQ(result->message_type_count(), 1);
+  const auto* descriptor = result->message_type(0);
+  ASSERT_EQ(descriptor->field_count(), 30000);
+  ASSERT_EQ(descriptor->field(0)->name(), "int64_col_0");
+  ASSERT_EQ(descriptor->field(0)->number(), 1);
+
+  ASSERT_EQ(descriptor->field(18998)->name(), "int64_col_18998");
+  ASSERT_EQ(descriptor->field(18998)->number(), 18999);
+
+  // Starting from tag_number 19000, we shift up 1000 to respect the reserved
+  // range of Protobuf
+  ASSERT_EQ(descriptor->field(18999)->name(), "int64_col_18999");
+  ASSERT_EQ(descriptor->field(18999)->number(), 19000 + 1000);
+
+  ASSERT_EQ(descriptor->field(29999)->name(), "int64_col_29999");
+  ASSERT_EQ(descriptor->field(29999)->number(), 30000 + 1000);
 }
 
 TEST_F(ProtoValueConversionTest, TimestampMillis) {

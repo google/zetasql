@@ -886,7 +886,7 @@ absl::Status ParseStringToTime(absl::string_view format_string,
                                absl::string_view time_string,
                                TimestampScale scale,
                                TimeValue* time) {
-  CHECK(scale == kNanoseconds || scale == kMicroseconds);
+  ZETASQL_CHECK(scale == kNanoseconds || scale == kMicroseconds);
   ZETASQL_RETURN_IF_ERROR(ValidateTimeFormat(format_string));
 
   absl::Time base_time;
@@ -899,7 +899,7 @@ absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
                                    TimestampScale scale,
                                    DatetimeValue* datetime) {
-  CHECK(scale == kNanoseconds || scale == kMicroseconds);
+  ZETASQL_CHECK(scale == kNanoseconds || scale == kMicroseconds);
   ZETASQL_RETURN_IF_ERROR(ValidateDatetimeFormat(format_string));
 
   absl::Time base_time;

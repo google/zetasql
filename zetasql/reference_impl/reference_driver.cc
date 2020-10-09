@@ -74,7 +74,7 @@ ReferenceDriver::ReferenceDriver()
   language_options_.SetSupportedStatementKinds(
       Algebrizer::GetSupportedStatementKinds());
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external)) {
-    LOG(WARNING) << "Overriding default Reference ProductMode PRODUCT_INTERNAL "
+    ZETASQL_LOG(WARNING) << "Overriding default Reference ProductMode PRODUCT_INTERNAL "
                     "with PRODUCT_EXTERNAL.";
     language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
   }
@@ -92,7 +92,7 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external) &&
       options.product_mode() != ProductMode::PRODUCT_EXTERNAL) {
-    LOG(WARNING) << "Overriding requested Reference ProductMode "
+    ZETASQL_LOG(WARNING) << "Overriding requested Reference ProductMode "
                  << ProductMode_Name(options.product_mode())
                  << " with PRODUCT_EXTERNAL.";
     language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
@@ -151,7 +151,7 @@ absl::Status ReferenceDriver::LoadProtoEnumTypes(
 void ReferenceDriver::AddTable(const std::string& table_name,
                                const TestTable& table) {
   const Value& array_value = table.table_as_value;
-  CHECK(array_value.type()->IsArray()) << table_name << " "
+  ZETASQL_CHECK(array_value.type()->IsArray()) << table_name << " "
                                        << array_value.DebugString(true);
   auto element_type = array_value.type()->AsArray()->element_type();
   SimpleTable* simple_table = nullptr;
@@ -237,10 +237,10 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
     const std::string& sql, const std::map<std::string, Value>& parameters,
     const ExecuteStatementOptions& options, TypeFactory* type_factory,
     bool* is_deterministic_output, bool* uses_unsupported_type) {
-  CHECK(is_deterministic_output != nullptr);
-  CHECK(uses_unsupported_type != nullptr);
+  ZETASQL_CHECK(is_deterministic_output != nullptr);
+  ZETASQL_CHECK(uses_unsupported_type != nullptr);
   *uses_unsupported_type = false;
-  CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
+  ZETASQL_CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
 
   AnalyzerOptions analyzer_options(language_options_);
   analyzer_options.set_error_message_mode(
@@ -286,7 +286,7 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
       analyzer_options.language(), algebrizer_options, type_factory,
       analyzed->resolved_statement(), &algebrized_tree, &algebrizer_parameters,
       &column_map, &system_variables));
-  VLOG(1) << "Algebrized tree:\n"
+  ZETASQL_VLOG(1) << "Algebrized tree:\n"
           << algebrized_tree->DebugString(true /* verbose */);
   ZETASQL_RET_CHECK(column_map.empty());
   ZETASQL_RET_CHECK(system_variables.empty());
@@ -345,7 +345,7 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
     if (it != parameter_map.end() && it->second.is_valid()) {
       param_variables.push_back(it->second);
       param_values.push_back(p.second);
-      VLOG(1) << "Parameter @" << p.first << " (variable " << it->second
+      ZETASQL_VLOG(1) << "Parameter @" << p.first << " (variable " << it->second
               << "): " << p.second.FullDebugString();
     }
   }

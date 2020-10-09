@@ -1168,7 +1168,8 @@ year.</td>
  </tr>
 </table>
 
-### Time zone definitions {: #timezone_definitions }
+### Time zone definitions 
+<a id="timezone_definitions"></a>
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying

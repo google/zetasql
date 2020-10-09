@@ -32,7 +32,7 @@ namespace {
 class RealTimeClock : public Clock {
  public:
   ~RealTimeClock() override {
-    LOG(FATAL) << "RealTimeClock should never be destroyed";
+    ZETASQL_LOG(FATAL) << "RealTimeClock should never be destroyed";
   }
 
   absl::Time TimeNow() override { return absl::Now(); }

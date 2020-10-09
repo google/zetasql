@@ -104,7 +104,7 @@ class FunctionArgumentTypeOptions {
   }
 
   const TVFRelation& relation_input_schema() const {
-    DCHECK(has_relation_input_schema());
+    ZETASQL_DCHECK(has_relation_input_schema());
     return *relation_input_schema_;
   }
 
@@ -113,7 +113,7 @@ class FunctionArgumentTypeOptions {
   }
   bool has_argument_name() const { return !argument_name_.empty(); }
   const std::string& argument_name() const {
-    DCHECK(has_argument_name());
+    ZETASQL_DCHECK(has_argument_name());
     return argument_name_;
   }
   bool argument_name_is_mandatory() const {
@@ -255,7 +255,7 @@ class FunctionArgumentTypeOptions {
   // Also note that the type of <default_value> must outlive this object as well
   // as all the FunctionSignature instances created using this object.
   FunctionArgumentTypeOptions& set_default(Value default_value) {
-    DCHECK(default_value.is_valid()) << "Default value must be valid";
+    ZETASQL_DCHECK(default_value.is_valid()) << "Default value must be valid";
     default_ = std::move(default_value);
     return *this;
   }
@@ -509,7 +509,7 @@ class FunctionArgumentType {
 
   // Returns information about a lambda typed function argument.
   const ArgumentTypeLambda& lambda() const {
-    DCHECK(IsLambda());
+    ZETASQL_DCHECK(IsLambda());
     return *lambda_;
   }
 
@@ -848,7 +848,7 @@ class FunctionSignature {
   // arguments expanded.
   // Requires: HasConcreteArguments()
   int NumConcreteArguments() const {
-    DCHECK(HasConcreteArguments());
+    ZETASQL_DCHECK(HasConcreteArguments());
     return concrete_arguments_.size();
   }
 
@@ -857,7 +857,7 @@ class FunctionSignature {
   // are fully expanded in a concrete signature.
   // Requires that the signature has concrete arguments.
   const FunctionArgumentType& ConcreteArgument(int concrete_idx) const {
-    DCHECK(HasConcreteArguments());
+    ZETASQL_DCHECK(HasConcreteArguments());
     return concrete_arguments_[concrete_idx];
   }
 

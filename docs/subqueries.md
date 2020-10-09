@@ -9,14 +9,16 @@ A subquery is a [query][subqueries-query-syntax] that appears inside another
 query statement. Subqueries are also referred to as sub-`SELECT`s or
 nested `SELECT`s. The full `SELECT` syntax is valid in subqueries.
 
-## Expression subqueries {: #expression_subquery_concepts }
+## Expression subqueries 
+<a id="expression_subquery_concepts"></a>
 
 [Expression subqueries][expression-subqueries] are used in
 a query wherever expressions are valid. They return a single value, as opposed
 to a column or table. Expression subqueries can be
 [correlated][correlated_subquery_concepts].
 
-### Scalar subqueries {: #scalar_subquery_concepts }
+### Scalar subqueries 
+<a id="scalar_subquery_concepts"></a>
 
 ```sql
 ( subquery )
@@ -78,7 +80,8 @@ FROM Players;
 +---------------------------------------+
 ```
 
-### ARRAY subqueries {: #array_subquery_concepts }
+### ARRAY subqueries 
+<a id="array_subquery_concepts"></a>
 
 ```sql
 ARRAY ( subquery )
@@ -123,7 +126,8 @@ FROM NPCs LIMIT 1;
 +-----------------+
 ```
 
-### IN subqueries {: #in_subquery_concepts }
+### IN subqueries 
+<a id="in_subquery_concepts"></a>
 
 ```sql
 value [ NOT ] IN ( subquery )
@@ -161,7 +165,8 @@ SELECT "corba" IN (SELECT account FROM Players) as result;
 +--------+
 ```
 
-### EXISTS subqueries {: #exists_subquery_concepts }
+### EXISTS subqueries 
+<a id="exists_subquery_concepts"></a>
 
 ```sql
 EXISTS ( subquery )
@@ -189,7 +194,8 @@ SELECT EXISTS(SELECT account FROM Players WHERE guild="yellow") as result;
 +--------+
 ```
 
-## Table subqueries {: #table_subquery_concepts }
+## Table subqueries 
+<a id="table_subquery_concepts"></a>
 
 ```sql
 FROM ( subquery ) [ [ AS ] alias ]
@@ -234,7 +240,8 @@ SELECT account FROM (
 +-----------+
 ```
 
-## Correlated subqueries {: #correlated_subquery_concepts }
+## Correlated subqueries 
+<a id="correlated_subquery_concepts"></a>
 
 A correlated subquery is a subquery that references a column from outside that
 subquery. Correlation prevents reusing of the subquery result. You can learn
@@ -303,7 +310,8 @@ FROM (SELECT * FROM Players WHERE RAND() < 0.5) AS results;
 +---------+
 ```
 
-## Evaluation rules for subqueries {: #evaluation_rules_subqueries }
+## Evaluation rules for subqueries 
+<a id="evaluation_rules_subqueries"></a>
 
 Some subqueries are evaluated once, others more often.
 
@@ -320,7 +328,8 @@ Some subqueries are evaluated once, others more often.
    A query plan may only re-evaluate the subquery if re-evaluating
    it is guaranteed to produce the same table each time.
 
-## Common tables used in examples {: #example_tables }
+## Common tables used in examples 
+<a id="example_tables"></a>
 
 Some examples reference a table called `Players`:
 

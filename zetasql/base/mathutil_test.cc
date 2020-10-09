@@ -84,7 +84,7 @@ TEST(MathUtil, IntRound) {
 
 template<typename Type>
 void TestSimpleUtils() {
-  LOG(INFO) << "testing Max Min Abs Sign AbsDiff for " << sizeof(Type);
+  ZETASQL_LOG(INFO) << "testing Max Min Abs Sign AbsDiff for " << sizeof(Type);
 
   const Type kZero = 0.0;
   const Type kNegZero = -0.0;
@@ -313,7 +313,7 @@ Integer CeilOrFloorOfRatio(Integer numerator, Integer denominator) {
       return CeilOrFloorOfRatioArithmetic<Integer, ComputeCeil>(
           numerator, denominator);
     default:
-      LOG(FATAL) << "This statement was supposed to be unreachable";
+      ZETASQL_LOG(FATAL) << "This statement was supposed to be unreachable";
   }
 }
 
@@ -397,7 +397,7 @@ TEST(MathUtil, DecomposeDouble) {
        std::numeric_limits<int>::max()},
   };
   for (const TestItem& item : kItems) {
-    LOG(INFO) << "Testing ExtractMantissaAndExponent(" << item.value << ")...";
+    ZETASQL_LOG(INFO) << "Testing ExtractMantissaAndExponent(" << item.value << ")...";
 
     MathUtil::DoubleParts parts = MathUtil::Decompose(item.value);
     EXPECT_EQ(item.expected_mantissa, parts.mantissa);
@@ -445,7 +445,7 @@ TEST(MathUtil, DecomposeFloat) {
        std::numeric_limits<int>::max()},
   };
   for (const TestItem& item : kItems) {
-    LOG(INFO) << "Testing ExtractMantissaAndExponent(" << item.value << ")...";
+    ZETASQL_LOG(INFO) << "Testing ExtractMantissaAndExponent(" << item.value << ")...";
 
     MathUtil::FloatParts parts = MathUtil::Decompose(item.value);
     EXPECT_EQ(item.expected_mantissa, parts.mantissa);

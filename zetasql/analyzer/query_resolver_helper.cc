@@ -41,7 +41,7 @@
 namespace zetasql {
 
 size_t FieldPathHash(const ResolvedExpr* expr) {
-  DCHECK(expr != nullptr);
+  ZETASQL_DCHECK(expr != nullptr);
   switch (expr->node_kind()) {
     case RESOLVED_GET_PROTO_FIELD: {
       // Note that this only hashes the top-level type (e.g. ARRAY).

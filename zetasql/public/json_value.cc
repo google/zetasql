@@ -17,7 +17,7 @@
 #include "zetasql/public/json_value.h"
 
 #define JSON_NOEXCEPTION
-#define JSON_THROW_USER(exception) LOG(FATAL) << (exception).what();
+#define JSON_THROW_USER(exception) ZETASQL_LOG(FATAL) << (exception).what();
 
 #include <stddef.h>
 #include <stdint.h>
@@ -144,7 +144,7 @@ class JSONValueBuilder {
       ref_stack_.back()->emplace_back(std::forward<Value>(v));
       return &(ref_stack_.back()->back());
     } else {
-      CHECK(object_member_);
+      ZETASQL_CHECK(object_member_);
       *object_member_ = JSON(std::forward<Value>(v));
       return object_member_;
     }

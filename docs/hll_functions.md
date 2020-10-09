@@ -215,7 +215,8 @@ FROM (
 +------------+---------+-----------------+
 ```
 
-### About the HLL++ algorithm {: #about-hll-alg }
+### About the HLL++ algorithm 
+<a id="about-hll-alg"></a>
 
 The [HLL++ algorithm][hll-link-to-research-whitepaper]
 improves on the [HLL][hll-link-to-hyperloglog-wikipedia]
@@ -224,7 +225,8 @@ The HLL++ algorithm includes a 64-bit hash function, sparse
 representation to reduce memory requirements for small cardinality estimates,
 and empirical bias correction for small cardinality estimates.
 
-### About sketches {: #sketches-hll }
+### About sketches 
+<a id="sketches-hll"></a>
 
 A sketch is a summary of a large data stream. You can extract statistics
 from a sketch to estimate particular statistics of the original data, or

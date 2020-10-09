@@ -43,7 +43,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLike() {
   }
 
   const std::string a0c = std::string("a\0c", 3);
-  CHECK_EQ(a0c.size(), 3);
+  ZETASQL_CHECK_EQ(a0c.size(), 3);
 
   // Tests for value LIKE value -> bool that work for string or bytes.
   std::vector<QueryParamsWithResult> common_tests = {
@@ -173,7 +173,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLike() {
       "a"
       "\xe8\xb0\xb7"
       "b";
-  LOG(INFO) << "utf8_string: " << utf8_string;
+  ZETASQL_LOG(INFO) << "utf8_string: " << utf8_string;
 
   // Tests that work on STRING but not BYTES.
   std::vector<QueryParamsWithResult> string_tests = {

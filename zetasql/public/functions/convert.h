@@ -69,15 +69,15 @@ static inline bool CheckRange(const FromType& value) {
   static_assert(sizeof(FromType) > sizeof(ToType),
                 "FromType must be larger than ToType");
   // Not a static_assert since floating point PODs are not integral constants.
-  DCHECK_LE(std::numeric_limits<FromType>::lowest(),
+  ZETASQL_DCHECK_LE(std::numeric_limits<FromType>::lowest(),
             std::numeric_limits<ToType>::lowest());
-  DCHECK_GE(std::numeric_limits<FromType>::max(),
+  ZETASQL_DCHECK_GE(std::numeric_limits<FromType>::max(),
             std::numeric_limits<ToType>::max());
   FromType min = static_cast<FromType>(std::numeric_limits<ToType>::lowest());
   FromType max = static_cast<FromType>(std::numeric_limits<ToType>::max());
   // Not a static_assert since floating point PODs are not integral constants.
-  DCHECK_LE(min, 0);
-  DCHECK_LT(0, max);
+  ZETASQL_DCHECK_LE(min, 0);
+  ZETASQL_DCHECK_LT(0, max);
   return value >= min && value <= max;
 }
 
@@ -666,11 +666,11 @@ template <> inline bool Convert<BigNumericValue, uint64_t>(
   return false;
 }
 
-// TODO: Implement a direct conversion from NUMERIC/BIGNUMERIC to
-// float without converting to double first to avoid the precision loss and
-// wrong results in some cases.
 template <> inline bool Convert<BigNumericValue, float>(
     const BigNumericValue& in, float* out, absl::Status* error) {
+  // There are some edge cases where conversion to double and then to float
+  // yields slightly different results than conversion directly to float, but
+  // the usage of float implies that the precision is not critical.
   *out = static_cast<float>(in.ToDouble());
   if (ABSL_PREDICT_FALSE(std::isinf(*out))) {
     return internal::UpdateError(

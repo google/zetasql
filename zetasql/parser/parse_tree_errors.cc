@@ -43,7 +43,7 @@ static void FindMinimalErrorLocation(const ASTNode* parent_node,
   const ASTNode* node = parent_node;
   while (node->num_children() > 0) {
     node = node->child(0);
-    DCHECK(node != nullptr);
+    ZETASQL_DCHECK(node != nullptr);
     if (node->GetParseLocationRange().start() < *error_location) {
       *error_location = node->GetParseLocationRange().start();
     }
@@ -53,7 +53,7 @@ static void FindMinimalErrorLocation(const ASTNode* parent_node,
 ParseLocationPoint GetErrorLocationPoint(const ASTNode* ast_node,
                                          bool include_leftmost_child) {
   // For extra safety, try not to crash while constructing errors.
-  DCHECK(ast_node != nullptr);
+  ZETASQL_DCHECK(ast_node != nullptr);
   if (ast_node != nullptr) {
     ParseLocationPoint error_location =
         ast_node->GetParseLocationRange().start();

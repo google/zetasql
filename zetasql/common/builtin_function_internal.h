@@ -150,6 +150,7 @@ absl::Status CheckExtractPreResolutionArguments(
     const LanguageOptions& language_options);
 
 absl::Status CheckExtractPostResolutionArguments(
+    const zetasql::FunctionSignature& signature,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -165,6 +166,7 @@ absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
 
 absl::Status CheckDatetimeAddSubDiffArguments(
     const std::string& function_name,
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -173,6 +175,7 @@ absl::Status CheckDatetimeAddSubDiffArguments(
 // ProtoType is present) or newly created in the <type_factory>.
 zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle,
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
@@ -193,6 +196,7 @@ absl::Status CheckJsonArguments(const std::vector<InputArgumentType>& arguments,
                                 const LanguageOptions& options);
 
 absl::Status CheckFormatPostResolutionArguments(
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -283,11 +287,13 @@ std::string EmptySupportedSignatures(const LanguageOptions& language_options,
 
 absl::Status CheckArgumentsSupportEquality(
     const std::string& comparison_name,
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
 absl::Status CheckArgumentsSupportComparison(
     const std::string& comparison_name,
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -359,6 +365,7 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);
 zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
     CycleDetector* cycle_detector,
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 
@@ -369,6 +376,7 @@ zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
 //            `distance` Double> >
 zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const AnalyzerOptions& analyzer_options);
 

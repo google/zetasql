@@ -83,7 +83,7 @@ inline void TestMonotonicity(ToType max) {
       absl::StrAppend(&log,
                       " OUT OF RANGE max:", std::numeric_limits<ToType>::max());
     }
-    VLOG(1) << log;
+    ZETASQL_VLOG(1) << log;
     if (max > 0) {
       EXPECT_LE(converted_x, prev_converted_x);
       EXPECT_GE(converted_y, prev_converted_y);
@@ -125,7 +125,7 @@ inline void TestOutOfRange(ToType max) {
     max_plus_epsilon = max + (max > 0 ? epsilon : -epsilon);
     epsilon *= 2;
   }
-  VLOG(1) << "max_plus_epsilon: " << max_plus_epsilon
+  ZETASQL_VLOG(1) << "max_plus_epsilon: " << max_plus_epsilon
           << " epsilon: " << epsilon;
   ToType max_out;
   absl::Status error;
@@ -248,7 +248,7 @@ void FindMaximalRoundtripValue() {
       upper = mid;
     }
   }
-  LOG(INFO) << "Maximal integer: " << lower << " is "
+  ZETASQL_LOG(INFO) << "Maximal integer: " << lower << " is "
             << (max - lower) << " away from max " << max
             << ", convers back as " << result
             << " which is " << (max - result) << " away from max";

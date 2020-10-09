@@ -17,7 +17,7 @@ ZetaSQL.
     [ <a href="#with_clause">WITH</a> <span class="var"><a href="#with_query_name">with_query_name</a></span> AS ( <span class="var">query_expr</span> ) [, ...] ]
     { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <span class="var">query_expr</span> <span class="var">set_op</span> <span class="var">query_expr</span> }
     [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
-    [ <a href="#limit_clause_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
+    [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
     <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
@@ -70,7 +70,8 @@ ZetaSQL.
 + A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
   the preceding item can repeat in a comma-separated list.
 
-### Sample tables {: #sample_tables }
+### Sample tables 
+<a id="sample_tables"></a>
 
 The following tables are used to illustrate the behavior of different
 query clauses in this reference.
@@ -166,8 +167,6 @@ SELECT * FROM TeamMascot
 
 ## SELECT list
 
-Syntax:
-
 <pre>
 SELECT [ AS { <span class="var">typename</span> | STRUCT | VALUE } ] [{ ALL | DISTINCT }]
     { [ <span class="var">expression</span>. ]* [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]<br>        [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>    | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
@@ -179,20 +178,16 @@ corresponding `FROM` clause.
 
 Each item in the `SELECT` list is one of:
 
-<ul>
-<li>*</li>
-<li><code>expression</code></li>
-
-<li><code>expression.*</code></li>
-
-</ul>
++  `*`
++  `expression`
++  `expression.*`
 
 ### SELECT *
 
 `SELECT *`, often referred to as *select star*, produces one output column for
 each column that is visible after executing the full query.
 
-```
+```sql
 SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 
 +-------+-----------+
@@ -222,7 +217,7 @@ data type with fields, such as a STRUCT.
 The following query produces one output column for each column in the table
 `groceries`, aliased as `g`.
 
-```
+```sql
 WITH groceries AS
   (SELECT "milk" AS dairy,
    "eggs" AS protein,
@@ -236,9 +231,10 @@ FROM groceries AS g;
 | milk  | eggs    | bread |
 +-------+---------+-------+
 ```
+
 More examples:
 
-```
+```sql
 WITH locations AS
   (SELECT STRUCT("Seattle" AS city, "Washington" AS state) AS location
   UNION ALL
@@ -254,7 +250,7 @@ FROM locations l;
 +---------+------------+
 ```
 
-```
+```sql
 WITH locations AS
   (SELECT ARRAY<STRUCT<city STRING, state STRING>>[("Seattle", "Washington"),
     ("Phoenix", "Arizona")] AS location)
@@ -277,24 +273,14 @@ You can modify the results returned from a `SELECT` query, as follows.
 A `SELECT DISTINCT` statement discards duplicate rows and returns only the
 remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
 
-<ul>
-
-  
-  <li>PROTO</li>
-  
-
-  
-
-  
-
-</ul>
++  `PROTO`
 
 #### SELECT * EXCEPT
 
 A `SELECT * EXCEPT` statement specifies the names of one or more columns to
 exclude from the result. All matching column names are omitted from the output.
 
-```
+```sql
 WITH orders AS
   (SELECT 5 as order_id,
   "sprocket" as item_name,
@@ -309,7 +295,7 @@ FROM orders;
 +-----------+----------+
 ```
 
-**Note:** `SELECT * EXCEPT` does not exclude columns that do not have names.
+Note: `SELECT * EXCEPT` does not exclude columns that do not have names.
 
 #### SELECT * REPLACE
 
@@ -322,7 +308,7 @@ that `REPLACE` clause.
 A `SELECT * REPLACE` statement does not change the names or order of columns.
 However, it can change the value and the value type.
 
-```
+```sql
 WITH orders AS
   (SELECT 5 as order_id,
   "sprocket" as item_name,
@@ -349,7 +335,8 @@ FROM orders;
 | 5        | sprocket  | 100      |
 +----------+-----------+----------+
 ```
-**Note:** `SELECT * REPLACE` does not replace columns that do not have names.
+
+Note: `SELECT * REPLACE` does not replace columns that do not have names.
 
 #### SELECT ALL
 A `SELECT ALL` statement returns all rows, including duplicate rows.
@@ -369,44 +356,25 @@ when querying a regular table.
 
 In contexts where a query with exactly one column is expected, a value table
 query can be used instead.  For example, scalar subqueries and array subqueries
-(see [Subqueries][subquery-concepts]) normally require a single-column query, but in
-ZetaSQL, they also allow using a value table query.
+(see [Subqueries][subquery-concepts]) normally require a single-column query,
+but in ZetaSQL, they also allow using a value table query.
 
 A query will produce a value table if it uses `SELECT AS`, using one of the
 syntaxes below:
 
 #### SELECT AS STRUCT
 
-Syntax:
-
-```
+```sql
 SELECT AS STRUCT expr1 [struct_field_name1] [,... ]
 ```
 
-This produces a value table with a STRUCT row type, where the STRUCT field
-names and types match the column names and types produced in the `SELECT` list.
-Anonymous columns and duplicate columns are allowed.
+This produces a value table with a STRUCT row type,
+where the STRUCT field names and types match the
+column names and types produced in the `SELECT` list.
 
 Example:
 
-```
-SELECT AS STRUCT 1 x, 2, 3 x
-```
-
-The query above produces STRUCT values of type `STRUCT<int64 x, int64, int64
-x>.` The first and third fields have the same name `x`, and the second field is
-anonymous.
-
-The example above produces the same result as this `SELECT AS VALUE` query
-using a struct constructor:
-
-```
-SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
-```
-
-Example:
-
-```
+```sql
 SELECT
   ARRAY(SELECT AS STRUCT t.f1, t.f2 WHERE t.f3=true)
 FROM
@@ -418,6 +386,26 @@ STRUCT type grouping multiple values together. Scalar
 and array subqueries (see [Subqueries][subquery-concepts]) are normally not allowed to
 return multiple columns.
 
+Anonymous columns and duplicate columns
+are allowed.
+
+Example:
+
+```sql
+SELECT AS STRUCT 1 x, 2, 3 x
+```
+
+The query above produces STRUCT values of type
+`STRUCT<int64 x, int64, int64 x>.` The first and third fields have the same name
+`x`, and the second field is anonymous.
+
+The example above produces the same result as this `SELECT AS VALUE` query
+using a struct constructor:
+
+```sql
+SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
+```
+
 #### SELECT AS VALUE
 
 `SELECT AS VALUE` produces a value table from any `SELECT` list that
@@ -428,7 +416,7 @@ alias the column had will be discarded in the value table.
 
 Example:
 
-```
+```sql
 SELECT AS VALUE Int64Column FROM Table;
 ```
 
@@ -436,7 +424,7 @@ The query above produces a table with row type INT64.
 
 Example:
 
-```
+```sql
 SELECT AS VALUE STRUCT(1 a, 2 b) xyz FROM Table;
 ```
 
@@ -444,7 +432,7 @@ The query above produces a table with row type `STRUCT<a int64, b int64>`.
 
 Example:
 
-```
+```sql
 SELECT AS VALUE v FROM ValueTable v WHERE v.field=true;
 ```
 
@@ -462,12 +450,6 @@ See [Using Aliases][using-aliases] for information on syntax and visibility for
 
 ## FROM clause
 
-The `FROM` clause indicates the table or tables from which to retrieve rows, and
-specifies how to join those rows together to produce a single stream of
-rows for processing in the rest of the query.
-
-### Syntax
-
 <pre>
 <span class="var">from_item</span>: {
     <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
@@ -480,6 +462,10 @@ rows for processing in the rest of the query.
 }
 </pre>
 
+The `FROM` clause indicates the table or tables from which to retrieve rows, and
+specifies how to join those rows together to produce a single stream of
+rows for processing in the rest of the query.
+
 #### table_name
 
 The name (optionally qualified) of an existing table.
@@ -491,21 +477,21 @@ SELECT * FROM db.Roster;
 
 #### join
 
-See <a href="#join_types">JOIN Types</a> below.
+See [JOIN Types][query-joins].
 
 #### select
 
-<code>( select ) [ [ AS ] alias ]</code> is a [table subquery][table-subquery-concepts].
+`( select ) [ [ AS ] alias ]` is a [table subquery][table-subquery-concepts].
 
 #### field_path
 
-<p>In the <code>FROM</code> clause, <code>field_path</code> is any path that
-resolves to a field within a data type. <code>field_path</code> can go
-arbitrarily deep into a nested data structure.</p>
+In the `FROM` clause, `field_path` is any path that
+resolves to a field within a data type. `field_path` can go
+arbitrarily deep into a nested data structure.
 
-<p>Some examples of valid <code>field_path</code> values include:</p>
+Some examples of valid `field_path` values include:
 
-<pre>
+```sql
 SELECT * FROM T1 t1, t1.array_column;
 
 SELECT * FROM T1 t1, t1.struct_column.array_field;
@@ -515,22 +501,22 @@ SELECT (SELECT ARRAY_AGG(c) FROM t1.array_column c) FROM T1 t1;
 SELECT a.struct_field1 FROM T1 t1, t1.array_of_structs a;
 
 SELECT (SELECT STRING_AGG(a.struct_field1) FROM t1.array_of_structs a) FROM T1 t1;
-</pre>
+```
 
-<p>Field paths in the FROM clause must end in an
+Field paths in the `FROM` clause must end in an
 array or a repeated field. In
 addition, field paths cannot contain arrays
 or repeated fields before the end of the path. For example, the path
-<code>array_column.some_array.some_array_field</code> is invalid because it
-contains an array before the end of the path.</p>
+`array_column.some_array.some_array_field` is invalid because it
+contains an array before the end of the path.
 
-<p class="note">Note: If a path has only one name, it is interpreted as a table.
-To work around this, wrap the path using <code>UNNEST</code>, or use the
-fully-qualified path.</p>
+Note: If a path has only one name, it is interpreted as a table.
+To work around this, wrap the path using `UNNEST`, or use the
+fully-qualified path.
 
-<p class="note">Note: If a path has more than one name, and it matches a field
+Note: If a path has more than one name, and it matches a field
 name, it is interpreted as a field name. To force the path to be interpreted as
-a table name, wrap the path using <code>`</code>. </p>
+a table name, wrap the path using <code>`</code>.
 
 #### UNNEST
 
@@ -539,10 +525,10 @@ table, with one row for each element in the `ARRAY`.
 You can also use `UNNEST` outside of the `FROM` clause with the
 [`IN` operator][in-operator].
 
-For input `ARRAY`s of most element types, the output of `UNNEST` generally has one
-column. This single column has an optional `alias`, which you can use to refer
-to the column elsewhere in the query. `ARRAYS` with these element types return
-multiple columns:
+For input `ARRAY`s of most element types, the output of `UNNEST` generally has
+one column. This single column has an optional `alias`, which you can use to
+refer to the column elsewhere in the query. `ARRAYS` with these element types
+return multiple columns:
 
  + STRUCT
  + PROTO
@@ -558,7 +544,7 @@ field.
 
 **Example**
 
-```
+```sql
 SELECT *
 FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')]);
 
@@ -577,9 +563,9 @@ elsewhere in the query. If you reference the range variable in the `SELECT`
 list, the query returns a `STRUCT` containing all of the fields of the original
 `STRUCT` in the input table.
 
-**Example**
+Example:
 
-```
+```sql
 SELECT *, struct_value
 FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')])
        AS struct_value;
@@ -597,9 +583,9 @@ returns a row for each `PROTO`, with a separate column for each field in the
 `PROTO`. The alias for each column is the name of the corresponding `PROTO`
 field.
 
-**Example**
+Example:
 
-```
+```sql
 SELECT *
 FROM UNNEST(
   ARRAY<zetasql.examples.music.Album>[
@@ -620,7 +606,7 @@ As with `STRUCT`s, you can alias `UNNEST` here to define a range variable. You
 can reference this alias in the `SELECT` list to return a value table where each
 row is a `PROTO` element from the `ARRAY`.
 
-```
+```sql
 SELECT proto_value
 FROM UNNEST(
   ARRAY<zetasql.examples.music.Album>[
@@ -637,49 +623,48 @@ FROM UNNEST(
 +---------------------------------------------------------------------+
 ```
 
-<p>ARRAY unnesting can be either explicit or implicit. In explicit unnesting,
-<code>array_expression</code> must return an ARRAY value but does not need to resolve
-to an ARRAY, and the <code>UNNEST</code> keyword is required.</p>
+`ARRAY` unnesting can be either explicit or implicit.
+In explicit unnesting, `array_expression` must return an
+`ARRAY` value but does not need to resolve to an `ARRAY`, and the `UNNEST`
+keyword is required.
 
-<p>Example:</p>
+Example:
 
-<pre>
+```sql
 SELECT * FROM UNNEST ([1, 2, 3]);
-</pre>
+```
 
-<p>In implicit unnesting, <code>array_path</code> must resolve to an ARRAY and the
-<code>UNNEST</code> keyword is optional.</p>
+In implicit unnesting, `array_path` must resolve to an `ARRAY` and the
+`UNNEST` keyword is optional.
 
-<p>Example:</p>
+Example:
 
-<pre>
+```sql
 SELECT x
 FROM mytable AS t,
   t.struct_typed_column.array_typed_field1 AS x;
-</pre>
+```
 
-<p>In this scenario, <code>array_path</code> can go arbitrarily deep into a data
-structure, but the last field must be ARRAY-typed. No previous field in the
-expression can be ARRAY-typed because it is not possible to extract a named
-field from an ARRAY.</p>
+In this scenario, `array_path` can go arbitrarily deep into a data
+structure, but the last field must be `ARRAY`-typed. No previous field in the
+expression can be `ARRAY`-typed because it is not possible to extract a named
+field from an `ARRAY`.
 
-<p><code>UNNEST</code> treats NULLs as follows:</p>
+`UNNEST` treats NULLs as follows:
 
-<ul>
-<li>NULL and empty ARRAYs produces zero rows.</li>
-<li>An ARRAY containing NULLs produces rows containing NULL values.</li>
-</ul>
++  NULL and empty arrays produces zero rows.</li>
++  An array containing NULLs produces rows containing NULL values.
 
-<p>The optional <code>WITH</code> <code>OFFSET</code> clause returns a separate
+The optional `WITH OFFSET` clause returns a separate
 column containing the "offset" value (i.e. counting starts at zero) for each row
-produced by the <code>UNNEST</code> operation. This column has an optional
-<code>alias</code>; the default alias is offset.</p>
+produced by the `UNNEST` operation. This column has an optional
+`alias`; the default alias is offset.
 
-<p>Example:</p>
+Example:
 
-<pre>
+```sql
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
-</pre>
+```
 
 See the [`Arrays topic`][working-with-arrays]
 for more ways to use `UNNEST`, including construction, flattening, and
@@ -687,26 +672,23 @@ filtering.
 
 #### with_query_name
 
-<p>The query names in a <code>WITH</code> clause (see <a
-href="#with_clause">WITH Clause</a>) act like names of temporary tables that you
-can reference anywhere in the <code>FROM</code> clause. In the example below,
-<code>subQ1</code> and <code>subQ2</code> are <code>with_query_names</code>.</p>
+The query names in a `WITH` clause (see [WITH Clause][with_clause]) act like
+names of temporary tables that you can reference anywhere in the `FROM` clause.
+In the example below, `subQ1` and `subQ2` are `with_query_names`.
 
-<p>Example:</p>
+Example:
 
-<pre>
+```sql
 WITH
   subQ1 AS (SELECT * FROM Roster WHERE SchoolID = 52),
   subQ2 AS (SELECT SchoolID FROM subQ1)
 SELECT DISTINCT * FROM subQ2;
-</pre>
+```
 
-<p>The <code>WITH</code> clause hides any permanent tables with the same name
-for the duration of the query, unless you qualify the table name, e.g.
+The `WITH` clause hides any permanent tables with the same name
+for the duration of the query, unless you qualify the table name, for example:
 
- <code>db.Roster</code>.
-
-</p>
+ `db.Roster`.
 
 ### TABLESAMPLE operator
 
@@ -856,7 +838,8 @@ SELECT country, SUM(click_cost * weight) FROM ClickEvents
  GROUP BY country;
 ```
 
-#### Stratefied sampling {: #stratefied_sampling }
+#### Stratefied sampling 
+<a id="stratefied_sampling"></a>
 
 If you want better quality generated samples for under-represented groups,
 you can use stratefied sampling. Stratefied sampling helps you
@@ -883,7 +866,8 @@ SELECT click_cost, country FROM ClickEvents
 TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
 ```
 
-#### Scaling weight {: #scaling_weight }
+#### Scaling weight 
+<a id="scaling_weight"></a>
 
 With scaling weight, you can perform fast and reasonable population estimates
 from generated samples or estimate the aggregate results from samples. You can
@@ -948,9 +932,8 @@ can be solved with [stratefied sampling][stratefied-sampling].
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `FROM` clause aliases.
 
-## JOIN types {: #join_types }
-
-### Syntax
+## JOIN types 
+<a id="join_types"></a>
 
 <pre>
 <span class="var">join</span>:
@@ -1316,7 +1299,8 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### ON clause {: #on_clause }
+### ON clause 
+<a id="on_clause"></a>
 
 The `ON` clause contains a `bool_expression`. A combined row (the result of
 joining two rows) meets the join condition if `bool_expression` returns
@@ -1354,7 +1338,8 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 +---------------------------+
 ```
 
-### USING clause {: #using_clause }
+### USING clause 
+<a id="using_clause"></a>
 
 The `USING` clause requires a `column_list` of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
@@ -1435,7 +1420,8 @@ Table A   Table B   Result
 +---+     +---+
 ```
 
-### Sequences of JOINs {: #sequences_of_joins }
+### Sequences of JOINs 
+<a id="sequences_of_joins"></a>
 
 The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
 `JOIN`s are bound from left to right. For example:
@@ -1494,11 +1480,10 @@ FROM A, B FULL JOIN C ON TRUE  // INVALID
 FROM A, B JOIN C ON TRUE       // VALID
 ```
 
-## WHERE clause {: #where_clause }
+## WHERE clause 
+<a id="where_clause"></a>
 
-### Syntax
-
-```
+```sql
 WHERE bool_expression
 ```
 
@@ -1508,7 +1493,7 @@ rows that return FALSE or NULL).
 
 Example:
 
-```
+```sql
 SELECT * FROM Roster
 WHERE SchoolID = 52;
 ```
@@ -1517,7 +1502,7 @@ The `bool_expression` can contain multiple sub-conditions.
 
 Example:
 
-```
+```sql
 SELECT * FROM Roster
 WHERE STARTS_WITH(LastName, "Mc") OR STARTS_WITH(LastName, "Mac");
 ```
@@ -1545,9 +1530,8 @@ FROM Roster CROSS JOIN TeamMascot
 WHERE Roster.SchoolID = TeamMascot.SchoolID;
 ```
 
-## GROUP BY clause {: #group_by_clause }
-
-### Syntax
+## GROUP BY clause 
+<a id="group_by_clause"></a>
 
 <pre>
 GROUP BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) }
@@ -1562,7 +1546,7 @@ redundancy in the output. The data type of `expression` must be [groupable][data
 
 Example:
 
-```
+```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
 GROUP BY LastName;
@@ -1576,7 +1560,7 @@ ordinals and expression names.
 
 Example:
 
-```
+```sql
 SELECT SUM(PointsScored), LastName, FirstName
 FROM PlayerStats
 GROUP BY LastName, FirstName;
@@ -1584,7 +1568,7 @@ GROUP BY LastName, FirstName;
 
 The query above is equivalent to:
 
-```
+```sql
 SELECT SUM(PointsScored), LastName, FirstName
 FROM PlayerStats
 GROUP BY 2, FirstName;
@@ -1596,7 +1580,7 @@ clause.
 
 Example:
 
-```
+```sql
 SELECT SUM(PointsScored), LastName as last_name
 FROM PlayerStats
 GROUP BY last_name;
@@ -1614,15 +1598,15 @@ for a particular grouping set, `GROUP BY ROLLUP` treats expressions that are not
 in the grouping set as having a `NULL` value. A `SELECT` statement like this
 one:
 
-```
-SELECT a,    b,    SUM(c) FROM Input GROUP BY ROLLUP(a, b);
+```sql
+SELECT a, b, SUM(c) FROM Input GROUP BY ROLLUP(a, b);
 ```
 
 uses the rollup list `(a, b)`. The result will include the
 results of `GROUP BY` for the grouping sets `(a, b)`, `(a)`, and `()`, which
 includes all rows. This returns the same rows as:
 
-```
+```sql
 SELECT NULL, NULL, SUM(c) FROM Input               UNION ALL
 SELECT a,    NULL, SUM(c) FROM Input GROUP BY a    UNION ALL
 SELECT a,    b,    SUM(c) FROM Input GROUP BY a, b;
@@ -1633,7 +1617,7 @@ expressions in the `ROLLUP` list and the prefixes of that list.
 
 Example:
 
-```
+```sql
 WITH Sales AS (
   SELECT 123 AS sku, 1 AS day, 9.99 AS price UNION ALL
   SELECT 123, 1, 8.99 UNION ALL
@@ -1653,7 +1637,7 @@ GROUP BY ROLLUP(day);
 The query above outputs a row for each day in addition to the rolled up total
 across all days, as indicated by a `NULL` day:
 
-```
+```sql
 +------+-------+
 | day  | total |
 +------+-------+
@@ -1666,7 +1650,7 @@ across all days, as indicated by a `NULL` day:
 
 Example:
 
-```
+```sql
 WITH Sales AS (
   SELECT 123 AS sku, 1 AS day, 9.99 AS price UNION ALL
   SELECT 123, 1, 8.99 UNION ALL
@@ -1695,7 +1679,7 @@ The sums for these grouping sets correspond to the total for each
 distinct sku-day combination, the total for each sku across all days, and the
 grand total:
 
-```
+```sql
 +------+------+-------+
 | sku  | day  | total |
 +------+------+-------+
@@ -1711,11 +1695,10 @@ grand total:
 +------+------+-------+
 ```
 
-## HAVING clause {: #having_clause }
+## HAVING clause 
+<a id="having_clause"></a>
 
-### Syntax
-
-```
+```sql
 HAVING bool_expression
 ```
 
@@ -1739,7 +1722,7 @@ well as `SELECT` list aliases. Expressions referenced in the `HAVING` clause
 must either appear in the `GROUP BY` clause or they must be the result of an
 aggregate function:
 
-```
+```sql
 SELECT LastName
 FROM Roster
 GROUP BY LastName
@@ -1749,21 +1732,22 @@ HAVING SUM(PointsScored) > 15;
 If a query contains aliases in the `SELECT` clause, those aliases override names
 in a `FROM` clause.
 
-```
+```sql
 SELECT LastName, SUM(PointsScored) AS ps
 FROM Roster
 GROUP BY LastName
 HAVING ps > 0;
 ```
 
-### Mandatory aggregation {: #mandatory_aggregation }
+### Mandatory aggregation 
+<a id="mandatory_aggregation"></a>
 
 Aggregation does not have to be present in the `HAVING` clause itself, but
 aggregation must be present in at least one of the following forms:
 
 #### Aggregation function in the `SELECT` list.
 
-```
+```sql
 SELECT LastName, SUM(PointsScored) AS total
 FROM PlayerStats
 GROUP BY LastName
@@ -1772,7 +1756,7 @@ HAVING total > 15;
 
 #### Aggregation function in the 'HAVING' clause.
 
-```
+```sql
 SELECT LastName
 FROM PlayerStats
 GROUP BY LastName
@@ -1786,16 +1770,15 @@ clause, the aggregation functions and the columns they reference do not need
 to be the same. In the example below, the two aggregation functions,
 `COUNT()` and `SUM()`, are different and also use different columns.
 
-```
+```sql
 SELECT LastName, COUNT(*)
 FROM PlayerStats
 GROUP BY LastName
 HAVING SUM(PointsScored) > 15;
 ```
 
-## ORDER BY clause {: #order_by_clause }
-
-### Syntax
+## ORDER BY clause 
+<a id="order_by_clause"></a>
 
 <pre>
 ORDER BY expression
@@ -1923,12 +1906,12 @@ STRINGs are compared according to the conventions and
 standards of a particular language, region or country. These rules might define
 the correct character sequence, with options for specifying case-insensitivity.
 
-<p class="note">Note: You can use <code>COLLATE</code> only on columns of type
-STRING.</p>
+Note: You can use `COLLATE` only on columns of type
+STRING.
 
 You add collation to your statement as follows:
 
-```
+```sql
 SELECT ...
 FROM ...
 ORDER BY value COLLATE collation_string
@@ -1951,11 +1934,11 @@ specifies if the data comparisons should be case sensitive. Allowed values are
 [CLDR defaults][tr35-collation-settings]
 are used.
 
-#### COLLATE examples
+**Examples**
 
 Collate results using English - Canada:
 
-```
+```sql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "en_CA"
@@ -1963,7 +1946,7 @@ ORDER BY Place COLLATE "en_CA"
 
 Collate results using a parameter:
 
-```
+```sql
 #@collate_param = "arg_EG"
 SELECT Place
 FROM Locations
@@ -1972,7 +1955,7 @@ ORDER BY Place COLLATE @collate_param
 
 Using multiple `COLLATE` clauses in a statement:
 
-```
+```sql
 SELECT APlace, BPlace, CPlace
 FROM Locations
 ORDER BY APlace COLLATE "en_US" ASC,
@@ -1982,7 +1965,7 @@ ORDER BY APlace COLLATE "en_US" ASC,
 
 Case insensitive collation:
 
-```
+```sql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "en_US:ci"
@@ -1990,15 +1973,14 @@ ORDER BY Place COLLATE "en_US:ci"
 
 Default Unicode case-insensitive collation:
 
-```
+```sql
 SELECT Place
 FROM Locations
 ORDER BY Place COLLATE "unicode:ci"
 ```
 
-## WINDOW clause {: #window_clause }
-
-### Syntax
+## WINDOW clause 
+<a id="window_clause"></a>
 
 <pre>
 WINDOW named_window_expression [, ...]
@@ -2021,7 +2003,7 @@ They all return the same [result][named-window-example]. Note the different
 ways you can combine named windows and use them in an analytic function's
 `OVER` clause.
 
-```zetasql
+```sql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (item_window) AS most_popular
 FROM Produce
@@ -2031,7 +2013,7 @@ WINDOW item_window AS (
   ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
 ```
 
-```zetasql
+```sql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (d) AS most_popular
 FROM Produce
@@ -2042,7 +2024,7 @@ WINDOW
   d AS (c)
 ```
 
-```zetasql
+```sql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (c ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
 FROM Produce
@@ -2052,9 +2034,8 @@ WINDOW
   c AS b
 ```
 
-## Set operators {: #set_operators }
-
-### Syntax
+## Set operators 
+<a id="set_operators"></a>
 
 <pre>
 UNION { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
@@ -2065,24 +2046,25 @@ more input queries into a single result set. You
 must specify `ALL` or `DISTINCT`; if you specify `ALL`, then all rows are
 retained.  If `DISTINCT` is specified, duplicate rows are discarded.
 
-<p>If a given row R appears exactly m times in the first input query and n times
-in the second input query (m >= 0, n >= 0):</p>
+If a given row R appears exactly m times in the first input query and n times
+in the second input query (m >= 0, n >= 0):
 
-<ul>
-<li>For <code>UNION ALL</code>, R appears exactly m + n times in the result.
-</li><li>For <code>INTERSECT ALL</code>, R will appear
-exactly `MIN(m, n)` in the result.</li><li>For
-<code>EXCEPT ALL</code>, R appears exactly `MAX(m - n, 0)` in the result.
-</li><li>For <code>UNION DISTINCT</code>, the <code>DISTINCT</code>
-is computed after the <code>UNION</code> is computed, so R appears exactly one
-time.</li><li>For <code>INTERSECT DISTINCT</code>, the
-<code>DISTINCT</code> is computed after the result above is computed.
-</li><li>For <code>EXCEPT DISTINCT</code>, row
-R appears once in the output if m > 0 and n = 0.</li>
-<li>If there are more than two input queries, the above operations generalize
-and the output is the same as if the inputs were combined incrementally from
-left to right.</li>
-</ul>
++  For `UNION ALL`, R appears exactly m + n times in the
+   result.
++  For `INTERSECT ALL`, R will appear exactly `MIN(m, n)` in the
+   result.
++  For `EXCEPT ALL`, R appears exactly `MAX(m - n, 0)` in the
+   result.
++  For `UNION DISTINCT`, the `DISTINCT`
+   is computed after the `UNION` is computed, so R appears exactly
+   one time.
++  For `INTERSECT DISTINCT`, the `DISTINCT` is computed
+   after the result above is computed.
++  For `EXCEPT DISTINCT`, row R appears once in the output if
+   m > 0 and n = 0.
++  If there are more than two input queries, the above operations generalize
+   and the output is the same as if the inputs were combined incrementally from
+   left to right.
 
 The following rules apply:
 
@@ -2099,38 +2081,41 @@ The following rules apply:
 +  The result set always uses the supertypes of input types in corresponding
    columns, so paired columns must also have either the same data type or a
    common supertype.
-+  You must use parentheses to separate different set operations; for
-   this purpose, set operations such as `UNION ALL` and `UNION DISTINCT` are
-   different. If the statement only repeats the same set operation,
-   parentheses are not necessary.
++  You must use parentheses to separate different set
+   operations; for this purpose, set operations such as `UNION ALL` and
+   `UNION DISTINCT` are different. If the statement only repeats
+   the same set operation, parentheses are not necessary.
 
 Examples:
 
-```
+```sql
 query1 UNION ALL (query2 UNION DISTINCT query3)
 query1 UNION ALL query2 UNION ALL query3
 ```
 
 Invalid:
 
-``` {.bad}
+```sql {.bad}
 query1 UNION ALL query2 UNION DISTINCT query3
 query1 UNION ALL query2 INTERSECT ALL query3;  // INVALID.
 ```
 
-### UNION {: #union }
+### UNION 
+<a id="union"></a>
 
 The `UNION` operator combines the result sets of two or more input queries by
 pairing columns from the result set of each query and vertically concatenating
 them.
 
-### INTERSECT {: #intersect }
+### INTERSECT 
+<a id="intersect"></a>
 
 The `INTERSECT` operator returns rows that are found in the result sets of both
 the left and right input queries. Unlike `EXCEPT`, the positioning of the input
 queries (to the left versus right of the `INTERSECT` operator) does not matter.
 
-### EXCEPT {: #except }
+### EXCEPT 
+<a id="except"></a>
 
 The `EXCEPT` operator returns rows from the left input query that are
 not present in the right input query.
@@ -2149,11 +2134,10 @@ EXCEPT DISTINCT SELECT 1;
 +--------+
 ```
 
-## LIMIT clause and OFFSET clause {: #limit-clause_and_offset_clause }
+## LIMIT and OFFSET clauses 
+<a id="limit_and_offset_clause"></a>
 
-### Syntax
-
-```
+```sql
 LIMIT count [ OFFSET skip_rows ]
 ```
 
@@ -2199,7 +2183,8 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 +---------+
 ```
 
-## WITH clause {: #with_clause }
+## WITH clause 
+<a id="with_clause"></a>
 
 The `WITH` clause binds the results of one or more named
 [subqueries][subquery-concepts] to temporary table names.  Each introduced
@@ -2225,7 +2210,7 @@ You can use `WITH` to break up more complex queries into a `WITH` `SELECT`
 statement and `WITH` clauses, where the less desirable alternative is writing
 nested table subqueries. For example:
 
-```
+```sql
 WITH q1 AS (my_query)
 SELECT *
 FROM
@@ -2250,7 +2235,7 @@ The following are scoping rules for `WITH` clauses:
 
 Here's an example of a statement that uses aliases in `WITH` subqueries:
 
-```
+```sql
 WITH q1 AS (my_query)
 SELECT *
 FROM
@@ -2264,7 +2249,8 @@ FROM
 
 `WITH RECURSIVE` is not supported.
 
-## Using aliases {: #using_aliases }
+## Using aliases 
+<a id="using_aliases"></a>
 
 An alias is a temporary name given to a table, column, or expression present in
 a query. You can introduce explicit aliases in the `SELECT` list or `FROM`
@@ -2272,7 +2258,8 @@ clause, or ZetaSQL will infer an implicit alias for some expressions.
 Expressions with neither an explicit nor implicit alias are anonymous and the
 query cannot reference them by name.
 
-### Explicit alias syntax {: #explicit_alias_syntax }
+### Explicit alias syntax 
+<a id="explicit_alias_syntax"></a>
 
 You can introduce explicit aliases in either the `FROM` clause or the `SELECT`
 list.
@@ -2283,7 +2270,7 @@ keyword is optional.
 
 Example:
 
-```
+```sql
 SELECT s.FirstName, s2.SongName
 FROM Singers AS s, (SELECT * FROM Songs) AS s2;
 ```
@@ -2293,18 +2280,20 @@ You can introduce explicit aliases for any expression in the `SELECT` list using
 
 Example:
 
-```
+```sql
 SELECT s.FirstName AS name, LOWER(s.FirstName) AS lname
 FROM Singers s;
 ```
 
-### Explicit alias visibility {: #alias_visibility }
+### Explicit alias visibility 
+<a id="alias_visibility"></a>
 
 After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
 alias visibility are the result of ZetaSQL's name scoping rules.
 
-#### FROM clause aliases {: #from_clause_aliases }
+#### FROM clause aliases 
+<a id="from_clause_aliases"></a>
 
 ZetaSQL processes aliases in a `FROM` clause from left to right,
 and aliases are visible only to subsequent path expressions in a `FROM`
@@ -2314,14 +2303,14 @@ Example:
 
 Assume the `Singers` table had a `Concerts` column of `ARRAY` type.
 
-```
+```sql
 SELECT FirstName
 FROM Singers AS s, s.Concerts;
 ```
 
 Invalid:
 
-``` {.bad}
+```sql {.bad}
 SELECT FirstName
 FROM s.Concerts, Singers AS s;  // INVALID.
 ```
@@ -2332,7 +2321,7 @@ other tables in the same `FROM` clause.
 
 Invalid:
 
-``` {.bad}
+```sql {.bad}
 SELECT FirstName
 FROM Singers AS s, (SELECT (2020 - ReleaseDate) FROM s)  // INVALID.
 ```
@@ -2342,7 +2331,7 @@ the query, with or without qualification with the table name.
 
 Example:
 
-```
+```sql
 SELECT FirstName, s.ReleaseDate
 FROM Singers s WHERE ReleaseDate = 1975;
 ```
@@ -2355,19 +2344,20 @@ scanned multiple times during query processing.
 
 Example:
 
-```
+```sql
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY s.LastName
 ```
 
 Invalid &mdash; `ORDER BY` does not use the table alias:
 
-``` {.bad}
+```sql {.bad}
 SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
 
-#### SELECT list aliases {: #select-list_aliases }
+#### SELECT list aliases 
+<a id="select-list_aliases"></a>
 
 Aliases in the `SELECT` list are **visible only** to the following clauses:
 
@@ -2377,13 +2367,14 @@ Aliases in the `SELECT` list are **visible only** to the following clauses:
 
 Example:
 
-```
+```sql
 SELECT LastName AS last, SingerID
 FROM Singers
 ORDER BY last;
 ```
 
-### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses {: #aliases_clauses }
+### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses 
+<a id="aliases_clauses"></a>
 
 These three clauses, `GROUP BY`, `ORDER BY`, and `HAVING`, can refer to only the
 following values:
@@ -2399,7 +2390,7 @@ following values:
 
 Example:
 
-```
+```sql
 SELECT SingerID AS sid, COUNT(Songid) AS s2id
 FROM Songs
 GROUP BY 1
@@ -2408,14 +2399,15 @@ ORDER BY 2 DESC;
 
 The query above is equivalent to:
 
-```
+```sql
 SELECT SingerID AS sid, COUNT(Songid) AS s2id
 FROM Songs
 GROUP BY sid
 ORDER BY s2id DESC;
 ```
 
-### Ambiguous aliases {: #ambiguous_aliases }
+### Ambiguous aliases 
+<a id="ambiguous_aliases"></a>
 
 ZetaSQL provides an error if a name is ambiguous, meaning it can
 resolve to more than one unique object.
@@ -2425,7 +2417,7 @@ Examples:
 This query contains column names that conflict between tables, since both
 `Singers` and `Songs` have a column named `SingerID`:
 
-```
+```sql
 SELECT SingerID
 FROM Singers, Songs;
 ```
@@ -2433,7 +2425,7 @@ FROM Singers, Songs;
 This query contains aliases that are ambiguous in the `GROUP BY` clause because
 they are duplicated in the `SELECT` list:
 
-```
+```sql
 SELECT FirstName AS name, LastName AS name,
 FROM Singers
 GROUP BY name;
@@ -2446,7 +2438,7 @@ and `z`. `z` is of type STRUCT and has fields
 
 Example:
 
-```
+```sql
 SELECT x, z AS T
 FROM table AS T
 GROUP BY T.x;
@@ -2461,7 +2453,7 @@ same underlying object.
 
 Example:
 
-```
+```sql
 SELECT LastName, BirthYear AS BirthYear
 FROM Singers
 GROUP BY BirthYear;
@@ -2470,7 +2462,8 @@ GROUP BY BirthYear;
 The alias `BirthYear` is not ambiguous because it resolves to the same
 underlying column, `Singers.BirthYear`.
 
-### Implicit aliases {: #implicit_aliases }
+### Implicit aliases 
+<a id="implicit_aliases"></a>
 
 In the `SELECT` list, if there is an expression that does not have an explicit
 alias, ZetaSQL assigns an implicit alias according to the following
@@ -2492,20 +2485,19 @@ the label cannot be used like an alias.
 In a `FROM` clause, `from_item`s are not required to have an alias. The
 following rules apply:
 
-<ul>
-<li>If there is an expression that does not have an explicit alias, ZetaSQL assigns an implicit alias in these cases:</li>
-<ul>
-<li>For identifiers, the alias is the identifier. For example, <code>FROM abc</code>
-     implies <code>AS abc</code>.</li>
-<li>For path expressions, the alias is the last identifier in the path. For
-     example, <code>FROM abc.def.ghi</code> implies <code>AS ghi</code></li>
-<li>The column produced using <code>WITH OFFSET</code> has the implicit alias <code>offset</code>.</li>
-</ul>
-<li>Table subqueries do not have implicit aliases.</li>
-<li><code>FROM UNNEST(x)</code> does not have an implicit alias.</li>
-</ul>
++  If there is an expression that does not have an explicit alias,
+   ZetaSQL assigns an implicit alias in these cases:
+   +  For identifiers, the alias is the identifier. For example, `FROM abc`
+         implies `AS abc`.
+   +  For path expressions, the alias is the last identifier in the path. For
+      example, `FROM abc.def.ghi` implies `AS ghi`
+   +  The column produced using `WITH OFFSET` has the implicit
+      alias `offset`.
++  Table subqueries do not have implicit aliases.
++  `FROM UNNEST(x)` does not have an implicit alias.
 
-### Range variables {: #range_variables }
+### Range variables 
+<a id="range_variables"></a>
 
 In ZetaSQL, a range variable is a table expression alias in the
 `FROM` clause. Sometimes a range variable is known as a `table alias`. A
@@ -2579,17 +2571,19 @@ SELECT Coordinate FROM Grid AS Coordinate;
 +--------------+
 ```
 
-## Appendix A: examples with sample data {: #appendix_a_examples_with_sample_data }
+## Appendix A: examples with sample data 
+<a id="appendix_a_examples_with_sample_data"></a>
 
 These examples include statements which perform queries on the
 [`Roster`][roster-table] and [`TeamMascot`][teammascot-table],
 and [`PlayerStats`][playerstats-table] tables.
 
-### GROUP BY clause {: #group_by_clause }
+### GROUP BY clause 
+<a id="group_by_clause"></a>
 
 Example:
 
-```
+```sql
 SELECT LastName, SUM(PointsScored)
 FROM PlayerStats
 GROUP BY LastName;
@@ -2618,9 +2612,8 @@ GROUP BY LastName;
 </tbody>
 </table>
 
-### Set operators {: #set_operators }
-
-#### UNION {: #union }
+### UNION 
+<a id="union"></a>
 
 The `UNION` operator combines the result sets of two or more `SELECT` statements
 by pairing columns from the result set of each `SELECT` statement and vertically
@@ -2628,7 +2621,7 @@ concatenating them.
 
 Example:
 
-```
+```sql
 SELECT Mascot AS X, SchoolID AS Y
 FROM TeamMascot
 UNION ALL
@@ -2685,12 +2678,13 @@ Results:
 </tbody>
 </table>
 
-#### INTERSECT {: #intersect }
+### INTERSECT 
+<a id="intersect"></a>
 
 This query returns the last names that are present in both Roster and
 PlayerStats.
 
-```
+```sql
 SELECT LastName
 FROM Roster
 INTERSECT ALL
@@ -2719,12 +2713,13 @@ Results:
 </tbody>
 </table>
 
-#### EXCEPT {: #except }
+### EXCEPT 
+<a id="except"></a>
 
 The query below returns last names in Roster that are **not** present in
 PlayerStats.
 
-```
+```sql
 SELECT LastName
 FROM Roster
 EXCEPT DISTINCT
@@ -2753,7 +2748,7 @@ Results:
 Reversing the order of the `SELECT` statements will return last names in
 PlayerStats that are **not** present in Roster:
 
-```
+```sql
 SELECT LastName
 FROM PlayerStats
 EXCEPT DISTINCT
@@ -2763,7 +2758,7 @@ FROM Roster;
 
 Results:
 
-```
+```sql
 (empty)
 ```
 
@@ -2783,6 +2778,7 @@ Results:
 [stratefied-sampling]: #stratefied_sampling
 [scaling-weight]: #scaling_weight
 [query-joins]: #join-types
+[with_clause]: #with_clause
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window

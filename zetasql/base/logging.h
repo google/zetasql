@@ -56,17 +56,17 @@
 
 // Creates a message and logs it to file.
 //
-// LOG(severity) returns a stream object that can be written to with the <<
+// ZETASQL_LOG(severity) returns a stream object that can be written to with the <<
 // operator. Log messages are emitted with terminating newlines.
 // Example:
-//   LOG(INFO) << "Found" << num_cookies << " cookies";
+//   ZETASQL_LOG(INFO) << "Found" << num_cookies << " cookies";
 //
 // severity: the severity of the log message, one of LogSeverity. The
 //           FATAL severity will terminate the program after the log is emitted.
 //           Must be exactly one of INFO WARNING ERROR FATAL QFATAL DFATAL
-#define LOG(severity) ZETASQL_INTERNAL_LOGGING_##severity.stream()
+#define ZETASQL_LOG(severity) ZETASQL_INTERNAL_LOGGING_##severity.stream()
 
-// A command to LOG only if a condition is true. If the condition is false,
+// A command to ZETASQL_LOG only if a condition is true. If the condition is false,
 // nothing is logged.
 // Example:
 //
@@ -75,34 +75,35 @@
 // severity: the severity of the log message, one of LogSeverity. The
 //           FATAL severity will terminate the program after the log is emitted.
 // condition: the condition that determines whether to log the message.
-#define LOG_IF(severity, condition)                                          \
-  !(condition) ? (void)0                                                     \
-               : ::zetasql_base::logging_internal::LogMessageVoidify() &   \
-                 ZETASQL_INTERNAL_LOGGING_##severity.stream()
+#define ZETASQL_LOG_IF(severity, condition)                              \
+  !(condition) ? (void)0                                                 \
+               : ::zetasql_base::logging_internal::LogMessageVoidify() & \
+                     ZETASQL_INTERNAL_LOGGING_##severity.stream()
 
-// A LOG command with an associated verbosity level. The verbosity threshold
+// A ZETASQL_LOG command with an associated verbosity level. The verbosity threshold
 // may be configured at runtime with set_vlog_level and InitLogging.
 //
-// VLOG statements are logged at INFO severity if they are logged at all.
+// ZETASQL_VLOG statements are logged at INFO severity if they are logged at all.
 // The numeric levels are on a different scale than the severity levels.
 // Example:
 //
-//   VLOG(1) << "Print when VLOG level is set to be 1 or higher";
+//   ZETASQL_VLOG(1) << "Print when ZETASQL_VLOG level is set to be 1 or higher";
 //
 // level: the numeric level that determines whether to log the message.
-#define VLOG(level) LOG_IF(INFO, (level) <= ::zetasql_base::get_vlog_level())
+#define ZETASQL_VLOG(level) \
+  ZETASQL_LOG_IF(INFO, (level) <= ::zetasql_base::get_vlog_level())
 
 // Terminates the program with a fatal error if the specified condition is
 // false.
 //
 // Example:
-//   CHECK(!cheese.empty()) << "Out of Cheese";
+//   ZETASQL_CHECK(!cheese.empty()) << "Out of Cheese";
 //
 //
 // Might produce a message like:
 //   "Check_failed: !cheese.empty() Out of Cheese"
-#define CHECK(condition) \
-  LOG_IF(FATAL, !(condition)) << ("Check failed: " #condition " ")
+#define ZETASQL_CHECK(condition) \
+  ZETASQL_LOG_IF(FATAL, !(condition)) << ("Check failed: " #condition " ")
 
 namespace zetasql_base {
 
@@ -192,7 +193,7 @@ DEFINE_CHECK_OP_IMPL(Check_GT, >)
 
 // Function is overloaded for integral types to allow static const
 // integrals declared in classes and not defined to be used as arguments to
-// CHECK* macros. It's not encouraged though.
+// ZETASQL_CHECK* macros. It's not encouraged though.
 template <typename T>
 inline const T &GetReferenceableValue(const T &t) {
   return t;
@@ -219,7 +220,7 @@ inline unsigned long long GetReferenceableValue(unsigned long long t) {
   return t;
 }
 
-// Compares val1 and val2 with op, and produces a LOG(FATAL) if false.
+// Compares val1 and val2 with op, and produces a ZETASQL_LOG(FATAL) if false.
 //
 // name An identifier that is the name of the comparison, such as
 //        Check_EQ or Check_NE.
@@ -236,43 +237,45 @@ inline unsigned long long GetReferenceableValue(unsigned long long t) {
                                                     *_result)           \
       .stream()
 
-// Produces a LOG(FATAL) unless val1 equals val2.
-#define CHECK_EQ(val1, val2) \
-    ZETASQL_INTERNAL_CHECK_OP(Check_EQ, ==, val1, val2)
-// Produces a LOG(FATAL) unless val1 does not equal to val2.
-#define CHECK_NE(val1, val2) \
-    ZETASQL_INTERNAL_CHECK_OP(Check_NE, !=, val1, val2)
-// Produces a LOG(FATAL) unless val1 is less than or equal to val2.
-#define CHECK_LE(val1, val2) \
-    ZETASQL_INTERNAL_CHECK_OP(Check_LE, <=, val1, val2)
-// Produces a LOG(FATAL) unless val1 is less than val2.
-#define CHECK_LT(val1, val2) \
-    ZETASQL_INTERNAL_CHECK_OP(Check_LT, <, val1, val2)
-// Produces a LOG(FATAL) unless val1 is greater than or equal to val2.
-#define CHECK_GE(val1, val2) \
-    ZETASQL_INTERNAL_CHECK_OP(Check_GE, >=, val1, val2)
-// Produces a LOG(FATAL) unless val1 is greater than val2.
-#define CHECK_GT(val1, val2) \
-    ZETASQL_INTERNAL_CHECK_OP(Check_GT, >, val1, val2)
+// Produces a ZETASQL_LOG(FATAL) unless val1 equals val2.
+#define ZETASQL_CHECK_EQ(val1, val2) \
+  ZETASQL_INTERNAL_CHECK_OP(Check_EQ, ==, val1, val2)
+// Produces a ZETASQL_LOG(FATAL) unless val1 does not equal to val2.
+#define ZETASQL_CHECK_NE(val1, val2) \
+  ZETASQL_INTERNAL_CHECK_OP(Check_NE, !=, val1, val2)
+// Produces a ZETASQL_LOG(FATAL) unless val1 is less than or equal to val2.
+#define ZETASQL_CHECK_LE(val1, val2) \
+  ZETASQL_INTERNAL_CHECK_OP(Check_LE, <=, val1, val2)
+// Produces a ZETASQL_LOG(FATAL) unless val1 is less than val2.
+#define ZETASQL_CHECK_LT(val1, val2) \
+  ZETASQL_INTERNAL_CHECK_OP(Check_LT, <, val1, val2)
+// Produces a ZETASQL_LOG(FATAL) unless val1 is greater than or equal to val2.
+#define ZETASQL_CHECK_GE(val1, val2) \
+  ZETASQL_INTERNAL_CHECK_OP(Check_GE, >=, val1, val2)
+// Produces a ZETASQL_LOG(FATAL) unless val1 is greater than val2.
+#define ZETASQL_CHECK_GT(val1, val2) \
+  ZETASQL_INTERNAL_CHECK_OP(Check_GT, >, val1, val2)
 
-#define DCHECK(c) CHECK(c)
-// Another alias for CHECK that in the future may include more posix/errno
+#define ZETASQL_DCHECK(c) ZETASQL_CHECK(c)
+// Another alias for ZETASQL_CHECK that in the future may include more posix/errno
 // related data.
-#define PCHECK(c) CHECK(c)
+#define ZETASQL_PCHECK(c) ZETASQL_CHECK(c)
 
-// Another alias for CHECK that in the future may log less verbosely.
-#define ZETASQL_CHECK(c) CHECK(c)
+// Another alias for ZETASQL_CHECK that in the future may log less verbosely.
+#define ZETASQL_ZETASQL_CHECK(c) ZETASQL_CHECK(c)
 
-#define DCHECK_EQ(a, b) CHECK_EQ(a, b)
-#define DCHECK_NE(a, b) CHECK_NE(a, b)
-#define DCHECK_LE(a, b) CHECK_LE(a, b)
-#define DCHECK_LT(a, b) CHECK_LT(a, b)
-#define DCHECK_GE(a, b) CHECK_GE(a, b)
-#define DCHECK_GT(a, b) CHECK_GT(a, b)
+#define ZETASQL_DCHECK_EQ(a, b) ZETASQL_CHECK_EQ(a, b)
+#define ZETASQL_DCHECK_NE(a, b) ZETASQL_CHECK_NE(a, b)
+#define ZETASQL_DCHECK_LE(a, b) ZETASQL_CHECK_LE(a, b)
+#define ZETASQL_DCHECK_LT(a, b) ZETASQL_CHECK_LT(a, b)
+#define ZETASQL_DCHECK_GE(a, b) ZETASQL_CHECK_GE(a, b)
+#define ZETASQL_DCHECK_GT(a, b) ZETASQL_CHECK_GT(a, b)
 
-#define DLOG(c) LOG(c)
+#define ZETASQL_DLOG(c) ZETASQL_LOG(c)
 
-// Gets the verbosity threshold for VLOG. A VLOG command with a level greater
+#define ZETASQL_VLOG_IS_ON(level) ::zetasql_base::get_vlog_level() <= (level)
+
+// Gets the verbosity threshold for ZETASQL_VLOG. A ZETASQL_VLOG command with a level greater
 // than this will be ignored.
 int get_vlog_level();
 
@@ -285,7 +288,7 @@ std::string get_log_directory();
 //
 // directory: log file directory.
 // file_name: name of the log file (recommend this be initialized with argv[0]).
-// level: verbosity threshold for VLOG commands. A VLOG command with
+// level: verbosity threshold for ZETASQL_VLOG commands. A ZETASQL_VLOG command with
 //        a level equal to or lower than it will be logged.
 // Returns true if initialized successfully. Behavior is undefined false.
 bool InitLogging(const char *directory, const char *file_name, int level);
@@ -359,7 +362,7 @@ class LogMessageFatal : public LogMessage {
   LogMessageFatal(const char *file, int line)
     : LogMessage(file, line, absl::LogSeverity::kFatal) {}
 
-  // Constructs a message with FATAL severity for use by CHECK macros.
+  // Constructs a message with FATAL severity for use by ZETASQL_CHECK macros.
   //
   // file: source file that produced the log.
   // line: source code line that produced the log.
@@ -369,7 +372,7 @@ class LogMessageFatal : public LogMessage {
 
   // Suppresses warnings in some cases, example:
   // if (impossible)
-  //   LOG(FATAL)
+  //   ZETASQL_LOG(FATAL)
   // else
   //   return 0;
   // which would otherwise yield the following compiler warning.

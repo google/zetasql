@@ -25,7 +25,7 @@ namespace zetasql {
 inline absl::Cord SerializeToCord(const google::protobuf::Message& pb) {
   absl::Cord bytes;
   std::string bytes_str;
-  CHECK(pb.SerializeToString(&bytes_str));
+  ZETASQL_CHECK(pb.SerializeToString(&bytes_str));
   bytes = absl::Cord(bytes_str);
   return bytes;
 }
@@ -33,7 +33,7 @@ inline absl::Cord SerializeToCord(const google::protobuf::Message& pb) {
 inline absl::Cord SerializePartialToCord(const google::protobuf::Message& pb) {
   absl::Cord bytes;
   std::string bytes_str;
-  CHECK(pb.SerializePartialToString(&bytes_str));
+  ZETASQL_CHECK(pb.SerializePartialToString(&bytes_str));
   bytes = absl::Cord(bytes_str);
   return bytes;
 }

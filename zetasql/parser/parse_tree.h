@@ -178,7 +178,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   template <typename NodeType>
   const NodeType* GetAsOrDie() const {
     const NodeType* as_node_type = GetAsOrNull<NodeType>();
-    CHECK(as_node_type != nullptr) << "Could not cast " << GetNodeKindString()
+    ZETASQL_CHECK(as_node_type != nullptr) << "Could not cast " << GetNodeKindString()
                                    << " to the specified NodeType";
     return as_node_type;
   }
@@ -188,7 +188,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   template <typename NodeType>
   NodeType* GetAsOrDie() {
     NodeType* as_node_type = GetAsOrNull<NodeType>();
-    CHECK(as_node_type != nullptr) << "Could not cast " << GetNodeKindString()
+    ZETASQL_CHECK(as_node_type != nullptr) << "Could not cast " << GetNodeKindString()
                                    << " to the specified NodeType";
     return as_node_type;
   }
@@ -344,7 +344,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
         : node_(node), index_(0), end_(node_->num_children()) {
       if (ZETASQL_DEBUG_MODE) {
         for (int i = 0; i < end_; ++i) {
-          DCHECK(node_->child(i) != nullptr);
+          ZETASQL_DCHECK(node_->child(i) != nullptr);
         }
       }
     }
@@ -353,7 +353,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     FieldLoader& operator=(const FieldLoader&) = delete;
 
     ~FieldLoader() {
-      CHECK_EQ(index_, end_)
+      ZETASQL_CHECK_EQ(index_, end_)
           << "Did not consume last " << (end_ - index_) << " children. "
           << "Next child is a "
           << node_->child(index_)->GetNodeKindString();
@@ -362,7 +362,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     // Gets the next child element into *v. Crashes if not available.
     template <typename T>
     void AddRequired(const T** v) {
-      CHECK_LT(index_, end_);
+      ZETASQL_CHECK_LT(index_, end_);
       *v = static_cast<const T*>(node_->child(index_++));
     }
 
@@ -501,11 +501,11 @@ class FakeASTNode final : public ASTNode {
 
   FakeASTNode() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override {
-    LOG(FATAL) << "FakeASTNode does not support Accept";
+    ZETASQL_LOG(FATAL) << "FakeASTNode does not support Accept";
   }
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override {
-    LOG(FATAL) << "FakeASTNode does not support Accept";
+    ZETASQL_LOG(FATAL) << "FakeASTNode does not support Accept";
   }
 
   void InitFields() final {
@@ -2757,7 +2757,7 @@ class ASTDropRowAccessPolicyStatement final : public ASTDdlStatement {
   bool is_if_exists() const { return is_if_exists_; }
   void set_is_if_exists(bool value) { is_if_exists_ = value; }
   const ASTIdentifier* name() const {
-    DCHECK(name_ == nullptr || name_->num_names() == 1);
+    ZETASQL_DCHECK(name_ == nullptr || name_->num_names() == 1);
     return name_ == nullptr ? nullptr : name_->name(0);
   }
   const ASTPathExpression* table_name() const { return table_name_; }
@@ -4581,7 +4581,10 @@ class ASTCreateProcedureStatement final : public ASTCreateStatement {
   const ASTPathExpression* name() const { return name_; }
   const ASTFunctionParameters* parameters() const { return parameters_; }
   const ASTOptionsList* options_list() const { return options_list_; }
-  const ASTBeginEndBlock* begin_end_block() const { return begin_end_block_; }
+
+  // The body of a procedure. Always consists of a single BeginEndBlock
+  // including the BEGIN/END keywords and text in between.
+  const ASTScript* body() const { return body_; }
 
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
 
@@ -4591,13 +4594,13 @@ class ASTCreateProcedureStatement final : public ASTCreateStatement {
     fl.AddRequired(&name_);
     fl.AddRequired(&parameters_);
     fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddRequired(&begin_end_block_);
+    fl.AddRequired(&body_);
   }
 
   const ASTPathExpression* name_ = nullptr;
   const ASTFunctionParameters* parameters_ = nullptr;
   const ASTOptionsList* options_list_ = nullptr;
-  const ASTBeginEndBlock* begin_end_block_ = nullptr;
+  const ASTScript* body_ = nullptr;
 };
 
 // This represents a CREATE SCHEMA statement, i.e.,
@@ -4942,7 +4945,7 @@ class ASTCreateRowAccessPolicyStatement final : public ASTCreateStatement {
       NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTIdentifier* name() const {
-    DCHECK(name_ == nullptr || name_->num_names() == 1);
+    ZETASQL_DCHECK(name_ == nullptr || name_->num_names() == 1);
     return name_ == nullptr ? nullptr : name_->name(0);
   }
   const ASTPathExpression* target_path() const { return target_path_; }
