@@ -114,6 +114,9 @@ class ZetaSqlLocalServiceImpl {
   absl::Status GetLanguageOptions(const LanguageOptionsRequest& request,
                                   LanguageOptionsProto* response);
 
+  absl::Status GetParseTokens(const GetParseTokensRequest& request,
+                              GetParseTokensResponse* response);
+
  private:
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;

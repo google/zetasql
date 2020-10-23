@@ -1,0 +1,64 @@
+//
+// Copyright 2020 ZetaSQL Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+import "zetasql/public/parse_location_range.proto";
+import "zetasql/public/value.proto";
+import "zetasql/public/type.proto";
+
+option java_package = "com.google.zetasql";
+option java_outer_classname = "ZetaSqlParseTokenProtos";
+
+message ParseTokenProto {
+
+  enum Kind {
+    KEYWORD = 0;                // A zetasql keyword or symbol.
+    IDENTIFIER = 1;             // An identifier that was quoted.
+    IDENTIFIER_OR_KEYWORD = 2;  // An unquoted identifier.
+    VALUE = 3;                  // A literal value.
+    COMMENT = 4;                // A comment.
+    END_OF_INPUT = 5;           // The end of the input string was reached.
+  };
+
+  // The image of a token.
+  optional string image = 1;
+  // The kind of a token.
+  optional Kind kind = 2;
+  // The start and end position of a token.
+  optional zetasql.ParseLocationRangeProto parse_location_range = 3;
+  // The value of a token. This field is filled when Kind is VALUE.
+  optional zetasql.ValueProto value = 4;
+  // The type of the value. It is needed to deserialize the value proto back to value.
+  optional zetasql.TypeProto type = 5;
+}
+
+message ParseTokenOptionsProto {
+  // Return at most this many tokens (only if positive). It is not possible to
+  // resume a GetParseTokens() call for which max_tokens was set.
+  optional int32 max_tokens = 1 [default = 0];
+
+  // Stop parsing after a ";" token.  The last token returned will be either
+  // a ";" or an EOF.
+  optional bool stop_at_end_of_statement = 2 [default = false];
+
+  // Return the comments in the ParseToken vector or silently drop them.
+  optional bool include_comments = 3 [default = false];
+}
+
+

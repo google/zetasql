@@ -25,6 +25,7 @@
 #include "zetasql/public/value.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
+#include "zetasql/public/parse_tokens.pb.h"
 
 namespace zetasql {
 
@@ -119,6 +120,9 @@ class ParseToken {
   // Returns the location of the token in the input.
   ParseLocationRange GetLocationRange() const { return location_range_; }
 
+  // Convert a ParseToken object into its proto.
+  zetasql_base::StatusOr<ParseTokenProto> ToProto() const;
+
   // The declarations below are intended for internal use.
 
   enum Kind {
@@ -146,6 +150,10 @@ class ParseToken {
   ParseLocationRange location_range_;
   Value value_;
 
+  // Convert a Token Kind into its proto form. It is used by the ToProto method that converts
+  // a token to its proto.
+  static ParseTokenProto_Kind serialize_kind(ParseToken::Kind kind);
+
   // Copyable
 };
 
@@ -160,6 +168,12 @@ struct ParseTokenOptions {
 
   // Return the comments in the ParseToken vector or silently drop them.
   bool include_comments = false;
+
+  // Convert the token options into its proto.
+  ParseTokenOptionsProto ToProto() const;
+
+  // Create a ParseTokenOption object from its proto.
+  static ParseTokenOptions FromProto(const ParseTokenOptionsProto& proto);
 };
 
 // Gets a vector of ParseTokens starting from <resume_location>, and updates

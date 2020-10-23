@@ -251,4 +251,74 @@ TEST(GetNextTokensTest, ResumeLocationIsAdjustedOnError) {
   EXPECT_EQ(location.byte_position(), 0);
 }
 
+static void checkEqualBetweenTokenAndProto(const ParseToken& token, ParseTokenProto_Kind proto_kind) {
+  auto status_or_proto = token.ToProto();
+
+  // Confirm the ToProto of the token runs successfully and assign the proto as a local variable.
+  EXPECT_TRUE(status_or_proto.ok());
+  auto proto = status_or_proto.value();
+
+  EXPECT_EQ(proto_kind, proto.kind());
+  EXPECT_EQ(token.GetImage(), proto.image());
+
+  // Check whether the Location Range objects in both token and its proto are identical.
+  EXPECT_EQ(token.GetLocationRange().start().GetByteOffset(), proto.parse_location_range().start());
+  EXPECT_EQ(token.GetLocationRange().end().GetByteOffset(), proto.parse_location_range().end());
+  EXPECT_EQ(token.GetLocationRange().start().filename(), proto.parse_location_range().filename());
+
+  // If the token has no valid value, then return directly.
+  if (!token.GetValue().is_valid()) {
+    return;
+  }
+  // Check whether the values at token and its proto are identical.
+  switch (proto.type().type_kind()) {
+    case TypeKind::TYPE_BOOL:
+      EXPECT_EQ(token.GetValue().bool_value(), proto.value().bool_value());
+      break;
+    case TypeKind::TYPE_STRING:
+      EXPECT_EQ(token.GetValue().string_value(), proto.value().string_value());
+      break;
+    case TypeKind::TYPE_NUMERIC:
+      EXPECT_EQ(token.GetValue().numeric_value().ToString(), proto.value().numeric_value());
+      break;
+  }
+}
+
+TEST(GetNextTokensTest, ParseTokenToProto) {
+  ParseTokenOptions options;
+  std::vector<ParseToken> parse_tokens;
+
+  ParseResumeLocation location = ParseResumeLocation::FromString("SELECT 'abc' 1 \ntrue `HASH`\n foo");
+  // Check error in bison tokenizer.
+  ZETASQL_ASSERT_OK(GetParseTokens(options, &location, &parse_tokens));
+  EXPECT_EQ(7, parse_tokens.size());
+
+  // Check individual tokens.
+  checkEqualBetweenTokenAndProto(parse_tokens[0], ParseTokenProto_Kind_KEYWORD);
+  checkEqualBetweenTokenAndProto(parse_tokens[1], ParseTokenProto_Kind_VALUE);
+  checkEqualBetweenTokenAndProto(parse_tokens[2], ParseTokenProto_Kind_VALUE);
+  checkEqualBetweenTokenAndProto(parse_tokens[3], ParseTokenProto_Kind_KEYWORD);
+  checkEqualBetweenTokenAndProto(parse_tokens[4], ParseTokenProto_Kind_IDENTIFIER);
+  checkEqualBetweenTokenAndProto(parse_tokens[5], ParseTokenProto_Kind_IDENTIFIER_OR_KEYWORD);
+  checkEqualBetweenTokenAndProto(parse_tokens[6], ParseTokenProto_Kind_END_OF_INPUT);
+
+}
+
+TEST(GetNextTokensTest, ConvertBetweenParseTokenOptionsAndProto) {
+  ParseTokenOptions options;
+  options.max_tokens = 100;
+  options.include_comments = true;
+  options.stop_at_end_of_statement = true;
+
+  auto proto = options.ToProto();
+  EXPECT_EQ(100, proto.max_tokens());
+  EXPECT_EQ(true, proto.include_comments());
+  EXPECT_EQ(true, proto.stop_at_end_of_statement());
+
+  options = ParseTokenOptions::FromProto(proto);
+  EXPECT_EQ(100, options.max_tokens);
+  EXPECT_EQ(true, options.include_comments);
+  EXPECT_EQ(true, options.stop_at_end_of_statement);
+}
+
 }  // namespace zetasql

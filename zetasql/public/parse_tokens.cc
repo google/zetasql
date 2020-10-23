@@ -384,4 +384,66 @@ ParseToken::ParseToken(ParseLocationRange location_range, std::string image,
   ZETASQL_DCHECK(!value_.is_null());
 }
 
+zetasql_base::StatusOr<ParseTokenProto> ParseToken::ToProto() const {
+  ParseTokenProto token_proto;
+
+  // Create a location range proto from the field location_range_. Create the proto in heap and assign
+  // the pointer to the token proto, which will release the assigned location range proto when the
+  // token proto is about to be released. Therefore, no need to manage the allocated memory of the
+  // LocationRangeProto even when it is created by new method.
+  auto status_or_location_range_proto = location_range_.ToProto();
+  if (!status_or_location_range_proto.ok()) {
+    return status_or_location_range_proto.status();
+  }
+  auto range_proto = new ParseLocationRangeProto(status_or_location_range_proto.value());
+  token_proto.set_allocated_parse_location_range(range_proto);
+
+  // New a value proto in heap and immediately assign it to the token proto, so that
+  // the token proto can manage the memory of the value proto.
+  // Besides assigning the value proto, a type proto is created and assigned, because
+  // it is required to identify the type of value when the proto is deserialized.
+  if (value_.is_valid()) {
+    auto type_proto = new TypeProto();
+    token_proto.set_allocated_type(type_proto);
+    ZETASQL_RETURN_IF_ERROR(value_.type()->SerializeToSelfContainedProto(type_proto));
+
+    auto value_proto = new ValueProto();
+    token_proto.set_allocated_value(value_proto);
+    ZETASQL_RETURN_IF_ERROR(value_.Serialize(value_proto));
+  }
+  token_proto.set_image(image_);
+  token_proto.set_kind(serialize_kind(kind_));
+  return token_proto;
+}
+
+ParseTokenProto_Kind ParseToken::serialize_kind(const ParseToken::Kind kind) {
+  using zetasql::ParseToken;
+  switch (kind) {
+    case ParseToken::Kind::KEYWORD:return ParseTokenProto_Kind::ParseTokenProto_Kind_KEYWORD;
+    case ParseToken::IDENTIFIER:return ParseTokenProto_Kind::ParseTokenProto_Kind_IDENTIFIER;
+    case ParseToken::IDENTIFIER_OR_KEYWORD:return ParseTokenProto_Kind::ParseTokenProto_Kind_IDENTIFIER_OR_KEYWORD;
+    case ParseToken::VALUE:return ParseTokenProto_Kind::ParseTokenProto_Kind_VALUE;
+    case ParseToken::COMMENT:return ParseTokenProto_Kind::ParseTokenProto_Kind_COMMENT;
+    case ParseToken::END_OF_INPUT:return ParseTokenProto_Kind::ParseTokenProto_Kind_END_OF_INPUT;
+  }
+}
+
+
+ParseTokenOptionsProto ParseTokenOptions::ToProto() const {
+  ParseTokenOptionsProto options_proto;
+  options_proto.set_max_tokens(max_tokens);
+  options_proto.set_stop_at_end_of_statement(stop_at_end_of_statement);
+  options_proto.set_include_comments(include_comments);
+  return options_proto;
+}
+
+
+ParseTokenOptions ParseTokenOptions::FromProto(const ParseTokenOptionsProto& proto) {
+  ParseTokenOptions options;
+  options.max_tokens = proto.max_tokens();
+  options.stop_at_end_of_statement = proto.stop_at_end_of_statement();
+  options.include_comments = proto.include_comments();
+  return options;
+}
+
 }  // namespace zetasql

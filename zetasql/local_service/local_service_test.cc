@@ -140,6 +140,12 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     return service_.GetBuiltinFunctions(proto, response);
   }
 
+  absl::Status GetParseTokens(
+          const GetParseTokensRequest& request,
+          GetParseTokensResponse* response) {
+        return service_.GetParseTokens(request, response);
+  }
+
   ZetaSqlLocalServiceImpl service_;
   google::protobuf::compiler::DiskSourceTree source_tree_;
   std::unique_ptr<google::protobuf::compiler::Importer> proto_importer_;
@@ -1203,6 +1209,32 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
   EXPECT_EQ(2, response.function_size());
   EXPECT_EQ(function1.DebugString(), response.function(0).DebugString());
   EXPECT_EQ(function2.DebugString(), response.function(1).DebugString());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, GetParseTokens) {
+  GetParseTokensRequest request;
+  // ParseTokenOptionsProto has the default value as same as the ParseTokenOptions.
+  // Therefore, it can be created directly without setting values.
+  request.set_allocated_options(new ParseTokenOptionsProto());
+
+  // Create ResumeLocation object and convert it to its proto.
+  // Then assign the ResumeLocationProto to the Request.
+  auto resume_location = ParseResumeLocation::FromString(
+      "some_filename",
+      "Select foo from bar");
+  auto resume_location_proto = new ParseResumeLocationProto();
+  resume_location.Serialize(resume_location_proto);
+  request.set_allocated_resume_location(resume_location_proto);
+
+  GetParseTokensResponse response;
+  ZETASQL_EXPECT_OK(GetParseTokens(request, &response));
+
+  EXPECT_EQ(5, response.tokens().size());
+  EXPECT_EQ("Select", response.tokens().Get(0).image());
+  EXPECT_EQ("foo", response.tokens().Get(1).image());
+  EXPECT_EQ("from", response.tokens().Get(2).image());
+  EXPECT_EQ("bar", response.tokens().Get(3).image());
+  EXPECT_EQ(ParseTokenProto_Kind_END_OF_INPUT, response.tokens().Get(4).kind());
 }
 
 }  // namespace local_service

@@ -34,6 +34,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/parse_tokens.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_formatter.h"
 #include "zetasql/public/table_from_proto.h"
@@ -806,6 +807,26 @@ absl::Status ZetaSqlLocalServiceImpl::GetLanguageOptions(
     options.SetLanguageVersion(request.language_version());
   }
   options.Serialize(response);
+  return absl::OkStatus();
+}
+
+absl::Status ZetaSqlLocalServiceImpl::GetParseTokens(
+    const GetParseTokensRequest &request, GetParseTokensResponse *response) {
+
+  auto options = ParseTokenOptions::FromProto(request.options());
+  auto resume_location = ParseResumeLocation::FromProto(request.resume_location());
+  std::vector<ParseToken> tokens;
+  ZETASQL_RETURN_IF_ERROR(::zetasql::GetParseTokens(options, &resume_location, &tokens));
+
+  for (auto& token : tokens) {
+    auto status_or_token_proto = token.ToProto();
+    // Return error if a token cannot be converted to a token proto.
+    if (!status_or_token_proto.ok()) {
+      return status_or_token_proto.status();
+    }
+    response->add_tokens()->CopyFrom(status_or_token_proto.value());
+  }
+
   return absl::OkStatus();
 }
 
