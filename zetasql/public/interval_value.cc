@@ -18,6 +18,7 @@
 
 #include "absl/base/casts.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/endian.h"
 
 namespace zetasql {

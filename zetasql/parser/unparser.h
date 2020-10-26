@@ -478,6 +478,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTAlterMaterializedViewStatement* node, void* data) override;
   void visitASTAlterDatabaseStatement(const ASTAlterDatabaseStatement* node,
                                       void* data) override;
+  void visitASTAlterSchemaStatement(const ASTAlterSchemaStatement* node,
+                                      void* data) override;
   void visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                    void* data) override;
   void visitASTAlterViewStatement(const ASTAlterViewStatement* node,

@@ -33,11 +33,13 @@ cc_library(
     ],
     deps = [
         ":script_segment",
+        "//zetasql/base:map_util",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/parser",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -94,10 +96,10 @@ cc_test(
     deps = [
         ":parsed_script",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:variant",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -188,6 +190,7 @@ cc_test(
         ":script_segment",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
         "//zetasql/parser",
@@ -195,7 +198,6 @@ cc_test(
         "//zetasql/public:error_helpers",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 

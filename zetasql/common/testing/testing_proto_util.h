@@ -17,7 +17,10 @@
 #ifndef ZETASQL_COMMON_TESTING_TESTING_PROTO_UTIL_H_
 #define ZETASQL_COMMON_TESTING_TESTING_PROTO_UTIL_H_
 
+#include "zetasql/base/path.h"
+#include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/message.h"
+#include "gtest/gtest.h"
 #include "absl/strings/cord.h"
 
 namespace zetasql {
@@ -46,6 +49,20 @@ inline bool ParseFromCord(absl::Cord bytes, google::protobuf::Message* pb) {
 inline bool ParsePartialFromCord(absl::Cord bytes, google::protobuf::Message* pb) {
   std::string bytes_str(bytes);
   return pb->ParsePartialFromString(std::string(bytes_str));
+}
+
+inline std::unique_ptr<google::protobuf::compiler::DiskSourceTree>
+CreateProtoSourceTree() {
+  auto source_tree = absl::make_unique<google::protobuf::compiler::DiskSourceTree>();
+  // Support both sides of --noincompatible_generated_protos_in_virtual_imports.
+    source_tree->MapPath(
+        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
+            "_virtual_imports", "descriptor_proto"));
+    source_tree->MapPath(
+        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
+    source_tree->MapPath(
+        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
+  return source_tree;
 }
 
 }  // namespace zetasql

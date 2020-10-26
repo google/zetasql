@@ -595,7 +595,7 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
 +------------+
 | last_day   |
 +------------+
-| 2008-11-05 |
+| 2008-11-15 |
 +------------+
 ```
 
@@ -607,7 +607,7 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 +------------+
 | last_day   |
 +------------+
-| 2008-11-06 |
+| 2008-11-16 |
 +------------+
 ```
 
@@ -663,10 +663,24 @@ generally overrides any earlier ones.
 
 DATE
 
-**Example**
+**Examples**
+
+This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
 ```sql
 SELECT PARSE_DATE("%x", "12/25/08") as parsed;
+
++------------+
+| parsed     |
++------------+
+| 2008-12-25 |
++------------+
+```
+
+This example converts a `YYYYMMDD` formatted string to a `DATE` object:
+
+```sql
+SELECT PARSE_DATE("%Y%m%d", "20081225") as parsed;
 
 +------------+
 | parsed     |

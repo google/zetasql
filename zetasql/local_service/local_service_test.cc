@@ -28,6 +28,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/proto/simple_catalog.pb.h"
 #include "zetasql/public/parse_resume_location.pb.h"
@@ -54,16 +55,9 @@ namespace local_service {
 class ZetaSqlLocalServiceImplTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    // Support both sides of --incompatible_generated_protos_in_virtual_imports.
-    source_tree_.MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
-        "_virtual_imports", "descriptor_proto"));
-    source_tree_.MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
-    source_tree_.MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
-    proto_importer_ =
-        absl::make_unique<google::protobuf::compiler::Importer>(&source_tree_, nullptr);
+    source_tree_ = CreateProtoSourceTree();
+    proto_importer_ = absl::make_unique<google::protobuf::compiler::Importer>(
+        source_tree_.get(), nullptr);
     ASSERT_NE(nullptr, proto_importer_->Import(
                            "zetasql/testdata/test_schema.proto"));
     pool_ = absl::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
@@ -141,7 +135,7 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
   }
 
   ZetaSqlLocalServiceImpl service_;
-  google::protobuf::compiler::DiskSourceTree source_tree_;
+  std::unique_ptr<google::protobuf::compiler::DiskSourceTree> source_tree_;
   std::unique_ptr<google::protobuf::compiler::Importer> proto_importer_;
   std::unique_ptr<google::protobuf::DescriptorPool> pool_;
   TypeFactory factory_;
@@ -185,10 +179,11 @@ TEST_F(ZetaSqlLocalServiceImplTest, PrepareAndCleanup) {
   // Use the column and param in the expression.
   request.set_sql("IF(c.int32_val=1, @e, null)");
 
-  PrepareResponse response;
-  ZETASQL_ASSERT_OK(Prepare(request, &response));
+  PrepareResponse wrapper;
+  ZETASQL_ASSERT_OK(Prepare(request, &wrapper));
 
   // Check result type and value.
+  PreparedState response = wrapper.prepared();
   EXPECT_EQ(TYPE_ENUM, response.output_type().type_kind());
   EXPECT_EQ("zetasql_test.TestEnum",
             response.output_type().enum_type().enum_name());
@@ -198,6 +193,19 @@ TEST_F(ZetaSqlLocalServiceImplTest, PrepareAndCleanup) {
   // Check prepared id.
   EXPECT_TRUE(response.has_prepared_expression_id());
   EXPECT_EQ(1, NumSavedPreparedExpression());
+
+  // Check column.
+  EXPECT_EQ(1, response.referenced_columns_size());
+  EXPECT_EQ("c", response.referenced_columns(0));
+
+  // Check named parameter.
+  EXPECT_EQ(1, response.referenced_parameters_size());
+  EXPECT_EQ("e", response.referenced_parameters(0));
+
+  // Check positional parameter.
+  EXPECT_EQ(0, response.positional_parameter_count());
+
+  // Cleanup
   ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
 }
 
@@ -285,13 +293,17 @@ TEST_F(ZetaSqlLocalServiceImplTest, Evaluate) {
   ZETASQL_ASSERT_OK(Evaluate(request, &response));
 
   // check result type and value.
-  EXPECT_EQ(TYPE_ENUM, response.type().type_kind());
-  EXPECT_EQ("zetasql_test.TestEnum", response.type().enum_type().enum_name());
-  EXPECT_EQ(0, response.type().file_descriptor_set_size());
-  EXPECT_EQ(1, response.type().enum_type().file_descriptor_set_index());
+  EXPECT_EQ(TYPE_ENUM, response.prepared().output_type().type_kind());
+  EXPECT_EQ("zetasql_test.TestEnum",
+            response.prepared().output_type().enum_type().enum_name());
+  EXPECT_EQ(0, response.prepared().output_type().file_descriptor_set_size());
+  EXPECT_EQ(1, response.prepared()
+                   .output_type()
+                   .enum_type()
+                   .file_descriptor_set_index());
   EXPECT_EQ(1, response.value().enum_value());
   EXPECT_EQ(1, NumSavedPreparedExpression());
-  ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
+  ZETASQL_ASSERT_OK(Unprepare(response.prepared().prepared_expression_id()));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
@@ -337,7 +349,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
 
   EvaluateRequest evaluate_request;
   evaluate_request.set_prepared_expression_id(
-      response.prepared_expression_id());
+      response.prepared().prepared_expression_id());
 
   auto* evaluate_column = evaluate_request.add_columns();
   evaluate_column->set_name("c");
@@ -361,11 +373,12 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
   EvaluateResponse evaluate_response;
   ZETASQL_ASSERT_OK(Evaluate(evaluate_request, &evaluate_response));
 
-  // check result type and value.
-  EXPECT_EQ(TYPE_ENUM, evaluate_response.type().type_kind());
+  // Check result value, ensure extra data not sent.
   EXPECT_EQ(1, evaluate_response.value().enum_value());
+  EXPECT_EQ(evaluate_response.has_prepared(), false);
+
   EXPECT_EQ(1, NumSavedPreparedExpression());
-  ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
+  ZETASQL_ASSERT_OK(Unprepare(response.prepared().prepared_expression_id()));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, EvaluateWithWrongId) {

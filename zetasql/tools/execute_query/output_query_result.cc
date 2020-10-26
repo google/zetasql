@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/experimental/output_query_result.h"
+#include "zetasql/tools/execute_query/output_query_result.h"
 
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/strings.h"

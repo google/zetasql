@@ -3398,6 +3398,13 @@ void SampleCatalog::LoadProcedures() {
           {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, /*context_id=*/-1});
   catalog_->AddOwnedProcedure(procedure);
 
+  // Add a procedure with templated arguments of arbitrary type.
+  procedure = new Procedure({"proc_on_arbitrary_arbitrary"},
+                            {types_->get_int64(),
+                             {ARG_TYPE_ARBITRARY, ARG_TYPE_ARBITRARY},
+                             /*context_id=*/-1});
+  catalog_->AddOwnedProcedure(procedure);
+
   // Add a procedure with one repeated argument.
   procedure = new Procedure(
       {"proc_on_rep"},

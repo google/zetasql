@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
  */
 public final class FunctionArgumentType implements Serializable {
 
-  private static class LambdaArgument {
+  private static class LambdaArgument implements Serializable {
     List<FunctionArgumentType> argumentTypes;
     FunctionArgumentType bodyType;
   }
@@ -94,7 +94,7 @@ public final class FunctionArgumentType implements Serializable {
     Preconditions.checkNotNull(lambdaArgumentTypes);
     Preconditions.checkNotNull(lambdaBodyType);
     this.kind = SignatureArgumentKind.ARG_TYPE_LAMBDA;
-    this.type = lambdaBodyType.getType();
+    this.type = null;
     this.numOccurrences = lambdaBodyType.getNumOccurrences();
     this.options =
         FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.REQUIRED).build();
@@ -259,6 +259,7 @@ public final class FunctionArgumentType implements Serializable {
     }
 
     if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
+      Preconditions.checkArgument(lambda != null);
       ArgumentTypeLambdaProto.Builder lambdaBuilder = ArgumentTypeLambdaProto.newBuilder();
       for (FunctionArgumentType arg : lambda.argumentTypes) {
         lambdaBuilder.addArgument(arg.serialize(fileDescriptorSetsBuilder));
@@ -279,7 +280,7 @@ public final class FunctionArgumentType implements Serializable {
           factory.deserialize(proto.getType(), pools),
           FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, factory),
           proto.getNumOccurrences());
-    } else if (kind == SignatureArgumentKind.ARG_TYPE_FIXED) {
+    } else if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
       List<FunctionArgumentType> argumentTypes = new ArrayList<>();
       for (FunctionArgumentTypeProto argType : proto.getLambda().getArgumentList()) {
         argumentTypes.add(deserialize(argType, pools));

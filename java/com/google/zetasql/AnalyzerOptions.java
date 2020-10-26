@@ -23,19 +23,24 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
+import com.google.zetasql.ZetaSQLOptions.ResolvedASTRewrite;
 import com.google.zetasql.ZetaSQLOptions.StatementContext;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto.QueryParameterProto;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto.SystemVariableProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.LocalService.AnalyzerOptionsRequest;
+import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 /**
  * AnalyzerOptions contains options that affect analyzer behavior, other than LanguageOptions that
@@ -54,15 +59,22 @@ public class AnalyzerOptions implements Serializable {
   private final List<Type> targetColumnTypes = new ArrayList<>();
 
   public AnalyzerOptions() {
-    builder.setDefaultTimezone("America/Los_Angeles");
-    builder.setRecordParseLocations(false);
-    builder.setCreateNewColumnForEachProjectedOutput(false);
-    builder.setPruneUnusedColumns(false);
-    builder.setAllowUndeclaredParameters(false);
-    builder.setParameterMode(ParameterMode.PARAMETER_NAMED);
-    builder.setErrorMessageMode(ErrorMessageMode.ERROR_MESSAGE_ONE_LINE);
-    builder.setStatementContext(StatementContext.CONTEXT_DEFAULT);
-    builder.setPreserveColumnAliases(true);
+    try {
+      deserializeFrom(
+          Client.getStub().getAnalyzerOptions(AnalyzerOptionsRequest.getDefaultInstance()),
+          null,
+          null);
+    } catch (StatusRuntimeException e) {
+      builder.setDefaultTimezone("America/Los_Angeles");
+      builder.setRecordParseLocations(false);
+      builder.setCreateNewColumnForEachProjectedOutput(false);
+      builder.setPruneUnusedColumns(false);
+      builder.setAllowUndeclaredParameters(false);
+      builder.setParameterMode(ParameterMode.PARAMETER_NAMED);
+      builder.setErrorMessageMode(ErrorMessageMode.ERROR_MESSAGE_ONE_LINE);
+      builder.setStatementContext(StatementContext.CONTEXT_DEFAULT);
+      builder.setPreserveColumnAliases(true);
+    }
   }
 
   public AnalyzerOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -135,6 +147,41 @@ public class AnalyzerOptions implements Serializable {
   public void setLanguageOptions(LanguageOptions languageOptions) {
     this.languageOptions = languageOptions;
   }
+
+  public void setEnabledRewrites(Set<ResolvedASTRewrite> enabledRewrites) {
+    builder.clearEnabledRewrites();
+    for (ResolvedASTRewrite rewrite : enabledRewrites) {
+      builder.addEnabledRewrites(rewrite);
+    }
+  }
+
+  public void enableRewrite(ResolvedASTRewrite rewrite) {
+    enableRewrite(rewrite, true);
+  }
+  public void enableRewrite(ResolvedASTRewrite rewrite, boolean enable) {
+    boolean alreadyEnabled = rewriteEnabled(rewrite);
+    if (enable && !alreadyEnabled) {
+      builder.addEnabledRewrites(rewrite);
+    } else if (!enable && alreadyEnabled) {
+      Set<ResolvedASTRewrite> rewrites = new HashSet<>();
+      for (ResolvedASTRewrite enabled : builder.getEnabledRewritesList()) {
+        if (enabled != rewrite) {
+          rewrites.add(enabled);
+        }
+      }
+      setEnabledRewrites(rewrites);
+    }
+  }
+
+  public boolean rewriteEnabled(ResolvedASTRewrite rewrite) {
+    for (ResolvedASTRewrite enabled : builder.getEnabledRewritesList()) {
+      if (enabled.equals(rewrite)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 
   public LanguageOptions getLanguageOptions() {
     return languageOptions;
@@ -287,57 +334,65 @@ public class AnalyzerOptions implements Serializable {
   static AnalyzerOptions deserialize(
       AnalyzerOptionsProto proto, List<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
-    options.setLanguageOptions(new LanguageOptions(proto.getLanguageOptions()));
-    options.setDefaultTimezone(proto.getDefaultTimezone());
-    options.setErrorMessageMode(proto.getErrorMessageMode());
-    options.setStatementContext(proto.getStatementContext());
-    options.setPruneUnusedColumns(proto.getPruneUnusedColumns());
-    options.setRecordParseLocations(proto.getRecordParseLocations());
-    options.setCreateNewColumnForEachProjectedOutput(
-        proto.getCreateNewColumnForEachProjectedOutput());
-    options.setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
-    options.setParameterMode(proto.getParameterMode());
-    options.setPreserveColumnAliases(proto.getPreserveColumnAliases());
+    options.deserializeFrom(proto, pools, factory);
+    return options;
+  }
+
+  private void deserializeFrom(
+      AnalyzerOptionsProto proto, List<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
+    setLanguageOptions(new LanguageOptions(proto.getLanguageOptions()));
+    setDefaultTimezone(proto.getDefaultTimezone());
+    setErrorMessageMode(proto.getErrorMessageMode());
+    setStatementContext(proto.getStatementContext());
+    setPruneUnusedColumns(proto.getPruneUnusedColumns());
+    setRecordParseLocations(proto.getRecordParseLocations());
+    setCreateNewColumnForEachProjectedOutput(proto.getCreateNewColumnForEachProjectedOutput());
+    setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
+    setParameterMode(proto.getParameterMode());
+    setPreserveColumnAliases(proto.getPreserveColumnAliases());
 
     if (proto.hasInScopeExpressionColumn()) {
-      options.setInScopeExpressionColumn(
+      setInScopeExpressionColumn(
           proto.getInScopeExpressionColumn().getName(),
           factory.deserialize(proto.getInScopeExpressionColumn().getType(), pools));
     }
 
     for (QueryParameterProto param : proto.getQueryParametersList()) {
-      options.addQueryParameter(param.getName(), factory.deserialize(param.getType(), pools));
+      addQueryParameter(param.getName(), factory.deserialize(param.getType(), pools));
     }
 
     for (SystemVariableProto systemVariable : proto.getSystemVariablesList()) {
-      options.addSystemVariable(
+      addSystemVariable(
           systemVariable.getNamePathList(), factory.deserialize(systemVariable.getType(), pools));
     }
 
     for (TypeProto type : proto.getPositionalQueryParametersList()) {
-      options.addPositionalQueryParameter(factory.deserialize(type, pools));
+      addPositionalQueryParameter(factory.deserialize(type, pools));
     }
 
     for (QueryParameterProto column : proto.getExpressionColumnsList()) {
-      if (!column.getName().equals(options.getInScopeExpressionColumnName())) {
-        options.addExpressionColumn(column.getName(), factory.deserialize(column.getType(), pools));
+      if (!column.getName().equals(getInScopeExpressionColumnName())) {
+        addExpressionColumn(column.getName(), factory.deserialize(column.getType(), pools));
       }
     }
 
     for (QueryParameterProto column : proto.getDdlPseudoColumnsList()) {
-      options.addDdlPseudoColumn(column.getName(), factory.deserialize(column.getType(), pools));
+      addDdlPseudoColumn(column.getName(), factory.deserialize(column.getType(), pools));
     }
 
     for (TypeProto type : proto.getTargetColumnTypesList()) {
-      options.addTargetColumnType(factory.deserialize(type, pools));
+      addTargetColumnType(factory.deserialize(type, pools));
     }
 
     if (proto.hasAllowedHintsAndOptions()) {
-      options.setAllowedHintsAndOptions(
+      setAllowedHintsAndOptions(
           AllowedHintsAndOptions.deserialize(proto.getAllowedHintsAndOptions(), pools, factory));
     }
 
-    return options;
+    builder.clearEnabledRewrites();
+    for (ResolvedASTRewrite rewrite : proto.getEnabledRewritesList()) {
+      enableRewrite(rewrite);
+    }
   }
 
   private void writeObject(java.io.ObjectOutputStream out) throws IOException {

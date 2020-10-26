@@ -1284,7 +1284,7 @@ bool FirstByteOfBytesToASCII(absl::string_view str, int64_t* out,
   if (str.empty()) {
     *out = 0;
   } else {
-    *out = static_cast<int64_t>(str[0]);
+    *out = static_cast<int64_t>(absl::bit_cast<uint8_t>(str[0]));
   }
   return true;
 }
@@ -1355,7 +1355,7 @@ bool BytesToCodePoints(absl::string_view str, std::vector<int64_t>* out,
   out->clear();
   for (char c : str) {
     // Represent ASCII values in the range [0, 255].
-    const unsigned char ascii_value = absl::bit_cast<unsigned char>(c);
+    const unsigned char ascii_value = absl::bit_cast<uint8_t>(c);
     out->push_back(ascii_value);
   }
   return true;
@@ -1833,10 +1833,10 @@ bool Soundex(absl::string_view str, std::string* out, absl::Status* error) {
   char result[] = "0000";
   int res_index = 0;
 
-  char previous;
+  char previous = '0';
   for (size_t str_index = 0; res_index < 4 && str_index < str_length32;
        str_index++) {
-    char current = kSoundexCodeMap[str.at(str_index)];
+    char current = kSoundexCodeMap[absl::bit_cast<uint8_t>(str.at(str_index))];
     if (current == '7') {
       // Invalid character, skip.
       continue;

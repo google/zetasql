@@ -316,6 +316,9 @@ class DebugStrings {
       // Use empty name to avoid printing "arguments=" with extra indentation.
       fields.add(new DebugStringField("", node.getArgumentList()));
     }
+    if (!node.getHintList().isEmpty()) {
+      fields.add(new DebugStringField("hint_list", node.getHintList()));
+    }
   }
 
   static String getNameForDebugString(ResolvedFunctionCallBase node) {

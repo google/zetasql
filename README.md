@@ -63,7 +63,7 @@ See the (WORKSPACE) file, as it is a little unusual.
 ## Example Usage
 A very basic command line tool is available to run simple queries with the
 reference implementation:
-```bazel run //zetasql/experimental:execute_query -- "select 1 + 1;"```
+```bazel run //zetasql/tools/execute_query:execute_query -- "select 1 + 1;"```
 
 The reference implementation is not yet completely released and currently
 supports only a subset of functions and types.

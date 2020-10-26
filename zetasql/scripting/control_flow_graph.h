@@ -21,6 +21,7 @@
 
 #include "zetasql/parser/parse_tree.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
@@ -190,14 +191,19 @@ class ControlFlowGraph {
 
   // Sentinel node to mark the end of the script.  This is reached whenever the
   // script terminates normally, and has a null ast node.
+  //
+  // Returns nullptr if normal termination is not possible in any code path.
   const ControlFlowNode* end_node() const { return end_node_.get(); }
 
   // The control-flow node associated with the given AST node, or null if
-  // <ast_node> has no control-flow node associated with it.  Control-flow nodes
-  // are generated for leaf statements and IF/ELSEIF/WHILE conditions only.
+  // <ast_node> is unreachable or has no control-flow node associated with it.
+  // Control-flow nodes are generated for leaf statements and IF/ELSEIF/WHILE
+  // conditions only.
+  //
   const ControlFlowNode* GetControlFlowNode(const ASTNode* ast_node) const;
 
-  // All nodes in the script, in an arbitrary order.
+  // Returns all reachable nodes in the script. Nodes are returned in the order
+  // that they appear in the script with <end_node()> last.
   std::vector<const ControlFlowNode*> GetAllNodes() const;
 
   // The script used to generate this graph.
@@ -224,7 +230,7 @@ class ControlFlowGraph {
   // script. This node will have a NULL AST node, and will typically contain a
   // predecessor for the last statement, plus any return statements, and no
   // successor.  (If the script is guarnateed to either loop forever or throw
-  // an unhandled exception, <end_node_> will be unreachable).
+  // an unhandled exception, <end_node_> will be nullptr).
   std::unique_ptr<ControlFlowNode> end_node_;
 
   // Maps each AST node to its corresponding ControlFlowNode, and owns the
@@ -234,7 +240,7 @@ class ControlFlowGraph {
 
   // Owns the lifetime of all ControlFlowEdge objects.  (The order of elements
   // in this vector is arbitrary).
-  std::vector<std::unique_ptr<ControlFlowEdge>> edges_;
+  absl::flat_hash_set<std::unique_ptr<ControlFlowEdge>> edges_;
 
   // Script used to generate this graph (externally owned).
   const ASTScript* ast_script_;

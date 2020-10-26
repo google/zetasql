@@ -2953,6 +2953,9 @@ class ASTFunctionCall final : public ASTExpression {
 
   void set_distinct(bool distinct) { distinct_ = distinct; }
 
+  // hint if not null.
+  const ASTHint* hint() const { return hint_; }
+
   // If present, modifies the input behavior of aggregate functions.
   void set_null_handling_modifier(NullHandlingModifier kind) {
     null_handling_modifier_ = kind;
@@ -2996,6 +2999,7 @@ class ASTFunctionCall final : public ASTExpression {
     fl.AddOptional(&having_modifier_, AST_HAVING_MODIFIER);
     fl.AddOptional(&order_by_, AST_ORDER_BY);
     fl.AddOptional(&limit_offset_, AST_LIMIT_OFFSET);
+    fl.AddOptional(&hint_, AST_HINT);
   }
 
   const ASTPathExpression* function_ = nullptr;
@@ -3010,6 +3014,8 @@ class ASTFunctionCall final : public ASTExpression {
   const ASTOrderBy* order_by_ = nullptr;
   // Set if the function was called with FUNC(args LIMIT N).
   const ASTLimitOffset* limit_offset_ = nullptr;
+  // Optional hint.
+  const ASTHint* hint_ = nullptr;
 
   // This is set by the Bison parser to indicate a parentheses-less call to
   // CURRENT_* functions. The parser parses them as function calls even without
@@ -7291,6 +7297,22 @@ class ASTAlterDatabaseStatement final : public ASTAlterStatementBase {
   static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_DATABASE_STATEMENT;
 
   ASTAlterDatabaseStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    InitPathAndAlterActions(&fl);
+  }
+};
+
+class ASTAlterSchemaStatement final : public ASTAlterStatementBase {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ALTER_SCHEMA_STATEMENT;
+
+  ASTAlterSchemaStatement() : ASTAlterStatementBase(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;

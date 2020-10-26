@@ -1280,6 +1280,16 @@ def main(argv):
               semantic error (based on input data, not transient server
               problems), return NULL instead of an error. This is used for
               functions called using SAFE, as in SAFE.FUNCTION(...).
+                      """),
+          Field(
+              'hint_list',
+              'ResolvedOption',
+              tag_id=7,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False,
+              vector=True,
+              comment="""
+              Function call hints.
                       """)
       ])
 

@@ -12,10 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-
-# This directory contains temporary and experimental code that won't be
-# part of the real ZetaSQL library.
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
@@ -23,7 +19,6 @@ package(
 
 cc_library(
     name = "output_query_result",
-    testonly = 1,
     srcs = ["output_query_result.cc"],
     hdrs = ["output_query_result.h"],
     copts = [
@@ -43,21 +38,18 @@ cc_library(
         "//zetasql/reference_impl:algebrizer",
         "//zetasql/reference_impl:evaluation",
         "//zetasql/resolved_ast",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
 )
 
-# Examples:
 #
 ###############################################
 # Basic
 ###############################################
-#   bazel run //zetasql/experimental:execute_query -- "SELECT 1"
+#   bazel run //zetasql/tools/execute_query:execute_query -- "SELECT 1"
 #
 cc_binary(
     name = "execute_query",
-    testonly = 1,
     srcs = [
         "execute_query.cc",
     ],

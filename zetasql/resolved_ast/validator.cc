@@ -209,8 +209,12 @@ absl::Status Validator::ValidateResolvedFunctionCallBase(
   ZETASQL_RET_CHECK(signature.IsConcrete())
       << "ResolvedFunctionCall must have a concrete signature:\n"
       << resolved_function_call->DebugString();
-  ZETASQL_RET_CHECK(resolved_function_call->type()->Equals(
-      signature.result_type().type()));
+  ZETASQL_RET_CHECK(
+      resolved_function_call->type()->Equals(signature.result_type().type()))
+      << "Resolved function call type: "
+      << resolved_function_call->type()->DebugString()
+      << ", signature result type: "
+      << signature.result_type().type()->DebugString();
 
   const int num_concrete_args = signature.NumConcreteArguments();
   const int num_resolved_args =
@@ -268,6 +272,7 @@ absl::Status Validator::ValidateResolvedFunctionCallBase(
       ZETASQL_RET_CHECK(templated_info->expr()->type()->Equals(
           resolved_function_call->signature().result_type().type()));
     }
+    ZETASQL_RETURN_IF_ERROR(ValidateHintList(resolved_function_call->hint_list()));
   }
 
   return absl::OkStatus();

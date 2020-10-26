@@ -42,6 +42,12 @@ absl::Status ErrorCatalog::FindTable(const absl::Span<const std::string>& path,
   return ::zetasql_base::StatusBuilder(error_code_) << "FindTable error";
 }
 
+absl::Status ErrorCatalog::FindModel(const absl::Span<const std::string>& path,
+                                     const Model** table,
+                                     const FindOptions& options) {
+  return ::zetasql_base::StatusBuilder(error_code_) << "FindModel error";
+}
+
 absl::Status ErrorCatalog::FindFunction(
     const absl::Span<const std::string>& path, const Function** function,
     const FindOptions& options) {

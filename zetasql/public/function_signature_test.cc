@@ -314,7 +314,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
   ASSERT_FALSE(lambda_non_templated_body_type.IsConcrete());
   ASSERT_TRUE(lambda_non_templated_body_type.IsTemplated());
   ASSERT_FALSE(lambda_non_templated_body_type.repeated());
-  ASSERT_THAT(lambda_non_templated_body_type.type(), NotNull());
+  ASSERT_THAT(lambda_non_templated_body_type.type(), IsNull());
 
   FunctionArgumentType lambda_non_templated_arg_type =
       FunctionArgumentType::Lambda({factory.get_int64()}, ARG_TYPE_ANY_1);
@@ -332,7 +332,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
   ASSERT_FALSE(lambda_non_templated_arg_body_type.IsConcrete());
   ASSERT_FALSE(lambda_non_templated_arg_body_type.IsTemplated());
   ASSERT_FALSE(lambda_non_templated_arg_body_type.repeated());
-  ASSERT_THAT(lambda_non_templated_arg_body_type.type(), NotNull());
+  ASSERT_THAT(lambda_non_templated_arg_body_type.type(), IsNull());
 
   // Multiple lambda argument argument types
   FunctionArgumentType lambda_any_type_multi_args =
@@ -375,7 +375,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
   ASSERT_FALSE(lambda_non_templated_body_type_multi_args.IsConcrete());
   ASSERT_TRUE(lambda_non_templated_body_type_multi_args.IsTemplated());
   ASSERT_FALSE(lambda_non_templated_body_type_multi_args.repeated());
-  ASSERT_THAT(lambda_non_templated_body_type_multi_args.type(), NotNull());
+  ASSERT_THAT(lambda_non_templated_body_type_multi_args.type(), IsNull());
 
   FunctionArgumentType lambda_non_templated_arg_type_multi_args =
       FunctionArgumentType::Lambda(
@@ -404,7 +404,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeAttributesTests) {
   ASSERT_FALSE(lambda_non_templated_arg_body_type_multi_args.IsConcrete());
   ASSERT_FALSE(lambda_non_templated_arg_body_type_multi_args.IsTemplated());
   ASSERT_FALSE(lambda_non_templated_arg_body_type_multi_args.repeated());
-  ASSERT_THAT(lambda_non_templated_arg_body_type_multi_args.type(), NotNull());
+  ASSERT_THAT(lambda_non_templated_arg_body_type_multi_args.type(), IsNull());
 }
 
 TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeConcreteArgsTests) {
@@ -420,7 +420,7 @@ TEST(FunctionSignatureTests, LambdaFunctionArgumentTypeConcreteArgsTests) {
   ASSERT_EQ(ARG_TYPE_LAMBDA, lambda_concrete_arg_body_type_multi_args.kind());
   ASSERT_TRUE(lambda_concrete_arg_body_type_multi_args.IsConcrete());
   ASSERT_FALSE(lambda_concrete_arg_body_type_multi_args.repeated());
-  ASSERT_THAT(lambda_concrete_arg_body_type_multi_args.type(), NotNull());
+  ASSERT_THAT(lambda_concrete_arg_body_type_multi_args.type(), IsNull());
 }
 
 // Utility to test function argument type equality.
@@ -1260,10 +1260,20 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
 
 static void CheckConcreteArgumentType(
     const Type* expected_type,
-    const std::unique_ptr<FunctionSignature>& signature,
-    int idx) {
-  ASSERT_THAT(signature->ConcreteArgumentType(idx), NotNull());
-  EXPECT_TRUE(signature->ConcreteArgumentType(idx)->Equals(expected_type));
+    const std::unique_ptr<FunctionSignature>& signature, int idx) {
+  if (signature->ConcreteArgument(idx).IsLambda()) {
+    ASSERT_THAT(signature->ConcreteArgumentType(idx), IsNull());
+    const FunctionArgumentType::ArgumentTypeLambda& concrete_lambda =
+        signature->ConcreteArgument(idx).lambda();
+    for (const auto& arg : concrete_lambda.argument_types()) {
+      ASSERT_THAT(arg.type(), NotNull()) << arg.DebugString();
+    }
+    ASSERT_THAT(concrete_lambda.body_type().type(), NotNull())
+        << concrete_lambda.body_type().DebugString();
+  } else {
+    ASSERT_THAT(signature->ConcreteArgumentType(idx), NotNull());
+    EXPECT_TRUE(signature->ConcreteArgumentType(idx)->Equals(expected_type));
+  }
 }
 
 TEST(FunctionSignatureTests, TestConcreteArgumentType) {

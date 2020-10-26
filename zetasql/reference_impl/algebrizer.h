@@ -336,6 +336,9 @@ class Algebrizer {
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeFilterScan(
       const ResolvedFilterScan* filter_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSampleScan(
+      const ResolvedSampleScan* sample_scan,
+      std::vector<FilterConjunctInfo*>* active_conjuncts);
   zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScan(
       const ResolvedAggregateScan* aggregate_scan);
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(

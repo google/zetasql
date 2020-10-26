@@ -25,7 +25,6 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
-#include "zetasql/experimental/output_query_result.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
@@ -35,6 +34,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/tools/execute_query/output_query_result.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/memory/memory.h"

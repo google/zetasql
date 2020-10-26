@@ -26,6 +26,17 @@
 namespace zetasql::internal {
 
 //
+// Match()
+//
+// Return a list of files that match the given filespec. Supports simple
+// wild card matching only (i.e. "*.test").
+//
+// `filespec` must not contain '\0'.
+//
+// absl::Status Match(absl::string_view filespec,
+//                    std::vector<std::string>* file_names);
+
+//
 // GetContents()
 //
 // Read the entire contents of `filename` into `file_contents`.

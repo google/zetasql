@@ -64,6 +64,8 @@ TEST(IntervalValueTest, Micros) {
   IntervalValue interval;
   std::vector<int64_t> values{IntervalValue::kMinMicros,
                             IntervalValue::kMaxMicros,
+                            IntervalValue::kMinMicros + 1,
+                            IntervalValue::kMaxMicros - 1,
                             0,
                             1,
                             -1000,
@@ -73,6 +75,7 @@ TEST(IntervalValueTest, Micros) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::FromMicros(value));
     EXPECT_EQ(value, interval.get_micros());
     EXPECT_EQ(value, interval.GetAsMicros());
+    EXPECT_EQ(0, interval.get_nano_fractions());
   }
   EXPECT_THAT(IntervalValue::FromMicros(IntervalValue::kMaxMicros + 1),
               StatusIs(absl::StatusCode::kOutOfRange));
@@ -84,6 +87,8 @@ TEST(IntervalValueTest, Nanos) {
   IntervalValue interval;
   std::vector<__int128> values{IntervalValue::kMinNanos,
                                IntervalValue::kMaxNanos,
+                               IntervalValue::kMinNanos + 1,
+                               IntervalValue::kMaxNanos - 1,
                                0,
                                1,
                                -1,
@@ -99,6 +104,7 @@ TEST(IntervalValueTest, Nanos) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::FromNanos(value));
     EXPECT_EQ(value, interval.get_nanos());
     EXPECT_EQ(value, interval.GetAsNanos());
+    EXPECT_GE(interval.get_nano_fractions(), 0);
   }
   EXPECT_THAT(IntervalValue::FromMicros(IntervalValue::kMaxMicros + 1),
               StatusIs(absl::StatusCode::kOutOfRange));
@@ -162,6 +168,7 @@ TEST(IntervalValueTest, MonthsDaysNanos) {
     EXPECT_EQ(month, interval.get_months());
     EXPECT_EQ(day, interval.get_days());
     EXPECT_EQ(nanos, interval.get_nanos());
+    EXPECT_GE(interval.get_nano_fractions(), 0);
 
     std::string serialized = interval.SerializeAsBytes();
     ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval_deserialized,

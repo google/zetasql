@@ -215,23 +215,30 @@ class AnalyzerOptions {
   absl::Status Serialize(
       FileDescriptorSetMap* map, AnalyzerOptionsProto* proto) const;
 
-  // Options for the language. Please use the shorter versions below; these
-  // versions are deprecated and will be removed eventually.
-  // TODO: Migrate clients and remove these.
-  const LanguageOptions& language_options() const { return language_options_; }
-  LanguageOptions* mutable_language_options() { return &language_options_; }
-
-  void set_language_options(const LanguageOptions& options) {
-    language_options_ = options;
-  }
-
-  // Shorter equivalents for language().
+  // Options for the language.
   const LanguageOptions& language() const { return language_options_; }
   LanguageOptions* mutable_language() { return &language_options_; }
-
   void set_language(const LanguageOptions& options) {
     language_options_ = options;
   }
+
+  // Allows updating the set of enabled AST rewrites.
+  // By default rewrites in DefaultResolvedASTRewrites() are enabled.
+  // These are documented with the ResolvedASTRewrite enum.
+  void set_enabled_rewrites(absl::flat_hash_set<ResolvedASTRewrite> rewrites) {
+    enabled_rewrites_ = std::move(rewrites);
+  }
+  const absl::flat_hash_set<ResolvedASTRewrite>& enabled_rewrites() const {
+    return enabled_rewrites_;
+  }
+  // Enables or disables a particular rewrite.
+  void enable_rewrite(ResolvedASTRewrite rewrite, bool enable = true);
+  // Returns if a given AST rewrite is enabled.
+  ABSL_MUST_USE_RESULT bool rewrite_enabled(ResolvedASTRewrite rewrite) const {
+    return enabled_rewrites_.contains(rewrite);
+  }
+  // Returns the set of rewrites that are enabled by default.
+  static absl::flat_hash_set<ResolvedASTRewrite> DefaultRewrites();
 
   // Options for Find*() name lookups into the Catalog.
   const Catalog::FindOptions& find_options() const { return find_options_; }
@@ -669,6 +676,9 @@ class AnalyzerOptions {
 
   // Target output column types for a query.
   std::vector<const Type*> target_column_types_;
+
+  // The set of ASTRewrites that are enabled.
+  absl::flat_hash_set<ResolvedASTRewrite> enabled_rewrites_ = DefaultRewrites();
 
   // Copyable
 };
@@ -1152,16 +1162,28 @@ absl::Status ReplaceLiteralsByParameters(
     const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql);
 
-// Rewrites the resolved AST to use existing constructs for features that can be
-// enabled without needing native engine support for their AST nodes.
+// Same as above, but taking a ResolvedStatement in place of AnalyzerOutput,
+// which consists of a ResolvedStatement along with many other fields.
+absl::Status ReplaceLiteralsByParameters(
+    const std::string& sql,
+    const absl::node_hash_set<std::string>& option_names_to_ignore,
+    const AnalyzerOptions& analyzer_options, const ResolvedStatement* stmt,
+    LiteralReplacementMap* literal_map,
+    GeneratedParameterMap* generated_parameters, std::string* result_sql);
+
+// Performs resolved AST rewrites as requested with the enabled rewrites in
+// 'analyzer_options'.
 //
-// If an engine wants to implement these features natively, they can be provided
-// as disabled_rewrites.
-zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteResolvedAst(
-    const AnalyzerOptions& analyzer_options,
-    std::unique_ptr<const AnalyzerOutput> analyzer_output,
-    const absl::flat_hash_set<LanguageFeature>& disabled_rewrites,
-    Catalog* catalog, TypeFactory* type_factory);
+// Note that rewrites enabled in the AnalyzerOptions used for Analyzing are
+// already applied, so this should only be explicitly called for an engine that
+// wants rewrites to happen after analyzing or which wants to apply more
+// rewrites.
+//
+// *WARNING* On error, 'analyzer_output' may be in an inconsistent state with
+// some rewrites applied (or even partially applied).
+absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
+                                Catalog* catalog, TypeFactory* type_factory,
+                                AnalyzerOutput& analyzer_output);
 
 }  // namespace zetasql
 

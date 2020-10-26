@@ -1064,6 +1064,8 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "Time";
     case TYPE_DATETIME:
       return "Datetime";
+    case TYPE_INTERVAL:
+      return "Interval";
     case TYPE_GEOGRAPHY:
       return "Geography";
     case TYPE_NUMERIC:

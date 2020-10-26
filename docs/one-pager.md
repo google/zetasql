@@ -2067,29 +2067,68 @@ consider the IEEE_DIVIDE or SAFE_DIVIDE functions.
 
 Result types for Addition and Multiplication:
 
-<table>
+<table style="font-size:small">
+
 <thead>
-<tr><th>&nbsp;</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr>
+<tr>
+<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
 </thead>
-<tbody><tr><td>INT32</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>INT64</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>UINT32</td><td>INT64</td><td>INT64</td><td>UINT64</td><td>UINT64</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>UINT64</td><td>ERROR</td><td>ERROR</td><td>UINT64</td><td>UINT64</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>FLOAT</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td></tr></tbody>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+
+<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
 </table>
 
 Result types for Subtraction:
 
-<table>
+<table style="font-size:small">
+
 <thead>
-<tr><th>&nbsp;</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr>
+<tr>
+<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
 </thead>
-<tbody><tr><td>INT32</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>INT64</td><td>INT64</td><td>INT64</td><td>INT64</td><td>ERROR</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>UINT32</td><td>INT64</td><td>INT64</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>UINT64</td><td>ERROR</td><td>ERROR</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>FLOAT</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td></tr></tbody>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+
+<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
 </table>
 
 Result types for Division:
 
-<table>
+<table style="font-size:small">
+
 <thead>
-<tr><th>&nbsp;</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr>
+<tr>
+<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
 </thead>
-<tbody><tr><td>INT32</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>INT64</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>UINT32</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>UINT64</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>NUMERIC</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>FLOAT</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td></tr><tr><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td><td>DOUBLE</td></tr></tbody>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+
+<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
 </table>
 
 Result types for Unary Minus:
@@ -2262,7 +2301,7 @@ to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 | FALSE   | FALSE   | FALSE   | FALSE  |
 | FALSE   | NULL    | FALSE   | NULL   |
 | NULL    | TRUE    | NULL    | TRUE   |
-| NULL    | FALSE   | NULL    | NULL   |
+| NULL    | FALSE   | FALSE   | NULL   |
 | NULL    | NULL    | NULL    | NULL   |
 
 | x       | NOT x   |
@@ -6468,7 +6507,7 @@ clause, or ZetaSQL will infer an implicit alias for some expressions.
 Expressions with neither an explicit nor implicit alias are anonymous and the
 query cannot reference them by name.
 
-#### Explicit alias syntax 
+#### Explicit aliases 
 <a id="explicit_alias_syntax"></a>
 
 You can introduce explicit aliases in either the `FROM` clause or the `SELECT`
@@ -6495,14 +6534,64 @@ SELECT s.FirstName AS name, LOWER(s.FirstName) AS lname
 FROM Singers s;
 ```
 
-#### Explicit alias visibility 
+#### Implicit aliases 
+<a id="implicit_aliases"></a>
+
+In the `SELECT` list, if there is an expression that does not have an explicit
+alias, ZetaSQL assigns an implicit alias according to the following
+rules. There can be multiple columns with the same alias in the `SELECT` list.
+
++  For identifiers, the alias is the identifier. For example, `SELECT abc`
+   implies `AS abc`.
++  For path expressions, the alias is the last identifier in the path. For
+   example, `SELECT abc.def.ghi` implies `AS ghi`.
++  For field access using the "dot" member field access operator, the alias is
+   the field name. For example, `SELECT (struct_function()).fname` implies `AS
+   fname`.
+
+In all other cases, there is no implicit alias, so the column is anonymous and
+cannot be referenced by name. The data from that column will still be returned
+and the displayed query results may have a generated label for that column, but
+the label cannot be used like an alias.
+
+In a `FROM` clause, `from_item`s are not required to have an alias. The
+following rules apply:
+
+<ul>
+  <li>
+    If there is an expression that does not have an explicit alias,
+    ZetaSQL assigns an implicit alias in these cases:
+  </li>
+<ul>
+  <li>
+    For identifiers, the alias is the identifier. For example,
+    <code>FROM abc</code> implies <code>AS abc</code>.
+  </li>
+  <li>
+    For path expressions, the alias is the last identifier in the path. For
+    example, <code>FROM abc.def.ghi</code> implies <code>AS ghi</code>
+  </li>
+  <li>
+    The column produced using <code>WITH OFFSET</code> has the implicit alias
+    <code>offset</code>.
+  </li>
+</ul>
+  <li>
+    Table subqueries do not have implicit aliases.
+  </li>
+  <li>
+    <code>FROM UNNEST(x)</code> does not have an implicit alias.
+  </li>
+</ul>
+
+#### Alias visibility 
 <a id="alias_visibility"></a>
 
 After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
 alias visibility are the result of ZetaSQL's name scoping rules.
 
-##### FROM clause aliases 
+##### Visibility in the FROM clause 
 <a id="from_clause_aliases"></a>
 
 ZetaSQL processes aliases in a `FROM` clause from left to right,
@@ -6566,10 +6655,10 @@ SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
 
-##### SELECT list aliases 
+##### Visibility in the SELECT list 
 <a id="select-list_aliases"></a>
 
-Aliases in the `SELECT` list are **visible only** to the following clauses:
+Aliases in the `SELECT` list are visible only to the following clauses:
 
 +  `GROUP BY` clause
 +  `ORDER BY` clause
@@ -6583,7 +6672,7 @@ FROM Singers
 ORDER BY last;
 ```
 
-#### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses 
+##### Visibility in the GROUP BY, ORDER BY, and HAVING clauses 
 <a id="aliases_clauses"></a>
 
 These three clauses, `GROUP BY`, `ORDER BY`, and `HAVING`, can refer to only the
@@ -6607,7 +6696,7 @@ GROUP BY 1
 ORDER BY 2 DESC;
 ```
 
-The query above is equivalent to:
+The previous query is equivalent to:
 
 ```sql
 SELECT SingerID AS sid, COUNT(Songid) AS s2id
@@ -6616,11 +6705,32 @@ GROUP BY sid
 ORDER BY s2id DESC;
 ```
 
+#### Duplicate aliases 
+<a id="duplicate_aliases"></a>
+
+A `SELECT` list or subquery containing multiple explicit or implicit aliases
+of the same name is allowed, as long as the alias name is not referenced
+elsewhere in the query, since the reference would be
+[ambiguous][ambiguous-aliases].
+
+Example:
+
+```sql
+SELECT 1 AS a, 2 AS a;
+
++---+---+
+| a | a |
++---+---+
+| 1 | 2 |
++---+---+
+```
+
 #### Ambiguous aliases 
 <a id="ambiguous_aliases"></a>
 
-ZetaSQL provides an error if a name is ambiguous, meaning it can
-resolve to more than one unique object.
+ZetaSQL provides an error if accessing a name is ambiguous, meaning
+it can resolve to more than one unique object in the query or in a table schema,
+including the schema of a destination table.
 
 Examples:
 
@@ -6635,7 +6745,7 @@ FROM Singers, Songs;
 This query contains aliases that are ambiguous in the `GROUP BY` clause because
 they are duplicated in the `SELECT` list:
 
-```sql
+```sql {.bad}
 SELECT FirstName AS name, LastName AS name,
 FROM Singers
 GROUP BY name;
@@ -6648,7 +6758,7 @@ and `z`. `z` is of type STRUCT and has fields
 
 Example:
 
-```sql
+```sql {.bad}
 SELECT x, z AS T
 FROM table AS T
 GROUP BY T.x;
@@ -6713,10 +6823,9 @@ In ZetaSQL, a range variable is a table expression alias in the
 `FROM` clause. Sometimes a range variable is known as a `table alias`. A
 range variable lets you reference rows being scanned from a table expression.
 A table expression represents an item in the `FROM` clause that returns a table.
-Common items that this expression can represent include [tables][query-tables],
-[value tables][query-value-tables], [subqueries][subquery-concepts],
-[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and
-[parenthesized joins][query-joins].
+Common items that this expression can represent include
+tables, [value tables][query-value-tables], [subqueries][subquery-concepts],
+[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and [parenthesized joins][query-joins].
 
 In general, a range variable provides a reference to the rows of a table
 expression. A range variable can be used to qualify a column reference and
@@ -6987,12 +7096,10 @@ Results:
 [teammascot-table]: #teammascot_table
 [stratefied-sampling]: #stratefied_sampling
 [scaling-weight]: #scaling_weight
-[query-joins]: #join-types
+[query-joins]: #join_types
+[ambiguous-aliases]: #ambiguous_aliases
 [with_clause]: #with_clause
-[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
-[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
-[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
+
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
@@ -7001,9 +7108,8 @@ Results:
 [subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries
 [table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#table_subquery_concepts
 [expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#expression_subquery_concepts
-[query-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
 
-[analytic-concepts]: #analytic-functions-concepts
+[analytic-concepts]: #analytic-function-concepts
 [query-window-specification]: #def_window_spec
 [named-window-example]: #def_use_named_window
 [produce-table]: #produce-table
@@ -7018,7 +7124,6 @@ Results:
 [subquery-concepts]: #subqueries
 [table-subquery-concepts]: #table_subquery_concepts
 [expression-subquery-concepts]: #expression_subquery_concepts
-[query-tables]: #standard-sql-tables
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
@@ -7428,7 +7533,7 @@ SELECT * FROM (
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-## Analytic functions concepts
+## Analytic function concepts
 
 An analytic function computes values over a group of rows and returns a
 single result for _each_ row. This is different from an aggregate function,
@@ -12011,7 +12116,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12097,7 +12202,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12239,7 +12344,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12340,7 +12445,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12421,7 +12526,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12470,7 +12575,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12519,7 +12624,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -12598,7 +12703,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -12685,7 +12790,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -12754,7 +12859,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -12801,7 +12906,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -12849,7 +12954,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -12914,7 +13019,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -13004,7 +13109,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -13129,7 +13234,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Data Types**
@@ -13364,7 +13469,7 @@ SUM(DISTINCT x) OVER ()
 
 [analytic-functions-link-to-aggregate-functions]: #aggregate_functions
 
-[analytic-function-concepts]: #analytic-functions-concepts
+[analytic-function-concepts]: #analytic-function-concepts
 [aggregate-analytic-concepts]: #aggregate-analytic-function-concepts
 [analytic-functions-link-to-aggregate-functions]: #aggregate-functions
 
@@ -13411,7 +13516,7 @@ Any data type **except**:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -13471,7 +13576,7 @@ The clauses are applied *in the following order*:
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -13566,7 +13671,7 @@ specifies the number of elements returned.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -13647,7 +13752,7 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Returned Data Types**
@@ -14058,7 +14163,7 @@ that allows you to retrieve values whose ranks are within
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14085,7 +14190,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14116,7 +14221,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14253,7 +14358,7 @@ of type `INT64`.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14280,7 +14385,7 @@ of type `UINT64`.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14311,7 +14416,7 @@ of type `DOUBLE`.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14380,7 +14485,7 @@ percentile of the merged sketch.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14408,7 +14513,7 @@ accepts `input` of type `UINT64`.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -14440,7 +14545,7 @@ accepts `input` of type `DOUBLE`.
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
 
-[analytic-functions]: #analytic-functions-concepts
+[analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
 
 **Return Types**
@@ -15015,21 +15120,33 @@ if one of the following is true:
 + X is a finite value less than 0 and Y is a non-integer
 + X is 0 and Y is a finite value less than 0
 
-The behavior of `POW()` is further illustrated in the table below.
+**Return Data Type**
+The return data type is determined by the argument types with the following
+table.
 
-#### POWER
+<table style="font-size:small">
 
-```
-POWER(X, Y)
-```
+<thead>
+<tr>
+<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
 
-**Description**
+<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
 
-Synonym of `POW()`.
+</table>
 
-##### Special cases for `POW(X, Y)` and `POWER(X, Y)`
+**Special cases for** `POW(X, Y)`
 
-The following are special cases for `POW(X, Y)` and `POWER(X, Y)`.
+The following are special cases for `POW(X, Y)`.
 
 <table>
 <thead>
@@ -15097,6 +15214,16 @@ The following are special cases for `POW(X, Y)` and `POWER(X, Y)`.
 </tr>
 </tbody>
 </table>
+
+#### POWER
+
+```
+POWER(X, Y)
+```
+
+**Description**
+
+Synonym of [`POW(X, Y)`](#pow).
 
 #### EXP
 
@@ -15216,9 +15343,29 @@ DIV(X, Y)
 **Description**
 
 Returns the result of integer division of X by Y. Division by zero returns
-an error. Division by -1 may overflow.   See
-[Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
-result types.
+an error. Division by -1 may overflow.
+
+**Return Data Type**
+
+The return data type is determined by the argument types with the following
+table.
+<table>
+
+<thead>
+<tr>
+<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td></tr>
+
+</tbody>
+
+</table>
 
 #### SAFE_DIVIDE
 
@@ -15285,18 +15432,28 @@ MOD(X, Y)
 **Description**
 
 Modulo function: returns the remainder of the division of X by Y. Returned
-value has the same sign as X. An error is generated if Y is 0. See
-[Result types for `DIV(X, Y)` and `MOD(X, Y)`][mod-div-results] for possible
-result types.
+value has the same sign as X. An error is generated if Y is 0.
 
-##### Result types for `DIV(X, Y)` and `MOD(X, Y)` 
-<a id="mod_div_results"></a>
+**Return Data Type**
 
+The return data type is determined by the argument types with the following
+table.
 <table>
+
 <thead>
-<tr><th>&nbsp;</th><th>DOUBLE</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>UINT32</th><th>UINT64</th></tr>
+<tr>
+<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th>
+</tr>
 </thead>
-<tbody><tr><td>DOUBLE</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>DOUBLE</td><td>UINT64</td><td>UINT64</td></tr><tr><td>INT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>INT64</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>INT64</td><td>ERROR</td></tr><tr><td>NUMERIC</td><td>DOUBLE</td><td>ERROR</td><td>NUMERIC</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT32</td><td>DOUBLE</td><td>INT64</td><td>INT64</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr><tr><td>UINT64</td><td>DOUBLE</td><td>ERROR</td><td>ERROR</td><td>NUMERIC</td><td>UINT64</td><td>UINT64</td></tr></tbody>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td></tr>
+
+</tbody>
+
 </table>
 
 #### ROUND 
@@ -15716,7 +15873,6 @@ href="#special_atan2">the table below</a>.
 </tbody>
 </table>
 
-[mod-div-results]: #mod_div_results
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
 
 [data-type-properties]: #data-type-properties
@@ -15751,7 +15907,7 @@ the calculation.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -15822,7 +15978,7 @@ the calculation.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -15898,7 +16054,7 @@ the calculation.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -15977,7 +16133,7 @@ unspecified, `default_expression` defaults to NULL.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -16125,7 +16281,7 @@ unspecified, `default_expression` defaults to NULL.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -16266,12 +16422,30 @@ NULLS` is present:
 
 **Supported Argument Types**
 
-+ `value_expression` is a numeric expression.
-+ `percentile` is a `DOUBLE` literal in the range `[0, 1]`.
++ `value_expression` and `percentile` must have one of the following types:
+   + `NUMERIC`
+
+   + `DOUBLE`
++ `percentile` must be a literal in the range `[0, 1]`.
 
 **Return Data Type**
 
-`DOUBLE`
+The return data type is determined by the argument types with the following
+table.
+<table>
+
+<thead>
+<tr>
+<th></th><th>NUMERIC</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
+
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 **Examples**
 
@@ -16330,11 +16504,15 @@ This function ignores `NULL` values unless `RESPECT NULLS` is present.
 **Supported Argument Types**
 
 + `value_expression` can be any orderable type.
-+ `percentile` is a `DOUBLE` literal in the range `[0, 1]`.
++ `percentile` must be a literal in the range `[0, 1]`, with one of the
+  following types:
+   + `NUMERIC`
+
+   + `DOUBLE`
 
 **Return Data Type**
 
-`ANY`
+Same type as `value_expression`.
 
 **Examples**
 
@@ -17186,7 +17364,7 @@ Deviations from printf() are identified in <em>italics</em>.
     inf<br/>
     nan</td>
     <td>
-    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
+    <span>NUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -17196,7 +17374,7 @@ Deviations from printf() are identified in <em>italics</em>.
     INF<br/>
     NAN</td>
     <td>
-    <span> NUMERIC</span><br><span> FLOAT</span><br><span> DOUBLE</span>
+    <span>NUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -17209,7 +17387,7 @@ Deviations from printf() are identified in <em>italics</em>.
     inf<br/>
     nan</td>
     <td>
-    <span> FLOAT</span><br><span> DOUBLE</span>
+    <span>NUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
     </td>
  </tr>
  <tr>
@@ -17226,7 +17404,7 @@ Deviations from printf() are identified in <em>italics</em>.
       NAN
     </td>
     <td>
-    <span> FLOAT</span><br><span> DOUBLE</span>
+    <span>NUMERIC</span><br><span>FLOAT</span><br><span>DOUBLE</span>
     </td>
  </tr>
 
@@ -17869,8 +18047,8 @@ LEFT(value, length)
 Returns a `STRING` or `BYTES` value that consists of the specified
 number of leftmost characters or bytes from `value`. The `length` is an
 `INT64` that specifies the length of the returned
-value. If `value` is of type `BYTES`, `length` is the number of leftmost bytes to
-return. If `value` is `STRING`, `length` is the number of leftmost characters
+value. If `value` is of type `BYTES`, `length` is the number of leftmost bytes
+to return. If `value` is `STRING`, `length` is the number of leftmost characters
 to return.
 
 If `length` is 0, an empty `STRING` or `BYTES` value will be
@@ -19558,9 +19736,9 @@ TRANSLATE(expression, source_characters, target_characters)
 
 **Description**
 
-In `expression`, replaces the characters in `source_characters` with the
-characters in `target_characters`. All inputs must be the same type, either
-`STRING` or `BYTES`.
+In `expression`, replaces each character in `source_characters` with the
+corresponding character in `target_characters`. All inputs must be the same
+type, either `STRING` or `BYTES`.
 
 + Each character in `expression` is translated at most once.
 + A character in `expression` that is not present in `source_characters` is left
@@ -21743,7 +21921,7 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
 +------------+
 | last_day   |
 +------------+
-| 2008-11-05 |
+| 2008-11-15 |
 +------------+
 ```
 
@@ -21755,7 +21933,7 @@ SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 +------------+
 | last_day   |
 +------------+
-| 2008-11-06 |
+| 2008-11-16 |
 +------------+
 ```
 
@@ -21811,10 +21989,24 @@ generally overrides any earlier ones.
 
 DATE
 
-**Example**
+**Examples**
+
+This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
 ```sql
 SELECT PARSE_DATE("%x", "12/25/08") as parsed;
+
++------------+
+| parsed     |
++------------+
+| 2008-12-25 |
++------------+
+```
+
+This example converts a `YYYYMMDD` formatted string to a `DATE` object:
+
+```sql
+SELECT PARSE_DATE("%Y%m%d", "20081225") as parsed;
 
 +------------+
 | parsed     |
@@ -22626,7 +22818,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(SUNDAY)) AS last_day
 +------------+
 | last_day   |
 +------------+
-| 2008-11-05 |
+| 2008-11-15 |
 +------------+
 ```
 
@@ -22638,7 +22830,7 @@ SELECT LAST_DAY(DATETIME '2008-11-10 15:30:00', WEEK(MONDAY)) AS last_day
 +------------+
 | last_day   |
 +------------+
-| 2008-11-06 |
+| 2008-11-16 |
 +------------+
 ```
 
@@ -27770,7 +27962,7 @@ If `expression` evaluates to `FALSE` or `NULL`, the statement generates an
 error. If `AS description` is present, `description` will appear in the error
 message.
 
-`expression` must evaluates to a ` BOOL`.
+`expression` must evaluate to a `BOOL`.
 
 `description` must be a `STRING` literal.
 

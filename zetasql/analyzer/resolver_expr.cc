@@ -37,6 +37,7 @@
 #include "zetasql/analyzer/column_cycle_detector.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_resolver.h"
+#include "zetasql/analyzer/lambda_util.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
@@ -5337,6 +5338,12 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         ast_location, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE,
         absl::StrCat("Using a deprecated function signature for ",
                      function->QualifiedSQLName())));
+  }
+
+  const auto* ast_function = ast_location->GetAsOrNull<ASTFunctionCall>();
+  if (ast_function != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(ast_function->hint(),
+                                        resolved_function_call.get()));
   }
 
   ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(

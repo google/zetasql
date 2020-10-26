@@ -392,12 +392,6 @@ bool SafeConvertBytes(absl::string_view str, std::string* out,
 bool Normalize(absl::string_view str, NormalizeMode mode, bool is_casefold,
                std::string* out, absl::Status* error);
 
-// Converts from bytes to a base32-encoded string.
-bool ToBase32(absl::string_view str, std::string* out, absl::Status* error);
-
-// Converts from a base32-encoded string to bytes.
-bool FromBase32(absl::string_view str, std::string* out, absl::Status* error);
-
 // Converts from bytes to a base64-encoded string.
 bool ToBase64(absl::string_view str, std::string* out, absl::Status* error);
 

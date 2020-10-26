@@ -71,11 +71,14 @@ TEST_F(ZetaSqlLocalServiceGrpcImplTest, EvaluateStreamPrepared) {
   EvaluateResponseBatch batch_response;
   ASSERT_TRUE(stream->Read(&batch_response));
   ASSERT_EQ(batch_response.response_size(), 3);
-  ASSERT_EQ(batch_response.response(0).type().type_kind(), TYPE_INT64);
+  ASSERT_EQ(batch_response.response(0).prepared().output_type().type_kind(),
+            TYPE_INT64);
   EXPECT_EQ(batch_response.response(0).value().int64_value(), 0);
-  ASSERT_EQ(batch_response.response(1).type().type_kind(), TYPE_INT64);
+  ASSERT_EQ(batch_response.response(1).prepared().output_type().type_kind(),
+            TYPE_INT64);
   EXPECT_EQ(batch_response.response(1).value().int64_value(), 1);
-  ASSERT_EQ(batch_response.response(2).type().type_kind(), TYPE_INT64);
+  ASSERT_EQ(batch_response.response(2).prepared().output_type().type_kind(),
+            TYPE_INT64);
   EXPECT_EQ(batch_response.response(2).value().int64_value(), 2);
 
   EXPECT_TRUE(stream->WritesDone());

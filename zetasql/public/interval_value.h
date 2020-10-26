@@ -53,13 +53,14 @@ class IntervalValue final {
   // |     months       | nano      |
   // |                  | fractions |
   //
-  // Months and nano fractions are always stored as positive numbers, and the
-  // highest bit is used to store the sign information:
-  // 0 for positive, 1 for negative.
+  // Months are always stored as positive numbers, and the highest bit is used
+  // to store the sign information: 0 for positive, 1 for negative.
+  // Nano fractions are always positive, when needed micros value is adjusted.
+  // This allows single canonical representation of nanos, i.e. for nanos=-1,
+  // it will be stored as micros=-1 and nano_fractions=999.
   static const uint32_t kMonthSignMask = 0x80000000;
   static const uint32_t kMonthsMask    = 0x7FFFE000;
   static const uint32_t kMonthsShift = 13;
-  static const uint32_t kNanosSignMask = 0x00000400;
   static const uint32_t kNanosMask     = 0x000003FF;
   static const uint32_t kNanosShift = 0;
 
@@ -163,10 +164,9 @@ class IntervalValue final {
     return kNanosInMicro128 * micros_ + get_nano_fractions();
   }
 
-  // Get only the nano fractions part [-999 to 999]
+  // Get only the nano fractions part [0 to 999]
   int64_t get_nano_fractions() const {
-    int64_t nano_fractions = (months_nanos_ & kNanosMask) >> kNanosShift;
-    return (months_nanos_ & kNanosSignMask) ? -nano_fractions : nano_fractions;
+    return (months_nanos_ & kNanosMask) >> kNanosShift;
   }
 
   // Serialization and deserialization methods for interval values.
@@ -201,12 +201,12 @@ class IntervalValue final {
           (static_cast<uint32_t>(-months) << kMonthsShift) | kMonthSignMask;
     }
     int64_t nano_fractions = nanos % kNanosInMicro;
-    if (nano_fractions >= 0) {
-      months_nanos_ |= static_cast<uint32_t>(nano_fractions) << kNanosShift;
-    } else {
-      months_nanos_ |= (static_cast<uint32_t>(-nano_fractions) << kNanosShift) |
-                       kNanosSignMask;
+    if (nano_fractions < 0) {
+      // Make sure nano_fractions are always positive by adjusting micros.
+      nano_fractions = kNanosInMicro + nano_fractions;
+      micros_--;
     }
+    months_nanos_ |= static_cast<uint32_t>(nano_fractions) << kNanosShift;
   }
 
   template <typename T>

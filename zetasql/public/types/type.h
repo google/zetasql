@@ -97,6 +97,7 @@ class Type {
 
   bool IsTime() const { return kind_ == TYPE_TIME; }
   bool IsDatetime() const { return kind_ == TYPE_DATETIME; }
+  bool IsInterval() const { return kind_ == TYPE_INTERVAL; }
   bool IsNumericType() const { return kind_ == TYPE_NUMERIC; }
   bool IsBigNumericType() const { return kind_ == TYPE_BIGNUMERIC; }
   bool IsJsonType() const { return kind_ == TYPE_JSON; }

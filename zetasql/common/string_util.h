@@ -20,7 +20,7 @@
 #include <cmath>
 
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
+#include "zetasql/base/string_numbers.h"
 
 namespace zetasql {
 
@@ -36,8 +36,7 @@ namespace zetasql {
 // If this round-trip property is not required, consider simply absl::StrCat(v).
 inline std::string RoundTripFloatToString(float f) {
   if (!std::isnan(f)) {
-    // Simply print a full precision for now.
-    return absl::StrFormat("%.9g", f);
+    return zetasql_base::RoundTripFloatToString(f);
   }
   return "nan";
 }
@@ -54,8 +53,7 @@ inline std::string RoundTripFloatToString(float f) {
 // If this round-trip property is not required, consider simply absl::StrCat(v).
 inline std::string RoundTripDoubleToString(double d) {
   if (!std::isnan(d)) {
-    // Simply print a full precision for now.
-    return absl::StrFormat("%.17g", d);
+    return zetasql_base::RoundTripDoubleToString(d);
   }
   return "nan";
 }

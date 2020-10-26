@@ -48,6 +48,9 @@ class ErrorCatalog : public Catalog {
   absl::Status FindTable(const absl::Span<const std::string>& path,
                          const Table** table,
                          const FindOptions& options = FindOptions()) override;
+  absl::Status FindModel(const absl::Span<const std::string>& path,
+                         const Model** table,
+                         const FindOptions& options = FindOptions()) override;
   absl::Status FindFunction(
       const absl::Span<const std::string>& path, const Function** function,
       const FindOptions& options = FindOptions()) override;

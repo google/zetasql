@@ -212,5 +212,11 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::GetLanguageOptions(
   return ToGrpcStatus(service_.GetLanguageOptions(*req, resp));
 }
 
+grpc::Status ZetaSqlLocalServiceGrpcImpl::GetAnalyzerOptions(
+    grpc::ServerContext* context, const AnalyzerOptionsRequest* req,
+    AnalyzerOptionsProto* resp) {
+  return ToGrpcStatus(service_.GetAnalyzerOptions(*req, resp));
+}
+
 }  // namespace local_service
 }  // namespace zetasql

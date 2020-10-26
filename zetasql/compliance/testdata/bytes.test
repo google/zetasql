@@ -1,0 +1,527 @@
+# The tests in this file are *in addition* to the tests in
+# 'functions_testlib.cc', though there might be some overlap.
+
+[name=basic]
+SELECT b"abc"
+--
+ARRAY<STRUCT<BYTES>>[{b"abc"}]
+==
+
+# Test octals.
+[name=octal_1]
+SELECT b"\123"
+--
+ARRAY<STRUCT<BYTES>>[{b"S"}]
+==
+
+[name=octal_2]
+SELECT b"\12"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \12 [at 1:10]
+SELECT b"\12"
+         ^
+==
+
+[name=octal_3]
+SELECT b"\1234"
+--
+ARRAY<STRUCT<BYTES>>[{b"S4"}]
+==
+
+[name=octal_4]
+SELECT b"123\1234", b"123\123"
+--
+ARRAY<STRUCT<BYTES, BYTES>>[{b"123S4", b"123S"}]
+==
+
+# Test hex
+[name=hex_1]
+SELECT b"\x41"
+--
+ARRAY<STRUCT<BYTES>>[{b"A"}]
+==
+
+[name=hex_2]
+SELECT b"\x41B"
+--
+ARRAY<STRUCT<BYTES>>[{b"AB"}]
+==
+
+[name=hex_3]
+SELECT b"\x4"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x4 [at 1:10]
+SELECT b"\x4"
+         ^
+==
+
+[name=hex_4]
+SELECT b"\x4167"
+--
+ARRAY<STRUCT<BYTES>>[{b"A67"}]
+==
+
+[name=hex_5]
+SELECT b"\X41"
+--
+ARRAY<STRUCT<BYTES>>[{b"A"}]
+==
+
+[name=hex_6]
+SELECT b"\X41B"
+--
+ARRAY<STRUCT<BYTES>>[{b"AB"}]
+==
+
+[name=hex_7]
+SELECT b"\X4"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \X4 [at 1:10]
+SELECT b"\X4"
+         ^
+==
+
+[name=hex_8]
+SELECT b"\X4167"
+--
+ARRAY<STRUCT<BYTES>>[{b"A67"}]
+==
+
+# UTF-8 tests
+[name=utf8_1]
+SELECT b"\uE282"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Unicode escape sequence \u cannot be used in bytes literals [at 1:10]
+SELECT b"\uE282"
+         ^
+==
+
+# Unicode can be unescaped in strings.
+[name=utf8_2]
+SELECT b"€", b"\xe2\x82\xac"
+--
+ARRAY<STRUCT<BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac"}]
+==
+
+# Test that STRING -> BYTES casting might not preserve the byte length.
+[name=to_bytes_to_string_1]
+SELECT LENGTH(b"\xEE"), LENGTH(CAST("\xEE" AS BYTES))
+--
+ARRAY<STRUCT<INT64, INT64>>[{1, 2}]
+==
+
+[name=to_bytes_to_string_2]
+SELECT LENGTH(b"\xE2\x82\xAC"), LENGTH(CAST(b"\xE2\x82\xAC" AS STRING))
+--
+ARRAY<STRUCT<INT64, INT64>>[{3, 1}]
+==
+
+[name=to_bytes_to_string_3]
+SELECT BYTE_LENGTH(b"\xE2\x82\xAC"), CHAR_LENGTH(CAST(b"\xE2\x82\xAC" AS STRING)), LENGTH(b"\xE2\x82\xAC")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{3, 1, 3}]
+==
+
+[name=no_embedded_new_line]
+SELECT b"a
+c"
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed bytes literal [at 1:8]
+SELECT b"a
+       ^
+==
+
+[name=comparison_case_sensitivity_1]
+SELECT b"CaSe_SenSITive" = b"case_sensitive", b"case_sensitive" = b"case_sensitive"
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
+==
+
+[name=comparison_case_sensitivity_2]
+SELECT b"ab" <= b"Ab", b"ab" < b"Ab", b"ab" >= b"Ab", b"ab" > b"Ab", b"ab" = b"Ab", b"ab" != b"Ab", b"\xE2\x82\xAC" = b"€", b"\xE2\x82\xAC" != CAST("\xE2\x82\xAC" AS BYTES), b"\xE2\x82\xAC" = b"\xe2\x82\xac"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, true, true, false, true, true, true, true}
+]
+==
+
+[name=comparison_case_sensitivity_3]
+SELECT b"ab" <= b"aB", b"ab" < b"aB", b"ab" >= b"aB", b"ab" > b"aB", b"ab" = b"aB", b"ab" != b"aB"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, true, true, false, true}
+]
+==
+
+[name=comparison_case_sensitivity_4]
+SELECT b"abc" <= b"aBc", b"abc" < b"aBc", b"abc" >= b"aBc", b"abc" > b"aBc", b"abc" = b"aBc", b"abc" != b"aBc"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, true, true, false, true}
+]
+==
+
+[name=comparison_1]
+SELECT b"" = b"", b"" != b"",  b"" < b"", b"" <= b"", b"" > b"", b"" >= b""
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, false, false, true, false, true}
+]
+==
+
+[name=comparison_2]
+SELECT b"abc" = NULL
+--
+ERROR: generic::invalid_argument: Operands of = cannot be literal NULL [at 1:17]
+SELECT b"abc" = NULL
+                ^
+==
+
+[name=comparison_3]
+SELECT b"" IS NULL, b"" IS NOT NULL, b"abc" IS NULL, b"abc" IS NOT NULL
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
+==
+
+[name=function_concat]
+SELECT CONCAT(b"a", b"b", b"c")
+--
+ARRAY<STRUCT<BYTES>>[{b"abc"}]
+==
+
+[name=concat_operator]
+SELECT b"a" || b"b" || b"c"
+--
+ARRAY<STRUCT<BYTES>>[{b"abc"}]
+==
+
+[name=function_strpos]
+SELECT STRPOS(b"\xE2\x82\xAC", b"\x82")
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=function_instr]
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+SELECT INSTR(b"\xE2\x82\xAC", b"\x82"), INSTR(b"\xE2\x82\x82", b"\x82", 1, 2), INSTR(b"\xE2\x82\x82", b"\x82", -1)
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{2, 3, 3}]
+==
+
+# LOWER(NULL) and UPPER(NULL) return STRING, even when compared to a BYTES. b/18823720
+[name=function_lower_upper_bytes]
+SELECT b"" = LOWER(NULL), b"" = UPPER(NULL)
+--
+ERROR: generic::invalid_argument: No matching signature for operator = for argument types: BYTES, STRING. Supported signatures: ANY = ANY; INT64 = UINT64; UINT64 = INT64 [at 1:8]
+SELECT b"" = LOWER(NULL), b"" = UPPER(NULL)
+       ^
+==
+
+[name=function_lower]
+SELECT LOWER(b"\xE2\x82\xAC"), LOWER(b"\xe2\x82\xac"), LOWER(b"A\123")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"as"}]
+==
+
+[name=function_upper]
+SELECT UPPER(b"\xE2\x82\xAC"), UPPER(b"\xe2\x82\xac"), UPPER(b"a\123")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xac", b"\xe2\x82\xac", b"AS"}]
+==
+
+[name=function_length]
+SELECT LENGTH(b"AbCdE"), LENGTH(b"a\123"), LENGTH(b"\xE2\x82\xAC"), LENGTH(b"€")
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{5, 2, 3, 3}]
+==
+
+[name=function_byte_length]
+SELECT BYTE_LENGTH(b"AbCdE"), BYTE_LENGTH(b"a\123"), BYTE_LENGTH(b"\xE2\x82\xAC"), BYTE_LENGTH(b"€")
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{5, 2, 3, 3}]
+==
+
+[name=function_octet_length]
+SELECT OCTET_LENGTH(b"AbCdE"), OCTET_LENGTH(b"a\123"), OCTET_LENGTH(b"\xE2\x82\xAC"), OCTET_LENGTH(b"€")
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{5, 2, 3, 3}]
+==
+
+[name=function_ascii]
+SELECT ASCII(b""), ASCII(b"a"), ASCII(b"\x41")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 97, 65}]
+==
+
+[name=function_starts_with]
+SELECT STARTS_WITH(b"", b""), STARTS_WITH(b"", b"a"), STARTS_WITH(NULL, b"abc"), STARTS_WITH(b"\xE2\x82\xAC", b"\xe2")
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, NULL, true}]
+==
+
+[name=function_ends_with]
+SELECT ENDS_WITH(b"", b""), ENDS_WITH(b"", b"a"), ENDS_WITH(NULL, b"abc"), ENDS_WITH(b"\xE2\x82\xAC", b"\xac")
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, NULL, true}]
+==
+
+[name=function_substr_error]
+SELECT SUBSTR(b"abc", 1, -3)
+--
+ERROR: generic::out_of_range: Third argument in SUBSTR() cannot be negative
+==
+
+[name=function_substr]
+SELECT SUBSTR(b"abc", 1), SUBSTR(b"abc", 1, 1), SUBSTR(b"\xE2\x82\xAC", 2, 1), SUBSTR(b"abc", 0, 1), SUBSTR(b"abc", -3, 5)
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {b"abc", b"a", b"\x82", b"a", b"abc"}
+]
+==
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=function_substring_error]
+SELECT SUBSTRING(b"abc", 1, -3)
+--
+ERROR: generic::out_of_range: Third argument in SUBSTR() cannot be negative
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=function_substring]
+SELECT SUBSTRING(b"abc", 1), SUBSTRING(b"abc", 1, 1), SUBSTRING(b"\xE2\x82\xAC", 2, 1), SUBSTRING(b"abc", 0, 1), SUBSTRING(b"abc", -3, 5), SUBSTRING(CAST("€" AS BYTES), 1, 1), SUBSTRING(b"€", 1, 1)
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {b"abc", b"a", b"\x82", b"a", b"abc", b"\xe2", b"\xe2"}
+]
+==
+
+[name=function_trim]
+SELECT TRIM(b" a b ", NULL), TRIM(b" a b ", b""), TRIM(NULL, b" "), TRIM(b" \xE2\x82\xAC ", b" \xac")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES>>[{NULL, b" a b ", NULL, b"\xe2\x82"}]
+==
+
+[name=function_ltrim]
+SELECT LTRIM(b" a b ", NULL), LTRIM(b" a b ", b""), LTRIM(NULL, b" "), LTRIM(b" \xE2\x82\xAC ", b" \xe2")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES>>[
+  {NULL, b" a b ", NULL, b"\x82\xac "}
+]
+==
+
+[name=function_rtrim]
+SELECT RTRIM(b" a b ", NULL), RTRIM(b" a b ", b""), RTRIM(NULL, b" "), RTRIM(b" \xE2\x82\xAC ", b" \xac")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES>>[
+  {NULL, b" a b ", NULL, b" \xe2\x82"}
+]
+==
+
+[name=function_left_error]
+SELECT LEFT(b"abc", -2)
+--
+ERROR: generic::out_of_range: Second argument in LEFT() cannot be negative
+==
+
+[name=function_left]
+SELECT LEFT(b"abc", 1), LEFT(b"abc", 5), LEFT(b"\xE2\x82\xAC", 2)
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"a", b"abc", b"\xe2\x82"}]
+==
+
+[name=function_right_error]
+SELECT RIGHT(b"abc", -2)
+--
+ERROR: generic::out_of_range: Second argument in RIGHT() cannot be negative
+==
+
+[name=function_right]
+SELECT RIGHT(b"abc", 1), RIGHT(b"abc", 5), RIGHT(b"\xE2\x82\xAC", 2)
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"c", b"abc", b"\x82\xac"}]
+==
+
+[name=function_replace]
+SELECT REPLACE(b"\xE2\x82\xAC", b"\xac", b"\xFF"), REPLACE(b"abc", b"a", b"xyz"), REPLACE(b"abc", b"abc", b"x")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"\xe2\x82\xff", b"xyzbc", b"x"}]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=function_translate]
+SELECT TRANSLATE(b"ab\xFE", b"a\xFE", b"x\x01"), TRANSLATE(b"abcabc", b"ab", b"\tд")
+--
+ARRAY<STRUCT<BYTES, BYTES>>[
+  {
+    b"xb\x01",
+    b"\x09\xd0c\x09\xd0c"
+  }
+]
+==
+
+[name=function_regexp_match]
+SELECT REGEXP_MATCH(b"abc", b""), REGEXP_MATCH(b"abc", NULL), REGEXP_MATCH(b"abc", b"a.c"), REGEXP_MATCH(NULL, b"[^efg]")
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, NULL, true, NULL}]
+==
+
+[name=function_regexp_match_1]
+SELECT REGEXP_MATCH(b"abc", b"[a|d]b?"), REGEXP_MATCH(b"xE2\x82\xAC", b"xE2.\xAC"), REGEXP_MATCH(b"abc", b"."),  REGEXP_MATCH(b"abc", b".*")
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
+==
+
+[name=function_regexp_extract]
+SELECT REGEXP_EXTRACT(b"abcabc", b""), REGEXP_EXTRACT(b"abcabc", NULL), REGEXP_EXTRACT(b"abcabc", b"a.c")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{b"", NULL, b"abc"}]
+==
+
+[name=function_regexp_extract_1]
+SELECT REGEXP_EXTRACT(NULL, b"[^efg]"), REGEXP_EXTRACT(b"abcabc", b"[a|d]b?"), REGEXP_EXTRACT(b"abcabc", b"%#ab")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{NULL, b"ab", NULL}]
+==
+
+[name=function_regexp_instr]
+SELECT REGEXP_INSTR(b"abcabc", b"a(b)c", 2, 1, 1),
+       REGEXP_INSTR(b"щцфщфф", b"щ(.).", 1, 2),
+       REGEXP_INSTR(b"-2020-jack-class1", b"", 2),
+       REGEXP_INSTR(b"abcdef", b"ac.*e.")
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{6, 9, 0, 0}]
+==
+
+[name=function_regexp_extract_all]
+SELECT REGEXP_EXTRACT_ALL(b"abcabc", NULL),
+       REGEXP_EXTRACT_ALL(NULL, b"[^efg]"),
+       REGEXP_EXTRACT_ALL(b"abc", b""),
+       REGEXP_EXTRACT_ALL(b"abcabc", b"a.c"),
+       REGEXP_EXTRACT_ALL(b"abcabc", b"[a|d]b?"),
+       REGEXP_EXTRACT_ALL(b"abcabc", b"%#ab"),
+       REGEXP_EXTRACT_ALL(b"banana", b"ana"),
+       REGEXP_EXTRACT_ALL(b"banana", b"a(n)a")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<BYTES>(NULL),
+    ARRAY<BYTES>(NULL),
+    ARRAY<BYTES>[b"", b"", b""],
+    ARRAY<BYTES>[b"abc", b"abc"],
+    ARRAY<BYTES>[b"ab", b"ab"],
+    ARRAY<BYTES>[],
+    ARRAY<BYTES>[b"ana"],
+    ARRAY<BYTES>[b"n"]
+  }
+]
+==
+
+[name=function_regexp_extract_all_correlated]
+SELECT arr, extracted, off
+FROM (
+  SELECT REGEXP_EXTRACT_ALL(input, b"[^ ]+") AS arr
+  FROM UNNEST([b"foo bar baz",
+               b"",
+               b"abcdef ghi"]) AS input
+) t, UNNEST(t.arr) AS extracted WITH OFFSET off
+--
+ARRAY<STRUCT<arr ARRAY<>, extracted BYTES, off INT64>>[
+  {
+    ARRAY<BYTES>[b"foo", b"bar", b"baz"],
+    b"bar",
+    1
+  },
+  {
+    ARRAY<BYTES>[b"foo", b"bar", b"baz"],
+    b"foo",
+    0
+  },
+  {
+    ARRAY<BYTES>[b"foo", b"bar", b"baz"],
+    b"baz",
+    2
+  },
+  {
+    ARRAY<BYTES>[b"abcdef", b"ghi"],
+    b"ghi",
+    1
+  },
+  {
+    ARRAY<BYTES>[b"abcdef", b"ghi"],
+    b"abcdef",
+    0
+  }
+]
+==
+
+[name=function_regex_replace]
+SELECT REGEXP_REPLACE(b"abcabc", b"", b"xyz"), REGEXP_REPLACE(b"abcabc", NULL, b"xyz"), REGEXP_REPLACE(b"abcabc", b"a.c", b"xyz")
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[
+  {
+    b"xyzaxyzbxyzcxyzaxyzbxyzcxyz",
+    NULL,
+    b"xyzxyz"
+  }
+]
+==
+
+[name=function_regex_replace_1]
+SELECT REGEXP_REPLACE(NULL, b"[^efg]", b"xyz"), REGEXP_REPLACE(b"abcabc", b"[a|d]b?", b"xyz")
+--
+ARRAY<STRUCT<BYTES, BYTES>>[{NULL, b"xyzcxyzc"}]
+==
+
+[name=split_nulls]
+select split(cast(null as bytes), b","), split(b"x", cast(null as bytes)), split(cast(null as bytes), cast(null as bytes))
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {ARRAY<BYTES>(NULL), ARRAY<BYTES>(NULL), ARRAY<BYTES>(NULL)}
+]
+==
+
+[name=split_default_delimiter_is_error]
+select split(b"x")
+--
+ERROR: generic::invalid_argument: No matching signature for function SPLIT for argument types: BYTES. Supported signatures: SPLIT(STRING, [STRING]); SPLIT(BYTES, BYTES) [at 1:8]
+select split(b"x")
+       ^
+==
+
+[name=split_custom_delimiter]
+select split(b"192.0.0.1", b"."), split(b"ab\000c\000", b"\000")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<BYTES>[b"192", b"0", b"0", b"1"],
+    ARRAY<BYTES>[b"ab", b"c", b""]
+  }
+]
+==
+
+[name=split_empty_delimiter]
+select split(b"", b""), split(b"\000\002", b"")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<BYTES>[b""],
+    ARRAY<BYTES>[b"\x00", b"\x02"]
+  }
+]
+==
+
+[name=split_empty_input]
+select split(b"", b"foo")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BYTES>[b""]}]
+==
+
+[name=split_multibyte_delimiter]
+select split(b"aaaaa", b"aa"), split(b"ab", b"abc"), split(b"x\001\002y\001\002z", b"\001\002")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<BYTES>[b"", b"", b"a"],
+    ARRAY<BYTES>[b"ab"],
+    ARRAY<BYTES>[b"x", b"y", b"z"]
+  }
+]

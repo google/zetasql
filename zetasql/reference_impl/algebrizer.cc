@@ -49,12 +49,14 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 using zetasql::types::BoolType;
@@ -2461,6 +2463,82 @@ Algebrizer::ApplyAlgebrizedFilterConjuncts(
   return rel_op;
 }
 
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeSampleScan(
+    const ResolvedSampleScan* sample_scan,
+    std::vector<FilterConjunctInfo*>* active_conjuncts) {
+  // Algebrize the input scan.
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
+                   AlgebrizeScan(sample_scan->input_scan()));
+
+  // Algebrize the method and unit into a sample scan method.
+  auto algebrize_method = [&]() -> zetasql_base::StatusOr<SampleScanOp::Method> {
+    const std::string& method = sample_scan->method();
+    zetasql::ResolvedSampleScanEnums::SampleUnit unit = sample_scan->unit();
+
+    // Handle BERNOULLI/PERCENT.
+    // Error on BERNOULLI/ROWS.
+    if (absl::EqualsIgnoreCase(method, "BERNOULLI")) {
+      if (unit == zetasql::ResolvedSampleScanEnums::PERCENT) {
+        return SampleScanOp::Method::kBernoulliPercent;
+      }
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "BERNOULLI/ROWS is not supported";
+    }
+
+    // Handle RESERVOIR/ROWS.
+    // Error on RESERVOIR/PERCENT.
+    if (absl::EqualsIgnoreCase(method, "RESERVOIR")) {
+      if (unit == zetasql::ResolvedSampleScanEnums::ROWS) {
+        return SampleScanOp::Method::kReservoirRows;
+      }
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "RESERVOIR/PERCENT is not supported";
+    }
+
+    // Handle SYSTEM/PERCENT as BERNOULLI/PERCENT.
+    // Handle SYSTEM/ROWS as RESERVOIR/ROWS.
+    if (absl::EqualsIgnoreCase(method, "SYSTEM")) {
+      if (unit == zetasql::ResolvedSampleScanEnums::PERCENT) {
+        return SampleScanOp::Method::kBernoulliPercent;
+      }
+      if (unit == zetasql::ResolvedSampleScanEnums::ROWS) {
+        return SampleScanOp::Method::kReservoirRows;
+      }
+    }
+
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Unknown scan method " << method;
+  };
+  ZETASQL_ASSIGN_OR_RETURN(SampleScanOp::Method method, algebrize_method());
+
+  // Algebrize the size, which represents the % likelyhood to include the row if
+  // using BERNOULLI or the # of rows if using RESERVOIR.
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> size,
+                   AlgebrizeExpression(sample_scan->size()));
+
+  // Per spec:
+  // - if the sampling method is BERNOULLI, the size must be a DOUBLE.
+  // - if the sampling method is RESERVOIR, the size must be a INT64.
+  if (method == SampleScanOp::Method::kBernoulliPercent &&
+      !size->output_type()->IsNumerical()) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Expected size to be a DOUBLE";
+  }
+  if (method == SampleScanOp::Method::kReservoirRows &&
+      !size->output_type()->IsInt64()) {
+    return zetasql_base::InvalidArgumentErrorBuilder() << "Expected size to be a INT64";
+  }
+
+  std::unique_ptr<ValueExpr> repeatable = nullptr;
+  if (sample_scan->repeatable_argument()) {
+    ZETASQL_ASSIGN_OR_RETURN(repeatable,
+                     AlgebrizeExpression(sample_scan->repeatable_argument()));
+  }
+
+  return SampleScanOp::Create(method, std::move(size), std::move(repeatable),
+                              std::move(input));
+}
+
 zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
     const ResolvedAggregateScan* aggregate_scan) {
   // Algebrize the relational input of the aggregate.
@@ -3412,6 +3490,12 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeScan(
     case RESOLVED_FILTER_SCAN: {
       ZETASQL_ASSIGN_OR_RETURN(rel_op,
                        AlgebrizeFilterScan(scan->GetAs<ResolvedFilterScan>(),
+                                           active_conjuncts));
+      break;
+    }
+    case RESOLVED_SAMPLE_SCAN: {
+      ZETASQL_ASSIGN_OR_RETURN(rel_op,
+                       AlgebrizeSampleScan(scan->GetAs<ResolvedSampleScan>(),
                                            active_conjuncts));
       break;
     }

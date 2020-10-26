@@ -2059,6 +2059,72 @@ class LimitOp : public RelationalOp {
   RelationalOp* mutable_input();
 };
 
+// Discards tuples of 'input' depending on 'method' and 'size'. Produces
+// deterministic results if 'repeatable' is set. Not deterministic across engine
+// versions.
+class SampleScanOp : public RelationalOp {
+ public:
+  enum class Method {
+    // Filter using bernoulli sampling. 'size' is a percentage in the range
+    // [0, 100].
+    kBernoulliPercent,
+    // Filter using reservoir sampling. 'size' is the number of rows and must
+    // be >= 0.
+    kReservoirRows
+  };
+
+  SampleScanOp(const SampleScanOp&) = delete;
+  SampleScanOp& operator=(const SampleScanOp&) = delete;
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iter_debug_string);
+
+  static zetasql_base::StatusOr<std::unique_ptr<SampleScanOp>> Create(
+      Method method, std::unique_ptr<ValueExpr> size,
+      std::unique_ptr<ValueExpr> repeatable,
+      std::unique_ptr<RelationalOp> input);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  // Returns the schema of the input.
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind {
+    kInput,
+    kSize,
+    kRepeatable,
+  };
+
+  SampleScanOp(std::unique_ptr<ValueExpr> size,
+               std::unique_ptr<ValueExpr> repeatable,
+               std::unique_ptr<RelationalOp> input, Method method);
+
+  const RelationalOp* input() const;
+  RelationalOp* mutable_input();
+
+  const ValueExpr* size() const;
+  ValueExpr* mutable_size();
+
+  // If has_repeatable() returns false, then no repeatable argument was
+  // specified. Further, calling [mutable_]repeatable() will crash.
+  bool has_repeatable() const;
+  const ValueExpr* repeatable() const;
+  ValueExpr* mutable_repeatable();
+
+  const Method method_;
+};
+
 // Relation with no columns emitting N rows. N specified as an integer
 // expression. If N is negative, returns 0 rows. This operator is used to
 // represent a single-row relation (e.g., in SELECT 1) and N-row relations in

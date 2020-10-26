@@ -106,7 +106,10 @@ static const TypeKindInfo kTypeKindInfo[]{
     {"EXTENDED",           25,          25,   false },
 
     // 26
-    {"JSON",               26,          26,    true }
+    {"JSON",               26,          26,    true },
+
+    // 27
+    {"INTERVAL",           27,          27,    true },
 
     // clang-format on
     // When a new entry is added here, update

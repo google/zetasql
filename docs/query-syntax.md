@@ -2258,7 +2258,7 @@ clause, or ZetaSQL will infer an implicit alias for some expressions.
 Expressions with neither an explicit nor implicit alias are anonymous and the
 query cannot reference them by name.
 
-### Explicit alias syntax 
+### Explicit aliases 
 <a id="explicit_alias_syntax"></a>
 
 You can introduce explicit aliases in either the `FROM` clause or the `SELECT`
@@ -2285,14 +2285,64 @@ SELECT s.FirstName AS name, LOWER(s.FirstName) AS lname
 FROM Singers s;
 ```
 
-### Explicit alias visibility 
+### Implicit aliases 
+<a id="implicit_aliases"></a>
+
+In the `SELECT` list, if there is an expression that does not have an explicit
+alias, ZetaSQL assigns an implicit alias according to the following
+rules. There can be multiple columns with the same alias in the `SELECT` list.
+
++  For identifiers, the alias is the identifier. For example, `SELECT abc`
+   implies `AS abc`.
++  For path expressions, the alias is the last identifier in the path. For
+   example, `SELECT abc.def.ghi` implies `AS ghi`.
++  For field access using the "dot" member field access operator, the alias is
+   the field name. For example, `SELECT (struct_function()).fname` implies `AS
+   fname`.
+
+In all other cases, there is no implicit alias, so the column is anonymous and
+cannot be referenced by name. The data from that column will still be returned
+and the displayed query results may have a generated label for that column, but
+the label cannot be used like an alias.
+
+In a `FROM` clause, `from_item`s are not required to have an alias. The
+following rules apply:
+
+<ul>
+  <li>
+    If there is an expression that does not have an explicit alias,
+    ZetaSQL assigns an implicit alias in these cases:
+  </li>
+<ul>
+  <li>
+    For identifiers, the alias is the identifier. For example,
+    <code>FROM abc</code> implies <code>AS abc</code>.
+  </li>
+  <li>
+    For path expressions, the alias is the last identifier in the path. For
+    example, <code>FROM abc.def.ghi</code> implies <code>AS ghi</code>
+  </li>
+  <li>
+    The column produced using <code>WITH OFFSET</code> has the implicit alias
+    <code>offset</code>.
+  </li>
+</ul>
+  <li>
+    Table subqueries do not have implicit aliases.
+  </li>
+  <li>
+    <code>FROM UNNEST(x)</code> does not have an implicit alias.
+  </li>
+</ul>
+
+### Alias visibility 
 <a id="alias_visibility"></a>
 
 After you introduce an explicit alias in a query, there are restrictions on
 where else in the query you can reference that alias. These restrictions on
 alias visibility are the result of ZetaSQL's name scoping rules.
 
-#### FROM clause aliases 
+#### Visibility in the FROM clause 
 <a id="from_clause_aliases"></a>
 
 ZetaSQL processes aliases in a `FROM` clause from left to right,
@@ -2356,10 +2406,10 @@ SELECT * FROM Singers as s, Songs as s2
 ORDER BY Singers.LastName;  // INVALID.
 ```
 
-#### SELECT list aliases 
+#### Visibility in the SELECT list 
 <a id="select-list_aliases"></a>
 
-Aliases in the `SELECT` list are **visible only** to the following clauses:
+Aliases in the `SELECT` list are visible only to the following clauses:
 
 +  `GROUP BY` clause
 +  `ORDER BY` clause
@@ -2373,7 +2423,7 @@ FROM Singers
 ORDER BY last;
 ```
 
-### Explicit aliases in GROUP BY, ORDER BY, and HAVING clauses 
+#### Visibility in the GROUP BY, ORDER BY, and HAVING clauses 
 <a id="aliases_clauses"></a>
 
 These three clauses, `GROUP BY`, `ORDER BY`, and `HAVING`, can refer to only the
@@ -2397,7 +2447,7 @@ GROUP BY 1
 ORDER BY 2 DESC;
 ```
 
-The query above is equivalent to:
+The previous query is equivalent to:
 
 ```sql
 SELECT SingerID AS sid, COUNT(Songid) AS s2id
@@ -2406,11 +2456,32 @@ GROUP BY sid
 ORDER BY s2id DESC;
 ```
 
+### Duplicate aliases 
+<a id="duplicate_aliases"></a>
+
+A `SELECT` list or subquery containing multiple explicit or implicit aliases
+of the same name is allowed, as long as the alias name is not referenced
+elsewhere in the query, since the reference would be
+[ambiguous][ambiguous-aliases].
+
+Example:
+
+```sql
+SELECT 1 AS a, 2 AS a;
+
++---+---+
+| a | a |
++---+---+
+| 1 | 2 |
++---+---+
+```
+
 ### Ambiguous aliases 
 <a id="ambiguous_aliases"></a>
 
-ZetaSQL provides an error if a name is ambiguous, meaning it can
-resolve to more than one unique object.
+ZetaSQL provides an error if accessing a name is ambiguous, meaning
+it can resolve to more than one unique object in the query or in a table schema,
+including the schema of a destination table.
 
 Examples:
 
@@ -2425,7 +2496,7 @@ FROM Singers, Songs;
 This query contains aliases that are ambiguous in the `GROUP BY` clause because
 they are duplicated in the `SELECT` list:
 
-```sql
+```sql {.bad}
 SELECT FirstName AS name, LastName AS name,
 FROM Singers
 GROUP BY name;
@@ -2438,7 +2509,7 @@ and `z`. `z` is of type STRUCT and has fields
 
 Example:
 
-```sql
+```sql {.bad}
 SELECT x, z AS T
 FROM table AS T
 GROUP BY T.x;
@@ -2503,10 +2574,9 @@ In ZetaSQL, a range variable is a table expression alias in the
 `FROM` clause. Sometimes a range variable is known as a `table alias`. A
 range variable lets you reference rows being scanned from a table expression.
 A table expression represents an item in the `FROM` clause that returns a table.
-Common items that this expression can represent include [tables][query-tables],
-[value tables][query-value-tables], [subqueries][subquery-concepts],
-[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and
-[parenthesized joins][query-joins].
+Common items that this expression can represent include
+tables, [value tables][query-value-tables], [subqueries][subquery-concepts],
+[table value functions (TVFs)][tvf-concepts], [joins][query-joins], and [parenthesized joins][query-joins].
 
 In general, a range variable provides a reference to the rows of a table
 expression. A range variable can be used to qualify a column reference and
@@ -2777,12 +2847,10 @@ Results:
 [teammascot-table]: #teammascot_table
 [stratefied-sampling]: #stratefied_sampling
 [scaling-weight]: #scaling_weight
-[query-joins]: #join-types
+[query-joins]: #join_types
+[ambiguous-aliases]: #ambiguous_aliases
 [with_clause]: #with_clause
-[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
-[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
-[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
+
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
@@ -2791,7 +2859,6 @@ Results:
 [subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries
 [table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#table_subquery_concepts
 [expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#expression_subquery_concepts
-[query-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries

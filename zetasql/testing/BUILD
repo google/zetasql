@@ -34,6 +34,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:civil_time",
         "//zetasql/public:coercer",
         "//zetasql/public:function",
@@ -48,7 +49,6 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -161,7 +161,7 @@ cc_test(
         ":sql_types_test",
         ":type_util",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:type",
-        "@com_google_googletest//:gtest_main",
     ],
 )

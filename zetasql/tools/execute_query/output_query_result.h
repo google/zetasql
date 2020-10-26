@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_EXPERIMENTAL_OUTPUT_QUERY_RESULT_H_
-#define ZETASQL_EXPERIMENTAL_OUTPUT_QUERY_RESULT_H_
+#ifndef ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_
+#define ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_
 
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/operator.h"
@@ -65,4 +65,4 @@ std::string OutputPrettyStyleQueryResult(
 std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result);
 }  // namespace zetasql
 
-#endif  // ZETASQL_EXPERIMENTAL_OUTPUT_QUERY_RESULT_H_
+#endif  // ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_

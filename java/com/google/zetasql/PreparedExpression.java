@@ -17,7 +17,12 @@
 
 package com.google.zetasql;
 
+import static com.google.common.base.Verify.verify;
+
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -28,15 +33,20 @@ import com.google.zetasql.LocalService.EvaluateResponse;
 import com.google.zetasql.LocalService.EvaluateResponseBatch;
 import com.google.zetasql.LocalService.PrepareRequest;
 import com.google.zetasql.LocalService.PrepareResponse;
+import com.google.zetasql.LocalService.PreparedState;
 import com.google.zetasql.LocalService.UnprepareRequest;
 import io.grpc.Channel;
 import io.grpc.ManagedChannel;
 import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
+import io.grpc.stub.ClientCallStreamObserver;
+import io.grpc.stub.ClientResponseObserver;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * ZetaSQL expression evaluation using Service RPC.
@@ -70,6 +80,14 @@ public class PreparedExpression implements AutoCloseable {
   private TypeFactory factory = TypeFactory.nonUniqueNames();
   private AnalyzerOptions options;
 
+  // expected are the fields we expect the user to provide to execute, but not all are required.
+  private Map<String, Type> expectedColumns;
+  private Map<String, Type> expectedParameters;
+
+  // referenced is the subset of expected that the analyzer determined are actually required.
+  private List<String> referencedColumns;
+  private List<String> referencedParameters;
+
   public PreparedExpression(String sql) {
     this.sql = sql;
   }
@@ -99,18 +117,69 @@ public class PreparedExpression implements AutoCloseable {
       throw new SqlException(e);
     }
 
+    // TODO: Remove this backwards compatibility code
+    final PreparedState prepared;
+    if (resp.hasPrepared()) {
+      prepared = resp.getPrepared();
+    } else {
+      prepared = PreparedState.newBuilder()
+          .setOutputType(resp.getOutputType())
+          .setPreparedExpressionId(resp.getPreparedExpressionId())
+          .build();
+    }
+    setPrepared(prepared);
+  }
+
+  private void setPrepared(PreparedState resp) {
     preparedId = resp.getPreparedExpressionId();
 
     outputType =
         factory.deserialize(resp.getOutputType(), fileDescriptorSetsBuilder.getDescriptorPools());
 
+    expectedColumns = toLower(options.getExpressionColumns());
+    expectedParameters = toLower(options.getQueryParameters());
+
+    // TODO: Remove this backwards compatibility code
+    if (resp.hasPositionalParameterCount()) {
+      referencedColumns = resp.getReferencedColumnsList();
+      referencedParameters = resp.getReferencedParametersList();
+    } else {
+      referencedColumns = ImmutableList.copyOf(expectedColumns.keySet());
+      referencedParameters = ImmutableList.copyOf(expectedParameters.keySet());
+    }
+
     prepared = true;
   }
 
+  /** Get the output type of this expression. */
   public Type getOutputType() {
     Preconditions.checkState(prepared);
     Preconditions.checkState(!closed);
     return outputType;
+  }
+
+  /**
+   * Get the list of column names referenced in this expression.
+   *
+   * <p>The columns will be returned in lower case, as column expressions are case-insensitive when
+   * evaluated. This can be used for efficiency, the list of columns returned from this method are
+   * the minimal set that must be provided to execute().
+   */
+  public List<String> getReferencedColumns() {
+    Preconditions.checkState(prepared);
+    Preconditions.checkState(!closed);
+    return referencedColumns;
+  }
+
+  /**
+   * Get the list of parameters referenced in this expression.
+   *
+   * <p>This is similar to getReferencedColumns(), but for parameters.
+   */
+  public List<String> getReferencedParameters() {
+    Preconditions.checkState(prepared);
+    Preconditions.checkState(!closed);
+    return referencedParameters;
   }
 
   /**
@@ -144,10 +213,17 @@ public class PreparedExpression implements AutoCloseable {
     }
 
     if (!prepared) {
-      outputType =
-          factory.deserialize(resp.getType(), fileDescriptorSetsBuilder.getDescriptorPools());
-      preparedId = resp.getPreparedExpressionId();
-      prepared = true;
+      // TODO: Remove this backwards compatibility code
+      final PreparedState prepared;
+      if (resp.hasPrepared()) {
+        prepared = resp.getPrepared();
+      } else {
+        prepared = PreparedState.newBuilder()
+            .setOutputType(resp.getType())
+            .setPreparedExpressionId(resp.getPreparedExpressionId())
+            .build();
+      }
+      setPrepared(prepared);
     }
     return Value.deserialize(outputType, resp.getValue());
   }
@@ -158,29 +234,39 @@ public class PreparedExpression implements AutoCloseable {
     EvaluateRequest.Builder request = EvaluateRequest.newBuilder();
     if (prepared) {
       request.setPreparedExpressionId(preparedId);
-      validateParameters(columns, options.getExpressionColumns(), "column");
-      validateParameters(parameters, options.getQueryParameters(), "query");
+      final Map<String, Value> normalizedColumns =
+          normalizeParameters(columns, expectedColumns, "column");
+      final Map<String, Value> normalizedParameters =
+          normalizeParameters(parameters, expectedParameters, "query");
+
+      for (String column : referencedColumns) {
+        Value value = normalizedColumns.get(column);
+        if (value == null) {
+          throw new SqlException("Incomplete column parameters " + column);
+        }
+        request.addColumns(serializeParameter(column, value));
+      }
+      for (String param : referencedParameters) {
+        Value value = normalizedParameters.get(param);
+        if (value == null) {
+          throw new SqlException("Incomplete query parameters " + param);
+        }
+        request.addParams(serializeParameter(param, value));
+      }
     } else {
       request.setSql(sql);
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
       options = new AnalyzerOptions();
+
       for (Entry<String, Value> column : columns.entrySet()) {
         options.addExpressionColumn(column.getKey(), column.getValue().getType());
+        request.addColumns(serializeParameter(column.getKey(), column.getValue()));
       }
       for (Entry<String, Value> param : parameters.entrySet()) {
         options.addQueryParameter(param.getKey(), param.getValue().getType());
+        request.addParams(serializeParameter(param.getKey(), param.getValue()));
       }
-    }
 
-    for (Entry<String, Value> entry : columns.entrySet()) {
-      request.addColumns(serializeParameter(entry.getKey(), entry.getValue()));
-    }
-
-    for (Entry<String, Value> entry : parameters.entrySet()) {
-      request.addParams(serializeParameter(entry.getKey(), entry.getValue()));
-    }
-
-    if (!prepared) {
       request.setOptions(options.serialize(fileDescriptorSetsBuilder));
       for (FileDescriptorSet fileDescriptorSet : fileDescriptorSetsBuilder.build()) {
         request.addFileDescriptorSet(fileDescriptorSet);
@@ -190,23 +276,35 @@ public class PreparedExpression implements AutoCloseable {
     return request.build();
   }
 
-  private void validateParameters(
+  private static Map<String, Value> normalizeParameters(
       Map<String, Value> parameters, Map<String, Type> expected, String kind) {
-    for (String name : parameters.keySet()) {
+    HashMap<String, Value> lower = new HashMap<>();
+    for (Map.Entry<String, Value> entry : parameters.entrySet()) {
+      String name = Ascii.toLowerCase(entry.getKey());
       if (!expected.containsKey(name)) {
         throw new SqlException("Unexpected " + kind + " parameter '" + name + "'");
       }
+      Value value = entry.getValue();
       Type type = expected.get(name);
-      if (!type.equals(parameters.get(name).getType())) {
+      if (!type.equals(value.getType())) {
         throw new SqlException(
             "Expected " + kind + " parameter '" + name + "' to be of type " + type);
       }
+      if (lower.putIfAbsent(name, value) != null) {
+        throw new SqlException("Duplicate expression " + kind + " name '" + name + "'");
+      }
     }
-
-    if (parameters.size() < expected.size()) {
-      throw new SqlException("Incomplete " + kind + " parameters");
-    }
+    return lower;
   }
+
+  private static ImmutableMap<String, Type> toLower(Map<String, Type> parameters) {
+    ImmutableMap.Builder<String, Type> b = new ImmutableMap.Builder<>();
+    for (Map.Entry<String, Type> entry : parameters.entrySet()) {
+      b.put(Ascii.toLowerCase(entry.getKey()), entry.getValue());
+    }
+    return b.build();
+  }
+
 
   /** Opens a handle for streaming execution */
   public Stream stream() {
@@ -215,34 +313,123 @@ public class PreparedExpression implements AutoCloseable {
     return new Stream();
   }
 
-  /** ZetaSQL streaming expression evaluation. */
-  public class Stream implements AutoCloseable {
-    private final Channel channel;
-    private final StreamObserver<EvaluateRequestBatch> requestObserver;
+  /**
+   * ZetaSQL streaming expression evaluation.
+   *
+   * <p>Streaming evaluation requests are buffered until there is either no outstanding work or an
+   * optimal number of pending requests (tuned by benchmarks) to send as a single batch. This
+   * minimizes the average latency, but increases deviation in request latency.
+   *
+   * <p>This class is not thread-safe. External synchronization is needed when it is shared by
+   * multiple threads.
+   */
+  public final class Stream implements AutoCloseable {
     private final Queue<SettableFuture<Value>> pending;
 
+    private final Queue<EvaluateRequest> batch;
+    private final AtomicLong batchCount; // eventually consistent
+    private final AtomicLong batchSerializedSize; // eventually consistent
+
+    private final AtomicLong outstandingCount;
+
+    private final Channel channel;
+    private final ClientCallStreamObserver<EvaluateRequestBatch> requestObserver;
+
     private Stream() {
+      pending = Queues.newConcurrentLinkedQueue();
+
+      batch = Queues.newConcurrentLinkedQueue();
+      batchCount = new AtomicLong();
+      batchSerializedSize = new AtomicLong();
+
+      outstandingCount = new AtomicLong();
+
       channel = ClientChannelProvider.loadChannel();
       ZetaSqlLocalServiceGrpc.ZetaSqlLocalServiceStub stub =
           ZetaSqlLocalServiceGrpc.newStub(channel);
-      requestObserver = stub.evaluateStream(new ResponseObserver());
-      pending = Queues.newConcurrentLinkedQueue();
+      requestObserver =
+          (ClientCallStreamObserver<EvaluateRequestBatch>)
+              stub.evaluateStream(new ResponseObserver());
     }
 
+    /**
+     * Evaluate the sql expression via streaming RPC.
+     *
+     * <p>This method is not thread-safe. External synchronization is needed when it is shared by
+     * multiple threads.
+     *
+     * @param columns Map of column name:value pairs used in the sql expression.
+     * @param parameters Map of parameter name:value pairs.
+     * @return The evaluation result.
+     */
     public ListenableFuture<Value> execute(
         Map<String, Value> columns, Map<String, Value> parameters) {
       final SettableFuture<Value> f = SettableFuture.create();
-      pending.add(f);
+      final EvaluateRequest r = buildRequest(columns, parameters);
+      final int size = r.getSerializedSize();
 
-      requestObserver.onNext(
-          EvaluateRequestBatch.newBuilder().addRequest(buildRequest(columns, parameters)).build());
+      /* critical block: This block is not thread safe, as documented in the
+       * PreparedExpression class comment, for maximal performance. The order
+       * of these operations is critical to the correctness of this code.
+       */
+      pending.add(f);
+      batch.add(r);
+      batchCount.getAndIncrement();
+      batchSerializedSize.getAndAdd(size);
+      // end critical block
+
+      maybeFlush();
 
       return f;
     }
 
-    private class ResponseObserver implements StreamObserver<EvaluateResponseBatch> {
+    private void maybeFlush() {
+      /* batchCount and batchSerializedSize are eventually consistent hints.
+       * They may be too low if called concurrently with execute, which will
+       * be mitigated when execute calls this method. They may be too high
+       * if called concurrently with flush, which will result in an unneeded
+       * call to flush.
+       */
+      final long batchCount = this.batchCount.get();
+      if (batchCount <= 0) {
+        return;
+      }
+
+      if (outstandingCount.get() != 0
+          && batchSerializedSize.get() < 65536
+          && (batchCount < 16 || !requestObserver.isReady())) {
+        return;
+      }
+
+      flush();
+    }
+
+    /** Flush buffered requests to RPC. */
+    public synchronized void flush() {
+      try {
+        final EvaluateRequestBatch.Builder b = EvaluateRequestBatch.newBuilder();
+        for (EvaluateRequest r; (r = batch.poll()) != null; ) {
+          batchSerializedSize.getAndAdd(-r.getSerializedSize());
+          b.addRequest(r);
+        }
+        if (b.getRequestCount() > 0) {
+          batchCount.getAndAdd(-b.getRequestCount());
+          outstandingCount.getAndAdd(b.getRequestCount());
+          requestObserver.onNext(b.build());
+        }
+      } catch (RuntimeException e) {
+        requestObserver.onError(e);
+        throw e;
+      }
+    }
+
+    private class ResponseObserver
+        implements ClientResponseObserver<EvaluateRequestBatch, EvaluateResponseBatch> {
+
       @Override
       public void onNext(EvaluateResponseBatch respb) {
+        long remain = outstandingCount.addAndGet(-respb.getResponseCount());
+        verify(remain >= 0);
         for (EvaluateResponse resp : respb.getResponseList()) {
           final SettableFuture<Value> f = pending.remove();
           final Value v;
@@ -253,6 +440,16 @@ public class PreparedExpression implements AutoCloseable {
             continue;
           }
           f.set(v);
+        }
+        if (remain == 0) {
+          /* If no outstanding requests remain, flush the current batch. This
+           * avoids a hang if the caller stops calling evaluate but doesn't
+           * call flush and limits the latency of a request to 2T (where T is
+           * the round-trip latency of a single request). This may result in
+           * suboptimal behavior for a time if the request rate slows to
+           * between T and 2T.
+           */
+          flush();
         }
       }
 
@@ -275,11 +472,22 @@ public class PreparedExpression implements AutoCloseable {
       public void onCompleted() {
         setException(new RuntimeException("Stream closed"));
       }
+
+      @Override
+      public void beforeStart(final ClientCallStreamObserver<EvaluateRequestBatch> requestStream) {
+        requestStream.setOnReadyHandler(this::onReady);
+      }
+
+      private void onReady() {
+        maybeFlush();
+      }
     }
 
     @Override
     public void close() {
-      requestObserver.onCompleted();
+      synchronized (this) {
+        requestObserver.onCompleted();
+      }
       if (channel instanceof ManagedChannel) {
         ((ManagedChannel) channel).shutdown();
       }

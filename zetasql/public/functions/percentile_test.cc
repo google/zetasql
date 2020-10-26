@@ -918,7 +918,7 @@ TEST(DoublePercentileTest, ComputePercentileCont) {
       // Percentile between 0 and kDoubleDenormalMin.
       {"0", values, 0, 0.4375},
       // Percentile at kDoubleDenormalMin.
-      {"4.9406564584124654e-324", values, 0, 0.5},
+      {"4.94065645841247e-324", values, 0, 0.5},
       // Percentile at 1.
       {"1", values, 0, 0.625},
       // Percentile between 1 and 101.

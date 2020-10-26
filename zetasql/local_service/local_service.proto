@@ -145,6 +145,10 @@ service ZetaSqlLocalService {
   rpc GetLanguageOptions(LanguageOptionsRequest)
       returns (LanguageOptionsProto) {
   }
+  // Gets ZetaSQL analyzer options.
+  rpc GetAnalyzerOptions(AnalyzerOptionsRequest)
+      returns (AnalyzerOptionsProto) {
+  }
 }
 
 message PrepareRequest {
@@ -156,11 +160,23 @@ message PrepareRequest {
   optional int64 registered_catalog_id = 5;
 }
 
-message PrepareResponse {
+message PreparedState {
   optional int64 prepared_expression_id = 1;
   optional TypeProto output_type = 2;
   // No file_descriptor_set returned. Use the same descriptor pools as sent in
   // the request deserialize the type.
+
+  repeated string referenced_columns = 3;
+  repeated string referenced_parameters = 4;
+  optional int64 positional_parameter_count = 5;
+}
+
+message PrepareResponse {
+  // TODO: Remove these fields
+  optional int64 prepared_expression_id = 1;
+  optional TypeProto output_type = 2;
+  optional PreparedState prepared = 3;
+  // Never add fields to this proto, add them to PreparedState instead.
 }
 
 message EvaluateRequest {
@@ -184,8 +200,10 @@ message EvaluateRequest {
 
 message EvaluateResponse {
   optional ValueProto value = 1;
+  // TODO: Remove these fields
   optional TypeProto type = 2;
   optional int64 prepared_expression_id = 3;
+  optional PreparedState prepared = 4;
 }
 
 message EvaluateRequestBatch {
@@ -347,3 +365,5 @@ message LanguageOptionsRequest {
   optional bool maximum_features = 1;
   optional LanguageVersion language_version = 2;
 }
+
+message AnalyzerOptionsRequest {}

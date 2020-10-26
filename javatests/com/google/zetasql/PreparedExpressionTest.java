@@ -240,6 +240,8 @@ public class PreparedExpressionTest {
     try (PreparedExpression exp = new PreparedExpression("42")) {
       exp.prepare(new AnalyzerOptions());
       assertThat(exp.getOutputType().isInt64()).isTrue();
+      assertThat(exp.getReferencedColumns()).isEmpty();
+      assertThat(exp.getReferencedParameters()).isEmpty();
     }
   }
 
@@ -256,6 +258,8 @@ public class PreparedExpressionTest {
       exp.prepare(options);
       assertThat(exp.getOutputType().isEnum()).isTrue();
       assertThat(exp.getOutputType()).isEqualTo(typeKind);
+      assertThat(exp.getReferencedColumns()).containsExactly("value");
+      assertThat(exp.getReferencedParameters()).isEmpty();
       HashMap<String, Value> columns = new HashMap<>();
       columns.put(
           "value",
@@ -278,6 +282,8 @@ public class PreparedExpressionTest {
       exp.prepare(options);
       assertThat(exp.getOutputType().isEnum()).isTrue();
       assertThat(exp.getOutputType()).isEqualTo(typeKind);
+      assertThat(exp.getReferencedColumns()).containsExactly("a", "b");
+      assertThat(exp.getReferencedParameters()).isEmpty();
     }
   }
 
@@ -293,6 +299,8 @@ public class PreparedExpressionTest {
       exp.prepare(options);
       assertThat(exp.getOutputType().isEnum()).isTrue();
       assertThat(exp.getOutputType()).isEqualTo(typeKind);
+      assertThat(exp.getReferencedColumns()).isEmpty();
+      assertThat(exp.getReferencedParameters()).containsExactly("a", "b");
     }
   }
 
@@ -308,6 +316,8 @@ public class PreparedExpressionTest {
       exp.prepare(options);
       assertThat(exp.getOutputType().isEnum()).isTrue();
       assertThat(exp.getOutputType()).isEqualTo(typeKind);
+      assertThat(exp.getReferencedColumns()).containsExactly("a");
+      assertThat(exp.getReferencedParameters()).containsExactly("b");
     }
   }
 
@@ -323,6 +333,8 @@ public class PreparedExpressionTest {
       exp.prepare(options);
       assertThat(exp.getOutputType().isEnum()).isTrue();
       assertThat(exp.getOutputType()).isEqualTo(typeKind);
+      assertThat(exp.getReferencedColumns()).containsExactly("b");
+      assertThat(exp.getReferencedParameters()).containsExactly("a");
     }
   }
 
@@ -502,6 +514,18 @@ public class PreparedExpressionTest {
 
     try {
       exp.getOutputType();
+      fail();
+    } catch (IllegalStateException expected) {
+    }
+
+    try {
+      exp.getReferencedColumns();
+      fail();
+    } catch (IllegalStateException expected) {
+    }
+
+    try {
+      exp.getReferencedParameters();
       fail();
     } catch (IllegalStateException expected) {
     }
@@ -746,6 +770,60 @@ public class PreparedExpressionTest {
         SqlException expected = (SqlException) e.getCause();
         checkSqlExceptionErrorSubstr(
             expected, "Output of REPEAT exceeds max allowed output size of 1MB");
+      }
+    }
+  }
+
+  @Test
+  public void testPrepareAndExecuteUnused() {
+    try (PreparedExpression exp = new PreparedExpression("42")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("a", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      options.addQueryParameter("b", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      exp.prepare(options);
+      assertThat(exp.getOutputType().isInt64()).isTrue();
+      assertThat(exp.getReferencedColumns()).isEmpty();
+      assertThat(exp.getReferencedParameters()).isEmpty();
+      Value result = exp.execute();
+      assertThat(result.getType().isInt64()).isTrue();
+      assertThat(result.getInt64Value()).isEqualTo(42);
+    }
+  }
+
+  @Test
+  public void testPrepareAndExecuteUppercase() {
+    try (PreparedExpression exp = new PreparedExpression("A+@B")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("A", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      options.addQueryParameter("B", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      exp.prepare(options);
+      assertThat(exp.getOutputType().isInt64()).isTrue();
+      assertThat(exp.getReferencedColumns()).containsExactly("a");
+      assertThat(exp.getReferencedParameters()).containsExactly("b");
+      ImmutableMap<String, Value> columns = ImmutableMap.of("A", Value.createInt32Value(21));
+      ImmutableMap<String, Value> parameters = ImmutableMap.of("B", Value.createInt32Value(21));
+      Value result = exp.execute(columns, parameters);
+      assertThat(result.getType().isInt64()).isTrue();
+      assertThat(result.getInt64Value()).isEqualTo(42);
+    }
+  }
+
+  @Test
+  public void testPrepareAndExecuteUppercaseDuplicate() {
+    try (PreparedExpression exp = new PreparedExpression("A")) {
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.addExpressionColumn("A", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+      exp.prepare(options);
+      assertThat(exp.getOutputType().isInt32()).isTrue();
+      assertThat(exp.getReferencedColumns()).containsExactly("a");
+      assertThat(exp.getReferencedParameters()).isEmpty();
+      ImmutableMap<String, Value> columns =
+          ImmutableMap.of("A", Value.createInt32Value(21), "a", Value.createInt32Value(21));
+      try {
+        exp.execute(columns, ImmutableMap.of());
+        fail();
+      } catch (SqlException expected) {
+        checkSqlExceptionErrorSubstr(expected, "Duplicate expression column name 'a'");
       }
     }
   }

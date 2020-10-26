@@ -561,6 +561,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
     RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
     RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
+    RegisterFunction(FunctionKind::kStddevPop, "stddev_pop", "Stddev_pop");
+    RegisterFunction(FunctionKind::kStddevSamp, "stddev_samp", "Stddev_samp");
     RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
     RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
   }();
@@ -2884,15 +2886,22 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
       bignumeric_aggregator_ = BigNumericValue::SumAggregator();
       break;
 
+    // Variance and standard deviation.
+    case FCT(FunctionKind::kStddevPop, TYPE_DOUBLE):
+    case FCT(FunctionKind::kStddevSamp, TYPE_DOUBLE):
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
     case FCT(FunctionKind::kVarSamp, TYPE_DOUBLE):
       avg_ = 0;
       variance_ = 0;
       break;
+    case FCT(FunctionKind::kStddevPop, TYPE_NUMERIC):
+    case FCT(FunctionKind::kStddevSamp, TYPE_NUMERIC):
     case FCT(FunctionKind::kVarPop, TYPE_NUMERIC):
     case FCT(FunctionKind::kVarSamp, TYPE_NUMERIC):
       numeric_variance_aggregator_ = NumericValue::VarianceAggregator();
       break;
+    case FCT(FunctionKind::kStddevPop, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kStddevSamp, TYPE_BIGNUMERIC):
     case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC):
     case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC):
       bignumeric_variance_aggregator_ = BigNumericValue::VarianceAggregator();
@@ -2971,6 +2980,9 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       bignumeric_aggregator_.Add(value.bignumeric_value());
       break;
     }
+    // Variance and Stddev
+    case FCT(FunctionKind::kStddevPop, TYPE_DOUBLE):
+    case FCT(FunctionKind::kStddevSamp, TYPE_DOUBLE):
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
     case FCT(FunctionKind::kVarSamp, TYPE_DOUBLE): {
       *status =
@@ -2979,12 +2991,16 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       break;
     }
     // Variance and Stddev for NumericValue
+    case FCT(FunctionKind::kStddevPop, TYPE_NUMERIC):
+    case FCT(FunctionKind::kStddevSamp, TYPE_NUMERIC):
     case FCT(FunctionKind::kVarPop, TYPE_NUMERIC):
     case FCT(FunctionKind::kVarSamp, TYPE_NUMERIC): {
       numeric_variance_aggregator_.Add(value.numeric_value());
       break;
     }
     // Variance and Stddev for BigNumericValue
+    case FCT(FunctionKind::kStddevPop, TYPE_BIGNUMERIC):
+    case FCT(FunctionKind::kStddevSamp, TYPE_BIGNUMERIC):
     case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC):
     case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC): {
       bignumeric_variance_aggregator_.Add(value.bignumeric_value());
@@ -3418,6 +3434,26 @@ zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInterna
       ZETASQL_ASSIGN_OR_RETURN(out_bignumeric_, bignumeric_aggregator_.GetSum());
       return Value::BigNumeric(out_bignumeric_);
     }
+    // Variance and Stddev
+    case FCT(FunctionKind::kStddevPop, TYPE_DOUBLE): {
+      if (count_ == 0) return Value::NullDouble();
+      if (!functions::Sqrt(variance_, &variance_, &error)) {
+        return error;
+      }
+      return Value::Double(variance_);
+    }
+    case FCT(FunctionKind::kStddevSamp, TYPE_DOUBLE): {
+      if (count_ <= 1) return Value::NullDouble();
+      // stddev_samp = sqrt(variance * count / (count - 1))
+      double tmp;
+      if (!functions::Divide(static_cast<double>(count_),
+                             static_cast<double>(count_ - 1), &tmp, &error) ||
+          !functions::Multiply(variance_, tmp, &variance_, &error) ||
+          !functions::Sqrt(variance_, &variance_, &error)) {
+        return error;
+      }
+      return Value::Double(variance_);
+    }
     case FCT(FunctionKind::kVarPop, TYPE_DOUBLE):
       return count_ > 0 ? Value::Double(variance_) : Value::NullDouble();
     case FCT(FunctionKind::kVarSamp, TYPE_DOUBLE): {
@@ -3432,6 +3468,14 @@ zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInterna
       return Value::Double(variance_);
     }
     // Variance and Stddev for NumericValue
+    case FCT(FunctionKind::kStddevPop, TYPE_NUMERIC): {
+      return CreateValueFromOptional(
+          numeric_variance_aggregator_.GetPopulationStdDev(count_));
+    }
+    case FCT(FunctionKind::kStddevSamp, TYPE_NUMERIC): {
+      return CreateValueFromOptional(
+          numeric_variance_aggregator_.GetSamplingStdDev(count_));
+    }
     case FCT(FunctionKind::kVarPop, TYPE_NUMERIC): {
       return CreateValueFromOptional(
           numeric_variance_aggregator_.GetPopulationVariance(count_));
@@ -3441,6 +3485,14 @@ zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInterna
           numeric_variance_aggregator_.GetSamplingVariance(count_));
     }
     // Variance and Stddev for BigNumericValue
+    case FCT(FunctionKind::kStddevPop, TYPE_BIGNUMERIC): {
+      return CreateValueFromOptional(
+          bignumeric_variance_aggregator_.GetPopulationStdDev(count_));
+    }
+    case FCT(FunctionKind::kStddevSamp, TYPE_BIGNUMERIC): {
+      return CreateValueFromOptional(
+          bignumeric_variance_aggregator_.GetSamplingStdDev(count_));
+    }
     case FCT(FunctionKind::kVarPop, TYPE_BIGNUMERIC): {
       return CreateValueFromOptional(
           bignumeric_variance_aggregator_.GetPopulationVariance(count_));
@@ -3643,13 +3695,21 @@ absl::Status BinaryStatAccumulator::Reset() {
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       numeric_covariance_aggregator_ = NumericValue::CovarianceAggregator();
       break;
+    case FCT2(FunctionKind::kCorr, TYPE_NUMERIC, TYPE_NUMERIC):
+      numeric_correlation_aggregator_ = NumericValue::CorrelationAggregator();
+      break;
     case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       bignumeric_covariance_aggregator_ =
           BigNumericValue::CovarianceAggregator();
       break;
+    case FCT2(FunctionKind::kCorr, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      bignumeric_correlation_aggregator_ =
+          BigNumericValue::CorrelationAggregator();
+      break;
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
+    case FCT2(FunctionKind::kCorr, TYPE_DOUBLE, TYPE_DOUBLE):
       pair_count_ = 0;
       mean_x_ = 0;
       variance_x_ = 0;
@@ -3691,13 +3751,22 @@ bool BinaryStatAccumulator::Accumulate(const Value& value,
       numeric_covariance_aggregator_.Add(arg_x.numeric_value(),
                                          arg_y.numeric_value());
       break;
+    case FCT2(FunctionKind::kCorr, TYPE_NUMERIC, TYPE_NUMERIC):
+      numeric_correlation_aggregator_.Add(arg_x.numeric_value(),
+                                          arg_y.numeric_value());
+      break;
     case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
     case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       bignumeric_covariance_aggregator_.Add(arg_x.bignumeric_value(),
                                             arg_y.bignumeric_value());
       break;
+    case FCT2(FunctionKind::kCorr, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      bignumeric_correlation_aggregator_.Add(arg_x.bignumeric_value(),
+                                             arg_y.bignumeric_value());
+      break;
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
     case FCT2(FunctionKind::kCovarSamp, TYPE_DOUBLE, TYPE_DOUBLE):
+    case FCT2(FunctionKind::kCorr, TYPE_DOUBLE, TYPE_DOUBLE):
       const double x = arg_x.ToDouble();
       const double y = arg_y.ToDouble();
       if (!std::isfinite(x) || !std::isfinite(y)) {
@@ -3743,6 +3812,9 @@ zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
     case FCT2(FunctionKind::kCovarSamp, TYPE_NUMERIC, TYPE_NUMERIC):
       return CreateValueFromOptional(
           numeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
+    case FCT2(FunctionKind::kCorr, TYPE_NUMERIC, TYPE_NUMERIC):
+      return CreateValueFromOptional(
+          numeric_correlation_aggregator_.GetCorrelation(pair_count_));
     case FCT2(FunctionKind::kCovarPop, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return CreateValueFromOptional(
           bignumeric_covariance_aggregator_.GetPopulationCovariance(
@@ -3750,6 +3822,9 @@ zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
     case FCT2(FunctionKind::kCovarSamp, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return CreateValueFromOptional(
           bignumeric_covariance_aggregator_.GetSamplingCovariance(pair_count_));
+    case FCT2(FunctionKind::kCorr, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
+      return CreateValueFromOptional(
+          bignumeric_correlation_aggregator_.GetCorrelation(pair_count_));
     case FCT2(FunctionKind::kCovarPop, TYPE_DOUBLE, TYPE_DOUBLE):
       out_double = covar_;
       break;
@@ -3759,6 +3834,24 @@ zetasql_base::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
                                &out_double, &error) ||
           !functions::Divide(out_double, static_cast<double>(pair_count_ - 1),
                              &out_double, &error)) {
+        return error;
+      }
+      break;
+    case FCT2(FunctionKind::kCorr, TYPE_DOUBLE, TYPE_DOUBLE):
+      // out_double = covar / sqrt(variance_x * variance_y)
+      double denominator;
+      if (!functions::Multiply(variance_x_, variance_y_, &denominator,
+                               &error)) {
+        return error;
+      }
+
+      if (std::fpclassify(denominator) == FP_ZERO &&
+          std::fpclassify(covar_) == FP_ZERO) {
+        return Value::Double(std::numeric_limits<double>::quiet_NaN());
+      }
+
+      if (!functions::Sqrt(denominator, &denominator, &error) ||
+          !functions::Divide(covar_, denominator, &out_double, &error)) {
         return error;
       }
       break;

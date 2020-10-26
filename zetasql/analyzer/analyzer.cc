@@ -30,6 +30,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/type.h"
@@ -38,6 +39,7 @@
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -420,6 +422,12 @@ absl::Status AnalyzerOptions::Deserialize(
         proto.allowed_hints_and_options(), pools, factory, &hints_and_options));
     result->set_allowed_hints_and_options(hints_and_options);
   }
+
+  result->enabled_rewrites_.clear();
+  for (int rewrite : proto.enabled_rewrites()) {
+    result->enabled_rewrites_.insert(static_cast<ResolvedASTRewrite>(rewrite));
+  }
+
   return absl::OkStatus();
 }
 
@@ -490,6 +498,10 @@ absl::Status AnalyzerOptions::Serialize(
   for (const Type* type : target_column_types_) {
     ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(
         proto->add_target_column_types(), map));
+  }
+
+  for (ResolvedASTRewrite rewrite : enabled_rewrites_) {
+    proto->add_enabled_rewrites(rewrite);
   }
 
   return absl::OkStatus();
@@ -646,6 +658,31 @@ void AnalyzerOptions::SetDdlPseudoColumns(
 
 ParserOptions AnalyzerOptions::GetParserOptions() const {
   return ParserOptions(id_string_pool(), arena(), &language_options_);
+}
+
+void AnalyzerOptions::enable_rewrite(ResolvedASTRewrite rewrite, bool enable) {
+  if (enable) {
+    enabled_rewrites_.insert(rewrite);
+  } else {
+    enabled_rewrites_.erase(rewrite);
+  }
+}
+
+absl::flat_hash_set<ResolvedASTRewrite> AnalyzerOptions::DefaultRewrites() {
+  absl::flat_hash_set<ResolvedASTRewrite> default_rewrites;
+  const google::protobuf::EnumDescriptor* descriptor =
+      google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
+  for (int i = 0; i < descriptor->value_count(); ++i) {
+    const google::protobuf::EnumValueDescriptor* value_descriptor = descriptor->value(i);
+    const ResolvedASTRewrite rewrite =
+        static_cast<ResolvedASTRewrite>(value_descriptor->number());
+    if (value_descriptor->options()
+            .GetExtension(rewrite_options)
+            .default_enabled()) {
+      default_rewrites.insert(rewrite);
+    }
+  }
+  return default_rewrites;
 }
 
 AnalyzerOutput::AnalyzerOutput(
@@ -846,13 +883,16 @@ static absl::Status AnalyzeStatementHelper(
     owned_parser_output = std::move(*statement_parser_output);
   }
 
-  *output = absl::make_unique<AnalyzerOutput>(
+  auto original_output = absl::make_unique<AnalyzerOutput>(
       options.id_string_pool(), options.arena(), std::move(resolved_statement),
       resolver.analyzer_output_properties(), std::move(owned_parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
       resolver.undeclared_positional_parameters(), resolver.max_column_id());
+  ZETASQL_RETURN_IF_ERROR(
+      RewriteResolvedAst(options, catalog, type_factory, *original_output));
+  *output = std::move(original_output);
   return absl::OkStatus();
 }
 
@@ -876,10 +916,9 @@ static absl::Status AnalyzeStatementFromParserOutputImpl(
   }
 
   const ASTStatement* ast_statement = (*statement_parser_output)->statement();
-  ZETASQL_RETURN_IF_ERROR(AnalyzeStatementHelper(
+  return AnalyzeStatementHelper(
       *ast_statement, local_options, sql, catalog, type_factory,
-      statement_parser_output, take_ownership_on_success, output));
-  return absl::OkStatus();
+      statement_parser_output, take_ownership_on_success, output);
 }
 
 absl::Status AnalyzeStatementFromParserOutputOwnedOnSuccess(

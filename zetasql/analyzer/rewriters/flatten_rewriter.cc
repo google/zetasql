@@ -66,17 +66,45 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
   if (!node->array_expr()->Is<ResolvedFlatten>()) {
     return CopyVisitResolvedArrayScan(node);
   }
-
   const ResolvedFlatten* flatten = node->array_expr()->GetAs<ResolvedFlatten>();
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
-                   ProcessNode(flatten->expr()));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> input_scan,
                    ProcessNode(node->input_scan()));
+
+  bool need_offset_column = node->array_offset_column() != nullptr;
+  if (need_offset_column) {
+    // If we need an offset column, we rewrite each row to a subquery to
+    // generate a single array and then do an array scan over that. This allows
+    // us to have a single ordered offset.
+    //
+    // Without doing so we end up with one offset per repeated pivot and no way
+    // to combine them.
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
+                     CorrelateColumnRefs(*flatten->expr()));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedScan> scan,
+        FlattenToScan(std::move(flatten_expr), flatten->get_field_list(),
+                      MakeResolvedSingleRowScan(), need_offset_column));
+
+    std::vector<std::unique_ptr<const ResolvedColumnRef>> column_refs;
+    ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*flatten->expr(), &column_refs));
+    std::unique_ptr<ResolvedSubqueryExpr> subquery = MakeResolvedSubqueryExpr(
+        flatten->type(), ResolvedSubqueryExpr::ARRAY, std::move(column_refs),
+        /*in_expr=*/nullptr, std::move(scan));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedColumnHolder> offset_column,
+                     ProcessNode(node->array_offset_column()));
+    PushNodeToStack(MakeResolvedArrayScan(
+        node->column_list(), std::move(input_scan), std::move(subquery),
+        node->element_column(), std::move(offset_column),
+        /*join_expr=*/nullptr, /*is_outer=*/false));
+    return absl::OkStatus();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
+                   ProcessNode(flatten->expr()));
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedScan> scan,
       FlattenToScan(std::move(flatten_expr), flatten->get_field_list(),
-                    std::move(input_scan),
-                    /*order_results=*/node->array_offset_column() != nullptr));
+                    std::move(input_scan), /*order_results=*/false));
 
   // Project the flatten result back to the expected output column.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
@@ -198,6 +226,7 @@ FlattenRewriterVisitor::FlattenToScan(
     }
     scan =
         MakeResolvedOrderByScan({column}, std::move(scan), std::move(order_by));
+    scan->set_is_ordered(true);
   }
   return scan;
 }

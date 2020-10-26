@@ -215,6 +215,7 @@ const Type* TypeFactory::get_date() { return types::DateType(); }
 const Type* TypeFactory::get_timestamp() { return types::TimestampType(); }
 const Type* TypeFactory::get_time() { return types::TimeType(); }
 const Type* TypeFactory::get_datetime() { return types::DatetimeType(); }
+const Type* TypeFactory::get_interval() { return types::IntervalType(); }
 const Type* TypeFactory::get_geography() { return types::GeographyType(); }
 const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
@@ -754,6 +755,12 @@ static const Type* s_datetime_type() {
   return s_datetime_type;
 }
 
+static const Type* s_interval_type() {
+  static const Type* s_interval_type =
+      new SimpleType(s_type_factory(), TYPE_INTERVAL);
+  return s_interval_type;
+}
+
 static const Type* s_geography_type() {
   static const Type* s_geography_type =
       new SimpleType(s_type_factory(), TYPE_GEOGRAPHY);
@@ -891,6 +898,12 @@ static const ArrayType* s_time_array_type() {
   return s_time_array_type;
 }
 
+static const ArrayType* s_interval_array_type() {
+  static const ArrayType* s_interval_array_type =
+      MakeArrayType(s_type_factory()->get_interval());
+  return s_interval_array_type;
+}
+
 static const ArrayType* s_geography_array_type() {
   static const ArrayType* s_geography_array_type =
       MakeArrayType(s_type_factory()->get_geography());
@@ -932,6 +945,7 @@ const Type* DateType() { return s_date_type(); }
 const Type* TimestampType() { return s_timestamp_type(); }
 const Type* TimeType() { return s_time_type(); }
 const Type* DatetimeType() { return s_datetime_type(); }
+const Type* IntervalType() { return s_interval_type(); }
 const Type* GeographyType() { return s_geography_type(); }
 const Type* NumericType() { return s_numeric_type(); }
 const Type* BigNumericType() { return s_bignumeric_type(); }
@@ -956,6 +970,8 @@ const ArrayType* DateArrayType() { return s_date_array_type(); }
 const ArrayType* DatetimeArrayType() { return s_datetime_array_type(); }
 
 const ArrayType* TimeArrayType() { return s_time_array_type(); }
+
+const ArrayType* IntervalArrayType() { return s_interval_array_type(); }
 
 const ArrayType* GeographyArrayType() { return s_geography_array_type(); }
 
@@ -993,6 +1009,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return TimeType();
     case TYPE_DATETIME:
       return DatetimeType();
+    case TYPE_INTERVAL:
+      return IntervalType();
     case TYPE_GEOGRAPHY:
       return GeographyType();
     case TYPE_NUMERIC:
@@ -1036,6 +1054,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return TimeArrayType();
     case TYPE_DATETIME:
       return DatetimeArrayType();
+    case TYPE_INTERVAL:
+      return IntervalArrayType();
     case TYPE_GEOGRAPHY:
       return GeographyArrayType();
     case TYPE_NUMERIC:

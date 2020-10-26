@@ -365,8 +365,7 @@ FunctionArgumentType FunctionArgumentType::Lambda(
   arg_type.lambda_ = std::make_shared<ArgumentTypeLambda>(
       std::move(lambda_argument_types), std::move(lambda_body_type));
   arg_type.num_occurrences_ = 1;
-  // Type may be null or non null for both signature and resolved signature.
-  arg_type.type_ = arg_type.lambda().body_type().type();
+  arg_type.type_ = nullptr;
   return arg_type;
 }
 

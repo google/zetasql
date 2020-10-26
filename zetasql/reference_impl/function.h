@@ -91,7 +91,9 @@ enum class FunctionKind {
   kLogicalOr,
   kMax,
   kMin,
-  kOrAgg,       // private function that ORs all input values incl. NULLs
+  kOrAgg,  // private function that ORs all input values incl. NULLs
+  kStddevPop,
+  kStddevSamp,
   kStringAgg,
   kSum,
   kVarPop,

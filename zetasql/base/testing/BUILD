@@ -18,6 +18,48 @@ licenses(["notice"])  # Apache v2.0
 
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
+# A drop in replacement for gtest_main that parsers absl flags
+cc_library(
+    name = "zetasql_gtest_main",
+    testonly = 1,
+    srcs = ["zetasql_gtest_main.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "zetasql_gtest_main_test",
+    testonly = 1,
+    srcs = ["zetasql_gtest_main_test.cc"],
+    args = ["--test_flag_value=good"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":zetasql_gtest_main",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
 cc_library(
     name = "status_matchers",
     testonly = 1,
@@ -57,8 +99,8 @@ cc_test(
     deps = [
         ":status_matchers",
         "//zetasql/base:status",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/status",
-        "@com_google_googletest//:gtest_main",
         "@com_google_googletest//:gtest",
     ],
 )

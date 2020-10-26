@@ -63,6 +63,9 @@ enum LanguageVersion {
 extend google.protobuf.EnumValueOptions {
   // Only for use on LanguageFeature enum values.
   optional LanguageFeatureOptions language_feature_options = 170219291;
+
+  // Only for use on ResolvedASTRewrite enum values.
+  optional ResolvedASTRewriteOptions rewrite_options = 336783472;
 }
 
 // Annotations for LanguageFeature enum values. Only for consumption by
@@ -351,6 +354,9 @@ enum LanguageFeature {
   FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES = 48
       [(language_feature_options).in_development = true];
 
+  // INTERVAL data type. (broken link)
+  FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -559,8 +565,7 @@ enum LanguageFeature {
 
   // Support UNNEST and FLATTEN on paths through arrays.
   // ((broken link))
-  FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS = 13015
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS = 13015;
 
   // Allows consecutive ON/USING clauses for JOINs, such as
   //    t1 JOIN t2 JOIN t3 ON cond1 USING (col2)
@@ -631,6 +636,24 @@ enum LanguageFeature {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
   __LanguageFeature__switch_must_have_a_default__ = -1;
+}
+
+message ResolvedASTRewriteOptions {
+  // Whether the rewrite is enabled by default or not.
+  optional bool default_enabled = 1;
+}
+
+// Supported ZetaSQL resolved AST rewrites.
+//
+// We support these rewrites to allow syntactic improvements which generate new
+// node types to be quickly and easily available to engines without needing each
+// engine to implement support for the new node types.
+enum ResolvedASTRewrite {
+  // Make sure default value of 0 is not an AST rewrite.
+  REWRITE_INVALID_DO_NOT_USE = 0;
+
+  // Rewrites ResolvedFlatten nodes into equivalent array scans / subqueries.
+  REWRITE_FLATTEN = 1 [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.

@@ -20,12 +20,82 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/testing/status_matchers.h"
 
 namespace zetasql::internal {
 
 using ::zetasql_base::testing::StatusIs;
+
+TEST(FileUtilTest, MatchNoWildcard) {
+  const std::string filespec = absl::StrCat(
+      TestSrcRootDir(), "/zetasql/base/file_util_oss_test.input_file");
+  std::vector<std::string> files;
+  ZETASQL_EXPECT_OK(Match(filespec, &files));
+  EXPECT_THAT(files, testing::UnorderedElementsAre(filespec));
+}
+
+TEST(FileUtilTest, MatchEndingWithWildcard) {
+  const std::string filespec =
+      absl::StrCat(TestSrcRootDir(), "/zetasql/base/file_util_oss_test*");
+  std::vector<std::string> files;
+  ZETASQL_EXPECT_OK(Match(filespec, &files));
+  EXPECT_THAT(
+      files,
+      testing::UnorderedElementsAre(
+          absl::StrCat(TestSrcRootDir(), "/zetasql/base/file_util_oss_test"),
+          absl::StrCat(TestSrcRootDir(),
+                       "/zetasql/base/file_util_oss_test.input_file")));
+}
+
+TEST(FileUtilTest, MatchMiddleWildcard) {
+  const std::string filespec =
+      absl::StrCat(TestSrcRootDir(), "/zetasql/base/file_util*.input_file");
+  std::vector<std::string> files;
+  ZETASQL_EXPECT_OK(Match(filespec, &files));
+  EXPECT_THAT(files, testing::UnorderedElementsAre(absl::StrCat(
+                         TestSrcRootDir(),
+                         "/zetasql/base/file_util_oss_test.input_file")));
+}
+
+TEST(FileUtilTest, MatchStartWildcard) {
+  const std::string filespec =
+      absl::StrCat(TestSrcRootDir(), "/zetasql/base/*.input_file");
+  std::vector<std::string> files;
+  ZETASQL_EXPECT_OK(Match(filespec, &files));
+  EXPECT_THAT(files, testing::UnorderedElementsAre(absl::StrCat(
+                         TestSrcRootDir(),
+                         "/zetasql/base/file_util_oss_test.input_file")));
+}
+
+TEST(FileUtilTest, MatchFullWildcard) {
+  const std::string filespec =
+      absl::StrCat(TestSrcRootDir(), "/zetasql/base/*");
+  std::vector<std::string> files;
+  ZETASQL_EXPECT_OK(Match(filespec, &files));
+  EXPECT_THAT(
+      files,
+      testing::UnorderedElementsAre(
+          absl::StrCat(TestSrcRootDir(), "/zetasql/base/file_util_oss_test"),
+          absl::StrCat(TestSrcRootDir(),
+                       "/zetasql/base/file_util_oss_test.input_file")));
+}
+
+TEST(FileUtilTest, MatchNoMatch) {
+  const std::string filespec =
+      absl::StrCat(TestSrcRootDir(), "/zetasql/base/*.no_match");
+  std::vector<std::string> files;
+  ZETASQL_EXPECT_OK(Match(filespec, &files));
+  EXPECT_THAT(files, testing::IsEmpty());
+}
+
+TEST(FileUtilTest, MatchBadDirectory) {
+  const std::string filespec =
+      absl::StrCat(TestSrcRootDir(), "/path/does/not/exist/*.input_file");
+  std::vector<std::string> files;
+  EXPECT_THAT(Match(filespec, &files), StatusIs(absl::StatusCode::kNotFound));
+}
 
 TEST(FileUtilTest, NullFreeString) {
   std::string str;

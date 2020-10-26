@@ -83,10 +83,10 @@ static std::string GenerateParameterName(
 absl::Status ReplaceLiteralsByParameters(
     const std::string& sql,
     const absl::node_hash_set<std::string>& option_names_to_ignore,
-    const AnalyzerOptions& analyzer_options,
-    const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
+    const AnalyzerOptions& analyzer_options, const ResolvedStatement* stmt,
+    LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql) {
-  ZETASQL_CHECK(analyzer_output != nullptr);
+  ZETASQL_CHECK(stmt != nullptr);
   literal_map->clear();
   generated_parameters->clear();
   result_sql->clear();
@@ -94,9 +94,8 @@ absl::Status ReplaceLiteralsByParameters(
   // Collect all <literals> that are for options (hints) that have parse
   // locations.
   std::vector<const ResolvedNode*> option_nodes;
-  analyzer_output->resolved_statement()->GetDescendantsWithKinds(
-      {RESOLVED_OPTION}, &option_nodes);
-  std::unordered_set<const ResolvedLiteral*> ignore_options_literals;
+  stmt->GetDescendantsWithKinds({RESOLVED_OPTION}, &option_nodes);
+  absl::flat_hash_set<const ResolvedLiteral*> ignore_options_literals;
   for (const ResolvedNode* node : option_nodes) {
     const ResolvedOption* option = node->GetAs<ResolvedOption>();
     if (option->value()->node_kind() == RESOLVED_LITERAL &&
@@ -111,8 +110,7 @@ absl::Status ReplaceLiteralsByParameters(
 
   // Collect all <literals> that have a parse location.
   std::vector<const ResolvedNode*> literal_nodes;
-  analyzer_output->resolved_statement()->GetDescendantsWithKinds(
-      {RESOLVED_LITERAL}, &literal_nodes);
+  stmt->GetDescendantsWithKinds({RESOLVED_LITERAL}, &literal_nodes);
   std::vector<const ResolvedLiteral*> literals;
   for (const ResolvedNode* node : literal_nodes) {
     const ResolvedLiteral* literal = node->GetAs<ResolvedLiteral>();
@@ -147,9 +145,7 @@ absl::Status ReplaceLiteralsByParameters(
     }
     ZETASQL_RET_CHECK(prefix_offset == 0 || prefix_offset < last_offset)
         << "Parse locations of literals are broken:"
-        << "\nQuery: " << sql
-        << "\nResolved AST: "
-        << analyzer_output->resolved_statement()->DebugString();
+        << "\nQuery: " << sql << "\nResolved AST: " << stmt->DebugString();
     parameter_name = GenerateParameterName(
         literal, analyzer_options, &parameter_index);
 
@@ -177,12 +173,26 @@ absl::Status ReplaceLiteralsByParameters(
 }
 
 absl::Status ReplaceLiteralsByParameters(
+    const std::string& sql,
+    const absl::node_hash_set<std::string>& option_names_to_ignore,
+    const AnalyzerOptions& analyzer_options,
+    const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
+    GeneratedParameterMap* generated_parameters, std::string* result_sql) {
+  ZETASQL_CHECK_NE(analyzer_output, nullptr);
+  return ReplaceLiteralsByParameters(
+      sql, option_names_to_ignore, analyzer_options,
+      analyzer_output->resolved_statement(), literal_map, generated_parameters,
+      result_sql);
+}
+
+absl::Status ReplaceLiteralsByParameters(
     const std::string& sql, const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput* analyzer_output, LiteralReplacementMap* literal_map,
     GeneratedParameterMap* generated_parameters, std::string* result_sql) {
   return ReplaceLiteralsByParameters(
-      sql, /*option_names_to_ignore=*/{}, analyzer_options, analyzer_output,
-      literal_map, generated_parameters, result_sql);
+      sql, /*option_names_to_ignore=*/{}, analyzer_options,
+      analyzer_output->resolved_statement(), literal_map, generated_parameters,
+      result_sql);
 }
 
 }  // namespace zetasql

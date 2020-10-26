@@ -17,7 +17,7 @@ If `expression` evaluates to `FALSE` or `NULL`, the statement generates an
 error. If `AS description` is present, `description` will appear in the error
 message.
 
-`expression` must evaluates to a ` BOOL`.
+`expression` must evaluate to a `BOOL`.
 
 `description` must be a `STRING` literal.
 

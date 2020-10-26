@@ -20,6 +20,7 @@
 #include "google/protobuf/util/message_differencer.h"
 #include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
@@ -279,6 +280,9 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
           break;
         case FieldFormat::BIGNUMERIC:
           *kind = TYPE_BIGNUMERIC;
+          break;
+        case FieldFormat::INTERVAL:
+          *kind = TYPE_INTERVAL;
           break;
         default:
           // Should not reach this if ValidateTypeAnnotations() is working

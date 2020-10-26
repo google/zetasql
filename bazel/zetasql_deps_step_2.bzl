@@ -206,6 +206,15 @@ cc_proto_library(
             strip_prefix = "apple_support-0.7.1",
         )
 
+    if not native.existing_rule("com_google_file_based_test_driver"):
+        http_archive(
+            name = "com_google_file_based_test_driver",
+            # Commit from 2020-09-28
+            url = "https://github.com/google/file-based-test-driver/archive/d0561d4d24117c2f3893e6fa947f1bde8c0719af.tar.gz",
+            sha256 = "3249acb0b74e4facb37001daab5db320153d090905cd38bb970a79d83bf0ad41",
+            strip_prefix = "file-based-test-driver-d0561d4d24117c2f3893e6fa947f1bde8c0719af",
+        )
+
     # gRPC
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(

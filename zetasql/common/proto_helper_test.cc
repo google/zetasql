@@ -25,6 +25,7 @@
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
@@ -69,16 +70,10 @@ class ProtoHelperTest : public ::testing::Test {
         "zetasql/testdata/bad_test_schema.proto",
         "zetasql/testdata/bad_extension_schema.proto",
     };
-  // Support both sides of --noincompatible_generated_protos_in_virtual_imports.
-    source_tree_.MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
-            "_virtual_imports", "descriptor_proto"));
-    source_tree_.MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
-    source_tree_.MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
+    source_tree_ = CreateProtoSourceTree();
+
     proto_importer_ = absl::make_unique<google::protobuf::compiler::Importer>(
-        &source_tree_, &error_collector_);
+        source_tree_.get(), &error_collector_);
     for (const std::string& test_file : test_files) {
       ASSERT_THAT(proto_importer_->Import(test_file), testing::NotNull())
           << "Error importing " << test_file << ": "
@@ -99,7 +94,7 @@ class ProtoHelperTest : public ::testing::Test {
 
   std::unique_ptr<google::protobuf::compiler::Importer> proto_importer_;
   MultiFileErrorCollector error_collector_;
-  google::protobuf::compiler::DiskSourceTree source_tree_;
+  std::unique_ptr<google::protobuf::compiler::DiskSourceTree> source_tree_;
   std::unique_ptr<google::protobuf::DescriptorPool> pool_;
 };
 

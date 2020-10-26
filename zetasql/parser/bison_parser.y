@@ -1620,10 +1620,12 @@ alter_statement:
       alter_action_list
       {
         zetasql::ASTAlterStatementBase* node = nullptr;
-        // Only ALTER DATABASE, TABLE, VIEW, and MATERIALIZED VIEW are currently
-        // supported.
+        // Only ALTER DATABASE, SCHEMA, TABLE, VIEW, and MATERIALIZED VIEW are
+        // currently supported.
         if ($2 == zetasql::SchemaObjectKind::kDatabase) {
           node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
+        } else if ($2 == zetasql::SchemaObjectKind::kSchema) {
+          node = MAKE_NODE(ASTAlterSchemaStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kView) {
           node = MAKE_NODE(ASTAlterViewStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kMaterializedView) {
@@ -5968,20 +5970,24 @@ window_specification:
    ;
 
 function_call_expression_with_clauses:
-    function_call_expression opt_with_group_rows opt_over_clause
+    function_call_expression opt_hint opt_with_group_rows opt_over_clause
       {
         zetasql::ASTExpression* current_expression = $1;
         if ($2 != nullptr) {
-          if (!parser->language_options()->LanguageFeatureEnabled(
-                         zetasql::FEATURE_V_1_3_WITH_GROUP_ROWS)) {
-            YYERROR_AND_ABORT_AT(@2, "WITH GROUP_ROWS is not supported");
-          }
-          current_expression = MAKE_NODE(ASTFunctionCallWithGroupRows, @$,
-              {current_expression, $2});
+          current_expression->AddChild($2);
         }
         if ($3 != nullptr) {
-          current_expression = MAKE_NODE(ASTAnalyticFunctionCall, @$,
+          if (parser->language_options() == nullptr ||
+              !parser->language_options()->LanguageFeatureEnabled(
+                  zetasql::FEATURE_V_1_3_WITH_GROUP_ROWS)) {
+            YYERROR_AND_ABORT_AT(@3, "WITH GROUP_ROWS is not supported");
+          }
+          current_expression = MAKE_NODE(ASTFunctionCallWithGroupRows, @$,
               {current_expression, $3});
+        }
+        if ($4 != nullptr) {
+          current_expression = MAKE_NODE(ASTAnalyticFunctionCall, @$,
+              {current_expression, $4});
         }
         $$ = current_expression;
       }
@@ -7755,6 +7761,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAbortBatchStatement::kConcreteNodeKind; }
     | "ALTER" "DATABASE"
       { $$ = zetasql::ASTAlterDatabaseStatement::kConcreteNodeKind; }
+    | "ALTER" "SCHEMA"
+      { $$ = zetasql::ASTAlterSchemaStatement::kConcreteNodeKind; }
     | "ALTER" "TABLE"
       { $$ = zetasql::ASTAlterTableStatement::kConcreteNodeKind; }
     | "ALTER" "ROW"

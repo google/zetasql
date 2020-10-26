@@ -968,6 +968,8 @@ TEST_F(ValueTest, CopyConstructor) {
   EXPECT_EQ(1e-20, round_trip_double);
   ASSERT_TRUE(absl::SimpleAtod(v7e.GetSQLLiteral(), &round_trip_double));
   EXPECT_EQ(1e-20, round_trip_double);
+  EXPECT_EQ("1e-20", v7e.DebugString());
+  EXPECT_EQ("1e-20", v7e.GetSQLLiteral());  // No extra ".0" added.
 
   Value v8 = TestGetSQL(Value::String("honorificabilitudinitatibus"));
   EXPECT_EQ("honorificabilitudinitatibus", v8.string_value());
@@ -1259,6 +1261,12 @@ TEST_F(ValueTest, NumericArray) {
   v = TestGetSQL(values::BoolArray({true, false}));
   EXPECT_EQ("Array[Bool(true), Bool(false)]", v.FullDebugString());
   EXPECT_EQ("[true, false]", v.ShortDebugString());
+  v = TestGetSQL(values::FloatArray({1.1, 2.2}));
+  EXPECT_EQ("Array[Float(1.1), Float(2.2)]", v.FullDebugString());
+  EXPECT_EQ("[1.1, 2.2]", v.ShortDebugString());
+  v = TestGetSQL(values::DoubleArray({1.1, 2.2}));
+  EXPECT_EQ("Array[Double(1.1), Double(2.2)]", v.FullDebugString());
+  EXPECT_EQ("[1.1, 2.2]", v.ShortDebugString());
 }
 
 TEST_F(ValueTest, StringArray) {

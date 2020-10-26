@@ -194,6 +194,11 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->mutable_options()->SetExtension(
           zetasql::format, FieldFormat::DATETIME_MICROS);
       break;
+    case TYPE_INTERVAL:
+      proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
+      proto_field->mutable_options()->SetExtension(zetasql::format,
+                                                   FieldFormat::INTERVAL);
+      break;
     case TYPE_GEOGRAPHY:
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_BYTES);
       proto_field->mutable_options()->SetExtension(

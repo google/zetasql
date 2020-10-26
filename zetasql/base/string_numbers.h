@@ -36,6 +36,9 @@ bool safe_strtou32_base(absl::string_view text, uint32_t* value, int base);
 
 bool safe_strtou64_base(absl::string_view text, uint64_t* value, int base);
 
+std::string RoundTripDoubleToString(double d);
+std::string RoundTripFloatToString(float d);
+
 inline int hex_digit_to_int(char c) {
   static_assert('0' == 0x30 && 'A' == 0x41 && 'a' == 0x61,
                 "Character set must be ASCII.");

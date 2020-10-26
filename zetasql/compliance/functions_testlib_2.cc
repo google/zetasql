@@ -2234,7 +2234,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCodePoints() {
     std::string all_ascii_characters_string(255, 'a');
     std::iota(all_ascii_characters_string.begin(),
               all_ascii_characters_string.end(),
-              std::numeric_limits<char>::min());
+              std::numeric_limits<uint8_t>::lowest());
     all_ascii_characters = Bytes(all_ascii_characters_string);
 
     std::vector<int64_t> all_ascii_characters_vector(255);

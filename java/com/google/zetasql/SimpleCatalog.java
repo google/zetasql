@@ -416,9 +416,10 @@ public class SimpleCatalog extends Catalog {
   }
 
   private void addFunctionToFullNameMap(Function function) {
+    String functionName = function.getFullName().toLowerCase();
     Preconditions.checkArgument(
-        !functionsByFullName.containsKey(function.getFullName().toLowerCase()));
-    functionsByFullName.put(function.getFullName().toLowerCase(), function);
+        !functionsByFullName.containsKey(functionName), functionName + " already exists.");
+    functionsByFullName.put(functionName, function);
   }
 
   /**

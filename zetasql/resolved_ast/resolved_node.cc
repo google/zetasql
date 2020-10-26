@@ -353,6 +353,9 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
     // Use empty name to avoid printing "arguments=" with extra indentation.
     fields->emplace_back("", argument_list_);
   }
+  if (!hint_list_.empty()) {
+    fields->emplace_back("hint_list", hint_list_);
+  }
 }
 
 std::string ResolvedFunctionCallBase::GetNameForDebugString() const {

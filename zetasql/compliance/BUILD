@@ -17,6 +17,91 @@
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 cc_library(
+    name = "sql_test_base",
+    testonly = 1,
+    srcs = ["sql_test_base.cc"],
+    hdrs = ["sql_test_base.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":known_error_cc_proto",
+        ":legal_runtime_errors",
+        ":matchers",
+        ":parameters_test_util",
+        ":test_driver",
+        ":test_util",
+        "//zetasql/base",
+        "//zetasql/base:cleanup",
+        "//zetasql/base:file_util",
+        "//zetasql/base:map_util",
+        "//zetasql/base:path",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:float_margin",
+        "//zetasql/common:internal_value",
+        "//zetasql/common:status_payload_utils",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:string",
+        "//zetasql/reference_impl:evaluation",
+        "//zetasql/reference_impl:reference_driver",
+        "//zetasql/testing:type_util",
+        "@com_google_absl//absl/container:node_hash_set",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_farmhash//:farmhash_fingerprint",
+        "@com_google_file_based_test_driver//:file_based_test_driver",
+        "@com_google_file_based_test_driver//:run_test_case_result",
+        "@com_google_file_based_test_driver//:test_case_options",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
+    name = "compliance_test_base",
+    testonly = 1,
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    data = glob(["testdata/*.test"]) + [
+        "//zetasql/testdata:test_schema_proto",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+        "@com_googleapis_googleapis//:latlng_proto",
+        "@com_googleapis_googleapis//:date_proto",
+        "@com_googleapis_googleapis//:timeofday_proto",
+    ],
+    deps = [
+        ":sql_test_base",
+    ],
+)
+
+cc_library(
     name = "test_driver",
     testonly = 1,
     srcs = ["test_driver.cc"],
@@ -66,9 +151,9 @@ cc_test(
     ],
     deps = [
         ":test_driver",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:value",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -161,8 +246,160 @@ cc_test(
     deps = [
         ":type_helpers",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/testing:test_value",
+    ],
+)
+
+cc_library(
+    name = "parameters_test_util",
+    testonly = 1,
+    srcs = ["parameters_test_util.cc"],
+    hdrs = ["parameters_test_util.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":test_driver",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/public:language_options",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/reference_impl:reference_driver",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "compliance_test_cases",
+    testonly = 1,
+    srcs = ["compliance_test_cases.cc"],
+    hdrs = ["compliance_test_cases.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        # Required runtime dependency
+        # buildcleaner: keep
+        ":compliance_test_base",
+        ":functions_testlib",
+        ":sql_test_base",
+        ":test_driver",
+        "//zetasql/base",
+        "//zetasql/base:path",
+        "@com_google_protobuf//:protobuf",
+        "//zetasql/common:float_margin",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common/testing:testing_proto_util",
+        "//zetasql/public:civil_time",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:strings",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/reference_impl:reference_driver",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "//zetasql/testing:test_function",
+        "//zetasql/testing:test_value",
+        "//zetasql/testing:type_util",
         "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/base",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "//zetasql/base:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "//zetasql/base:file_util",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+    ],
+)
+
+cc_library(
+    name = "matchers",
+    testonly = 1,
+    srcs = ["matchers.cc"],
+    hdrs = ["matchers.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_test(
+    name = "matchers_test",
+    size = "small",
+    srcs = ["matchers_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":matchers",
+        "//zetasql/base",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_library(
+    name = "runtime_expected_errors",
+    testonly = 1,
+    srcs = ["runtime_expected_errors.cc"],
+    hdrs = ["runtime_expected_errors.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":matchers",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -245,5 +482,36 @@ cc_library(
         "@com_googleapis_googleapis//:latlng_cc_proto",
         "@com_googleapis_googleapis//:timeofday_cc_proto",
         "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+proto_library(
+    name = "known_error_proto",
+    srcs = ["known_error.proto"],
+)
+
+cc_proto_library(
+    name = "known_error_cc_proto",
+    deps = [":known_error_proto"],
+)
+
+cc_library(
+    name = "legal_runtime_errors",
+    testonly = 1,
+    srcs = ["legal_runtime_errors.cc"],
+    hdrs = ["legal_runtime_errors.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":matchers",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/memory",
     ],
 )

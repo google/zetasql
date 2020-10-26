@@ -22,6 +22,7 @@
 #include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/evaluator_registration_utils.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/analyzer.h"
@@ -62,6 +63,13 @@ ABSL_FLAG(int32_t, reference_driver_query_eval_timeout_sec, 0,
 ABSL_FLAG(bool, force_reference_product_mode_external, false,
           "If true, ignore the provided product mode setting and force "
           "the reference to use PRODUCT_EXTERNAL.");
+
+ABSL_FLAG(bool, reference_impl_enable_optional_rewrites, false,
+          "If true, enables all default rewrites in the reference "
+          "implementation. By default (false), rewrites are disabled for "
+          "features that are implemented natively in the reference "
+          "implementation. This flag allows RQG tests to be run against either "
+          "the native or rewritten reference implementation.");
 
 namespace zetasql {
 
@@ -185,11 +193,11 @@ absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
       absl::make_unique<SimpleCatalog>("root_catalog", type_factory_.get());
   tables_.clear();
   // Prepare proto importer.
-  std::string file_root =
-      test_db.runs_as_test
-              ? zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql")
-          : "";
-  proto_source_tree_ = absl::make_unique<ProtoSourceTree>(file_root);
+  if (test_db.runs_as_test) {
+    proto_source_tree_ = CreateProtoSourceTree();
+  } else {
+    proto_source_tree_ = absl::make_unique<ProtoSourceTree>("");
+  }
   proto_error_collector_ = absl::make_unique<ProtoErrorCollector>(&errors_);
   importer_ = absl::make_unique<google::protobuf::compiler::Importer>(
       proto_source_tree_.get(), proto_error_collector_.get());
@@ -243,6 +251,9 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
   ZETASQL_CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
 
   AnalyzerOptions analyzer_options(language_options_);
+  if (!absl::GetFlag(FLAGS_reference_impl_enable_optional_rewrites)) {
+    analyzer_options.enable_rewrite(REWRITE_FLATTEN, false);
+  }
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
   analyzer_options.set_default_time_zone(default_time_zone_);

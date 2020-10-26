@@ -221,96 +221,6 @@ class FunctionResolver {
   TypeFactory* type_factory_;  // Not owned.
   Resolver* resolver_;         // Not owned.
 
-  // Represents the argument types corresponding to a SignatureArgumentKind.
-  // There are three possibilities:
-  // 1) The object represents an untyped NULL.
-  // 2) The object represents an untyped empty array.
-  // 3) The object represents a list of typed arguments.
-  // An object in state i and can move to state j if i < j.
-  //
-  // The main purpose of this class is to keep track of the types associated
-  // with a templated SignatureArgumentKind in
-  // CheckArgumentTypesAndCollectTemplatedArguments(). There, if we encounter a
-  // typed argument for a templated SignatureArgumentKind, we add that to the
-  // set. But if there are no typed arguments, then we need to know whether
-  // there is an untyped NULL or empty array, because that affects the type we
-  // will infer for the SignatureArgumentKind.
-  class SignatureArgumentKindTypeSet {
-   public:
-    enum Kind { UNTYPED_NULL, UNTYPED_EMPTY_ARRAY, TYPED_ARGUMENTS };
-
-    // Creates a set with kind UNTYPED_NULL.
-    SignatureArgumentKindTypeSet() : kind_(UNTYPED_NULL) {}
-    SignatureArgumentKindTypeSet(const SignatureArgumentKindTypeSet&) = delete;
-    SignatureArgumentKindTypeSet& operator=(
-        const SignatureArgumentKindTypeSet&) = delete;
-
-    Kind kind() const { return kind_; }
-
-    // Changes the set to kind UNTYPED_EMPTY_ARRAY. Cannot be called if
-    // InsertTypedArgument() has already been called.
-    void SetToUntypedEmptyArray() {
-      ZETASQL_DCHECK(kind_ != TYPED_ARGUMENTS);
-      kind_ = UNTYPED_EMPTY_ARRAY;
-    }
-
-    // Changes the set to kind TYPED_ARGUMENTS, and adds a typed argument to
-    // the set of typed arguments.
-    bool InsertTypedArgument(const InputArgumentType& input_argument) {
-      // Typed arguments have precedence over untyped arguments.
-      ZETASQL_DCHECK(!input_argument.is_untyped());
-      kind_ = TYPED_ARGUMENTS;
-      return typed_arguments_.Insert(input_argument);
-    }
-
-    // Returns the set of typed arguments corresponding to this object. Can only
-    // be called if 'kind() == TYPED_ARGUMENTS'.
-    const InputArgumentTypeSet& typed_arguments() const {
-      ZETASQL_DCHECK_EQ(kind_, TYPED_ARGUMENTS);
-      return typed_arguments_;
-    }
-
-    std::string DebugString() const;
-
-   private:
-    Kind kind_;
-    // Does not contain any untyped arguments. Only valid if 'kind_' is
-    // TYPED_ARGUMENTS.
-    InputArgumentTypeSet typed_arguments_;
-  };
-
-  // Maps templated arguments (ARG_TYPE_ANY_1, etc.) to a set of input argument
-  // types. See CheckArgumentTypesAndCollectTemplatedArguments() for details.
-  typedef std::map<SignatureArgumentKind, SignatureArgumentKindTypeSet>
-      ArgKindToInputTypesMap;
-
-  // Maps templated arguments (ARG_TYPE_ANY_1, etc.) to the
-  // resolved (possibly coerced) Type each resolved to in a particular function
-  // call.
-  typedef std::map<SignatureArgumentKind, const Type*> ArgKindToResolvedTypeMap;
-
-  static std::string ArgKindToInputTypesMapDebugString(
-      const ArgKindToInputTypesMap& map);
-
-  // Returns the concrete argument type for a given <function_argument_type>,
-  // using the mapping from templated to concrete argument types in
-  // <templated_argument_map>.  Also used for result types.
-  bool GetConcreteArgument(
-      const FunctionArgumentType& argument, int num_occurrences,
-      const ArgKindToResolvedTypeMap& templated_argument_map,
-      std::unique_ptr<FunctionArgumentType>* output_argument) const;
-
-  // Returns a list of concrete arguments by calling GetConcreteArgument()
-  // on each entry and setting num_occurrences_ with appropriate argument
-  // counts.
-  FunctionArgumentTypeList GetConcreteArguments(
-      const std::vector<InputArgumentType>& input_arguments,
-      const FunctionSignature& signature,
-      int repetitions,
-      int optionals,
-      const ArgKindToResolvedTypeMap& templated_argument_map)
-        const;
-
   // Returns a signature that matches the argument type list, returning
   // a concrete FunctionSignature if found.  If not found, returns NULL.
   // The caller takes ownership of the returned FunctionSignature.
@@ -331,78 +241,12 @@ class FunctionResolver {
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
           named_arguments) const;
 
-  // Determines if the argument list count matches signature, returning the
-  // number of times each repeated argument repeats and the number of
-  // optional arguments present if true.
-  bool SignatureArgumentCountMatches(
-      const std::vector<InputArgumentType>& input_arguments,
-      const FunctionSignature& signature, int* repetitions,
-      int* optionals) const;
-
-  // Returns if input argument types match the signature argument types, and
-  // updates related templated argument type information.
-  //
-  // <repetitions> identifies the number of times that repeated arguments
-  // repeat.
-  //
-  // Also populates <templated_argument_map> with a key for every templated
-  // SignatureArgumentKind that appears in the signature (including the result
-  // type) and <input_arguments>.  The corresponding value is the list of typed
-  // arguments that occur for that SignatureArgumentKind. (The list may be empty
-  // in the case of untyped arguments.)
-  //
-  // There is also some special handling for ANY_K: if we see an argument (typed
-  // or untyped) for ARRAY_ANY_K, we act as if we also saw the corresponding
-  // array element argument for ANY_K, and add an entry to
-  // <templated_argument_map> even if ANY_K is not in the signature.
-  //
-  // Likewise for maps, if we see the map type, we also act as if we've seen
-  // the key and value types, and vice versa. Note that the key type does
-  // not imply we've seen the value type, nor does the value imply the key.
-  bool CheckArgumentTypesAndCollectTemplatedArguments(
-      const std::vector<InputArgumentType>& input_arguments,
-      const FunctionSignature& signature, int repetitions,
-      bool allow_argument_coercion,
-      ArgKindToInputTypesMap* templated_argument_map,
-      SignatureMatchResult* signature_match_result) const;
-
-  // Returns if a single input argument type matches the corresponding signature
-  // argument type, and updates related templated argument type information.
-  //
-  // Updates <templated_argument_map> for templated SignatureArgumentKind. The
-  // corresponding value is the list of typed arguments that occur for that
-  // SignatureArgumentKind. (The list may be empty in the case of untyped
-  // arguments.)
-  bool CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
-      const int arg_idx, const InputArgumentType& input_argument,
-      const FunctionArgumentType& signature_argument,
-      bool allow_argument_coercion,
-      ArgKindToInputTypesMap* templated_argument_map,
-      SignatureMatchResult* signature_match_result) const;
-
-  // This method is only relevant for table-valued functions. It returns true in
-  // 'signature_matches' if a relation input argument type matches a signature
-  // argument type, and sets information in 'signature_match_result' either way.
-  absl::Status CheckRelationArgumentTypes(
-      int arg_idx, const InputArgumentType& input_argument,
-      const FunctionArgumentType& signature_argument,
-      bool allow_argument_coercion,
-      SignatureMatchResult* signature_match_result,
-      bool* signature_matches) const;
-
   // Check a literal argument value against value constraints for a given
   // argument, and return an error if any are violated.
   absl::Status CheckArgumentValueConstraints(
       const ASTNode* arg_location, int idx, const Value& value,
       const FunctionArgumentType& concrete_argument,
       const std::function<std::string(int)>& BadArgErrorPrefix) const;
-
-  // Determines the resolved Type related to all of the templated types present
-  // in a function signature. <templated_argument_map> must have been populated
-  // by CheckArgumentTypesAndCollectTemplatedArguments().
-  bool DetermineResolvedTypesForTemplatedArguments(
-      const ArgKindToInputTypesMap& templated_argument_map,
-      ArgKindToResolvedTypeMap* resolved_templated_arguments) const;
 
   // Converts <argument_literal> to <target_type> and replaces <coerced_literal>
   // with the new expression if successful. If <set_has_explicit_type> is true,

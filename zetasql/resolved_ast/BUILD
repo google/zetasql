@@ -290,6 +290,7 @@ cc_test(
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer",
         "//zetasql/public:catalog",
         "//zetasql/public:function",
@@ -300,7 +301,6 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public:value_cc_proto",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -320,8 +320,8 @@ cc_test(
     deps = [
         ":make_node_vector",
         ":resolved_ast",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/memory",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -343,6 +343,7 @@ cc_test(
         ":resolved_ast",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:analyzer",
         "//zetasql/public:builtin_function",
         "//zetasql/public:builtin_function_cc_proto",
@@ -355,7 +356,6 @@ cc_test(
         "//zetasql/public:value",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -378,13 +378,13 @@ cc_test(
         "//zetasql/analyzer",
         "//zetasql/base",
         "//zetasql/base:status",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:function",
         "//zetasql/public:templated_sql_tvf",
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/memory",
-        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -405,10 +405,10 @@ cc_test(
     deps = [
         ":resolved_ast",
         "//zetasql/base:status",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:templated_sql_tvf",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
-        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -517,8 +517,8 @@ cc_test(
     ],
     deps = [
         ":rewrite_utils",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public/types",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -539,7 +539,7 @@ cc_test(
         ":resolved_ast",
         ":validator",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public/types",
-        "@com_google_googletest//:gtest_main",
     ],
 )

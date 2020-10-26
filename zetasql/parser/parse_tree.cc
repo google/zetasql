@@ -58,7 +58,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_CONSTRAINT_ENFORCEMENT_ACTION] =
       "AlterConstraintEnforcementAction";
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
-      "ASTAlterConstraintSetOptionsAction";
+      "AlterConstraintSetOptionsAction";
   map[AST_ALTER_DATABASE_STATEMENT] = "AlterDatabaseStatement";
   map[AST_ALTER_ENTITY_STATEMENT] = "AlterEntityStatement";
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
@@ -66,9 +66,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
       "AlterAllRowAccessPoliciesStatement";
   map[AST_ALTER_TABLE_STATEMENT] = "AlterTableStatement";
+  map[AST_ALTER_SCHEMA_STATEMENT]= "AlterSchemaStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
   map[AST_ANALYTIC_FUNCTION_CALL] = "AnalyticFunctionCall";
-  map[AST_FUNCTION_CALL_WITH_GROUP_ROWS] = "ASTFunctionCallWithGroupRows";
   map[AST_AND_EXPR] = "AndExpr";
   map[AST_ARRAY_COLUMN_SCHEMA] = "ArrayColumnSchema";
   map[AST_ARRAY_CONSTRUCTOR] = "ArrayConstructor";
@@ -163,6 +163,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_FOR_SYSTEM_TIME] = "ForSystemTime";
   map[AST_FROM_CLAUSE] = "FromClause";
   map[AST_FUNCTION_CALL] = "FunctionCall";
+  map[AST_FUNCTION_CALL_WITH_GROUP_ROWS] = "FunctionCallWithGroupRows";
   map[AST_FUNCTION_DECLARATION] = "FunctionDeclaration";
   map[AST_FUNCTION_PARAMETERS] = "FunctionParameters";
   map[AST_FUNCTION_PARAMETER] = "FunctionParameter";

@@ -1758,6 +1758,9 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
     }
   }
   print(")");
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
   PrintCloseParenIfNeeded(node);
 }
 
@@ -2425,6 +2428,12 @@ void Unparser::visitASTAlterMaterializedViewStatement(
 void Unparser::visitASTAlterDatabaseStatement(
     const ASTAlterDatabaseStatement* node, void* data) {
   print("ALTER DATABASE");
+  VisitAlterStatementBase(node, data);
+}
+
+void Unparser::visitASTAlterSchemaStatement(
+    const ASTAlterSchemaStatement* node, void* data) {
+  print("ALTER SCHEMA");
   VisitAlterStatementBase(node, data);
 }
 

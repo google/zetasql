@@ -30,7 +30,7 @@ the calculation.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -101,7 +101,7 @@ the calculation.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -177,7 +177,7 @@ the calculation.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -256,7 +256,7 @@ unspecified, `default_expression` defaults to NULL.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -404,7 +404,7 @@ unspecified, `default_expression` defaults to NULL.
 
 **Return Data Type**
 
-ANY
+Same type as `value_expression`.
 
 **Examples**
 
@@ -545,12 +545,30 @@ NULLS` is present:
 
 **Supported Argument Types**
 
-+ `value_expression` is a numeric expression.
-+ `percentile` is a `DOUBLE` literal in the range `[0, 1]`.
++ `value_expression` and `percentile` must have one of the following types:
+   + `NUMERIC`
+
+   + `DOUBLE`
++ `percentile` must be a literal in the range `[0, 1]`.
 
 **Return Data Type**
 
-`DOUBLE`
+The return data type is determined by the argument types with the following
+table.
+<table>
+
+<thead>
+<tr>
+<th></th><th>NUMERIC</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
+
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 **Examples**
 
@@ -609,11 +627,15 @@ This function ignores `NULL` values unless `RESPECT NULLS` is present.
 **Supported Argument Types**
 
 + `value_expression` can be any orderable type.
-+ `percentile` is a `DOUBLE` literal in the range `[0, 1]`.
++ `percentile` must be a literal in the range `[0, 1]`, with one of the
+  following types:
+   + `NUMERIC`
+
+   + `DOUBLE`
 
 **Return Data Type**
 
-`ANY`
+Same type as `value_expression`.
 
 **Examples**
 

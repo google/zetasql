@@ -476,6 +476,8 @@ TEST_P(FormatFunctionTests, Test) {
   EXPECT_EQ("-5", TestFormat("%T", {values::Int32(-5)}));
   EXPECT_EQ("5", TestFormat("%T", {values::Uint64(5)}));
   EXPECT_EQ("5", TestFormat("%T", {values::Uint32(5)}));
+  EXPECT_EQ("0.1", TestFormat("%T", {values::Float(0.1)}));
+  EXPECT_EQ("0.1", TestFormat("%T", {values::Double(0.1)}));
   EXPECT_EQ(
       "CAST(\"nan\" AS FLOAT)",
       TestFormat("%T",

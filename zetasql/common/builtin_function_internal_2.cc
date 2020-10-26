@@ -393,6 +393,25 @@ void GetDatetimeCurrentFunctions(TypeFactory* type_factory,
                  require_civil_time_types);
 }
 
+// Disallows string literals and query parameters from matching signature in
+// arguments at specified positions.
+template <int arg_index1, int arg_index2 = -1>
+bool NoLiteralOrParameterString(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments) {
+  for (int i = 0; i < arguments.size(); i++) {
+    if (i != arg_index1 && i != arg_index2) {
+      continue;
+    }
+    const auto& argument = arguments[i];
+    if ((argument.is_literal() || argument.is_query_parameter()) &&
+        argument.type()->IsString()) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions) {
@@ -413,7 +432,8 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
       FunctionSignatureOptions()
           .add_required_language_feature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
-          .set_is_aliased_signature(true);
+          .set_is_aliased_signature(true)
+          .set_constraints(&NoLiteralOrParameterString<0>);
 
   InsertFunction(
       functions, options, "date_add", SCALAR,
@@ -585,7 +605,8 @@ void GetDatetimeDiffTruncLastFunctions(
       FunctionSignatureOptions()
           .add_required_language_feature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
-          .set_is_aliased_signature(true);
+          .set_is_aliased_signature(true)
+          .set_constraints(&NoLiteralOrParameterString<0, 1>);
 
   InsertFunction(
       functions, options, "date_diff", SCALAR,
@@ -737,7 +758,8 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
       FunctionSignatureOptions()
           .add_required_language_feature(
               FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
-          .set_is_aliased_signature(true);
+          .set_is_aliased_signature(true)
+          .set_constraints(&NoLiteralOrParameterString<1>);
 
   InsertFunction(functions, options, "format_date", SCALAR,
                  {{string_type, {string_type, date_type}, FN_FORMAT_DATE},

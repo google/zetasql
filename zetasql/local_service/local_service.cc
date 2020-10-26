@@ -27,6 +27,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/proto_helper.h"
+#include "zetasql/local_service/local_service.pb.h"
 #include "zetasql/local_service/state.h"
 #include "zetasql/proto/simple_catalog.pb.h"
 #include "zetasql/public/builtin_function.h"
@@ -342,10 +343,15 @@ absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
                                         request.file_descriptor_set()));
   }
 
-  PreparedExpression* exp = state->GetPreparedExpression();
-  ZETASQL_RETURN_IF_ERROR(exp->Prepare(
+  ZETASQL_RETURN_IF_ERROR(state->GetPreparedExpression()->Prepare(
       state->GetAnalyzerOptions(),
       catalog_state != nullptr ? catalog_state->GetCatalog() : nullptr));
+  return RegisterPrepared(state, response->mutable_prepared());
+}
+
+absl::Status ZetaSqlLocalServiceImpl::RegisterPrepared(
+    std::unique_ptr<PreparedExpressionState>& state, PreparedState* response) {
+  PreparedExpression* exp = state->GetPreparedExpression();
 
   ZETASQL_RETURN_IF_ERROR(SerializeTypeUsingExistingPools(
       exp->output_type(), state->GetDescriptorPools(),
@@ -356,6 +362,22 @@ absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
       << "Failed to register prepared state, this shouldn't happen.";
 
   response->set_prepared_expression_id(id);
+
+  auto columns = exp->GetReferencedColumns();
+  ZETASQL_RETURN_IF_ERROR(columns.status());
+  for (const std::string& column_name : columns.value()) {
+    response->add_referenced_columns(column_name);
+  }
+
+  auto parameters = exp->GetReferencedParameters();
+  ZETASQL_RETURN_IF_ERROR(parameters.status());
+  for (const std::string& parameter_name : parameters.value()) {
+    response->add_referenced_parameters(parameter_name);
+  }
+
+  auto parameter_count = exp->GetPositionalParameterCount();
+  ZETASQL_RETURN_IF_ERROR(parameter_count.status());
+  response->set_positional_parameter_count(parameter_count.value());
 
   return absl::OkStatus();
 }
@@ -369,7 +391,6 @@ absl::Status ZetaSqlLocalServiceImpl::Unprepare(int64_t id) {
 
 absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
                                                  EvaluateResponse* response) {
-  int64_t id = -1;
   bool prepared = request.has_prepared_expression_id();
   std::shared_ptr<PreparedExpressionState> shared_state;
   // Needed to hold the new state because shared_ptr doesn't support release().
@@ -377,7 +398,7 @@ absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
   PreparedExpressionState* state;
 
   if (prepared) {
-    id = request.prepared_expression_id();
+    int64_t id = request.prepared_expression_id();
     shared_state = prepared_expressions_->Get(id);
     state = shared_state.get();
     if (state == nullptr) {
@@ -393,12 +414,8 @@ absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
   const absl::Status result = EvaluateImpl(request, state, response);
 
   if (!prepared && result.ok()) {
-    id = prepared_expressions_->Register(new_state.release());
-    ZETASQL_RET_CHECK_NE(-1, id)
-        << "Failed to register prepared state, this shouldn't happen.";
+    ZETASQL_RETURN_IF_ERROR(RegisterPrepared(new_state, response->mutable_prepared()));
   }
-
-  response->set_prepared_expression_id(id);
 
   return result;
 }
@@ -406,7 +423,6 @@ absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
 absl::Status ZetaSqlLocalServiceImpl::EvaluateImpl(
     const EvaluateRequest& request, PreparedExpressionState* state,
     EvaluateResponse* response) {
-  const auto& const_pools = state->GetDescriptorPools();
   const AnalyzerOptions& analyzer_options = state->GetAnalyzerOptions();
 
   ParameterValueMap columns, params;
@@ -420,8 +436,6 @@ absl::Status ZetaSqlLocalServiceImpl::EvaluateImpl(
 
   const Value& value = result.value();
   ZETASQL_RETURN_IF_ERROR(value.Serialize(response->mutable_value()));
-  ZETASQL_RETURN_IF_ERROR(SerializeTypeUsingExistingPools(value.type(), const_pools,
-                                                  response->mutable_type()));
 
   return absl::OkStatus();
 }
@@ -807,6 +821,13 @@ absl::Status ZetaSqlLocalServiceImpl::GetLanguageOptions(
   }
   options.Serialize(response);
   return absl::OkStatus();
+}
+
+absl::Status ZetaSqlLocalServiceImpl::GetAnalyzerOptions(
+    const AnalyzerOptionsRequest& request, AnalyzerOptionsProto* response) {
+  zetasql::AnalyzerOptions options;
+  FileDescriptorSetMap unused_map;
+  return options.Serialize(&unused_map, response);
 }
 
 size_t ZetaSqlLocalServiceImpl::NumSavedPreparedExpression() const {

@@ -25,6 +25,7 @@
 #include "zetasql/scripting/script_segment.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"
 
@@ -91,6 +92,21 @@ inline zetasql_base::StatusBuilder AssignmentToReadOnlySystemVariable(
 inline absl::Status MakeUndeclaredVariableError(const ASTIdentifier* ast_var) {
   return MakeScriptExceptionAt(ast_var)
          << "Undeclared variable: " << ast_var->GetAsString();
+}
+
+// Returns OK if <call_statement> contains <num_expected_arguments> arguments.
+// Otherwise, returns an error status indicating that the argument count is
+// incorrect.
+inline absl::Status CheckProcedureArgumentCount(
+    const ASTCallStatement* call_statement, int num_expected_arguments) {
+  if (call_statement->arguments().size() != num_expected_arguments) {
+    return MakeScriptExceptionAt(call_statement->procedure_name())
+           << absl::Substitute(
+                  "Procedure $0 expects $1 argument(s), $2 provided",
+                  call_statement->procedure_name()->ToIdentifierPathString(),
+                  num_expected_arguments, call_statement->arguments().size());
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

@@ -24,9 +24,11 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_formatter.h"
@@ -42,17 +44,18 @@
 #include "gtest/gtest.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
 using testing::_;
 using testing::HasSubstr;
 using testing::IsNull;
+using testing::Not;
 using zetasql_base::testing::StatusIs;
 
 class AnalyzerOptionsTest : public ::testing::Test {
@@ -697,15 +700,19 @@ TEST_F(AnalyzerOptionsTest, DeprecationWarnings) {
   }
 }
 
-void InitSourceTree(google::protobuf::compiler::DiskSourceTree* source_tree) {
-  // Support both sides of --incompatible_generated_protos_in_virtual_imports.
-  source_tree->MapPath(
-      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
-            "_virtual_imports", "descriptor_proto"));
-  source_tree->MapPath(
-      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
-  source_tree->MapPath(
-      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
+TEST_F(AnalyzerOptionsTest, ResolvedASTRewrites) {
+  // Should be on by default.
+  EXPECT_TRUE(options_.rewrite_enabled(REWRITE_FLATTEN));
+  options_.enable_rewrite(REWRITE_FLATTEN, /*enable=*/false);
+  EXPECT_FALSE(options_.rewrite_enabled(REWRITE_FLATTEN));
+  options_.enable_rewrite(REWRITE_FLATTEN);
+  EXPECT_TRUE(options_.rewrite_enabled(REWRITE_FLATTEN));
+
+  absl::flat_hash_set<ResolvedASTRewrite> rewrites;
+  rewrites.insert(REWRITE_INVALID_DO_NOT_USE);
+  options_.set_enabled_rewrites(rewrites);
+  EXPECT_FALSE(options_.rewrite_enabled(REWRITE_FLATTEN));
+  EXPECT_TRUE(options_.rewrite_enabled(REWRITE_INVALID_DO_NOT_USE));
 }
 
 // Need to implement this to catch importing errors.
@@ -736,12 +743,12 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
       "zetasql/testdata/test_schema.proto",
       "zetasql/testdata/external_extension.proto",
   };
-  google::protobuf::compiler::DiskSourceTree source_tree;
-  InitSourceTree(&source_tree);
+  std::unique_ptr<google::protobuf::compiler::DiskSourceTree> source_tree =
+      CreateProtoSourceTree();
   MultiFileErrorCollector error_collector;
 
   std::unique_ptr<google::protobuf::compiler::Importer> proto_importer(
-      new google::protobuf::compiler::Importer(&source_tree, &error_collector));
+      new google::protobuf::compiler::Importer(source_tree.get(), &error_collector));
 
   for (const std::string& test_file : test_files) {
     ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
@@ -958,10 +965,11 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
   EXPECT_EQ(224, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
-                     2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string))
+                     2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string) -
+                     sizeof(absl::flat_hash_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(18, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(19, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }
@@ -976,12 +984,12 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
       "zetasql/testdata/test_schema.proto",
       "zetasql/testdata/external_extension.proto",
   };
-  google::protobuf::compiler::DiskSourceTree source_tree;
-  InitSourceTree(&source_tree);
+  std::unique_ptr<google::protobuf::compiler::DiskSourceTree> source_tree =
+      CreateProtoSourceTree();
   MultiFileErrorCollector error_collector;
 
   std::unique_ptr<google::protobuf::compiler::Importer> proto_importer(
-      new google::protobuf::compiler::Importer(&source_tree, &error_collector));
+      new google::protobuf::compiler::Importer(source_tree.get(), &error_collector));
 
   for (const std::string& test_file : test_files) {
     ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
@@ -1279,12 +1287,13 @@ TEST(AnalyzerTest, ExternalExtension) {
       "zetasql/testdata/test_schema.proto",
       "zetasql/testdata/external_extension.proto",
   };
-  google::protobuf::compiler::DiskSourceTree source_tree;
-  InitSourceTree(&source_tree);
+
+  std::unique_ptr<google::protobuf::compiler::DiskSourceTree> source_tree =
+      CreateProtoSourceTree();
 
   MultiFileErrorCollector error_collector;
   std::unique_ptr<google::protobuf::compiler::Importer> proto_importer(
-      new google::protobuf::compiler::Importer(&source_tree, &error_collector));
+      new google::protobuf::compiler::Importer(source_tree.get(), &error_collector));
 
   for (const std::string& test_file : test_files) {
     ZETASQL_CHECK(proto_importer->Import(test_file) != nullptr)
@@ -1338,6 +1347,30 @@ TEST(AnalyzerTest, ExternalExtension) {
   // points at a FieldDescriptor from a different DescriptorPool.
   ZETASQL_ASSERT_OK(AnalyzeStatement(query1, options, catalog, &type_factory,
                              &output1));
+}
+
+TEST(AnalyzerTest, AstRewriting) {
+  AnalyzerOptions options;
+  options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+  SampleCatalog catalog(options.language());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  for (const bool should_rewrite : { true, false }) {
+    options.enable_rewrite(REWRITE_FLATTEN, should_rewrite);
+    ZETASQL_ASSERT_OK(AnalyzeStatement("SELECT FLATTEN([STRUCT([] AS X)].X)", options,
+                               catalog.catalog(), &type_factory, &output));
+    if (should_rewrite) {
+      // If rewrites are enabled the Flatten should be rewritten away.
+      EXPECT_THAT(output->resolved_statement()->DebugString(),
+                  Not(HasSubstr("FlattenedArg")));
+    } else {
+      // Otherwise it should remain.
+      EXPECT_THAT(output->resolved_statement()->DebugString(),
+                  HasSubstr("FlattenedArg"));
+    }
+  }
 }
 
 // Test that the language_options setters and getters on AnalyzerOptions work

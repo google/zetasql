@@ -102,6 +102,10 @@ class ZetaSqlLocalServiceGrpcImpl
                                   const LanguageOptionsRequest* req,
                                   LanguageOptionsProto* resp) override;
 
+  grpc::Status GetAnalyzerOptions(grpc::ServerContext* context,
+                                  const AnalyzerOptionsRequest* req,
+                                  AnalyzerOptionsProto* resp) override;
+
  private:
   ZetaSqlLocalServiceImpl service_;
 };

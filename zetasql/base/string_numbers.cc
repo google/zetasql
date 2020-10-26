@@ -21,12 +21,14 @@
 #include "zetasql/base/string_numbers.h"
 
 #include <cassert>
+#include <cfloat>  // for DBL_DIG and FLT_DIG
 #include <cstdint>
 #include <limits>
 
 #include <cstdint>
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/logging.h"
 
 namespace zetasql_base {
 namespace {
@@ -279,7 +281,66 @@ inline bool safe_uint_internal(absl::string_view text, IntType* value_p,
   }
   return safe_parse_positive_int(text, base, value_p);
 }
+
+static constexpr double kDoublePrecisionCheckMax = DBL_MAX / 1.000000000000001;
+static constexpr float kFloatPrecisionCheckMax = FLT_MAX / 1.000000000000001;
+static constexpr int kFastToBufferSize = 32;
+
 }  // anonymous namespace
+
+std::string RoundTripDoubleToString(double d) {
+  // DBL_DIG is 15 for IEEE-754 doubles, which are used on almost all
+  // platforms these days.  Just in case some system exists where DBL_DIG
+  // is significantly larger -- and risks overflowing our buffer -- we have
+  // this assert.
+  static_assert(DBL_DIG < 20, "DBL_DIG is too big");
+  char buffer[kFastToBufferSize];
+  bool full_precision_needed = true;
+  if (std::abs(d) <= kDoublePrecisionCheckMax) {
+    int snprintf_result =
+        snprintf(buffer, kFastToBufferSize, "%.*g", DBL_DIG, d);
+
+    // The snprintf should never overflow because the buffer is significantly
+    // larger than the precision we asked for.
+    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+
+    full_precision_needed = strtod(buffer, nullptr) != d;
+  }
+
+  if (full_precision_needed) {
+    int snprintf_result =
+        snprintf(buffer, kFastToBufferSize, "%.*g", DBL_DIG + 2, d);
+
+    // Should never overflow; see above.
+    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+  }
+  return buffer;
+}
+
+std::string RoundTripFloatToString(float d) {
+  static_assert(FLT_DIG < 20, "FLT_DIG is too big");
+  char buffer[kFastToBufferSize];
+  bool full_precision_needed = true;
+  if (std::abs(d) <= kFloatPrecisionCheckMax) {
+    int snprintf_result =
+        snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG, d);
+
+    // The snprintf should never overflow because the buffer is significantly
+    // larger than the precision we asked for.
+    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+
+    full_precision_needed = strtod(buffer, nullptr) != d;
+  }
+
+  if (full_precision_needed) {
+    int snprintf_result =
+        snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG + 2, d);
+
+    // Should never overflow; see above.
+    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+  }
+  return buffer;
+}
 
 bool safe_strto32_base(absl::string_view text, int32_t* value, int base) {
   return safe_int_internal<int32_t>(text, value, base);

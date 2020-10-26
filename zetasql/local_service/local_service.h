@@ -114,11 +114,17 @@ class ZetaSqlLocalServiceImpl {
   absl::Status GetLanguageOptions(const LanguageOptionsRequest& request,
                                   LanguageOptionsProto* response);
 
+  absl::Status GetAnalyzerOptions(const AnalyzerOptionsRequest& request,
+                                  AnalyzerOptionsProto* response);
+
  private:
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
   std::unique_ptr<RegisteredParseResumeLocationPool>
       registered_parse_resume_locations_;
+
+  absl::Status RegisterPrepared(std::unique_ptr<PreparedExpressionState>& state,
+                                PreparedState* response);
 
   // For testing.
   size_t NumSavedPreparedExpression() const;

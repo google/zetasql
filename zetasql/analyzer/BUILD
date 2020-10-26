@@ -51,11 +51,67 @@ cc_test(
     deps = [
         ":container_hash_equals",
         "//zetasql/base:map_util",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:id_string",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "function_signature_matcher",
+    srcs = ["function_signature_matcher.cc"],
+    hdrs = ["function_signature_matcher.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/public:coercer",
+        "//zetasql/public:function",
+        "//zetasql/public:function_cc_proto",
+        "//zetasql/public:language_options",
+        "//zetasql/public:signature_match_result",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "lambda_util",
+    srcs = [
+        "lambda_util.cc",
+    ],
+    hdrs = [
+        "lambda_util.h",
+    ],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:statusor",
+        "//zetasql/parser",
+        "//zetasql/public:id_string",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -106,6 +162,8 @@ cc_library(
     ],
     deps = [
         ":container_hash_equals",
+        ":function_signature_matcher",
+        ":lambda_util",
         "//zetasql/base",
         "//zetasql/base:cleanup",
         "//zetasql/base:general_trie",
@@ -170,6 +228,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
@@ -195,9 +254,11 @@ cc_test(
     ],
     deps = [
         ":analyzer",
+        ":lambda_util",
         "//zetasql/base",
         "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser",
         "//zetasql/public:simple_catalog",
         "//zetasql/resolved_ast",
@@ -208,7 +269,6 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -233,13 +293,15 @@ cc_test(
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:path",
-        "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:status_payload_utils",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/parser",
         "//zetasql/public:analyzer",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_resume_location",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:sql_formatter",
@@ -254,7 +316,6 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )
