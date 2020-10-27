@@ -22,6 +22,7 @@
 
 #include <cassert>
 #include <cfloat>  // for DBL_DIG and FLT_DIG
+#include <cmath>
 #include <cstdint>
 #include <limits>
 
