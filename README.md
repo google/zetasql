@@ -9,6 +9,8 @@
 
 This repository is forked from [google/zetasql](https://github.com/google/zetasql) and provides SQL formatter with preserved comments. This formatter can be applied to mainly BigQuery and SpanSQL.
 
+## Quick Start
+
 ```bash
 # To install by pre-commit
 pip intall pre-commit
