@@ -90,8 +90,8 @@ cc_library(
     ],
     data = glob(["testdata/*.test"]) + [
         "//zetasql/testdata:test_schema_proto",
-        "@com_google_protobuf//:cc_wkt_protos",
-        "@com_google_protobuf//:protobuf",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:wrappers_proto",
         "@com_googleapis_googleapis//:latlng_proto",
         "@com_googleapis_googleapis//:date_proto",
         "@com_googleapis_googleapis//:timeofday_proto",

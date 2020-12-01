@@ -35,6 +35,20 @@ namespace zetasql {
 class JSONValueConstRef;
 class JSONValueRef;
 
+// Options for parsing an input JSON-formatted string.
+struct JSONParsingOptions {
+  // If 'legacy_mode' is set to true, the parsing will be done using the legacy
+  // proto JSON parser. The legacy parser supports strings that are not
+  // valid JSON documents according to JSON RFC (such as single quote strings).
+  bool legacy_mode;
+  // If 'strict_number_parsing' is set to true, parsing will fail if there is at
+  // least one number value in 'str' that does not round-trip from
+  // string -> number -> string. 'strict_number_parsing' only affects non-legacy
+  // parsing (i.e. 'legacy_mode' = true and 'strict_number_parsing' = true
+  // returns an error).
+  bool strict_number_parsing;
+};
+
 // JSONValue stores a JSON document. Access to read and update the values and
 // their members and elements is provided through JSONValueRef and
 // JSONValueConstRef. JSONValue owns the document it represents.
@@ -65,12 +79,11 @@ class JSONValue final {
   // to read the value including object members and array elements.
   JSONValueConstRef GetConstRef() const;
 
-  // Parses a given JSON document string and returns a JSON value. If
-  // 'legacy_mode' is set to true, the parsing will be done using the legacy
-  // proto JSON parser. The legacy parser supports strings that are not
-  // valid JSON documents according to JSON RFC (such as single quote strings).
-  static zetasql_base::StatusOr<JSONValue> ParseJSONString(absl::string_view str,
-                                                   bool legacy_mode = false);
+  // Parses a given JSON document string and returns a JSON value.
+  static zetasql_base::StatusOr<JSONValue> ParseJSONString(
+      absl::string_view str,
+      JSONParsingOptions parsing_options = {.legacy_mode = false,
+                                            .strict_number_parsing = false});
 
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if

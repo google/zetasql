@@ -16,22 +16,43 @@
 
 #include "zetasql/resolved_ast/resolved_column.h"
 
+#include <memory>
 #include <set>
 #include <utility>
 
 #include "google/protobuf/descriptor.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
+static void CreateTestAnnotationMap(const Type* type, TypeFactory* type_factory,
+                                    const AnnotationMap** annotation_map) {
+  std::unique_ptr<AnnotationMap> annotation = AnnotationMap::Create(type);
+  annotation->SetAnnotation(CollationAnnotation::GetId(),
+                            AnnotationValue::Int64(10000));
+  zetasql_base::StatusOr<const AnnotationMap*> statusOrMap =
+      type_factory->TakeOwnership(std::move(annotation));
+  ZETASQL_CHECK_OK(statusOrMap.status());
+  *annotation_map = statusOrMap.value();
+}
+
 TEST(ResolvedColumnTest, Test) {
   TypeFactory type_factory;
+  const AnnotationMap* annotation_map;
+  CreateTestAnnotationMap(type_factory.get_int64(), &type_factory,
+                          &annotation_map);
   ResolvedColumn c1(1, "T1", "C1", type_factory.get_int32());
-  ResolvedColumn c2(2, "T1", "C2", type_factory.get_int64());
+  ResolvedColumn c2(2, IdString::MakeGlobal("T1"), IdString::MakeGlobal("C2"),
+                    AnnotatedType(type_factory.get_int64(), annotation_map));
   ResolvedColumn c3(3, "T2", "C3", type_factory.get_uint32());
 
   EXPECT_EQ(c1, c1);
@@ -48,9 +69,9 @@ TEST(ResolvedColumnTest, Test) {
   // multiple columns that all come from the same table.
   EXPECT_EQ("[]", ResolvedColumnListToString(ResolvedColumnList{}));
   EXPECT_EQ("[T1.C1#1]", ResolvedColumnListToString(ResolvedColumnList{c1}));
-  EXPECT_EQ("T1.[C1#1, C2#2]",
+  EXPECT_EQ("T1.[C1#1, C2#2{COLLATION:10000}]",
             ResolvedColumnListToString(ResolvedColumnList{c1, c2}));
-  EXPECT_EQ("[T1.C1#1, T1.C2#2, T2.C3#3]",
+  EXPECT_EQ("[T1.C1#1, T1.C2#2{COLLATION:10000}, T2.C3#3]",
             ResolvedColumnListToString(ResolvedColumnList{c1, c2, c3}));
 
   // Make sure a set of ResolvedColumns works.
@@ -67,7 +88,12 @@ TEST(ResolvedColumnTest, Test) {
 TEST(ResolvedColumnTest, SaveTo) {
   TypeFactory type_factory;
 
-  ResolvedColumn c1(1, "T1", "C1", type_factory.get_int32());
+  const AnnotationMap* annotation_map;
+  CreateTestAnnotationMap(type_factory.get_int32(), &type_factory,
+                          &annotation_map);
+
+  ResolvedColumn c1(1, IdString::MakeGlobal("T1"), IdString::MakeGlobal("C1"),
+                    AnnotatedType(type_factory.get_int32(), annotation_map));
 
   FileDescriptorSetMap map;
   ResolvedColumnProto proto;
@@ -76,6 +102,10 @@ TEST(ResolvedColumnTest, SaveTo) {
   EXPECT_EQ("C1", proto.name());
   EXPECT_EQ(1, proto.column_id());
   EXPECT_EQ(TypeKind::TYPE_INT32, proto.type().type_kind());
+  EXPECT_EQ(1, proto.annotation_map().annotations_size());
+  EXPECT_EQ(CollationAnnotation::GetId(),
+            proto.annotation_map().annotations(0).id());
+  EXPECT_EQ(10000, proto.annotation_map().annotations(0).int64_value());
 
   const ProtoType* proto_type;
   ZETASQL_CHECK_OK(type_factory.MakeProtoType(TypeProto::descriptor(), &proto_type));
@@ -92,7 +122,12 @@ TEST(ResolvedColumnTest, SaveTo) {
 TEST(ResolvedColumnTest, RestoreFrom) {
   TypeFactory type_factory;
 
-  ResolvedColumn c1(1, "T1", "C1", type_factory.get_int32());
+  const AnnotationMap* annotation_map;
+  CreateTestAnnotationMap(type_factory.get_int32(), &type_factory,
+                          &annotation_map);
+
+  ResolvedColumn c1(1, IdString::MakeGlobal("T1"), IdString::MakeGlobal("C1"),
+                    AnnotatedType(type_factory.get_int32(), annotation_map));
 
   FileDescriptorSetMap map;
   ResolvedColumnProto proto;
@@ -114,13 +149,14 @@ TEST(ResolvedColumnTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(ResolvedNode))
       << "The size of ResolvedNode class has changed, please also update the "
       << "proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(2 * sizeof(IdString), sizeof(ResolvedColumn) - sizeof(ResolvedNode))
+  EXPECT_EQ(2 * sizeof(IdString) + sizeof(const AnnotatedType*),
+            sizeof(ResolvedColumn) - sizeof(ResolvedNode))
       << "The size of ResolvedColumn class has changed, please also update the "
       << "proto and serialization code if you added/removed fields in it.";
   EXPECT_EQ(1, ResolvedNodeProto::descriptor()->field_count())
       << "The number of fields in ResolvedNodeProto has changed, please also "
       << "update the serialization code accordingly.";
-  EXPECT_EQ(4, ResolvedColumnProto::descriptor()->field_count())
+  EXPECT_EQ(5, ResolvedColumnProto::descriptor()->field_count())
       << "The number of fields in ResolvedColumnProto has changed, please also "
       << "update the serialization code accordingly.";
 }

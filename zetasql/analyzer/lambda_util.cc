@@ -16,20 +16,22 @@
 
 #include "zetasql/analyzer/lambda_util.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 
 namespace zetasql {
 
 // Extracts lambda argument name from the `arg_expr` and appends it to `names`.
 // Return error if the `arg_expr` is not a path expression with a single
 // identifier.
-static absl::Status ExtractArgumentNameFromExpr(const ASTExpression* arg_expr,
-                                                std::vector<IdString>* names) {
+static zetasql_base::StatusOr<IdString> ExtractArgumentNameFromExpr(
+    const ASTExpression* arg_expr) {
   const ASTPathExpression* path_expr =
       arg_expr->GetAsOrNull<ASTPathExpression>();
   if (path_expr == nullptr) {
@@ -40,10 +42,7 @@ static absl::Status ExtractArgumentNameFromExpr(const ASTExpression* arg_expr,
     return MakeSqlErrorAt(arg_expr)
            << "Lambda argument name must be a single identifier";
   }
-  if (names != nullptr) {
-    names->push_back(path_expr->name(0)->GetAsIdString());
-  }
-  return absl::OkStatus();
+  return path_expr->name(0)->GetAsIdString();
 }
 
 // Extracts lambda argument names from `ast_lambda` and append them to `names`.
@@ -51,6 +50,7 @@ static absl::Status ExtractArgumentNameFromExpr(const ASTExpression* arg_expr,
 // nullptr when only check is needed.
 static absl::Status ExtractLambdaArgumentNames(const ASTLambda* ast_lambda,
                                                std::vector<IdString>* names) {
+  ZETASQL_DCHECK(names != nullptr);
   const ASTExpression* args_expr = ast_lambda->argument_list();
   if (args_expr->node_kind() == AST_STRUCT_CONSTRUCTOR_WITH_PARENS) {
     const ASTStructConstructorWithParens* struct_cons =
@@ -61,14 +61,24 @@ static absl::Status ExtractLambdaArgumentNames(const ASTLambda* ast_lambda,
       names->reserve(fields.size());
     }
     for (const ASTExpression* field : fields) {
-      ZETASQL_RETURN_IF_ERROR(ExtractArgumentNameFromExpr(field, names));
+      ZETASQL_ASSIGN_OR_RETURN(IdString name, ExtractArgumentNameFromExpr(field));
+      const auto itr = std::find(names->begin(), names->end(), name);
+      if (itr != names->end()) {
+        return MakeSqlErrorAt(field)
+               << "Lambda argument name `" << name.ToStringView()
+               << "` is already defined";
+      }
+      names->push_back(name);
     }
-  } else if (args_expr->node_kind() == AST_PATH_EXPRESSION) {
-    ZETASQL_RETURN_IF_ERROR(ExtractArgumentNameFromExpr(args_expr, names));
-  } else {
-    return MakeSqlErrorAt(args_expr) << "Expecting lambda argument list";
+    return absl::OkStatus();
   }
-  return absl::OkStatus();
+  if (args_expr->node_kind() == AST_PATH_EXPRESSION) {
+    ZETASQL_ASSIGN_OR_RETURN(IdString name, ExtractArgumentNameFromExpr(args_expr));
+    names->push_back(name);
+    return absl::OkStatus();
+  }
+
+  return MakeSqlErrorAt(args_expr) << "Expecting lambda argument list";
 }
 
 zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
@@ -80,7 +90,8 @@ zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
 
 absl::Status ValidateLambdaArgumentListIsIdentifierList(
     const ASTLambda* ast_lambda) {
-  return ExtractLambdaArgumentNames(ast_lambda, /*names=*/nullptr);
+  std::vector<IdString> names;
+  return ExtractLambdaArgumentNames(ast_lambda, &names);
 }
 
 }  // namespace zetasql

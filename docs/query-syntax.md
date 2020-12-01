@@ -2850,7 +2850,10 @@ Results:
 [query-joins]: #join_types
 [ambiguous-aliases]: #ambiguous_aliases
 [with_clause]: #with_clause
-
+[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
+[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
+[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays

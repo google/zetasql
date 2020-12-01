@@ -263,6 +263,10 @@ static std::string ToStringVectorFieldDescriptor(const std::vector<const google:
   return output;
 }
 
+static std::string ToStringImpl(const google::protobuf::OneofDescriptor* oneof) {
+  return oneof->name();
+}
+
 static std::string ToStringImpl(const ResolvedColumn& column) {
   return column.DebugString();
 }
@@ -822,6 +826,35 @@ static zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
   // TODO: Implement this for ResolvedFunctionCallInfo subclasses.
   return std::shared_ptr<ResolvedFunctionCallInfo>(
       new ResolvedFunctionCallInfo());
+}
+
+static std::string ToStringImpl(const AnnotationMap* annotation_map) {
+  return annotation_map->DebugString();
+}
+
+static absl::Status SaveToImpl(
+    const AnnotationMap* annotation_map,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    AnnotationMapProto* proto) {
+  if (annotation_map != nullptr && !annotation_map->Empty()) {
+    ZETASQL_RETURN_IF_ERROR(annotation_map->Serialize(proto));
+  }
+  return absl::OkStatus();
+}
+
+static zetasql_base::StatusOr<const AnnotationMap*>
+    RestoreFromImpl(
+        const AnnotationMapProto& proto,
+        const ResolvedNode::RestoreParams& params) {
+  const AnnotationMap* annotation_map = nullptr;
+  if (proto.annotations_size() > 0
+      || proto.has_array_element()
+      || proto.struct_fields_size() > 0) {
+    ZETASQL_RETURN_IF_ERROR(
+        params.type_factory->DeserializeAnnotationMap(proto,
+                                                      &annotation_map));
+  }
+  return annotation_map;
 }
 
 }  // anonymous namespace

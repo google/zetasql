@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/function_signature_matcher.h"
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <set>
@@ -24,6 +25,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/lambda_util.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
@@ -35,8 +37,10 @@
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
@@ -58,11 +62,25 @@ class FunctionSignatureMatcher {
   // a non-templated signature if true.  If <allow_argument_coercion> is TRUE
   // then function arguments can be coerced to the required signature
   // type(s), otherwise they must be an exact match.
-  bool SignatureMatches(const std::vector<InputArgumentType>& input_arguments,
-                        const FunctionSignature& signature,
-                        bool allow_argument_coercion,
-                        std::unique_ptr<FunctionSignature>* result_signature,
-                        SignatureMatchResult* signature_match_result) const;
+  //
+  // * <arg_ast_nodes> are the list of parser ASTNodes for each input_arguments.
+  //   It's used to assist lambda arguments resolving.
+  // * <resolve_lambda_callback> is called to resolve lambda arguments if any.
+  //   It can be set to nullptr if no lambda argument is expected.
+  // * The resolved lambdas, if any, are put into <arg_overrides> if the
+  //   signature matches. <arg_overrides> is undefined otherwise.
+  // * <resolve_lambda_callback> is used to resolve lambda. See
+  //   <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how a lambda
+  //   is resolved. The resolved lambdas is put in <arg_overrides> with the
+  //   corresponding index, if it matches the signature specification.
+  bool SignatureMatches(
+      const std::vector<const ASTNode*>& arg_ast_nodes,
+      const std::vector<InputArgumentType>& input_arguments,
+      const FunctionSignature& signature, bool allow_argument_coercion,
+      const ResolveLambdaCallback* resolve_lambda_callback,
+      std::unique_ptr<FunctionSignature>* result_signature,
+      SignatureMatchResult* signature_match_result,
+      std::vector<FunctionArgumentOverride>* arg_overrides = nullptr) const;
 
  private:
   const LanguageOptions& language_;  // Not owned.
@@ -184,12 +202,22 @@ class FunctionSignatureMatcher {
   // Likewise for maps, if we see the map type, we also act as if we've seen
   // the key and value types, and vice versa. Note that the key type does
   // not imply we've seen the value type, nor does the value imply the key.
+  //
+  // * <arg_ast_nodes> are the list of parser ASTNodes for each input_arguments.
+  //   It's used to assist lambda arguments resolving.
+  // * <resolve_lambda_callback> is called to resolve lambda arguments if any.
+  //   It can be set to nullptr if no lambda argument is expected.
+  // * The resolved lambdas, if any, are put into <arg_overrides> if the
+  //   signature matches. <arg_overrides> is undefined otherwise.
   bool CheckArgumentTypesAndCollectTemplatedArguments(
+      const std::vector<const ASTNode*>& arg_ast_nodes,
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, int repetitions,
       bool allow_argument_coercion,
+      const ResolveLambdaCallback* resolve_lambda_callback,
       ArgKindToInputTypesMap* templated_argument_map,
-      SignatureMatchResult* signature_match_result) const;
+      SignatureMatchResult* signature_match_result,
+      std::vector<FunctionArgumentOverride>* arg_overrides) const;
 
   // Returns if a single input argument type matches the corresponding signature
   // argument type, and updates related templated argument type information.
@@ -198,12 +226,47 @@ class FunctionSignatureMatcher {
   // corresponding value is the list of typed arguments that occur for that
   // SignatureArgumentKind. (The list may be empty in the case of untyped
   // arguments.)
+  //
+  // * <arg_ast_node> is the parser ASTNode for the argument. It's used to
+  //   assist lambda arguments resolving.
+  // * <resolve_lambda_callback> is called to resolve lambda arguments if any.
+  //   It can be set to nullptr if no lambda argument is expected.
+  // * If the input argument is a lambda, the resolved lambda is put into
+  //   <arg_overrides>.
   bool CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
-      const int arg_idx, const InputArgumentType& input_argument,
+      const int arg_idx, const ASTNode* arg_ast_node,
+      const InputArgumentType& input_argument,
       const FunctionArgumentType& signature_argument,
       bool allow_argument_coercion,
+      const ResolveLambdaCallback* resolve_lambda_callback,
       ArgKindToInputTypesMap* templated_argument_map,
-      SignatureMatchResult* signature_match_result) const;
+      SignatureMatchResult* signature_match_result,
+      std::vector<FunctionArgumentOverride>* arg_overrides) const;
+
+  // Returns if a lambda input argument matches the signature argument type and
+  // updates <templated_argument_map> for templated lambda body type.
+  //
+  // This method infers the types of the arguments of the lambda based on
+  // <templated_argument_map> and signature then resolves the lambda body.
+  //
+  // * <arg_idx> is the index of the argument.
+  // * <arg_ast_node> is the parser ASTNode of the argument which is used to
+  //   assist lambda resolving.
+  // * the resolved lambda is put into <arg_overrides>.
+  //
+  // The lambda input argument matches the signature if:
+  //   * the number of argument match the signature.
+  //   * types of arguments of the lambda can be inferred.
+  //   * the lambda body can be resolved.
+  //   * the lambda body result type matches that of the signature.
+  bool CheckResolveLambdaTypeAndCollectTemplatedArguments(
+      const int arg_idx, const ASTNode* arg_ast_node,
+      const FunctionArgumentType& signature_argument,
+      const InputArgumentType& input_argument, bool allow_argument_coercion,
+      const ResolveLambdaCallback* resolve_lambda_callback,
+      ArgKindToInputTypesMap* templated_argument_map,
+      SignatureMatchResult* signature_match_result,
+      std::vector<FunctionArgumentOverride>* arg_overrides) const;
 
   // This method is only relevant for table-valued functions. It returns true in
   // 'signature_matches' if a relation input argument type matches a signature
@@ -287,7 +350,7 @@ bool FunctionSignatureMatcher::GetConcreteArgument(
   ZETASQL_DCHECK_NE(argument.kind(), ARG_TYPE_ARBITRARY);
   output_argument->reset();
   if (argument.IsTemplated() && !argument.IsRelation() && !argument.IsModel() &&
-      !argument.IsConnection()) {
+      !argument.IsConnection() && !argument.IsLambda()) {
     const Type* const* found_type =
         zetasql_base::FindOrNull(templated_argument_map, argument.kind());
     if (found_type == nullptr) {
@@ -307,6 +370,29 @@ bool FunctionSignatureMatcher::GetConcreteArgument(
   } else if (argument.IsConnection()) {
     *output_argument = absl::make_unique<FunctionArgumentType>(
         ARG_TYPE_CONNECTION, argument.options(), num_occurrences);
+  } else if (argument.IsLambda()) {
+    std::vector<FunctionArgumentType> concrete_arg_types;
+    for (const FunctionArgumentType& arg_type :
+         argument.lambda().argument_types()) {
+      std::unique_ptr<FunctionArgumentType> concrete_arg_type;
+      if (!GetConcreteArgument(arg_type, /*num_occurrences=*/1,
+                               templated_argument_map, &concrete_arg_type)) {
+        return false;
+      }
+      ZETASQL_DCHECK(concrete_arg_type->type() != nullptr);
+      concrete_arg_types.push_back(*concrete_arg_type);
+    }
+
+    std::unique_ptr<FunctionArgumentType> concrete_expr_arg;
+    if (!GetConcreteArgument(argument.lambda().body_type(),
+                             /*num_occurrences=*/1, templated_argument_map,
+                             &concrete_expr_arg)) {
+      return false;
+    }
+    ZETASQL_DCHECK(concrete_expr_arg->type() != nullptr);
+
+    *output_argument = absl::make_unique<FunctionArgumentType>(
+        FunctionArgumentType::Lambda(concrete_arg_types, *concrete_expr_arg));
   } else {
     *output_argument = absl::make_unique<FunctionArgumentType>(
         argument.type(), argument.options(), num_occurrences);
@@ -445,16 +531,153 @@ bool FunctionSignatureMatcher::SignatureArgumentCountMatches(
 }
 
 bool IsArgKind_ARRAY_ANY_K(SignatureArgumentKind kind) {
-  return kind == ARG_ARRAY_TYPE_ANY_1 ||
-         kind == ARG_ARRAY_TYPE_ANY_2;
+  return kind == ARG_ARRAY_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_2;
+}
+
+// Shorthand for making resolved function argument with lambda.
+std::unique_ptr<const ResolvedFunctionArgument> MakeResolvedFunctionArgument(
+    std::unique_ptr<const ResolvedInlineLambda> resolved_inline_lambda) {
+  std::unique_ptr<ResolvedFunctionArgument> arg =
+      zetasql::MakeResolvedFunctionArgument();
+  arg->set_inline_lambda(std::move(resolved_inline_lambda));
+  return arg;
+}
+
+bool FunctionSignatureMatcher::
+    CheckResolveLambdaTypeAndCollectTemplatedArguments(
+        const int arg_idx, const ASTNode* arg_ast_node,
+        const FunctionArgumentType& signature_argument,
+        const InputArgumentType& input_argument, bool allow_argument_coercion,
+        const ResolveLambdaCallback* resolve_lambda_callback,
+        ArgKindToInputTypesMap* templated_argument_map,
+        SignatureMatchResult* signature_match_result,
+        std::vector<FunctionArgumentOverride>* arg_overrides) const {
+  ZETASQL_DCHECK(arg_overrides);
+  ZETASQL_DCHECK(arg_ast_node->Is<ASTLambda>());
+
+  // Get lambda argument names from AST
+  const ASTLambda* ast_lambda = arg_ast_node->GetAs<ASTLambda>();
+  zetasql_base::StatusOr<std::vector<IdString>> arg_names_or =
+      ExtractLambdaArgumentNames(ast_lambda);
+  // Lambda argument names are already validated by
+  // ValidateLambdaArgumentListIsIdentifierList before signature matching so it
+  // shouldn't fail here.
+  ZETASQL_DCHECK_OK(arg_names_or.status()) << "Failed to extract lambda argument names";
+  if (!arg_names_or.ok()) {
+    return false;
+  }
+  const std::vector<IdString>& arg_names = arg_names_or.value();
+
+  // Check that number of lambda arguments match signature.
+  const FunctionArgumentType::ArgumentTypeLambda& arg_type_lambda =
+      signature_argument.lambda();
+  const FunctionArgumentTypeList& sig_arg_types =
+      arg_type_lambda.argument_types();
+  if (arg_names.size() != sig_arg_types.size()) {
+    return false;
+  }
+
+  // Get types of lambda argument list.
+  std::vector<const Type*> concrete_arg_types;
+  concrete_arg_types.reserve(sig_arg_types.size());
+  for (const FunctionArgumentType& sig_arg_type : sig_arg_types) {
+    // Use the type if it is explicitly specified by signature.
+    if (sig_arg_type.type() != nullptr) {
+      concrete_arg_types.push_back(sig_arg_type.type());
+      continue;
+    }
+
+    // This argument is a templated, find it from <templated_argument_map>.
+    SignatureArgumentKindTypeSet* param_typeset =
+        zetasql_base::FindOrNull(*templated_argument_map, sig_arg_type.kind());
+    // FunctionSignature::IsValid() guarantees that a templated argument of
+    // lambda must have been seen before the lambda argument.
+    ZETASQL_DCHECK(param_typeset != nullptr);
+    if (param_typeset == nullptr) {
+      return false;
+    }
+    // Get the type from typeset.
+    const Type* common_supertype = nullptr;
+    const absl::Status s = coercer_.GetCommonSuperType(
+        param_typeset->typed_arguments(), &common_supertype);
+    if (!s.ok()) {
+      return false;
+    }
+    // Failed to deduce type
+    if (common_supertype == nullptr) {
+      return false;
+    }
+    concrete_arg_types.push_back(common_supertype);
+  }
+
+  const Type* body_result_type = arg_type_lambda.body_type().type();
+  bool body_result_type_is_from_template_map = false;
+  // If lambda body is templated and we already have a registered concrete type
+  // for it, use that type as body result type.
+  if (arg_type_lambda.body_type().IsTemplated()) {
+    SignatureArgumentKindTypeSet* param_typeset = zetasql_base::FindOrNull(
+        *templated_argument_map, arg_type_lambda.body_type().kind());
+    if (param_typeset != nullptr) {
+      // Get the type from typeset.
+      const Type* common_supertype = nullptr;
+      const absl::Status s = coercer_.GetCommonSuperType(
+          param_typeset->typed_arguments(), &common_supertype);
+      if (s.ok() && common_supertype != nullptr) {
+        body_result_type = common_supertype;
+        body_result_type_is_from_template_map = true;
+      }
+    }
+  }
+
+  // Resolve the lambda.
+  std::unique_ptr<const ResolvedInlineLambda> resolved_lambda;
+  ZETASQL_DCHECK(resolve_lambda_callback != nullptr)
+      << "Cannot resolve lambda argument with a nullptr callback";
+  const absl::Status s = (*resolve_lambda_callback)(
+      ast_lambda, arg_names, concrete_arg_types, body_result_type,
+      allow_argument_coercion, &resolved_lambda);
+  if (!s.ok()) {
+    ZETASQL_VLOG(2) << "Failed to resolve lambda: " << s;
+    return false;
+  }
+  ZETASQL_DCHECK(resolved_lambda != nullptr);
+  // Body result type doesn't match signature specification.
+  if (body_result_type != nullptr &&
+      !resolved_lambda->body()->type()->Equals(body_result_type)) {
+    return false;
+  }
+
+  if (arg_type_lambda.body_type().IsTemplated() &&
+      !body_result_type_is_from_template_map) {
+    // Update <templated_argument_map> with lambda expr.
+    // This is useful when this lambda's body result type determines:
+    //   * the return type of the function is decided by the.
+    //   * the argument type of another lambda.
+    InputArgumentType body_arg_type(resolved_lambda->body()->type());
+    if (!CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
+            /*arg_idx=*/-1, ast_lambda->body(), body_arg_type,
+            arg_type_lambda.body_type(), allow_argument_coercion,
+            resolve_lambda_callback, templated_argument_map,
+            signature_match_result, /*arg_overrides=*/nullptr)) {
+      return false;
+    }
+  }
+
+  // Add resolved lambda to arg override list.
+  arg_overrides->push_back(FunctionArgumentOverride{
+      arg_idx, MakeResolvedFunctionArgument(std::move(resolved_lambda))});
+  return true;
 }
 
 bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
+    const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, int repetitions,
     bool allow_argument_coercion,
+    const ResolveLambdaCallback* resolve_lambda_callback,
     ArgKindToInputTypesMap* templated_argument_map,
-    SignatureMatchResult* signature_match_result) const {
+    SignatureMatchResult* signature_match_result,
+    std::vector<FunctionArgumentOverride>* arg_overrides) const {
   const int repeated_idx_start = signature.FirstRepeatedArgumentIndex();
   const int repeated_idx_end = signature.LastRepeatedArgumentIndex();
   int signature_arg_idx = 0;
@@ -463,10 +686,14 @@ bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
     const InputArgumentType& input_argument = input_arguments[arg_idx];
     const FunctionArgumentType& signature_argument =
         signature.argument(signature_arg_idx);
+    const ASTNode* arg_ast = nullptr;
+    if (arg_idx < arg_ast_nodes.size()) {
+      arg_ast = arg_ast_nodes[arg_idx];
+    }
     if (!CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
-            arg_idx, input_argument, signature_argument,
-            allow_argument_coercion, templated_argument_map,
-            signature_match_result)) {
+            arg_idx, arg_ast, input_argument, signature_argument,
+            allow_argument_coercion, resolve_lambda_callback,
+            templated_argument_map, signature_match_result, arg_overrides)) {
       return false;
     }
 
@@ -505,11 +732,14 @@ bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
 // Utility used by above function
 bool FunctionSignatureMatcher::
     CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
-        const int arg_idx, const InputArgumentType& input_argument,
+        const int arg_idx, const ASTNode* arg_ast_node,
+        const InputArgumentType& input_argument,
         const FunctionArgumentType& signature_argument,
         bool allow_argument_coercion,
+        const ResolveLambdaCallback* resolve_lambda_callback,
         ArgKindToInputTypesMap* templated_argument_map,
-        SignatureMatchResult* signature_match_result) const {
+        SignatureMatchResult* signature_match_result,
+        std::vector<FunctionArgumentOverride>* arg_overrides) const {
   // Compare the input argument to the signature argument. Note that
   // the array types are handled differently because they have the same
   // kind even if the element types are different.
@@ -529,6 +759,11 @@ bool FunctionSignatureMatcher::
     // No other signature argument types match connection input arguments.
     return false;
   }
+  if (signature_argument.IsLambda() != input_argument.is_lambda()) {
+    // Lambda signature argument types match only lambda input arguments.
+    // No other signature argument types match lambda input arguments.
+    return false;
+  }
   if (signature_argument.IsRelation()) {
     bool signature_matches = false;
     const absl::Status status = CheckRelationArgumentTypes(
@@ -546,6 +781,13 @@ bool FunctionSignatureMatcher::
     // need to to check for coercion given that the connections are templated.
   } else if (signature_argument.kind() == ARG_TYPE_ARBITRARY) {
     // Arbitrary kind arguments match any input argument type.
+  } else if (signature_argument.IsLambda()) {
+    ZETASQL_DCHECK(arg_overrides)
+        << "Resolved lambdas need to be put into arg_overrides";
+    return CheckResolveLambdaTypeAndCollectTemplatedArguments(
+        arg_idx, arg_ast_node, signature_argument, input_argument,
+        allow_argument_coercion, resolve_lambda_callback,
+        templated_argument_map, signature_match_result, arg_overrides);
   } else if (!signature_argument.IsTemplated()) {
     // Input argument type must either be equivalent or (if coercion is
     // allowed) coercible to signature argument type.
@@ -572,10 +814,12 @@ bool FunctionSignatureMatcher::
       (*templated_argument_map)[RelatedTemplatedKind(kind)];
     }
     if (kind == ARG_PROTO_MAP_ANY) {
-      // As above, we must initialize the types for proto maps. We register
-      // both the key and value types.
-      (*templated_argument_map)[ARG_PROTO_MAP_KEY_ANY];
-      (*templated_argument_map)[ARG_PROTO_MAP_VALUE_ANY];
+      // It is not possible to infer the type of a map entry proto, because
+      // they are not actually generic maps. The proto descriptor for a map
+      // entry is specific to the field it is sourced from. So untyped null
+      // is not resolvable for ARG_PROTO_MAP_ANY-taking function arguments.
+      signature_match_result->incr_non_matched_arguments();
+      return false;
     }
     if (kind == ARG_PROTO_MAP_KEY_ANY || kind == ARG_PROTO_MAP_VALUE_ANY) {
       // We should always see the map type if we see the key or the value.
@@ -613,7 +857,7 @@ bool FunctionSignatureMatcher::
     }
 
     // Collect input arguments related to a signature's templated argument
-    // for subsequent type coercion.
+    // for subsequent type coercion and lambda argument type inference.
     (*templated_argument_map)[signature_argument_kind].InsertTypedArgument(
         input_argument);
 
@@ -884,10 +1128,13 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
 }
 
 bool FunctionSignatureMatcher::SignatureMatches(
+    const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, bool allow_argument_coercion,
+    const ResolveLambdaCallback* resolve_lambda_callback,
     std::unique_ptr<FunctionSignature>* result_signature,
-    SignatureMatchResult* signature_match_result) const {
+    SignatureMatchResult* signature_match_result,
+    std::vector<FunctionArgumentOverride>* arg_overrides) const {
   if (!signature.options().check_all_required_features_are_enabled(
           language_.GetEnabledLanguageFeatures())) {
     return false;
@@ -914,8 +1161,10 @@ bool FunctionSignatureMatcher::SignatureMatches(
   ArgKindToInputTypesMap templated_argument_map;
   SignatureMatchResult local_signature_match_result;
   if (!CheckArgumentTypesAndCollectTemplatedArguments(
-          input_arguments, signature, repetitions, allow_argument_coercion,
-          &templated_argument_map, &local_signature_match_result)) {
+          arg_ast_nodes, input_arguments, signature, repetitions,
+          allow_argument_coercion, resolve_lambda_callback,
+          &templated_argument_map, &local_signature_match_result,
+          arg_overrides)) {
     signature_match_result->UpdateFromResult(local_signature_match_result);
     return false;
   }
@@ -984,7 +1233,8 @@ bool FunctionSignatureMatcher::SignatureMatches(
   // for all arguments as compared to this signature.
   for (int idx = 0; idx < input_arguments.size(); ++idx) {
     if (input_arguments[idx].is_relation() || input_arguments[idx].is_model() ||
-        input_arguments[idx].is_connection()) {
+        input_arguments[idx].is_connection() ||
+        input_arguments[idx].is_lambda()) {
       // The cost of matching a relation/model/connection-type argument is not
       // currently considered in the SignatureMatchResult.
       continue;
@@ -1036,15 +1286,19 @@ bool FunctionSignatureMatcher::SignatureMatches(
 
 bool FunctionSignatureMatches(
     const LanguageOptions& language_options, const Coercer& coercer,
+    const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, bool allow_argument_coercion,
     TypeFactory* type_factory,
+    const ResolveLambdaCallback* resolve_lambda_callback,
     std::unique_ptr<FunctionSignature>* result_signature,
-    SignatureMatchResult* signature_match_result) {
+    SignatureMatchResult* signature_match_result,
+    std::vector<FunctionArgumentOverride>* arg_overrides) {
   FunctionSignatureMatcher signature_matcher(language_options, coercer,
                                              type_factory);
   return signature_matcher.SignatureMatches(
-      input_arguments, signature, allow_argument_coercion, result_signature,
-      signature_match_result);
+      arg_ast_nodes, input_arguments, signature, allow_argument_coercion,
+      resolve_lambda_callback, result_signature, signature_match_result,
+      arg_overrides);
 }
 }  // namespace zetasql

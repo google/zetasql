@@ -93,7 +93,6 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CHECK_CONSTRAINT] = "CheckConstraint";
   map[AST_CLUSTER_BY] = "ClusterBy";
   map[AST_COLLATE] = "Collate";
-  map[AST_COLLATE_EXPRESSION] = "CollateExpression";
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
   map[AST_COLUMN_ATTRIBUTE_LIST] = "ColumnAttributeList";
   map[AST_COLUMN_LIST] = "ColumnList";
@@ -160,6 +159,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_FOREIGN_KEY_ACTIONS] = "ForeignKeyActions";
   map[AST_FOREIGN_KEY_COLUMN_ATTRIBUTE] = "ForeignKeyColumnAttribute";
   map[AST_FOREIGN_KEY_REFERENCE] = "ForeignKeyReference";
+  map[AST_FORMAT_CLAUSE] = "FormatClause";
   map[AST_FOR_SYSTEM_TIME] = "ForSystemTime";
   map[AST_FROM_CLAUSE] = "FromClause";
   map[AST_FUNCTION_CALL] = "FunctionCall";
@@ -212,6 +212,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_NULL_LITERAL] = "NullLiteral";
   map[AST_NULL_ORDER] = "NullOrder";
   map[AST_NUMERIC_LITERAL] = "NumericLiteral";
+  map[AST_MAX_LITERAL] = "MaxLiteral";
   map[AST_ON_CLAUSE] = "OnClause";
   map[AST_ON_OR_USING_CLAUSE_LIST] = "OnOrUsingClauseList";
   map[AST_OPTIONS_ENTRY] = "OptionsEntry";
@@ -224,6 +225,11 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_PARENTHESIZED_JOIN] = "ParenthesizedJoin";
   map[AST_PARTITION_BY] = "PartitionBy";
   map[AST_PATH_EXPRESSION] = "PathExpression";
+  map[AST_PIVOT_CLAUSE] = "PivotClause";
+  map[AST_PIVOT_EXPRESSION] = "PivotExpression";
+  map[AST_PIVOT_EXPRESSION_LIST] = "PivotExpressionList";
+  map[AST_PIVOT_VALUE] = "PivotValue";
+  map[AST_PIVOT_VALUE_LIST] = "PivotValueList";
   map[AST_PRIMARY_KEY] = "PrimaryKey";
   map[AST_PRIMARY_KEY_COLUMN_ATTRIBUTE] = "PrimaryKeyColumnAttribute";
   map[AST_PRIVILEGES] = "Privileges";
@@ -237,6 +243,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
   map[AST_RETURN_STATEMENT] = "ReturnStatement";
+  map[AST_RETURNING_CLAUSE] = "ReturningClause";
   map[AST_REVOKE_FROM_CLAUSE] = "RevokeFromClause";
   map[AST_REVOKE_STATEMENT] = "RevokeStatement";
   map[AST_ROLLBACK_STATEMENT] = "RollbackStatement";
@@ -290,6 +297,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_TVF_SCHEMA_COLUMN] = "TVFSchemaColumn";
   map[AST_TVF_SCHEMA] = "TVFSchema";
   map[AST_TVF] = "TVF";
+  map[AST_TYPE_PARAMETER_LIST] = "TypePrameterList";
   map[AST_UNARY_EXPRESSION] = "UnaryExpression";
   map[AST_UNNEST_EXPRESSION] = "UnnestExpression";
   map[AST_UNNEST_EXPRESSION_WITH_OPT_ALIAS_AND_OFFSET] =
@@ -1280,8 +1288,20 @@ bool ASTColumnSchema::ContainsAttribute(ASTNodeKind node_kind) const {
 }
 
 std::string ASTCreateIndexStatement::SingleNodeDebugString() const {
-  if (is_unique_) {
-    return absl::StrCat(ASTNode::SingleNodeDebugString(), "(UNIQUE)");
+  if (is_unique_ || is_search_) {
+    std::string ret = ASTNode::SingleNodeDebugString();
+    absl::StrAppend(&ret, "(");
+    if (is_unique_) {
+      absl::StrAppend(&ret, "UNIQUE");
+      if (is_search_) {
+        absl::StrAppend(&ret, ",");
+      }
+    }
+    if (is_search_) {
+      absl::StrAppend(&ret, "SEARCH");
+    }
+    absl::StrAppend(&ret, ")");
+    return ret;
   } else {
     return ASTNode::SingleNodeDebugString();
   }

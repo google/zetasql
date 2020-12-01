@@ -93,8 +93,8 @@ class AnalyzerHelper {
 
   public static DeserializationHelper getDesializationHelper(
       SimpleCatalog catalog, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    ImmutableList.Builder<ZetaSQLDescriptorPool> pools =
-        ImmutableList.<ZetaSQLDescriptorPool>builder()
+    ImmutableList.Builder<DescriptorPool> pools =
+        ImmutableList.<DescriptorPool>builder()
             .addAll(fileDescriptorSetsBuilder.getDescriptorPools())
             // DateTimestampPart is the only non-simple type used in built-in functions.
             // Its descriptor comes from the generated descriptor pool on C++ side.

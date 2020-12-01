@@ -127,8 +127,6 @@ class LanguageOptions {
   // use only.
   void EnableMaximumLanguageFeaturesForDevelopment() {
     EnableMaximumLanguageFeatures(/*for_development=*/true);
-    enabled_language_features_.erase(
-        FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES);
   }
 
   // Helper that returns a LanguageOptions object that is equivalent to what

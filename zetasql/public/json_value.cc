@@ -31,7 +31,9 @@
 
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/json_parser.h"
+#include "zetasql/public/numeric_parser.h"
 #include <cstdint>  
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
@@ -41,6 +43,8 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "single_include/nlohmann/json.hpp"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -73,10 +77,20 @@ class JSONValueBuilder {
 
   absl::Status EndObject() {
     ref_stack_.pop_back();
+    ZETASQL_DCHECK(GetSkippingNodeMarker()->is_null());
     return absl::OkStatus();
   }
 
   absl::Status BeginMember(const std::string& key) {
+    // Skipping mode
+    if (ref_stack_.back() == GetSkippingNodeMarker()) {
+       return absl::OkStatus();
+    }
+    // If object already contains key, enter skipping mode
+    if (ref_stack_.back()->contains(key)) {
+      object_member_ = GetSkippingNodeMarker();
+      return absl::OkStatus();
+    }
     // Add null at given key and store the reference for later
     object_member_ = &(ref_stack_.back()->operator[](key));
     return absl::OkStatus();
@@ -135,6 +149,11 @@ class JSONValueBuilder {
       return &value_;
     }
 
+    // If subtree being processed is to be skipped, return early.
+    if (ref_stack_.back() == GetSkippingNodeMarker()) {
+      return GetSkippingNodeMarker();
+    }
+
     if (!ref_stack_.back()->is_array() && !ref_stack_.back()->is_object()) {
       return absl::InternalError(
           "Encountered invalid state while parsing JSON.");
@@ -143,11 +162,24 @@ class JSONValueBuilder {
     if (ref_stack_.back()->is_array()) {
       ref_stack_.back()->emplace_back(std::forward<Value>(v));
       return &(ref_stack_.back()->back());
-    } else {
-      ZETASQL_CHECK(object_member_);
-      *object_member_ = JSON(std::forward<Value>(v));
-      return object_member_;
     }
+    ZETASQL_CHECK(object_member_);
+    // If here, the subtree should not be skipped, and the subtree is an object.
+    // Since the subtree is an object, this code can only be reached if the key
+    // associated with the value v has already been seen. If the key is a
+    // duplicate, object_member_ will be set to skipping_mode_marker_ to
+    // indicate it should be skipped.
+    if (object_member_ != GetSkippingNodeMarker()) {
+      *object_member_ = JSON(std::forward<Value>(v));
+    }
+    return object_member_;
+  }
+
+  // Marker used to indicate that the current JSON subtree being parsed should
+  // be skipped. Set when a duplicate key is found for a given object.
+  static JSON* GetSkippingNodeMarker() {
+    static JSON* const skipping_mode_marker = new JSON();
+    return skipping_mode_marker;
   }
 
   // The parsed JSON value.
@@ -239,13 +271,90 @@ class JSONValueLegacyParser : public ::zetasql::JSONParser,
   JSONValueBuilder value_builder_;
 };
 
+// Returns absl::OkStatus() if the number in string 'lhs' is numerically
+// equivalent to the number in the string created by serializing a JSON document
+// containing 'val' to a string. Returns an error status otherwise.
+//
+// Restrictions:
+//   - Input string ('lhs') can be at most 1500 characters in length.
+//   - Numbers represented by 'lhs' and 'val' can have at most 1074 significant
+//   fractional decimal digits, and at most 1500 significant digits.
+//
+// To understand the restrictions above, we must consider the following:
+//
+//  1) The 64-bit IEEE 754 double only guarantees roundtripping from text ->
+//  double -> text for numbers that have 15 significant digits at most. Values
+//  with more significant digits than 15 may or may not round-trip.
+//
+//  2) The conversion of double -> text -> double will produce the exact same
+//  double value if at least 17 significant digits are used in serialization of
+//  the double value to text (e.g. "10.000000000000001" -> double and
+//  "10.0000000000000019" -> double return the same double value).
+//
+// The implication of the above two facts might suggest that numbers with more
+// than 17 significant digits should be rejected for round-tripping. However,
+// there are 2 categories of numbers that can exceed 17 significant digits but
+// still round-trip. The first category consists of very large whole numbers
+// with a continuous sequence of trailing zeros before the decimal point
+// (e.g. 1e+200). The second category consists of very small purely fractional
+// numbers with a continuous sequence of leading zeros after the decimal point
+// (e.g. 1e-200).
+//
+// To ensure that the numbers in these additional categories are correctly
+// considered for round-tripping, we allow for a maximum of 1074 significant
+// fractional digits and a maximum total string length of 1500 characters.
+//
+// For ASCII decimal input strings, this allows for a maximum of 424 significant
+// whole decimal digits, which exceeds the number of significant whole digits
+// for the maximum value of double (~1.7976931348623157E+308), while still
+// capturing the maximum number of fractional digits for a double (1074).
+// Scientific notation input strings can potentially express more than 424
+// significant decimal digits, while still being constrained to 1074 significant
+// fractional decimal digits.
+absl::Status CheckNumberRoundtrip(absl::string_view lhs, double val) {
+  constexpr uint32_t kMaxStringLength = 1500;
+  // Reject round-trip if input string is too long
+  if (lhs.length() > kMaxStringLength) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Input number " << lhs << " is too long.";
+  }
+
+  // Serialize 'val' to it's string representation.
+  const std::string rhs = JSONValue(val).GetConstRef().ToString();
+  // Simple check - if strings are equal, return early.
+  if (rhs == lhs) {
+    return absl::OkStatus();
+  }
+
+  // Else, parse each string into a fixed precision representation and compare
+  // the resulting representations.
+  constexpr uint32_t word_count =
+      (kMaxStringLength /
+       multiprecision_int_impl::IntTraits<64>::kMaxWholeDecimalDigits) +
+      1;
+  FixedPointRepresentation<word_count> lhs_number;
+  FixedPointRepresentation<word_count> rhs_number;
+  auto status = ParseJSONNumber(lhs, lhs_number);
+  ZETASQL_RETURN_IF_ERROR(status);
+  status = ParseJSONNumber(rhs, rhs_number);
+  ZETASQL_RETURN_IF_ERROR(status);
+  if (lhs_number.is_negative == rhs_number.is_negative &&
+      lhs_number.output == rhs_number.output) {
+    return absl::OkStatus();
+  }
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Input number: " << lhs
+         << " cannot round-trip through string representation.";
+}
+
 // The parser implementation that uses nlohmann library implementation based on
 // the JSON RFC.
 //
 // NOTE: Method names are specific requirement of nlohmann SAX parser interface.
 class JSONValueStandardParser : public JSONValueParserBase {
  public:
-  explicit JSONValueStandardParser(JSON& value) : value_builder_(value) {}
+  JSONValueStandardParser(JSON& value, bool strict_number_parsing)
+      : value_builder_(value), strict_number_parsing_(strict_number_parsing) {}
   JSONValueStandardParser() = delete;
 
   bool null() { return MaybeUpdateStatus(value_builder_.ParsedNull()); }
@@ -262,7 +371,13 @@ class JSONValueStandardParser : public JSONValueParserBase {
     return MaybeUpdateStatus(value_builder_.ParsedUInt(val));
   }
 
-  bool number_float(double val, const std::string& /*unused*/) {
+  bool number_float(double val, const std::string& input_str) {
+    if (strict_number_parsing_) {
+      auto status = CheckNumberRoundtrip(input_str, val);
+      if (!status.ok()) {
+        return MaybeUpdateStatus(status);
+      }
+    }
     return MaybeUpdateStatus(value_builder_.ParsedDouble(val));
   }
 
@@ -307,6 +422,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
  private:
   JSONValueBuilder value_builder_;
+  const bool strict_number_parsing_;
 };
 
 }  // namespace
@@ -317,10 +433,12 @@ struct JSONValue::Impl {
   JSON value;
 };
 
-StatusOr<JSONValue> JSONValue::ParseJSONString(absl::string_view str,
-                                               bool legacy_mode) {
+StatusOr<JSONValue> JSONValue::ParseJSONString(
+    absl::string_view str, JSONParsingOptions parsing_options) {
   JSONValue json;
-  if (legacy_mode) {
+  if (parsing_options.legacy_mode) {
+    ZETASQL_RET_CHECK(!parsing_options.strict_number_parsing)
+        << "Strict number parsing not supported in legacy mode.";
     JSONValueLegacyParser parser(str, json.impl_->value);
     if (!parser.Parse()) {
       if (parser.status().ok()) {
@@ -331,7 +449,8 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(absl::string_view str,
       }
     }
   } else {
-    JSONValueStandardParser parser(json.impl_->value);
+    JSONValueStandardParser parser(json.impl_->value,
+                                   parsing_options.strict_number_parsing);
     JSON::sax_parse(str, &parser);
     ZETASQL_RETURN_IF_ERROR(parser.status());
   }
@@ -342,7 +461,8 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(absl::string_view str,
 StatusOr<JSONValue> JSONValue::DeserializeFromProtoBytes(
     absl::string_view str) {
   JSONValue json;
-  JSONValueStandardParser parser(json.impl_->value);
+  JSONValueStandardParser parser(json.impl_->value,
+                                 /*strict_number_parsing=*/false);
   JSON::sax_parse(str, &parser, JSON::input_format_t::ubjson);
   ZETASQL_RETURN_IF_ERROR(parser.status());
   return json;

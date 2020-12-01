@@ -25,6 +25,8 @@
 #include <vector>
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
+#include "zetasql/analyzer/function_signature_matcher.h"
+#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -42,7 +44,7 @@ class Coercer;
 class Resolver;
 class SignatureMatchResult;
 
-// This class perfoms function resolution during ZetaSQL analysis.
+// This class performs function resolution during ZetaSQL analysis.
 // The functions here generally traverse the function expressions recursively,
 // constructing and returning the ResolvedFunctionCall nodes bottom-up.
 class FunctionResolver {
@@ -58,6 +60,8 @@ class FunctionResolver {
   // handling is done for aggregate functions - they are resolved exactly like
   // scalar functions. <is_analytic> indicates whether an OVER clause follows
   // this function call.
+  // Lambda arguments should have a nullptr placeholder in <arguments> and are
+  // resolved during signature matching.
   // * Takes ownership of the ResolvedExprs in <arguments>.
   // * <named_arguments> is a vector of any named arguments passed into this
   //   function call along with each one's zero-based index of that argument as
@@ -67,6 +71,7 @@ class FunctionResolver {
   // * <expected_result_type> is optional and when specified should match the
   //   result_type of the function signature while resolving. Otherwise there is
   //   no match.
+  // * <name_scope> is used to resolve lambda.
   absl::Status ResolveGeneralFunctionCall(
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
@@ -74,7 +79,7 @@ class FunctionResolver {
       bool is_analytic,
       std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
       std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
-      const Type* expected_result_type,
+      const Type* expected_result_type, const NameScope* name_scope,
       std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out);
 
   // These are the same as previous but they take a (possibly multipart)
@@ -163,14 +168,21 @@ class FunctionResolver {
   const Coercer& coercer() const;
 
   // Determines if the function signature matches the argument list, returning
-  // a non-templated signature if true.  If <allow_argument_coercion> is TRUE
+  // a non-templated signature if true. If <allow_argument_coercion> is TRUE
   // then function arguments can be coerced to the required signature
   // type(s), otherwise they must be an exact match.
-  bool SignatureMatches(const std::vector<InputArgumentType>& input_arguments,
-                        const FunctionSignature& signature,
-                        bool allow_argument_coercion,
-                        std::unique_ptr<FunctionSignature>* result_signature,
-                        SignatureMatchResult* signature_match_result) const;
+  // <name_scope> is used to resolve lambda. Resolved lambdas are put in
+  // <arg_overrides>. See
+  // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
+  // resolved.
+  bool SignatureMatches(
+      const std::vector<const ASTNode*>& arg_ast_nodes,
+      const std::vector<InputArgumentType>& input_arguments,
+      const FunctionSignature& signature, bool allow_argument_coercion,
+      const NameScope* name_scope,
+      std::unique_ptr<FunctionSignature>* result_signature,
+      SignatureMatchResult* signature_match_result,
+      std::vector<FunctionArgumentOverride>* arg_overrides) const;
 
   // Perform post-processing checks on CREATE AGGREGATE FUNCTION statements at
   // initial declaration time or when the functions are called later.
@@ -233,13 +245,19 @@ class FunctionResolver {
   // object that the parser produced for this named argument reference and also
   // an integer identifying the corresponding argument type by indexing into
   // <input_arguments>.
+  // <name_scope> is used to resolve lambda. Resolved lambdas are put in
+  // <arg_overrides>. See
+  // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
+  // resolved.
   zetasql_base::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function,
       const std::vector<InputArgumentType>& input_arguments,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
-          named_arguments) const;
+          named_arguments,
+      const NameScope* name_scope,
+      std::vector<FunctionArgumentOverride>* arg_overrides) const;
 
   // Check a literal argument value against value constraints for a given
   // argument, and return an error if any are violated.

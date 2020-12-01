@@ -352,6 +352,8 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
   if (!argument_list_.empty()) {
     // Use empty name to avoid printing "arguments=" with extra indentation.
     fields->emplace_back("", argument_list_);
+  } else if (!generic_argument_list_.empty()) {
+    fields->emplace_back("", generic_argument_list_);
   }
   if (!hint_list_.empty()) {
     fields->emplace_back("hint_list", hint_list_);

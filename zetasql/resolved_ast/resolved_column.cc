@@ -36,12 +36,17 @@ ResolvedColumn::ResolvedColumn(int column_id, const std::string& table_name,
                      IdString::MakeGlobal(name), type) {}
 
 std::string ResolvedColumn::DebugString() const {
-  return absl::StrCat(table_name_.ToStringView(), ".", name_.ToStringView(),
-                      "#", column_id_);
+  return absl::StrCat(
+      table_name_.ToStringView(), ".", name_.ToStringView(), "#", column_id_,
+      type_annotation_map() == nullptr ? ""
+                                       : type_annotation_map()->DebugString());
 }
 
 std::string ResolvedColumn::ShortDebugString() const {
-  return absl::StrCat(name_.ToStringView(), "#", column_id_);
+  return absl::StrCat(name_.ToStringView(), "#", column_id_,
+                      type_annotation_map() == nullptr
+                          ? ""
+                          : type_annotation_map()->DebugString());
 }
 
 absl::Status ResolvedColumn::SaveTo(
@@ -53,7 +58,11 @@ absl::Status ResolvedColumn::SaveTo(
   proto->set_name(std::string(name_.ToStringView()));
 
   proto->set_column_id(column_id_);
-  return type_->SerializeToProtoAndDistinctFileDescriptors(
+  if (type_annotation_map() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        type_annotation_map()->Serialize(proto->mutable_annotation_map()));
+  }
+  return type()->SerializeToProtoAndDistinctFileDescriptors(
       proto->mutable_type(), file_descriptor_set_map);
 }
 
@@ -65,7 +74,13 @@ zetasql_base::StatusOr<ResolvedColumn> ResolvedColumn::RestoreFrom(
   const Type* type;
   ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeFromProtoUsingExistingPools(
       proto.type(), params.pools, &type));
-  return ResolvedColumn(proto.column_id(), table_name, column_name, type);
+  const AnnotationMap* annotation_map = nullptr;
+  if (proto.has_annotation_map()) {
+    ZETASQL_RETURN_IF_ERROR(params.type_factory->DeserializeAnnotationMap(
+        proto.annotation_map(), &annotation_map));
+  }
+  return ResolvedColumn(static_cast<int>(proto.column_id()), table_name,
+                        column_name, AnnotatedType(type, annotation_map));
 }
 
 std::string ResolvedColumnListToString(const ResolvedColumnList& columns) {

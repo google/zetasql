@@ -106,7 +106,7 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36 to 39, 45;
+  reserved 36 to 39, 45, 48;
   // CROSS-VERSION FEATURES
   //
   // These are features that can be opted into independently from versioning.
@@ -349,14 +349,31 @@ enum LanguageFeature {
   FEATURE_CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS = 47
       [(language_feature_options).in_development = true];
 
-  // If set, it disables the NUMERIC signatures for EXP, LN, LOG, LOG10 and
-  // SQRT.
-  FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES = 48
-      [(language_feature_options).in_development = true];
-
   // INTERVAL data type. (broken link)
   FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
 
+  // Enables tokenized search ((broken link)).
+  FEATURE_TOKENIZED_SEARCH = 51
+      [(language_feature_options).in_development = true];
+
+  // If enabled, JSON parsing fails for JSON documents containing number values
+  // that cannot fit into the range of numbers supported by uint64, int64 or
+  // double.
+  // For unsigned integers, the valid range is [0, 2^64-1]
+  // For signed integers, the valid range is [-2^63, 2^63-1].
+  // For floating point values, the valid range contains all numbers that can
+  // round-trip from string -> double -> string. The round-tripped string
+  // doesn't need to match the input string exactly, but must hold the same
+  // number value (i.e. "1e+3" -> double -> "1000" is a valid round-trip).
+  // If precision loss occurs as a result of the round-trip, the number is not
+  // considered valid (i.e. 0.142857142857142857142857142857142857 -> double ->
+  // 14285714285714285 is not valid).
+  // NOTE: FEATURE_JSON_LEGACY_PARSE does not work with
+  // FEATURE_JSON_STRICT_NUMBER_PARSING
+  FEATURE_JSON_STRICT_NUMBER_PARSING = 52 [
+    (language_feature_options).ideally_enabled = false,
+    (language_feature_options).in_development = true
+  ];
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -542,8 +559,7 @@ enum LanguageFeature {
   // STRING for FN_CONCAT_STRING signature. Only types which have CAST to
   // STRING defined are allowed, and BYTES is explicitly excluded (since BYTES
   // should match FN_CONCAT_BYTES signature).
-  FEATURE_V_1_3_CONCAT_MIXED_TYPES = 13010
-      [(language_feature_options).ideally_enabled = false];
+  FEATURE_V_1_3_CONCAT_MIXED_TYPES = 13010;
 
   // Enable WITH RECURSIVE ((broken link))
   FEATURE_V_1_3_WITH_RECURSIVE = 13011
@@ -601,6 +617,19 @@ enum LanguageFeature {
 
   // Inline lambda function argument. (broken link)
   FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT = 13024;
+
+  // PIVOT clause ((broken link)).
+  FEATURE_V_1_3_PIVOT = 13025
+      [(language_feature_options).in_development = true];
+
+  // This flag enables propagation of annotation during query analysis. See
+  // public/types/annotation.h for the introduction of annotation framework.
+  // Engines must turn on this flag before turning on any built-in annotation
+  // feature or passing in engine defined AnnotationSpec.
+  FEATURE_V_1_3_ANNOTATION_FRAMEWORK = 13026;
+
+  // Enables collation annotation support.
+  FEATURE_V_1_3_COLLATION_SUPPORT = 13027;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of

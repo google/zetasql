@@ -94,7 +94,7 @@ public class Function implements Serializable {
   }
 
   public static Function deserialize(
-      FunctionProto proto, final ImmutableList<ZetaSQLDescriptorPool> pools) {
+      FunctionProto proto, final ImmutableList<? extends DescriptorPool> pools) {
     if (proto.getGroup().equals(TemplatedSQLFunction.TEMPLATED_SQL_FUNCTION_GROUP)) {
       return TemplatedSQLFunction.deserialize(proto, pools);
     }
@@ -277,7 +277,7 @@ public class Function implements Serializable {
 
     /* Deserializes this function from a protocol buffer. */
     public static TemplatedSQLFunction deserialize(
-        FunctionProto proto, final ImmutableList<ZetaSQLDescriptorPool> pools) {
+        FunctionProto proto, final ImmutableList<? extends DescriptorPool> pools) {
       Preconditions.checkArgument(proto.getGroup().equals(TEMPLATED_SQL_FUNCTION_GROUP), proto);
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
       FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(0), pools);

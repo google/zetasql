@@ -30,14 +30,13 @@ import com.google.protobuf.StringValue;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
+import com.google.zetasql.DescriptorPool.ZetaSQLDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLEnumDescriptor;
 import com.google.zetasql.FunctionProtos.FunctionProto;
 import com.google.zetasql.FunctionProtos.ProcedureProto;
 import com.google.zetasql.FunctionProtos.TableValuedFunctionProto;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLDescriptor;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLEnumDescriptor;
 import com.google.zetasql.ZetaSQLOptionsProto.ZetaSQLBuiltinFunctionOptionsProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
-import com.google.zetasql.LocalService.AddSimpleTableRequest;
 import com.google.zetasql.LocalService.GetBuiltinFunctionsResponse;
 import com.google.zetasql.LocalService.RegisterCatalogRequest;
 import com.google.zetasql.LocalService.RegisterResponse;
@@ -90,7 +89,7 @@ public class SimpleCatalog extends Catalog {
   private final Map<String, TableValuedFunction> tvfs = new HashMap<>();
   private final Map<String, Function> functionsByFullName = new HashMap<>();
   private final Map<String, Procedure> procedures = new HashMap<>();
-  private ZetaSQLDescriptorPool descriptorPool;
+  private DescriptorPool descriptorPool;
   ZetaSQLBuiltinFunctionOptionsProto builtinFunctionOptions;
 
   boolean registered = false;
@@ -240,24 +239,8 @@ public class SimpleCatalog extends Catalog {
   }
 
   public void addSimpleTable(String name, SimpleTable table) {
+    Preconditions.checkState(!registered);
     Preconditions.checkArgument(!tables.containsKey(name.toLowerCase()), "duplicate key: %s", name);
-    if (registered) {
-      synchronized (this) {
-        try {
-          FileDescriptorSetsBuilder temp = new FileDescriptorSetsBuilder();
-          temp.importDescriptorPoolIndex(registeredFileDescriptorSetsBuilder);
-          SimpleTableProto tableProto = table.serialize(temp);
-          FileDescriptorSetsBuilder diff = registeredFileDescriptorSetsBuilder.mergeDiff(temp);
-          AddSimpleTableRequest.Builder requestBuilder = AddSimpleTableRequest.newBuilder();
-          requestBuilder.setRegisteredCatalogId(registeredId);
-          requestBuilder.setTable(tableProto);
-          requestBuilder.addAllFileDescriptorSet(diff.build());
-          Client.getStub().addSimpleTable(requestBuilder.build());
-        } catch (StatusRuntimeException e) {
-          throw new SqlException(e);
-        }
-      }
-    }
     tables.put(name.toLowerCase(), table);
     tablesById.put(table.getId(), table);
   }
@@ -499,7 +482,7 @@ public class SimpleCatalog extends Catalog {
     procedures.remove(name.toLowerCase());
   }
 
-  public void setDescriptorPool(ZetaSQLDescriptorPool descriptorPool) {
+  public void setDescriptorPool(DescriptorPool descriptorPool) {
     Preconditions.checkState(!registered);
     Preconditions.checkState(this.descriptorPool == null);
     this.descriptorPool = descriptorPool;
@@ -640,7 +623,7 @@ public class SimpleCatalog extends Catalog {
   }
 
   public static SimpleCatalog deserialize(
-      SimpleCatalogProto proto, ImmutableList<ZetaSQLDescriptorPool> pools) {
+      SimpleCatalogProto proto, ImmutableList<? extends DescriptorPool> pools) {
     SimpleCatalog catalog = new SimpleCatalog(proto.getName());
 
     for (SimpleTableProto tableProto : proto.getTableList()) {

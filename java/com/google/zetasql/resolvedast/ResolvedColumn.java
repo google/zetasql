@@ -44,6 +44,7 @@ public final class ResolvedColumn implements Serializable {
   private final String tableName;
   private final String name;
   private final Type type;
+  // TODO: add annotationMap field after adding full implementation of AnnotationMap.
 
   public ResolvedColumn(long id, String tableName, String name, Type type) {
     this.id = id;

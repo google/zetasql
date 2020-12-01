@@ -72,12 +72,6 @@ struct CastFunctionProperty {
 
 using CastHashMap = absl::flat_hash_map<TypeKindPair, CastFunctionProperty>;
 
-// Returns a hash map with TypeKindPair as key, and CastFunctionProperty as
-// value.  This identifies whether the (from, to) cast pairs in the key are
-// allowed explicitly, implicitly, etc., and what the cost is for the cast.
-// If a (from, to) pair is not in the map, then that cast is not allowed.
-const CastHashMap& GetZetaSQLCasts();
-
 // Returns <from_value> casted to <to_type>. Returns an error if the types are
 // incompatible or the value cannot be cast successfully to <to_type>.
 //
@@ -140,6 +134,12 @@ zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
     const ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
+
+// Returns a hash map with TypeKindPair as key, and CastFunctionProperty as
+// value.  This identifies whether the (from, to) cast pairs in the key are
+// allowed explicitly, implicitly, etc., and what the cost is for the cast.
+// If a (from, to) pair is not in the map, then that cast is not allowed.
+const CastHashMap& GetZetaSQLCasts();
 
 }  // namespace internal
 

@@ -242,6 +242,20 @@ absl::Status ProtoHasField(
 // protocol buffer map entry descriptor.
 bool IsProtoMap(const Type* type);
 
+// A variant containing all the possible value types of a proto map key.
+using MapKeyVariant = absl::variant<bool, int64_t, uint64_t, std::string>;
+
+// Fills output with a logical view of the proto2 map in array_of_map_entry. The
+// key is the extracted key of the map, and the value is a pointer to the last
+// value in the array that has that key. If for any reason the map can't be
+// constructed (e.g. gsql_array isn't a proto2 map, any entry is corrupt or
+// unparseable) returns false.
+//
+// REQUIRES: IsProtoMap(array_of_map_entry) is true.
+absl::Status ParseProtoMap(const Value& array_of_map_entry,
+                           google::protobuf::DynamicMessageFactory& factory,
+                           absl::flat_hash_map<MapKeyVariant, Value>& output);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_PROTO_UTIL_H_

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 #define ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "absl/types/optional.h"
@@ -108,6 +109,23 @@ class BigNumericRef : public zetasql_base::SimpleReferenceCounted {
 
  private:
   BigNumericValue value_;
+};
+
+// -------------------------------------------------------------
+// IntervalRef is ref count wrapper around IntervalValue.
+// -------------------------------------------------------------
+class IntervalRef : public zetasql_base::SimpleReferenceCounted {
+ public:
+  IntervalRef() {}
+  explicit IntervalRef(const IntervalValue& value) : value_(value) {}
+
+  IntervalRef(const IntervalRef&) = delete;
+  IntervalRef& operator=(const IntervalRef&) = delete;
+
+  const IntervalValue& value() { return value_; }
+
+ private:
+  IntervalValue value_;
 };
 
 // -------------------------------------------------------

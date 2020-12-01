@@ -306,7 +306,7 @@ public class AnalyzerOptionsTest {
     checkDeserialize(proto, builder.getDescriptorPools());
   }
 
-  public void checkDeserialize(AnalyzerOptionsProto proto, List<ZetaSQLDescriptorPool> pools) {
+  public void checkDeserialize(AnalyzerOptionsProto proto, List<DescriptorPool> pools) {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     AnalyzerOptions options = AnalyzerOptions.deserialize(proto, pools, factory);
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();

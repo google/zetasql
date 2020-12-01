@@ -66,10 +66,10 @@ public class EnumType extends Type {
    * for external users to treat this as immutable.
    */
   @SuppressWarnings("Immutable")
-  private final ZetaSQLDescriptorPool descriptorPool;
+  private final DescriptorPool descriptorPool;
 
   /** Package private constructor, instances must be created with {@link TypeFactory} */
-  EnumType(EnumDescriptor enumDescriptor, ZetaSQLDescriptorPool pool) {
+  EnumType(EnumDescriptor enumDescriptor, DescriptorPool pool) {
     super(TypeKind.TYPE_ENUM);
     Preconditions.checkNotNull(enumDescriptor);
     Preconditions.checkNotNull(pool);

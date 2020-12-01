@@ -111,14 +111,6 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     return service_.UnregisterCatalog(id);
   }
 
-  absl::Status UnregisterParseResumeLocation(int64_t id) {
-    return service_.UnregisterParseResumeLocation(id);
-  }
-
-  absl::Status AddSimpleTable(const AddSimpleTableRequest& request) {
-    return service_.AddSimpleTable(request);
-  }
-
   size_t NumSavedPreparedExpression() {
     return service_.NumSavedPreparedExpression();
   }
@@ -725,38 +717,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongCatalogId) {
             internal::StatusToString(status));
 }
 
-TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeWrongParseResumeLocationId) {
-  AnalyzeRequest request;
-  RegisteredParseResumeLocationProto location;
-  location.set_registered_id(12345);
-  location.set_byte_position(0);
-  *request.mutable_registered_parse_resume_location() = location;
-
-  AnalyzeResponse response;
-  absl::Status status = Analyze(request, &response);
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ(
-      "generic::invalid_argument: "
-      "Registered parse resume location 12345 unknown.",
-      internal::StatusToString(status));
-}
-
-TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongParseResumeLocationId) {
-  absl::Status status = UnregisterParseResumeLocation(12345);
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ("generic::invalid_argument: Unknown ParseResumeLocation ID: 12345",
-            internal::StatusToString(status));
-}
-
-TEST_F(ZetaSqlLocalServiceImplTest, AddSimpleTableWithWrongCatalogId) {
-  AddSimpleTableRequest request;
-  request.set_registered_catalog_id(12345);
-  absl::Status status = AddSimpleTable(request);
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ("generic::invalid_argument: Unknown catalog ID: 12345",
-            internal::StatusToString(status));
-}
-
 TEST_F(ZetaSqlLocalServiceImplTest, Analyze) {
   const std::string catalog_proto_text = R"pb(
     name: "foo"
@@ -820,7 +780,10 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
       R"pb(resolved_expression {
              resolved_literal_node {
-               parent { type { type_kind: TYPE_INT64 } }
+               parent {
+                 type { type_kind: TYPE_INT64 }
+                 type_annotation_map {}
+               }
                value {
                  type { type_kind: TYPE_INT64 }
                  value { int64_value: 123 }
@@ -848,7 +811,10 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
              resolved_function_call_base_node {
                resolved_function_call_node {
                  parent {
-                   parent { type { type_kind: TYPE_BOOL } }
+                   parent {
+                     type { type_kind: TYPE_BOOL }
+                     type_annotation_map {}
+                   }
                    function { name: "ZetaSQL:$less" }
                    signature {
                      argument {
@@ -883,13 +849,19 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
                    }
                    argument_list {
                      resolved_expression_column_node {
-                       parent { type { type_kind: TYPE_INT32 } }
+                       parent {
+                         type { type_kind: TYPE_INT32 }
+                         type_annotation_map {}
+                       }
                        name: "foo"
                      }
                    }
                    argument_list {
                      resolved_literal_node {
-                       parent { type { type_kind: TYPE_INT32 } }
+                       parent {
+                         type { type_kind: TYPE_INT32 }
+                         type_annotation_map {}
+                       }
                        value {
                          type { type_kind: TYPE_INT32 }
                          value { int32_value: 123 }

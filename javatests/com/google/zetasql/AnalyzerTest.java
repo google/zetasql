@@ -262,23 +262,13 @@ public class AnalyzerTest {
         new ParseResumeLocation(
             "select nullable_int from KitchenSinkPB;select key_value from KitchenSinkPB;");
 
-    // Try registering the parse resume location.
-    aParseResumeLocation.register();
     assertThat(Analyzer.analyzeNextStatement(aParseResumeLocation, options, catalog)).isNotNull();
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(39);
     assertThat(Analyzer.analyzeNextStatement(aParseResumeLocation, options, catalog)).isNotNull();
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(75);
 
-    // Mutating after register.
+    // After mutating location
     aParseResumeLocation.setBytePosition(39);
-    assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(39);
-    assertThat(Analyzer.analyzeNextStatement(aParseResumeLocation, options, catalog)).isNotNull();
-    assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(75);
-
-    // Try unregistering the parse resume location.
-    aParseResumeLocation.unregister();
-    aParseResumeLocation.setBytePosition(0);
-    assertThat(Analyzer.analyzeNextStatement(aParseResumeLocation, options, catalog)).isNotNull();
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(39);
     assertThat(Analyzer.analyzeNextStatement(aParseResumeLocation, options, catalog)).isNotNull();
     assertThat(aParseResumeLocation.getBytePosition()).isEqualTo(75);

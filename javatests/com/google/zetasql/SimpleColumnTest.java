@@ -180,7 +180,7 @@ public class SimpleColumnTest {
             "The number of fields of SimpleColumnProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(SimpleColumnProto.getDescriptor().getFields())
-        .hasSize(4);
+        .hasSize(5);
     assertWithMessage(
             "The number of fields in SimpleColumn class has changed, "
                 + "please also update the proto and serialization code accordingly.")

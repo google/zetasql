@@ -18,7 +18,7 @@
 
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -28,6 +28,18 @@
 #include "absl/status/status.h"
 
 namespace zetasql {
+namespace {
+
+// Returns a ResolvedNode from AnalyzerOutput. This function assumes one of
+// resolved_statement() and resolved_expr() is non-null and returns that.
+const ResolvedNode& NodeFromAnalyzerOutput(const AnalyzerOutput& output) {
+  if (output.resolved_statement() != nullptr) {
+    return *output.resolved_statement();
+  }
+  return *output.resolved_expr();
+}
+
+}  // namespace
 
 // Helper to allow mutating AnalyzerOutput.
 class AnalyzerOutputMutator {
@@ -38,10 +50,17 @@ class AnalyzerOutputMutator {
       : column_factory_(*column_factory),
         output_(*output) {}
 
-  // Updates the output with the new ResolvedStatement (and new max column id).
-  void Update(std::unique_ptr<const ResolvedStatement> resolved_statement) {
+  // Updates the output with the new ResolvedNode (and new max column id).
+  absl::Status Update(std::unique_ptr<const ResolvedNode> node) {
     output_.max_column_id_ = column_factory_.max_column_id();
-    output_.statement_ = std::move(resolved_statement);
+    if (output_.statement_ != nullptr) {
+      ZETASQL_RET_CHECK(node->IsStatement());
+      output_.statement_.reset(node.release()->GetAs<ResolvedStatement>());
+    } else {
+      ZETASQL_RET_CHECK(node->IsExpression());
+      output_.expr_.reset(node.release()->GetAs<ResolvedExpr>());
+    }
+    return absl::OkStatus();
   }
 
   AnalyzerOutputProperties& mutable_output_properties() {
@@ -60,7 +79,8 @@ absl::Status RewriteResolvedAst(
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory,
     AnalyzerOutput& analyzer_output) {
-  if (analyzer_output.resolved_statement() == nullptr) {
+  if (analyzer_output.resolved_statement() == nullptr &&
+      analyzer_output.resolved_expr() == nullptr) {
     return absl::OkStatus();
   }
 
@@ -73,17 +93,23 @@ absl::Status RewriteResolvedAst(
       analyzer_options.rewrite_enabled(REWRITE_FLATTEN)) {
     rewrite_activated = true;
     ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ResolvedStatement> result,
-        RewriteResolvedFlatten(*analyzer_output.resolved_statement(),
-                               column_factory));
-    output_mutator.Update(std::move(result));
+        std::unique_ptr<const ResolvedNode> result,
+        RewriteResolvedFlatten(
+            *catalog, NodeFromAnalyzerOutput(analyzer_output), column_factory));
+    ZETASQL_RETURN_IF_ERROR(output_mutator.Update(std::move(result)));
   }
 
   if (rewrite_activated) {
     // Make sure the generated ResolvedAST is valid.
     Validator validator;
-    ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
-        analyzer_output.resolved_statement()));
+    if (analyzer_output.resolved_statement() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
+          analyzer_output.resolved_statement()));
+    } else {
+      ZETASQL_RET_CHECK(analyzer_output.resolved_expr() != nullptr);
+      ZETASQL_RETURN_IF_ERROR(validator.ValidateStandaloneResolvedExpr(
+          analyzer_output.resolved_expr()));
+    }
   }
   return absl::OkStatus();
 }

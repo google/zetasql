@@ -114,11 +114,13 @@ public class AllowedHintsAndOptions implements Serializable {
   }
 
   /**
-   * Deserialize an AllowedHintsAndOptions from proto. Types will be created
-   * using given type factory and descriptor pools.
+   * Deserialize an AllowedHintsAndOptions from proto. Types will be created using given type
+   * factory and descriptor pools.
    */
   static AllowedHintsAndOptions deserialize(
-      AllowedHintsAndOptionsProto proto, List<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
+      AllowedHintsAndOptionsProto proto,
+      List<? extends DescriptorPool> pools,
+      TypeFactory factory) {
     AllowedHintsAndOptions allowed = new AllowedHintsAndOptions();
     for (String qualifier : proto.getDisallowUnknownHintsWithQualifierList()) {
       Preconditions.checkArgument(

@@ -69,10 +69,6 @@ service ZetaSqlLocalService {
   // Register a catalog at server side so that it can be reused.
   rpc RegisterCatalog(RegisterCatalogRequest) returns (RegisterResponse) {
   }
-  // Register a parse resume location
-  rpc RegisterParseResumeLocation(ParseResumeLocationProto)
-      returns (RegisterResponse) {
-  }
   // Analyze a SQL statement, return the resolved AST and an optional byte
   // position if end of input is not yet reached.
   rpc Analyze(AnalyzeRequest) returns (AnalyzeResponse) {
@@ -130,16 +126,9 @@ service ZetaSqlLocalService {
   // Cleanup a registered catalog.
   rpc UnregisterCatalog(UnregisterRequest) returns (google.protobuf.Empty) {
   }
-  // Cleanup a registered parse resume location.
-  rpc UnregisterParseResumeLocation(UnregisterRequest)
-      returns (google.protobuf.Empty) {
-  }
   // Get ZetaSQL builtin functions specified by given options.
   rpc GetBuiltinFunctions(ZetaSQLBuiltinFunctionOptionsProto)
       returns (GetBuiltinFunctionsResponse) {
-  }
-  // Add SimpleTable
-  rpc AddSimpleTable(AddSimpleTableRequest) returns (google.protobuf.Empty) {
   }
   // Gets ZetaSQL lanauge options.
   rpc GetLanguageOptions(LanguageOptionsRequest)
@@ -223,11 +212,6 @@ message TableFromProtoRequest {
   optional google.protobuf.FileDescriptorSet file_descriptor_set = 2;
 }
 
-message RegisteredParseResumeLocationProto {
-  optional int64 registered_id = 1;
-  optional int32 byte_position = 2;
-}
-
 message AnalyzeRequest {
   optional AnalyzerOptionsProto options = 1;
   optional SimpleCatalogProto simple_catalog = 2;
@@ -241,11 +225,11 @@ message AnalyzeRequest {
     string sql_statement = 5;
     // Multiple statement.
     ParseResumeLocationProto parse_resume_location = 6;
-    // Set if using a registered parse resume location.
-    RegisteredParseResumeLocationProto registered_parse_resume_location = 7;
     // Expression.
     string sql_expression = 8;
   }
+
+  reserved 7;
 }
 
 message AnalyzeResponse {
@@ -353,12 +337,6 @@ message GetBuiltinFunctionsResponse {
   // No file_descriptor_set returned. For now, only Datetime functions
   // have arguments of enum type which need to be added manually when
   // deserializing.
-}
-
-message AddSimpleTableRequest {
-  optional int64 registered_catalog_id = 1;
-  optional SimpleTableProto table = 2;
-  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
 }
 
 message LanguageOptionsRequest {

@@ -23,8 +23,9 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/literal_remover.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"

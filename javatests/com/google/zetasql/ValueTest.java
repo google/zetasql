@@ -898,6 +898,252 @@ public class ValueTest {
   }
 
   @Test
+  public void testEmptyIntervalByteStringDeserialize() {
+    IntervalValue zero =
+        IntervalValue.builder()
+            .setMonths(0)
+            .setDays(0)
+            .setMicros(0)
+            .setNanoFractions((short) 0)
+            .build();
+
+    ValueProto proto = ValueProto.newBuilder().setIntervalValue(ByteString.EMPTY).build();
+    assertThat(
+            Value.deserialize(TypeFactory.createSimpleType(TypeKind.TYPE_INTERVAL), proto)
+                .getIntervalValue())
+        .isEqualTo(zero);
+  }
+
+  @Test
+  public void testValidIntervalValue() {
+    ImmutableMap<IntervalValue, String> validIntervalAndValueStrings =
+        new ImmutableMap.Builder<IntervalValue, String>()
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Month: 0, Days: 0, Micros: 0 Nano Fractions: 0")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(12 * 10000)
+                    .setDays(366 * 10000)
+                    .setMicros(366 * 10000 * 24L * 3600 * 1000000)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Month: 120000, Days: 3660000, Micros: 316224000000000000 Nano Fractions: 0")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(-12 * 10000)
+                    .setDays(-366 * 10000)
+                    .setMicros(-366 * 10000 * 24L * 3600 * 1000000)
+                    .setNanoFractions((short) 999)
+                    .build(),
+                "Month: -120000, Days: -3660000, Micros: -316224000000000000 Nano Fractions: 999")
+            .build();
+    for (Map.Entry<IntervalValue, String> entry : validIntervalAndValueStrings.entrySet()) {
+      IntervalValue val = entry.getKey();
+      Value value = Value.createIntervalValue(val);
+      assertThat(value.getType().getKind()).isEqualTo(TypeKind.TYPE_INTERVAL);
+      assertThat(value.isNull()).isFalse();
+      assertThat(value.isValid()).isTrue();
+      assertThat(value.getIntervalValue()).isEqualTo(val);
+
+      Value anotherValue =
+          Value.createIntervalValue(
+              IntervalValue.builder()
+                  .setMonths(val.months())
+                  .setDays(val.days())
+                  .setMicros(val.micros())
+                  .setNanoFractions(val.nanoFractions())
+                  .build());
+      assertThat(value).isEqualTo(anotherValue);
+      assertThat(value.hashCode()).isEqualTo(anotherValue.hashCode());
+      checkSerializeAndDeserialize(value, anotherValue);
+    }
+  }
+
+  @Test
+  public void testInvalidIntervalValue() {
+    ImmutableMap<IntervalValue, String> invalidIntervalValuesAndExpectedErrors =
+        new ImmutableMap.Builder<IntervalValue, String>()
+            .put(
+                IntervalValue.builder()
+                    .setMonths(12 * 10000 + 1)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Interval months field value overflow, 120001 is out of range -120000 to 120000.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(-12 * 10000 - 1)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Interval months field value overflow, -120001 is out of range -120000 to 120000.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(366 * 10000 + 1)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Interval days field value overflow, 3660001 is out of range -3660000 to 3660000.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(-366 * 10000 - 1)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Interval days field value overflow, -3660001 is out of range -3660000 to 3660000.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(366 * 10000 * 24L * 3600 * 1000000 + 1)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Interval micros field value overflow, 316224000000000001 is out of range"
+                    + " -316224000000000000 to 316224000000000000.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(-366 * 10000 * 24L * 3600 * 1000000 - 1)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                "Interval micros field value overflow, -316224000000000001 is out of range"
+                    + " -316224000000000000 to 316224000000000000.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 1000)
+                    .build(),
+                "Interval nanoFractions field value overflow, 1000 is out of range 0 to 999.")
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) -1)
+                    .build(),
+                "Interval nanoFractions field value overflow, -1 is out of range 0 to 999.")
+            .build();
+
+    for (Map.Entry<IntervalValue, String> entry :
+        invalidIntervalValuesAndExpectedErrors.entrySet()) {
+      try {
+        Value.createIntervalValue(entry.getKey());
+        fail("Expected IllegalArgumentException");
+      } catch (IllegalArgumentException e) {
+        assertThat(e).hasMessageThat().isEqualTo(entry.getValue());
+      }
+    }
+  }
+
+  @Test
+  public void testIntervalSerialize() {
+    // TODO: Update the test to validate serialization round trip through cpp once we
+    // support proper ValueToString for Intervals.
+    ImmutableMap<IntervalValue, ByteString> inputAndExpectedOutputs =
+        new ImmutableMap.Builder<IntervalValue, ByteString>()
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                ByteString.copyFrom(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}))
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(1)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                ByteString.copyFrom(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}))
+            .put(
+                IntervalValue.builder()
+                    .setMonths(1)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                ByteString.copyFrom(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0}))
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(1)
+                    .setNanoFractions((short) 0)
+                    .build(),
+                ByteString.copyFrom(new byte[] {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}))
+            .put(
+                IntervalValue.builder()
+                    .setMonths(0)
+                    .setDays(0)
+                    .setMicros(0)
+                    .setNanoFractions((short) 1)
+                    .build(),
+                ByteString.copyFrom(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0}))
+            .build();
+    for (Map.Entry<IntervalValue, ByteString> entry : inputAndExpectedOutputs.entrySet()) {
+      assertThat(IntervalValue.serializeInterval(entry.getKey())).isEqualTo(entry.getValue());
+    }
+  }
+
+  @Test
+  public void testIntervalValueDeserializeMatchesSerialize() {
+    List<IntervalValue> intervalValues =
+        Arrays.asList(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(0)
+                .setNanoFractions((short) 0)
+                .build(),
+            IntervalValue.builder()
+                .setMonths(10)
+                .setDays(100)
+                .setMicros(1000)
+                .setNanoFractions((short) 500)
+                .build(),
+            IntervalValue.builder()
+                .setMonths(-30)
+                .setDays(-300)
+                .setMicros(-3000)
+                .setNanoFractions((short) 300)
+                .build(),
+            IntervalValue.builder()
+                .setMonths(80)
+                .setDays(8000)
+                .setMicros(123456789012345678L)
+                .setNanoFractions((short) 800)
+                .build(),
+            IntervalValue.builder()
+                .setMonths(-90)
+                .setDays(-9000)
+                .setMicros(-234567890123456789L)
+                .setNanoFractions((short) 345)
+                .build());
+
+    Type type = TypeFactory.createSimpleType(TypeKind.TYPE_INTERVAL);
+    for (IntervalValue value : intervalValues) {
+      ByteString serializedValue = Value.createIntervalValue(value).getProto().getIntervalValue();
+      ValueProto proto = ValueProto.newBuilder().setIntervalValue(serializedValue).build();
+      assertThat(Value.deserialize(type, proto).getIntervalValue()).isEqualTo(value);
+    }
+  }
+
+  @Test
   public void testStringValue() {
     Value hello = Value.createStringValue("hello");
     Value world = Value.createStringValue("world");
@@ -1731,8 +1977,7 @@ public class ValueTest {
 
     assertThat(jsonValue).isNotNull();
     assertThat(jsonValue.isValid()).isTrue();
-    assertThat(jsonValue.getJsonValue())
-        .isEqualTo("123");
+    assertThat(jsonValue.getJsonValue()).isEqualTo("123");
     checkSerializeAndDeserialize(jsonValue);
   }
 
@@ -2049,7 +2294,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(22);
+        .hasSize(23);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")
@@ -2064,7 +2309,7 @@ public class ValueTest {
             "The number of fields in Value class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(Value.class))
-        .isEqualTo(6);
+        .isEqualTo(7);
   }
 
   private static TypeProto typeProtoFromText(String textProto) {

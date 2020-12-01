@@ -456,6 +456,7 @@ CREATE
   VIEW
   [IF NOT EXISTS]
   view_name
+  [SQL SECURITY { INVOKER | DEFINER }]
   [OPTIONS (key=value, ...)]
 AS query;
 ```
@@ -472,6 +473,14 @@ The `CREATE VIEW` statement creates a view based on a specific query.
     system-specific.
 +   `IF NOT EXISTS`: If any view exists with the same name, the `CREATE`
     statement will have no effect. Cannot appear with `OR REPLACE`.
++   `SQL SECURITY`: Specifies how data access control lists (ACLs) are applied
+    with respect to schema objects referenced within the view's query.
+    +  `DEFINER`: The privileges of the role (user) that created the view are
+       used to run the view, and are applied to each schema object the view
+       accesses.
+    +  `INVOKER`: The privileges of the role (user) that is running the query
+       that invoked the view are used to run the view, and are applied to each
+       schema object the view accesses.
 
 ## CREATE EXTERNAL TABLE
 

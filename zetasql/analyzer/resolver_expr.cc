@@ -29,6 +29,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/parse_tree_decls.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/simple_catalog.h"
 #include <cstdint>
 #include "google/protobuf/descriptor.pb.h"
@@ -46,9 +47,10 @@
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/constant.h"
@@ -808,10 +810,6 @@ absl::Status Resolver::ResolveExpr(
       // signature matching appropriately.
       return ResolveExpr(ast_expr->GetAsOrDie<ASTNamedArgument>()->expr(),
                          expr_resolution_info.get(), resolved_expr_out);
-    case AST_COLLATE_EXPRESSION:
-      return ResolveCollateExpression(
-          ast_expr->GetAsOrDie<ASTCollateExpression>(),
-          expr_resolution_info.get(), resolved_expr_out);
     default:
       return MakeSqlErrorAt(ast_expr)
              << "Unhandled select-list expression for node kind "
@@ -959,7 +957,10 @@ absl::Status Resolver::ResolveLiteralExpr(
       } else {
         auto status_or_value = JSONValue::ParseJSONString(
             unquoted_image,
-            language().LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE));
+            JSONParsingOptions{
+                language().LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+                language().LanguageFeatureEnabled(
+                    FEATURE_JSON_STRICT_NUMBER_PARSING)});
         if (!status_or_value.ok()) {
           return MakeSqlErrorAt(literal) << "Invalid JSON literal: "
                                          << status_or_value.status().message();
@@ -1614,6 +1615,12 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
         for (int i = 0; i < lhs_proto->field_count(); ++i) {
           possible_names.push_back(lhs_proto->field(i)->name());
         }
+        const std::string name_suggestion =
+            ClosestName(dot_name, possible_names);
+        if (!name_suggestion.empty()) {
+          absl::StrAppend(&error_message, "; Did you mean ", name_suggestion,
+                          "?");
+        }
       }
       return MakeSqlErrorAt(identifier) << error_message;
     } else {
@@ -1736,6 +1743,11 @@ absl::Status Resolver::MaybeResolveStructFieldAccess(
       for (const StructType::StructField& field : struct_type->fields()) {
         possible_names.push_back(field.name);
       }
+      const std::string name_suggestion = ClosestName(dot_name, possible_names);
+      if (!name_suggestion.empty()) {
+        absl::StrAppend(&error_message, "; Did you mean ", name_suggestion,
+                        "?");
+      }
       return MakeSqlErrorAt(identifier) << error_message;
     } else {
       // We return success with a NULL resolved_expr_out.
@@ -1745,8 +1757,11 @@ absl::Status Resolver::MaybeResolveStructFieldAccess(
   }
   ZETASQL_DCHECK_EQ(field, &struct_type->field(found_idx));
 
-  *resolved_expr_out = MakeResolvedGetStructField(
+  std::unique_ptr<ResolvedExpr> resolved_node = MakeResolvedGetStructField(
       field->type, std::move(resolved_lhs), found_idx);
+  ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(/*error_node=*/nullptr,
+                                               resolved_node.get()));
+  *resolved_expr_out = std::move(resolved_node);
   return absl::OkStatus();
 }
 
@@ -1778,6 +1793,15 @@ absl::Status Resolver::ResolveFieldAccess(
     ZETASQL_RETURN_IF_ERROR(MaybeResolveStructFieldAccess(
         identifier, true /* error_if_not_found */, std::move(resolved_lhs),
         resolved_expr_out));
+  } else if (lhs_type->IsArray() &&
+             language().LanguageFeatureEnabled(
+                 FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+    return MakeSqlErrorAt(identifier)
+           << "Cannot access field " << identifier->GetAsIdString()
+           << " on a value with type "
+           << lhs_type->ShortTypeName(product_mode()) << ". "
+           << "You may need an explicit call to FLATTEN, and the flattened "
+           << "argument many only contain 'dot' after the first array";
   } else {
     return MakeSqlErrorAt(identifier)
            << "Cannot access field " << identifier->GetAsIdString()
@@ -3114,53 +3138,27 @@ absl::Status Resolver::ResolveProtoExtractExpression(
     const ASTExpression* field_extraction_type_ast_location,
     std::unique_ptr<const ResolvedExpr> resolved_proto_input,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  std::string extraction_type_name;
-  const ASTExpression* field_ast_location = nullptr;
-  const ASTPathExpression* field_path = nullptr;
-
-  // Determine the field and extraction type from the ACCESSOR(field) input
-  // expression.
-  if (field_extraction_type_ast_location->node_kind() == AST_FUNCTION_CALL) {
-    const auto ast_function_call =
-        field_extraction_type_ast_location->GetAsOrDie<ASTFunctionCall>();
-
-    if (ast_function_call->function()->num_names() != 1) {
-      return MakeSqlErrorAt(ast_function_call->function())
-             << "A valid proto extraction type is required (e.g., HAS or "
-                "FIELD), but found "
-             << ast_function_call->function()->ToIdentifierPathString();
-    }
-    extraction_type_name =
-        ast_function_call->function()->first_name()->GetAsString();
-
-    if (ast_function_call->arguments().size() != 1 ||
-        ast_function_call->HasModifiers()) {
-      return MakeSqlErrorAt(ast_function_call)
-             << "Found invalid argument function call syntax for "
-             << ast_function_call->function()->ToIdentifierPathString() << "()";
-    }
-
-    field_ast_location = ast_function_call->arguments()[0];
-    // We don't allow AST_IDENTIFIER because the grammar won't allow it to
-    // be used as a function argument, despite ASTIdentifier inheriting from
-    // ASTExpression.
-    ZETASQL_RET_CHECK(field_ast_location->node_kind() == AST_PATH_EXPRESSION)
-        << "Found invalid argument function call syntax for "
-        << ast_function_call->function()->ToIdentifierPathString() << "()";
-    field_path = field_ast_location->GetAsOrDie<ASTPathExpression>();
-    if (field_path->names().empty() ||
-        (field_path->num_names() > 1 && !field_path->parenthesized())) {
-      return MakeSqlErrorAt(field_path)
-             << "A valid top level field or parenthesized extension path is "
-                "required, but found "
-             << field_path->ToIdentifierPathString();
-    }
-  } else {
+  ZETASQL_RET_CHECK(
+      language().LanguageFeatureEnabled(FEATURE_V_1_3_EXTRACT_FROM_PROTO));
+  if (field_extraction_type_ast_location->node_kind() != AST_FUNCTION_CALL) {
     return MakeSqlErrorAt(field_extraction_type_ast_location)
            << "Invalid proto extraction function call syntax found. Extraction "
               "type and field should follow the pattern EXTRACTION_TYPE(field)";
   }
 
+  // Determine the field and extraction type from the ACCESSOR(field) input
+  // expression.
+  const auto ast_function_call =
+      field_extraction_type_ast_location->GetAsOrDie<ASTFunctionCall>();
+  if (ast_function_call->function()->num_names() != 1) {
+    return MakeSqlErrorAt(ast_function_call->function())
+           << "A valid proto extraction type is required (e.g., HAS or "
+              "FIELD), but found "
+           << ast_function_call->function()->ToIdentifierPathString();
+  }
+
+  std::string extraction_type_name =
+      ast_function_call->function()->first_name()->GetAsString();
   zetasql_base::StatusOr<const Resolver::ProtoExtractionType> field_extraction_type_or =
       ProtoExtractionTypeFromName(extraction_type_name);
   if (!field_extraction_type_or.ok()) {
@@ -3168,6 +3166,54 @@ absl::Status Resolver::ResolveProtoExtractExpression(
            << "A valid proto extraction type is required (e.g., HAS or FIELD), "
               "but found "
            << extraction_type_name;
+  }
+  bool extraction_type_supported = false;
+  switch (field_extraction_type_or.value()) {
+    case ProtoExtractionType::kHas:
+    case ProtoExtractionType::kField:
+    case ProtoExtractionType::kRaw: {
+      // These EXTRACT types are supported by the base
+      // FEATURE_V_1_3_EXTRACT_FROM_PROTO.
+      extraction_type_supported = true;
+      break;
+    }
+  }
+  if (!extraction_type_supported) {
+    return MakeSqlErrorAt(field_extraction_type_ast_location)
+           << "Extraction type "
+           << ProtoExtractionTypeName(field_extraction_type_or.value())
+           << "() is not supported";
+  }
+
+  if (ast_function_call->arguments().size() != 1 ||
+      ast_function_call->HasModifiers()) {
+    return MakeSqlErrorAt(ast_function_call)
+           << "Found invalid argument function call syntax for "
+           << ast_function_call->function()->ToIdentifierPathString() << "()";
+  }
+
+  const ASTExpression* field_ast_location = ast_function_call->arguments()[0];
+  // We don't allow AST_IDENTIFIER because the grammar won't allow it to
+  // be used as a function argument, despite ASTIdentifier inheriting from
+  // ASTExpression.
+  if (field_ast_location->node_kind() != AST_PATH_EXPRESSION) {
+    return MakeSqlErrorAt(field_ast_location)
+           << "Found invalid argument for "
+           << ast_function_call->function()->ToIdentifierPathString()
+           << "() accessor. Input must be an identifier naming a valid "
+              "field";
+  }
+
+  const ASTPathExpression* field_path =
+      field_ast_location->GetAsOrDie<ASTPathExpression>();
+  if (field_path->names().empty() ||
+      (field_path->num_names() > 1 && !field_path->parenthesized())) {
+    const absl::string_view error_message =
+            "A valid top level field or parenthesized extension path is "
+            "required";
+    return MakeSqlErrorAt(field_path)
+           << error_message << ", but found '"
+           << field_path->ToIdentifierPathString() << "'";
   }
 
   return ResolveProtoExtractWithExtractTypeAndField(
@@ -3272,6 +3318,27 @@ absl::Status Resolver::ResolveIntervalArgument(
                                             resolved_arguments_out));
   ast_arguments_out->push_back(interval_value_expr);
 
+  // Resolve the date part identifier and verify that it is a valid date part.
+  const ASTIdentifier* interval_date_part_identifier =
+      interval_expr->date_part_name();
+  std::unique_ptr<const ResolvedExpr> resolved_date_part;
+  ZETASQL_RETURN_IF_ERROR(ResolveDatePartArgument(interval_date_part_identifier,
+                                          &resolved_date_part));
+
+  // Optionally resolve the second date part identifier.
+  if (interval_expr->date_part_name_to() != nullptr) {
+    const ASTIdentifier* interval_date_part_identifier_to =
+        interval_expr->date_part_name_to();
+    // We verify that it is a valid date part to have good error message.
+    std::unique_ptr<const ResolvedExpr> resolved_date_part_to;
+    ZETASQL_RETURN_IF_ERROR(ResolveDatePartArgument(interval_date_part_identifier_to,
+                                            &resolved_date_part_to));
+    // But for backward compatibility with existing code, INTERVAL used as
+    // argument to few date/time functions has to be single part.
+    return MakeSqlErrorAt(arg)
+           << "INTERVAL argument only support single date part field.";
+  }
+
   // Coerce the interval value argument to INT64 if necessary.
   if (!resolved_arguments_out->back()->type()->IsInt64()) {
     std::unique_ptr<const ResolvedExpr> resolved_interval_value_arg =
@@ -3298,13 +3365,8 @@ absl::Status Resolver::ResolveIntervalArgument(
     }
   }
 
-  // Resolve the date part identifier.
-  const ASTIdentifier* interval_date_part_identifier =
-      interval_expr->date_part_name();
-  std::unique_ptr<const ResolvedExpr> resolved_argument;
-  ZETASQL_RETURN_IF_ERROR(ResolveDatePartArgument(interval_date_part_identifier,
-                                          &resolved_argument));
-  resolved_arguments_out->push_back(std::move(resolved_argument));
+  resolved_arguments_out->push_back(std::move(resolved_date_part));
+
   ast_arguments_out->push_back(arg);
   return absl::OkStatus();
 }
@@ -3495,7 +3557,7 @@ static bool IsSpecialMapContextFunction(absl::string_view function_name) {
 absl::Status Resolver::ResolveLambda(
     const ASTLambda* ast_lambda, absl::Span<const IdString> arg_names,
     absl::Span<const Type* const> arg_types, const Type* body_result_type,
-    const NameScope* name_scope,
+    bool allow_argument_coercion, const NameScope* name_scope,
     std::unique_ptr<const ResolvedInlineLambda>* resolved_expr_out) {
   static constexpr char kLambda[] = "Lambda";
   // Every argument should have a corresponding type.
@@ -3536,9 +3598,12 @@ absl::Status Resolver::ResolveLambda(
   // If <body_result_type> is set, the body expr is expected to have
   // specific type.
   if (body_result_type != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_lambda->body(), body_result_type,
-                                     /*assignment_semantics=*/false, kLambda,
-                                     &resolved_body));
+    if (!resolved_body->type()->Equals(body_result_type) &&
+        allow_argument_coercion) {
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_lambda->body(), body_result_type,
+                                       /*assignment_semantics=*/false, kLambda,
+                                       &resolved_body));
+    }
   }
 
   // Gather the correlated column references: columns other than the lambda
@@ -3774,6 +3839,11 @@ absl::Status Resolver::ResolveExplicitCast(
   ZETASQL_RETURN_IF_ERROR(
       ResolveExpr(cast->expr(), expr_resolution_info, &resolved_argument));
   const bool return_null_on_error = cast->is_safe_cast();
+
+  if (cast->format() != nullptr) {
+    return MakeSqlErrorAt(cast->format())
+           << "CAST with FORMAT is not supported";
+  }
 
   // Handles casting literals that do not have an explicit type:
   // - For untyped NULL, converts the NULL to the target type.
@@ -4128,7 +4198,7 @@ absl::Status Resolver::ResolveExtractExpression(
     if (!resolved_arguments[0]->type()->IsTimestamp() &&
         !resolved_arguments[0]->type()->IsCivilDateOrTimeType() &&
         !resolved_arguments[0]->type()->IsProto()) {
-      return MakeSqlErrorAt(extract_expression)
+      return MakeSqlErrorAt(extract_expression->rhs_expr())
              << "EXTRACT does not support arguments of type: "
              << resolved_arguments[0]->type()->ShortTypeName(product_mode());
     }
@@ -5003,13 +5073,9 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     function_call_info.reset(new ResolvedFunctionCallInfo());
     const TemplatedSQLFunction* sql_function =
         function->GetAs<TemplatedSQLFunction>();
-    std::vector<const ResolvedExpr*> expr_list;
-    for (const std::unique_ptr<const ResolvedExpr>& expr :
-             (*resolved_function_call)->argument_list()) {
-      expr_list.push_back(expr.get());
-    }
     std::vector<InputArgumentType> input_arguments;
-    GetInputArgumentTypesForExprList(&expr_list, &input_arguments);
+    GetInputArgumentTypesForExprList((*resolved_function_call)->argument_list(),
+                                     &input_arguments);
 
     // Call the TemplatedSQLFunction::Resolve() method to get the output type.
     // Use a new empty cycle detector, or the cycle detector from this
@@ -5155,6 +5221,19 @@ absl::Status Resolver::ResolveExpressionArguments(
       }
       ZETASQL_RETURN_IF_ERROR(
           ValidateLambdaArgumentListIsIdentifierList(arg->GetAs<ASTLambda>()));
+      // Normally all function arguments are resolved, then signatures are
+      // matched against them. Lambdas, such as `e->e>0`, don't have explicit
+      // types for the arguments. Types of arguments of lambda can only be
+      // inferred based on types of other arguments and functions signature.
+      // Then the lambda body referencing the arguments can be resolved. We put
+      // nullptrs instead ResolvedExpr in place of lambdas, resolve the lambdas
+      // during signature matching and fill in the generic_argument_list
+      // appropriately after signature matching. The resolved argument list with
+      // nullptr only hangs around during arguments resolving and signature
+      // matching.
+      //
+      resolved_arguments_out->push_back(nullptr);
+      ast_arguments_out->push_back(arg);
     } else {
       ZETASQL_RETURN_IF_ERROR(ResolveExpressionArgument(arg, expr_resolution_info,
                                                 resolved_arguments_out));
@@ -5323,8 +5402,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
       ast_location, arg_locations, function, error_mode,
       false /* is_analytic */, std::move(resolved_arguments),
-      std::move(named_arguments), nullptr /* expected_result_type */,
-      &resolved_function_call));
+      std::move(named_arguments), /*expected_result_type=*/nullptr,
+      expr_resolution_info->name_scope, &resolved_function_call));
 
   if (function->IsDeprecated()) {
     ZETASQL_RETURN_IF_ERROR(AddDeprecationWarning(
@@ -5380,6 +5459,11 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
           ast_location, resolved_function_call->release_argument_list(),
           resolved_expr_out));
     } else if (IsFlatten(function)) {
+      if (!language().LanguageFeatureEnabled(
+              FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS)) {
+        return MakeSqlErrorAt(ast_location)
+               << "The FLATTEN function is not supported";
+      }
       ZETASQL_RET_CHECK_EQ(1, resolved_function_call->argument_list_size());
       *resolved_expr_out =
           std::move(resolved_function_call->release_argument_list()[0]);
@@ -5633,7 +5717,10 @@ absl::Status Resolver::CoerceExprToBool(
 
 absl::Status Resolver::CoerceExprToType(
     const ASTExpression* ast_expression, const Type* target_type,
-    bool assignment_semantics, const char* clause_name,
+    bool assignment_semantics,
+    std::function<std::string(const std::string& target_type_name,
+                              const std::string& actual_type_name)>
+        error_lambda,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   InputArgumentType expr_arg_type =
       GetInputArgumentTypeForExpr(resolved_expr->get());
@@ -5652,15 +5739,8 @@ absl::Status Resolver::CoerceExprToType(
         target_type->ShortTypeName(language().product_mode());
     const std::string expr_type_name =
         resolved_expr->get()->type()->ShortTypeName(language().product_mode());
-    if (clause_name != nullptr) {
-      return MakeSqlErrorAt(ast_expression)
-             << clause_name << " should return type " << target_type_name
-             << ", but returns " << expr_type_name;
-    } else {
-      return MakeSqlErrorAt(ast_expression)
-             << "Expected type " << target_type_name << "; found "
-             << expr_type_name;
-    }
+    return MakeSqlErrorAt(ast_expression)
+           << error_lambda(target_type_name, expr_type_name);
   }
 
   // The coercion is legal, so implement it by adding a cast.  Note that
@@ -5672,6 +5752,23 @@ absl::Status Resolver::CoerceExprToType(
                                                /*return_null_on_error=*/false,
                                                resolved_expr));
   return absl::OkStatus();
+}
+
+absl::Status Resolver::CoerceExprToType(
+    const ASTExpression* ast_expression, const Type* target_type,
+    bool assignment_semantics, const char* clause_name,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
+  auto error_lambda = [clause_name](const std::string& target_type_name,
+                                    const std::string& actual_type_name) {
+    if (clause_name != nullptr) {
+      return absl::StrCat(clause_name, " should return type ", target_type_name,
+                          ", but returns ", actual_type_name);
+    }
+    return absl::StrCat("Expected type ", target_type_name, "; found ",
+                        actual_type_name);
+  };
+  return CoerceExprToType(ast_expression, target_type, assignment_semantics,
+                          error_lambda, resolved_expr);
 }
 
 absl::Status Resolver::ResolveExecuteImmediateArgument(
@@ -5686,15 +5783,6 @@ absl::Status Resolver::ResolveExecuteImmediateArgument(
   *output = MakeResolvedExecuteImmediateArgument(alias, std::move(expression));
 
   return absl::OkStatus();
-}
-
-absl::Status Resolver::ResolveCollateExpression(
-    const ASTCollateExpression* ast_collate_expr,
-    ExprResolutionInfo* expr_resolution_info,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  ZETASQL_RET_CHECK(ast_collate_expr != nullptr);
-  // TODO: implement collate expression in analyzer.
-  return MakeSqlErrorAt(ast_collate_expr) << "COLLATE is not supported";
 }
 
 }  // namespace zetasql

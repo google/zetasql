@@ -49,7 +49,7 @@ public final class TypeTestBase {
   }
 
   public static void checkTypeSerializationAndDeserializationExistingPools(
-      Type type, List<ZetaSQLDescriptorPool> pools) {
+      Type type, List<DescriptorPool> pools) {
     TypeFactory factory = TypeFactory.nonUniqueNames();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     TypeProto.Builder builder = TypeProto.newBuilder();
@@ -69,7 +69,7 @@ public final class TypeTestBase {
     TypeProto.Builder builder = TypeProto.newBuilder();
     type.serialize(builder, fileDescriptorSetsBuilder);
     List<FileDescriptorSet> sets = fileDescriptorSetsBuilder.build();
-    List<ZetaSQLDescriptorPool> pools = new ArrayList<>();
+    List<DescriptorPool> pools = new ArrayList<>();
     for (FileDescriptorSet set : sets) {
       ZetaSQLDescriptorPool pool = new ZetaSQLDescriptorPool();
       pool.importFileDescriptorSet(set);

@@ -12,6 +12,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+
+load(
+    "//zetasql/compliance:builddefs.bzl",
+    "zetasql_compliance_test",
+)
 
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
@@ -238,7 +244,7 @@ cc_library(
         ":parameters",
         ":proto_util",
         ":variable_generator",
-        "//zetasql/analyzer",
+        "//zetasql/analyzer:resolver",
         "//zetasql/base",
         "//zetasql/base:flat_set",
         "//zetasql/base:map_util",
@@ -374,6 +380,45 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+# Link with this target for compliance tests against the reference
+# implementation.  This returns a ReferenceDriver with no specific
+# LanguageOptions set (because each test will specify the options to use
+# for that test).
+cc_library(
+    name = "use_reference_driver_for_compliance_test",
+    testonly = 1,
+    srcs = ["use_reference_driver_for_compliance_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":reference_driver",
+        "//zetasql/compliance:test_driver",
+    ],
+)
+
+zetasql_compliance_test(
+    name = "reference_compliance_test",
+    size = "large",
+    known_error_files = [
+        ":reference_impl_known_errors.textproto",
+        "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
+        "//zetasql/compliance/known_errors:zetasql_known_errors.textproto",
+    ],
+    shard_count = 30,
+    deps = [
+        ":reference_driver",
+        # buildcleaner: keep
+        ":use_reference_driver_for_compliance_test",
     ],
 )
 

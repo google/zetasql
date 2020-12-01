@@ -56,7 +56,7 @@ public class EnumTypeTest {
     EnumType type = factory.createEnumType(pool.findEnumTypeByName("zetasql.TypeKind"));
     checkTypeSerializationAndDeserialization(type);
 
-    List<ZetaSQLDescriptorPool> pools = Lists.newArrayList(pool);
+    List<DescriptorPool> pools = Lists.newArrayList(pool);
     checkTypeSerializationAndDeserializationExistingPools(type, pools);
   }
 
@@ -87,7 +87,7 @@ public class EnumTypeTest {
     // total number of FileDescriptorSet serialized:
     // 1 loaded ZetaSQLDescriptorPool + 1 dummy pool for generated protos.
     assertThat(sets).hasSize(2);
-    List<ZetaSQLDescriptorPool> pools = new ArrayList<>();
+    List<DescriptorPool> pools = new ArrayList<>();
     for (FileDescriptorSet fileDescriptorSet : sets) {
       ZetaSQLDescriptorPool descriptorPool = new ZetaSQLDescriptorPool();
       descriptorPool.importFileDescriptorSet(fileDescriptorSet);
@@ -146,7 +146,7 @@ public class EnumTypeTest {
     // total number of FileDescriptorSet serialized:
     // 1 loaded ZetaSQLDescriptorPool + 1 dummy pool for generated protos.
     assertThat(sets).hasSize(2);
-    List<ZetaSQLDescriptorPool> pools = new ArrayList<>();
+    List<DescriptorPool> pools = new ArrayList<>();
     for (FileDescriptorSet fileDescriptorSet : sets) {
       ZetaSQLDescriptorPool descriptorPool = new ZetaSQLDescriptorPool();
       descriptorPool.importFileDescriptorSet(fileDescriptorSet);

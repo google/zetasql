@@ -108,8 +108,15 @@ for an explanation of join conditions.</td></tr>
 
 ## Numeric types
 
-Numeric types include integer types, floating point types and the `NUMERIC` data
-type.
+Numeric types include the following types:
+
+ * `INT32`
+ * `UINT32`
+ * `INT64`
+ * `UINT64`
+ * `NUMERIC` with alias `DECIMAL`
+ * `FLOAT`
+ * `DOUBLE`
 
 ### Integer types
 
@@ -147,11 +154,11 @@ Integers are numeric values that do not have fractional components.
 </tbody>
 </table>
 
-### NUMERIC type
+### Decimal type
 
-The `NUMERIC` data type is an exact numeric value with 38 digits of precision
-and 9 decimal digits of scale. Precision is the number of digits that the number
-contains. Scale is how many of these digits appear after the decimal point.
+Decimal type values are numeric values with fixed precision and scale.
+Precision is the number of digits that the number contains. Scale is
+how many of these digits appear after the decimal point.
 
 This type can represent decimal fractions exactly, and is suitable for financial
 calculations.
@@ -159,24 +166,26 @@ calculations.
 <table>
 <thead>
 <tr>
-<th>Name</th>
-<th>Description</th>
-<th>Range</th>
+  <th>Name</th>
+  <th>Precision, Scale, and Range</th>
 </tr>
 </thead>
 <tbody>
 
+<a id="numeric-type"></a>
 <tr>
-<td><code>NUMERIC</code></td>
-<td>Decimal values with 38 decimal digits of precision and 9 decimal digits of
-scale.</td>
-<td>-99999999999999999999999999999.999999999 to
-  99999999999999999999999999999.999999999</td>
+  <td style="vertical-align:middle"><code>NUMERIC</code>
+    <br><code>DECIMAL</code></td>
+  <td style="vertical-align:middle">
+    Precision: 38<br>
+    Scale: 9<br>
+    Min: -9.9999999999999999999999999999999999999E+29<br>
+    Max: 9.9999999999999999999999999999999999999E+29
+  </td>
 </tr>
+
 </tbody>
 </table>
-
-### DECIMAL type
 
 `DECIMAL` is an alias for `NUMERIC`.
 
@@ -196,12 +205,12 @@ Floating point values are approximate numeric values with fractional components.
 
 <tr>
 <td><code>FLOAT</code></td>
-<td>Single precision (approximate) decimal values.</td>
+<td>Single precision (approximate) numeric values.</td>
 </tr>
 
 <tr>
 <td><code>DOUBLE</code></td>
-<td>Double precision (approximate) decimal values.</td>
+<td>Double precision (approximate) numeric values.</td>
 </tr>
 </tbody>
 </table>

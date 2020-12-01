@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/analyzer/table_name_resolver.h"
+#include "zetasql/public/table_name_resolver.h"
 
 #include <memory>
 #include <set>
@@ -415,6 +415,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
     case AST_CALL_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CALL_STMT)) {
+        const ASTCallStatement* call =
+            statement->GetAsOrDie<ASTCallStatement>();
+        for (const ASTTVFArgument* arg : call->arguments()) {
+          ZETASQL_RETURN_IF_ERROR(
+              FindInExpressionsUnder(arg->expr(), /*visible_aliases=*/{}));
+        }
         return absl::OkStatus();
       }
       break;
@@ -620,6 +626,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+    case AST_ALTER_SCHEMA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_SCHEMA_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
     case AST_ALTER_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT) ||
@@ -628,6 +640,24 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         // Note that for a ALTER TABLE statement, the table name is not
         // inserted into table_names_. Engines that need to know about a table
         // referenced by ALTER TABLE should handle that themselves.
+        //
+        // ALTER TABLE statements may reference tables if statement is adding
+        // a foreign key.
+        const auto* alter = statement->GetAsOrDie<ASTAlterTableStatement>();
+        for (const auto* action : alter->action_list()->actions()) {
+          if (action->node_kind() != AST_ADD_CONSTRAINT_ACTION) {
+            continue;
+          }
+          const auto* constraint =
+              action->GetAsOrDie<ASTAddConstraintAction>()->constraint();
+          if (constraint->node_kind() != AST_FOREIGN_KEY) {
+            continue;
+          }
+          const auto* foreign_key = constraint->GetAsOrDie<ASTForeignKey>();
+          zetasql_base::InsertIfNotPresent(
+              table_names_,
+              foreign_key->reference()->table_name()->ToIdentifierVector());
+        }
         return absl::OkStatus();
       }
       break;
@@ -708,6 +738,43 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+    case AST_VARIABLE_DECLARATION: {
+      const ASTVariableDeclaration* decl =
+          statement->GetAsOrDie<ASTVariableDeclaration>();
+      if (decl->default_value() != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(decl->default_value(),
+                                               /*visible_aliases=*/{}));
+      }
+      return absl::OkStatus();
+    }
+    case AST_SINGLE_ASSIGNMENT: {
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ASSIGNMENT_STMT)) {
+        const ASTSingleAssignment* assign =
+            statement->GetAsOrDie<ASTSingleAssignment>();
+        return FindInExpressionsUnder(assign->expression(),
+                                      /*visible_aliases=*/{});
+      }
+      break;
+    }
+    case AST_ASSIGNMENT_FROM_STRUCT: {
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ASSIGNMENT_STMT)) {
+        const ASTAssignmentFromStruct* assign =
+            statement->GetAsOrDie<ASTAssignmentFromStruct>();
+        return FindInExpressionsUnder(assign->struct_expression(),
+                                      /*visible_aliases=*/{});
+      }
+      break;
+    }
+    case AST_RAISE_STATEMENT: {
+      const ASTRaiseStatement* raise =
+          statement->GetAsOrDie<ASTRaiseStatement>();
+      if (raise->message() != nullptr) {
+        return FindInExpressionsUnder(raise->message(), /*visible_aliases=*/{});
+      }
+      return absl::OkStatus();
+    }
     default:
       break;
   }

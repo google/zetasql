@@ -46,25 +46,16 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Class mimicking the C++ version of DescriptorPool. The Java DescriptorPool is a private class,
- * and it has different semantics from the C++ version. We need one that follows the C++ semantics
- * to make sure serialization of types that uses descriptors from more than 1 pool have the same
- * behavior.
+ * A basic, mutable implementation of DescriptorPool.
  *
- * <p>The existing com.google.protobuf.contrib.descriptor_pool.DescriptorPool is incomplete and
- * doesn't meet our requirements, for details,
- *
- * @see "(broken link)"
- *
- * This class is not thread safe.
+ * <p>This class is not thread safe.
  */
-public class ZetaSQLDescriptorPool implements Serializable {
+public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
   // Global pool for generated descriptors i.e. those compiled into the Java
   // program, rather than loaded from protobuf. Generated descriptors will be
   // imported into this pool when they are used to create types.
   private static final GeneratedDescriptorPool generatedDescriptorPool =
       new GeneratedDescriptorPool();
-
   /**
    * Imports the given generated {@code descriptor} to the global {@code generatedDescriptorPool};
    */
@@ -221,6 +212,7 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Returns the {@code ZetaSQLEnumDescriptor} of the enum with given {@code name} or null if not
    * found.
    */
+  @Override
   @Nullable
   public ZetaSQLEnumDescriptor findEnumTypeByName(String name) {
     if (enumsByName.containsKey(name)) {
@@ -233,6 +225,7 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Returns the {@code ZetaSQLDescriptor} of the message with given {@code name} or null if not
    * found.
    */
+  @Override
   @Nullable
   public ZetaSQLDescriptor findMessageTypeByName(String name) {
     if (messagesByName.containsKey(name)) {
@@ -245,6 +238,7 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Returns the {@code ZetaSQLFileDescriptor} of the file with given {@code name} or null if not
    * found.
    */
+  @Override
   @Nullable
   public ZetaSQLFileDescriptor findFileByName(String name) {
     if (fileDescriptorsByName.containsKey(name)) {
@@ -253,7 +247,8 @@ public class ZetaSQLDescriptorPool implements Serializable {
     return null;
   }
 
-  ImmutableList<FileDescriptor> getAllFileDescriptors() {
+  @Override
+  public ImmutableList<FileDescriptor> getAllFileDescriptors() {
     return ImmutableList.copyOf(fileDescriptorsByName.values());
   }
 
@@ -294,6 +289,10 @@ public class ZetaSQLDescriptorPool implements Serializable {
       return pool;
     }
 
+    public final ZetaSQLDescriptorPool getDescriptorPool() {
+      return pool;
+    }
+
     public final T getDescriptor() {
       return descriptor;
     }
@@ -319,7 +318,8 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Wrapped {@code FileDescriptor} with the {@code ZetaSQLDescriptorPool} from which it was
    * created.
    */
-  public static class ZetaSQLFileDescriptor extends ZetaSQLGenericDescriptor<FileDescriptor> {
+  public static class ZetaSQLFileDescriptor extends ZetaSQLGenericDescriptor<FileDescriptor>
+      implements DescriptorPool.ZetaSQLFileDescriptor {
     private ZetaSQLFileDescriptor(FileDescriptor descriptor, ZetaSQLDescriptorPool pool) {
       super(descriptor, pool);
     }
@@ -342,7 +342,8 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Wrapped {@code EnumDescriptor} with the {@code ZetaSQLDescriptorPool} from which it was
    * created.
    */
-  public static class ZetaSQLEnumDescriptor extends ZetaSQLGenericDescriptor<EnumDescriptor> {
+  public static class ZetaSQLEnumDescriptor extends ZetaSQLGenericDescriptor<EnumDescriptor>
+      implements DescriptorPool.ZetaSQLEnumDescriptor {
     private ZetaSQLEnumDescriptor(EnumDescriptor descriptor, ZetaSQLDescriptorPool pool) {
       super(descriptor, pool);
     }
@@ -364,11 +365,13 @@ public class ZetaSQLDescriptorPool implements Serializable {
   /**
    * Wrapped {@code Descriptor} with the {@code ZetaSQLDescriptorPool} from which it was created.
    */
-  public static class ZetaSQLDescriptor extends ZetaSQLGenericDescriptor<Descriptor> {
+  public static class ZetaSQLDescriptor extends ZetaSQLGenericDescriptor<Descriptor>
+      implements DescriptorPool.ZetaSQLDescriptor {
     private ZetaSQLDescriptor(Descriptor descriptor, ZetaSQLDescriptorPool pool) {
       super(descriptor, pool);
     }
 
+    @Override
     public ZetaSQLFieldDescriptor findFieldByNumber(int number) {
       FieldDescriptor field = getDescriptor().findFieldByNumber(number);
       if (field == null) {
@@ -401,7 +404,8 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * Wrapped {@link FieldDescriptor} with the {@link ZetaSQLDescriptorPool} from which it was
    * created.
    */
-  public static class ZetaSQLFieldDescriptor extends ZetaSQLGenericDescriptor<FieldDescriptor> {
+  public static class ZetaSQLFieldDescriptor extends ZetaSQLGenericDescriptor<FieldDescriptor>
+      implements DescriptorPool.ZetaSQLFieldDescriptor {
     private ZetaSQLFieldDescriptor(FieldDescriptor descriptor, ZetaSQLDescriptorPool pool) {
       super(descriptor, pool);
     }
@@ -432,7 +436,7 @@ public class ZetaSQLDescriptorPool implements Serializable {
    * descriptors are kept forever, which is fine since the number of generated descriptors is fixed
    * when the program is compiled.
    */
-  private static class GeneratedDescriptorPool extends ZetaSQLDescriptorPool {
+  static class GeneratedDescriptorPool extends ZetaSQLDescriptorPool {
     /**
      * Imports the given generated {@code descriptor} and its dependencies.
      */
@@ -470,7 +474,7 @@ public class ZetaSQLDescriptorPool implements Serializable {
     }
 
     @Override
-    synchronized ImmutableList<FileDescriptor> getAllFileDescriptors() {
+    public synchronized ImmutableList<FileDescriptor> getAllFileDescriptors() {
       return super.getAllFileDescriptors();
     }
   }

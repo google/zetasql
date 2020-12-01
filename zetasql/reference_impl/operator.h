@@ -2401,8 +2401,8 @@ class FlattenExpr : public ValueExpr {
   // executed for each intermediate result.
   static zetasql_base::StatusOr<std::unique_ptr<FlattenExpr>> Create(
       const Type* output_type, std::unique_ptr<ValueExpr> expr,
-      std::vector<int> struct_fields,
-      std::vector<const ProtoFieldReader*> proto_fields);
+      std::vector<std::unique_ptr<ValueExpr>> get_fields,
+      std::unique_ptr<const Value*> flattened_arg_input);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -2415,15 +2415,50 @@ class FlattenExpr : public ValueExpr {
                             bool verbose) const override;
 
  private:
-  enum ArgKind { kExpr };
+  enum ArgKind { kExpr, kGetFields };
 
-  FlattenExpr(const Type* output_type,
-              std::unique_ptr<ValueExpr> expr,
-              std::vector<int> struct_fields,
-              std::vector<const ProtoFieldReader*> proto_fields);
+  FlattenExpr(const Type* output_type, std::unique_ptr<ValueExpr> expr,
+              std::vector<std::unique_ptr<ValueExpr>> get_fields,
+              std::unique_ptr<const Value*> flattened_arg_input);
 
-  std::vector<int> struct_fields_;
-  std::vector<const ProtoFieldReader*> proto_fields_;
+  std::unique_ptr<const Value*> flattened_arg_input_;
+};
+
+// Returns the value as provided by '*input_'.
+// This is the argument for a given flatten evaluation.
+class FlattenedArgExpr : public ValueExpr {
+ public:
+  FlattenedArgExpr(const FlattenedArgExpr&) = delete;
+  FlattenedArgExpr& operator=(const FlattenedArgExpr&) = delete;
+
+  static zetasql_base::StatusOr<std::unique_ptr<FlattenedArgExpr>> Create(
+      const Type* output_type, const Value** input) {
+    return absl::WrapUnique(new FlattenedArgExpr(output_type, input));
+  }
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override {
+    result->SetValue(**input_);
+    return true;
+  }
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override {
+    // Used as a child of a Get for flattening, but doesn't provide extra info
+    // as those children will already be under a Flatten for the debug string.
+    return "";
+  }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override {
+    return absl::OkStatus();
+  }
+
+ private:
+  FlattenedArgExpr(const Type* output_type, const Value** input)
+      : ValueExpr(output_type), input_(input) {}
+  const Value** input_;
 };
 
 // Nests 'element's of 'input' as an array. 'is_with_table' is true if this

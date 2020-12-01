@@ -72,7 +72,7 @@ public final class Procedure implements Serializable {
   }
 
   static Procedure deserialize(
-      ProcedureProto proto, final ImmutableList<ZetaSQLDescriptorPool> pools) {
+      ProcedureProto proto, final ImmutableList<? extends DescriptorPool> pools) {
     FunctionSignature signature =
         FunctionSignature.deserialize(proto.getSignature(), pools);
     return new Procedure(proto.getNamePathList(), signature);

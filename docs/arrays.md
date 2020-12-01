@@ -224,6 +224,10 @@ FROM sequences;
 +---------------+----------+-----------+
 ```
 
+Note: `OFFSET()` and `ORDINAL()` will raise errors if the index is out of
+range. To avoid this, you can use `SAFE_OFFSET()` or `SAFE_ORDINAL()` to return
+`NULL` instead of raising an error.
+
 ## Finding lengths
 
 The `ARRAY_LENGTH()` function returns the length of an array.

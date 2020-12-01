@@ -28,6 +28,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/literal_remover.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/simple_catalog.h"

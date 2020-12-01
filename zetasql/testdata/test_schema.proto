@@ -104,7 +104,7 @@ message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
 
-// Next ID to use: 108
+// Next ID to use: 109
 message KitchenSinkPB {
   required int64 int64_key_1 = 1;
   required int64 int64_key_2 = 2;
@@ -313,6 +313,8 @@ message KitchenSinkPB {
   oneof one_of_field2 {
     int64 int64_one_of = 106;
   }
+
+  optional MessageWithMapField maps = 108;
 
   reserved 103;  // Used for testing unknown fields.
 
@@ -828,4 +830,29 @@ message TestSQLTable {
 message RecursiveMessage {
   optional int64 int64_field = 1;
   optional RecursiveMessage recursive_msg = 2;
+}
+
+// zetasql.is_hidden_column annotation only affects top level fields
+// (columns), e.g. TableWithIsHiddenAnnotation.hidden_field. It doesn't affect
+// child fields of a compound type, e.g. StructWithIsHidden.h1 or
+// NullableIntWithIsHidden.value
+message TableWithIsHiddenAnnotation {
+  option (zetasql.table_type) = SQL_TABLE;
+  option (zetasql.is_struct) = true;
+
+  optional int32 f1 = 1;
+  optional int32 hidden_field = 2 [(zetasql.is_hidden_column) = true];
+  optional StructWithIsHidden struct_with_is_hidden = 3;
+  optional NullableInt hidden_nullable_int = 4
+      [(zetasql.is_hidden_column) = true];
+  optional NullableIntWithIsHidden wrapper_message_with_is_hidden = 5;
+}
+message StructWithIsHidden {
+  optional int32 h1 = 1 [(zetasql.is_hidden_column) = true];
+}
+message NullableIntWithIsHidden {
+  option (zetasql.is_wrapper) = true;
+
+  optional int32 value = 1
+      [(zetasql.use_defaults) = false, (zetasql.is_hidden_column) = true];
 }

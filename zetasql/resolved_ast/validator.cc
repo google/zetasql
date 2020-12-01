@@ -181,6 +181,60 @@ absl::Status Validator::ValidateResolvedConstant(
   return absl::OkStatus();
 }
 
+static absl::Status ValidateGenericArgumentsAgainstConcreteArguments(
+    const ResolvedFunctionCallBase* resolved_function_call,
+    const FunctionSignature& signature) {
+  bool only_expr_is_used = true;
+  for (int i = 0; i < resolved_function_call->generic_argument_list_size();
+       i++) {
+    const ResolvedFunctionArgument* generic_arg =
+        resolved_function_call->generic_argument_list(i);
+    const FunctionArgumentType& concrete_argument =
+        signature.ConcreteArgument(i);
+    if (generic_arg->expr() != nullptr) {
+      ZETASQL_RET_CHECK(concrete_argument.type() != nullptr &&
+                generic_arg->expr()->type()->Equals(concrete_argument.type()))
+          << "Arg index: " << i
+          << " function: " << resolved_function_call->DebugString();
+    } else if (generic_arg->inline_lambda() != nullptr) {
+      only_expr_is_used = false;
+
+      const ResolvedInlineLambda* lambda = generic_arg->inline_lambda();
+      const FunctionArgumentType::ArgumentTypeLambda& concrete_lambda =
+          concrete_argument.lambda();
+      ZETASQL_RET_CHECK_EQ(lambda->argument_list().size(),
+                   concrete_lambda.argument_types().size());
+      // Check lambda argument matches concrete argument. This shouldn't trigger
+      // under known use cases. But still doing the check just in case.
+      for (int i = 0; i < lambda->argument_list_size(); i++) {
+        ZETASQL_RET_CHECK(lambda->argument_list(i).type()->Equals(
+            concrete_lambda.argument_types()[i].type()))
+            << i << "lambda argument type: "
+            << lambda->argument_list(i).type()->DebugString()
+            << " concrete type: " << concrete_lambda.argument_types()[i].type();
+      }
+      ZETASQL_RET_CHECK(
+          lambda->body()->type()->Equals(concrete_lambda.body_type().type()))
+          << " lambda body type: " << lambda->body()->type()->DebugString()
+          << " concrete body type: "
+          << concrete_lambda.body_type().type()->DebugString();
+    } else {
+      only_expr_is_used = false;
+      // For non expr arguments, we need to check argument type against the type
+      // required by the signature. We should arrange to share the code with
+      // TVFScan validation.
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected function argument with index " << i
+                       << " of function call: "
+                       << resolved_function_call->DebugString();
+    }
+  }
+  ZETASQL_RET_CHECK(resolved_function_call->generic_argument_list_size() == 0 ||
+            !only_expr_is_used)
+      << "If all arguments are ResolvedExpressions, argument_list should be "
+         "used instead of generic_argument_list";
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedFunctionCallBase(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
@@ -229,31 +283,8 @@ absl::Status Validator::ValidateResolvedFunctionCallBase(
         signature.ConcreteArgumentType(i)));
   }
 
-  bool only_expr_is_used = true;
-  for (int i = 0; i < resolved_function_call->generic_argument_list_size();
-       i++) {
-    const ResolvedFunctionArgument* generic_arg =
-        resolved_function_call->generic_argument_list(i);
-    if (generic_arg->expr() != nullptr) {
-      ZETASQL_RET_CHECK(signature.ConcreteArgumentType(i) != nullptr &&
-                generic_arg->expr()->type()->Equals(
-                    signature.ConcreteArgumentType(i)))
-          << "Arg index: " << i
-          << " function: " << resolved_function_call->DebugString();
-    } else {
-      only_expr_is_used = false;
-      // For non expr arguments, we need to check argument type against the type
-      // required by the signature. We should arrange to share the code with
-      // TVFScan validation.
-      ZETASQL_RET_CHECK_FAIL() << "Unexpected function argument with index " << i
-                       << " of function call: "
-                       << resolved_function_call->DebugString();
-    }
-  }
-  ZETASQL_RET_CHECK(resolved_function_call->generic_argument_list_size() == 0 ||
-            !only_expr_is_used)
-      << "If all arguments are ResolvedExpressions, argument_list should be "
-         "used instead of generic_argument_list";
+  ZETASQL_RETURN_IF_ERROR(ValidateGenericArgumentsAgainstConcreteArguments(
+      resolved_function_call, signature));
 
   if (resolved_function_call->error_mode() ==
       ResolvedFunctionCallBase::SAFE_ERROR_MODE) {
@@ -308,6 +339,9 @@ absl::Status Validator::ValidateResolvedExpr(
   ZETASQL_RET_CHECK(nullptr != expr);
   ZETASQL_RET_CHECK(expr->type() != nullptr)
       << "ResolvedExpr does not have a Type:\n" << expr->DebugString();
+  if (expr->type_annotation_map() != nullptr) {
+    ZETASQL_RET_CHECK(expr->type_annotation_map()->HasMatchingStructure(expr->type()));
+  }
 
   switch (expr->node_kind()) {
     case RESOLVED_LITERAL:
@@ -1913,6 +1947,10 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedAlterObjectStmt(
           statement->GetAs<ResolvedAlterDatabaseStmt>());
       break;
+    case RESOLVED_ALTER_SCHEMA_STMT:
+      status = ValidateResolvedAlterObjectStmt(
+          statement->GetAs<ResolvedAlterSchemaStmt>());
+      break;
     case RESOLVED_ALTER_TABLE_STMT:
       status = ValidateResolvedAlterObjectStmt(
           statement->GetAs<ResolvedAlterTableStmt>());
@@ -2032,6 +2070,52 @@ absl::Status Validator::ValidateResolvedCreateSchemaStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedForeignKey(
+    const ResolvedForeignKey* foreign_key,
+    const std::vector<const Type*> column_types,
+    absl::flat_hash_set<std::string>* constraint_names) {
+  if (!foreign_key->constraint_name().empty()) {
+    ZETASQL_RET_CHECK(constraint_names->insert(foreign_key->constraint_name()).second)
+        << "Duplicate constraint name: " << foreign_key->constraint_name();
+  }
+  const auto& referencing_offsets =
+      foreign_key->referencing_column_offset_list();
+  ZETASQL_RET_CHECK(!referencing_offsets.empty())
+      << "Missing foreign key column offsets";
+  const auto& referenced_offsets = foreign_key->referenced_column_offset_list();
+  ZETASQL_RET_CHECK_EQ(referencing_offsets.size(), referenced_offsets.size())
+      << "Size of " << referencing_offsets.size()
+      << " for the foreign key referencing column offset list is not the "
+      << "same as the size of " << referenced_offsets.size()
+      << " for the referenced column offset list";
+  absl::flat_hash_set<int> referencing_set;
+  for (int offset : referencing_offsets) {
+    ZETASQL_RET_CHECK(offset >= 0 && offset < column_types.size())
+        << "Invalid foreign key referencing column at offset " << offset;
+    ZETASQL_RET_CHECK(referencing_set.insert(offset).second)
+        << "Duplicate foreign key referencing column at offset " << offset;
+    ZETASQL_RET_CHECK(column_types[offset]->SupportsEquality(language_options_))
+        << "Foreign key referencing column at offset" << offset
+        << " does not support equality";
+  }
+  const auto* referenced_table = foreign_key->referenced_table();
+  ZETASQL_RET_CHECK_NE(referenced_table, nullptr)
+      << "Missing foreign key referenced table";
+  absl::flat_hash_set<int> referenced_set;
+  for (int offset : referenced_offsets) {
+    ZETASQL_RET_CHECK(offset >= 0 && offset < referenced_table->NumColumns())
+        << "Invalid foreign key referenced column at offset " << offset;
+    ZETASQL_RET_CHECK(referenced_set.insert(offset).second)
+        << "Duplicate foreign key referenced column at offset " << offset;
+    const auto* type = referenced_table->GetColumn(offset)->GetType();
+    ZETASQL_RET_CHECK(type->SupportsEquality(language_options_))
+        << "Foreign key referenced column at offset" << offset
+        << " does not support equality";
+  }
+
+  return ValidateHintList(foreign_key->option_list());
+}
+
 absl::Status Validator::ValidateResolvedCreateTableStmtBase(
     const ResolvedCreateTableStmtBase* stmt,
     std::set<ResolvedColumn>* visible_columns) {
@@ -2085,49 +2169,15 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
   ZETASQL_RET_CHECK(stmt->foreign_key_list().empty()
             || language_options_.LanguageFeatureEnabled(FEATURE_FOREIGN_KEYS))
       << "Foreign keys are not supported";
+  const auto& column_definitions = stmt->column_definition_list();
+  std::vector<const Type*> column_types;
+  column_types.reserve(column_definitions.size());
+  for (const auto& column_definition : column_definitions) {
+    column_types.push_back(column_definition->type());
+  }
   for (const auto& foreign_key : stmt->foreign_key_list()) {
-    if (!foreign_key->constraint_name().empty()) {
-      ZETASQL_RET_CHECK(constraint_names.insert(foreign_key->constraint_name()).second)
-          << "Duplicate constraint name: " << foreign_key->constraint_name();
-    }
-    const auto& referencing_offsets =
-        foreign_key->referencing_column_offset_list();
-    ZETASQL_RET_CHECK(!referencing_offsets.empty())
-        << "Missing foreign key column offsets";
-    const auto& referenced_offsets =
-        foreign_key->referenced_column_offset_list();
-    ZETASQL_RET_CHECK_EQ(referencing_offsets.size(), referenced_offsets.size())
-        << "Size of " << referencing_offsets.size()
-        << " for the foreign key referencing column offset list is not the "
-        << "same as the size of " << referenced_offsets.size()
-        << " for the referenced column offset list";
-    const auto& column_definitions = stmt->column_definition_list();
-    absl::flat_hash_set<int> referencing_set;
-    for (int offset : referencing_offsets) {
-      ZETASQL_RET_CHECK(offset >= 0 && offset < column_definitions.size())
-          << "Invalid foreign key referencing column at offset " << offset;
-      ZETASQL_RET_CHECK(referencing_set.insert(offset).second)
-          << "Duplicate foreign key referencing column at offset " << offset;
-      auto const& column_definition = column_definitions[offset];
-      ZETASQL_RET_CHECK(column_definition->type()->SupportsEquality(language_options_))
-          << "Foreign key referencing column at offset" << offset
-          << " does not support equality";
-    }
-    const auto* referenced_table = foreign_key->referenced_table();
-    ZETASQL_RET_CHECK_NE(referenced_table, nullptr)
-        << "Missing foreign key referenced table";
-    absl::flat_hash_set<int> referenced_set;
-    for (int offset : referenced_offsets) {
-      ZETASQL_RET_CHECK(offset >= 0 && offset < referenced_table->NumColumns())
-          << "Invalid foreign key referenced column at offset " << offset;
-      ZETASQL_RET_CHECK(referenced_set.insert(offset).second)
-          << "Duplicate foreign key referenced column at offset " << offset;
-      const auto* type = referenced_table->GetColumn(offset)->GetType();
-      ZETASQL_RET_CHECK(type->SupportsEquality(language_options_))
-          << "Foreign key referenced column at offset" << offset
-          << " does not support equality";
-    }
-    ZETASQL_RETURN_IF_ERROR(ValidateHintList(foreign_key->option_list()));
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedForeignKey(foreign_key.get(), column_types,
+                                               &constraint_names));
   }
 
   // Validate check constraints.
@@ -2784,6 +2834,10 @@ absl::Status Validator::ValidateResolvedScan(
     case RESOLVED_RECURSIVE_REF_SCAN:
       ZETASQL_RETURN_IF_ERROR(ValidateResolvedRecursiveRefScan(
           scan->GetAs<ResolvedRecursiveRefScan>()));
+      break;
+    case RESOLVED_PIVOT_SCAN:
+      ZETASQL_RETURN_IF_ERROR(ValidateResolvedPivotScan(
+          scan->GetAs<ResolvedPivotScan>(), visible_parameters));
       break;
     default:
       return ::zetasql_base::InternalErrorBuilder()
@@ -3512,8 +3566,7 @@ absl::Status Validator::ValidateResolvedFunctionArgument(
     // This is a TVF scalar argument. Validate the input expression,
     // and pass through the 'visible_parameters' because the
     // expression may be correlated.
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr({} /* visible_columns */,
-                                         visible_parameters,
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          resolved_arg->expr()));
   }
   if (resolved_arg->model() != nullptr) {
@@ -3677,6 +3730,25 @@ absl::Status Validator::ValidateResolvedAlterAction(
     case RESOLVED_RENAME_TO_ACTION:
       ZETASQL_RET_CHECK(!action->GetAs<ResolvedRenameToAction>()->new_path().empty());
       break;
+    case RESOLVED_ADD_CONSTRAINT_ACTION: {
+      const auto* add_constraint = action->GetAs<ResolvedAddConstraintAction>();
+      if (add_constraint->constraint()->node_kind() == RESOLVED_FOREIGN_KEY) {
+        const auto* foreign_key =
+            add_constraint->constraint()->GetAs<ResolvedForeignKey>();
+        const Table* referencing_table = add_constraint->table();
+        std::vector<const Type*> column_types;
+        column_types.reserve(referencing_table->NumColumns());
+        for (int i = 0; i < referencing_table->NumColumns(); i++) {
+          column_types.push_back(referencing_table->GetColumn(i)->GetType());
+        }
+        absl::flat_hash_set<std::string> constraint_names;
+        ZETASQL_RETURN_IF_ERROR(ValidateResolvedForeignKey(foreign_key, column_types,
+                                                   &constraint_names));
+      }
+    } break;
+    case RESOLVED_DROP_CONSTRAINT_ACTION:
+      ZETASQL_RET_CHECK(!action->GetAs<ResolvedDropConstraintAction>()->name().empty());
+      break;
     default:
       return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled node kind: " << action->node_kind_string()
@@ -3715,6 +3787,33 @@ absl::Status Validator::ValidateResolvedExecuteImmediateStmt(
     }
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedPivotScan(
+    const ResolvedPivotScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
+
+  std::set<ResolvedColumn> input_columns;
+  ZETASQL_RETURN_IF_ERROR(
+      AddColumnList(scan->input_scan()->column_list(), &input_columns));
+
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
+      input_columns, visible_parameters, scan->pivot_expr_list()));
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(input_columns, visible_parameters,
+                                       scan->for_expr()));
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExprList(/*visible_columns=*/{},
+                                           /*visible_parameters=*/{},
+                                           scan->pivot_value_list()));
+
+  for (const ResolvedColumn& column : scan->column_list()) {
+    ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedComputedColumnList(
+      /*visible_columns=*/input_columns, visible_parameters,
+      scan->group_by_list()));
   return absl::OkStatus();
 }
 

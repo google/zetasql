@@ -127,10 +127,9 @@ public final class SimpleTable implements Table {
   }
 
   /**
-   * Deserialize a proto into a new table with existing Descriptor pools.
-   * Types will be deserialized using the given TypeFactory and Descriptors
-   * from the given pools. The DescriptorPools should have been created by
-   * type serialization, and all proto types are treated as references into
+   * Deserialize a proto into a new table with existing Descriptor pools. Types will be deserialized
+   * using the given TypeFactory and Descriptors from the given pools. The DescriptorPools should
+   * have been created by type serialization, and all proto types are treated as references into
    * these pools.
    *
    * @param proto
@@ -140,7 +139,7 @@ public final class SimpleTable implements Table {
    * @throws IllegalArgumentException if the proto is inconsistent.
    */
   public static SimpleTable deserialize(
-      SimpleTableProto proto, ImmutableList<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
+      SimpleTableProto proto, ImmutableList<? extends DescriptorPool> pools, TypeFactory factory) {
     SimpleTable table;
     if (proto.hasSerializationId()) {
       table = new SimpleTable(proto.getName(), proto.getSerializationId());

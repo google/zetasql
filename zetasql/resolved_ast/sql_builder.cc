@@ -419,10 +419,53 @@ absl::Status SQLBuilder::VisitResolvedFunctionCall(
                      ProcessNode(argument.get()));
     inputs.push_back(result->GetSQL());
   }
+  for (const auto& argument : node->generic_argument_list()) {
+    if (argument->expr() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
+                       ProcessNode(argument->expr()));
+      inputs.push_back(result->GetSQL());
+    } else if (argument->inline_lambda() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
+                       ProcessNode(argument->inline_lambda()));
+      inputs.push_back(result->GetSQL());
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "Unexpected function call argument: "
+                       << argument->DebugString();
+    }
+  }
 
   // Getting the SQL for a function given string arguments is not itself
   // sensitive to the ProductMode.
   PushQueryFragment(node, GetFunctionCallSQL(node, std::move(inputs)));
+  return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedInlineLambda(
+    const ResolvedInlineLambda* node) {
+  ZETASQL_DCHECK(node->body());
+
+  std::string args_list =
+      absl::StrJoin(node->argument_list(), ",",
+                    [this](std::string* out, const ResolvedColumn& col) {
+                      *out += GetColumnAlias(col);
+                    });
+
+  // Skip the parentheses for single argument case.
+  if (node->argument_list_size() != 1) {
+    args_list = absl::StrCat("(", args_list, ")");
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr_fragment,
+                   ProcessNode(node->body()));
+  std::string lambda_sql =
+      absl::StrCat(args_list, " -> ", expr_fragment->GetSQL());
+  PushQueryFragment(node, lambda_sql);
+
+  // Dummy access on the parameter list so as to pass the final
+  // CheckFieldsAccessed() on a statement level before building the sql.
+  for (const auto& parameter : node->parameter_list()) {
+    parameter->column();
+  }
   return absl::OkStatus();
 }
 
@@ -2722,6 +2765,45 @@ static std::string GetForeignKeyActionSql(
   }
 }
 
+zetasql_base::StatusOr<std::string> SQLBuilder::ProcessForeignKey(
+    const ResolvedForeignKey* foreign_key,
+    const std::vector<std::string>& column_names, bool is_if_not_exists) {
+  std::string sql;
+  if (!foreign_key->constraint_name().empty()) {
+    absl::StrAppend(&sql, "CONSTRAINT ");
+    if (is_if_not_exists) {
+      absl::StrAppend(&sql, " IF NOT EXISTS ");
+    }
+    absl::StrAppend(&sql, foreign_key->constraint_name(), " ");
+  }
+  absl::StrAppend(
+      &sql, "FOREIGN KEY",
+      GetColumnListSql(foreign_key->referencing_column_offset_list(),
+                       [&column_names](int i) { return column_names[i]; }),
+      " ");
+  absl::StrAppend(
+      &sql, "REFERENCES ", foreign_key->referenced_table()->Name(),
+      GetColumnListSql(
+          foreign_key->referenced_column_offset_list(),
+          [&foreign_key](int i) {
+            return foreign_key->referenced_table()->GetColumn(i)->Name();
+          }),
+      " ");
+  absl::StrAppend(&sql, "MATCH ",
+                  GetForeignKeyMatchSql(foreign_key->match_mode()), " ");
+  absl::StrAppend(&sql, "ON UPDATE ",
+                  GetForeignKeyActionSql(foreign_key->update_action()), " ");
+  absl::StrAppend(&sql, "ON DELETE ",
+                  GetForeignKeyActionSql(foreign_key->delete_action()), " ");
+  if (!foreign_key->enforced()) {
+    absl::StrAppend(&sql, "NOT ");
+  }
+  absl::StrAppend(&sql, "ENFORCED");
+  ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(foreign_key->option_list(), &sql));
+
+  return sql;
+}
+
 absl::Status SQLBuilder::ProcessTableElementsBase(
     std::string* sql,
     const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
@@ -2757,35 +2839,15 @@ absl::Status SQLBuilder::ProcessTableElementsBase(
     ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(pk->option_list(), &primary_key));
     table_elements.push_back(primary_key);
   }
+  std::vector<std::string> column_names;
+  column_names.reserve(column_definition_list.size());
+  for (const auto& column : column_definition_list) {
+    column_names.push_back(column->name());
+  }
   for (const auto& fk : foreign_key_list) {
-    std::string foreign_key;
-    if (!fk->constraint_name().empty()) {
-      absl::StrAppend(&foreign_key, "CONSTRAINT ", fk->constraint_name(), " ");
-    }
-    absl::StrAppend(&foreign_key, "FOREIGN KEY",
-                    GetColumnListSql(fk->referencing_column_offset_list(),
-                                     [&column_definition_list](int i) {
-                                       return column_definition_list[i]->name();
-                                     }),
-                    " ");
-    absl::StrAppend(
-        &foreign_key, "REFERENCES ", fk->referenced_table()->Name(),
-        GetColumnListSql(fk->referenced_column_offset_list(),
-                         [&fk](int i) {
-                           return fk->referenced_table()->GetColumn(i)->Name();
-                         }),
-        " ");
-    absl::StrAppend(&foreign_key, "MATCH ",
-                    GetForeignKeyMatchSql(fk->match_mode()), " ");
-    absl::StrAppend(&foreign_key, "ON UPDATE ",
-                    GetForeignKeyActionSql(fk->update_action()), " ");
-    absl::StrAppend(&foreign_key, "ON DELETE ",
-                    GetForeignKeyActionSql(fk->delete_action()), " ");
-    if (!fk->enforced()) {
-      absl::StrAppend(&foreign_key, "NOT ");
-    }
-    absl::StrAppend(&foreign_key, "ENFORCED");
-    ZETASQL_RETURN_IF_ERROR(AppendOptionsIfPresent(fk->option_list(), &foreign_key));
+    ZETASQL_ASSIGN_OR_RETURN(std::string foreign_key,
+                     ProcessForeignKey(fk.get(), column_names,
+                                       /*is_if_not_exists=*/false));
     table_elements.push_back(foreign_key);
   }
   for (const auto& check_constraint : check_constraint_list) {
@@ -4233,6 +4295,11 @@ absl::Status SQLBuilder::VisitResolvedAlterDatabaseStmt(
   return GetResolvedAlterObjectStmtSQL(node, "DATABASE");
 }
 
+absl::Status SQLBuilder::VisitResolvedAlterSchemaStmt(
+    const ResolvedAlterSchemaStmt* node) {
+  return GetResolvedAlterObjectStmtSQL(node, "SCHEMA");
+}
+
 absl::Status SQLBuilder::VisitResolvedAlterTableSetOptionsStmt(
     const ResolvedAlterTableSetOptionsStmt* node) {
   std::string sql = "ALTER TABLE ";
@@ -4346,6 +4413,30 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
         alter_action_sql.push_back(
             absl::StrCat("SET AS JSON ",
                          ToStringLiteral(set_as_action->entity_body_json())));
+      } break;
+      case RESOLVED_ADD_CONSTRAINT_ACTION: {
+        auto* action = alter_action->GetAs<ResolvedAddConstraintAction>();
+        ZETASQL_RET_CHECK(action->constraint()->node_kind() == RESOLVED_FOREIGN_KEY);
+        auto* table = action->table();
+        std::vector<std::string> column_names;
+        column_names.reserve(table->NumColumns());
+        for (int i = 0; i < table->NumColumns(); i++) {
+          column_names.push_back(table->GetColumn(i)->Name());
+        }
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::string action_sql,
+            ProcessForeignKey(action->constraint()->GetAs<ResolvedForeignKey>(),
+                              column_names, action->is_if_not_exists()));
+        alter_action_sql.push_back(absl::StrCat("ADD ", action_sql));
+      } break;
+      case RESOLVED_DROP_CONSTRAINT_ACTION: {
+        auto* action = alter_action->GetAs<ResolvedDropConstraintAction>();
+        std::string action_sql = "DROP CONSTRAINT ";
+        if (action->is_if_exists()) {
+          absl::StrAppend(&action_sql, "IF EXISTS ");
+        }
+        absl::StrAppend(&action_sql, action->name());
+        alter_action_sql.push_back(action_sql);
       } break;
       default:
         ZETASQL_RET_CHECK_FAIL() << "Unexpected AlterAction: "

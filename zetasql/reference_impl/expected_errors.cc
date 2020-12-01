@@ -1,0 +1,88 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#include "zetasql/reference_impl/expected_errors.h"
+
+#include <utility>
+#include <vector>
+
+#include "absl/memory/memory.h"
+#include "absl/status/status.h"
+
+namespace zetasql {
+
+std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
+    std::string matcher_name) {
+  std::vector<std::unique_ptr<MatcherBase<absl::Status>>> error_matchers;
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: (st_accum|st_askml|st_buffer|"
+      "st_bufferwithtolerance|st_geogfromkml|st_simplify|st_unaryunion)"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kResourceExhausted,
+      "The statement has been aborted because the statement deadline (.+) was "
+      "exceeded\\."));
+  // TABLESAMPLE is not supported by the reference implementation.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument, "TABLESAMPLE not supported"));
+  // The reference implementation does not support KMS encryption functions
+  // since they depend on an external service.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: kms.*"));
+  // b/111212209
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Checking the presence of scalar field .* is not supported by proto3"));
+  // The RQG can produce assignments to repeated proto values that contain
+  // NULL.
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Cannot store a NULL element in repeated proto field"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: \\$(?:safe_)?proto_map_at_key"));
+  // b/160778032
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInternal,
+      "functions::IsValidDate(decoded_date_value) Invalid date"));
+  // TODO
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: contains_key"));
+  return absl::make_unique<MatcherCollection<absl::Status>>(
+      matcher_name, std::move(error_matchers));
+}
+
+std::unique_ptr<MatcherCollection<absl::Status>>
+ReferenceInvalidInputErrorMatcher(std::string matcher_name) {
+  std::vector<std::unique_ptr<MatcherBase<absl::Status>>> error_matchers;
+
+  // Errors from relational_op.cc
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Limit requires non-null count and offset"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Limit requires non-negative count and offset"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Enumerate requires non-null count"));
+
+  return absl::make_unique<MatcherCollection<absl::Status>>(
+      matcher_name, std::move(error_matchers));
+}
+
+}  // namespace zetasql

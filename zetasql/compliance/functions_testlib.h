@@ -231,6 +231,7 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValue();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractScalar();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArray();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArrayStandardSql();
+std::vector<FunctionTestCall> GetFunctionTestsJsonExtractStringArray();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
     bool include_nano_timestamp);
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();

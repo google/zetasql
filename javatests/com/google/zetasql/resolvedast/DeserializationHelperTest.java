@@ -20,6 +20,7 @@ package com.google.zetasql.resolvedast;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.FieldDescriptorRefProto;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.Function;
@@ -28,7 +29,6 @@ import com.google.zetasql.FunctionProtos.FunctionSignatureOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionSignatureProto;
 import com.google.zetasql.FunctionRefProto;
 import com.google.zetasql.FunctionSignature;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ArgumentCardinality;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Mode;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
@@ -193,7 +193,7 @@ public class DeserializationHelperTest {
             "The number of fields of ResolvedColumnProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ResolvedColumnProto.getDescriptor().getFields())
-        .hasSize(4);
+        .hasSize(5);
     assertWithMessage(
             "The number of fields in ResolvedColumn class has changed, "
                 + "please also update the proto and serialization code accordingly.")

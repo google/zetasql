@@ -1612,7 +1612,7 @@ class ASTWithOffset final : public ASTNode {
   const ASTAlias* alias_ = nullptr;
 };
 
-// A conjuction of the unnest expression and the optional alias and offset.
+// A conjunction of the unnest expression and the optional alias and offset.
 class ASTUnnestExpressionWithOptAliasAndOffset final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind =
@@ -1663,6 +1663,123 @@ class ASTTableExpression : public ASTNode {
   const ASTNode* alias_location() const;
 };
 
+class ASTPivotExpression final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PIVOT_EXPRESSION;
+
+  ASTPivotExpression() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* expression() const { return expression_; }
+  const ASTAlias* alias() const { return alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&expression_);
+    fl.AddOptional(&alias_, AST_ALIAS);
+  }
+  const ASTExpression* expression_ = nullptr;
+  const ASTAlias* alias_ = nullptr;
+};
+
+class ASTPivotValue final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PIVOT_VALUE;
+
+  ASTPivotValue() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* value() const { return value_; }
+  const ASTAlias* alias() const { return alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&value_);
+    fl.AddOptional(&alias_, AST_ALIAS);
+  }
+  const ASTExpression* value_ = nullptr;
+  const ASTAlias* alias_ = nullptr;
+};
+
+class ASTPivotExpressionList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PIVOT_EXPRESSION_LIST;
+
+  ASTPivotExpressionList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  absl::Span<const ASTPivotExpression* const> expressions() const {
+    return expressions_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&expressions_);
+  }
+
+  absl::Span<const ASTPivotExpression* const> expressions_;
+};
+
+class ASTPivotValueList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PIVOT_VALUE_LIST;
+
+  ASTPivotValueList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  absl::Span<const ASTPivotValue* const> values() const { return values_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&values_);
+  }
+
+  absl::Span<const ASTPivotValue* const> values_;
+};
+
+class ASTPivotClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PIVOT_CLAUSE;
+
+  ASTPivotClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPivotExpressionList* pivot_expressions() const {
+    return pivot_expressions_;
+  }
+  const ASTExpression* for_expression() const { return for_expression_; }
+  const ASTPivotValueList* pivot_values() const { return pivot_values_; }
+  const ASTAlias* output_alias() const { return output_alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&pivot_expressions_);
+    fl.AddRequired(&for_expression_);
+    fl.AddRequired(&pivot_values_);
+    fl.AddOptional(&output_alias_, AST_ALIAS);
+  }
+
+  const ASTPivotExpressionList* pivot_expressions_ = nullptr;
+  const ASTExpression* for_expression_ = nullptr;
+  const ASTPivotValueList* pivot_values_ = nullptr;
+  const ASTAlias* output_alias_ = nullptr;
+};
+
 // TablePathExpression are the TableExpressions that introduce a single scan,
 // referenced by a path expression or UNNEST, and can optionally have
 // aliases, hints, and WITH OFFSET.
@@ -1687,6 +1804,7 @@ class ASTTablePathExpression final : public ASTTableExpression {
   // Present if the scan had WITH OFFSET.
   const ASTWithOffset* with_offset() const { return with_offset_; }
 
+  const ASTPivotClause* pivot_clause() const { return pivot_clause_; }
   const ASTSampleClause* sample_clause() const { return sample_clause_; }
 
  private:
@@ -1696,8 +1814,9 @@ class ASTTablePathExpression final : public ASTTableExpression {
     fl.AddOptional(&unnest_expr_, AST_UNNEST_EXPRESSION);
     fl.AddOptional(&hint_, AST_HINT);
     fl.AddOptional(&alias_, AST_ALIAS);
-    fl.AddOptional(&for_system_time_, AST_FOR_SYSTEM_TIME);
     fl.AddOptional(&with_offset_, AST_WITH_OFFSET);
+    fl.AddOptional(&pivot_clause_, AST_PIVOT_CLAUSE);
+    fl.AddOptional(&for_system_time_, AST_FOR_SYSTEM_TIME);
     fl.AddOptional(&sample_clause_, AST_SAMPLE_CLAUSE);
   }
 
@@ -1709,6 +1828,7 @@ class ASTTablePathExpression final : public ASTTableExpression {
   const ASTForSystemTime* for_system_time_ = nullptr;  // Optional
   const ASTAlias* alias_ = nullptr;  // Optional.
   const ASTWithOffset* with_offset_ = nullptr;  // Optional.
+  const ASTPivotClause* pivot_clause_ = nullptr;    // Optional.
   const ASTSampleClause* sample_clause_ = nullptr;  // Optional.
 };
 
@@ -1723,6 +1843,7 @@ class ASTTableSubquery final : public ASTTableExpression {
 
   const ASTQuery* subquery() const { return subquery_; }
   const ASTAlias* alias() const override { return alias_; }
+  const ASTPivotClause* pivot_clause() const { return pivot_clause_; }
   const ASTSampleClause* sample_clause() const { return sample_clause_; }
 
  private:
@@ -1730,12 +1851,14 @@ class ASTTableSubquery final : public ASTTableExpression {
     FieldLoader fl(this);
     fl.AddRequired(&subquery_);
     fl.AddOptional(&alias_, AST_ALIAS);
+    fl.AddOptional(&pivot_clause_, AST_PIVOT_CLAUSE);
     fl.AddOptional(&sample_clause_, AST_SAMPLE_CLAUSE);
   }
 
   const ASTQuery* subquery_ = nullptr;              // Required.
   const ASTAlias* alias_ = nullptr;                 // Optional.
   const ASTSampleClause* sample_clause_ = nullptr;  // Optional.
+  const ASTPivotClause* pivot_clause_ = nullptr;    // Optional
 };
 
 // Joins could introduce multiple scans and cannot have aliases.
@@ -1784,7 +1907,7 @@ class ASTJoin final : public ASTTableExpression {
   const ASTOnClause* on_clause() const { return on_clause_; }
   const ASTUsingClause* using_clause() const { return using_clause_; }
 
-  // The follwing block is for internal use for handling consecutive ON/USING
+  // The following block is for internal use for handling consecutive ON/USING
   // clauses. They are not used in the final AST.
   int unmatched_join_count() const { return unmatched_join_count_;}
   void set_unmatched_join_count(int count) { unmatched_join_count_ = count;}
@@ -2578,6 +2701,26 @@ class ASTUnaryExpression final : public ASTExpression {
   const ASTExpression* operand_ = nullptr;
 };
 
+class ASTFormatClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_FORMAT_CLAUSE;
+
+  ASTFormatClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* format() const { return format_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&format_);
+  }
+
+  const ASTExpression* format_ = nullptr;
+};
+
 class ASTCastExpression final : public ASTExpression {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_CAST_EXPRESSION;
@@ -2595,17 +2738,21 @@ class ASTCastExpression final : public ASTExpression {
   const ASTExpression* expr() const { return expr_; }
   const ASTType* type() const { return type_; }
   bool is_safe_cast() const { return is_safe_cast_; }
+  const ASTFormatClause* format() const { return format_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&expr_);
     fl.AddRequired(&type_);
+    fl.AddOptional(&format_, AST_FORMAT_CLAUSE);
   }
 
   const ASTExpression* expr_ = nullptr;
   const ASTType* type_ = nullptr;
   bool is_safe_cast_ = false;
+
+  const ASTFormatClause* format_ = nullptr;
 };
 
 class ASTCaseValueExpression final : public ASTExpression {
@@ -2676,29 +2823,6 @@ class ASTExtractExpression final : public ASTExpression {
   const ASTExpression* lhs_expr_ = nullptr;
   const ASTExpression* rhs_expr_ = nullptr;
   const ASTExpression* time_zone_expr_ = nullptr;
-};
-
-class ASTCollateExpression final : public ASTExpression {
- public:
-  static constexpr ASTNodeKind kConcreteNodeKind = AST_COLLATE_EXPRESSION;
-
-  ASTCollateExpression() : ASTExpression(kConcreteNodeKind) {}
-  void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  zetasql_base::StatusOr<VisitResult> Accept(
-      NonRecursiveParseTreeVisitor* visitor) const override;
-
-  const ASTExpression* expr() const { return expr_; }
-  const ASTStringLiteral* collation_spec() const { return collation_spec_; }
-
- private:
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&expr_);
-    fl.AddRequired(&collation_spec_);
-  }
-
-  const ASTExpression* expr_ = nullptr;
-  const ASTStringLiteral* collation_spec_ = nullptr;
 };
 
 // This is used for dotted identifier paths only, not dotting into
@@ -2845,16 +2969,19 @@ class ASTIntervalExpr final : public ASTExpression {
 
   const ASTExpression* interval_value() const { return interval_value_; }
   const ASTIdentifier* date_part_name() const { return date_part_name_; }
+  const ASTIdentifier* date_part_name_to() const { return date_part_name_to_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&interval_value_);
     fl.AddRequired(&date_part_name_);
+    fl.AddOptional(&date_part_name_to_, AST_IDENTIFIER);
   }
 
   const ASTExpression* interval_value_ = nullptr;
   const ASTIdentifier* date_part_name_ = nullptr;
+  const ASTIdentifier* date_part_name_to_ = nullptr;
 };
 
 class ASTDescriptor final : public ASTNode {
@@ -4267,6 +4394,7 @@ class ASTTVF final : public ASTTableExpression {
   }
   const ASTHint* hint() const { return hint_; }
   const ASTAlias* alias() const override { return alias_; }
+  const ASTPivotClause* pivot_clause() const { return pivot_; }
   const ASTSampleClause* sample() const { return sample_; }
 
  private:
@@ -4276,6 +4404,7 @@ class ASTTVF final : public ASTTableExpression {
     fl.AddRepeatedWhileIsNodeKind(&argument_entries_, AST_TVF_ARGUMENT);
     fl.AddOptional(&hint_, AST_HINT);
     fl.AddOptional(&alias_, AST_ALIAS);
+    fl.AddOptional(&pivot_, AST_PIVOT_CLAUSE);
     fl.AddOptional(&sample_, AST_SAMPLE_CLAUSE);
   }
 
@@ -4283,6 +4412,7 @@ class ASTTVF final : public ASTTableExpression {
   absl::Span<const ASTTVFArgument* const> argument_entries_;
   const ASTHint* hint_ = nullptr;
   const ASTAlias* alias_ = nullptr;
+  const ASTPivotClause* pivot_ = nullptr;
   const ASTSampleClause* sample_ = nullptr;
 };
 
@@ -4912,6 +5042,9 @@ class ASTCreateIndexStatement final : public ASTCreateStatement {
 
   void set_is_unique(bool is_unique) { is_unique_ = is_unique; }
 
+  bool is_search() const { return is_search_; }
+  void set_is_search(bool is_search) { is_search_ = is_search; }
+
   const ASTPathExpression* GetDdlTarget() const override { return name_; }
 
  private:
@@ -4938,6 +5071,7 @@ class ASTCreateIndexStatement final : public ASTCreateStatement {
       nullptr;  // Optional
   const ASTOptionsList* options_list_ = nullptr;
   bool is_unique_ = false;
+  bool is_search_ = false;
 };
 
 class ASTCreateRowAccessPolicyStatement final : public ASTCreateStatement {
@@ -5213,11 +5347,55 @@ class ASTCreateExternalTableStatement final : public ASTCreateTableStmtBase {
       nullptr;  // May be NULL.
 };
 
+// This represents the value MAX that shows up in type parameter lists.
+// It will not show up as a general expression anywhere else.
+class ASTMaxLiteral final : public ASTLeaf {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_MAX_LITERAL;
+
+  ASTMaxLiteral() : ASTLeaf(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+};
+
+class ASTTypeParameterList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_TYPE_PARAMETER_LIST;
+
+  explicit ASTTypeParameterList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const absl::Span<const ASTLeaf* const>& parameters() const {
+    return parameters_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&parameters_);
+  }
+
+  absl::Span<const ASTLeaf* const> parameters_;
+};
+
 class ASTType : public ASTNode {
  public:
   explicit ASTType(ASTNodeKind kind) : ASTNode(kind) {}
-
+  const ASTTypeParameterList* type_parameters() const {
+    return type_parameters_;
+  }
   bool IsType() const override { return true; }
+
+ protected:
+  const ASTTypeParameterList** mutable_type_parameters_ptr() {
+    return &type_parameters_;
+  }
+
+ private:
+  const ASTTypeParameterList* type_parameters_ = nullptr;
 };
 
 // TODO This takes a PathExpression and isn't really a simple type.
@@ -5237,6 +5415,7 @@ class ASTSimpleType final : public ASTType {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&type_name_);
+    fl.AddOptional(mutable_type_parameters_ptr(), AST_TYPE_PARAMETER_LIST);
   }
 
   const ASTPathExpression* type_name_ = nullptr;
@@ -5257,6 +5436,7 @@ class ASTArrayType final : public ASTType {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&element_type_);
+    fl.AddOptional(mutable_type_parameters_ptr(), AST_TYPE_PARAMETER_LIST);
   }
 
   const ASTType* element_type_ = nullptr;
@@ -5278,7 +5458,8 @@ class ASTStructType final : public ASTType {
  private:
   void InitFields() final {
     FieldLoader fl(this);
-    fl.AddRestAsRepeated(&struct_fields_);
+    fl.AddRepeatedWhileIsNodeKind(&struct_fields_, AST_STRUCT_FIELD);
+    fl.AddOptional(mutable_type_parameters_ptr(), AST_TYPE_PARAMETER_LIST);
   }
 
   absl::Span<const ASTStructField* const> struct_fields_;
@@ -5454,6 +5635,31 @@ class ASTAssertRowsModified final : public ASTNode {
   const ASTExpression* num_rows_ = nullptr;  // Required
 };
 
+// "This represents {THEN RETURN} clause."
+// (broken link)
+class ASTReturningClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_RETURNING_CLAUSE;
+
+  ASTReturningClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTSelectList* select_list() const { return select_list_; }
+  const ASTAlias* action_alias() const { return action_alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&select_list_);
+    fl.AddOptional(&action_alias_, AST_ALIAS);
+  }
+
+  const ASTSelectList* select_list_ = nullptr;  // Required
+  const ASTAlias* action_alias_ = nullptr;      // Optional
+};
+
 // This is used for both top-level DELETE statements and for nested DELETEs
 // inside ASTUpdateItem. When used at the top-level, the target is always a
 // path expression.
@@ -5480,6 +5686,7 @@ class ASTDeleteStatement final : public ASTStatement {
   const ASTAssertRowsModified* assert_rows_modified() const {
     return assert_rows_modified_;
   }
+  const ASTReturningClause* returning() const { return returning_; }
 
  private:
   void InitFields() final {
@@ -5489,6 +5696,7 @@ class ASTDeleteStatement final : public ASTStatement {
     fl.AddOptional(&offset_, AST_WITH_OFFSET);
     fl.AddOptionalExpression(&where_);
     fl.AddOptional(&assert_rows_modified_, AST_ASSERT_ROWS_MODIFIED);
+    fl.AddOptional(&returning_, AST_RETURNING_CLAUSE);
   }
 
   const ASTGeneralizedPathExpression* target_path_ = nullptr;    // Required
@@ -5496,6 +5704,7 @@ class ASTDeleteStatement final : public ASTStatement {
   const ASTWithOffset* offset_ = nullptr;                        // Optional
   const ASTExpression* where_ = nullptr;                         // Optional
   const ASTAssertRowsModified* assert_rows_modified_ = nullptr;  // Optional
+  const ASTReturningClause* returning_ = nullptr;                // Optional
 };
 
 class ASTColumnAttribute : public ASTNode {
@@ -5620,6 +5829,9 @@ class ASTColumnAttributeList final : public ASTNode {
 class ASTColumnSchema : public ASTNode {
  public:
   explicit ASTColumnSchema(ASTNodeKind kind) : ASTNode(kind) {}
+  const ASTTypeParameterList* type_parameters() const {
+    return type_parameters_;
+  }
   const ASTColumnAttributeList* attributes() const {
     return attributes_;
   }
@@ -5647,6 +5859,9 @@ class ASTColumnSchema : public ASTNode {
   }
 
  protected:
+  const ASTTypeParameterList** mutable_type_parameters_ptr() {
+    return &type_parameters_;
+  }
   const ASTColumnAttributeList** mutable_attributes_ptr() {
     return &attributes_;
   }
@@ -5658,6 +5873,7 @@ class ASTColumnSchema : public ASTNode {
   }
 
  private:
+  const ASTTypeParameterList* type_parameters_ = nullptr;
   const ASTColumnAttributeList* attributes_ = nullptr;
   const ASTGeneratedColumnInfo* generated_column_info_ = nullptr;
   const ASTOptionsList* options_list_ = nullptr;
@@ -5678,6 +5894,7 @@ class ASTSimpleColumnSchema final : public ASTColumnSchema {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&type_name_);
+    fl.AddOptional(mutable_type_parameters_ptr(), AST_TYPE_PARAMETER_LIST);
     fl.AddOptional(mutable_generated_column_info_ptr(),
                    AST_GENERATED_COLUMN_INFO);
     fl.AddOptional(mutable_attributes_ptr(), AST_COLUMN_ATTRIBUTE_LIST);
@@ -5702,6 +5919,7 @@ class ASTArrayColumnSchema final : public ASTColumnSchema {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&element_schema_);
+    fl.AddOptional(mutable_type_parameters_ptr(), AST_TYPE_PARAMETER_LIST);
     fl.AddOptional(mutable_generated_column_info_ptr(),
                    AST_GENERATED_COLUMN_INFO);
     fl.AddOptional(mutable_attributes_ptr(), AST_COLUMN_ATTRIBUTE_LIST);
@@ -5728,6 +5946,7 @@ class ASTStructColumnSchema final : public ASTColumnSchema {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRepeatedWhileIsNodeKind(&struct_fields_, AST_STRUCT_COLUMN_FIELD);
+    fl.AddOptional(mutable_type_parameters_ptr(), AST_TYPE_PARAMETER_LIST);
     fl.AddOptional(mutable_generated_column_info_ptr(),
                    AST_GENERATED_COLUMN_INFO);
     fl.AddOptional(mutable_attributes_ptr(), AST_COLUMN_ATTRIBUTE_LIST);
@@ -6082,6 +6301,7 @@ class ASTInsertStatement final : public ASTStatement {
   const ASTAssertRowsModified* assert_rows_modified() const {
     return assert_rows_modified_;
   }
+  const ASTReturningClause* returning() const { return returning_; }
 
   enum InsertMode {
     DEFAULT_MODE,  // plain INSERT
@@ -6126,6 +6346,7 @@ class ASTInsertStatement final : public ASTStatement {
     fl.AddOptional(&rows_, AST_INSERT_VALUES_ROW_LIST);
     fl.AddOptional(&query_, AST_QUERY);
     fl.AddOptional(&assert_rows_modified_, AST_ASSERT_ROWS_MODIFIED);
+    fl.AddOptional(&returning_, AST_RETURNING_CLAUSE);
   }
 
   ParseProgress parse_progress_ = kInitial;
@@ -6134,6 +6355,7 @@ class ASTInsertStatement final : public ASTStatement {
   const ASTGeneralizedPathExpression* target_path_ = nullptr;
   const ASTColumnList* column_list_ = nullptr;
   const ASTAssertRowsModified* assert_rows_modified_ = nullptr;  // Optional
+  const ASTReturningClause* returning_ = nullptr;                // Optional
 
   // Exactly one of rows_ or query_ will be present.
   // with_ can be present if query_ is present.
@@ -6247,6 +6469,7 @@ class ASTUpdateStatement final : public ASTStatement {
   const ASTAssertRowsModified* assert_rows_modified() const {
     return assert_rows_modified_;
   }
+  const ASTReturningClause* returning() const { return returning_; }
   const ASTFromClause* from_clause() const { return from_clause_; }
 
   const ASTUpdateItemList* update_item_list() const {
@@ -6263,6 +6486,7 @@ class ASTUpdateStatement final : public ASTStatement {
     fl.AddOptional(&from_clause_, AST_FROM_CLAUSE);
     fl.AddOptionalExpression(&where_);
     fl.AddOptional(&assert_rows_modified_, AST_ASSERT_ROWS_MODIFIED);
+    fl.AddOptional(&returning_, AST_RETURNING_CLAUSE);
   }
 
   const ASTGeneralizedPathExpression* target_path_ = nullptr;    // Required
@@ -6272,6 +6496,7 @@ class ASTUpdateStatement final : public ASTStatement {
   const ASTAssertRowsModified* assert_rows_modified_ = nullptr;  // Optional
   const ASTUpdateItemList* update_item_list_ = nullptr;          // Required
   const ASTFromClause* from_clause_ = nullptr;                   // Optional
+  const ASTReturningClause* returning_ = nullptr;                // Optional
 };
 
 class ASTTruncateStatement final : public ASTStatement {

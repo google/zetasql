@@ -434,7 +434,7 @@ SELECT TO_PROTO(
 EXTRACT( extraction_type (field) FROM proto_expression )
 
 extraction_type:
-  { FIELD | RAW | HAS }
+  { FIELD | RAW | HAS | ONEOF_CASE }
 ```
 
 **Description**
@@ -455,6 +455,8 @@ You can choose the type of information to get with `EXTRACT`. Your choices are:
 +  `HAS`: Returns `true` if a field is set in a proto message;
    otherwise, `false`. Returns an error if this is used with a scalar proto3
    field. Alternatively, use [`has_x`][has-value], to perform this task.
++  `ONEOF_CASE`: Returns the name of the set field in a Oneof. If no field is
+   set, returns an empty string.
 
 **Return Type**
 
@@ -463,6 +465,7 @@ The return type depends upon the extraction type in the query.
 +  `FIELD`: Type of proto field.
 +  `RAW`: Type of proto field, ignoring format annotations if present.
 +  `HAS`: `BOOL`
++  `ONEOF_CASE`: `STRING`
 
 **Examples**
 
@@ -549,6 +552,30 @@ SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
 | has_release_date |
 +------------------+
 | false            |
++------------------+
+```
+
+Set up a proto called `Vehicle`.
+
+```sql
+message Vehicle {
+  oneof brand {
+    string car = 1;
+    string bike = 2;
+  }
+}
+```
+
+In the `Vehicle` proto, `brand` can either be `car` or `bike`. Assume that
+`bike` is the set brand.
+
+```sql
+SELECT EXTRACT(ONEOF_CASE(brand) FROM new Vehicle("schwinn" as bike)) as brand_field_name;
+
++------------------+
+| brand_field_name |
++------------------+
+| bike             |
 +------------------+
 ```
 

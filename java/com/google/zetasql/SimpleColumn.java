@@ -69,11 +69,10 @@ public final class SimpleColumn implements Column, Serializable {
   }
 
   /**
-   * Deserialize a proto into a new column with existing Descriptor pools.
-   * Types will be deserialized using the given TypeFactory and Descriptors
-   * from the given pools. The DescriptorPools should have been created by
-   * type serialization, and all proto types are treated as references into
-   * these pools.
+   * Deserialize a proto into a new column with existing Descriptor pools. Types will be
+   * deserialized using the given TypeFactory and Descriptors from the given pools. The
+   * DescriptorPools should have been created by type serialization, and all proto types are treated
+   * as references into these pools.
    *
    * @param proto
    * @param tableName Callers should give name of table the column belongs to.
@@ -85,7 +84,7 @@ public final class SimpleColumn implements Column, Serializable {
   public static SimpleColumn deserialize(
       SimpleColumnProto proto,
       String tableName,
-      ImmutableList<ZetaSQLDescriptorPool> pools,
+      ImmutableList<? extends DescriptorPool> pools,
       TypeFactory factory) {
     Type type = factory.deserialize(proto.getType(), pools);
     return new SimpleColumn(

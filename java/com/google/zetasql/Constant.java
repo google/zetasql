@@ -66,7 +66,7 @@ public final class Constant implements Serializable {
    */
   public static Constant deserialize(
       SimpleConstantProto proto,
-      final ImmutableList<ZetaSQLDescriptorPool> pools,
+      final ImmutableList<? extends DescriptorPool> pools,
       TypeFactory typeFactory) {
     Type type = typeFactory.deserialize(proto.getType(), pools);
     return new Constant(proto.getNamePathList(), type, Value.deserialize(type, proto.getValue()));

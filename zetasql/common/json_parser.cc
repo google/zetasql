@@ -111,10 +111,10 @@ bool JSONParser::ParseHexDigits(const int size, std::string* str) {
     code = (code << 4) + zetasql_base::hex_digit_to_int(p_.data()[i]);
   }
   char buf[U8_MAX_LENGTH];
-  UBool is_error = FALSE;
+  UBool is_error = false;
   int32_t len = 0;
   U8_APPEND(buf, len, U8_MAX_LENGTH, code, is_error);
-  if (is_error == TRUE) {
+  if (is_error) {
     // If the codepoint is bogus, just replace with replacement character.
     str->append(kReplacementCharacter.data(), kReplacementCharacter.size());
   } else {
@@ -145,10 +145,10 @@ void JSONParser::ParseOctalDigits(const int max_size, std::string* str) {
     sum = (sum << 3) + p_.data()[num_octal_digits] - '0';
   }
   char buf[U8_MAX_LENGTH];
-  UBool is_error = FALSE;
+  UBool is_error = false;
   int32_t len = 0;
   U8_APPEND(buf, len, sizeof(buf), sum, is_error);
-  if (is_error == TRUE) {
+  if (is_error) {
     // If the codepoint is bogus, just replace with replacement character.
     str->append(kReplacementCharacter.data(), kReplacementCharacter.size());
   } else {

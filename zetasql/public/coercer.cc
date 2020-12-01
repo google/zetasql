@@ -72,7 +72,8 @@ constexpr int GetNullLiteralCoercionCost() {
 SuperTypesMap* CreateBuiltinSuperTypesMap() {
   auto* map = new SuperTypesMap;
 
-  for (const auto [cast_pair, cast_function_property] : GetZetaSQLCasts()) {
+  for (const auto [cast_pair, cast_function_property] :
+       internal::GetZetaSQLCasts()) {
     const auto [src_type_kind, dst_type_kind] = cast_pair;
 
     if (src_type_kind == dst_type_kind) {
@@ -453,11 +454,11 @@ int GetLiteralCoercionCost(const Value& literal_value, const Type* to_type) {
                                    literal_value.type()->kind());
 }
 
-static bool GetCastFunctionType(
-    const TypeKind from_kind, const TypeKind to_kind,
-    CastFunctionType* cast_type) {
-  const CastFunctionProperty* cast_function_property =
-      zetasql_base::FindOrNull(GetZetaSQLCasts(), TypeKindPair(from_kind, to_kind));
+static bool GetCastFunctionType(const TypeKind from_kind,
+                                const TypeKind to_kind,
+                                CastFunctionType* cast_type) {
+  const CastFunctionProperty* cast_function_property = zetasql_base::FindOrNull(
+      internal::GetZetaSQLCasts(), TypeKindPair(from_kind, to_kind));
   if (cast_function_property == nullptr) {
     return false;
   }
@@ -1029,8 +1030,9 @@ zetasql_base::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
         result);
   }
 
-  const CastFunctionProperty* property = zetasql_base::FindOrNull(
-      GetZetaSQLCasts(), TypeKindPair(from_type->kind(), to_type->kind()));
+  const CastFunctionProperty* property =
+      zetasql_base::FindOrNull(internal::GetZetaSQLCasts(),
+                      TypeKindPair(from_type->kind(), to_type->kind()));
   if (property != nullptr &&
       (SupportsParameterCoercion(property->type) ||
        (is_explicit() && SupportsExplicitCast(property->type))) &&
@@ -1063,8 +1065,9 @@ zetasql_base::StatusOr<bool> Coercer::Context::TypeCoercesTo(
     return StructCoercesTo(InputArgumentType(from_type), to_type, result);
   }
 
-  const CastFunctionProperty* property = zetasql_base::FindOrNull(
-      GetZetaSQLCasts(), TypeKindPair(from_type->kind(), to_type->kind()));
+  const CastFunctionProperty* property =
+      zetasql_base::FindOrNull(internal::GetZetaSQLCasts(),
+                      TypeKindPair(from_type->kind(), to_type->kind()));
   if (property == nullptr) {
     result->incr_non_matched_arguments();
     return false;

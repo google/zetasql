@@ -21,11 +21,14 @@
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/base/cleanup.h"
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit,
           std::numeric_limits<int32_t>::max(),
@@ -47,7 +50,9 @@ TypeStore::~TypeStore() {
   for (const Type* type : owned_types_) {
     delete type;
   }
-
+  for (const AnnotationMap* annotation_map : owned_annotation_maps_) {
+    delete annotation_map;
+  }
   if (!factories_depending_on_this_.empty()) {
     ZETASQL_LOG(DFATAL) << "Destructing TypeFactory " << this
                 << " is unsafe because TypeFactory "
@@ -220,6 +225,7 @@ const Type* TypeFactory::get_geography() { return types::GeographyType(); }
 const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
+const Type* TypeFactory::get_tokenset() { return types::TokenSetType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   ZETASQL_CHECK(Type::IsSimpleType(kind)) << kind;
@@ -513,6 +519,34 @@ absl::Status TypeFactory::GetProtoFieldType(
   return absl::OkStatus();
 }
 
+zetasql_base::StatusOr<const AnnotationMap*> TypeFactory::TakeOwnership(
+    std::unique_ptr<AnnotationMap> annotation_map) {
+  // TODO: look up in cache and return deduped AnnotationMap
+  // pointer.
+  ZETASQL_RET_CHECK(annotation_map != nullptr);
+  return TakeOwnershipInternal(annotation_map.release());
+}
+
+absl::Status TypeFactory::DeserializeAnnotationMap(
+    const AnnotationMapProto& proto,
+    const AnnotationMap** annotation_map) {
+  *annotation_map = nullptr;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> deserialized_annotation_map,
+                   AnnotationMap::Deserialize(proto));
+  *annotation_map =
+      TakeOwnershipInternal(deserialized_annotation_map.release());
+  return absl::OkStatus();
+}
+
+const AnnotationMap* TypeFactory::TakeOwnershipInternal(
+    const AnnotationMap* annotation_map) {
+  absl::MutexLock lock(&store_->mutex_);
+  store_->owned_annotation_maps_.push_back(annotation_map);
+  // TODO: update estimated_memory_used_by_types_ and add
+  // GetExternallyAllocatedMemoryEstimate on owned_annotation_maps_.
+  return annotation_map;
+}
+
 absl::Status TypeFactory::DeserializeFromProtoUsingExistingPool(
     const TypeProto& type_proto,
     const google::protobuf::DescriptorPool* pool,
@@ -785,6 +819,12 @@ static const Type* s_json_type() {
   return s_json_type;
 }
 
+static const Type* s_tokenset_type() {
+  static const Type* s_tokenset_type =
+      new SimpleType(s_type_factory(), TYPE_TOKENSET);
+  return s_tokenset_type;
+}
+
 static const EnumType* s_date_part_enum_type() {
   static const EnumType* s_date_part_enum_type = [] {
     const EnumType* enum_type;
@@ -928,6 +968,12 @@ static const ArrayType* s_json_array_type() {
   return s_json_array_type;
 }
 
+static const ArrayType* s_tokenset_array_type() {
+  static const ArrayType* s_tokenset_array_type =
+      MakeArrayType(s_type_factory()->get_tokenset());
+  return s_tokenset_array_type;
+}
+
 }  // namespace
 
 namespace types {
@@ -950,6 +996,7 @@ const Type* GeographyType() { return s_geography_type(); }
 const Type* NumericType() { return s_numeric_type(); }
 const Type* BigNumericType() { return s_bignumeric_type(); }
 const Type* JsonType() { return s_json_type(); }
+const Type* TokenSetType() { return s_tokenset_type(); }
 const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
@@ -980,6 +1027,8 @@ const ArrayType* NumericArrayType() { return s_numeric_array_type(); }
 const ArrayType* BigNumericArrayType() { return s_bignumeric_array_type(); }
 
 const ArrayType* JsonArrayType() { return s_json_array_type(); }
+
+const ArrayType* TokenSetArrayType() { return s_tokenset_array_type(); }
 
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
@@ -1019,6 +1068,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericType();
     case TYPE_JSON:
       return JsonType();
+    case TYPE_TOKENSET:
+      return TokenSetType();
     default:
       ZETASQL_VLOG(1) << "Could not build static Type from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -1064,6 +1115,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericArrayType();
     case TYPE_JSON:
       return JsonArrayType();
+    case TYPE_TOKENSET:
+      return TokenSetArrayType();
     default:
       ZETASQL_VLOG(1) << "Could not build static ArrayType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);

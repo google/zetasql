@@ -870,9 +870,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified, the `NULL` values are excluded from the result. If
-    `RESPECT NULLS` or if neither is specified, the `NULL` values are included
-    in the result.
+    specified,
+    the `NULL` values are excluded from the result. If `RESPECT NULLS` is
+    specified or if neither is specified,
+    the `NULL` values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
@@ -1136,9 +1137,18 @@ The clauses are applied *in the following order*:
 
 **Returned Data Types**
 
-+ NUMERIC if
-  the input type is NUMERIC.
-+ DOUBLE
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 **Examples**
 
@@ -1892,13 +1902,20 @@ The clauses are applied *in the following order*:
 
 **Return Data Types**
 
-+ Returns INT64 if the input is a signed integer.
-+ Returns UINT64 if the input is an unsigned integer.
-+ Returns
-  NUMERIC if the input type is
-  NUMERIC.
-+ Returns DOUBLE if the input is a floating point
-value.
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
+Special cases:
 
 Returns `NULL` if the input contains only `NULL`s.
 
@@ -2085,13 +2102,15 @@ is the dependent variable and the second number is the independent variable.
 The return result is between `-1` and `1`. A result of `0` indicates no
 correlation.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2109,7 +2128,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### COVAR_POP
 ```
@@ -2123,13 +2142,15 @@ a set of number pairs. The first number is the dependent variable; the second
 number is the independent variable. The return result is between `-Inf` and
 `+Inf`.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any input pairs that contain one or more NULL values. If
 there is no input pair without NULL values, this function returns NULL. If there
 is exactly one input pair without NULL values, this function returns 0.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2147,7 +2168,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### COVAR_SAMP
 ```
@@ -2161,13 +2182,15 @@ set of number pairs. The first number is the dependent variable; the second
 number is the independent variable. The return result is between `-Inf` and
 `+Inf`.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2185,7 +2208,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### STDDEV_POP
 ```
@@ -2197,14 +2220,16 @@ STDDEV_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 Returns the population (biased) standard deviation of the values. The return
 result is between `0` and `+Inf`.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any NULL inputs. If all inputs are ignored, this function
 returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2224,7 +2249,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### STDDEV_SAMP
 ```
@@ -2236,12 +2261,14 @@ STDDEV_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)
 Returns the sample (unbiased) standard deviation of the values. The return
 result is between `0` and `+Inf`.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2261,7 +2288,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### STDDEV
 ```
@@ -2282,14 +2309,16 @@ VAR_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 Returns the population (biased) variance of the values. The return result is
 between `0` and `+Inf`.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any NULL inputs. If all inputs are ignored, this function
 returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2309,7 +2338,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### VAR_SAMP
 ```
@@ -2321,12 +2350,14 @@ VAR_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 Returns the sample (unbiased) variance of the values. The return result is
 between `0` and `+Inf`.
 
+All numeric types are supported. If the
+input is `NUMERIC` then the internal aggregation is
+stable with the final output converted to a `DOUBLE`.
+Otherwise the input is converted to a `DOUBLE`
+before aggregation, resulting in a potentially unstable result.
+
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
-
-**Supported Input Types**
-
-DOUBLE
 
 **Optional Clauses**
 
@@ -2346,7 +2377,7 @@ The clauses are applied *in the following order*:
 
 **Return Data Type**
 
-DOUBLE
+`DOUBLE`
 
 ### VARIANCE
 ```
@@ -2451,9 +2482,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified, the `NULL` values are excluded from the result. If
-    `RESPECT NULLS` or if neither is specified, the `NULL` values are included
-    in the result.
+    specified or if neither is specified,
+    the `NULL` values are excluded from the result. If `RESPECT NULLS` is
+    specified,
+    the `NULL` values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
@@ -2616,6 +2648,8 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 <li>INT64</li>
 
 <li>UINT64</li>
+
+<li>NUMERIC</li>
 
 <li>DOUBLE</li>
 </ul>
@@ -3817,6 +3851,21 @@ output value cannot be represented as the same type; this happens only for the
 largest negative input value, which has no positive representation. Returns
 `+inf` for a `+/-inf` argument.
 
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT32</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
 ### SIGN
 
 ```
@@ -3827,8 +3876,22 @@ SIGN(X)
 
 Returns -1, 0, or +1 for negative, zero and positive arguments respectively. For
 floating point arguments, this function does not distinguish between positive
-and negative zero.   Returns`NaN`for a`NaN`
-argument.
+and negative zero. Returns `NaN` for a `NaN` argument.
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT32</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 ### IS_INF
 
@@ -3941,6 +4004,21 @@ Computes the square root of X. Generates an error if X is less than 0.
 
 Returns `+inf` if X is `+inf`.
 
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
 ### POW
 
 ```
@@ -3964,7 +4042,7 @@ table.
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -4073,6 +4151,21 @@ Computes *e* to the power of X, also called the natural exponential function. If
 the result underflows, this function returns a zero. Generates an error if the
 result overflows. If X is `+/-inf`, then this function returns `+inf` or 0.
 
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
 ### LN
 
 ```
@@ -4083,6 +4176,21 @@ LN(X)
 
 Computes the natural logarithm of X. Generates an error if X is less than or
 equal to zero. If X is `+inf`, then this function returns `+inf`.
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 ### LOG
 
@@ -4098,6 +4206,28 @@ computes the logarithm of X to base Y. Generates an error in these cases:
 + X is less than or equal to zero
 + Y is 1.0
 + Y is less than or equal to zero.
+
+**Return Data Type**
+
+<table style="font-size:small">
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>INT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>INT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>UINT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+
+<tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 The behavior of `LOG(X, Y)` is further illustrated in the table below.
 
@@ -4146,6 +4276,21 @@ LOG10(X)
 
 Similar to `LOG`, but computes logarithm to base 10.
 
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
 ### GREATEST
 
 ```
@@ -4158,6 +4303,10 @@ Returns <code>NULL</code> if any of the inputs is <code>NULL</code>. Otherwise,
 returns <code>NaN</code> if any of the inputs is <code>NaN</code>. Otherwise,
 returns the largest value among X1,...,XN according to the &lt; comparison.
 
+**Return Data Types**
+
+Data type of the input values.
+
 ### LEAST
 
 ```
@@ -4169,6 +4318,10 @@ LEAST(X1,...,XN)
 Returns `NULL` if any of the inputs is `NULL`. Returns `NaN` if any of the
 inputs is `NaN`. Otherwise, returns the smallest value among X1,...,XN
 according to the &gt; comparison.
+
+**Return Data Types**
+
+Data type of the input values.
 
 ### DIV
 
@@ -4189,7 +4342,7 @@ table.
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th>
 </tr>
 </thead>
 <tbody>
@@ -4211,8 +4364,12 @@ SAFE_DIVIDE(X, Y)
 
 **Description**
 
-Equivalent to the division operator (<code>/</code>), but returns
+Equivalent to the division operator (<code>X / Y</code>), but returns
 <code>NULL</code> if an error occurs, such as a division by zero error.
+
+**Return Data Type**
+
+<table style="font-size:small"><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>INT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>INT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
 
 ### SAFE_MULTIPLY
 
@@ -4225,6 +4382,10 @@ SAFE_MULTIPLY(X, Y)
 Equivalent to the multiplication operator (<code>*</code>), but returns
 <code>NULL</code> if overflow occurs.
 
+**Return Data Type**
+
+<table style="font-size:small"><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
+
 ### SAFE_NEGATE
 
 ```
@@ -4235,6 +4396,10 @@ SAFE_NEGATE(X)
 
 Equivalent to the unary minus operator (<code>-</code>), but returns
 <code>NULL</code> if overflow occurs.
+
+**Return Data Type**
+
+<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
 
 ### SAFE_ADD
 
@@ -4247,6 +4412,10 @@ SAFE_ADD(X, Y)
 Equivalent to the addition operator (<code>+</code>), but returns
 <code>NULL</code> if overflow occurs.
 
+**Return Data Type**
+
+<table style="font-size:small"><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
+
 ### SAFE_SUBTRACT
 
 ```
@@ -4258,6 +4427,10 @@ SAFE_SUBTRACT(X, Y)
 Returns the result of Y subtracted from X.
 Equivalent to the subtraction operator (<code>-</code>), but returns
 <code>NULL</code> if overflow occurs.
+
+**Return Data Type**
+
+<table style="font-size:small"><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
 
 ### MOD
 
@@ -4278,7 +4451,7 @@ table.
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th>
 </tr>
 </thead>
 <tbody>
@@ -4306,6 +4479,21 @@ If only X is present, `ROUND` rounds X to the nearest integer. If N is present,
 `ROUND` will round off digits to the left of the decimal point. Rounds halfway
 cases away from zero. Generates an error if overflow occurs.
 
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
 ### TRUNC
 
 ```
@@ -4318,6 +4506,21 @@ If only X is present, `TRUNC` rounds X to the nearest integer whose absolute
 value is not greater than the absolute value of X. If N is also present, `TRUNC`
 behaves like `ROUND(X, N)`, but always rounds towards zero and never overflows.
 
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
 ### CEIL
 
 ```
@@ -4326,8 +4529,22 @@ CEIL(X)
 
 **Description**
 
-Returns the smallest integral value (with DOUBLE
-type) that is not less than X.
+Returns the smallest integral value that is not less than X.
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 ### CEILING
 
@@ -4347,8 +4564,22 @@ FLOOR(X)
 
 **Description**
 
-Returns the largest integral value (with DOUBLE
-type) that is not greater than X.
+Returns the largest integral value that is not greater than X.
+
+**Return Data Type**
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
 
 #### Example rounding function behavior
 Example behavior of ZetaSQL rounding functions:
@@ -5270,7 +5501,7 @@ table.
 
 <thead>
 <tr>
-<th></th><th>NUMERIC</th><th>DOUBLE</th>
+<th>INPUT</th><th>NUMERIC</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -9099,15 +9330,15 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
 
 ### TO_JSON_STRING
 
-```
+```sql
 TO_JSON_STRING(value[, pretty_print])
 ```
 
 **Description**
 
 Returns a JSON-formatted string representation of `value`. This function
-supports an optional `pretty_print` parameter. If `pretty_print` is present, the
-returned value is formatted for easy readability.
+supports an optional boolean parameter called `pretty_print`. If `pretty_print`
+is `true`, the returned value is formatted for easy readability.
 
 <table>
 <thead>
@@ -9151,7 +9382,7 @@ returned value is formatted for easy readability.
     </td>
  </tr>
  <tr>
-    <td>NUMERIC</td>
+   <td>NUMERIC</td>
    <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
      in the range of [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
      part. Values outside of this range are represented as quoted strings. For
@@ -9164,7 +9395,6 @@ returned value is formatted for easy readability.
  </tr>
  <tr>
     <td>FLOAT, DOUBLE</td>
-
     <td><code>+/-inf</code> and <code>NaN</code> are represented as
     <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>,
     respectively.
@@ -9187,7 +9417,7 @@ returned value is formatted for easy readability.
  
  <tr>
     <td>ENUM</td>
-    <td><p>Quoted enum name as a string.</p>
+    <td><p>Quoted enum value name as a string.</p>
     <p>Invalid enum values are represented as their number, such as 0 or 42.</p>
     </td>
  </tr>
@@ -9219,71 +9449,112 @@ returned value is formatted for easy readability.
  </tr>
  <tr>
     <td>ARRAY</td>
-    <td><p><code>[elem1,elem2,...]</code>, where each <code>elem</code> is
-    formatted according to the element type.</p>
-    Example with formatting:
-<pre>[
-  elem1,
-  elem2,
-  ...
+    <td>
+      <p>
+        Array of zero or more elements. Each element is formatted according to
+        its type.
+      </p>
+      <p>
+        Example without formatting:
+      </p>
+      <pre class="lang-sql prettyprint">["red", "blue", "green"]</pre>
+      <p>
+        Example with formatting:
+      </p>
+      <pre class="lang-sql prettyprint">
+[
+  "red",
+  "blue",
+  "green"
 ]</pre>
-    <p>Where each elem is formatted according to the element type. The empty
-    array is represented as <code>[]</code>.</p>
     </td>
  </tr>
  <tr>
     <td>STRUCT</td>
-    <td><code>{"field_name1":field_value1,"field_name2":field_value2,...}</code>
-    <p>Where each <code>field_value</code> is formatted according to its type.
-    </p>
-    Example with formatting:
-<pre>{
-  "field_name1": field_value1,
-  "field_name2": field_value2,
-  ...
+    <td>
+      <p>
+        Object that contains zero or more key/value pairs.
+        Each value is formatted according to its type.
+      </p>
+      <p>
+        Example without formatting:
+      </p>
+      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
+      <p>
+        Example with formatting:
+      </p>
+      <pre class="lang-sql prettyprint">
+{
+  "color":[
+    "red",
+    "blue"
+   ]
+  "purchases":12,
+  "inStock": true
 }</pre>
-    <p>Where each <code>field_value</code> is formatted according to its type.
-    If a <code>field_value</code> is a non-empty ARRAY or STRUCT,
-    elements are indented to the appropriate level. The empty struct is
-    represented as <code>{}</code>.
-    </p>
-    <p>Fields with duplicate names might result in unparseable JSON. Anonymous
-    fields are represented with <code>""</code>.
-    </p>
-    <p>Invalid UTF-8 field names might result in unparseable JSON. String values
-    are escaped according to the JSON standard. Specifically, <code>"</code>,
-    <code>\</code>, and the control characters from <code>U+0000</code> to
-    <code>U+001F</code> are escaped.</p>
+      <p>
+        Fields with duplicate names might result in unparseable JSON. Anonymous
+        fields are represented with <code>""</code>. If a field is a non-empty
+        array or object, elements/fields are indented
+        to the appropriate level.
+      </p>
+      <p>
+        Invalid UTF-8 field names might result in unparseable JSON. String
+        values are escaped according to the JSON standard. Specifically,
+        <code>"</code>, <code>\</code>, and the control characters from
+        <code>U+0000</code> to <code>U+001F</code> are escaped.
+      </p>
     </td>
  </tr>
 
  <tr>
     <td>PROTO</td>
-    <td><code>{"fieldName1":field_value1,"fieldName2":field_value2,...}</code>
-    Example with formatting:
-<pre>{
-  "fieldName1": field_value1,
-  "fieldName2": field_value2,
-  ...
+    <td>
+      <p>
+        Object that contains zero or more key/value pairs.
+        Each value is formatted according to its type.
+      </p>
+      <p>
+        Example without formatting:
+      </p>
+      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
+      <p>
+        Example with formatting:
+      </p>
+      <pre class="lang-sql prettyprint">
+{
+  "color":[
+    "red",
+    "blue"
+   ]
+  "purchases":12,
+  "inStock": true
 }</pre>
-    <p>Field names with underscores are converted to camel-case in accordance
-    with
-    <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-    protobuf json conversion</a>. Field values are formatted according to
-    <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-    protobuf json conversion</a>. If a <code>field_value</code> is a non-empty
-    repeated field or submessage, elements/fields are indented to the
-    appropriate level. The empty struct is represented as <code>{}</code>.</p>
-    <ul>
-    <li>Field names that are not valid UTF-8 might result in unparseable JSON.
-    </li>
-    <li>Field annotations are not taken into account.</li>
-    <li>Repeated fields are represented as arrays.</li>
-    <li>Submessages are formatted as values of PROTO type.</li>
-    <li>Extensions fields are included in the output, where the extension field
-    name is enclosed in brackets and prefixed with the full name of the
-    extension type.
-    </ul>
+      <p>
+        Field names with underscores are converted to camel-case in accordance
+        with
+        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+        protobuf json conversion</a>. Field values are formatted according to
+        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+        protobuf json conversion</a>. If a <code>field_value</code> is a non-empty
+        repeated field or submessage, elements/fields are indented to the
+        appropriate level.
+      </p>
+      <ul>
+        <li>
+          Field names that are not valid UTF-8 might result in unparseable
+          JSON.
+        </li>
+        <li>Field annotations are ignored.</li>
+        <li>Repeated fields are represented as arrays.</li>
+        <li>Submessages are formatted as values of PROTO type.</li>
+        <li>
+          Extension fields are included in the output, where the extension
+          field name is enclosed in brackets and prefixed with the full name of
+          the extension type.
+        </li>
+        
+      </ul>
     </td>
  </tr>
 
@@ -9299,78 +9570,49 @@ JSON string representation of the value.
 Convert rows in a table to JSON.
 
 ```sql
-WITH Input AS (
-  SELECT [1, 2] AS x, 'foo' AS y, STRUCT(true AS a, DATE '2017-04-05' AS b) AS s UNION ALL
-  SELECT NULL AS x, '' AS y, STRUCT(false AS a, DATE '0001-01-01' AS b) AS s UNION ALL
-  SELECT [3] AS x, 'bar' AS y, STRUCT(NULL AS a, DATE '2016-12-05' AS b) AS s
-)
-SELECT
-  t,
-  TO_JSON_STRING(t) AS json_row
-FROM Input AS t;
-```
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
+FROM CoordinatesTable as t;
 
-The above query produces the following result:
-
-```json
-+-----------------------------------+-------------------------------------------------------+
-| t                                 | json_row                                              |
-+-----------------------------------+-------------------------------------------------------+
-| {[1, 2], foo, {true, 2017-04-05}} | {"x":[1,2],"y":"foo","s":{"a":true,"b":"2017-04-05"}} |
-| {NULL, , {false, 0001-01-01}}     | {"x":null,"y":"","s":{"a":false,"b":"0001-01-01"}}    |
-| {[3], bar, {NULL, 2016-12-05}}    | {"x":[3],"y":"bar","s":{"a":null,"b":"2016-12-05"}}   |
-+-----------------------------------+-------------------------------------------------------+
++--------+-------------+--------------------------------+
+| id     | coordinates | json_data                      |
++--------+-------------+--------------------------------+
+| 1      | [10,20]     | {"id":1,"coordinates":[10,20]} |
+| 2      | [30,40]     | {"id":2,"coordinates":[30,40]} |
+| 3      | [50,60]     | {"id":3,"coordinates":[50,60]} |
++--------+-------------+--------------------------------+
 ```
 
 Convert rows in a table to JSON with formatting.
 
 ```sql
-WITH Input AS (
-  SELECT [1, 2] AS x, 'foo' AS y, STRUCT(true AS a, DATE '2017-04-05' AS b) AS s UNION ALL
-  SELECT NULL AS x, '' AS y, STRUCT(false AS a, DATE '0001-01-01' AS b) AS s UNION ALL
-  SELECT [3] AS x, 'bar' AS y, STRUCT(NULL AS a, DATE '2016-12-05' AS b) AS s
-)
-SELECT
-  TO_JSON_STRING(t, true) AS json_row
-FROM Input AS t;
-```
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates)
+SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
+FROM CoordinatesTable as t;
 
-The above query produces the following result:
-
-```json
-+-----------------------+
-| json_row              |
-+-----------------------+
-| {                     |
-|  "x": [               |
-|    1,                 |
-|    2                  |
-|  ],                   |
-|  "y": "foo",          |
-|  "s": {               |
-|    "a": true,         |
-|    "b": "2017-04-05"  |
-|  }                    |
-|}                      |
-| {                     |
-|  "x": null,           |
-|  "y": "",             |
-|  "s": {               |
-|    "a": false,        |
-|    "b": "0001-01-01"  |
-|  }                    |
-|}                      |
-| {                     |
-|  "x": [               |
-|    3                  |
-|  ],                   |
-|  "y": "bar",          |
-|  "s": {               |
-|    "a": null,         |
-|    "b": "2016-12-05"  |
-|  }                    |
-|}                      |
-+-----------------------+
++--------+-------------+---------------------+
+| id     | coordinates | json_data           |
++--------+-------------+---------------------+
+| 1      | [10,20]     | {                   |
+|        |             |   "id":1,           |
+|        |             |   "coordinates":[   |
+|        |             |     10,             |
+|        |             |     20              |
+|        |             |   ]                 |
+|        |             | }                   |
+| 2      | [30,40]     | {                   |
+|        |             |   "id":2,           |
+|        |             |   "coordinates":[   |
+|        |             |     30,             |
+|        |             |     40              |
+|        |             |   ]                 |
+|        |             | }                   |
++--------+-------------+---------------------+
 ```
 
 ### JSONPath format
@@ -14138,7 +14380,7 @@ SELECT TO_PROTO(
 EXTRACT( extraction_type (field) FROM proto_expression )
 
 extraction_type:
-  { FIELD | RAW | HAS }
+  { FIELD | RAW | HAS | ONEOF_CASE }
 ```
 
 **Description**
@@ -14159,6 +14401,8 @@ You can choose the type of information to get with `EXTRACT`. Your choices are:
 +  `HAS`: Returns `true` if a field is set in a proto message;
    otherwise, `false`. Returns an error if this is used with a scalar proto3
    field. Alternatively, use [`has_x`][has-value], to perform this task.
++  `ONEOF_CASE`: Returns the name of the set field in a Oneof. If no field is
+   set, returns an empty string.
 
 **Return Type**
 
@@ -14167,6 +14411,7 @@ The return type depends upon the extraction type in the query.
 +  `FIELD`: Type of proto field.
 +  `RAW`: Type of proto field, ignoring format annotations if present.
 +  `HAS`: `BOOL`
++  `ONEOF_CASE`: `STRING`
 
 **Examples**
 
@@ -14253,6 +14498,30 @@ SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
 | has_release_date |
 +------------------+
 | false            |
++------------------+
+```
+
+Set up a proto called `Vehicle`.
+
+```sql
+message Vehicle {
+  oneof brand {
+    string car = 1;
+    string bike = 2;
+  }
+}
+```
+
+In the `Vehicle` proto, `brand` can either be `car` or `bike`. Assume that
+`bike` is the set brand.
+
+```sql
+SELECT EXTRACT(ONEOF_CASE(brand) FROM new Vehicle("schwinn" as bike)) as brand_field_name;
+
++------------------+
+| brand_field_name |
++------------------+
+| bike             |
 +------------------+
 ```
 
@@ -15349,7 +15618,7 @@ Result types for Addition and Multiplication:
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -15371,7 +15640,7 @@ Result types for Subtraction:
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -15393,7 +15662,7 @@ Result types for Division:
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -15412,40 +15681,16 @@ Result types for Division:
 Result types for Unary Minus:
 
 <table>
+
 <thead>
 <tr>
-<th>Input Data Type</th>
-<th>Result Data Type</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
-
-<tr>
-<td>INT32</td>
-<td>INT32</td>
-</tr>
-
-<tr>
-<td>INT64</td>
-<td>INT64</td>
-</tr>
-
-<tr>
-<td>NUMERIC</td>
-<td>NUMERIC</td>
-</tr>
-
-<tr>
-<td>FLOAT</td>
-<td>FLOAT</td>
-</tr>
-
-<tr>
-<td>DOUBLE</td>
-<td>DOUBLE</td>
-</tr>
-
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
+
 </table>
 
 ### Date arithmetics operators

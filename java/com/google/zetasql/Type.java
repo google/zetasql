@@ -76,6 +76,8 @@ public abstract class Type implements Serializable {
     "BIGNUMERIC",
     "EXTENDED",
     "JSON",
+    "INTERVAL",
+    "TOKENSET",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -172,6 +174,14 @@ public abstract class Type implements Serializable {
 
   public boolean isTime() {
     return kind == TypeKind.TYPE_TIME;
+  }
+
+  public boolean isInterval() {
+    return kind == TypeKind.TYPE_INTERVAL;
+  }
+
+  public boolean isTokenSet() {
+    return kind == TypeKind.TYPE_TOKENSET;
   }
 
   public boolean isGeography() {

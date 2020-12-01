@@ -46,6 +46,7 @@ java_library(
         "//java/com/google/zetasql:client",
         "//java/com/google/zetasql:types",
         "//zetasql/proto:function_java_proto",
+        "//zetasql/public:annotation_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",

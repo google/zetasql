@@ -485,6 +485,8 @@ FunctionMap::FunctionMap() {
                      "JsonExtractScalar");
     RegisterFunction(FunctionKind::kJsonExtractArray, "json_extract_array",
                      "JsonExtractArray");
+    RegisterFunction(FunctionKind::kJsonExtractStringArray,
+                     "json_extract_string_array", "JsonExtractStringArray");
     RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
     RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
@@ -708,6 +710,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kSha512, "sha512", "Sha512");
     RegisterFunction(FunctionKind::kFarmFingerprint, "farm_fingerprint",
                      "FarmFingerprint");
+    RegisterFunction(FunctionKind::kError, "error", "Error");
   }();
 }
 
@@ -1392,6 +1395,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kJsonExtract:
     case FunctionKind::kJsonExtractScalar:
     case FunctionKind::kJsonExtractArray:
+    case FunctionKind::kJsonExtractStringArray:
     case FunctionKind::kJsonQuery:
     case FunctionKind::kJsonValue:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
@@ -5058,9 +5062,6 @@ zetasql_base::StatusOr<Value> CivilTimeConstructionAndConversionFunction::Eval(
           }
         } else if (args.size() == 1 && args[0].type()->IsTime()) {
           return args[0];
-        } else if (args.size() == 1 && args[0].type()->IsString()) {
-          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTime(
-              args[0].string_value(), functions::kMicroseconds, &time));
         } else {
           ZETASQL_RET_CHECK_FAIL() << "Unexpected function call for " << debug_name();
         }

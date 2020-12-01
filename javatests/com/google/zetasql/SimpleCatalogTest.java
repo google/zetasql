@@ -19,7 +19,6 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.zetasql.TypeTestBase.getDescriptorPoolWithTypeProtoAndTypeKind;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -664,8 +663,12 @@ public class SimpleCatalogTest {
     } catch (IllegalStateException expected) {
     }
 
-    // Adding a simple table to a registered simple catalog is allowed,
-    // which is tested in the case testAddSimpleTableToRegisteredSimpleCatalog() below.
+    try {
+      // Mutating after register.
+      catalog.addSimpleTable(new SimpleTable("table2"));
+      fail();
+    } catch (IllegalStateException expected) {
+    }
 
     try {
       // Mutating after register.
@@ -701,91 +704,6 @@ public class SimpleCatalogTest {
       catalog.unregister();
       fail();
     } catch (IllegalStateException expected) {
-    }
-  }
-
-  @Test
-  public void testAddSimpleTableToRegisteredSimpleCatalog() {
-    SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
-    SimpleColumn column = new SimpleColumn("t1", "c1", type);
-    SimpleTable table = new SimpleTable("t1", ImmutableList.of(column));
-    SimpleCatalog catalog = new SimpleCatalog("catalog1");
-    catalog.addSimpleTable(table);
-
-    catalog.register();
-
-    try {
-      // add an empty simple table after register.
-      catalog.addSimpleTable(new SimpleTable("t2"));
-    } catch (IllegalStateException e) {
-      fail(e.toString());
-    }
-
-    ZetaSQLDescriptorPool pool1 = getDescriptorPoolWithTypeProtoAndTypeKind();
-    ZetaSQLDescriptorPool pool2 = getDescriptorPoolWithTypeProtoAndTypeKind();
-    try {
-      // add a non-empty simple table after register.
-      TypeFactory factory = TypeFactory.nonUniqueNames();
-      List<Type> types = new ArrayList<>();
-      // some proto
-      types.add(factory.createProtoType(pool1.findMessageTypeByName("zetasql.StructTypeProto")));
-      // another proto
-      types.add(factory.createProtoType(pool1.findMessageTypeByName("zetasql.EnumTypeProto")));
-      // duplicated proto from different pool
-      types.add(factory.createProtoType(pool2.findMessageTypeByName("zetasql.EnumTypeProto")));
-      // duplicated proto from same pool
-      types.add(factory.createProtoType(pool2.findMessageTypeByName("zetasql.EnumTypeProto")));
-      // and an enum
-      types.add(factory.createEnumType(pool1.findEnumTypeByName("zetasql.TypeKind")));
-      // add some simple types
-      types.add(TypeFactory.createSimpleType(TypeKind.TYPE_BOOL));
-      types.add(TypeFactory.createSimpleType(TypeKind.TYPE_DOUBLE));
-
-      int i = 0;
-      List<SimpleColumn> columns = new ArrayList<>();
-      for (Type aType : types) {
-        columns.add(new SimpleColumn("t3", "cc" + ++i, aType));
-      }
-      catalog.addSimpleTable(new SimpleTable("t3", columns));
-
-      AnalyzerOptions options = new AnalyzerOptions();
-      String sql = "select cc1 from t3;";
-      assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
-    } catch (IllegalStateException e) {
-      fail(e.toString());
-    }
-
-    try {
-      // add an overlap simple table after register.
-      ZetaSQLDescriptorPool pool3 = getDescriptorPoolWithTypeProtoAndTypeKind();
-      TypeFactory factory = TypeFactory.nonUniqueNames();
-      List<Type> types = new ArrayList<>();
-      List<SimpleColumn> columns = new ArrayList<>();
-      // same part with t3
-      types.add(factory.createProtoType(pool1.findMessageTypeByName("zetasql.StructTypeProto")));
-      types.add(factory.createProtoType(pool1.findMessageTypeByName("zetasql.EnumTypeProto")));
-      types.add(factory.createProtoType(pool2.findMessageTypeByName("zetasql.EnumTypeProto")));
-
-      int i = 0;
-      for (Type aType : types) {
-        columns.add(new SimpleColumn("t4", "cc" + ++i, aType));
-      }
-
-      // different part with t3
-      Type diffType =
-          factory.createProtoType(pool3.findMessageTypeByName("zetasql.EnumTypeProto"));
-      columns.add(new SimpleColumn("t4", "diff", diffType));
-
-      catalog.addSimpleTable(new SimpleTable("t4", columns));
-
-      AnalyzerOptions options = new AnalyzerOptions();
-      String sql = "select cc1 from t4;";
-      assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
-
-      sql = "select diff from t4;";
-      assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
-    } catch (IllegalStateException e) {
-      fail(e.toString());
     }
   }
 

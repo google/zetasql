@@ -22,10 +22,13 @@
 
 namespace zetasql {
 
-// Rewrites `resolved_statement` to a new ResolvedStatement where
-// ResolvedFlatten nodes have been replaced by equivalent scan nodes.
-zetasql_base::StatusOr<std::unique_ptr<const ResolvedStatement>> RewriteResolvedFlatten(
-    const ResolvedStatement& resolved_statement, ColumnFactory& column_factory);
+// Rewrites `node` to a new node where ResolvedFlatten nodes have been replaced
+// by equivalent scan nodes.
+//
+// The output node will either be a ResolvedExpr or ResolvedStatement with that
+// base type matching the base type of the input.
+zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteResolvedFlatten(
+    Catalog& catalog, const ResolvedNode& node, ColumnFactory& column_factory);
 
 }  // namespace zetasql
 

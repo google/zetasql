@@ -783,34 +783,27 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeGetProto
 
 zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFlatten(
     const ResolvedFlatten* flatten) {
+  flattened_arg_input_.push(absl::make_unique<const Value*>());
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> expr,
                    AlgebrizeExpression(flatten->expr()));
-  std::vector<int> struct_indexes;
-  std::vector<const ProtoFieldReader*> proto_field_readers;
+  std::vector<std::unique_ptr<ValueExpr>> get_fields;
   for (const auto& node : flatten->get_field_list()) {
-    if (node->node_kind() == RESOLVED_GET_STRUCT_FIELD) {
-      ZETASQL_RET_CHECK_EQ(0, proto_field_readers.size());
-      const ResolvedGetStructField& get =
-          *node->GetAs<ResolvedGetStructField>();
-      ZETASQL_RET_CHECK_EQ(RESOLVED_FLATTENED_ARG, get.expr()->node_kind());
-      struct_indexes.push_back(get.field_idx());
-    } else if (node->node_kind() == RESOLVED_GET_PROTO_FIELD) {
-      const ResolvedGetProtoField& get = *node->GetAs<ResolvedGetProtoField>();
-      ZETASQL_RET_CHECK_EQ(RESOLVED_FLATTENED_ARG, get.expr()->node_kind());
-      ZETASQL_ASSIGN_OR_RETURN(ProtoFieldRegistry* registry,
-                       AddProtoFieldRegistry(/*id=*/absl::nullopt));
-      ZETASQL_ASSIGN_OR_RETURN(
-          const ProtoFieldReader* field_reader,
-          AddProtoFieldReader(
-              /*id=*/absl::nullopt, CreateProtoFieldAccessInfo(get), registry));
-      proto_field_readers.push_back(field_reader);
-    } else {
-      ZETASQL_RET_CHECK_FAIL() << "Unexpected node kind: " << node->DebugString();
-    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> get_field,
+                     AlgebrizeExpression(node.get()));
+    get_fields.push_back(std::move(get_field));
   }
+  ZETASQL_RET_CHECK(!flattened_arg_input_.empty());
+  auto flattened_arg = std::move(flattened_arg_input_.top());
+  flattened_arg_input_.pop();
   return FlattenExpr::Create(flatten->type(), std::move(expr),
-                             std::move(struct_indexes),
-                             std::move(proto_field_readers));
+                             std::move(get_fields), std::move(flattened_arg));
+}
+
+zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFlattenedArg(
+    const ResolvedFlattenedArg* flattened_arg) {
+  ZETASQL_RET_CHECK(!flattened_arg_input_.empty());
+  return FlattenedArgExpr::Create(flattened_arg->type(),
+                                  flattened_arg_input_.top().get());
 }
 
 zetasql_base::StatusOr<std::unique_ptr<ValueExpr>>
@@ -1110,6 +1103,11 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpressi
     case RESOLVED_FLATTEN: {
       ZETASQL_ASSIGN_OR_RETURN(val_op,
                        AlgebrizeFlatten(expr->GetAs<ResolvedFlatten>()));
+      break;
+    }
+    case RESOLVED_FLATTENED_ARG: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          val_op, AlgebrizeFlattenedArg(expr->GetAs<ResolvedFlattenedArg>()));
       break;
     }
     case RESOLVED_SUBQUERY_EXPR: {

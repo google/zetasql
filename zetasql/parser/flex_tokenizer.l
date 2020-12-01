@@ -455,6 +455,7 @@ first { return BisonParserImpl::token::KW_FIRST; }
 following { return BisonParserImpl::token::KW_FOLLOWING; }
 for { return BisonParserImpl::token::KW_FOR; }
 foreign { return BisonParserImpl::token::KW_FOREIGN; }
+format { return BisonParserImpl::token::KW_FORMAT; }
 from { return BisonParserImpl::token::KW_FROM; }
 full { return BisonParserImpl::token::KW_FULL; }
 function { return BisonParserImpl::token::KW_FUNCTION; }
@@ -571,6 +572,7 @@ rows { return BisonParserImpl::token::KW_ROWS; }
 run { return BisonParserImpl::token::KW_RUN; }
 safe_cast { return BisonParserImpl::token::KW_SAFE_CAST; }
 schema { return BisonParserImpl::token::KW_SCHEMA; }
+search { return BisonParserImpl::token::KW_SEARCH; }
 security { return BisonParserImpl::token::KW_SECURITY; }
 select { return BisonParserImpl::token::KW_SELECT; }
 set { return BisonParserImpl::token::KW_SET; }
@@ -588,6 +590,7 @@ system { return BisonParserImpl::token::KW_SYSTEM; }
 system_time { return BisonParserImpl::token::KW_SYSTEM_TIME; }
 table { return BisonParserImpl::token::KW_TABLE; }
 tablesample { return BisonParserImpl::token::KW_TABLESAMPLE; }
+pivot { return BisonParserImpl::token::KW_PIVOT; }
 target { return BisonParserImpl::token::KW_TARGET; }
 temp { return BisonParserImpl::token::KW_TEMP; }
 temporary { return BisonParserImpl::token::KW_TEMPORARY; }

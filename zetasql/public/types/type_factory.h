@@ -17,6 +17,9 @@
 #ifndef ZETASQL_PUBLIC_TYPES_TYPE_FACTORY_H_
 #define ZETASQL_PUBLIC_TYPES_TYPE_FACTORY_H_
 
+#include <memory>
+
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/extended_type.h"
@@ -90,6 +93,9 @@ class TypeStore {
 
   std::vector<const Type*> owned_types_ ABSL_GUARDED_BY(mutex_);
 
+  std::vector<const AnnotationMap*> owned_annotation_maps_
+      ABSL_GUARDED_BY(mutex_);
+
   // Store links to and from TypeStores that this TypeStores depends on.
   // This is used as a sanity check to catch incorrect destruction order.
   mutable absl::flat_hash_set<const TypeStore*> depends_on_factories_
@@ -125,9 +131,10 @@ class TypeStoreHelper {
 // The TypeFactory may return the same Type object from multiple calls that
 // request equivalent types.
 //
-// When a compound Type (array or struct) is constructed referring to a Type
-// from a separate TypeFactory, the constructed type may refer to the Type from
-// the separate TypeFactory, so that TypeFactory must outlive this one.
+// When a compound Type (array or struct) or an AnnotationMap is constructed
+// referring to a Type from a separate TypeFactory, the constructed type may
+// refer to the Type from the separate TypeFactory, so that TypeFactory must
+// outlive this one.
 //
 // This class is thread-safe.
 class TypeFactory {
@@ -159,6 +166,7 @@ class TypeFactory {
   const Type* get_numeric();
   const Type* get_bignumeric();
   const Type* get_json();
+  const Type* get_tokenset();
 
   // Return a Type object for a simple type.  This works for all
   // non-parameterized scalar types.  Enums, arrays, structs and protos must
@@ -167,6 +175,8 @@ class TypeFactory {
 
   // Make an array type.
   // Arrays of arrays are not supported and will fail with an error.
+  // If <element_type> is not created by this TypeFactory, the TypeFactory that
+  // created the <type> must outlive this TypeFactory.
   absl::Status MakeArrayType(const Type* element_type,
                              const ArrayType** result);
   absl::Status MakeArrayType(const Type* element_type,
@@ -174,6 +184,8 @@ class TypeFactory {
 
   // Make a struct type.
   // The field names must be valid.
+  // If StructField.type is not created by this TypeFactory, the TypeFactory
+  // that created the type must outlive this TypeFactory.
   absl::Status MakeStructType(absl::Span<const StructType::StructField> fields,
                               const StructType** result);
   absl::Status MakeStructType(absl::Span<const StructType::StructField> fields,
@@ -259,6 +271,15 @@ class TypeFactory {
                                  bool use_obsolete_timestamp,
                                  const Type** type);
 
+  // Deserializes and creates an instance of AnnotationMap from <proto>.
+  absl::Status DeserializeAnnotationMap(const AnnotationMapProto& proto,
+                                        const AnnotationMap** annotation_map);
+
+  // Takes ownership of <annotation_map> and returns a raw pointer owned by this
+  // TypeFactory. The output pointer may be different from the input.
+  zetasql_base::StatusOr<const AnnotationMap*> TakeOwnership(
+      std::unique_ptr<AnnotationMap> annotation_map);
+
   // Makes a ZetaSQL Type from a self-contained ZetaSQL TypeProto.  The
   // <type_proto> FileDescriptorSets are loaded into the pool.  The <pool>
   // must outlive the TypeFactory.  Will return an error if the
@@ -324,6 +345,10 @@ class TypeFactory {
   template <class TYPE>
   const TYPE* TakeOwnershipLocked(const TYPE* type, int64_t type_owned_bytes_size)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
+
+  // Takes ownership of <annotation_map> and updates estimated used memory.
+  const AnnotationMap* TakeOwnershipInternal(
+      const AnnotationMap* annotation_map);
 
   // Mark that <other_type>'s factory must outlive <this>.
   void AddDependency(const Type* other_type)
@@ -392,6 +417,7 @@ const Type* GeographyType();
 const Type* NumericType();
 const Type* BigNumericType();
 const Type* JsonType();
+const Type* TokenSetType();
 const StructType* EmptyStructType();
 
 // ArrayTypes
@@ -413,6 +439,7 @@ const ArrayType* GeographyArrayType();
 const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
 const ArrayType* JsonArrayType();
+const ArrayType* TokenSetArrayType();
 
 // Accessor for the ZetaSQL enum Type (functions::DateTimestampPart)
 // that represents date parts in function signatures.  Intended

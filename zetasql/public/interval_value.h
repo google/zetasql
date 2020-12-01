@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_INTERVAL_VALUE_H_
 
 #include "zetasql/common/errors.h"
+#include "zetasql/public/functions/datetime.pb.h"
 #include <cstdint>
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
@@ -66,16 +67,25 @@ class IntervalValue final {
 
  public:
   static const int64_t kMonthsInYear = 12;
+  static const int64_t kMonthsInQuarter = 3;
   static const int64_t kHoursInDay = 24;
   static const int64_t kMinutesInHour = 60;
   static const int64_t kSecondsInMinute = 60;
-  static const int64_t kMicrosInSecond = 1000000;
-  static const int64_t kMicrosInDay =
-      kHoursInDay * kMinutesInHour * kSecondsInMinute * kMicrosInSecond;
+  static const int64_t kMicrosInMilli = 1000;
+  static const int64_t kMillisInSecond = 1000;
+  static const int64_t kMicrosInSecond = kMillisInSecond * kMicrosInMilli;
+  static const int64_t kMicrosInMinute = kSecondsInMinute * kMicrosInSecond;
+  static const int64_t kMicrosInHour = kMinutesInHour * kMicrosInMinute;
+  static const int64_t kMicrosInDay = kHoursInDay * kMicrosInHour;
   static const int64_t kDaysInMonth = 30;
+  static const int64_t kDaysInWeek = 7;
   static const int64_t kMicrosInMonth = kDaysInMonth * kMicrosInDay;
   static const int64_t kNanosInMicro = 1000;
   static const __int128 kNanosInMicro128 = static_cast<__int128>(kNanosInMicro);
+  static const __int128 kNanosInMilli = kMicrosInMilli * kNanosInMicro128;
+  static const __int128 kNanosInSecond = kMicrosInSecond * kNanosInMicro128;
+  static const __int128 kNanosInMinute = kMicrosInMinute * kNanosInMicro128;
+  static const __int128 kNanosInHour = kMicrosInHour * kNanosInMicro128;
   static const __int128 kNanosInDay = kNanosInMicro128 * kMicrosInDay;
   static const __int128 kNanosInMonth = kNanosInMicro128 * kMicrosInMonth;
 
@@ -134,7 +144,7 @@ class IntervalValue final {
   // Convert interval value to micros. Note, that the resulting number of
   // micros can be bigger (up to 3 times) than the maximum number of micros
   // allowed in interval.
-  int64_t GetAsMicros() {
+  int64_t GetAsMicros() const {
     return get_months() * kMicrosInMonth + get_days() * kMicrosInDay +
            get_micros();
   }
@@ -142,7 +152,7 @@ class IntervalValue final {
   // Convert interval value to nanos. Note, that the resulting number of
   // nanos can be bigger (up to 3 times) than the maximum number of nanos
   // allowed in interval.
-  __int128 GetAsNanos() {
+  __int128 GetAsNanos() const {
     return get_months() * kNanosInMonth + get_days() * kNanosInDay +
            get_nanos();
   }
@@ -169,6 +179,42 @@ class IntervalValue final {
     return (months_nanos_ & kNanosMask) >> kNanosShift;
   }
 
+  // Comparison operators.
+  bool operator==(const IntervalValue& v) const {
+    return get_nano_fractions() == v.get_nano_fractions() &&
+           GetAsMicros() == v.GetAsMicros();
+  }
+  bool operator!=(const IntervalValue& v) const {
+    return GetAsMicros() != v.GetAsMicros() ||
+           get_nano_fractions() != v.get_nano_fractions();
+  }
+  bool operator<(const IntervalValue& v) const {
+    int64_t micros = GetAsMicros();
+    int64_t v_micros = v.GetAsMicros();
+    return micros < v_micros || (micros == v_micros &&
+                                 get_nano_fractions() < v.get_nano_fractions());
+  }
+  bool operator>(const IntervalValue& v) const {
+    int64_t micros = GetAsMicros();
+    int64_t v_micros = v.GetAsMicros();
+    return micros > v_micros || (micros == v_micros &&
+                                 get_nano_fractions() > v.get_nano_fractions());
+  }
+  bool operator<=(const IntervalValue& v) const {
+    int64_t micros = GetAsMicros();
+    int64_t v_micros = v.GetAsMicros();
+    return micros < v_micros ||
+           (micros == v_micros &&
+            get_nano_fractions() <= v.get_nano_fractions());
+  }
+  bool operator>=(const IntervalValue& v) const {
+    int64_t micros = GetAsMicros();
+    int64_t v_micros = v.GetAsMicros();
+    return micros > v_micros ||
+           (micros == v_micros &&
+            get_nano_fractions() >= v.get_nano_fractions());
+  }
+
   // Serialization and deserialization methods for interval values.
   void SerializeAndAppendToBytes(std::string* bytes) const;
   std::string SerializeAsBytes() const {
@@ -178,6 +224,13 @@ class IntervalValue final {
   }
   static zetasql_base::StatusOr<IntervalValue> DeserializeFromBytes(
       absl::string_view bytes);
+
+  // Builds fully expanded string representation of interval.
+  std::string ToString() const;
+
+  // Parses interval from string for single datetime field.
+  static zetasql_base::StatusOr<IntervalValue> ParseFromString(
+      absl::string_view input, functions::DateTimestampPart part);
 
  private:
   IntervalValue(int64_t months, int64_t days, int64_t micros = 0) {

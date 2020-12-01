@@ -1567,7 +1567,7 @@ TEST_F(NumericValueTest, ToDouble_RandomInputs) {
 }
 static constexpr Error kInt32OutOfRange("int32 out of range: ");
 template <typename T>
-static constexpr NumericUnaryOpTestData<T, ErrorOr<int32_t>>
+    const NumericUnaryOpTestData<T, ErrorOr<int32_t>>
     kToInt32ValueTestData[] = {
         {0, 0},
         {123, 123},
@@ -1579,11 +1579,11 @@ static constexpr NumericUnaryOpTestData<T, ErrorOr<int32_t>>
         {"123.46", 123},
         {"-123.46", -123},
         {2147483647, 2147483647},
-        {-2147483648, -2147483648},
+        {-2147483648, int32_t{-2147483648}},
         {2147483648, kInt32OutOfRange},
         {-2147483649, kInt32OutOfRange},
         {"2147483647.499999999", 2147483647},
-        {"-2147483648.499999999", -2147483648},
+        {"-2147483648.499999999", int32_t{-2147483648}},
         {"2147483647.5", kInt32OutOfRange},
         {"-2147483648.5", kInt32OutOfRange},
         {kMaxNumericValueStr, kInt32OutOfRange},
@@ -1603,7 +1603,7 @@ TEST_F(NumericValueTest, RoundTripFromInt32) {
 
 static constexpr Error kInt64OutOfRange("int64 out of range: ");
 template <typename T>
-static constexpr NumericUnaryOpTestData<T, ErrorOr<int64_t>>
+    const NumericUnaryOpTestData<T, ErrorOr<int64_t>>
     kToInt64ValueTestData[] = {
         {0, 0},
         {123, 123},
@@ -1639,18 +1639,19 @@ TEST_F(NumericValueTest, RoundTripFromInt64) {
 
 static constexpr Error kUint32OutOfRange("uint32 out of range: ");
 template <typename T>
-static constexpr NumericUnaryOpTestData<T, ErrorOr<uint32_t>>
+
+    const NumericUnaryOpTestData<T, ErrorOr<int64_t>>
     kToUint32ValueTestData[] = {
-        {0, 0},
-        {123, 123},
-        {"123.56", 124},
-        {"123.5", 124},
-        {"123.46", 123},
-        {4294967295, 4294967295U},
-        {"4294967295.499999999", 4294967295U},
+        {uint32_t{0}, uint32_t{0}},
+        {123, uint32_t{123}},
+        {"123.56", uint32_t{124}},
+        {"123.5", uint32_t{124}},
+        {"123.46", uint32_t{123}},
+        {4294967295, uint32_t{4294967295U}},
+        {"4294967295.499999999", uint32_t{4294967295U}},
         {"4294967295.5", kUint32OutOfRange},
         {4294967296, kUint32OutOfRange},
-        {"-0.499999999", 0},
+        {"-0.499999999", uint32_t{0}},
         {"-0.5", kUint32OutOfRange},
         {-1, kUint32OutOfRange},
         {kMaxNumericValueStr, kUint32OutOfRange},
@@ -1670,18 +1671,18 @@ TEST_F(NumericValueTest, RoundTripFromUint32) {
 
 static constexpr Error kUint64OutOfRange("uint64 out of range: ");
 template <typename T>
-static constexpr NumericUnaryOpTestData<T, ErrorOr<uint64_t>>
+    const NumericUnaryOpTestData<T, ErrorOr<uint64_t>>
     kToUint64ValueTestData[] = {
-        {0, 0},
-        {123, 123},
-        {"123.56", 124},
-        {"123.5", 124},
-        {"123.46", 123},
-        {"18446744073709551615", 18446744073709551615ull},
-        {"18446744073709551615.499999999", 18446744073709551615ull},
+        {0, uint64_t{0}},
+        {123, uint64_t{123}},
+        {"123.56", uint64_t{124}},
+        {"123.5", uint64_t{124}},
+        {"123.46", uint64_t{123}},
+        {"18446744073709551615", uint64_t{18446744073709551615ull}},
+        {"18446744073709551615.499999999", uint64_t{18446744073709551615ull}},
         {"18446744073709551615.5", kUint64OutOfRange},
         {"18446744073709551616", kUint64OutOfRange},
-        {"-0.499999999", 0},
+        {"-0.499999999", uint64_t{0}},
         {"-0.5", kUint64OutOfRange},
         {-1, kUint64OutOfRange},
         {kMaxNumericValueStr, kUint64OutOfRange},

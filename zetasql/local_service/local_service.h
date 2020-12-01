@@ -36,7 +36,6 @@ class PreparedExpressionPool;
 class PreparedExpressionState;
 class RegisteredCatalogPool;
 class RegisteredCatalogState;
-class RegisteredParseResumeLocationPool;
 
 // Implementation of ZetaSqlLocalService RPC service.
 class ZetaSqlLocalServiceImpl {
@@ -66,14 +65,11 @@ class ZetaSqlLocalServiceImpl {
       const ZetaSQLBuiltinFunctionOptionsProto& proto,
       GetBuiltinFunctionsResponse* resp);
 
-  absl::Status AddSimpleTable(const AddSimpleTableRequest& request);
-
   absl::Status Analyze(const AnalyzeRequest& request,
                        AnalyzeResponse* response);
 
   absl::Status AnalyzeImpl(const AnalyzeRequest& request,
                            RegisteredCatalogState* catalog_state,
-                           ParseResumeLocation* location,
                            AnalyzeResponse* response);
 
   absl::Status AnalyzeExpressionImpl(const AnalyzeRequest& request,
@@ -106,11 +102,6 @@ class ZetaSqlLocalServiceImpl {
 
   absl::Status UnregisterCatalog(int64_t id);
 
-  absl::Status RegisterParseResumeLocation(
-      const ParseResumeLocationProto& location, RegisterResponse* response);
-
-  absl::Status UnregisterParseResumeLocation(int64_t id);
-
   absl::Status GetLanguageOptions(const LanguageOptionsRequest& request,
                                   LanguageOptionsProto* response);
 
@@ -120,8 +111,6 @@ class ZetaSqlLocalServiceImpl {
  private:
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
-  std::unique_ptr<RegisteredParseResumeLocationPool>
-      registered_parse_resume_locations_;
 
   absl::Status RegisterPrepared(std::unique_ptr<PreparedExpressionState>& state,
                                 PreparedState* response);

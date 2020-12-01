@@ -32,8 +32,8 @@ import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.ProtocolMessageEnum;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLDescriptor;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLEnumDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLEnumDescriptor;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.ArrayTypeProto;
 import com.google.zetasql.ZetaSQLType.EnumTypeProto;
@@ -76,13 +76,15 @@ public abstract class TypeFactory implements Serializable {
           .put("timestamp", TypeKind.TYPE_TIMESTAMP) // external
           .put("time", TypeKind.TYPE_TIME) // external
           .put("datetime", TypeKind.TYPE_DATETIME) // external
+          .put("interval", TypeKind.TYPE_INTERVAL) // external
           .put("geography", TypeKind.TYPE_GEOGRAPHY) // external
           .put("numeric", TypeKind.TYPE_NUMERIC) // external
           .put("bignumeric", TypeKind.TYPE_BIGNUMERIC) // external
           .put("json", TypeKind.TYPE_JSON) // external
+          .put("tokenset", TypeKind.TYPE_TOKENSET) // external
           .build();
 
-  //See (broken link) for approved list of externally visible types.
+  // See (broken link) for approved list of externally visible types.
   private static final ImmutableSet<String> EXTERNAL_MODE_SIMPLE_TYPE_KIND_NAMES =
       ImmutableSet.of(
           "int64",
@@ -95,10 +97,12 @@ public abstract class TypeFactory implements Serializable {
           "timestamp",
           "time",
           "datetime",
+          "interval",
           "geography",
           "numeric",
           "bignumeric",
-          "json");
+          "json",
+          "tokenset");
 
   private static final ImmutableSet<TypeKind> SIMPLE_TYPE_KINDS =
       ImmutableSet.copyOf(SIMPLE_TYPE_KIND_NAMES.values());
@@ -177,10 +181,10 @@ public abstract class TypeFactory implements Serializable {
 
   /**
    * Returns a ProtoType with a proto message descriptor that is loaded from FileDescriptorSet with
-   * {@link ZetaSQLDescriptorPool}.
+   * {@link DescriptorPool}.
    *
    * @param descriptor A ZetaSQLDescriptor that defines the ProtoType. A ZetaSQLDescriptor can
-   *     be retrieved from a ZetaSQLDescriptorPool, which in turn can be created by loading a
+   *     be retrieved from a DescriptorPool, which in turn can be created by loading a
    *     FileDescriptorSet protobuf.
    */
   public abstract ProtoType createProtoType(ZetaSQLDescriptor descriptor);
@@ -195,10 +199,10 @@ public abstract class TypeFactory implements Serializable {
 
   /**
    * Returns a EnumType with a enum descriptor that is loaded from FileDescriptorSet with {@link
-   * ZetaSQLDescriptorPool}.
+   * DescriptorPool}.
    *
    * @param descriptor ZetaSQLEnumDescriptor that defines the EnumType. A ZetaSQLDescriptor can
-   *     be retrieved from a ZetaSQLDescriptorPool, which in turn can be created by loading a
+   *     be retrieved from a DescriptorPool, which in turn can be created by loading a
    *     FileDescriptorSet protobuf.
    */
   public abstract EnumType createEnumType(ZetaSQLEnumDescriptor descriptor);
@@ -215,25 +219,24 @@ public abstract class TypeFactory implements Serializable {
   public abstract Type deserialize(TypeProto proto);
 
   /**
-   * Deserialize a {@link TypeProto} into a {@link Type} using the given {@link
-   * ZetaSQLDescriptorPool ZetaSQLDescriptorPools}.
+   * Deserialize a {@link TypeProto} into a {@link Type} using the given {@link DescriptorPool
+   * DescriptorPools}.
    */
-  public abstract Type deserialize(TypeProto proto, List<ZetaSQLDescriptorPool> pools);
+  public abstract Type deserialize(TypeProto proto, List<? extends DescriptorPool> pools);
 
   /**
    * A {@link TypeFactory} which implements methods based on {@link #createProtoType(Descriptor,
-   * ZetaSQLDescriptorPool)} and {@link #createEnumType(EnumDescriptor, ZetaSQLDescriptorPool)}.
+   * DescriptorPool)} and {@link #createEnumType(EnumDescriptor, DescriptorPool)}.
    */
   private abstract static class AbstractTypeFactory extends TypeFactory {
 
     /**
      * Creates a {@link ProtoType} using the given {@link Descriptor}.
      *
-     * <p>The {@code Descriptor} together with the {@link ZetaSQLDescriptorPool} fully describes
-     * the {@code ProtoType}.
+     * <p>The {@code Descriptor} together with the {@link DescriptorPool} fully describes the {@code
+     * ProtoType}.
      */
-    protected abstract ProtoType createProtoType(
-        Descriptor descriptor, ZetaSQLDescriptorPool pool);
+    protected abstract ProtoType createProtoType(Descriptor descriptor, DescriptorPool pool);
 
     @Override
     public final ProtoType createProtoType(Class<? extends Message> messageClass) {
@@ -245,21 +248,20 @@ public abstract class TypeFactory implements Serializable {
 
     @Override
     public final ProtoType createProtoType(ZetaSQLDescriptor descriptor) {
-      return createProtoType(descriptor.getDescriptor(), descriptor.getZetaSQLDescriptorPool());
+      return createProtoType(descriptor.getDescriptor(), descriptor.getDescriptorPool());
     }
 
     /**
      * Creates a {@link EnumType} using the given {@link EnumDescriptor}.
      *
-     * <p>The {@code EnumDescriptor} together with the {@link ZetaSQLDescriptorPool} fully
-     * describes the {@code EnumType}.
+     * <p>The {@code EnumDescriptor} together with the {@link DescriptorPool} fully describes the
+     * {@code EnumType}.
      */
-    protected abstract EnumType createEnumType(
-        EnumDescriptor descriptor, ZetaSQLDescriptorPool pool);
+    protected abstract EnumType createEnumType(EnumDescriptor descriptor, DescriptorPool pool);
 
     @Override
     public final EnumType createEnumType(ZetaSQLEnumDescriptor descriptor) {
-      return createEnumType(descriptor.getDescriptor(), descriptor.getZetaSQLDescriptorPool());
+      return createEnumType(descriptor.getDescriptor(), descriptor.getDescriptorPool());
     }
 
     @Override
@@ -272,7 +274,7 @@ public abstract class TypeFactory implements Serializable {
 
     @Override
     public final Type deserialize(TypeProto proto) {
-      ImmutableList.Builder<ZetaSQLDescriptorPool> pools = ImmutableList.builder();
+      ImmutableList.Builder<DescriptorPool> pools = ImmutableList.builder();
       for (FileDescriptorSet fileDescriptorSet : proto.getFileDescriptorSetList()) {
         ZetaSQLDescriptorPool pool = new ZetaSQLDescriptorPool();
         pool.importFileDescriptorSet(fileDescriptorSet);
@@ -282,7 +284,7 @@ public abstract class TypeFactory implements Serializable {
     }
 
     @Override
-    public final Type deserialize(TypeProto proto, List<ZetaSQLDescriptorPool> pools) {
+    public final Type deserialize(TypeProto proto, List<? extends DescriptorPool> pools) {
       if (TypeFactory.isSimpleType(proto.getTypeKind())) {
         return deserializeSimpleType(proto);
       }
@@ -309,7 +311,7 @@ public abstract class TypeFactory implements Serializable {
       return createSimpleType(proto.getTypeKind());
     }
 
-    private EnumType deserializeEnumType(TypeProto proto, List<ZetaSQLDescriptorPool> pools) {
+    private EnumType deserializeEnumType(TypeProto proto, List<? extends DescriptorPool> pools) {
       EnumTypeProto enumType = proto.getEnumType();
 
       String name = enumType.getEnumName();
@@ -319,7 +321,7 @@ public abstract class TypeFactory implements Serializable {
       checkArgument(
           index >= 0 && index < pools.size(), "FileDescriptorSetIndex out of bound: %s", enumType);
 
-      ZetaSQLDescriptorPool pool = pools.get(index);
+      DescriptorPool pool = pools.get(index);
 
       ZetaSQLEnumDescriptor descriptor = pool.findEnumTypeByName(name);
       checkNotNull(descriptor, "Enum descriptor not found: %s", enumType);
@@ -334,12 +336,13 @@ public abstract class TypeFactory implements Serializable {
       return createEnumType(descriptor.getDescriptor(), pool);
     }
 
-    private ArrayType deserializeArrayType(TypeProto proto, List<ZetaSQLDescriptorPool> pools) {
+    private ArrayType deserializeArrayType(TypeProto proto, List<? extends DescriptorPool> pools) {
       ArrayTypeProto arrayType = proto.getArrayType();
       return createArrayType(deserialize(arrayType.getElementType(), pools));
     }
 
-    private StructType deserializeStructType(TypeProto proto, List<ZetaSQLDescriptorPool> pools) {
+    private StructType deserializeStructType(
+        TypeProto proto, List<? extends DescriptorPool> pools) {
       StructTypeProto structType = proto.getStructType();
       ImmutableList.Builder<StructField> fields = ImmutableList.builder();
       for (StructFieldProto field : structType.getFieldList()) {
@@ -348,7 +351,7 @@ public abstract class TypeFactory implements Serializable {
       return createStructType(fields.build());
     }
 
-    private ProtoType deserializeProtoType(TypeProto proto, List<ZetaSQLDescriptorPool> pools) {
+    private ProtoType deserializeProtoType(TypeProto proto, List<? extends DescriptorPool> pools) {
       ProtoTypeProto protoType = proto.getProtoType();
 
       String name = protoType.getProtoName();
@@ -358,7 +361,7 @@ public abstract class TypeFactory implements Serializable {
       checkArgument(
           index >= 0 && index < pools.size(), "FileDescriptorSetIndex out of bound: %s", protoType);
 
-      ZetaSQLDescriptorPool pool = pools.get(index);
+      DescriptorPool pool = pools.get(index);
 
       ZetaSQLDescriptor descriptor = pool.findMessageTypeByName(name);
       checkNotNull(descriptor, "Proto descriptor not found: ", protoType);
@@ -403,12 +406,12 @@ public abstract class TypeFactory implements Serializable {
     }
 
     @Override
-    protected ProtoType createProtoType(Descriptor descriptor, ZetaSQLDescriptorPool pool) {
+    protected ProtoType createProtoType(Descriptor descriptor, DescriptorPool pool) {
       return new ProtoType(descriptor, pool);
     }
 
     @Override
-    protected EnumType createEnumType(EnumDescriptor descriptor, ZetaSQLDescriptorPool pool) {
+    protected EnumType createEnumType(EnumDescriptor descriptor, DescriptorPool pool) {
       return new EnumType(descriptor, pool);
     }
   }
@@ -425,7 +428,7 @@ public abstract class TypeFactory implements Serializable {
     }
 
     @Override
-    public ProtoType createProtoType(Descriptor descriptor, ZetaSQLDescriptorPool pool) {
+    public ProtoType createProtoType(Descriptor descriptor, DescriptorPool pool) {
       if (protoTypesByName.containsKey(descriptor.getFullName())) {
         return protoTypesByName.get(descriptor.getFullName());
       }
@@ -435,7 +438,7 @@ public abstract class TypeFactory implements Serializable {
     }
 
     @Override
-    public EnumType createEnumType(EnumDescriptor descriptor, ZetaSQLDescriptorPool pool) {
+    public EnumType createEnumType(EnumDescriptor descriptor, DescriptorPool pool) {
       if (enumTypesByName.containsKey(descriptor.getFullName())) {
         return enumTypesByName.get(descriptor.getFullName());
       }

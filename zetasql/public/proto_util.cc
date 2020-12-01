@@ -1069,4 +1069,87 @@ bool IsProtoMap(const Type* type) {
   return element->AsProto()->descriptor()->options().map_entry();
 }
 
+// Returns the key of the message, which must be a map entry proto.
+//
+// The whole set of valid map keys in proto are enums, bools, integral values,
+// and strings. We'll return false if the message isn't a map entry or if
+// the field doesn't match our expectations.
+bool GetMapKey(const google::protobuf::Message& message, MapKeyVariant& ret) {
+  ZETASQL_DCHECK(message.GetDescriptor()->options().map_entry())
+      << message.GetDescriptor()->DebugString();
+  const google::protobuf::Reflection& reflection = *message.GetReflection();
+  // This descriptor is the key descriptor. The version of protobuf we use
+  // in ZetaSQL does not have the map_key() function yet.
+  const google::protobuf::FieldDescriptor* map_key_descriptor =
+      message.GetDescriptor()->field(0);
+  ZETASQL_DCHECK_EQ(map_key_descriptor->name(), "key");
+  if (map_key_descriptor == nullptr) return false;
+  switch (map_key_descriptor->cpp_type()) {
+    case google::protobuf::FieldDescriptor::CPPTYPE_BOOL:
+      ret = reflection.GetBool(message, map_key_descriptor);
+      return true;
+    case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
+      ret = reflection.GetString(message, map_key_descriptor);
+      return true;
+    case google::protobuf::FieldDescriptor::CPPTYPE_ENUM:
+      ret = static_cast<int64_t>(
+          reflection.GetEnumValue(message, map_key_descriptor));
+      return true;
+    case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
+      ret =
+          static_cast<int64_t>(reflection.GetInt32(message, map_key_descriptor));
+      return true;
+    case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
+      ret = reflection.GetInt64(message, map_key_descriptor);
+      return true;
+    case google::protobuf::FieldDescriptor::CPPTYPE_UINT32:
+      ret = static_cast<uint64_t>(
+          reflection.GetUInt32(message, map_key_descriptor));
+      return true;
+    case google::protobuf::FieldDescriptor::CPPTYPE_UINT64:
+      ret = reflection.GetUInt64(message, map_key_descriptor);
+      return true;
+    default:
+      return false;
+  }
+}
+
+absl::Status ParseProtoMap(const Value& array_of_map_entry,
+                           google::protobuf::DynamicMessageFactory& factory,
+                           absl::flat_hash_map<MapKeyVariant, Value>& output) {
+  if (!IsProtoMap(array_of_map_entry.type())) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Expected a proto map and got ",
+                     array_of_map_entry.type()->DebugString()));
+  }
+  if (array_of_map_entry.is_null()) {
+    return absl::OkStatus();
+  }
+  const google::protobuf::Message& prototype =
+      *factory.GetPrototype(array_of_map_entry.type()
+                                ->AsArray()
+                                ->element_type()
+                                ->AsProto()
+                                ->descriptor());
+  std::unique_ptr<google::protobuf::Message> message(prototype.New());
+  for (const Value& value : array_of_map_entry.elements()) {
+    if (value.is_null()) continue;
+    absl::Cord cord = value.ToCord();
+    absl::string_view cord_view = cord.Flatten();
+    if (!message->ParseFromArray(cord_view.data(), cord_view.size())) {
+      return absl::InvalidArgumentError(
+          "Failed to parse a proto message that resides in a compared value");
+    }
+    MapKeyVariant key;
+    if (!GetMapKey(*message, key)) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Map entry of type ", message->GetDescriptor()->full_name(),
+          " had an unsupported map key type"));
+    }
+    output[key] = value;
+    message->Clear();
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace zetasql

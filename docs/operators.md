@@ -411,7 +411,7 @@ Result types for Addition and Multiplication:
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -433,7 +433,7 @@ Result types for Subtraction:
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -455,7 +455,7 @@ Result types for Division:
 
 <thead>
 <tr>
-<th></th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
@@ -474,40 +474,16 @@ Result types for Division:
 Result types for Unary Minus:
 
 <table>
+
 <thead>
 <tr>
-<th>Input Data Type</th>
-<th>Result Data Type</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
-
-<tr>
-<td>INT32</td>
-<td>INT32</td>
-</tr>
-
-<tr>
-<td>INT64</td>
-<td>INT64</td>
-</tr>
-
-<tr>
-<td>NUMERIC</td>
-<td>NUMERIC</td>
-</tr>
-
-<tr>
-<td>FLOAT</td>
-<td>FLOAT</td>
-</tr>
-
-<tr>
-<td>DOUBLE</td>
-<td>DOUBLE</td>
-</tr>
-
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
+
 </table>
 
 ### Date arithmetics operators

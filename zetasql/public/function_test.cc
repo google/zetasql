@@ -29,6 +29,7 @@
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_location_range.pb.h"
@@ -39,6 +40,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/memory/memory.h"
 #include "absl/strings/str_join.h"
 
 // Note - test coverage for the 'Function' class interface is primarily
@@ -202,6 +204,35 @@ TEST(SimpleFunctionTests, WindowSupportTests) {
   EXPECT_TRUE(analytic_function.SupportsWindowOrdering());
   EXPECT_FALSE(analytic_function.SupportsWindowFraming());
   EXPECT_FALSE(analytic_function.RequiresWindowOrdering());
+}
+
+TEST(SimpleFunctionTests,
+     LambdaMultipleSignaturePossiblyMatchingSameCallTests) {
+  const Type* bool_type = zetasql::types::Int64Type();
+  const Type* int64_type = zetasql::types::Int64Type();
+  const FunctionSignature sig1{
+      ARG_ARRAY_TYPE_ANY_1,
+      {ARG_TYPE_ANY_1,
+       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+      /*context_id=*/-1};
+  const FunctionSignature sig2{
+      int64_type,
+      {int64_type, FunctionArgumentType::Lambda({int64_type}, bool_type)},
+      /*context_id=*/-1};
+
+  EXPECT_DEATH(
+      Function("fp_test", Function::kZetaSQLFunctionGroupName,
+               Function::SCALAR, {sig1, sig2}, FunctionOptions()),
+      "Having two signatures with the same lambda at the same argument index "
+      "is not allowed");
+
+  auto function = absl::make_unique<Function>(
+      "fp_test", Function::kZetaSQLFunctionGroupName, Function::SCALAR);
+  function->AddSignature(sig1);
+  EXPECT_DEATH(
+      function->AddSignature(sig2),
+      "Having two signatures with the same lambda at the same argument index "
+      "is not allowed");
 }
 
 class FunctionSerializationTests : public ::testing::Test {

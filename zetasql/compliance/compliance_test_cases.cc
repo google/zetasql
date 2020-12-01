@@ -1235,6 +1235,11 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonExtractArray, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsJsonExtractArray()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonExtractStringArray, 1) {
+  SetNamePrefix("JsonExtractStringArray");
+  RunFunctionCalls(Shard(GetFunctionTestsJsonExtractStringArray()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 1) {
   SetNamePrefix("ToJsonString");
   RunFunctionCalls(Shard(GetFunctionTestsToJsonString(

@@ -201,6 +201,9 @@ class Algebrizer {
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlatten(
       const ResolvedFlatten* flatten);
 
+  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlattenedArg(
+      const ResolvedFlattenedArg* flattened_arg);
+
   // Helper for AlgebrizeGetProtoField() for the case where we are getting a
   // proto field of an expression of the form
   // <column_or_param_expr>.<path>. <column_or_param> must be a
@@ -799,6 +802,21 @@ class Algebrizer {
       const absl::optional<SharedProtoFieldPath>& id,
       const ProtoFieldAccessInfo& access_info, ProtoFieldRegistry* registry);
 
+  // Maps each column in <input_columns>, produced by <input>, into the
+  // corresponding column in <output_columns>.
+  //
+  // The result is a ComputeOp node like the following:
+  //   ComputeOp
+  //     input: <input>
+  //     map:
+  //      <output_columns[0]>: DerefExpr(<input_columns[0]>)
+  //      <output_columns[1]>: DerefExpr(<input_columns[1]>)
+  //      ...
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> MapColumns(
+      std::unique_ptr<RelationalOp> input,
+      const ResolvedColumnList& input_columns,
+      const ResolvedColumnList& output_columns);
+
   // LanguageOption to use when algebrizing.
   const LanguageOptions language_options_;
   const AlgebrizerOptions algebrizer_options_;
@@ -903,20 +921,10 @@ class Algebrizer {
   // variable in the current RecursiveScan node being algebrized.
   std::stack<std::unique_ptr<ExprArg>> recursive_var_id_stack_;
 
-  // Maps each column in <input_columns>, produced by <input>, into the
-  // corresponding column in <output_columns>.
-  //
-  // The result is a ComputeOp node like the following:
-  //   ComputeOp
-  //     input: <input>
-  //     map:
-  //      <output_columns[0]>: DerefExpr(<input_columns[0]>)
-  //      <output_columns[1]>: DerefExpr(<input_columns[1]>)
-  //      ...
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> MapColumns(
-      std::unique_ptr<RelationalOp> input,
-      const ResolvedColumnList& input_columns,
-      const ResolvedColumnList& output_columns);
+  // The input that a FlattenedArg should read from.
+  // There may be multiple in a stack as there could be Flatten used as part of
+  // the input expression for another Flatten.
+  std::stack<std::unique_ptr<const Value*>> flattened_arg_input_;
 };
 
 }  // namespace zetasql

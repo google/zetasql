@@ -32,12 +32,15 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/evaluator.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
@@ -66,6 +69,13 @@ using ::google::protobuf::internal::WireFormatLite;
 using ::testing::HasSubstr;
 using ::testing::Not;
 using ::zetasql_base::testing::StatusIs;
+
+using interval_testing::Months;
+using interval_testing::Days;
+using interval_testing::Micros;
+using interval_testing::Nanos;
+using interval_testing::MonthsDaysMicros;
+using interval_testing::MonthsDaysNanos;
 
 static void TestHashEqual(const Value& a, const Value& b) {
   EXPECT_EQ(a.HashCode(), b.HashCode()) << "\na: " << a << "\n"
@@ -516,6 +526,71 @@ TEST_F(ValueTest, BaseTime) {
           absl::StatusCode::kOutOfRange,
           HasSubstr("Timestamp value in Unix epoch nanoseconds exceeds 64 bit: "
                     "2262-04-11 23:47:16.854775808+00")));
+}
+
+TEST_F(ValueTest, Interval) {
+  EXPECT_TRUE(Value::NullInterval().is_null());
+  EXPECT_EQ(TYPE_INTERVAL, Value::NullInterval().type_kind());
+
+  IntervalValue interval;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::FromMicros(1));
+  // Verify that there are no memory leaks.
+  {
+    Value v1(Value::Interval(interval));
+    EXPECT_EQ(TYPE_INTERVAL, v1.type()->kind());
+    EXPECT_FALSE(v1.is_null());
+    Value v2(v1);
+    EXPECT_EQ(TYPE_INTERVAL, v2.type()->kind());
+    EXPECT_FALSE(v2.is_null());
+  }
+
+  // Test the assignment operator.
+  {
+    Value v1 = Value::Interval(interval);
+    Value v2 = zetasql::values::Interval(interval);
+    Value v3 = Value::NullInterval();
+    v3 = v1;
+    EXPECT_EQ(TYPE_INTERVAL, v1.type()->kind());
+    EXPECT_EQ(TYPE_INTERVAL, v2.type()->kind());
+    EXPECT_EQ(TYPE_INTERVAL, v3.type()->kind());
+    EXPECT_FALSE(v3.is_null());
+    EXPECT_EQ(interval, v1.interval_value());
+    EXPECT_EQ(interval, v2.interval_value());
+    EXPECT_EQ(interval, v3.interval_value());
+  }
+
+  // Equals
+  {
+    EXPECT_EQ(Value::Interval(Months(0)), Value::Interval(Nanos(0)));
+    EXPECT_EQ(Value::Interval(Months(-5)), Value::Interval(Months(-5)));
+    EXPECT_EQ(Value::Interval(Months(2)), Value::Interval(Days(60)));
+    EXPECT_EQ(Value::Interval(Days(1)),
+              Value::Interval(Micros(IntervalValue::kMicrosInDay)));
+    EXPECT_EQ(Value::Interval(Months(-1)),
+              Value::Interval(Nanos(-IntervalValue::kNanosInMonth)));
+    EXPECT_EQ(Value::Interval(Micros(1)), Value::Interval(Nanos(1000)));
+
+    EXPECT_EQ(Value::Interval(Days(45)),
+              Value::Interval(MonthsDaysMicros(1, 15, 0)));
+    EXPECT_EQ(Value::Interval(Days(45)),
+              Value::Interval(MonthsDaysMicros(2, -15, 0)));
+    EXPECT_EQ(Value::Interval(MonthsDaysMicros(1, 2, 3)),
+              Value::Interval(MonthsDaysNanos(1, 2, 3000)));
+
+    EXPECT_FALSE(Value::Interval(Months(1)) == Value::Interval(Days(31)));
+    EXPECT_FALSE(Value::Interval(Months(12)) == Value::Interval(Days(365)));
+    EXPECT_FALSE(Value::Interval(Micros(1)) == Value::Interval(Nanos(1)));
+    EXPECT_FALSE(Value::Interval(Nanos(-1)) == Value::Interval(Nanos(1)));
+  }
+
+  /* TODO: Enable this test when GetSQL() is implemented for INTERVAL.
+  {
+    Value value = TestGetSQL(Value::Interval(interval));
+    EXPECT_EQ("INTERVAL", value.type()->DebugString());
+    EXPECT_FALSE(value.is_null());
+    EXPECT_EQ(IntervalValue(interval), value.interval_value());
+  }
+  */
 }
 
 TEST_F(ValueTest, Geography) {
@@ -1314,6 +1389,97 @@ TEST_F(ValueTest, DoubleArray) {
             v2.GetSQLLiteral(PRODUCT_INTERNAL));
 }
 
+// Map entry arrays are similar to the order-ignoring bag arrays, however they
+// don't properly ignore order. When there are duplicated keys, the last key
+// controls equality.
+TEST_F(ValueTest, ArrayMap) {
+  const google::protobuf::FieldDescriptor* int32_int32_map_descriptor =
+      zetasql_test::MessageWithMapField::descriptor()->FindFieldByName(
+          "int32_int32_map");
+  const ProtoType* entry_type;
+  ZETASQL_ASSERT_OK(test_values::static_type_factory()->MakeProtoType(
+      int32_int32_map_descriptor->message_type(), &entry_type));
+
+  google::protobuf::DynamicMessageFactory factory;
+  const google::protobuf::Message* prototype =
+      factory.GetPrototype(int32_int32_map_descriptor->message_type());
+
+  std::unique_ptr<google::protobuf::Message> entry_default(prototype->New());
+  std::unique_ptr<google::protobuf::Message> entry1(prototype->New());
+  ASSERT_TRUE(
+      google::protobuf::TextFormat::ParseFromString("key: 1 value: 111", entry1.get()));
+  std::unique_ptr<google::protobuf::Message> entry2(prototype->New());
+  ASSERT_TRUE(
+      google::protobuf::TextFormat::ParseFromString("key: 2 value: 222", entry2.get()));
+  // An entry with the same key as entry1 but a different value.
+  std::unique_ptr<google::protobuf::Message> entry1_obsolete(prototype->New());
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString("key: 1 value: 112",
+                                                  entry1_obsolete.get()));
+
+  const ArrayType* array_type;
+  ZETASQL_ASSERT_OK(test_values::static_type_factory()->MakeArrayType(entry_type,
+                                                              &array_type));
+
+  const Value array_empty = Value::Array(array_type, {});
+  const Value array_null = Value::Array(array_type, {values::Null(entry_type)});
+  const Value array_null_null = Value::Array(
+      array_type, {values::Null(entry_type), values::Null(entry_type)});
+  const Value array_default =
+      Value::Array(array_type, {values::Proto(entry_type, *entry_default)});
+  const Value array_1 =
+      Value::Array(array_type, {values::Proto(entry_type, *entry1)});
+  const Value array_1_null = Value::Array(
+      array_type,
+      {values::Proto(entry_type, *entry1), values::Null(entry_type)});
+  const Value array_2 =
+      Value::Array(array_type, {values::Proto(entry_type, *entry2)});
+  const Value array_2_2 = Value::Array(
+      array_type,
+      {values::Proto(entry_type, *entry2), values::Proto(entry_type, *entry2)});
+  const Value array_1_2 = Value::Array(
+      array_type,
+      {values::Proto(entry_type, *entry1), values::Proto(entry_type, *entry2)});
+  const Value array_2_1 = Value::Array(
+      array_type,
+      {values::Proto(entry_type, *entry2), values::Proto(entry_type, *entry1)});
+  const Value array_1obsolete_1_2 =
+      Value::Array(array_type, {values::Proto(entry_type, *entry1_obsolete),
+                                values::Proto(entry_type, *entry1),
+                                values::Proto(entry_type, *entry2)});
+
+  // Values in each of the following equivalence classes should compare equal
+  // to other values in the same class, and unequal to values in other classes.
+  std::vector<std::vector<Value>> equivalence_classes = {
+      {array_empty},
+      {array_null, array_null_null},
+      {array_default},
+      {array_1_null},
+      {array_1},
+      {array_2, array_2_2},
+      {array_1_2, array_2_1, array_1obsolete_1_2},
+  };
+
+  for (int i = 0; i < equivalence_classes.size(); ++i) {
+    for (int j = 0; j < equivalence_classes.size(); ++j) {
+      for (const Value& ientry : equivalence_classes[i]) {
+        for (const Value& jentry : equivalence_classes[j]) {
+          if (i == j) {
+            EXPECT_TRUE(InternalValue::Equals(ientry, jentry))
+                << "Expected equivalence of these values:\n"
+                << ientry.DebugString() << "\n"
+                << jentry.DebugString();
+          } else {
+            EXPECT_FALSE(InternalValue::Equals(ientry, jentry))
+                << "Expected non-equivalence of these values:\n"
+                << ientry.DebugString() << "\n"
+                << jentry.DebugString();
+          }
+        }
+      }
+    }
+  }
+}
+
 TEST_F(ValueTest, ArrayBag) {
   std::vector<Value> values = {Int64(1), Int64(2), Int64(1), NullInt64(),
                                NullInt64()};
@@ -1340,24 +1506,114 @@ TEST_F(ValueTest, ArrayBag) {
   EXPECT_TRUE(InternalValue::Equals(array_struct, bag_struct));
 }
 
+// If map entries are unordered, we can't treat them as a map. We need to
+// treat them as a set, because the semantics of a map are only valid if the
+// order of the entries are stable. This test case is copied verbatim from
+// a failure we saw when running the spandex RQG.
+TEST_F(ValueTest, NestedArrayStructBagContainingUnorderedMapEntries) {
+  TypeFactory& types = *test_values::static_type_factory();
+  const ProtoType* proto_type;
+  const google::protobuf::Descriptor* entry_descriptor =
+      zetasql_test::MessageWithMapField::descriptor()
+          ->FindFieldByName("bool_int32_map")
+          ->message_type();
+  ZETASQL_ASSERT_OK(types.MakeProtoType(entry_descriptor, &proto_type));
+  const ArrayType* map_entry_array;
+  ZETASQL_ASSERT_OK(types.MakeArrayType(proto_type, &map_entry_array));
+  const StructType* struct_type;
+  ZETASQL_ASSERT_OK(types.MakeStructType({{"col29", map_entry_array}}, &struct_type));
+  const ArrayType* array_of_struct_type;
+  ZETASQL_ASSERT_OK(types.MakeArrayType(struct_type, &array_of_struct_type));
+
+  google::protobuf::DynamicMessageFactory factory;
+  std::unique_ptr<google::protobuf::Message> entry_message(
+      factory.GetPrototype(entry_descriptor)->New());
+
+  auto Entry = [&](bool key, int32_t value) -> Value {
+    const google::protobuf::Reflection& reflection = *entry_message->GetReflection();
+    reflection.SetBool(entry_message.get(), entry_descriptor->field(0), key);
+    reflection.SetInt32(entry_message.get(), entry_descriptor->field(1), value);
+    return Value::Proto(proto_type,
+                        absl::Cord(entry_message->SerializeAsString()));
+  };
+
+  // Makes a test array of the given type. order_preservation constrols the
+  // ordering of the inner array.
+  auto TestArray = [&](absl::Span<const std::pair<bool, int32_t>> input,
+                       OrderPreservationKind order_preservation =
+                           kIgnoresOrder) {
+    std::vector<Value> input_array;
+    for (const auto& entry : input) {
+      input_array.push_back(Entry(entry.first, entry.second));
+    }
+
+    return test_values::Array(
+        {test_values::Struct(
+            {"col29"},
+            {{test_values::Array(ValueConstructor::FromValues(input_array),
+                                 order_preservation)}})},
+        kIgnoresOrder);
+  };
+
+  EXPECT_TRUE(InternalValue::Equals(TestArray({{true, 0}, {true, 1234}}),
+                                    TestArray({{true, 1234}, {true, 0}})));
+  EXPECT_FALSE(InternalValue::Equals(TestArray({{true, 0}, {true, 1234}}),
+                                     TestArray({{true, 1234}, {false, 0}})));
+  EXPECT_TRUE(InternalValue::Equals(TestArray({{true, 0},
+                                               {true, 0},
+                                               {true, -526943},
+                                               {true, -526943},
+                                               {true, 0},
+                                               {true, 0},
+                                               {true, -526943},
+                                               {true, -526943}}),
+                                    TestArray({{true, -526943},
+                                               {true, -526943},
+                                               {true, -526943},
+                                               {true, -526943},
+                                               {true, 0},
+                                               {true, 0},
+                                               {true, 0},
+                                               {true, 0}})));
+  EXPECT_FALSE(
+      InternalValue::Equals(TestArray({{true, 0}, {true, 0}, {true, 1234}}),
+                            TestArray({{true, 1234}, {true, 0}})));
+  EXPECT_TRUE(InternalValue::Equals(
+      TestArray({{true, 0}, {true, 1234}, {true, 0}}, kPreservesOrder),
+      TestArray({{true, 1234}, {true, 0}}, kPreservesOrder)));
+  EXPECT_TRUE(
+      InternalValue::Equals(TestArray({{true, 0}, {true, 0}, {true, 1234}}),
+                            TestArray({{true, 1234}, {true, 0}, {true, 0}})));
+  EXPECT_FALSE(InternalValue::Equals(
+      TestArray({{true, 0}, {true, 1234}}, kPreservesOrder),
+      TestArray({{true, 1234}, {true, 0}}, kPreservesOrder)));
+}
+
 TEST_F(ValueTest, NestedArrayBag) {
   std::vector<std::string> table_columns = {"bool_val", "double_val",
                                             "int64_val", "str_val"};
-  auto nested_x = StructArray(table_columns, {
-      {True(),  0.1, int64_t{1}, "1"},
-      {False(), 0.2, int64_t{2}, "2"}, },
-      InternalValue::kIgnoresOrder);
-  auto nested_y = StructArray(table_columns, {
-      {False(), 0.2, int64_t{2}, "2"},
-      {True(),  0.1, int64_t{1}, "1"}, },
-      InternalValue::kIgnoresOrder);
-  auto nested_z = StructArray(table_columns, {
-      {False(), 0.2, int64_t{2}, "2"},
-      {False(), 0.2, int64_t{2}, "2"},  // duplicate struct
-      {True(),  0.1, int64_t{1}, "1"}, },
-      InternalValue::kIgnoresOrder);
-  auto array_x = StructArray(
-      {"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
+  auto nested_x = StructArray(table_columns,
+                              {
+                                  {True(), 0.1, int64_t{1}, "1"},
+                                  {False(), 0.2, int64_t{2}, "2"},
+                              },
+                              InternalValue::kIgnoresOrder);
+  auto nested_y = StructArray(table_columns,
+                              {
+                                  {False(), 0.2, int64_t{2}, "2"},
+                                  {True(), 0.1, int64_t{1}, "1"},
+                              },
+                              InternalValue::kIgnoresOrder);
+  auto nested_z =
+      StructArray(table_columns,
+                  {
+                      {False(), 0.2, int64_t{2}, "2"},
+                      {False(), 0.2, int64_t{2}, "2"},  // duplicate struct
+                      {True(), 0.1, int64_t{1}, "1"},
+                  },
+                  InternalValue::kIgnoresOrder);
+  auto array_x =
+      StructArray({"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
   auto array_xx = StructArray(
       {"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
   auto array_y = StructArray(
@@ -1912,7 +2168,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(22, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(23, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -2724,6 +2980,31 @@ TEST_F(ValueTest, Serialize) {
       Array({NullDatetime(),
              Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(
                  1, 2, 3, 4, 5, 6, 7))}));
+
+  // Interval
+  ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval_min,
+                       IntervalValue::FromMonthsDaysNanos(
+                           IntervalValue::kMinMonths, IntervalValue::kMinDays,
+                           IntervalValue::kMinNanos));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval_max,
+                       IntervalValue::FromMonthsDaysNanos(
+                           IntervalValue::kMaxMonths, IntervalValue::kMaxDays,
+                           IntervalValue::kMaxNanos));
+
+  SerializeDeserialize(Value::NullInterval());
+  SerializeDeserialize(Value::Interval(Nanos(0)));
+  SerializeDeserialize(Value::Interval(Nanos(1001)));
+  SerializeDeserialize(Value::Interval(Micros(-12)));
+  SerializeDeserialize(Value::Interval(Days(370)));
+  SerializeDeserialize(Value::Interval(Months(-121)));
+  SerializeDeserialize(Value::Interval(interval_min));
+  SerializeDeserialize(Value::Interval(interval_max));
+
+  SerializeDeserialize(EmptyArray(types::IntervalArrayType()));
+  SerializeDeserialize(
+      Array({Value::NullInterval(), Value::Interval(Months(0)),
+             Value::Interval(Days(-5)), Value::Interval(Micros(123456789)),
+             Value::Interval(interval_min), Value::Interval(interval_max)}));
 
   // Enum.
   const EnumType* enum_type = GetTestEnumType();

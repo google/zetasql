@@ -25,7 +25,6 @@ import com.google.zetasql.LocalService.ExtractTableNamesFromNextStatementRequest
 import com.google.zetasql.LocalService.ExtractTableNamesFromNextStatementResponse;
 import com.google.zetasql.LocalService.ExtractTableNamesFromStatementRequest;
 import com.google.zetasql.LocalService.ExtractTableNamesFromStatementResponse;
-import com.google.zetasql.LocalService.RegisteredParseResumeLocationProto;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import io.grpc.StatusRuntimeException;
@@ -196,18 +195,8 @@ public class Analyzer implements Serializable {
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder;
     AnalyzeResponse response;
     synchronized (parseResumeLocation) {
-      AnalyzeRequest.Builder request;
-      if (parseResumeLocation.isRegistered()) {
-        RegisteredParseResumeLocationProto location =
-            RegisteredParseResumeLocationProto.newBuilder()
-                .setRegisteredId(parseResumeLocation.getRegisteredId())
-                .setBytePosition(parseResumeLocation.getBytePosition())
-                .build();
-        request = AnalyzeRequest.newBuilder().setRegisteredParseResumeLocation(location);
-      } else {
-        request =
-            AnalyzeRequest.newBuilder().setParseResumeLocation(parseResumeLocation.serialize());
-      }
+      AnalyzeRequest.Builder request =
+          AnalyzeRequest.newBuilder().setParseResumeLocation(parseResumeLocation.serialize());
 
       fileDescriptorSetsBuilder = AnalyzerHelper.serializeSimpleCatalog(catalog, options, request);
 
@@ -234,11 +223,6 @@ public class Analyzer implements Serializable {
       ParseResumeLocation parseResumeLocation, AnalyzerOptions options) {
     ExtractTableNamesFromNextStatementResponse response;
     synchronized (parseResumeLocation) {
-      if (parseResumeLocation.isRegistered()) {
-        throw new UnsupportedOperationException(
-            "extractTableNamesFromNextStatement does not support registered ParseResumeLocation.");
-      }
-
       ExtractTableNamesFromNextStatementRequest request =
           ExtractTableNamesFromNextStatementRequest.newBuilder()
               .setParseResumeLocation(parseResumeLocation.serialize())

@@ -559,7 +559,7 @@ table.
 
 <thead>
 <tr>
-<th></th><th>NUMERIC</th><th>DOUBLE</th>
+<th>INPUT</th><th>NUMERIC</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>

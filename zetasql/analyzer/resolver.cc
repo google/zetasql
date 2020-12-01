@@ -24,6 +24,7 @@
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/options.pb.h"
 #include <cstdint>
 #include "zetasql/analyzer/expr_resolver_helper.h"
@@ -50,6 +51,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
@@ -77,6 +79,7 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       id_string_pool_(analyzer_options_.id_string_pool().get()) {
   function_resolver_ =
       absl::make_unique<FunctionResolver>(catalog, type_factory, this);
+  InitializeAnnotationSpecs();
   ZETASQL_DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
@@ -558,7 +561,14 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRef(
     const ResolvedColumn& column, bool is_correlated,
     ResolvedStatement::ObjectAccess access_flags) {
   RecordColumnAccess(column, access_flags);
-  return MakeResolvedColumnRef(column.type(), column, is_correlated);
+  std::unique_ptr<ResolvedColumnRef> resolved_node =
+      MakeResolvedColumnRef(column.type(), column, is_correlated);
+  // TODO: Replace ZETASQL_DCHECK below with ZETASQL_RETURN_IF_ERROR and update all
+  // the references of this function.
+  absl::Status status =
+      CheckAndPropagateAnnotations(/*error_node=*/nullptr, resolved_node.get());
+  ZETASQL_DCHECK_OK(status);
+  return resolved_node;
 }
 
 std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
@@ -586,8 +596,11 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
 // static
 std::unique_ptr<const ResolvedColumnRef> Resolver::CopyColumnRef(
     const ResolvedColumnRef* column_ref) {
-  return MakeResolvedColumnRef(column_ref->type(), column_ref->column(),
-                               column_ref->is_correlated());
+  auto resolved_column_ref = MakeResolvedColumnRef(
+      column_ref->type(), column_ref->column(), column_ref->is_correlated());
+  resolved_column_ref->set_type_annotation_map(
+      column_ref->type_annotation_map());
+  return resolved_column_ref;
 }
 
 absl::Status Resolver::ResolvePathExpressionAsType(
@@ -805,6 +818,10 @@ absl::Status Resolver::ResolveOptionsList(
 
 absl::Status Resolver::ResolveType(const ASTType* type,
                                    const Type** resolved_type) const {
+  if (type->type_parameters() != nullptr) {
+    return MakeSqlErrorAt(type->type_parameters())
+           << "Parameterized types are not supported";
+  }
   switch (type->node_kind()) {
     case AST_SIMPLE_TYPE: {
       return ResolveSimpleType(type->GetAsOrDie<ASTSimpleType>(),
@@ -1110,6 +1127,71 @@ zetasql_base::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
   ZETASQL_RETURN_IF_ERROR(coercer_.GetCommonSuperType(arg_set, &supertype));
   return supertype != nullptr &&
          supertype->SupportsEquality(analyzer_options_.language());
+}
+
+void Resolver::InitializeAnnotationSpecs() {
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
+    return;
+  }
+  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    annotation_specs_.push_back(std::make_unique<CollationAnnotation>());
+  }
+  // TODO: add analyzer option to add engine specific
+  // AnnotationSpec.
+}
+
+static absl::Status CheckAndPropagateAnnotationsImpl(
+    const ResolvedNode* resolved_node,
+    std::vector<std::unique_ptr<AnnotationSpec>>* annotation_specs,
+    AnnotationMap* annotation_map) {
+  for (auto& annotation_spec : *annotation_specs) {
+    switch (resolved_node->node_kind()) {
+      case RESOLVED_COLUMN_REF: {
+        auto* column_ref = resolved_node->GetAs<ResolvedColumnRef>();
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForColumnRef(
+            *column_ref, annotation_map));
+      } break;
+      case RESOLVED_GET_STRUCT_FIELD: {
+        auto* get_struct_field = resolved_node->GetAs<ResolvedGetStructField>();
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForGetStructField(
+            *get_struct_field, annotation_map));
+      } break;
+      default:
+        break;
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::CheckAndPropagateAnnotations(
+    const ASTNode* error_node, ResolvedNode* resolved_node) {
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
+    return absl::OkStatus();
+  }
+  if (resolved_node->IsExpression()) {
+    auto* expr = resolved_node->GetAs<ResolvedExpr>();
+    // TODO: support annotation for Proto and ExtendedType.
+    if (expr->type()->IsProto() || expr->type()->IsExtendedType()) {
+      return absl::OkStatus();
+    }
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(expr->type());
+    absl::Status status = CheckAndPropagateAnnotationsImpl(
+        resolved_node, &annotation_specs_, annotation_map.get());
+    if (!status.ok() && error_node != nullptr) {
+      return MakeSqlErrorAt(error_node) << status.message();
+    }
+    // It is possible that annotation_map is empty after all the propagation,
+    // set type_annotation_map to nullptr in this case.
+    if (annotation_map->Empty()) {
+      expr->set_type_annotation_map(nullptr);
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(const AnnotationMap* type_factory_owned_map,
+                       type_factory_->TakeOwnership(std::move(annotation_map)));
+      expr->set_type_annotation_map(type_factory_owned_map);
+    }
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

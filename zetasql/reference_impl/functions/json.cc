@@ -49,6 +49,15 @@ class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
+class JsonExtractStringArrayFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit JsonExtractStringArrayFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kJsonExtractStringArray,
+                                    types::StringArrayType()) {}
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
 // Helper function for the string version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
 zetasql_base::StatusOr<Value> JsonExtractString(
@@ -72,7 +81,7 @@ zetasql_base::StatusOr<Value> JsonExtractString(
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
 zetasql_base::StatusOr<Value> JsonExtractJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
-    const Type* output_type, bool scalar, bool json_legacy_parsing_mode) {
+    const Type* output_type, bool scalar, JSONParsingOptions parsing_options) {
   if (scalar) {
     absl::optional<std::string> output_string_or;
     if (json.is_validated_json()) {
@@ -80,7 +89,7 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
     } else {
       ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
                        JSONValue::ParseJSONString(json.json_value_unparsed(),
-                                                  json_legacy_parsing_mode));
+                                                  parsing_options));
       output_string_or = evaluator.ExtractScalar(input_json.GetConstRef());
     }
     if (output_string_or.has_value()) {
@@ -93,7 +102,7 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
     } else {
       ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
                        JSONValue::ParseJSONString(json.json_value_unparsed(),
-                                                  json_legacy_parsing_mode));
+                                                  parsing_options));
       output_json_or = evaluator.Extract(input_json.GetConstRef());
     }
     if (output_json_or.has_value()) {
@@ -125,9 +134,14 @@ zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
     return JsonExtractString(*evaluator, args[0].string_value(),
                              scalar);
   } else {
-    return JsonExtractJson(*evaluator, args[0], output_type(), scalar,
-                           context->GetLanguageOptions().LanguageFeatureEnabled(
-                               FEATURE_JSON_LEGACY_PARSE));
+    const auto& language_options = context->GetLanguageOptions();
+    return JsonExtractJson(
+        *evaluator, args[0], output_type(), scalar,
+        JSONParsingOptions{
+            .legacy_mode = language_options.LanguageFeatureEnabled(
+                FEATURE_JSON_LEGACY_PARSE),
+            .strict_number_parsing = language_options.LanguageFeatureEnabled(
+                FEATURE_JSON_STRICT_NUMBER_PARSING)});
   }
 }
 
@@ -151,6 +165,31 @@ zetasql_base::StatusOr<Value> JsonExtractArrayFunction::Eval(
   bool is_null = false;
   ZETASQL_RETURN_IF_ERROR(
       evaluator->ExtractArray(args[0].string_value(), &output, &is_null));
+  if (is_null) {
+    return Value::Null(types::StringArrayType());
+  }
+  return values::StringArray(output);
+}
+
+zetasql_base::StatusOr<Value> JsonExtractStringArrayFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_DCHECK_GE(args.size(), 1);
+  ZETASQL_DCHECK_LE(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(types::StringArrayType());
+  }
+  std::string json_path = args.size() == 2 ? args[1].string_value() : "$";
+
+  // sql_standard_mode is set to false for all JSON_EXTRACT functions to keep
+  // the JSONPath syntax the same.
+  ZETASQL_ASSIGN_OR_RETURN(
+      const std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+      functions::JsonPathEvaluator::Create(json_path,
+                                           /*sql_standard_mode=*/false));
+  std::vector<std::string> output;
+  bool is_null = false;
+  ZETASQL_RETURN_IF_ERROR(
+      evaluator->ExtractStringArray(args[0].string_value(), &output, &is_null));
   if (is_null) {
     return Value::Null(types::StringArrayType());
   }

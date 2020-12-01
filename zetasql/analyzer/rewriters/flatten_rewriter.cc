@@ -17,7 +17,9 @@
 #include <memory>
 
 #include "zetasql/parser/parser.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -31,13 +33,16 @@ namespace {
 // A visitor that rewrites ResolvedFlatten nodes into standard UNNESTs.
 class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
-  explicit FlattenRewriterVisitor(ColumnFactory* column_factory)
-      : column_factory_(column_factory) {}
+  explicit FlattenRewriterVisitor(Catalog* catalog,
+                                  ColumnFactory* column_factory)
+      : catalog_(catalog), column_factory_(column_factory) {}
 
  private:
   absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
 
   absl::Status VisitResolvedFlatten(const ResolvedFlatten* node) override;
+
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override;
 
   // Takes the components of a ResolvedFlatten (its expr, 'flatten_expr' and its
   // 'get_field_list' and converts it into a resulting ResolvedScan that is
@@ -58,7 +63,13 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
       std::unique_ptr<ResolvedScan> input_scan, bool order_results);
 
+  Catalog* catalog_;
   ColumnFactory* column_factory_;
+  // Correlates visited column refs if > 0. We use a counter instead of a bool
+  // in case we decide we need to do this in a nested way. This is needed to
+  // correlate column refs from the original query when we put them in a
+  // subquery.
+  int correlate_column_refs_ = 0;
 };
 
 absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
@@ -78,8 +89,10 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
     //
     // Without doing so we end up with one offset per repeated pivot and no way
     // to combine them.
+    ++correlate_column_refs_;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
-                     CorrelateColumnRefs(*flatten->expr()));
+                     ProcessNode(flatten->expr()));
+    --correlate_column_refs_;
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedScan> scan,
         FlattenToScan(std::move(flatten_expr), flatten->get_field_list(),
@@ -120,18 +133,91 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
 
 absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
     const ResolvedFlatten* node) {
+  // Project the input to a name so we can evaluate it once for NULL checking
+  // and using as input to flattening.
+  ResolvedColumn flatten_expr_column = column_factory_->MakeCol(
+      "$flatten_input", "injected", node->expr()->type());
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
+  ++correlate_column_refs_;
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
-                   CorrelateColumnRefs(*node->expr()));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ResolvedScan> scan,
-      FlattenToScan(std::move(flatten_expr), node->get_field_list(),
-                    /*input_scan=*/nullptr, /*order_results=*/true));
+                   ProcessNode(node->expr()));
+  --correlate_column_refs_;
+  expr_list.push_back(
+      MakeResolvedComputedColumn(flatten_expr_column, std::move(flatten_expr)));
+  std::unique_ptr<ResolvedProjectScan> flatten_input = MakeResolvedProjectScan(
+      {flatten_expr_column}, std::move(expr_list), MakeResolvedSingleRowScan());
 
+  // To avoid returning an empty array if the input is NULL, we rewrite to
+  // explicitly return NULL in that case. The flatten rewrite would return an
+  // empty array.
+  //
+  // TODO: Provide a good way for rewrites to inject logic like this
+  // without painfully constructing functions. One possible helper is one that
+  // constructs AST to project an input once and use for null checking and for
+  // evaluating something on.
+  std::vector<std::unique_ptr<ResolvedExpr>> if_args;
+  // Check if the input expression is NULL.
+  const Function* is_null_fn;
+  ZETASQL_RET_CHECK_OK(
+      catalog_->FindFunction({"$is_null"}, &is_null_fn, /*options=*/{}));
+  FunctionArgumentType bool_arg = FunctionArgumentType(types::BoolType(), 1);
+  FunctionSignature is_null_signature(
+      bool_arg, {FunctionArgumentType(flatten_expr_column.type(), 1)},
+      FN_IS_NULL);
+  std::vector<std::unique_ptr<ResolvedExpr>> is_null_args;
+  is_null_args.push_back(MakeResolvedColumnRef(flatten_expr_column.type(),
+                                               flatten_expr_column,
+                                               /*is_correlated=*/false));
+  if_args.push_back(MakeResolvedFunctionCall(
+      types::BoolType(), is_null_fn, is_null_signature, std::move(is_null_args),
+      ResolvedFunctionCall::DEFAULT_ERROR_MODE));
+  // If so, we return NULL.
+  if_args.push_back(MakeResolvedLiteral(Value::Null(node->type())));
+  // Otherwise, return the flattened result.
   std::vector<std::unique_ptr<const ResolvedColumnRef>> column_refs;
+  column_refs.push_back(MakeResolvedColumnRef(flatten_expr_column.type(),
+                                              flatten_expr_column,
+                                              /*is_correlated=*/false));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedScan> rewritten_flatten,
+      FlattenToScan(
+          MakeResolvedColumnRef(flatten_expr_column.type(), flatten_expr_column,
+                                /*is_correlated=*/true),
+          node->get_field_list(), /*input_scan=*/nullptr,
+          /*order_results=*/true));
+  if_args.push_back(MakeResolvedSubqueryExpr(
+      node->type(), ResolvedSubqueryExpr::ARRAY, std::move(column_refs),
+      /*in_expr=*/nullptr, std::move(rewritten_flatten)));
+
+  const Function* if_fn;
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"if"}, &if_fn, /*options=*/{}));
+  FunctionArgumentType out_arg = FunctionArgumentType(node->type(), 1);
+  FunctionSignature if_signature(out_arg, {bool_arg, out_arg, out_arg}, FN_IF);
+  ResolvedColumn result_column =
+      column_factory_->MakeCol("$flatten", "injected", node->type());
+  expr_list.clear();
+  expr_list.push_back(MakeResolvedComputedColumn(
+      result_column, MakeResolvedFunctionCall(
+                         node->type(), if_fn, if_signature, std::move(if_args),
+                         ResolvedFunctionCall::DEFAULT_ERROR_MODE)));
+
+  // Putting it all together, we use a subquery whose result is the result of
+  // the if condition above, with a projection input of the flatten expression.
+  column_refs.clear();
   ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*node->expr(), &column_refs));
   PushNodeToStack(MakeResolvedSubqueryExpr(
-      node->type(), ResolvedSubqueryExpr::ARRAY, std::move(column_refs),
-      /*in_expr=*/nullptr, std::move(scan)));
+      node->type(), ResolvedSubqueryExpr::SCALAR, std::move(column_refs),
+      /*in_expr=*/nullptr,
+      MakeResolvedProjectScan({result_column}, std::move(expr_list),
+                              std::move(flatten_input))));
+  return absl::OkStatus();
+}
+
+absl::Status FlattenRewriterVisitor::VisitResolvedColumnRef(
+    const ResolvedColumnRef* node) {
+  bool correlated = (correlate_column_refs_ > 0) ? true : node->is_correlated();
+  PushNodeToStack(
+      MakeResolvedColumnRef(node->type(), node->column(), correlated));
   return absl::OkStatus();
 }
 
@@ -233,12 +319,12 @@ FlattenRewriterVisitor::FlattenToScan(
 
 }  // namespace
 
-zetasql_base::StatusOr<std::unique_ptr<const ResolvedStatement>> RewriteResolvedFlatten(
-    const ResolvedStatement& resolved_statement,
+zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteResolvedFlatten(
+    Catalog& catalog, const ResolvedNode& node,
     ColumnFactory& column_factory) {
-  FlattenRewriterVisitor rewriter(&column_factory);
-  ZETASQL_RETURN_IF_ERROR(resolved_statement.Accept(&rewriter));
-  return rewriter.ConsumeRootNode<ResolvedStatement>();
+  FlattenRewriterVisitor rewriter(&catalog, &column_factory);
+  ZETASQL_RETURN_IF_ERROR(node.Accept(&rewriter));
+  return rewriter.ConsumeRootNode<ResolvedNode>();
 }
 
 }  // namespace zetasql

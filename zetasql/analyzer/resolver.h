@@ -33,7 +33,8 @@
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_decls.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -182,6 +183,17 @@ class Resolver {
   absl::Status CoerceExprToType(
       const ASTExpression* ast_expression, const Type* target_type,
       bool assignment_semantics, const char* clause_name,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr);
+
+  // Similar to the above function, but supplies a custom lambda to provide
+  // the error message, rather than a simple clause name. The lambda is invoked
+  // only if there is a type mismatch error.
+  absl::Status CoerceExprToType(
+      const ASTExpression* ast_expression, const Type* target_type,
+      bool assignment_semantics,
+      std::function<std::string(const std::string& target_type_name,
+                                const std::string& actual_type_name)>
+          error_lambda,
       std::unique_ptr<const ResolvedExpr>* resolved_expr);
 
   // Similar to the above function, but coerces to BOOL type.
@@ -499,6 +511,9 @@ class Resolver {
   // ResolvedLiterals without a cached image.
   int next_float_literal_image_id_ = 1;
 
+  // A list of AnnotationSpec to be used to propagate annotations.
+  std::vector<std::unique_ptr<AnnotationSpec>> annotation_specs_;
+
   // Resolve the Type from the <type_name> without resetting the state.
   absl::Status ResolveTypeNameInternal(const std::string& type_name,
                                        const Type** type);
@@ -506,6 +521,16 @@ class Resolver {
   const FunctionResolver* function_resolver() const {
     return function_resolver_.get();
   }
+
+  // Creates AnnotationSpec based on language feature and analyzer options.
+  void InitializeAnnotationSpecs();
+
+  // Checks and propagates annotations through <resolved_node>. If there is SQL
+  // error thrown, the error will be attached to the location of <error_node>.
+  // <error_node> could be nullptr to indicate there is no suitable location to
+  // attach the error.
+  absl::Status CheckAndPropagateAnnotations(const ASTNode* error_node,
+                                            ResolvedNode* resolved_node);
 
   int AllocateColumnId();
   IdString AllocateSubqueryName();
@@ -771,8 +796,7 @@ class Resolver {
   // Resolves a column foreign key constraint.
   absl::Status ResolveForeignKeyColumnConstraint(
       const ColumnIndexMap& column_indexes,
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
-          column_definitions,
+      const std::vector<const Type*>& column_types,
       const ASTColumnDefinition* ast_column_definition,
       const ASTForeignKeyColumnAttribute* ast_foreign_key,
       std::vector<std::unique_ptr<ResolvedForeignKey>>* resolved_foreign_keys);
@@ -780,17 +804,15 @@ class Resolver {
   // Resolves a table foreign key constraint.
   absl::Status ResolveForeignKeyTableConstraint(
       const ColumnIndexMap& column_indexes,
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
-          column_definitions,
+      const std::vector<const Type*>& column_types,
       const ASTForeignKey* ast_foreign_key,
       std::vector<std::unique_ptr<ResolvedForeignKey>>* resolved_foreign_keys);
 
   // Resolves a foreign key's referencing columns and referenced table and
-  // columns.
+  // columns. <column_indexes> is used to index into <column_types>.
   absl::Status ResolveForeignKeyReference(
       const ColumnIndexMap& column_indexes,
-      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
-          column_definitions,
+      const std::vector<const Type*>& column_types,
       absl::Span<const ASTIdentifier* const> ast_referencing_column_identifiers,
       const ASTForeignKeyReference* ast_foreign_key_reference,
       ResolvedForeignKey* foreign_key);
@@ -1155,6 +1177,10 @@ class Resolver {
 
   absl::Status ResolveAlterDatabaseStatement(
       const ASTAlterDatabaseStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  absl::Status ResolveAlterSchemaStatement(
+      const ASTAlterSchemaStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   absl::Status ResolveAlterTableStatement(
@@ -1962,7 +1988,7 @@ class Resolver {
   absl::Status ResolveLambda(
       const ASTLambda* ast_lambda, absl::Span<const IdString> arg_names,
       absl::Span<const Type* const> arg_types, const Type* body_result_type,
-      const NameScope* name_scope,
+      bool allow_argument_coercion, const NameScope* name_scope,
       std::unique_ptr<const ResolvedInlineLambda>* resolved_expr_out);
 
   // Resolves the given LIMIT or OFFSET clause <ast_expr> and stores the
@@ -2722,11 +2748,6 @@ class Resolver {
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
-  absl::Status ResolveCollateExpression(
-      const ASTCollateExpression* ast_collate_expr,
-      ExprResolutionInfo* expr_resolution_info,
-      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
-
   absl::Status ResolveNewConstructor(
       const ASTNewConstructor* ast_new_constructor,
       ExprResolutionInfo* expr_resolution_info,
@@ -3184,6 +3205,12 @@ class Resolver {
       const char* clause_name, const ASTNode* ast_location,
       std::unique_ptr<const ResolvedExpr>* expr) const;
 
+  absl::Status ResolveAddConstraintAction(
+      const Table* referencing_table,
+      const ASTAddConstraintAction* alter_action,
+      std::unique_ptr<const ResolvedAddConstraintAction>*
+          resolved_alter_action);
+
   absl::Status ResolveType(const ASTType* type,
                            const Type** resolved_type) const;
 
@@ -3374,6 +3401,41 @@ class Resolver {
       const IdString table_name_id_string, ColumnIndexMap* column_indexes,
       std::unique_ptr<const ResolvedWithPartitionColumns>*
           resolved_with_partition_columns);
+
+  zetasql_base::StatusOr<ResolvedColumn> CreatePivotColumn(
+      const ASTPivotExpression* ast_pivot_expr,
+      const ResolvedExpr* resolved_pivot_expr, bool is_only_pivot_expr,
+      const ASTPivotValue* ast_pivot_value,
+      const ResolvedExpr* resolved_pivot_value);
+
+  absl::Status ResolvePivotExpressions(
+      const ASTPivotExpressionList* ast_pivot_expr_list, const NameScope* scope,
+      std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+          pivot_expr_columns);
+
+  absl::Status ResolveForExprInPivotClause(
+      const ASTExpression* for_expr, const NameScope* scope,
+      std::unique_ptr<const ResolvedExpr>* resolved_for_expr);
+
+  absl::Status ResolveInClauseInPivotClause(
+      const ASTPivotValueList* pivot_values, const NameScope* scope,
+      const Type* for_expr_type,
+      std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_in_exprs);
+
+  // Resolves a PIVOT clause denoted by <ast_pivot_clause>.
+  //
+  // Expressions inside the pivot clause are resolved using <input_name_list>
+  // with <previous_scope> as a fallback scope for names not in the list.
+  //
+  // On success, sets <output> and <output_name_list> to a scan and name list
+  // describing the PIVOT output.
+  absl::Status ResolvePivotClause(
+      std::unique_ptr<const ResolvedScan> input_scan,
+      std::shared_ptr<const NameList> input_name_list,
+      const NameScope* previous_scope, bool input_is_subquery,
+      const ASTPivotClause* ast_pivot_clause,
+      std::unique_ptr<const ResolvedScan>* output,
+      std::shared_ptr<const NameList>* output_name_list);
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

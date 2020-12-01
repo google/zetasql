@@ -281,6 +281,7 @@ frame_between:
     | BETWEEN numeric_preceding AND frame_end_a
     | BETWEEN current_row AND frame_end_b
     | BETWEEN numeric_following AND frame_end_c
+  }
 
 frame_start:
   { unbounded_preceding | numeric_preceding | [ current_row ] }

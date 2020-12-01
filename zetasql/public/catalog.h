@@ -720,6 +720,9 @@ class Column {
 
   virtual const Type* GetType() const = 0;
 
+  // Annotation map on type of the column.
+  virtual const AnnotationMap* GetTypeAnnotationMap() const { return nullptr; }
+
   // Pseudo-columns can be selected explicitly but do not show up in SELECT *.
   // This can be used for any hidden or virtual column or lazily computed value
   // in a table.

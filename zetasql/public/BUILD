@@ -74,9 +74,11 @@ cc_library(
     name = "catalog",
     srcs = [
         "catalog.cc",
+        "catalog_helper.cc",
     ],
     hdrs = [
         "catalog.h",
+        "catalog_helper.h",
     ],
     copts = [
         "-Wno-char-subscripts",
@@ -93,12 +95,14 @@ cc_library(
         ":strings",
         ":type",
         "//zetasql/base",
+        "//zetasql/base:edit_distance",
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
@@ -238,6 +242,7 @@ cc_library(
         "//zetasql/common:simple_evaluator_table_iterator",
         "//zetasql/proto:simple_catalog_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -377,6 +382,45 @@ cc_library(
 )
 
 cc_library(
+    name = "numeric_constants",
+    hdrs = ["numeric_constants.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_library(
+    name = "numeric_parser",
+    srcs = ["numeric_parser.cc"],
+    hdrs = ["numeric_parser.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":numeric_constants",
+        "//zetasql/base:status",
+        "//zetasql/common:multiprecision_int",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "numeric_value",
     srcs = ["numeric_value.cc"],
     hdrs = [
@@ -392,6 +436,8 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":numeric_constants",
+        ":numeric_parser",
         "//zetasql/base",
         "//zetasql/base:endian",
         "//zetasql/base:mathutil",
@@ -503,9 +549,12 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":numeric_parser",
         "//zetasql/base",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
+        "//zetasql/common:errors",
         "//zetasql/common:json_parser",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
@@ -531,6 +580,7 @@ cc_test(
         "//zetasql/base:statusor",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
     ],
@@ -556,10 +606,34 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
+        "//zetasql/public/functions:arithmetics",
+        "//zetasql/public/functions:datetime_cc_proto",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
+    name = "interval_value_test_util",
+    testonly = 1,
+    hdrs = [
+        "interval_value_test_util.h",
+    ],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":interval_value",
     ],
 )
 
@@ -577,6 +651,7 @@ cc_test(
     ],
     deps = [
         ":interval_value",
+        ":interval_value_test_util",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/random",
@@ -606,6 +681,7 @@ cc_library(
     ],
     deps = [
         ":civil_time",
+        ":interval_value",
         ":json_value",
         ":language_options",
         ":numeric_value",
@@ -666,6 +742,8 @@ cc_test(
     deps = [
         ":analyzer",
         ":evaluator",
+        ":interval_value",
+        ":interval_value_test_util",
         ":json_value",
         ":language_options",
         ":numeric_value",
@@ -807,7 +885,10 @@ java_proto_library(
 proto_library(
     name = "simple_table_proto",
     srcs = ["simple_table.proto"],
-    deps = [":type_proto"],
+    deps = [
+        ":annotation_proto",
+        ":type_proto",
+    ],
 )
 
 cc_proto_library(
@@ -1367,7 +1448,8 @@ cc_library(
         ":parse_resume_location",
         ":strings",
         ":type",
-        "//zetasql/analyzer",
+        "//zetasql/analyzer:name_scope",
+        "//zetasql/analyzer:resolver",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
@@ -1481,6 +1563,42 @@ cc_library(
 )
 
 cc_test(
+    name = "cast_test",
+    size = "small",
+    srcs = ["cast_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":coercer",
+        ":function",
+        ":language_options",
+        ":options_cc_proto",
+        ":type",
+        ":value",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public/types",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "//zetasql/testing:test_function",
+        "//zetasql/testing:test_value",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:cord",
+        "@com_google_absl//absl/time",
+    ],
+)
+
+cc_test(
     name = "function_test",
     size = "small",
     srcs = ["function_test.cc"],
@@ -1512,6 +1630,7 @@ cc_test(
         "//zetasql/proto:function_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -1541,6 +1660,7 @@ cc_test(
         "//zetasql/proto:function_cc_proto",
         "//zetasql/public/types",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
     ],
 )
 
@@ -1821,11 +1941,10 @@ cc_test(
     ],
 )
 
-exports_files(["analyzer.h"])
-
 cc_library(
-    name = "analyzer",
-    hdrs = ["analyzer.h"],
+    name = "analyzer_options",
+    srcs = ["analyzer_options.cc"],
+    hdrs = ["analyzer_options.h"],
     copts = [
         "-Wno-char-subscripts",
         "-Wno-return-type",
@@ -1838,20 +1957,140 @@ cc_library(
     deps = [
         ":catalog",
         ":id_string",
+        ":type",
+        "//zetasql/base",
+        "//zetasql/parser",
+    ],
+)
+
+cc_library(
+    name = "analyzer_output_properties",
+    hdrs = ["analyzer_output_properties.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/container:flat_hash_map",
+    ],
+)
+
+cc_library(
+    name = "analyzer_output",
+    hdrs = ["analyzer_output.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer_options",
+        ":analyzer_output_properties",
+        ":id_string",
+        "//zetasql/base",
+        "//zetasql/parser",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_library(
+    name = "analyzer",
+    srcs = [
+        "analyzer.cc",
+        "table_name_resolver.cc",
+        "table_name_resolver.h",
+    ],
+    hdrs = [
+        "analyzer.h",
+    ],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer_options",
+        ":analyzer_output",
+        ":analyzer_output_properties",
+        ":catalog",
+        ":id_string",
         ":language_options",
         ":options_cc_proto",
+        ":parse_helpers",
+        ":parse_resume_location",
         ":type",
+        ":type_cc_proto",
         ":value",
-        "//zetasql/analyzer",  # buildcleaner: keep
+        "//zetasql/analyzer:resolver",
+        "//zetasql/analyzer:rewriter",  # buildcleaner:keep
         "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
+        "//zetasql/common:errors",
+        "//zetasql/parser",
         "//zetasql/proto:options_cc_proto",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:node_hash_set",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "literal_remover",
+    srcs = ["literal_remover.cc"],
+    hdrs = ["literal_remover.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer_options",
+        ":analyzer_output",
+        ":language_options",
+        ":parse_location",
+        ":type",
+        ":value",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "@com_google_absl//absl/container:node_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -2111,4 +2350,44 @@ cc_test(
     ],
 )
 
+proto_library(
+    name = "annotation_proto",
+    srcs = ["annotation.proto"],
+)
+
+cc_proto_library(
+    name = "annotation_cc_proto",
+    deps = [":annotation_proto"],
+)
+
+java_proto_library(
+    name = "annotation_java_proto",
+    deps = [":annotation_proto"],
+)
+
 exports_files(["type_annotation.proto"])
+
+cc_test(
+    name = "table_name_resolver_test",
+    size = "small",
+    srcs = ["table_name_resolver_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer",
+        ":options_cc_proto",
+        ":simple_catalog",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/parser",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+    ],
+)

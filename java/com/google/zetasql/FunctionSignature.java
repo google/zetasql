@@ -102,7 +102,7 @@ public final class FunctionSignature implements Serializable {
   }
 
   public static FunctionSignature deserialize(
-      FunctionSignatureProto proto, ImmutableList<ZetaSQLDescriptorPool> pools) {
+      FunctionSignatureProto proto, ImmutableList<? extends DescriptorPool> pools) {
     List<FunctionArgumentType> arguments = new ArrayList<>();
     for (FunctionArgumentTypeProto argument : proto.getArgumentList()) {
       arguments.add(FunctionArgumentType.deserialize(argument, pools));

@@ -688,6 +688,12 @@ class Function {
   // 2) Analytic function must support the OVER clause.
   absl::Status CheckWindowSupportOptions() const;
 
+  // Check that we don't have multiple signatures with lambda possibly matching
+  // one function call. Two signatures cannot coexist if they have lambdas with
+  // the same number of arguments at the same indexes. We don't have a "distinct
+  // enough" concept to choose one from multiple matches signatures with lambda.
+  absl::Status CheckMultipleSignatureMatchingSameFunctionCall() const;
+
   // Returns true if it supports the OVER clause (i.e. this function can act as
   // an analytic function). If true, the mode cannot be SCALAR.
   bool SupportsOverClause() const;

@@ -19,11 +19,9 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
 import com.google.zetasql.ZetaSQLParser.ParseResumeLocationProto;
-import com.google.zetasql.ParseResumeLocation.AutoUnregister;
 
 
 import org.junit.Test;
@@ -76,78 +74,6 @@ public class ParseResumeLocationTest {
   }
 
   @Test
-  public void testRegisterAndUnregister() {
-    String input = "12345678900*0000";
-    ParseResumeLocation aParseResumeLocation = new ParseResumeLocation(input);
-
-    try {
-      // Unregister before register.
-      aParseResumeLocation.unregister();
-      fail();
-    } catch (IllegalStateException expected) {
-    }
-
-    // First register.
-    aParseResumeLocation.register();
-
-    try {
-      // Mutating after register.
-      aParseResumeLocation.setInput("aaaaaaa");
-      fail();
-    } catch (IllegalStateException expected) {
-    }
-
-    try {
-      // Mutating after register.
-      aParseResumeLocation.disallowResume();
-      fail();
-    } catch (IllegalStateException expected) {
-    }
-
-    try {
-      // Double register.
-      aParseResumeLocation.register();
-      fail();
-    } catch (IllegalStateException expected) {
-    }
-
-    // Unregister after register.
-    aParseResumeLocation.unregister();
-
-    // Mutating after unregister.
-    aParseResumeLocation.setInput("aaaaaaa");
-
-    // Mutating after unregister.
-    aParseResumeLocation.setBytePosition(5);
-
-    // Mutating after unregister.
-    aParseResumeLocation.disallowResume();
-
-    try {
-      // Double unregister.
-      aParseResumeLocation.unregister();
-      fail();
-    } catch (IllegalStateException expected) {
-    }
-  }
-
-  @Test
-  public void testRegisterAutoClose() {
-    String input = "12345678900*0000";
-    ParseResumeLocation aParseResumeLocation = new ParseResumeLocation(input);
-
-    // Auto-unregister using try-with-resources.
-    try (AutoUnregister autoUnregister = aParseResumeLocation.register()) {}
-
-    try {
-      // Unregister after auto close.
-      aParseResumeLocation.unregister();
-      fail();
-    } catch (IllegalStateException expected) {
-    }
-  }
-
-  @Test
   public void testClassAndProtoSize() {
     assertWithMessage(
             "The number of fields of ParseResumeLocationProto has changed, "
@@ -158,6 +84,6 @@ public class ParseResumeLocationTest {
             "The number of fields in ParseResumeLocation class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(ParseResumeLocation.class))
-        .isEqualTo(6);
+        .isEqualTo(4);
   }
 }

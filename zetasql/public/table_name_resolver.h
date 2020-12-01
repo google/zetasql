@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_TABLE_NAME_RESOLVER_H_
-#define ZETASQL_ANALYZER_TABLE_NAME_RESOLVER_H_
+#ifndef ZETASQL_PUBLIC_TABLE_NAME_RESOLVER_H_
+#define ZETASQL_PUBLIC_TABLE_NAME_RESOLVER_H_
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer.h"
@@ -77,4 +77,4 @@ inline absl::Status FindTables(absl::string_view sql,
 }  // namespace table_name_resolver
 }  // namespace zetasql
 
-#endif  // ZETASQL_ANALYZER_TABLE_NAME_RESOLVER_H_
+#endif  // ZETASQL_PUBLIC_TABLE_NAME_RESOLVER_H_

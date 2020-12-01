@@ -422,6 +422,11 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTNode* node;
   zetasql::ASTStatementList* statement_list;
   DashedIdentifierTmpNode* dashed_identifier;
+  zetasql::ASTPivotClause* pivot_clause;
+  struct {
+    zetasql::ASTPivotClause* pivot_clause;
+    zetasql::ASTAlias* alias;
+  } pivot_clause_and_alias;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -762,6 +767,7 @@ using zetasql::ASTDropStatement;
 %token KW_FILL "FILL"
 %token KW_FIRST "FIRST"
 %token KW_FOREIGN "FOREIGN"
+%token KW_FORMAT "FORMAT"
 %token KW_FUNCTION "FUNCTION"
 %token KW_GENERATED "GENERATED"
 %token KW_GRANT "GRANT"
@@ -797,6 +803,7 @@ using zetasql::ASTDropStatement;
 %token KW_OPTIONS "OPTIONS"
 %token KW_OUT "OUT"
 %token KW_PERCENT "PERCENT"
+%token KW_PIVOT "PIVOT"
 %token KW_POLICIES "POLICIES"
 %token KW_POLICY "POLICY"
 %token KW_PRIMARY "PRIMARY"
@@ -820,6 +827,7 @@ using zetasql::ASTDropStatement;
 %token KW_RUN "RUN"
 %token KW_SAFE_CAST "SAFE_CAST"
 %token KW_SCHEMA "SCHEMA"
+%token KW_SEARCH "SEARCH"
 %token KW_SECURITY "SECURITY"
 %token KW_SHOW "SHOW"
 %token KW_SIMPLE "SIMPLE"
@@ -898,7 +906,6 @@ using zetasql::ASTDropStatement;
 %type <node> column_schema_inner
 %type <node> commit_statement
 %type <node> connection_clause
-%type <expression> collate_expression
 %type <node> create_constant_statement
 %type <node> create_database_statement
 %type <node> create_function_statement
@@ -930,6 +937,7 @@ using zetasql::ASTDropStatement;
 %type <node> grant_to_clause
 %type <node> index_storing_expression_list_prefix
 %type <node> index_storing_expression_list
+%type <expression> interval_expression
 %type <expression> expression_or_default
 %type <expression_subquery> expression_subquery
 %type <expression> extract_expression
@@ -1045,6 +1053,7 @@ using zetasql::ASTDropStatement;
 %type <create_scope> opt_create_scope
 %type <node> opt_at_system_time
 %type <node> opt_description
+%type <node> opt_format
 %type <drop_mode> opt_drop_mode
 %type <node> opt_else
 %type <node> opt_foreign_key_actions
@@ -1074,9 +1083,15 @@ using zetasql::ASTDropStatement;
 %type <node> opt_partition_by_clause_no_hint
 %type <node> opt_repeatable_clause
 %type <node> opt_returns
+%type <node> opt_returning_clause
 %type <sql_security> opt_sql_security_clause
 %type <sql_security> sql_security_clause_kind
 %type <node> opt_over_clause
+%type <node> pivot_value
+%type <node> pivot_value_list
+%type <pivot_clause> pivot_clause
+%type <node> pivot_expression
+%type <node> pivot_expression_list
 %type <node> opt_sample_clause
 %type <node> opt_sample_clause_suffix
 %type <node> opt_select_as_clause
@@ -1123,6 +1138,8 @@ using zetasql::ASTDropStatement;
 %type <query_set_operation> query_set_operation_prefix
 %type <query_set_operation> query_set_operation_prefix_maybe_expression
 %type <node> query_statement
+%type <node> raw_type
+%type <node> raw_column_schema_inner
 %type <node> repeatable_clause
 %type <expression> generalized_extension_path
 %type <node> replace_fields_arg
@@ -1193,6 +1210,9 @@ using zetasql::ASTDropStatement;
 %type <node> tvf_prefix
 %type <node> tvf_prefix_no_args
 %type <node> type
+%type <expression> type_parameter
+%type <node> type_parameters_prefix
+%type <node> opt_type_parameters
 %type <node> type_or_tvf_schema
 %type <node> tvf_schema
 %type <node> tvf_schema_column
@@ -1253,6 +1273,7 @@ using zetasql::ASTDropStatement;
 %type <boolean> opt_recursive
 %type <boolean> opt_stored
 %type <boolean> opt_unique
+%type <boolean> opt_search
 %type <node> primary_key_column_attribute
 %type <node> hidden_column_attribute
 %type <node> not_null_column_attribute
@@ -1300,6 +1321,7 @@ using zetasql::ASTDropStatement;
 %type <node> descriptor_argument
 %type <node> with_partition_columns_clause
 %type <node> opt_with_partition_columns_clause
+%type <pivot_clause_and_alias> opt_pivot_clause_and_alias
 
 %start start_mode
 %%
@@ -2254,14 +2276,15 @@ create_external_table_function_statement:
     ;
 
 create_index_statement:
-  "CREATE" opt_or_replace opt_unique "INDEX" opt_if_not_exists
+  "CREATE" opt_or_replace opt_unique opt_search "INDEX" opt_if_not_exists
     path_expression "ON" path_expression opt_as_alias opt_index_unnest_expression_list index_order_by opt_index_storing_list opt_options_list
       {
         auto* create =
-          MAKE_NODE(ASTCreateIndexStatement, @$, {$6, $8, $9, $10, $11, $12, $13});
+          MAKE_NODE(ASTCreateIndexStatement, @$, {$7, $9, $10, $11, $12, $13, $14});
         create->set_is_or_replace($2);
         create->set_is_unique($3);
-        create->set_is_if_not_exists($5);
+        create->set_is_if_not_exists($6);
+        create->set_is_search($4);
         $$ = create;
       }
     ;
@@ -2480,6 +2503,13 @@ simple_column_schema_inner:
       {
         $$ = MAKE_NODE(ASTSimpleColumnSchema, @$, {$1});
       }
+    // Unlike other type names, 'INTERVAL' is a reserved keyword.
+    | "INTERVAL"
+      {
+        auto* id = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+        auto* path_expression = MAKE_NODE(ASTPathExpression, @$, {id});
+        $$ = MAKE_NODE(ASTSimpleColumnSchema, @$, {path_expression});
+      }
     ;
 
 array_column_schema_inner:
@@ -2538,11 +2568,17 @@ struct_column_schema_inner:
     | struct_column_schema_prefix ">"
     ;
 
-column_schema_inner:
+raw_column_schema_inner:
     simple_column_schema_inner
     | array_column_schema_inner
     | struct_column_schema_inner
     ;
+
+column_schema_inner:
+    raw_column_schema_inner opt_type_parameters
+    {
+      $$ = WithExtraChildren(WithEndLocation($1, @2), {$2});
+    };
 
 opt_stored:
   "STORED"
@@ -3755,9 +3791,9 @@ int_literal_or_parameter:
     | system_variable_expression;
 
 cast_int_literal_or_parameter:
-    "CAST" "(" int_literal_or_parameter "AS" type ")"
+    "CAST" "(" int_literal_or_parameter "AS" type opt_format ")"
       {
-        $$ = MAKE_NODE(ASTCastExpression, @$, {$3, $5});
+        $$ = MAKE_NODE(ASTCastExpression, @$, {$3, $5, $6});
       }
     ;
 
@@ -3839,12 +3875,97 @@ opt_sample_clause:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
+pivot_expression:
+  expression opt_as_alias {
+    $$ = MAKE_NODE(ASTPivotExpression, @$, {$1, $2});
+  }
+  ;
+
+pivot_expression_list:
+  pivot_expression {
+    $$ = MAKE_NODE(ASTPivotExpressionList, @$, {$1});
+  }
+  | pivot_expression_list "," pivot_expression {
+    $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+  }
+;
+
+pivot_value:
+  expression opt_as_alias {
+    $$ = MAKE_NODE(ASTPivotValue, @$, {$1, $2});
+  }
+  ;
+
+pivot_value_list:
+  pivot_value {
+    $$ = MAKE_NODE(ASTPivotValueList, @$, {$1});
+  }
+  | pivot_value_list "," pivot_value {
+    $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+  }
+  ;
+
+pivot_clause:
+    "PIVOT" "(" pivot_expression_list
+    "FOR" expression "IN" "(" pivot_value_list ")" ")"{
+      if ($3 == nullptr) {
+        YYERROR_AND_ABORT_AT(@3,
+        "PIVOT clause requires at least one pivot expression");
+      }
+      $$ = MAKE_NODE(ASTPivotClause, @$, {$3, $5, $8});
+  }
+  ;
+
+// Ideally, we would have an 'opt_pivot_clause' rule that covers just PIVOT and
+// use 'op_as_alias' to cover the alias.
+//
+// Unfortunately, that doesn't work because it would cause ambiguities in the
+// grammar. The ambiguities arise because bison only supports a single token
+// lookahead, so when it sees:
+//   SELECT * FROM t PIVOT ...
+// it can't tell whether the PIVOT token means the start of a PIVOT clause
+// or an alias for table t named "PIVOT". We work around this by combining PIVOT
+// and table aliases into one grammar rule and list out all the possible
+// combinations explicitly.
+//
+opt_pivot_clause_and_alias:
+  "AS" identifier {
+    $$.alias = MAKE_NODE(ASTAlias, @$, {$2});
+    $$.pivot_clause = nullptr;
+  }
+  | identifier {
+    $$.alias = MAKE_NODE(ASTAlias, @$, {$1});
+    $$.pivot_clause = nullptr;
+  }
+  | "AS" identifier pivot_clause opt_as_alias {
+    $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
+    $$.alias = WithEndLocation($$.alias, @2);
+    $$.pivot_clause = WithExtraChildren($3,
+        {static_cast<zetasql::ASTAlias*>($4)});
+  }
+  | identifier pivot_clause opt_as_alias {
+    $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
+    $$.pivot_clause = WithExtraChildren($2,
+        {static_cast<zetasql::ASTAlias*>($3)});
+  }
+  | pivot_clause opt_as_alias {
+    $$.alias = nullptr;
+    $$.pivot_clause = WithExtraChildren($1,
+        {static_cast<zetasql::ASTAlias*>($2)});
+  }
+  | /* Nothing */ {
+    $$.alias = nullptr;
+    $$.pivot_clause = nullptr;
+  };
+  ;
+
 table_subquery:
-    "(" query ")" opt_as_alias opt_sample_clause
+    "(" query ")" opt_pivot_clause_and_alias opt_sample_clause
       {
         zetasql::ASTQuery* query = $2;
         query->set_is_nested(true);
-        $$ = MAKE_NODE(ASTTableSubquery, @$, {$2, $4, $5});
+        $$ = MAKE_NODE(ASTTableSubquery, @$, {
+            $2, $4.alias, $4.pivot_clause, $5});
       }
     ;
 
@@ -4000,13 +4121,15 @@ tvf_prefix:
     ;
 
 tvf:
-    tvf_prefix_no_args ")" opt_hint opt_as_alias opt_sample_clause
+    tvf_prefix_no_args ")" opt_hint opt_pivot_clause_and_alias opt_sample_clause
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {$3, $4, $5});
+        $$ = WithExtraChildren(WithEndLocation($1, @$), {
+            $3, $4.alias, $5, $4.pivot_clause});
       }
-    | tvf_prefix ")" opt_hint opt_as_alias opt_sample_clause
+    | tvf_prefix ")" opt_hint opt_pivot_clause_and_alias opt_sample_clause
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {$3, $4, $5});
+        $$ = WithExtraChildren(WithEndLocation($1, @$), {
+            $3, $4.alias, $4.pivot_clause, $5});
       }
     ;
 
@@ -4044,11 +4167,34 @@ table_path_expression_base:
     ;
 
 table_path_expression:
-    table_path_expression_base opt_hint opt_as_alias opt_with_offset_and_alias opt_at_system_time opt_sample_clause
+    table_path_expression_base opt_hint opt_pivot_clause_and_alias
+    opt_with_offset_and_alias opt_at_system_time opt_sample_clause
       {
-        $$ = MAKE_NODE(ASTTablePathExpression, @$, {$1, $2, $3, $4, $5, $6});
-      }
-    ;
+        if ($3.pivot_clause != nullptr && $4 != nullptr) {
+          // We do not support combining PIVOT with WITH OFFSET. If we did,
+          // we would want the WITH OFFSET clause to appear in the grammar before
+          // PIVOT so that it operates on the pivot input. However, putting it
+          // there results in reduce/reduce conflicts and, even if there were a
+          // way to avoid such conflicts, the resultant tree would be thrown
+          // out in the resolver later anyway, since we don't support value-tables
+          // as PIVOT input.
+          //
+          // So, the simplest solution to avoid dealing with the above is to
+          // put opt_with_offset_and_alias after PIVOT (so the right action
+          // happens if we have a WITH OFFSET without PIVOT) and give an explicit
+          // error if both clauses are present.
+          YYERROR_AND_ABORT_AT(@4, "PIVOT and WITH OFFSET cannot be combined");
+        }
+
+        if ($3.pivot_clause != nullptr && $5 != nullptr) {
+          YYERROR_AND_ABORT_AT(
+              @5,
+              "Syntax error: PIVOT and FOR SYSTEM TIME AS OF may not be "
+              "combined");
+        }
+        $$ = MAKE_NODE(ASTTablePathExpression, @$, {$1, $2, $3.alias,
+            $3.pivot_clause, $4, $5, $6});
+      };
 
 table_primary:
     tvf
@@ -4714,7 +4860,7 @@ expression:
     | replace_fields_expression
     | filter_fields_expression
     | function_call_expression_with_clauses
-    | collate_expression
+    | interval_expression
     | identifier
       {
         // The path expression is extended by the "." identifier rule below.
@@ -5292,6 +5438,17 @@ date_or_time_literal:
       }
     ;
 
+interval_expression:
+    "INTERVAL" expression identifier
+      {
+        $$ = MAKE_NODE(ASTIntervalExpr, @$, {$2, $3});
+      }
+    | "INTERVAL" expression identifier "TO" identifier
+      {
+        $$ = MAKE_NODE(ASTIntervalExpr, @$, {$2, $3, $5});
+      }
+  ;
+
 parameter_expression:
     named_parameter_expression
     | "?"
@@ -5322,6 +5479,13 @@ type_name:
     path_expression
       {
         $$ = MAKE_NODE(ASTSimpleType, @$, {$1});
+      }
+    // Unlike other type names, 'INTERVAL' is a reserved keyword.
+    | "INTERVAL"
+      {
+        auto* id = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+        auto* path_expression = MAKE_NODE(ASTPathExpression, @$, {id});
+        $$ = MAKE_NODE(ASTSimpleType, @$, {path_expression});
       }
     ;
 
@@ -5365,7 +5529,50 @@ struct_type:
       }
     ;
 
-type: array_type | struct_type | type_name ;
+raw_type:
+    array_type | struct_type | type_name ;
+
+type_parameter:
+      integer_literal
+    | boolean_literal
+    | string_literal
+    | bytes_literal
+    | floating_point_literal
+      {
+        $$ = $1;
+      }
+    | "MAX"
+      {
+        $$ = MAKE_NODE(ASTMaxLiteral, @1, {});
+      }
+    ;
+
+type_parameters_prefix:
+    "(" type_parameter
+      {
+        $$ = MAKE_NODE(ASTTypeParameterList, @$, {$2});
+      }
+    | type_parameters_prefix "," type_parameter
+      {
+        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      }
+    ;
+
+opt_type_parameters:
+    type_parameters_prefix ")" { $$ = $1; }
+    | type_parameters_prefix "," ")"
+      {
+        YYERROR_AND_ABORT_AT(@2,
+                             "Syntax error: Trailing comma in type parameter "
+                             "list is not allowed.");
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+type: raw_type opt_type_parameters
+    {
+      $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+    };
 
 templated_parameter_kind:
     "PROTO"
@@ -5494,10 +5701,18 @@ case_expression:
       }
     ;
 
+opt_format:
+    "FORMAT" expression
+       {
+         $$ = MAKE_NODE(ASTFormatClause, @$, {$2});
+       }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 cast_expression:
-    "CAST" "(" expression "AS" type ")"
+      "CAST" "(" expression "AS" type opt_format ")"
       {
-        auto* cast = MAKE_NODE(ASTCastExpression, @$, {$3, $5});
+        auto* cast = MAKE_NODE(ASTCastExpression, @$, {$3, $5, $6});
         cast->set_is_safe_cast(false);
         $$ = cast;
       }
@@ -5511,9 +5726,9 @@ cast_expression:
       }
     // This rule causes a shift/reduce conflict with keyword_as_identifier. It
     // is resolved in favor of this rule, which is the desired behavior.
-    | "SAFE_CAST" "(" expression "AS" type ")"
+    | "SAFE_CAST" "(" expression "AS" type opt_format ")"
       {
-        auto* cast = MAKE_NODE(ASTCastExpression, @$, {$3, $5});
+        auto* cast = MAKE_NODE(ASTCastExpression, @$, {$3, $5, $6});
         cast->set_is_safe_cast(true);
         $$ = cast;
       }
@@ -5531,13 +5746,6 @@ extract_expression_base:
     "EXTRACT" "(" expression "FROM" expression
       {
         $$ = MAKE_NODE(ASTExtractExpression, @$, {$3, $5});
-      }
-    ;
-
-collate_expression:
-    "COLLATE" "(" expression "," string_literal ")"
-      {
-        $$ = MAKE_NODE(ASTCollateExpression, @$, {$3, $5});
       }
     ;
 
@@ -5747,10 +5955,6 @@ function_call_expression_base:
 
 function_call_argument:
     expression
-    | "INTERVAL" expression identifier
-      {
-        $$ = MAKE_NODE(ASTIntervalExpr, @$, {$2, $3});
-      }
     | "SELECT"
       {
         YYERROR_AND_ABORT_AT(
@@ -6462,6 +6666,7 @@ keyword_as_identifier:
     | "FILL"
     | "FIRST"
     | "FOREIGN"
+    | "FORMAT"
     | "FUNCTION"
     | "GENERATED"
     | "GRANT"
@@ -6497,6 +6702,7 @@ keyword_as_identifier:
     | "OPTIONS"
     | "OUT"
     | "PERCENT"
+    | "PIVOT"
     | "POLICIES"
     | "POLICY"
     | "PRIMARY"
@@ -6520,6 +6726,7 @@ keyword_as_identifier:
     | "RUN"
     | "SAFE_CAST"
     | "SCHEMA"
+    | "SEARCH"
     | "SECURITY"
     | "SHOW"
     | "SIMPLE"
@@ -6567,6 +6774,8 @@ opt_create_scope:
     ;
 
 opt_unique: "UNIQUE" { $$ = true; } | /* Nothing */ { $$ = false; } ;
+
+opt_search: "SEARCH" { $$ = true; } | /* Nothing */ { $$ = false; } ;
 
 describe_keyword: "DESCRIBE" | "DESC" ;
 
@@ -6644,6 +6853,27 @@ opt_assert_rows_modified:
       {
         $$ = nullptr;
       }
+    ;
+
+opt_returning_clause:
+    "THEN" "RETURN" select_list
+      {
+        $$ = MAKE_NODE(ASTReturningClause, @$, {$3});
+      }
+    | "THEN" "RETURN" "WITH" "ACTION" select_list
+      {
+        zetasql::ASTIdentifier* default_identifier =
+          parser->MakeIdentifier(@4, "ACTION");
+        auto* action_alias = MAKE_NODE(ASTAlias, @$, {default_identifier});
+        $$ = MAKE_NODE(ASTReturningClause, @$, {$5, action_alias});
+      }
+    | "THEN" "RETURN" "WITH" "ACTION" "AS" identifier select_list
+      {
+        auto* action_alias = MAKE_NODE(ASTAlias, @$, {$6});
+        $$ = MAKE_NODE(ASTReturningClause, @$, {$7, action_alias});
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
 
 // Returns the JavaCC token code for IGNORE, REPLACE or UPDATE.
 // This is what ASTInsertStatement::set_insert_mode expects.
@@ -6880,7 +7110,7 @@ insert_statement_prefix:
 //   hoops to get the same effect here as well. That would be much harder to
 //   understand than the simple shift/reduce conflict here.
 insert_statement:
-    insert_statement_prefix opt_assert_rows_modified
+    insert_statement_prefix opt_assert_rows_modified opt_returning_clause
       {
         zetasql::ASTInsertStatement* insert = $1;
         if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
@@ -6891,9 +7121,9 @@ insert_statement:
           YYERROR_AND_ABORT_AT(@2,
                                "Syntax error: Expecting VALUES list or query");
         }
-        $$ = WithEndLocation(WithExtraChildren(insert, {$2}), @$);
+        $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3}), @$);
       }
-    | insert_statement_prefix query opt_assert_rows_modified
+    | insert_statement_prefix query opt_assert_rows_modified opt_returning_clause
       {
         zetasql::ASTInsertStatement* insert = $1;
         if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
@@ -6903,7 +7133,7 @@ insert_statement:
         if (insert->parse_progress() >= ASTInsertStatement::kSeenValuesList) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected query");
         }
-        $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3}), @$);
+        $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3, $4}), @$);
       }
     ;
 
@@ -6947,9 +7177,9 @@ insert_values_list:
 delete_statement:
     "DELETE" opt_from_keyword maybe_dashed_generalized_path_expression
     opt_as_alias opt_with_offset_and_alias opt_where_expression
-    opt_assert_rows_modified
+    opt_assert_rows_modified opt_returning_clause
       {
-        $$ = MAKE_NODE(ASTDeleteStatement, @$, {$3, $4, $5, $6, $7});
+        $$ = MAKE_NODE(ASTDeleteStatement, @$, {$3, $4, $5, $6, $7, $8});
       }
     ;
 
@@ -6964,9 +7194,9 @@ opt_with_offset_and_alias:
 update_statement:
     "UPDATE" maybe_dashed_generalized_path_expression opt_as_alias
     opt_with_offset_and_alias "SET" update_item_list opt_from_clause
-    opt_where_expression opt_assert_rows_modified
+    opt_where_expression opt_assert_rows_modified opt_returning_clause
       {
-        $$ = MAKE_NODE(ASTUpdateStatement, @$, {$2, $3, $4, $6, $7, $8, $9});
+        $$ = MAKE_NODE(ASTUpdateStatement, @$, {$2, $3, $4, $6, $7, $8, $9, $10});
       }
     ;
 
@@ -7792,7 +8022,7 @@ next_statement_kind_without_hint:
       {
         $$ = zetasql::ASTCreateProcedureStatement::kConcreteNodeKind;
       }
-    | "CREATE" opt_or_replace opt_unique "INDEX"
+    | "CREATE" opt_or_replace opt_unique opt_search "INDEX"
       { $$ = zetasql::ASTCreateIndexStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SCHEMA"
       { $$ = zetasql::ASTCreateSchemaStatement::kConcreteNodeKind; }

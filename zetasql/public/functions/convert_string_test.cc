@@ -24,8 +24,10 @@
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
+#include "zetasql/testing/test_function.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/ascii.h"
@@ -35,6 +37,8 @@
 
 namespace zetasql {
 namespace functions {
+
+using zetasql_base::testing::StatusIs;
 
 template <typename T>
 void TestRoundtripValueHex(T value) {}
@@ -179,6 +183,181 @@ TEST(Convert, TestFloat) {
 
 TEST(Convert, TestDouble) {
   TestAll<double>();
+}
+
+template <typename T>
+void TestNumericToString(const QueryParamsWithResult& test) {
+  if (test.param(0).is_null()) return;
+  const QueryParamsWithResult::Result& expected_result =
+      test.results().begin()->second;
+  std::string str;
+  absl::Status error;
+  if (expected_result.status.ok()) {
+    EXPECT_TRUE(NumericToString<T>(test.param(0).Get<T>(), &str, &error));
+    ZETASQL_EXPECT_OK(error);
+    EXPECT_EQ(expected_result.result.string_value(), str);
+  } else {
+    EXPECT_FALSE(NumericToString<T>(test.param(0).Get<T>(), &str, &error));
+    EXPECT_FALSE(error.ok());
+    EXPECT_EQ(error.code(), expected_result.status.code());
+  }
+}
+
+template <typename T>
+void TestStringToNumeric(const QueryParamsWithResult& test) {
+  if (test.param(0).is_null()) return;
+  T out;
+  absl::Status error;
+  if (test.status().ok()) {
+    EXPECT_TRUE(StringToNumeric<T>(test.param(0).string_value(),
+                                   &out, &error));
+    EXPECT_TRUE(error.ok());
+    T expected = test.result().Get<T>();
+    if (std::numeric_limits<T>::is_integer || isinf(expected)) {
+      EXPECT_EQ(expected, out);
+    } else if (isnan(expected)) {
+      EXPECT_TRUE(isnan(out));
+    } else {
+      EXPECT_TRUE(test.float_margin().Equal(expected, out))
+          << test.float_margin().PrintError(expected, out);
+    }
+  } else {
+    EXPECT_FALSE(StringToNumeric<T>(test.param(0).string_value(),
+                                    &out, &error));
+    EXPECT_FALSE(error.ok());
+    EXPECT_EQ(error.code(), test.status().code());
+  }
+}
+
+template <>
+void TestStringToNumeric<NumericValue>(const QueryParamsWithResult& test) {
+  if (test.param(0).is_null()) return;
+  NumericValue out;
+  absl::Status error;
+  const QueryParamsWithResult::Result& expected_result =
+      test.results().begin()->second;
+  if (expected_result.status.ok()) {
+    EXPECT_TRUE(StringToNumeric<NumericValue>(test.param(0).string_value(),
+                                              &out, &error));
+    ZETASQL_EXPECT_OK(error);
+    EXPECT_EQ(expected_result.result.numeric_value(), out);
+  } else {
+    EXPECT_FALSE(StringToNumeric<NumericValue>(test.param(0).string_value(),
+                                               &out, &error));
+    EXPECT_THAT(error, StatusIs(expected_result.status.code()));
+  }
+}
+
+template <>
+void TestStringToNumeric<BigNumericValue>(const QueryParamsWithResult& test) {
+  if (test.param(0).is_null()) return;
+  BigNumericValue out;
+  absl::Status error;
+  const QueryParamsWithResult::Result& expected_result =
+      test.results().begin()->second;
+  if (expected_result.status.ok()) {
+    EXPECT_TRUE(StringToNumeric<BigNumericValue>(test.param(0).string_value(),
+                                                 &out, &error));
+    ZETASQL_EXPECT_OK(error);
+    EXPECT_EQ(expected_result.result.bignumeric_value(), out);
+  } else {
+    EXPECT_FALSE(StringToNumeric<BigNumericValue>(test.param(0).string_value(),
+                                                  &out, &error));
+    EXPECT_THAT(error, StatusIs(expected_result.status.code()));
+  }
+}
+
+template <>
+void TestStringToNumeric<bool>(const QueryParamsWithResult& test) {
+  if (test.param(0).is_null()) return;
+  bool out;
+  absl::Status error;
+  if (test.status().ok()) {
+    EXPECT_TRUE(
+        StringToNumeric<bool>(test.param(0).string_value(), &out, &error));
+    EXPECT_TRUE(error.ok());
+    bool expected = test.result().Get<bool>();
+    EXPECT_EQ(expected, out);
+  } else {
+    EXPECT_FALSE(
+        StringToNumeric<bool>(test.param(0).string_value(), &out, &error));
+    EXPECT_FALSE(error.ok());
+    EXPECT_EQ(error.code(), test.status().code());
+  }
+}
+
+TEST(Convert, Compliance) {
+  std::vector<QueryParamsWithResult> tests =
+      GetFunctionTestsCastNumericString();
+  for (const QueryParamsWithResult& test : tests) {
+    const TypeKind result_kind =
+        test.results().begin()->second.result.type_kind();
+    if (result_kind == TYPE_STRING) {
+      switch (test.param(0).type_kind()) {
+        case TYPE_BOOL:
+          TestNumericToString<bool>(test);
+          break;
+        case TYPE_INT32:
+          TestNumericToString<int32_t>(test);
+          break;
+        case TYPE_INT64:
+          TestNumericToString<int64_t>(test);
+          break;
+        case TYPE_UINT32:
+          TestNumericToString<uint32_t>(test);
+          break;
+        case TYPE_UINT64:
+          TestNumericToString<uint64_t>(test);
+          break;
+        case TYPE_FLOAT:
+          TestNumericToString<float>(test);
+          break;
+        case TYPE_DOUBLE:
+          TestNumericToString<double>(test);
+          break;
+        case TYPE_NUMERIC:
+          TestNumericToString<NumericValue>(test);
+          break;
+        case TYPE_BIGNUMERIC:
+          TestNumericToString<BigNumericValue>(test);
+          break;
+        default:
+          FAIL() << "unexpected type: " << test.param(0).type_kind();
+      }
+    } else {
+      switch (result_kind) {
+        case TYPE_BOOL:
+          TestStringToNumeric<bool>(test);
+          break;
+        case TYPE_INT32:
+          TestStringToNumeric<int32_t>(test);
+          break;
+        case TYPE_INT64:
+          TestStringToNumeric<int64_t>(test);
+          break;
+        case TYPE_UINT32:
+          TestStringToNumeric<uint32_t>(test);
+          break;
+        case TYPE_UINT64:
+          TestStringToNumeric<uint64_t>(test);
+          break;
+        case TYPE_FLOAT:
+          TestStringToNumeric<float>(test);
+          break;
+        case TYPE_DOUBLE:
+          TestStringToNumeric<double>(test);
+          break;
+        case TYPE_NUMERIC:
+          TestStringToNumeric<NumericValue>(test);
+          break;
+        case TYPE_BIGNUMERIC:
+          TestStringToNumeric<BigNumericValue>(test);
+          break;
+        default:
+          FAIL() << "unexpected type: " << test.result().type_kind();
+      }
+    }
+  }
 }
 
 }  // namespace functions

@@ -95,7 +95,7 @@ public final class FunctionArgumentType implements Serializable {
     Preconditions.checkNotNull(lambdaBodyType);
     this.kind = SignatureArgumentKind.ARG_TYPE_LAMBDA;
     this.type = null;
-    this.numOccurrences = lambdaBodyType.getNumOccurrences();
+    this.numOccurrences = -1;
     this.options =
         FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.REQUIRED).build();
     LambdaArgument lambda = new LambdaArgument();
@@ -167,6 +167,20 @@ public final class FunctionArgumentType implements Serializable {
       builder.append(options.getRelationInputSchema());
     } else if (kind == SignatureArgumentKind.ARG_TYPE_ARBITRARY) {
       builder.append("ANY TYPE");
+    } else if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
+      Preconditions.checkNotNull(lambda);
+      builder.append("LAMBDA(");
+      List<String> args = new ArrayList<>();
+      for (FunctionArgumentType argType : lambda.argumentTypes) {
+        args.add(argType.debugString(verbose));
+      }
+      String argStr = String.join(", ", args);
+      if (lambda.argumentTypes.size() == 1) {
+        builder.append(argStr);
+      } else {
+        builder.append("(").append(argStr).append(")");
+      }
+      builder.append("->").append(lambda.bodyType.debugString(verbose)).append(")");
     } else {
       builder.append(signatureArgumentKindToString(kind));
     }
@@ -271,7 +285,7 @@ public final class FunctionArgumentType implements Serializable {
   }
 
   public static FunctionArgumentType deserialize(
-      FunctionArgumentTypeProto proto, ImmutableList<ZetaSQLDescriptorPool> pools) {
+      FunctionArgumentTypeProto proto, ImmutableList<? extends DescriptorPool> pools) {
     SignatureArgumentKind kind = proto.getKind();
     TypeFactory factory = TypeFactory.nonUniqueNames();
 
@@ -403,7 +417,7 @@ public final class FunctionArgumentType implements Serializable {
 
     public static FunctionArgumentTypeOptions deserialize(
         FunctionArgumentTypeOptionsProto proto,
-        ImmutableList<ZetaSQLDescriptorPool> pools,
+        ImmutableList<? extends DescriptorPool> pools,
         TypeFactory typeFactory) {
       Builder builder = builder();
       if (proto.hasCardinality()) {

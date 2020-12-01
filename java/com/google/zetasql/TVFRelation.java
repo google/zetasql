@@ -81,7 +81,7 @@ public class TVFRelation implements Serializable {
 
   public static TVFRelation deserialize(
       TVFRelationProto proto,
-      ImmutableList<ZetaSQLDescriptorPool> pools,
+      ImmutableList<? extends DescriptorPool> pools,
       TypeFactory typeFactory) {
     if (proto.getIsValueTable()) {
       Type type = typeFactory.deserialize(proto.getColumn(0).getType(), pools);

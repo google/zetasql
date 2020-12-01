@@ -21,6 +21,7 @@
 // top-level public header to access type declarations.
 
 
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 

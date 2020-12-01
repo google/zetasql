@@ -130,6 +130,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
+        "//zetasql/public:annotation_cc_proto",
         "//zetasql/public:catalog",
         "//zetasql/public:constant",
         "//zetasql/public:function",
@@ -375,7 +376,7 @@ cc_test(
     deps = [
         ":make_node_vector",
         ":resolved_ast",
-        "//zetasql/analyzer",
+        "//zetasql/analyzer:resolver",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -409,6 +410,8 @@ cc_test(
         "//zetasql/public:templated_sql_tvf",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public/annotation:collation",
+        "//zetasql/public/types",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -446,6 +449,7 @@ proto_library(
         ":resolved_node_kind_proto",
         ":serialization_proto",
         "//zetasql/proto:function_proto",
+        "//zetasql/public:annotation_proto",
         "//zetasql/public:type_proto",
         "//zetasql/public/proto:type_annotation_proto",
         "@com_google_protobuf//:descriptor_proto",
@@ -466,6 +470,7 @@ proto_library(
     name = "serialization_proto",
     srcs = ["serialization.proto"],
     deps = [
+        "//zetasql/public:annotation_proto",
         "//zetasql/public:parse_location_range_proto",
         "//zetasql/public:type_proto",
         "//zetasql/public:value_proto",

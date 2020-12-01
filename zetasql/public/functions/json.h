@@ -145,6 +145,25 @@ class JsonPathEvaluator {
                             std::vector<std::string>* value,
                             bool* is_null) const;
 
+  // Similar to ExtractArray(), except requires 'json' to be an array of scalar
+  // value, and the strings in the array will be returned without quotes or
+  // escaping.
+  //
+  // Example:
+  //   json: ["foo","bar","baz"]
+  //   json_path: $
+  //   value -> ["foo", "bar", "baz"] (ARRAY)
+  //
+  //   json: [1,2,3]
+  //   value -> [1, 2, 3] (ARRAY, JSONPath is $ by default if not provided)
+  //
+  // Error cases are the same as in ExtractArray function.
+  // Null cases are the same as in ExtractArray, except for the addition of:
+  // * json_path does not correspond to an array of scalar objects in json.
+  absl::Status ExtractStringArray(absl::string_view json,
+                                  std::vector<std::string>* value,
+                                  bool* is_null) const;
+
   // Enables the escaping of special characters for JSON_EXTRACT.
   //
   // Escaping special characters is part of the behavior detailed in the
@@ -175,6 +194,15 @@ class JsonPathEvaluator {
   bool escape_special_characters_ = false;
   std::function<void(absl::string_view)> escaping_needed_callback_;
 };
+
+// Converts a JSONPath token (unquoted and unescaped) into a SQL standard
+// JSONPath token (used by JSON_QUERY and JSON_VALUE).
+// Examples:
+// foo is converted to foo
+// a.b is converted to "a.b"
+// te"st' is converted to "te\"st'"
+std::string ConvertJSONPathTokenToSqlStandardMode(
+    absl::string_view json_path_token);
 
 // Converts a non SQL standard JSONPath (JSONPaths used by
 // JSON_EXTRACT for example) into a SQL standard JSONPath (used by JSON_QUERY

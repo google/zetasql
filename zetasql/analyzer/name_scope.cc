@@ -23,6 +23,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "absl/memory/memory.h"
@@ -635,7 +636,11 @@ bool NameScope::HasName(IdString name) const {
 }
 
 std::string NameScope::SuggestName(IdString mistyped_name) const {
-  return "";
+  std::vector<std::string> possible_names;
+  for (const auto& map_entry : names()) {
+    possible_names.push_back(map_entry.first.ToString());
+  }
+  return ClosestName(mistyped_name.ToString(), possible_names);
 }
 
 bool NameScope::HasLocalRangeVariables() const {

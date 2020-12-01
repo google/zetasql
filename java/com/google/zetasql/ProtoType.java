@@ -62,14 +62,14 @@ public class ProtoType extends Type {
    * for external users to treat this as immutable.
    */
   @SuppressWarnings("Immutable")
-  private final ZetaSQLDescriptorPool descriptorPool;
+  private final DescriptorPool descriptorPool;
 
   public Descriptor getDescriptor() {
     return descriptor;
   }
 
   /** Private constructor, instances must be created with {@link TypeFactory} */
-  ProtoType(Descriptor descriptor, ZetaSQLDescriptorPool pool) {
+  ProtoType(Descriptor descriptor, DescriptorPool pool) {
     super(TypeKind.TYPE_PROTO);
     this.descriptor = checkNotNull(descriptor);
     this.descriptorPool = checkNotNull(pool);

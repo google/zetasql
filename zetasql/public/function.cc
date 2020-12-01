@@ -17,6 +17,7 @@
 #include "zetasql/public/function.h"
 
 #include <ctype.h>
+
 #include <algorithm>
 #include <map>
 #include <utility>
@@ -24,14 +25,17 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/strip.h"
+#include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -125,6 +129,7 @@ Function::Function(const std::string& name, const std::string& group, Mode mode,
     : group_(group), mode_(mode), function_options_(function_options) {
   function_name_path_.push_back(name);
   ZETASQL_CHECK_OK(CheckWindowSupportOptions());
+  ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
 }
 
 Function::Function(const std::string& name, const std::string& group, Mode mode,
@@ -138,6 +143,7 @@ Function::Function(const std::string& name, const std::string& group, Mode mode,
     ZETASQL_CHECK_OK(signature.IsValidForFunction())
         << signature.DebugString(FullName());
   }
+  ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
 }
 
 Function::Function(const std::vector<std::string>& name_path,
@@ -154,6 +160,7 @@ Function::Function(const std::vector<std::string>& name_path,
     ZETASQL_CHECK_OK(signature.IsValidForFunction())
         << signature.DebugString(FullName());
   }
+  ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
 }
 
 // A FunctionDeserializer for functions by group name. Case-sensitive. Thread
@@ -295,7 +302,66 @@ void Function::ResetSignatures(
   }
 }
 
+// Check that `current_signature` and `new_signature` could possibly match one
+// function call with lambda.
+static bool SignaturesWithLambdaCouldMatchOneFunctionCall(
+    const FunctionSignature& current_signature,
+    const FunctionSignature& new_signature) {
+  if (current_signature.arguments().size() !=
+      new_signature.arguments().size()) {
+    return false;
+  }
+  bool has_lambda = false;
+  for (int i = 0; i < current_signature.arguments().size(); i++) {
+    const auto cur_arg = current_signature.argument(i);
+    const auto new_arg = new_signature.argument(i);
+    has_lambda = has_lambda || cur_arg.IsLambda() || new_arg.IsLambda();
+    if (cur_arg.IsLambda() && new_arg.IsLambda()) {
+      if (cur_arg.lambda().argument_types().size() ==
+          new_arg.lambda().argument_types().size()) {
+        continue;
+      }
+      return false;
+    }
+    // If one arg is lambda and the other is not.
+    if (cur_arg.IsLambda() != new_arg.IsLambda()) {
+      return false;
+    }
+  }
+  return has_lambda;
+}
+
+// Check that we don't have multiple signatures with lambda possibly matching
+// the same function call. An example is a function with following signatures:
+//     Func(T1, T1->BOOL)
+//     Func(INT64, INT64->BOOL);
+// for funcation call: Func(1, e->e>0); The two signatures both match the call.
+static absl::Status CheckLambdaSignatures(
+    const absl::Span<const FunctionSignature> current_signatures,
+    const FunctionSignature& new_signature) {
+  for (const auto& current_signature : current_signatures) {
+    ZETASQL_RET_CHECK(!SignaturesWithLambdaCouldMatchOneFunctionCall(current_signature,
+                                                             new_signature))
+        << "Having two signatures with the same lambda at the same argument "
+           "index is not allowed. Signature 1: "
+        << current_signature.DebugString()
+        << " Signature 2: " << new_signature.DebugString();
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Function::CheckMultipleSignatureMatchingSameFunctionCall() const {
+  for (int i = 1; i < function_signatures_.size(); i++) {
+    ZETASQL_RETURN_IF_ERROR(CheckLambdaSignatures(
+        absl::MakeConstSpan(function_signatures_).subspan(0, i),
+        function_signatures_[i]));
+  }
+  return absl::OkStatus();
+}
+
 void Function::AddSignature(const FunctionSignature& signature) {
+  ZETASQL_CHECK_OK(CheckLambdaSignatures(function_signatures_, signature))
+      << signature.DebugString(FullName());
   function_signatures_.push_back(signature);
   ZETASQL_CHECK_OK(signature.IsValidForFunction()) << signature.DebugString(FullName());
 }

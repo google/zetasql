@@ -97,6 +97,17 @@ class SampleCatalog {
   void LoadProcedures();
   void LoadConstants();
   void LoadConnections();
+  // Load signatures for well known functional programming functions for example
+  // FILTER, TRANSFORM, REDUCE.
+  void LoadWellKnownLambdaArgFunctions();
+  // Contrived signatures are loaded in order to demonstrate the behavior of
+  // lambda signature matching and resolving for unusual cases.
+  // This include:
+  //  * Using lambda with repeated arguments.
+  //  * Using lambda with named arguments.
+  //  * Possible signatures that could result in type inference failure for
+  //  various combinations of templated lambda arguments and other arguments.
+  void LoadContrivedLambdaArgFunctions();
 
   void AddOwnedTable(SimpleTable* table);
 

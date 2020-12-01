@@ -332,14 +332,14 @@ public class AnalyzerOptions implements Serializable {
   }
 
   static AnalyzerOptions deserialize(
-      AnalyzerOptionsProto proto, List<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
+      AnalyzerOptionsProto proto, List<? extends DescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
     options.deserializeFrom(proto, pools, factory);
     return options;
   }
 
   private void deserializeFrom(
-      AnalyzerOptionsProto proto, List<ZetaSQLDescriptorPool> pools, TypeFactory factory) {
+      AnalyzerOptionsProto proto, List<? extends DescriptorPool> pools, TypeFactory factory) {
     setLanguageOptions(new LanguageOptions(proto.getLanguageOptions()));
     setDefaultTimezone(proto.getDefaultTimezone());
     setErrorMessageMode(proto.getErrorMessageMode());

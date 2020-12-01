@@ -701,15 +701,15 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsInternalProductMode) {
   // Model array function like ARRAY_FILTER
   FunctionSignature array_filter_function = GetArrayFilterFunction(&factory);
   ASSERT_FALSE(array_filter_function.IsConcrete());
-  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, LAMBDA(<T1>)->BOOL) -> <array<T1>>",
+  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, LAMBDA(<T1>->BOOL)) -> <array<T1>>",
             array_filter_function.DebugString("ARRAY_FILTER"));
-  EXPECT_EQ("(<array<T1>>, LAMBDA((<T1>)->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(<array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{}, ProductMode::PRODUCT_INTERNAL));
-  EXPECT_EQ("(x <array<T1>>, LAMBDA((<T1>)->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x"}, ProductMode::PRODUCT_INTERNAL));
-  EXPECT_EQ("(x <array<T1>>, y LAMBDA((<T1>)->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, y LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x", "y"}, ProductMode::PRODUCT_INTERNAL));
 }
@@ -761,15 +761,15 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsExternalProductMode) {
   // Model array function like ARRAY_FILTER
   FunctionSignature array_filter_function = GetArrayFilterFunction(&factory);
   ASSERT_FALSE(array_filter_function.IsConcrete());
-  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, LAMBDA(<T1>)->BOOL) -> <array<T1>>",
+  EXPECT_EQ("ARRAY_FILTER(<array<T1>>, LAMBDA(<T1>->BOOL)) -> <array<T1>>",
             array_filter_function.DebugString("ARRAY_FILTER"));
-  EXPECT_EQ("(<array<T1>>, LAMBDA((<T1>)->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(<array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{}, ProductMode::PRODUCT_EXTERNAL));
-  EXPECT_EQ("(x <array<T1>>, LAMBDA((<T1>)->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x"}, ProductMode::PRODUCT_EXTERNAL));
-  EXPECT_EQ("(x <array<T1>>, y LAMBDA((<T1>)->BOOL)) RETURNS <array<T1>>",
+  EXPECT_EQ("(x <array<T1>>, y LAMBDA(<T1>->BOOL)) RETURNS <array<T1>>",
             array_filter_function.GetSQLDeclaration(
                 /*argument_names=*/{"x", "y"}, ProductMode::PRODUCT_EXTERNAL));
 }
@@ -1054,7 +1054,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
                          -1 /* context_id */)),
-                     "type not supported");
+                     "Argument kind not supported");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid().ok());
   }
@@ -1067,7 +1067,35 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
                          -1 /* context_id */)),
-                     "type not supported");
+                     "Argument kind not supported");
+  if (!ZETASQL_DEBUG_MODE) {
+    EXPECT_FALSE(signature->IsValid().ok());
+  }
+
+  // ARG_ARRAY_TYPE_ANY_1 not supported as lambda argument.
+  arguments.clear();
+  arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
+  // Not supported REPEATED options for lambda body.
+  arguments.emplace_back(
+      FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_1}, ARG_TYPE_ANY_1));
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         -1 /* context_id */)),
+                     "Argument kind not supported by lambda");
+  if (!ZETASQL_DEBUG_MODE) {
+    EXPECT_FALSE(signature->IsValid().ok());
+  }
+
+  // ARG_ARRAY_TYPE_ANY_2 not supported as lambda argument.
+  arguments.clear();
+  arguments.emplace_back(ARG_ARRAY_TYPE_ANY_1);
+  // Not supported REPEATED options for lambda body.
+  arguments.emplace_back(
+      FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_2}, ARG_TYPE_ANY_1));
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         -1 /* context_id */)),
+                     "Argument kind not supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid().ok());
   }
@@ -1116,6 +1144,16 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid().ok());
   }
+
+  EXPECT_DEBUG_DEATH(
+      signature.reset(new FunctionSignature(
+          ARG_TYPE_ANY_1,
+          {ARG_TYPE_ANY_1,
+           FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, factory.get_bool()),
+           ARG_TYPE_ANY_1},
+          /*context_id=*/-1)),
+      "Templated argument kind used by lambda argument cannot be used by "
+      "arguments to the right of the lambda using it");
 }
 
 TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
@@ -1132,9 +1170,6 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
       FunctionArgumentType::Lambda({arg_type_any_1}, arg_type_any_1);
   FunctionArgumentType arg_type_any_2_lambda =
       FunctionArgumentType::Lambda({arg_type_any_2}, arg_type_any_2);
-  FunctionArgumentType arg_array_type_any_1_lambda =
-      FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_1},
-                                   type_factory.get_bool());
   FunctionArgumentType arg_array_type_any_2_lambda =
       FunctionArgumentType::Lambda({type_factory.get_int64()},
                                    ARG_ARRAY_TYPE_ANY_2);
@@ -1177,25 +1212,6 @@ TEST(FunctionArgumentTypeTests, TestTemplatedKindIsRelated) {
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_PROTO_ANY));
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_STRUCT_ANY));
   EXPECT_FALSE(arg_array_type_any_1.TemplatedKindIsRelated(ARG_ENUM_ANY));
-
-  // arg_array_type_any_1_lambda is has the same behavior as
-  // arg_array_type_any_1
-  EXPECT_FALSE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_TYPE_FIXED));
-  EXPECT_TRUE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
-  EXPECT_TRUE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_ARRAY_TYPE_ANY_1));
-  EXPECT_FALSE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_TYPE_ANY_2));
-  EXPECT_FALSE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_ARRAY_TYPE_ANY_2));
-  EXPECT_FALSE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_PROTO_ANY));
-  EXPECT_FALSE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_STRUCT_ANY));
-  EXPECT_FALSE(
-      arg_array_type_any_1_lambda.TemplatedKindIsRelated(ARG_ENUM_ANY));
 
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_TYPE_FIXED));
   EXPECT_FALSE(arg_type_any_2.TemplatedKindIsRelated(ARG_TYPE_ANY_1));
@@ -1447,8 +1463,6 @@ static std::vector<FunctionArgumentType> GetTemplatedArgumentTypes(
   templated_types.push_back(FunctionArgumentType(ARG_TYPE_CONNECTION));
   templated_types.push_back(
       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2));
-  templated_types.push_back(FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_1},
-                                                         ARG_ARRAY_TYPE_ANY_2));
   templated_types.push_back(
       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, factory->get_bool()));
   templated_types.push_back(

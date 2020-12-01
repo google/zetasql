@@ -344,6 +344,7 @@ class Unparser : public ParseTreeVisitor {
                                      void* data) override;
   void visitASTCaseValueExpression(const ASTCaseValueExpression* node,
                                    void* data) override;
+  void visitASTFormatClause(const ASTFormatClause *node, void *data) override;
   void visitASTCastExpression(const ASTCastExpression* node,
                               void* data) override;
   void visitASTExtractExpression(const ASTExtractExpression* node,
@@ -379,6 +380,9 @@ class Unparser : public ParseTreeVisitor {
   void visitASTHintEntry(const ASTHintEntry* node, void* data) override;
   void visitASTOptionsList(const ASTOptionsList* node, void* data) override;
   void visitASTOptionsEntry(const ASTOptionsEntry* node, void* data) override;
+  void visitASTMaxLiteral(const ASTMaxLiteral* node, void* data) override;
+  void visitASTTypeParameterList(const ASTTypeParameterList* node,
+                                 void* data) override;
   void visitASTSimpleType(const ASTSimpleType* node, void* data) override;
   void visitASTArrayType(const ASTArrayType* node, void* data) override;
   void visitASTStructType(const ASTStructType* node, void* data) override;
@@ -411,6 +415,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTAssertRowsModified(const ASTAssertRowsModified* node,
                                   void* data) override;
   void visitASTAssertStatement(const ASTAssertStatement* node,
+                               void* data) override;
+  void visitASTReturningClause(const ASTReturningClause* node,
                                void* data) override;
   void visitASTDeleteStatement(const ASTDeleteStatement* node,
                                void* data) override;
@@ -474,6 +480,14 @@ class Unparser : public ParseTreeVisitor {
   void visitASTWithConnectionClause(const ASTWithConnectionClause* node,
                                     void* data) override;
   void visitASTSampleClause(const ASTSampleClause* node, void* data) override;
+  void visitASTPivotExpression(const ASTPivotExpression* node,
+                               void* data) override;
+  void visitASTPivotExpressionList(const ASTPivotExpressionList* node,
+                                   void* data) override;
+  void visitASTPivotValue(const ASTPivotValue* node, void* data) override;
+  void visitASTPivotValueList(const ASTPivotValueList* node,
+                              void* data) override;
+  void visitASTPivotClause(const ASTPivotClause* node, void* data) override;
   void visitASTAlterMaterializedViewStatement(
       const ASTAlterMaterializedViewStatement* node, void* data) override;
   void visitASTAlterDatabaseStatement(const ASTAlterDatabaseStatement* node,
@@ -570,8 +584,6 @@ class Unparser : public ParseTreeVisitor {
       const ASTExecuteImmediateStatement* node, void* data) override;
   void visitASTRaiseStatement(const ASTRaiseStatement* node,
                               void* data) override;
-  void visitASTCollateExpression(const ASTCollateExpression* node,
-                                 void* data) override;
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.

@@ -45,13 +45,13 @@ enum FunctionSignatureId {
   // 1300-1399 Math functions                (Fully used)
   // 1400-1499 Aggregate functions           (NextId: 1489)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1688)
+  // 1600-1699 Misc functions                (NextId: 1689)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1845)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
   // 2000-2199 Geography functions           (NextId: 2068)
   // 2300-2499 More math functions           (NextId: 2314)
-  // 2500-2599 Array functions               (NextId: 2504)
+  // 2500-2599 Array functions               (NextId: 2509)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -655,6 +655,8 @@ enum FunctionSignatureId {
       1685;  // json_extract_scalar(json, string) -> string
   FN_JSON_EXTRACT_ARRAY =
       1681;  // json_extract_array(string[, string]) -> array
+  FN_JSON_EXTRACT_STRING_ARRAY =
+      1688;  // json_extract_string_array(string[, string]) -> array
 
   FN_TO_JSON_STRING = 1622;   // to_json_string(any[, bool]) -> string
   FN_JSON_QUERY = 1623;       // json_query(string, string) -> string
@@ -893,4 +895,11 @@ enum FunctionSignatureId {
   FN_ARRAY_IS_DISTINCT = 2501;      // array_is_distinct(array) -> bool
   FN_PROTO_MAP_AT_KEY = 2502;       // $proto_map_at_key
   FN_SAFE_PROTO_MAP_AT_KEY = 2503;  // $safe_proto_map_at_key
+
+  FN_ARRAY_FILTER = 2504;             // ARRAY_FILTER(array, lambda) -> array
+  FN_ARRAY_FILTER_WITH_INDEX = 2505;  // ARRAY_FILTER(array, lambda) -> array
+  FN_ARRAY_TRANSFORM = 2506;          // ARRAY_TRANSFORM(array, lambda) -> array
+  FN_ARRAY_TRANSFORM_WITH_INDEX =
+      2507;                // ARRAY_TRANSFORM(array, lambda) -> array
+  FN_CONTAINS_KEY = 2508;  // contains_key(map, key) -> bool
 }

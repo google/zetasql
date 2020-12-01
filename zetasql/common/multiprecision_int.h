@@ -1263,6 +1263,8 @@ class FixedInt final {
   };
 
   template <typename Op, bool use_divisor_sign, typename T>
+  // GCC seems to produce bad code here on -02
+  __attribute__((optimize("O0")))
   inline FixedInt& InternalDivMod(const T& divisor) {
     bool neg = is_negative();
     bool should_negate_again =

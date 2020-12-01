@@ -175,6 +175,7 @@ enum class FunctionKind {
   kJsonExtract,
   kJsonExtractScalar,
   kJsonExtractArray,
+  kJsonExtractStringArray,
   kJsonQuery,
   kJsonValue,
   // Proto functions

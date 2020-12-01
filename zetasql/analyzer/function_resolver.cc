@@ -23,9 +23,9 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
+#include "zetasql/analyzer/function_signature_matcher.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
-#include "zetasql/analyzer/function_signature_matcher.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
@@ -35,7 +35,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
@@ -166,14 +166,29 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
 }
 
 bool FunctionResolver::SignatureMatches(
+    const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, bool allow_argument_coercion,
+    const NameScope* name_scope,
     std::unique_ptr<FunctionSignature>* result_signature,
-    SignatureMatchResult* signature_match_result) const {
+    SignatureMatchResult* signature_match_result,
+    std::vector<FunctionArgumentOverride>* arg_overrides) const {
+  ResolveLambdaCallback lambda_resolve_callback =
+      [resolver = this->resolver_, name_scope](
+          const ASTLambda* ast_lambda, absl::Span<const IdString> arg_names,
+          absl::Span<const Type* const> arg_types, const Type* body_result_type,
+          bool allow_argument_coercion,
+          std::unique_ptr<const ResolvedInlineLambda>* resolved_expr_out) {
+        ZETASQL_DCHECK(name_scope != nullptr);
+        return resolver->ResolveLambda(
+            ast_lambda, arg_names, arg_types, body_result_type,
+            allow_argument_coercion, name_scope, resolved_expr_out);
+      };
   return FunctionSignatureMatches(resolver_->language(), coercer(),
-                                  input_arguments, signature,
+                                  arg_ast_nodes, input_arguments, signature,
                                   allow_argument_coercion, type_factory_,
-                                  result_signature, signature_match_result);
+                                  &lambda_resolve_callback, result_signature,
+                                  signature_match_result, arg_overrides);
 }
 
 // Get the parse location from a ResolvedNode, if it has one stored in it.
@@ -516,10 +531,13 @@ FunctionResolver::FindMatchingSignature(
     const std::vector<InputArgumentType>& input_arguments_in,
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
-    const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments)
-    const {
+    const std::vector<std::pair<const ASTNamedArgument*, int>>& named_arguments,
+    const NameScope* name_scope,
+    std::vector<FunctionArgumentOverride>* arg_overrides) const {
   std::unique_ptr<FunctionSignature> best_result_signature;
   SignatureMatchResult best_result;
+  std::vector<FunctionArgumentOverride> best_result_arg_overrides;
+  bool seen_matched_signature_with_lambda = false;
 
   ZETASQL_VLOG(6) << "FindMatchingSignature for function: "
           << function->DebugString(/*verbose=*/true) << "\n  for arguments: "
@@ -543,9 +561,11 @@ FunctionResolver::FindMatchingSignature(
     }
     std::unique_ptr<FunctionSignature> result_signature;
     SignatureMatchResult signature_match_result;
-    if (SignatureMatches(input_arguments, signature,
-                         function->ArgumentsAreCoercible(), &result_signature,
-                         &signature_match_result)) {
+    std::vector<FunctionArgumentOverride> sig_arg_overrides;
+    if (SignatureMatches(arg_locations_in, input_arguments, signature,
+                         function->ArgumentsAreCoercible(), name_scope,
+                         &result_signature, &signature_match_result,
+                         &sig_arg_overrides)) {
       ZETASQL_RET_CHECK(result_signature != nullptr);
       ZETASQL_ASSIGN_OR_RETURN(
           const bool argument_constraints_satisfied,
@@ -567,10 +587,37 @@ FunctionResolver::FindMatchingSignature(
                                                /*verbose=*/true)
               << "\n  cost: " << signature_match_result.DebugString();
 
+      if (best_result_signature != nullptr) {
+        // When the other arguments are not enough to distinguish which
+        // signature to use, we're left only with the lambdas, which can't
+        // distinguish between two overloads. If this ZETASQL_CHECK fails, an engine has
+        // set up its catalog with a function signature that ZetaSQL doesn't
+        // mean to support for the time being. This shouldn't happen as
+        // Function::CheckMultipleSignatureMatchingSameFunctionCall() validation
+        // should have screened that.
+        // Another intersting example function shape is the following:
+        //   Func(T1, LAMBDA(T1, T1) -> INT64)
+        //   Func(T1, LAMBDA(T1, T1) -> STRING)
+        // These two signatures cannot match any actual function call at the
+        // same time as one expression could only be coerced to either string or
+        // int64_t. But our restriction is still restricting this for simplicity
+        // and lack of use case.
+        ZETASQL_RET_CHECK(!seen_matched_signature_with_lambda ||
+                  sig_arg_overrides.empty())
+            << "Multiple matched signature with lambda is not supported";
+      }
+
       if ((best_result_signature == nullptr) ||
           (signature_match_result.IsCloserMatchThan(best_result))) {
         best_result_signature = std::move(result_signature);
         best_result = signature_match_result;
+        if (!sig_arg_overrides.empty()) {
+          ZETASQL_RET_CHECK(arg_overrides != nullptr)
+              << "Function call has lambdas but nowhere to put them";
+        }
+        seen_matched_signature_with_lambda =
+            seen_matched_signature_with_lambda || !sig_arg_overrides.empty();
+        best_result_arg_overrides = std::move(sig_arg_overrides);
       } else {
         ZETASQL_VLOG(4) << "Found duplicate signature matches for function: "
                 << function->DebugString() << "\nGiven input arguments: "
@@ -583,6 +630,10 @@ FunctionResolver::FindMatchingSignature(
                 << "\n  cost: " << signature_match_result.DebugString();
       }
     }
+  }
+
+  if (arg_overrides != nullptr) {
+    *arg_overrides = std::move(best_result_arg_overrides);
   }
   return best_result_signature.release();
 }
@@ -956,7 +1007,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   return ResolveGeneralFunctionCall(
       ast_location, arg_locations, function, error_mode, is_analytic,
       std::move(arguments), std::move(named_arguments), expected_result_type,
-      resolved_expr_out);
+      /*name_scope=*/nullptr, resolved_expr_out);
 }
 
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
@@ -974,6 +1025,15 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       resolved_expr_out);
 }
 
+// Shorthand to make ResolvedFunctionArgument from ResolvedExpr
+static std::unique_ptr<ResolvedFunctionArgument> MakeResolvedFunctionArgument(
+    std::unique_ptr<const ResolvedExpr> expr) {
+  std::unique_ptr<ResolvedFunctionArgument> function_argument =
+      MakeResolvedFunctionArgument();
+  function_argument->set_expr(std::move(expr));
+  return function_argument;
+}
+
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     const ASTNode* ast_location,
     const std::vector<const ASTNode*>& arg_locations_in,
@@ -981,7 +1041,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     bool is_analytic,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     std::vector<std::pair<const ASTNamedArgument*, int>> named_arguments,
-    const Type* expected_result_type,
+    const Type* expected_result_type, const NameScope* name_scope,
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
 
   std::vector<const ASTNode*> arg_locations = arg_locations_in;
@@ -1004,7 +1064,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
 
   std::vector<InputArgumentType> input_argument_types;
-  GetInputArgumentTypesForExprList(arguments, &input_argument_types);
+  GetInputArgumentTypesForGenericArgumentList(arg_locations, arguments,
+                                              &input_argument_types);
 
   // Check initial argument constraints, if any.
   if (function->PreResolutionConstraints() != nullptr) {
@@ -1015,10 +1076,13 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   }
 
   std::unique_ptr<const FunctionSignature> result_signature;
+  std::vector<FunctionArgumentOverride> arg_overrides;
+
   ZETASQL_ASSIGN_OR_RETURN(
       const FunctionSignature* signature,
       FindMatchingSignature(function, input_argument_types, ast_location,
-                            arg_locations, named_arguments));
+                            arg_locations, named_arguments, name_scope,
+                            &arg_overrides));
   result_signature.reset(signature);
 
   if (nullptr == result_signature) {
@@ -1100,11 +1164,55 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   };
   const ProductMode product_mode = resolver_->language().product_mode();
 
+  int arg_override_index = 0;
   for (int idx = 0; idx < arguments.size(); ++idx) {
     // The ZETASQL_RET_CHECK above ensures that the arguments are concrete for both
     // templated and non-templated functions.
     const FunctionArgumentType& concrete_argument =
         result_signature->ConcreteArgument(idx);
+    if (concrete_argument.IsLambda()) {
+      ZETASQL_RET_CHECK(arguments[idx] == nullptr);
+      ZETASQL_RET_CHECK(arg_overrides.size() > arg_override_index);
+
+      const FunctionArgumentOverride& arg_override =
+          arg_overrides[arg_override_index];
+      ZETASQL_RET_CHECK_EQ(arg_override.index, idx);
+      const ResolvedInlineLambda* lambda =
+          arg_override.argument->inline_lambda();
+      const FunctionArgumentType::ArgumentTypeLambda& concrete_lambda =
+          concrete_argument.lambda();
+      ZETASQL_RET_CHECK_EQ(lambda->argument_list().size(),
+                   concrete_lambda.argument_types().size());
+      // Check that lambda argument matches concrete argument. This shouldn't
+      // trigger under known use cases. But still doing the check to be safe.
+      // An example is fn_fp_T_LAMBDA_T(1, e->e>0, 1.0) for signature
+      // fn_fp_T_LAMBDA_T(T1, T1->BOOL, T1). e is infered to be INT64 from
+      // argument 1, but T1 is later decided to be DOUBLE.
+      for (int i = 0; i < lambda->argument_list_size(); i++) {
+        ZETASQL_RET_CHECK(lambda->argument_list(i).type()->Equals(
+            concrete_lambda.argument_types()[i].type()))
+            << "Failed to infer the type of lambda argument at index " << i
+            << ". It is inferred from arguments preceding the lambda to "
+               "be "
+            << lambda->argument_list(i).type()->ShortTypeName(product_mode)
+            << " but found to be "
+            << concrete_lambda.argument_types()[i].type()->ShortTypeName(
+                   product_mode)
+            << " after considering arguments following the lambda";
+      }
+      // Check that lambda body type matches concrete argument.
+      if (!lambda->body()->type()->Equals(concrete_lambda.body_type().type())) {
+        return MakeSqlErrorAt(arg_locations[idx])
+               << "Lambda body is resolved to have type "
+               << lambda->body()->type()->ShortTypeName(product_mode)
+               << " but the signature requires it to be "
+               << concrete_lambda.body_type().type()->ShortTypeName(
+                      product_mode);
+      }
+      continue;
+    }
+    ZETASQL_DCHECK(arguments[idx] != nullptr);
+
     if (concrete_argument.options().must_support_equality() &&
         !concrete_argument.type()->SupportsEquality(resolver_->language())) {
       return MakeSqlErrorAt(arg_locations[idx])
@@ -1272,30 +1380,66 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
           ast_location, function_name_path, &concat_op_function,
           &concat_op_error_mode));
-      ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* matched_signature,
-                       FindMatchingSignature(
-                           concat_op_function, input_argument_types,
-                           ast_location, arg_locations_in, named_arguments));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const FunctionSignature* matched_signature,
+          FindMatchingSignature(concat_op_function, input_argument_types,
+                                ast_location, arg_locations_in, named_arguments,
+                                /*name_scope=*/nullptr,
+                                /*arg_overrides=*/nullptr));
       concat_op_result_signature.reset(matched_signature);
     } else {
       function_name_path.push_back("concat");
       ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
           ast_location, function_name_path, &concat_op_function,
           &concat_op_error_mode));
-      ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* matched_signature,
-                       FindMatchingSignature(
-                           concat_op_function, input_argument_types,
-                           ast_location, arg_locations_in, named_arguments));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const FunctionSignature* matched_signature,
+          FindMatchingSignature(concat_op_function, input_argument_types,
+                                ast_location, arg_locations_in, named_arguments,
+                                /*name_scope=*/nullptr,
+                                /*arg_overrides=*/nullptr));
       concat_op_result_signature.reset(matched_signature);
     }
     *resolved_expr_out = MakeResolvedFunctionCall(
         concat_op_result_signature->result_type().type(), concat_op_function,
-        *concat_op_result_signature, std::move(arguments), concat_op_error_mode,
-        function_call_info);
-  } else {
+        *concat_op_result_signature, std::move(arguments),
+        /*generic_argument_list=*/{}, concat_op_error_mode, function_call_info);
+  } else if (!arg_overrides.empty()) {
+    // Replace the nullptr placeholders with resolved lambdas in
+    // <arg_overrides>. We have lambdas so need to use <generic_argument_list>
+    // instead of <argument_list>.
+    std::vector<std::unique_ptr<const ResolvedFunctionArgument>>
+        generic_argument_list;
+    generic_argument_list.reserve(arguments.size());
+    int arg_override_index = 0;
+    // Merge <arguments> and <arg_overrides> into a list of
+    // ResolvedFunctionArguments.
+    for (int arg_index = 0; arg_index < arguments.size(); arg_index++) {
+      if (arguments[arg_index] != nullptr) {
+        // Wrap ResolvedExpr as ResolvedFunctionArgument
+        generic_argument_list.push_back(
+            MakeResolvedFunctionArgument(std::move(arguments[arg_index])));
+      } else {
+        ZETASQL_RET_CHECK(arg_overrides.size() > arg_override_index);
+        ZETASQL_RET_CHECK_EQ(arg_overrides[arg_override_index].index, arg_index);
+        generic_argument_list.push_back(
+            std::move(arg_overrides[arg_override_index].argument));
+        arg_override_index++;
+      }
+    }
+    arguments.clear();
     *resolved_expr_out = MakeResolvedFunctionCall(
         result_signature->result_type().type(), function, *result_signature,
-        std::move(arguments), error_mode, function_call_info);
+        /*argument_list=*/{}, std::move(generic_argument_list), error_mode,
+        function_call_info);
+  } else {
+    // If there is no lambda argument, we specify <argument_list> so that
+    // non-lambda functions stay compatible with existing engine
+    // implementations.
+    *resolved_expr_out = MakeResolvedFunctionCall(
+        result_signature->result_type().type(), function, *result_signature,
+        std::move(arguments), /*generic_argument_list=*/{}, error_mode,
+        function_call_info);
   }
 
   if (ast_location->node_kind() == zetasql::ASTNodeKind::AST_FUNCTION_CALL) {

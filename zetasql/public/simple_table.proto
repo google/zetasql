@@ -18,6 +18,7 @@ syntax = "proto2";
 
 package zetasql;
 
+import "zetasql/public/annotation.proto";
 import "zetasql/public/type.proto";
 
 option java_package = "com.google.zetasql";
@@ -43,4 +44,5 @@ message SimpleColumnProto {
   optional TypeProto type = 2;
   optional bool is_pseudo_column = 3;
   optional bool is_writable_column = 4 [default = true];
+  optional AnnotationMapProto annotation_map = 5;
 }

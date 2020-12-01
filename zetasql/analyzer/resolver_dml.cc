@@ -187,6 +187,11 @@ absl::Status Resolver::ResolveDeleteStatementImpl(
         ast_statement->assert_rows_modified(), &resolved_assert_rows_modified));
   }
 
+  if (ast_statement->returning() != nullptr) {
+    return MakeSqlErrorAt(ast_statement->returning())
+           << "THEN RETURN clause is not supported";
+  }
+
   *output = MakeResolvedDeleteStmt(
       std::move(resolved_table_scan), std::move(resolved_assert_rows_modified),
       std::move(resolved_array_offset_column), std::move(resolved_where_expr));
@@ -538,6 +543,11 @@ absl::Status Resolver::ResolveInsertStatementImpl(
   if (ast_statement->assert_rows_modified() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveAssertRowsModified(
         ast_statement->assert_rows_modified(), &resolved_assert_rows_modified));
+  }
+
+  if (ast_statement->returning() != nullptr) {
+    return MakeSqlErrorAt(ast_statement->returning())
+           << "THEN RETURN clause is not supported";
   }
 
   // For nested INSERTs, 'insert_columns' contains a single reference to the
@@ -1534,6 +1544,11 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
   if (ast_statement->assert_rows_modified() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveAssertRowsModified(
         ast_statement->assert_rows_modified(), &resolved_assert_rows_modified));
+  }
+
+  if (ast_statement->returning() != nullptr) {
+    return MakeSqlErrorAt(ast_statement->returning())
+           << "THEN RETURN clause is not supported";
   }
 
   std::vector<std::unique_ptr<const ResolvedUpdateItem>> update_item_list;

@@ -132,6 +132,10 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
       case __FunctionSignatureId__switch_must_have_a_default__:
       case FN_INVALID_FUNCTION_ID:
         continue;
+      // TODO: Remove FN_TIME_FROM_STRING when there are no more
+      // references to it.
+      case FN_TIME_FROM_STRING:
+        continue;
       default:
         break;
     }

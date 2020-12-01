@@ -1257,3 +1257,37 @@ cc_test(
         "@com_google_absl//absl/strings",
     ],
 )
+
+cc_library(
+    name = "edit_distance",
+    hdrs = ["edit_distance.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = ["@com_google_absl//absl/container:fixed_array"],
+)
+
+cc_test(
+    name = "edit_distance_test",
+    srcs = ["edit_distance_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":edit_distance",
+        ":logging",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)

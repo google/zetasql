@@ -25,7 +25,7 @@ public final class TestAccess {
   private TestAccess() {}
 
   /** Returns {@link FileDescriptorSetsBuilder#getDescriptorPools}. */
-  public static ImmutableList<ZetaSQLDescriptorPool> getDescriptorPools(
+  public static ImmutableList<DescriptorPool> getDescriptorPools(
       FileDescriptorSetsBuilder builder) {
     return builder.getDescriptorPools();
   }

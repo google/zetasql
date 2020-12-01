@@ -23,9 +23,11 @@
 
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 
@@ -335,6 +337,9 @@ void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
   print(")");
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
+  }
+  if (node->pivot_clause() != nullptr) {
+    node->pivot_clause()->Accept(this, data);
   }
   if (node->alias() != nullptr) {
     node->alias()->Accept(this, data);
@@ -1537,7 +1542,12 @@ void Unparser::visitASTSystemVariableExpr(const ASTSystemVariableExpr* node,
 
 void Unparser::visitASTIntervalExpr(const ASTIntervalExpr* node, void* data) {
   print("INTERVAL");
-  UnparseChildrenWithSeparator(node, data, "");
+  node->interval_value()->Accept(this, data);
+  node->date_part_name()->Accept(this, data);
+  if (node->date_part_name_to() != nullptr) {
+    print("TO");
+    node->date_part_name_to()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTDotIdentifier(const ASTDotIdentifier* node,
@@ -1594,10 +1604,20 @@ void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
   PrintCloseParenIfNeeded(node);
 }
 
+void Unparser::visitASTFormatClause(const ASTFormatClause *node, void *data) {
+  print("FORMAT");
+  node->format()->Accept(this, data);
+}
+
 void Unparser::visitASTCastExpression(const ASTCastExpression* node,
                                       void* data) {
   print(node->is_safe_cast() ? "SAFE_CAST(" : "CAST(");
-  UnparseChildrenWithSeparator(node, data, "AS");
+  node->expr()->Accept(this, data);
+  print("AS");
+  node->type()->Accept(this, data);
+  if (node->format()) {
+    node->format()->Accept(this, data);
+  }
   print(")");
 }
 
@@ -1611,15 +1631,6 @@ void Unparser::visitASTExtractExpression(const ASTExtractExpression* node,
     print("AT TIME ZONE");
     node->time_zone_expr()->Accept(this, data);
   }
-  print(")");
-}
-
-void Unparser::visitASTCollateExpression(const ASTCollateExpression* node,
-                                         void* data) {
-  print("COLLATE(");
-  node->expr()->Accept(this, data);
-  print(", ");
-  node->collation_spec()->Accept(this, data);
   print(")");
 }
 
@@ -1823,20 +1834,48 @@ void Unparser::visitASTOptionsEntry(const ASTOptionsEntry* node, void* data) {
   UnparseChildrenWithSeparator(node, data, "=");
 }
 
+void Unparser::visitASTMaxLiteral(const ASTMaxLiteral* node, void* data) {
+  print("MAX");
+}
+
+void Unparser::visitASTTypeParameterList(const ASTTypeParameterList* node,
+                                         void* data) {
+  print("(");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    UnparseChildrenWithSeparator(node, data, ",");
+  }
+  print(")");
+}
+
 void Unparser::visitASTSimpleType(const ASTSimpleType* node, void* data) {
-  visitASTChildren(node, data);
+  const ASTPathExpression* type_name = node->type_name();
+  // 'INTERVAL' is a reserved keyword, but when it is used as a type name, we
+  // want to print it without backticks.
+  if (type_name->num_names() == 1 &&
+      zetasql_base::StringCaseEqual(type_name->first_name()->GetAsString(), "interval")) {
+    print(type_name->first_name()->GetAsString());
+  } else {
+    visitASTChildren(node, data);
+  }
 }
 
 void Unparser::visitASTArrayType(const ASTArrayType* node, void* data) {
   print("ARRAY<");
   node->element_type()->Accept(this, data);
   print(">");
+  if (node->type_parameters() != nullptr) {
+    node->type_parameters()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTStructType(const ASTStructType* node, void* data) {
   print("STRUCT<");
-  UnparseChildrenWithSeparator(node, data, ",");
+  UnparseVectorWithSeparator(node->struct_fields(), data, ",");
   print(">");
+  if (node->type_parameters() != nullptr) {
+    node->type_parameters()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTStructField(const ASTStructField* node, void* data) {
@@ -1845,8 +1884,16 @@ void Unparser::visitASTStructField(const ASTStructField* node, void* data) {
 
 void Unparser::visitASTSimpleColumnSchema(const ASTSimpleColumnSchema* node,
                                           void* data) {
-  node->type_name()->Accept(this, data);
-  UnparseColumnSchema(node, data);
+  const ASTPathExpression* type_name = node->type_name();
+  // 'INTERVAL' is a reserved keyword, but when it is used as a type name, we
+  // want to print it without backticks.
+  if (type_name->num_names() == 1 &&
+      zetasql_base::StringCaseEqual(type_name->first_name()->GetAsString(), "interval")) {
+    print(type_name->first_name()->GetAsString());
+  } else {
+    type_name->Accept(this, data);
+    UnparseColumnSchema(node, data);
+  }
 }
 
 void Unparser::visitASTArrayColumnSchema(const ASTArrayColumnSchema* node,
@@ -1885,6 +1932,9 @@ void Unparser::visitASTStructColumnField(const ASTStructColumnField* node,
 }
 
 void Unparser::UnparseColumnSchema(const ASTColumnSchema* node, void* data) {
+  if (node->type_parameters() != nullptr) {
+    node->type_parameters()->Accept(this, data);
+  }
   if (node->generated_column_info() != nullptr) {
     node->generated_column_info()->Accept(this, data);
   }
@@ -2018,6 +2068,18 @@ void Unparser::visitASTAssertRowsModified(const ASTAssertRowsModified* node,
   visitASTChildren(node, data);
 }
 
+void Unparser::visitASTReturningClause(const ASTReturningClause* node,
+                                       void* data) {
+  println();
+  print("THEN RETURN");
+  if (node->action_alias() != nullptr) {
+    print("WITH ACTION");
+    std::string action_alias = node->action_alias()->GetAsString();
+    print(absl::StrCat("AS ", action_alias));
+  }
+  node->select_list()->Accept(this, data);
+}
+
 void Unparser::visitASTDeleteStatement(const ASTDeleteStatement* node,
                                        void* data) {
   println();
@@ -2040,6 +2102,9 @@ void Unparser::visitASTDeleteStatement(const ASTDeleteStatement* node,
   }
   if (node->assert_rows_modified() != nullptr) {
     node->assert_rows_modified()->Accept(this, data);
+  }
+  if (node->returning() != nullptr) {
+    node->returning()->Accept(this, data);
   }
 }
 
@@ -2101,6 +2166,10 @@ void Unparser::visitASTInsertStatement(const ASTInsertStatement* node,
   if (node->assert_rows_modified() != nullptr) {
     node->assert_rows_modified()->Accept(this, data);
   }
+
+  if (node->returning() != nullptr) {
+    node->returning()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTUpdateSetValue(const ASTUpdateSetValue* node,
@@ -2161,6 +2230,9 @@ void Unparser::visitASTUpdateStatement(const ASTUpdateStatement* node,
   }
   if (node->assert_rows_modified() != nullptr) {
     node->assert_rows_modified()->Accept(this, data);
+  }
+  if (node->returning() != nullptr) {
+    node->returning()->Accept(this, data);
   }
 }
 
@@ -2372,6 +2444,44 @@ void Unparser::visitASTFilterFieldsExpression(
     UnparseVectorWithSeparator(node->arguments(), data, ",");
   }
   print(")");
+}
+
+void Unparser::visitASTPivotExpression(const ASTPivotExpression* node,
+                                       void* data) {
+  node->expression()->Accept(this, data);
+  if (node->alias() != nullptr) {
+    node->alias()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTPivotExpressionList(const ASTPivotExpressionList* node,
+                                           void* data) {
+  UnparseChildrenWithSeparator(node, data, ", ");
+}
+
+void Unparser::visitASTPivotValue(const ASTPivotValue* node, void* data) {
+  node->value()->Accept(this, data);
+  if (node->alias() != nullptr) {
+    node->alias()->Accept(this, data);
+  }
+}
+void Unparser::visitASTPivotValueList(const ASTPivotValueList* node,
+                                      void* data) {
+  UnparseChildrenWithSeparator(node, data, ", ");
+}
+
+void Unparser::visitASTPivotClause(const ASTPivotClause* node, void* data) {
+  print("PIVOT(");
+  node->pivot_expressions()->Accept(this, data);
+  print("FOR");
+  node->for_expression()->Accept(this, data);
+  print("IN (");
+  node->pivot_values()->Accept(this, data);
+  print("))");
+
+  if (node->output_alias() != nullptr) {
+    node->output_alias()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTSampleSize(const ASTSampleSize* node, void* data) {
@@ -2622,6 +2732,7 @@ void Unparser::visitASTCreateIndexStatement(const ASTCreateIndexStatement* node,
   print("CREATE");
   if (node->is_or_replace()) print("OR REPLACE");
   if (node->is_unique()) print("UNIQUE");
+  if (node->is_search()) print("SEARCH");
   print("INDEX");
   if (node->is_if_not_exists()) print("IF NOT EXISTS");
   node->name()->Accept(this, data);

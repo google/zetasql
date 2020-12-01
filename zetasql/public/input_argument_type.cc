@@ -231,6 +231,7 @@ InputArgumentType InputArgumentType::DescriptorInputArgumentType() {
 InputArgumentType InputArgumentType::LambdaInputArgumentType() {
   InputArgumentType type;
   type.category_ = kLambda;
+  type.type_ = nullptr;
   return type;
 }
 

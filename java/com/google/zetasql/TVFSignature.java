@@ -51,7 +51,7 @@ public final class TVFSignature implements Serializable {
 
   /** Deserializes a signature from a proto. */
   public static TVFSignature deserialize(
-      TVFSignatureProto proto, final ImmutableList<ZetaSQLDescriptorPool> pools) {
+      TVFSignatureProto proto, final ImmutableList<? extends DescriptorPool> pools) {
 
     ImmutableList.Builder<TVFArgument> builder = ImmutableList.builder();
     proto.getArgumentList().forEach(arg -> builder.add(TVFArgument.deserialize(arg, pools)));
@@ -372,7 +372,7 @@ public final class TVFSignature implements Serializable {
 
     /** Deserializes an argument from a proto. */
     public static TVFArgument deserialize(
-        TVFArgumentProto proto, final ImmutableList<ZetaSQLDescriptorPool> pools) {
+        TVFArgumentProto proto, final ImmutableList<? extends DescriptorPool> pools) {
       ValueWithType arg =
           proto.hasScalarArgument()
               ? ValueWithType.deserialize(proto.getScalarArgument(), pools)
@@ -484,7 +484,7 @@ public final class TVFSignature implements Serializable {
     }
 
     public static ValueWithType deserialize(
-        ValueWithTypeProto proto, final ImmutableList<ZetaSQLDescriptorPool> pools) {
+        ValueWithTypeProto proto, final ImmutableList<? extends DescriptorPool> pools) {
       Type type = TypeFactory.nonUniqueNames().deserialize(proto.getType(), pools);
       Value value = proto.hasValue() ? Value.deserialize(type, proto.getValue()) : null;
       Category category = findCategory(value, type);

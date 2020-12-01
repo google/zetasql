@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
 public class SqlFormatterTest {
 
   @Test
-  public void testFormatSql_Query() throws Exception {
+  public void testFormatSql_query() throws Exception {
     String formatted =
         new SqlFormatter().formatSql("SELECT foo, bar from some_table where something limit 1;");
     assertThat(formatted)
@@ -48,14 +48,14 @@ public class SqlFormatterTest {
   }
 
   @Test
-  public void testFormatSql_CreateFunction() throws Exception {
+  public void testFormatSql_createFunction() throws Exception {
     String formatted =
         new SqlFormatter().formatSql("CREATE FUNCTION foo(INT64 a) RETURNS INT64 AS ( a );");
     assertThat(formatted).isEqualTo("CREATE FUNCTION foo(INT64 a)\nRETURNS INT64 AS (\n  a\n);");
   }
 
   @Test
-  public void testFormatSql_InvalidInput_Throws() throws Exception {
+  public void testFormatSql_invalidInput_throws() throws Exception {
     try {
       new SqlFormatter().formatSql("SEL 1;");
       fail("Formatter should've thrown");

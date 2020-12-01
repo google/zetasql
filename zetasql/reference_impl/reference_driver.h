@@ -146,6 +146,10 @@ class ReferenceDriver : public TestDriver {
   const absl::TimeZone GetDefaultTimeZone() const override;
   absl::Status SetDefaultTimeZone(const std::string& time_zone) override;
 
+  LanguageOptions language_options() { return language_options_; }
+
+  absl::TimeZone default_time_zone() { return default_time_zone_; }
+
  private:
   struct TableInfo {
     std::string table_name;

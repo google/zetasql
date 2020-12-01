@@ -26,7 +26,7 @@ public class ResolvedFunctionCallInfo implements Serializable {
   public ResolvedFunctionCallInfo() {}
 
   public static ResolvedFunctionCallInfo deserialize(
-      ResolvedFunctionCallInfoProto proto, final List<ZetaSQLDescriptorPool> pools) {
+      ResolvedFunctionCallInfoProto proto, List<? extends DescriptorPool> pools) {
     return new ResolvedFunctionCallInfo();
   }
 

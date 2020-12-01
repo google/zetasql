@@ -31,6 +31,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>  
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
@@ -38,6 +39,7 @@
 
 namespace {
 
+using ::zetasql::JSONParsingOptions;
 using ::zetasql::JSONValue;
 using ::zetasql::JSONValueConstRef;
 using ::zetasql::JSONValueRef;
@@ -354,7 +356,7 @@ TEST(JSONValueTest, CopyFrom) {
   EXPECT_FALSE(ref.NormalizedEquals(copy_ref));
 }
 
-class JSONParserTest : public ::testing::TestWithParam<bool> {};
+class JSONParserTest : public ::testing::TestWithParam<JSONParsingOptions> {};
 
 TEST_P(JSONParserTest, ParseString) {
   JSONValue value = JSONValue::ParseJSONString("\"str\"", GetParam()).value();
@@ -396,18 +398,26 @@ TEST_P(JSONParserTest, ParseLargeNumbers) {
   ASSERT_TRUE(value.GetConstRef().IsUInt64());
   EXPECT_EQ(11111111111111111111ULL, value.GetConstRef().GetUInt64());
 
-  value =
-      JSONValue::ParseJSONString("123456789012345678901234567890", GetParam())
-          .value();
-  EXPECT_FALSE(value.GetConstRef().IsInt64());
-  ASSERT_TRUE(value.GetConstRef().IsDouble());
-  EXPECT_THAT(value.GetConstRef().GetDouble(),
-              testing::DoubleEq(1.23456789012345678901234567890e+29));
+  if (GetParam().strict_number_parsing) {
+    EXPECT_THAT(
+        JSONValue::ParseJSONString("123456789012345678901234567890", GetParam())
+            .status()
+            .message(),
+        ::testing::HasSubstr("cannot round-trip"));
+  } else {
+    value =
+        JSONValue::ParseJSONString("123456789012345678901234567890", GetParam())
+            .value();
+    EXPECT_FALSE(value.GetConstRef().IsInt64());
+    ASSERT_TRUE(value.GetConstRef().IsDouble());
+    EXPECT_THAT(value.GetConstRef().GetDouble(),
+                testing::DoubleEq(1.23456789012345678901234567890e+29));
+  }
 
   // Legacy parser parses out of range doubles as inf while standard parser
   // fails the parse.
   auto result = JSONValue::ParseJSONString("3.14e314", GetParam());
-  if (GetParam()) {
+  if (GetParam().legacy_mode) {
     auto const_ref = result.value().GetConstRef();
     ASSERT_TRUE(const_ref.IsDouble());
     EXPECT_TRUE(std::isinf(const_ref.GetDouble()));
@@ -451,11 +461,248 @@ TEST_P(JSONParserTest, ParseObject) {
   ASSERT_TRUE(value.GetConstRef().GetMember("object").IsObject());
 }
 
-INSTANTIATE_TEST_SUITE_P(CommonJSONParserTests, JSONParserTest,
-                         ::testing::Values(true, false));
+TEST_P(JSONParserTest, ParseDuplicateKeys) {
+  absl::flat_hash_map<std::string, std::string> input_to_expected_output;
+  input_to_expected_output.emplace(R"(
+    {
+      "a":{"a":1},
+      "a":{"b":2}
+    }
+  )",
+  R"({"a":{"a":1}})");
+  input_to_expected_output.emplace(R"(
+    {
+      "f":1,
+      "f":{"a":1, "b":[1, 2, 3]},
+      "g":1,
+      "f":[{"d":{"a":1}}]
+    }
+  )",
+  R"({"f":1,"g":1})");
+  input_to_expected_output.emplace(R"(
+    {
+      "a":[{"a":1,"b":3,"a":4,"b":1}],
+      "a":{"a":1, "b":[1, 2, 3]},
+      "b":1,
+      "f":[{"d":{"a":1}}],
+      "f":[1,2,3]
+    }
+  )",
+  R"({"a":[{"a":1,"b":3}],"b":1,"f":[{"d":{"a":1}}]})");
+  input_to_expected_output.emplace(R"(
+    {
+      "f":1,
+      "f":{"a":1, "b":[1, {"a":1, "b":[2], "a":{"a":1}}]},
+      "g":1,
+      "f":[{"a":{"a":1, "a":[{"a":1}]}}, 2]
+    }
+  )",
+  R"({"f":1,"g":1})");
+  input_to_expected_output.emplace(R"(
+    {
+      "a":
+      [{
+        "a":1,
+        "a":2,
+        "c":
+        {
+          "a":1,
+          "b":1,
+          "a":3,
+          "c":["b","d","e"],
+          "b":{}
+        }
+      }],
+      "b":
+      {
+        "a":1,
+        "b":[1, 2, 3],
+        "c":[],
+        "c":[{"a":1,"b":2}],
+        "a":{}
+      },
+      "c":
+      [
+        {"a":1},
+        {"a":1,"b":2,"a":2,"b":[{"c":1,"c":[2,3,4]}]},
+        {"c":{}}
+      ],
+      "b":
+      [
+        {"d":{"a":1}}
+      ],
+      "a":1
+    }
+  )",
+  absl::StrCat(R"({"a":[{"a":1,"c":{"a":1,"b":1,"c":["b","d","e"]}}],)",
+               R"("b":{"a":1,"b":[1,2,3],"c":[]},"c":[{"a":1},{"a":1,"b":2},)",
+               R"({"c":{}}]})"));
+  input_to_expected_output.emplace(R"(
+    {
+      "a":1,
+      "b":
+      [
+        {"d":{"a":1}}
+      ],
+      "b":
+      {
+        "a":1,
+        "b":[1, 2, 3],
+        "c":[],
+        "c":[{"a":1,"b":2}],
+        "a":{}
+      },
+      "a":[
+        {},
+        {"a":1,"b":5},
+        {"a":[1,2,3,4,5],"b":{"a":2}},
+        {"a":1}
+      ],
+      "b":
+      {
+        "b":{"b":2,"b":["b","b","b"],"c":{"b":2}},
+        "a":{"b":2,"b":"d","a":["b","b","b"]},
+        "b":{"b":[{},{"b":["b"],"b":{"b":{"b":2,"b":[1,2]},"b":{"b":5}}}]}
+      },
+      "c":
+      [
+        {"a":1},
+        {"a":1,"b":2,"a":2,"b":[{"c":1,"c":[2,3,4]}]},
+        {"c":{}}
+      ],
+      "a":
+      [{
+        "a":1,
+        "a":2,
+        "c":
+        {
+          "a":1,
+          "b":1,
+          "a":3,
+          "c":["b","d","e"],
+          "b":{}
+        }
+      }]
+    }
+  )",
+  absl::StrCat(R"({"a":1,"b":[{"d":{"a":1}}],)",
+               R"("c":[{"a":1},{"a":1,"b":2},)",
+               R"({"c":{}}]})"));
+  input_to_expected_output.emplace(R"(
+    {
+      "a":0,
+      "a":1,
+      "b":2,
+      "c":3,
+      "d":
+      {
+        "a":
+        {
+          "a":[{"a":4,"a":5}],
+          "a":6
+        },
+        "b":7,
+        "a":8,
+        "b":9,
+        "c":10,
+        "b":11
+      },
+      "a":12,
+      "b":13,
+      "a":14,
+      "c":15,
+      "e":16,
+      "f":[{"a":17},{"b":18,"a":19,"b":20},{"c":21,"d":22,"b":23,"c":24}],
+      "f":25,
+      "g":[{"a":17},{"b":18,"a":19,"b":20},{"c":21,"d":22,"b":23,"c":24}]
+    }
+  )",
+  absl::StrCat(R"({"a":0,"b":2,"c":3,"d":{"a":{"a":[{"a":4}]},"b":7,)",
+  R"("c":10},"e":16,"f":[{"a":17},{"a":19,"b":18},{"b":)",
+  R"(23,"c":21,"d":22}],"g":[{"a":17},{"a":19,"b":18},)",
+  R"({"b":23,"c":21,"d":22}]})"));
+
+  for (const auto& pair : input_to_expected_output) {
+    JSONValue json = JSONValue::ParseJSONString(pair.first, GetParam()).value();
+    EXPECT_EQ(json.GetConstRef().ToString(), pair.second);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    CommonJSONParserTests, JSONParserTest,
+    ::testing::Values(JSONParsingOptions{.legacy_mode = true,
+                                         .strict_number_parsing = false},
+                      JSONParsingOptions{.legacy_mode = false,
+                                         .strict_number_parsing = false},
+                      JSONParsingOptions{.legacy_mode = false,
+                                         .strict_number_parsing = true}));
+
+TEST(JSONStrictNumberParsingTest, NumberParsingSuccess) {
+  JSONParsingOptions options{.legacy_mode = false,
+                             .strict_number_parsing = true};
+  absl::flat_hash_map<absl::string_view, absl::string_view> test_cases;
+  test_cases.try_emplace("1", "1");
+  test_cases.try_emplace("1e0", "1.0");
+  test_cases.try_emplace("1.35235e2", "135.235");
+  test_cases.try_emplace("1.35235e-2", "0.0135235");
+  test_cases.try_emplace("1.0035023500e2", "100.350235");
+  test_cases.try_emplace("-1.003502000000000000000000000", "-1.003502");
+  test_cases.try_emplace("0.0000000000000001", "1e-16");
+  test_cases.try_emplace("-0.0000000000000000000000000000000000000000000001",
+                         "-1e-46");
+  test_cases.try_emplace("1e-300", "1e-300");
+  test_cases.try_emplace("10000000000000000000000000000", "1e+28");
+  test_cases.try_emplace("234567.12345678", "234567.12345678");
+  test_cases.try_emplace("-234567.12345678", "-234567.12345678");
+  test_cases.try_emplace("234567.12345678e15", "2.3456712345678e+20");
+  test_cases.try_emplace("-234567.12345678e-25", "-2.3456712345678e-20");
+  test_cases.try_emplace("17.9769313486231e307", "1.79769313486231e+308");
+  test_cases.try_emplace("-17.9769313486231e307", "-1.79769313486231e+308");
+  test_cases.try_emplace("17.9769313486231e-309", "1.79769313486231e-308");
+  test_cases.try_emplace("-17.9769313486231e-309", "-1.79769313486231e-308");
+
+  for (const auto& pair : test_cases) {
+    JSONValue value = JSONValue::ParseJSONString(pair.first, options).value();
+    EXPECT_EQ(value.GetConstRef().ToString(), pair.second);
+  }
+}
+
+TEST(JSONStrictNumberParsingTest, NumberParsingFailure) {
+  constexpr char overflow_err[] = "number overflow parsing";
+  constexpr char failed_to_parse_err[] = "Failed to parse";
+  constexpr char roundtrip_err[] = "cannot round-trip through string";
+  JSONParsingOptions options{.legacy_mode = false,
+                             .strict_number_parsing = true};
+  absl::flat_hash_map<std::string, std::string> test_cases;
+  // Number overflow failure test cases
+  test_cases.try_emplace("1e1000", overflow_err);
+  test_cases.try_emplace("1.79769313486232e308", overflow_err);
+  test_cases.try_emplace("-1.79769313486232e308", overflow_err);
+  // Parsing failure - input string too long
+  test_cases.try_emplace(absl::StrCat("1.0", std::string(1500, '0'), "1"),
+                         "is too long");
+  // Parsing failure - too many significant fractional digits
+  test_cases.try_emplace(absl::StrCat("1.0", std::string(1074, '0'), "1"),
+                         failed_to_parse_err);
+  // Round-tripping test failures
+  test_cases.try_emplace("1523.3523546364323253e2", roundtrip_err);
+  test_cases.try_emplace("-1523.3523546364323253e-2", roundtrip_err);
+  test_cases.try_emplace("-1.003502000000000000000000001", roundtrip_err);
+  test_cases.try_emplace("1e-500", roundtrip_err);
+  for (const auto& pair : test_cases) {
+    EXPECT_THAT(
+        JSONValue::ParseJSONString(pair.first, options).status().message(),
+        ::testing::HasSubstr(pair.second))
+        << "Input: " << pair.first;
+  }
+}
 
 TEST(JSONLegacyParserTest, ParseSingleQuotes) {
-  JSONValue value = JSONValue::ParseJSONString("'abc'", true).value();
+  JSONValue value =
+      JSONValue::ParseJSONString(
+          "'abc'", JSONParsingOptions{.legacy_mode = true,
+                                      .strict_number_parsing = false})
+          .value();
   ASSERT_TRUE(value.GetConstRef().IsString());
   EXPECT_EQ("abc", value.GetConstRef().GetString());
 
@@ -475,7 +722,10 @@ TEST(JSONLegacyParserTest, ParseSingleQuotes) {
       }
     }
   )";
-  value = JSONValue::ParseJSONString(json_str, true).value();
+  value = JSONValue::ParseJSONString(
+              json_str, JSONParsingOptions{.legacy_mode = true,
+                                           .strict_number_parsing = false})
+              .value();
   ASSERT_TRUE(value.GetConstRef().IsObject());
   ASSERT_TRUE(value.GetConstRef().GetMember("pi").IsDouble());
   EXPECT_EQ(3.141, value.GetConstRef().GetMember("pi").GetDouble());
@@ -523,27 +773,37 @@ TEST(JSONStandardParserTest, ParseErrorStandard) {
 }
 
 TEST(JSONLegacyParserTest, ParseErrorLegacy) {
-  auto result = JSONValue::ParseJSONString("[[[", true);
+  auto result = JSONValue::ParseJSONString(
+      "[[[",
+      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
   EXPECT_FALSE(result.ok());
   EXPECT_THAT(result.status().message(),
               ::testing::HasSubstr("Unexpected end of string"));
 
-  result = JSONValue::ParseJSONString("t", true);
+  result = JSONValue::ParseJSONString(
+      "t",
+      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
   EXPECT_FALSE(result.ok());
   EXPECT_THAT(result.status().message(),
               ::testing::HasSubstr("Unexpected token"));
 
-  result = JSONValue::ParseJSONString("[1, a]", true);
+  result = JSONValue::ParseJSONString(
+      "[1, a]",
+      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
   EXPECT_FALSE(result.ok());
   EXPECT_THAT(result.status().message(),
               ::testing::HasSubstr("Unexpected token"));
 
-  result = JSONValue::ParseJSONString("{a: b}", true);
+  result = JSONValue::ParseJSONString(
+      "{a: b}",
+      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
   EXPECT_FALSE(result.ok());
   EXPECT_THAT(result.status().message(),
               ::testing::HasSubstr("Non-string key encountered"));
 
-  result = JSONValue::ParseJSONString("+", true);
+  result = JSONValue::ParseJSONString(
+      "+",
+      JSONParsingOptions{.legacy_mode = true, .strict_number_parsing = false});
   EXPECT_FALSE(result.ok());
   EXPECT_THAT(result.status().message(),
               ::testing::HasSubstr("Unknown token type"));

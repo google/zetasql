@@ -32,6 +32,7 @@
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/base/thread_annotations.h"
@@ -707,6 +708,9 @@ class SimpleColumn : public Column {
   SimpleColumn(const std::string& table_name, const std::string& name,
                const Type* type, bool is_pseudo_column = false,
                bool is_writable_column = true);
+  SimpleColumn(const std::string& table_name, const std::string& name,
+               AnnotatedType annotated_type, bool is_pseudo_column = false,
+               bool is_writable_column = true);
   SimpleColumn(const SimpleColumn&) = delete;
   SimpleColumn& operator=(const SimpleColumn&) = delete;
 
@@ -714,7 +718,12 @@ class SimpleColumn : public Column {
 
   std::string Name() const override { return name_; }
   std::string FullName() const override { return full_name_; }
-  const Type* GetType() const override { return type_; }
+  const Type* GetType() const override { return annotated_type_.type; }
+  const AnnotationMap* GetTypeAnnotationMap() const override {
+    return annotated_type_.annotation_map;
+  }
+  AnnotatedType annotated_type() const { return annotated_type_; }
+
   bool IsPseudoColumn() const override { return is_pseudo_column_; }
   bool IsWritableColumn() const override { return is_writable_column_; }
 
@@ -743,9 +752,9 @@ class SimpleColumn : public Column {
  private:
   const std::string name_;
   const std::string full_name_;
-  const Type* type_;
   bool is_pseudo_column_ = false;
   bool is_writable_column_ = true;
+  AnnotatedType annotated_type_;
 };
 
 // A named constant with a concrete value in the catalog.

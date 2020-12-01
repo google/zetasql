@@ -23,6 +23,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -462,16 +463,11 @@ std::string ExprResolutionInfo::DebugString() const {
 }
 
 InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr) {
-  if (expr->type()->IsStruct() &&
-      expr->node_kind() == RESOLVED_MAKE_STRUCT) {
+  ZETASQL_DCHECK(expr != nullptr);
+  if (expr->type()->IsStruct() && expr->node_kind() == RESOLVED_MAKE_STRUCT) {
     const ResolvedMakeStruct* struct_expr = expr->GetAs<ResolvedMakeStruct>();
-    std::vector<const ResolvedExpr*> fields;
-    fields.reserve(struct_expr->field_list_size());
-    for (int i = 0; i < struct_expr->field_list_size(); ++i) {
-      fields.push_back(struct_expr->field_list(i));
-    }
     std::vector<InputArgumentType> field_types;
-    GetInputArgumentTypesForExprList(&fields, &field_types);
+    GetInputArgumentTypesForExprList(struct_expr->field_list(), &field_types);
     // We construct a custom InputArgumentType for structs that may have
     // some literal and some non-literal fields.
     return InputArgumentType(expr->type()->AsStruct(), field_types);
@@ -521,22 +517,39 @@ InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr) {
 }
 
 void GetInputArgumentTypesForExprList(
-    const std::vector<const ResolvedExpr*>* arguments,
-    std::vector<InputArgumentType>* input_arguments) {
-  input_arguments->clear();
-  input_arguments->reserve(arguments->size());
-  for (const ResolvedExpr* argument : *arguments) {
-    input_arguments->push_back(GetInputArgumentTypeForExpr(argument));
-  }
-}
-
-void GetInputArgumentTypesForExprList(
     const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
     std::vector<InputArgumentType>* input_arguments) {
   input_arguments->clear();
   input_arguments->reserve(arguments.size());
   for (const std::unique_ptr<const ResolvedExpr>& argument : arguments) {
     input_arguments->push_back(GetInputArgumentTypeForExpr(argument.get()));
+  }
+}
+
+static InputArgumentType GetInputArgumentTypeForGenericArgument(
+    const ASTNode* argument_ast_node, const ResolvedExpr* expr) {
+  ZETASQL_DCHECK(argument_ast_node != nullptr);
+  // Only lambdas uses nullptr as placeholder.
+  if (argument_ast_node->Is<ASTLambda>() || expr == nullptr) {
+    ZETASQL_DCHECK(expr == nullptr) << "Lambda must have a nullptr placeholder";
+    ZETASQL_DCHECK(argument_ast_node->Is<ASTLambda>())
+        << "A nullptr placeholder can only be used for a lambda argument";
+    return InputArgumentType::LambdaInputArgumentType();
+  }
+  ZETASQL_DCHECK(expr != nullptr);
+  return GetInputArgumentTypeForExpr(expr);
+}
+
+void GetInputArgumentTypesForGenericArgumentList(
+    const std::vector<const ASTNode*>& argument_ast_nodes,
+    const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
+    std::vector<InputArgumentType>* input_arguments) {
+  ZETASQL_DCHECK_EQ(argument_ast_nodes.size(), arguments.size());
+  input_arguments->clear();
+  input_arguments->reserve(arguments.size());
+  for (int i = 0; i < argument_ast_nodes.size(); i++) {
+    input_arguments->push_back(GetInputArgumentTypeForGenericArgument(
+        argument_ast_nodes[i], arguments[i].get()));
   }
 }
 

@@ -93,6 +93,8 @@ public class Value implements Serializable {
   private final ImmutableList<Value> elements;
   // Deserialized NUMERIC/BIGNUMERIC value if the type is TYPE_NUMERIC or TYPE_BIGNUMERIC.
   private final BigDecimal numericValue;
+  // Deserialized INTERVAL value if the type is TYPE_INTERVAL.
+  private final IntervalValue intervalValue;
 
   // Number of digits after the decimal point supported by the NUMERIC data type.
   private static final int NUMERIC_SCALE = 9;
@@ -114,19 +116,16 @@ public class Value implements Serializable {
 
   /** Creates an invalid Value */
   public Value() {
-    this.type = new SimpleType();  // Invalid type
+    this.type = new SimpleType(); // Invalid type
     this.proto = ValueProto.getDefaultInstance();
     this.isNull = true;
     this.fields = null;
     this.elements = null;
     this.numericValue = null;
+    this.intervalValue = null;
   }
 
-  /**
-   * Creates a Value of given type and proto value.
-   * @param type
-   * @param proto
-   */
+  /** Creates a Value of given type and proto value. */
   private Value(Type type, ValueProto proto) {
     this.type = checkNotNull(type);
     this.proto = checkNotNull(proto);
@@ -134,14 +133,12 @@ public class Value implements Serializable {
     this.fields = null;
     this.elements = null;
     this.numericValue = null;
+    this.intervalValue = null;
   }
 
   /**
-   * Creates an array of given type, proto and elements. Assumes the proto
-   * contains the serialized elements.
-   * @param type
-   * @param proto
-   * @param elements
+   * Creates an array of given type, proto and elements. Assumes the proto contains the serialized
+   * elements.
    */
   private Value(ArrayType type, ValueProto proto, Collection<Value> elements) {
     this.type = checkNotNull(type);
@@ -150,14 +147,12 @@ public class Value implements Serializable {
     this.fields = null;
     this.elements = ImmutableList.copyOf(elements);
     this.numericValue = null;
+    this.intervalValue = null;
   }
 
   /**
-   * Creates a struct of given type, proto and fields. Assuming the proto
-   * contains the serialized fields.
-   * @param type
-   * @param proto
-   * @param fields
+   * Creates a struct of given type, proto and fields. Assuming the proto contains the serialized
+   * fields.
    */
   private Value(StructType type, ValueProto proto, Collection<Value> fields) {
     this.type = checkNotNull(type);
@@ -166,14 +161,10 @@ public class Value implements Serializable {
     this.fields = ImmutableList.copyOf(fields);
     this.elements = null;
     this.numericValue = null;
+    this.intervalValue = null;
   }
 
-  /**
-   * Creates a value of type NUMERIC or BIGNUMERIC.
-   *
-   * @param proto
-   * @param numericValue
-   */
+  /** Creates a value of type NUMERIC or BIGNUMERIC. */
   private Value(TypeKind typeKind, ValueProto proto, BigDecimal numericValue) {
     this.type = TypeFactory.createSimpleType(typeKind);
     this.proto = checkNotNull(proto);
@@ -181,11 +172,26 @@ public class Value implements Serializable {
     this.fields = null;
     this.elements = null;
     this.numericValue = numericValue;
+    this.intervalValue = null;
+  }
+
+  /** Creates a value of type INTERVAL. */
+  private Value(TypeKind typeKind, ValueProto proto, IntervalValue intervalValue) {
+    this.type = TypeFactory.createSimpleType(typeKind);
+    this.proto = checkNotNull(proto);
+    this.isNull = Value.isNullValue(proto);
+    this.fields = null;
+    this.elements = null;
+    this.numericValue = null;
+    this.intervalValue = intervalValue;
   }
 
   private static IllegalArgumentException typeMismatchException(Type type, ValueProto proto) {
-    return new IllegalArgumentException(String.format("Type mismatch: provided type %s but "
-        + "proto <%s> doesn't have field of that type and is not null.", type, proto));
+    return new IllegalArgumentException(
+        String.format(
+            "Type mismatch: provided type %s but "
+                + "proto <%s> doesn't have field of that type and is not null.",
+            type, proto));
   }
 
   /** Returns true if the given {@code proto} represents a null value. */
@@ -207,27 +213,21 @@ public class Value implements Serializable {
     return proto.getInt64Value();
   }
 
-  /**
-   * Returns Java int which equals to the uint32 value at binary level,
-   * if the type is uint32.
-   */
+  /** Returns Java int which equals to the uint32 value at binary level, if the type is uint32. */
   public int getUint32Value() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_UINT32);
     Preconditions.checkState(!isNull);
     return proto.getUint32Value();
   }
 
-  /**
-   * Returns Java long which equals to the uint32 value at binary level,
-   * if the type is uint64.
-   */
+  /** Returns Java long which equals to the uint32 value at binary level, if the type is uint64. */
   public long getUint64Value() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_UINT64);
     Preconditions.checkState(!isNull);
     return proto.getUint64Value();
   }
 
-  /** Returns the boolean value if the type is bool.  */
+  /** Returns the boolean value if the type is bool. */
   public boolean getBoolValue() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_BOOL);
     Preconditions.checkState(!isNull);
@@ -260,6 +260,13 @@ public class Value implements Serializable {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_BIGNUMERIC);
     Preconditions.checkState(!isNull);
     return numericValue;
+  }
+
+  /** Returns the interval value if the type is INTERVAL. */
+  public IntervalValue getIntervalValue() {
+    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_INTERVAL);
+    Preconditions.checkState(!isNull);
+    return intervalValue;
   }
 
   /** Returns the String value if the type is string. */
@@ -388,14 +395,11 @@ public class Value implements Serializable {
     return fields;
   }
 
-  /**
-   * Returns the first field with given {@code name} (case sensitive), if the
-   * type is struct.
-   */
+  /** Returns the first field with given {@code name} (case sensitive), if the type is struct. */
   public Value findFieldByName(String name) {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRUCT);
     StructType structType = type.asStruct();
-    if (!Strings.isNullOrEmpty(name)){
+    if (!Strings.isNullOrEmpty(name)) {
       for (int i = 0; i < structType.getFieldCount(); ++i) {
         if (structType.getField(i).getName().equals(name)) {
           return fields.get(i);
@@ -431,14 +435,13 @@ public class Value implements Serializable {
   /**
    * Returns false if 'this' and 'other' have different type kinds.
    *
-   * <p>Returns true if 'this' equals 'other' or both are null. This is *not*
-   * SQL equality which returns null when either value is null.
+   * <p>Returns true if 'this' equals 'other' or both are null. This is *not* SQL equality which
+   * returns null when either value is null.
    *
-   * <p>For floating point values, returns 'true' if both values are NaN of the
-   * same type.
+   * <p>For floating point values, returns 'true' if both values are NaN of the same type.
    *
-   * <p>For protos, returns true if the proto definitions are equivalent and the
-   * serialized data are binary equal.
+   * <p>For protos, returns true if the proto definitions are equivalent and the serialized data are
+   * binary equal.
    */
   @Override
   public boolean equals(Object other) {
@@ -477,22 +480,24 @@ public class Value implements Serializable {
         return other.getUint64Value() == getUint64Value();
       case TYPE_BOOL:
         return other.getBoolValue() == getBoolValue();
-      case TYPE_FLOAT: {
-        float v1 = getFloatValue();
-        float v2 = other.getFloatValue();
-        if (v1 == v2) {
-          return true;
+      case TYPE_FLOAT:
+        {
+          float v1 = getFloatValue();
+          float v2 = other.getFloatValue();
+          if (v1 == v2) {
+            return true;
+          }
+          return Float.isNaN(v1) && Float.isNaN(v2);
         }
-        return Float.isNaN(v1) && Float.isNaN(v2);
-      }
-      case TYPE_DOUBLE: {
-        double v1 = getDoubleValue();
-        double v2 = other.getDoubleValue();
-        if (v1 == v2) {
-          return true;
+      case TYPE_DOUBLE:
+        {
+          double v1 = getDoubleValue();
+          double v2 = other.getDoubleValue();
+          if (v1 == v2) {
+            return true;
+          }
+          return Double.isNaN(v1) && Double.isNaN(v2);
         }
-        return Double.isNaN(v1) && Double.isNaN(v2);
-      }
       case TYPE_STRING:
         return other.getStringValue().equals(getStringValue());
       case TYPE_BYTES:
@@ -505,11 +510,12 @@ public class Value implements Serializable {
             == 0;
       case TYPE_TIME:
         return other.getTimeValue() == getTimeValue();
-      case TYPE_DATETIME: {
-        return (other.getDatetimeValue().getBitFieldDatetimeSeconds()
-                == getDatetimeValue().getBitFieldDatetimeSeconds())
-            && (other.getDatetimeValue().getNanos() == getDatetimeValue().getNanos());
-      }
+      case TYPE_DATETIME:
+        {
+          return (other.getDatetimeValue().getBitFieldDatetimeSeconds()
+                  == getDatetimeValue().getBitFieldDatetimeSeconds())
+              && (other.getDatetimeValue().getNanos() == getDatetimeValue().getNanos());
+        }
       case TYPE_ENUM:
         return other.getType().equivalent(type) && other.getEnumValue() == getEnumValue();
       case TYPE_ARRAY:
@@ -546,6 +552,11 @@ public class Value implements Serializable {
       case TYPE_BIGNUMERIC:
         if (other.getType().equivalent(type)) {
           return other.numericValue.compareTo(numericValue) == 0;
+        }
+        return false;
+      case TYPE_INTERVAL:
+        if (other.getType().equivalent(type)) {
+          return other.intervalValue.equals(intervalValue);
         }
         return false;
       case TYPE_JSON:
@@ -591,37 +602,42 @@ public class Value implements Serializable {
         return HashCode.fromLong(getTimestampUnixMicros()).asInt();
       case TYPE_TIME:
         return HashCode.fromLong(getTimeValue()).asInt();
-      case TYPE_DATETIME: {
-        Datetime datetime = getDatetimeValue();
-        return Objects.hash(datetime.getBitFieldDatetimeSeconds(), datetime.getNanos());
-      }
+      case TYPE_DATETIME:
+        {
+          Datetime datetime = getDatetimeValue();
+          return Objects.hash(datetime.getBitFieldDatetimeSeconds(), datetime.getNanos());
+        }
       case TYPE_ENUM:
         return HashCode.fromInt(getEnumValue()).asInt();
-      case TYPE_ARRAY: {
-        int elementCount = getElementCount();
-        if (elementCount == 0) {
-          return type.hashCode() * 571;
+      case TYPE_ARRAY:
+        {
+          int elementCount = getElementCount();
+          if (elementCount == 0) {
+            return type.hashCode() * 571;
+          }
+          List<HashCode> hashCodes = new ArrayList<>();
+          for (int i = 0; i < elementCount; ++i) {
+            hashCodes.add(HashCode.fromInt(getElement(i).hashCode()));
+          }
+          return Hashing.combineOrdered(hashCodes).asInt();
         }
-        List<HashCode> hashCodes = new ArrayList<>();
-        for (int i = 0; i < elementCount; ++i) {
-          hashCodes.add(HashCode.fromInt(getElement(i).hashCode()));
+      case TYPE_STRUCT:
+        {
+          int fieldCount = getFieldCount();
+          if (fieldCount == 0) {
+            return type.hashCode() * 617;
+          }
+          List<HashCode> hashCodes = new ArrayList<>();
+          for (int i = 0; i < fieldCount; ++i) {
+            hashCodes.add(HashCode.fromInt(getField(i).hashCode()));
+          }
+          return Hashing.combineOrdered(hashCodes).asInt();
         }
-        return Hashing.combineOrdered(hashCodes).asInt();
-      }
-      case TYPE_STRUCT: {
-        int fieldCount = getFieldCount();
-        if (fieldCount == 0) {
-          return type.hashCode() * 617;
-        }
-        List<HashCode> hashCodes = new ArrayList<>();
-        for (int i = 0; i < fieldCount; ++i) {
-          hashCodes.add(HashCode.fromInt(getField(i).hashCode()));
-        }
-        return Hashing.combineOrdered(hashCodes).asInt();
-      }
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
         return numericValue.toBigInteger().hashCode();
+      case TYPE_INTERVAL:
+        return intervalValue.hashCode();
       case TYPE_JSON:
         return getJsonValue().hashCode();
       default:
@@ -642,16 +658,14 @@ public class Value implements Serializable {
   }
 
   /**
-   * Returns printable string for this Value, including the type name if
-   * {@code verbose} is true.
+   * Returns printable string for this Value, including the type name if {@code verbose} is true.
    */
   public String debugString(boolean verbose) {
     if (type.getKind() == TypeKind.__TypeKind__switch_must_have_a_default__) {
       return "Uninitialized value";
     }
     if (!isValid()) {
-      return String.format("Invalid value, typeKind: %s",
-          type.getKind());
+      return String.format("Invalid value, typeKind: %s", type.getKind());
     }
     switch (type.getKind()) {
       case TYPE_INT32:
@@ -671,59 +685,65 @@ public class Value implements Serializable {
       case TYPE_BIGNUMERIC:
       case TYPE_JSON:
         return ZetaSQLStrings.convertSimpleValueToString(this, verbose);
-      case TYPE_ENUM: {
-        if (verbose) {
-          String typeName =
-              String.format("Enum<%s>", type.asEnum().getDescriptor().getFullName());
-          String s = isNull() ? "NULL" : String.format("%s:%d", getEnumName(), getEnumValue());
-          return String.format("%s(%s)", typeName, s);
-        } else {
-          return isNull() ? "NULL" : getEnumName();
-        }
-      }
-      case TYPE_ARRAY: {
-        String result = "";
-        if (isNull()) {
-          return verbose ? String.format("Array<%s>(NULL)",
-              getType().asArray().getElementType().debugString(false)) : "NULL";
-        }
-        for (Value v : getElementList()) {
-          result = result.concat(result.isEmpty() ? "" : ", ").concat(v.debugString(verbose));
-        }
-        return String.format("%s%s]", verbose ? "Array[" : "[", result);
-      }
-      case TYPE_STRUCT: {
-        String name = verbose ? "Struct" : "";
-        if (isNull()) {
-          return verbose ? name + "(NULL)" : "NULL";
-        }
-        List<String> fieldStr = new ArrayList<String>();
-        StructType structType = getType().asStruct();
-        for (int i = 0; i < structType.getFieldCount(); i++) {
-          final String fieldValue = getField(i).debugString(verbose);
-          if (structType.getField(i).getName().isEmpty()) {
-            fieldStr.add(fieldValue);
+      case TYPE_ENUM:
+        {
+          if (verbose) {
+            String typeName =
+                String.format("Enum<%s>", type.asEnum().getDescriptor().getFullName());
+            String s = isNull() ? "NULL" : String.format("%s:%d", getEnumName(), getEnumValue());
+            return String.format("%s(%s)", typeName, s);
           } else {
-            fieldStr.add(String.format("%s:%s", structType.getField(i).getName(), fieldValue));
+            return isNull() ? "NULL" : getEnumName();
           }
         }
-        return String.format("%s{%s}", name, Joiner.on(", ").join(fieldStr));
-      }
-      case TYPE_PROTO: {
-        Preconditions.checkNotNull(type.asProto().getDescriptor());
-        String name = String.format("Proto<%s>",
-            getType().asProto().getDescriptor().getFullName());
-        if (isNull()) {
-          return verbose ? name + "(NULL)" : "NULL";
+      case TYPE_ARRAY:
+        {
+          String result = "";
+          if (isNull()) {
+            return verbose
+                ? String.format(
+                    "Array<%s>(NULL)", getType().asArray().getElementType().debugString(false))
+                : "NULL";
+          }
+          for (Value v : getElementList()) {
+            result = result.concat(result.isEmpty() ? "" : ", ").concat(v.debugString(verbose));
+          }
+          return String.format("%s%s]", verbose ? "Array[" : "[", result);
         }
-        try {
-          return verbose
-              ? String.format("%s{%s}", name, toMessage().toString())
-              : String.format("{%s}", TextFormat.shortDebugString(toMessage()));
-        } catch (InvalidProtocolBufferException e) {
-          return (verbose ? name : "") + "{<unparseable>}";
+      case TYPE_STRUCT:
+        {
+          String name = verbose ? "Struct" : "";
+          if (isNull()) {
+            return verbose ? name + "(NULL)" : "NULL";
+          }
+          List<String> fieldStr = new ArrayList<>();
+          StructType structType = getType().asStruct();
+          for (int i = 0; i < structType.getFieldCount(); i++) {
+            final String fieldValue = getField(i).debugString(verbose);
+            if (structType.getField(i).getName().isEmpty()) {
+              fieldStr.add(fieldValue);
+            } else {
+              fieldStr.add(String.format("%s:%s", structType.getField(i).getName(), fieldValue));
+            }
+          }
+          return String.format("%s{%s}", name, Joiner.on(", ").join(fieldStr));
         }
-      }
+      case TYPE_PROTO:
+        {
+          Preconditions.checkNotNull(type.asProto().getDescriptor());
+          String name =
+              String.format("Proto<%s>", getType().asProto().getDescriptor().getFullName());
+          if (isNull()) {
+            return verbose ? name + "(NULL)" : "NULL";
+          }
+          try {
+            return verbose
+                ? String.format("%s{%s}", name, toMessage())
+                : String.format("{%s}", TextFormat.shortDebugString(toMessage()));
+          } catch (InvalidProtocolBufferException e) {
+            return (verbose ? name : "") + "{<unparseable>}";
+          }
+        }
       default:
         throw new IllegalStateException(
             "Unexpected type kind expected internally only: " + getType().getKind());
@@ -733,61 +753,77 @@ public class Value implements Serializable {
   public String shortDebugString() {
     return debugString(false);
   }
+
   public String fullDebugString() {
     return debugString(true);
   }
 
   /**
-   * Returns the numeric value of bool, int, uint32, date, enum types, coerced
-   * to int64.
-   * REQUIRES: !isNull().
+   * Returns the numeric value of bool, int, uint32, date, enum types, coerced to int64. REQUIRES:
+   * !isNull().
    */
   public long toInt64() {
     Preconditions.checkState(!isNull);
     switch (type.getKind()) {
-      case TYPE_INT64: return getInt64Value();
-      case TYPE_INT32: return getInt32Value();
-      case TYPE_UINT32: return getUint32Value();
-      case TYPE_BOOL: return getBoolValue() ? 1 : 0;
-      case TYPE_DATE: return getDateValue();
-      case TYPE_TIME: return getTimeValue();
-      case TYPE_ENUM: return getEnumValue();
+      case TYPE_INT64:
+        return getInt64Value();
+      case TYPE_INT32:
+        return getInt32Value();
+      case TYPE_UINT32:
+        return getUint32Value();
+      case TYPE_BOOL:
+        return getBoolValue() ? 1 : 0;
+      case TYPE_DATE:
+        return getDateValue();
+      case TYPE_TIME:
+        return getTimeValue();
+      case TYPE_ENUM:
+        return getEnumValue();
       default:
         throw new IllegalStateException("Cannot coerce " + getType().getKind() + " to int64");
     }
   }
 
-  /**
-   * Returns the numeric value of bool and uint types, coerced to uint64.
-   * REQUIRES: !isNull().
-   */
+  /** Returns the numeric value of bool and uint types, coerced to uint64. REQUIRES: !isNull(). */
   public long toUint64() {
     Preconditions.checkState(!isNull);
     switch (type.getKind()) {
-      case TYPE_UINT64: return getUint64Value();
-      case TYPE_UINT32: return getUint32Value();
-      case TYPE_BOOL: return getBoolValue() ? 1 : 0;
+      case TYPE_UINT64:
+        return getUint64Value();
+      case TYPE_UINT32:
+        return getUint32Value();
+      case TYPE_BOOL:
+        return getBoolValue() ? 1 : 0;
       default:
         throw new IllegalStateException("Cannot coerce " + getType().getKind() + " to uint64");
     }
   }
 
   /**
-   * Returns the numeric value of bool, int, date, enum types, coerced to double.
-   * REQUIRES: !isNull().
+   * Returns the numeric value of bool, int, date, enum types, coerced to double. REQUIRES:
+   * !isNull().
    */
   public double toDouble() {
     Preconditions.checkState(!isNull);
     switch (type.getKind()) {
-      case TYPE_INT64: return getInt64Value();
-      case TYPE_UINT64: return getUint64Value();
-      case TYPE_INT32: return getInt32Value();
-      case TYPE_UINT32: return getUint32Value();
-      case TYPE_BOOL: return getBoolValue() ? 1 : 0;
-      case TYPE_DATE: return getDateValue();
-      case TYPE_DOUBLE: return getDoubleValue();
-      case TYPE_FLOAT: return getFloatValue();
-      case TYPE_ENUM: return getEnumValue();
+      case TYPE_INT64:
+        return getInt64Value();
+      case TYPE_UINT64:
+        return getUint64Value();
+      case TYPE_INT32:
+        return getInt32Value();
+      case TYPE_UINT32:
+        return getUint32Value();
+      case TYPE_BOOL:
+        return getBoolValue() ? 1 : 0;
+      case TYPE_DATE:
+        return getDateValue();
+      case TYPE_DOUBLE:
+        return getDoubleValue();
+      case TYPE_FLOAT:
+        return getFloatValue();
+      case TYPE_ENUM:
+        return getEnumValue();
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
         return numericValue.doubleValue();
@@ -797,8 +833,8 @@ public class Value implements Serializable {
   }
 
   /**
-   * Convert this value to a dynamically allocated proto Message.
-   * REQUIRES: !isNull() && type.isProto()
+   * Convert this value to a dynamically allocated proto Message. REQUIRES: !isNull() &&
+   * type.isProto()
    *
    * @return The dynamic proto Message.
    * @throws InvalidProtocolBufferException if the value is not parseable.
@@ -806,15 +842,13 @@ public class Value implements Serializable {
   public Message toMessage() throws InvalidProtocolBufferException {
     Preconditions.checkState(type.isProto());
     Preconditions.checkState(!isNull);
-    DynamicMessage m = DynamicMessage
-        .getDefaultInstance(getType().asProto().getDescriptor());
+    DynamicMessage m = DynamicMessage.getDefaultInstance(getType().asProto().getDescriptor());
     return m.getParserForType().parsePartialFrom(getProtoValue());
   }
 
   /**
-   * Returns a SQL expression that produces this value.
-   * This is not necessarily a literal since we don't have literal syntax
-   * for all values.
+   * Returns a SQL expression that produces this value. This is not necessarily a literal since we
+   * don't have literal syntax for all values.
    */
   public String getSQL() {
     if (isNull) {
@@ -842,8 +876,7 @@ public class Value implements Serializable {
 
     if (type.isSimpleType()) {
       // Floats and doubles like "inf" and "nan" need to be quoted.
-      if (type.isFloat()
-          && (Float.isInfinite(getFloatValue()) || Float.isNaN(getFloatValue()))) {
+      if (type.isFloat() && (Float.isInfinite(getFloatValue()) || Float.isNaN(getFloatValue()))) {
         return String.format("CAST(%s AS FLOAT)", ZetaSQLStrings.toStringLiteral(s));
       }
       if (type.isDouble()) {
@@ -871,7 +904,8 @@ public class Value implements Serializable {
       return String.format("CAST(%s AS %s)", ZetaSQLStrings.toStringLiteral(s), type.typeName());
     }
     if (type.isProto()) {
-      return String.format("CAST(%s AS %s)",
+      return String.format(
+          "CAST(%s AS %s)",
           ZetaSQLStrings.toBytesLiteral(getProtoValue().toByteArray()), type.typeName());
     }
     if (type.isStruct()) {
@@ -893,10 +927,9 @@ public class Value implements Serializable {
   }
 
   /**
-   * Returns a SQL expression that is compatible as a literal for this value.
-   * This won't include CASTs and won't necessarily produce the exact same
-   * type when parsed on its own, but it should be the closest SQL literal
-   * form for this value.
+   * Returns a SQL expression that is compatible as a literal for this value. This won't include
+   * CASTs and won't necessarily produce the exact same type when parsed on its own, but it should
+   * be the closest SQL literal form for this value.
    */
   public String getSQLLiteral() {
     if (isNull) {
@@ -908,8 +941,7 @@ public class Value implements Serializable {
         || type.isTime()
         || type.isDatetime()) {
       // Use literal syntax for DATE, DATETIME, TIME and TIMESTAMP.
-      return String.format("%s %s",
-          type.typeName(), ZetaSQLStrings.toStringLiteral(s));
+      return String.format("%s %s", type.typeName(), ZetaSQLStrings.toStringLiteral(s));
     }
     if (type.isGeography()) {
       String wktString = ZetaSQLStrings.convertSimpleValueToString(this, false /* verbose */);
@@ -927,13 +959,12 @@ public class Value implements Serializable {
 
     if (type.isSimpleType()) {
       // Floats and doubles like "inf" and "nan" need to be quoted.
-      if (type.isFloat()
-          && (Float.isInfinite(getFloatValue()) || Float.isNaN(getFloatValue()))) {
+      if (type.isFloat() && (Float.isInfinite(getFloatValue()) || Float.isNaN(getFloatValue()))) {
         return String.format("CAST(%s AS FLOAT)", ZetaSQLStrings.toStringLiteral(s));
       }
       if (type.isDouble()
           && (Double.isInfinite(getDoubleValue()) || Double.isNaN(getDoubleValue()))) {
-          return String.format("CAST(%s AS DOUBLE)", ZetaSQLStrings.toStringLiteral(s));
+        return String.format("CAST(%s AS DOUBLE)", ZetaSQLStrings.toStringLiteral(s));
       }
 
       if (type.isDouble() || type.isFloat()) {
@@ -966,8 +997,9 @@ public class Value implements Serializable {
       for (Value fieldValue : getFieldList()) {
         fieldsSql.add(fieldValue.getSQLLiteral());
       }
-      return String.format("%s(%s)", (type.asStruct().getFieldCount() == 1 ? "STRUCT" : ""),
-          Joiner.on(", ").join(fieldsSql));
+      return String.format(
+          "%s(%s)",
+          (type.asStruct().getFieldCount() == 1 ? "STRUCT" : ""), Joiner.on(", ").join(fieldsSql));
     }
     if (type.isArray()) {
       List<String> elementsSql = new ArrayList<String>();
@@ -992,8 +1024,9 @@ public class Value implements Serializable {
 
   /** Returns whether the type is valid and with necessary value. */
   public boolean isValid() {
-    Preconditions.checkState(TypeKind.TYPE_UNKNOWN.getNumber() == 0
-        && TypeKind.__TypeKind__switch_must_have_a_default__.getNumber() == -1);
+    Preconditions.checkState(
+        TypeKind.TYPE_UNKNOWN.getNumber() == 0
+            && TypeKind.__TypeKind__switch_must_have_a_default__.getNumber() == -1);
     return type.getKind().getNumber() > 0;
   }
 
@@ -1081,26 +1114,28 @@ public class Value implements Serializable {
           throw typeMismatchException(type, proto);
         }
         break;
-      case TYPE_DATE: {
-        if (!proto.hasDateValue()) {
-          throw typeMismatchException(type, proto);
+      case TYPE_DATE:
+        {
+          if (!proto.hasDateValue()) {
+            throw typeMismatchException(type, proto);
+          }
+          int date = proto.getDateValue();
+          if (!Type.isValidDate(proto.getDateValue())) {
+            throw new IllegalArgumentException("Invalid value for DATE: " + date);
+          }
+          break;
         }
-        int date = proto.getDateValue();
-        if (!Type.isValidDate(proto.getDateValue())) {
-          throw new IllegalArgumentException("Invalid value for DATE: " + date);
+      case TYPE_TIMESTAMP:
+        {
+          if (!proto.hasTimestampValue()) {
+            throw typeMismatchException(type, proto);
+          }
+          if (!Type.isValidTimestamp(proto.getTimestampValue())) {
+            throw new IllegalArgumentException(
+                "Invalid value for TIMESTAMP: " + proto.getTimestampValue());
+          }
+          break;
         }
-        break;
-      }
-      case TYPE_TIMESTAMP: {
-        if (!proto.hasTimestampValue()) {
-          throw typeMismatchException(type, proto);
-        }
-        if (!Type.isValidTimestamp(proto.getTimestampValue())) {
-          throw new IllegalArgumentException("Invalid value for TIMESTAMP: "
-              + proto.getTimestampValue());
-        }
-        break;
-      }
       case TYPE_TIME:
         {
           if (!proto.hasTimeValue()) {
@@ -1143,50 +1178,64 @@ public class Value implements Serializable {
                 MAX_BIGNUMERIC_VALUE,
                 MIN_BIGNUMERIC_VALUE,
                 "BIGNUMERIC"));
+      case TYPE_INTERVAL:
+        if (!proto.hasIntervalValue()) {
+          throw typeMismatchException(type, proto);
+        }
+        return new Value(
+            TypeKind.TYPE_INTERVAL,
+            proto,
+            IntervalValue.deserializeInterval(proto.getIntervalValue()));
       case TYPE_JSON:
         if (!proto.hasJsonValue()) {
           throw typeMismatchException(type, proto);
         }
         break;
-      case TYPE_ENUM: {
-        if (!proto.hasEnumValue()) {
-          throw typeMismatchException(type, proto);
+      case TYPE_ENUM:
+        {
+          if (!proto.hasEnumValue()) {
+            throw typeMismatchException(type, proto);
+          }
+          EnumType enumType = type.asEnum();
+          int n = proto.getEnumValue();
+          if (enumType.findName(n) == null) {
+            throw new IllegalArgumentException("Invalid value for " + enumType + ": " + n);
+          }
+          break;
         }
-        EnumType enumType = type.asEnum();
-        int n = proto.getEnumValue();
-        if (enumType.findName(n) == null) {
-          throw new IllegalArgumentException("Invalid value for " + enumType + ": " + n);
+      case TYPE_ARRAY:
+        {
+          if (!proto.hasArrayValue()) {
+            throw typeMismatchException(type, proto);
+          }
+          Type elementType = type.asArray().getElementType();
+          List<Value> elements = new ArrayList<>();
+          for (ValueProto element : proto.getArrayValue().getElementList()) {
+            elements.add(deserialize(elementType, element));
+          }
+          return new Value(type.asArray(), proto, elements);
         }
-        break;
-      }
-      case TYPE_ARRAY: {
-        if (!proto.hasArrayValue()) {
-          throw typeMismatchException(type, proto);
+      case TYPE_STRUCT:
+        {
+          if (!proto.hasStructValue()) {
+            throw typeMismatchException(type, proto);
+          }
+          StructType structType = type.asStruct();
+          Struct structValue = proto.getStructValue();
+          if (structType.getFieldCount() != structValue.getFieldCount()) {
+            throw new IllegalArgumentException(
+                "Type mismatch for struct. Type has "
+                    + structType.getFieldCount()
+                    + " fields, but proto has "
+                    + structValue.getFieldCount()
+                    + " fields.");
+          }
+          List<Value> fields = new ArrayList<>();
+          for (int i = 0; i < structType.getFieldCount(); ++i) {
+            fields.add(deserialize(structType.getField(i).getType(), structValue.getField(i)));
+          }
+          return new Value(structType, proto, fields);
         }
-        Type elementType = type.asArray().getElementType();
-        List<Value> elements = new ArrayList<>();
-        for (ValueProto element : proto.getArrayValue().getElementList()) {
-          elements.add(deserialize(elementType, element));
-        }
-        return new Value(type.asArray(), proto, elements);
-      }
-      case TYPE_STRUCT: {
-        if (!proto.hasStructValue()) {
-          throw typeMismatchException(type, proto);
-        }
-        StructType structType = type.asStruct();
-        Struct structValue = proto.getStructValue();
-        if (structType.getFieldCount() != structValue.getFieldCount()) {
-          throw new IllegalArgumentException(
-              "Type mismatch for struct. Type has " + structType.getFieldCount()
-              + " fields, but proto has " + structValue.getFieldCount() + " fields.");
-        }
-        List<Value> fields = new ArrayList<>();
-        for (int i = 0; i < structType.getFieldCount(); ++i) {
-          fields.add(deserialize(structType.getField(i).getType(), structValue.getField(i)));
-        }
-        return new Value(structType, proto, fields);
-      }
       case TYPE_PROTO:
         if (!proto.hasProtoValue()) {
           throw typeMismatchException(type, proto);
@@ -1217,19 +1266,21 @@ public class Value implements Serializable {
       case TYPE_TIME:
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
+      case TYPE_INTERVAL:
       case TYPE_JSON:
         return true;
       case TYPE_ARRAY:
         return isSupportedTypeKind(type.asArray().getElementType());
-      case TYPE_STRUCT: {
-        StructType structType = type.asStruct();
-        for (int i = 0; i < structType.getFieldCount(); ++i) {
-          if (!isSupportedTypeKind(structType.getField(i).getType())) {
-            return false;
+      case TYPE_STRUCT:
+        {
+          StructType structType = type.asStruct();
+          for (int i = 0; i < structType.getFieldCount(); ++i) {
+            if (!isSupportedTypeKind(structType.getField(i).getType())) {
+              return false;
+            }
           }
+          return true;
         }
-        return true;
-      }
       default:
         return false;
     }
@@ -1239,6 +1290,7 @@ public class Value implements Serializable {
 
   /**
    * Creates a null value of given type.
+   *
    * @param type
    */
   public static Value createNullValue(Type type) {
@@ -1328,6 +1380,13 @@ public class Value implements Serializable {
             v, BIGNUMERIC_SCALE, MAX_BIGNUMERIC_VALUE, MIN_BIGNUMERIC_VALUE, "BIGNUMERIC");
     ValueProto proto = ValueProto.newBuilder().setBignumericValue(serializedValue).build();
     return new Value(TypeKind.TYPE_BIGNUMERIC, proto, v);
+  }
+
+  /** Returns an INTERVAL Value that equals to {@code v}. */
+  public static Value createIntervalValue(IntervalValue v) {
+    ByteString serializedValue = IntervalValue.serializeInterval(v);
+    ValueProto proto = ValueProto.newBuilder().setIntervalValue(serializedValue).build();
+    return new Value(TypeKind.TYPE_INTERVAL, proto, v);
   }
 
   /** Returns an string Value that equals to {@code v}. */
@@ -1421,9 +1480,7 @@ public class Value implements Serializable {
     return new Value(TypeFactory.createSimpleType(TypeKind.TYPE_TIMESTAMP), proto);
   }
 
-  /**
-   * Returns an enum Value of given {@code type} with number value {@code v}.
-   */
+  /** Returns an enum Value of given {@code type} with number value {@code v}. */
   public static Value createEnumValue(EnumType type, int v) {
     Preconditions.checkNotNull(type);
     Preconditions.checkArgument(type.findName(v) != null);
@@ -1431,9 +1488,7 @@ public class Value implements Serializable {
     return new Value(type, proto);
   }
 
-  /**
-   * Returns a proto Value of given {@code type} with encoded message {@code v}.
-   */
+  /** Returns a proto Value of given {@code type} with encoded message {@code v}. */
   public static Value createProtoValue(ProtoType type, ByteString v) {
     Preconditions.checkNotNull(type);
     Preconditions.checkArgument(isSupportedTypeKind(type));
@@ -1443,9 +1498,7 @@ public class Value implements Serializable {
     return new Value(type, proto);
   }
 
-  /**
-   * Returns a struct Value of given {@code type} and field {@code values}.
-   */
+  /** Returns a struct Value of given {@code type} and field {@code values}. */
   public static Value createStructValue(StructType type, Collection<Value> values) {
     Preconditions.checkNotNull(type);
     Preconditions.checkArgument(isSupportedTypeKind(type));
@@ -1463,9 +1516,7 @@ public class Value implements Serializable {
     return new Value(type, proto, values);
   }
 
-  /**
-   * Returns an array Value of given {@code type} and elements {@code values}.
-   */
+  /** Returns an array Value of given {@code type} and elements {@code values}. */
   public static Value createArrayValue(ArrayType type, Collection<Value> values) {
     Preconditions.checkNotNull(type);
     Preconditions.checkArgument(isSupportedTypeKind(type));
@@ -1492,8 +1543,7 @@ public class Value implements Serializable {
     Preconditions.checkArgument(isSupportedTypeKind(jsonType));
     Preconditions.checkNotNull(document);
 
-    ValueProto proto =
-        ValueProto.newBuilder().setJsonValue(document).build();
+    ValueProto proto = ValueProto.newBuilder().setJsonValue(document).build();
     return new Value(jsonType, proto);
   }
 }

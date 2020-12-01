@@ -59,6 +59,9 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES);
       features.insert(FEATURE_V_1_3_EXTENDED_GEOGRAPHY_PARSERS);
       features.insert(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+      features.insert(FEATURE_V_1_3_PIVOT);
+      features.insert(FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
+      features.insert(FEATURE_V_1_3_COLLATION_SUPPORT);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

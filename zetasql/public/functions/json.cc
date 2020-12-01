@@ -155,6 +155,47 @@ absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
   return absl::OkStatus();
 }
 
+absl::Status JsonPathEvaluator::ExtractStringArray(
+    absl::string_view json, std::vector<std::string>* value,
+    bool* is_null) const {
+  json_internal::JSONPathStringArrayExtractor array_parser(
+      json, path_iterator_.get());
+  value->clear();
+  array_parser.ExtractStringArray(value, is_null);
+  if (array_parser.StoppedDueToStackSpace()) {
+    return MakeEvalError() << "JSON parsing failed due to deeply nested "
+                              "array/struct. Maximum nesting depth is "
+                           << JSONPathExtractor::kMaxParsingDepth;
+  }
+  return absl::OkStatus();
+}
+
+std::string ConvertJSONPathTokenToSqlStandardMode(
+    absl::string_view json_path_token) {
+  // See json_internal.cc for list of characters that don't need escaping.
+  static const RE2& kSpecialCharsPattern =
+      *new RE2(R"([^\p{L}\p{N}\d_\-\:\s])");
+  static const RE2& kDoubleQuotesPattern = *new RE2(R"(")");
+
+  if (!RE2::PartialMatch(json_path_token, kSpecialCharsPattern)) {
+    // No special characters. Can be field access or array element access.
+    // Note that '$[0]' is equivalent to '$.0'.
+    return std::string(json_path_token);
+  } else if (absl::StrContains(json_path_token, "\"")) {
+    // We need to escape double quotes in the json_path_token because the SQL
+    // standard mode use them to wrap around json_path_token with special
+    // characters.
+    std::string escaped(json_path_token);
+    // Two backslashes are needed in the replacement string because \<digit>
+    // is used for group matching.
+    RE2::GlobalReplace(&escaped, kDoubleQuotesPattern, R"(\\")");
+    return absl::StrCat("\"", escaped, "\"");
+  } else {
+    // Special characters but no double quotes.
+    return absl::StrCat("\"", json_path_token, "\"");
+  }
+}
+
 zetasql_base::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
     absl::string_view json_path) {
   // See json_internal.cc for list of characters that don't need escaping.

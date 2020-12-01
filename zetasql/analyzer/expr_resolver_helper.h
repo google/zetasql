@@ -374,14 +374,20 @@ InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr);
 
 // Get a list of <InputArgumentType> from a list of <ResolvedExpr>,
 // invoking GetInputArgumentTypeForExpr() on each of the <arguments>.
-// TODO: Remove in favor of unique_ptr version.
+// NOTE: This overload does not support lambdas.
+ABSL_DEPRECATED("Use the overload with ASTNode list")
 void GetInputArgumentTypesForExprList(
-    const std::vector<const ResolvedExpr*>* arguments,
+    const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
     std::vector<InputArgumentType>* input_arguments);
 
-// Get a list of <InputArgumentType> from a list of <ResolvedExpr>,
-// invoking GetInputArgumentTypeForExpr() on each of the <arguments>.
-void GetInputArgumentTypesForExprList(
+// Get a list of <InputArgumentType> from a list of <ASTNode> and
+// <ResolvedExpr>, invoking GetInputArgumentTypeForExpr() on each of the
+// <argument_ast_nodes> and <arguments>.
+// This method is called before signature matching. Lambdas are not resolved
+// yet. <argument_ast_nodes> are used to determine InputArgumentType for lambda
+// arguments.
+void GetInputArgumentTypesForGenericArgumentList(
+    const std::vector<const ASTNode*>& argument_ast_nodes,
     const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
     std::vector<InputArgumentType>* input_arguments);
 

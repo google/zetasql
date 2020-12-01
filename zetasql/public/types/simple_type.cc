@@ -20,6 +20,7 @@
 
 #include "zetasql/common/string_util.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
@@ -83,6 +84,7 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"bignumeric", {TYPE_BIGNUMERIC}},
       {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
       {"json", {TYPE_JSON}},
+      {"tokenset", {TYPE_TOKENSET}},
   };
   return *result;
 }
@@ -118,6 +120,7 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
       {TYPE_NUMERIC, {false, FEATURE_NUMERIC_TYPE}},
       {TYPE_BIGNUMERIC, {false, FEATURE_BIGNUMERIC_TYPE}},
       {TYPE_JSON, {false, FEATURE_JSON_TYPE}},
+      {TYPE_TOKENSET, {false, FEATURE_TOKENIZED_SEARCH}},
   };
   return *result;
 }
@@ -174,6 +177,10 @@ const std::string& GetBytesValue(const ValueContent& value) {
 
 std::string GetJsonString(const ValueContent& value) {
   return value.GetAs<internal::JSONRef*>()->ToString();
+}
+
+const IntervalValue& GetIntervalValue(const ValueContent& value) {
+  return value.GetAs<internal::IntervalRef*>()->value();
 }
 
 std::string AddTypePrefix(absl::string_view value, const Type* type,
@@ -280,6 +287,7 @@ bool SimpleType::SupportsGroupingImpl(const LanguageOptions& language_options,
   const bool supports_grouping =
       !this->IsGeography() &&
       !this->IsJson() &&
+      !this->IsTokenSet() &&
       !(this->IsFloatingPoint() && language_options.LanguageFeatureEnabled(
                                        FEATURE_DISALLOW_GROUP_BY_FLOAT));
   if (no_grouping_type != nullptr) {
@@ -298,6 +306,7 @@ static bool DoesValueContentUseSimpleReferenceCounted(TypeKind kind) {
     case TYPE_GEOGRAPHY:
     case TYPE_NUMERIC:
     case TYPE_BIGNUMERIC:
+    case TYPE_INTERVAL:
     case TYPE_JSON:
       return true;
     default:
@@ -441,6 +450,8 @@ bool SimpleType::ValueContentEquals(
     case TYPE_DATETIME:
       return ContentEquals<DateTimeValueContentType>(x, y) &&
              x.simple_type_extended_content_ == y.simple_type_extended_content_;
+    case TYPE_INTERVAL:
+      return ReferencedValueEquals<internal::IntervalRef>(x, y);
     case TYPE_NUMERIC:
       return ReferencedValueEquals<internal::NumericRef>(x, y);
     case TYPE_BIGNUMERIC:
@@ -702,6 +713,10 @@ absl::Status SimpleType::SerializeValueContent(const ValueContent& value,
     case TYPE_TIME:
       value_proto->set_time_value(GetTimeValue(value).Packed64TimeNanos());
       break;
+    case TYPE_INTERVAL:
+      value_proto->set_interval_value(
+          GetIntervalValue(value).SerializeAsBytes());
+      break;
     default:
       return absl::Status(absl::StatusCode::kInternal,
                           absl::StrCat("Unsupported type ", DebugString()));
@@ -842,6 +857,16 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
           TimeValue::FromPacked64Nanos(value_proto.time_value());
 
       ZETASQL_RETURN_IF_ERROR(SetTimeValue(wrapper, value));
+      break;
+    }
+    case TYPE_INTERVAL: {
+      if (!value_proto.has_interval_value()) {
+        return TypeMismatchError(value_proto);
+      }
+      ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval_v,
+                       IntervalValue::DeserializeFromBytes(
+                           value_proto.interval_value()));
+      value->set(new internal::IntervalRef(interval_v));
       break;
     }
     default:

@@ -28,6 +28,7 @@
 #include "google/protobuf/message.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -153,11 +154,12 @@ class Value {
 
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64_t, see public/civil_time.h for the encoding.
-  int64_t ToPacked64TimeMicros() const;      // REQUIRES: time type
-  int64_t ToPacked64DatetimeMicros() const;  // REQUIRES: datetime type
+  int64_t ToPacked64TimeMicros() const;           // REQUIRES: time type
+  int64_t ToPacked64DatetimeMicros() const;       // REQUIRES: datetime type
 
-  TimeValue time_value() const;          // REQUIRES: time type
-  DatetimeValue datetime_value() const;  // REQUIRES: datetime type
+  TimeValue time_value() const;                 // REQUIRES: time type
+  DatetimeValue datetime_value() const;         // REQUIRES: datetime type
+  const IntervalValue& interval_value() const;  // REQUIRES: interval type
 
   // REQUIRES: numeric type
   const NumericValue& numeric_value() const;
@@ -371,6 +373,8 @@ class Value {
   static Value TimeFromPacked64Micros(int64_t v);
   static Value DatetimeFromPacked64Micros(int64_t v);
 
+  static Value Interval(IntervalValue interval);
+
   static Value Numeric(NumericValue v);
 
   static Value BigNumeric(BigNumericValue v);
@@ -468,6 +472,7 @@ class Value {
   static Value NullTimestamp();
   static Value NullTime();
   static Value NullDatetime();
+  static Value NullInterval();
   static Value NullGeography();
   static Value NullNumeric();
   static Value NullBigNumeric();
@@ -591,6 +596,9 @@ class Value {
   // Constructs a DATETIME value.
   explicit Value(DatetimeValue datetime);
 
+  // Constructs an INTERVAL value.
+  explicit Value(const IntervalValue& interval);
+
   explicit Value(const NumericValue& numeric);
 
   explicit Value(const BigNumericValue& bignumeric);
@@ -667,6 +675,15 @@ class Value {
   static Value StructInternal(bool safe, const StructType* struct_type,
                               std::vector<Value>&& values);
 #endif
+
+  // x and y are proto maps (arrays of proto map entries). Reports whether the
+  // two maps are equivalent. Maps with duplicate keys only consider the value
+  // of the final element with the given key. This function does to work
+  // correctly on non-order preserving arrays, and calling it this way is a
+  // fatal error in debug mode.
+  static bool EqualElementMap(const Value& x, const Value& y,
+                              DeepOrderKindSpec* deep_order_spec,
+                              FloatMargin float_margin, std::string* reason);
 
   // Compares arrays as multisets ignoring the order of the elements. Upon
   // inequality, 'reason' may be set to detailed explanation if 'reason' !=
@@ -843,6 +860,8 @@ class Value {
         bignumeric_ptr_;  // Owned. Used for values of TYPE_BIGNUMERIC.
     internal::JSONRef*
         json_ptr_;  // Owned. Used for values of TYPE_JSON.
+    internal::IntervalRef*
+        interval_ptr_;  // Owned. Used for values of TYPE_INTERVAL.
   };
   // Intentionally copyable.
 };
@@ -883,6 +902,7 @@ Value Time(TimeValue time);
 Value TimeFromPacked64Micros(int64_t v);
 Value Datetime(DatetimeValue datetime);
 Value DatetimeFromPacked64Micros(int64_t v);
+Value Interval(IntervalValue interval);
 Value Numeric(NumericValue v);
 Value Numeric(int64_t v);
 Value BigNumeric(BigNumericValue v);
@@ -917,6 +937,7 @@ Value NullDate();
 Value NullTimestamp();
 Value NullTime();
 Value NullDatetime();
+Value NullInterval();
 Value NullNumeric();
 Value NullBigNumeric();
 Value Null(const Type* type);

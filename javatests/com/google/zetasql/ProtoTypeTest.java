@@ -55,7 +55,7 @@ public class ProtoTypeTest {
     ProtoType type = factory.createProtoType(pool.findMessageTypeByName("zetasql.TypeProto"));
     checkTypeSerializationAndDeserialization(type);
 
-    List<ZetaSQLDescriptorPool> pools = Lists.newArrayList(pool);
+    List<DescriptorPool> pools = Lists.newArrayList(pool);
     checkTypeSerializationAndDeserializationExistingPools(type, pools);
 
     ProtoType type2 =
@@ -98,7 +98,7 @@ public class ProtoTypeTest {
     // total number of FileDescriptorSet serialized:
     // matches the number of DescriptorPools used above.
     assertThat(sets).hasSize(2);
-    List<ZetaSQLDescriptorPool> pools = new ArrayList<>();
+    List<DescriptorPool> pools = new ArrayList<>();
     for (FileDescriptorSet fileDescriptorSet : sets) {
       pool = new ZetaSQLDescriptorPool();
       pool.importFileDescriptorSet(fileDescriptorSet);
@@ -164,7 +164,7 @@ public class ProtoTypeTest {
     // total number of FileDescriptorSet serialized:
     // matches the number of DescriptorPools used above.
     assertThat(sets).hasSize(2);
-    List<ZetaSQLDescriptorPool> pools = new ArrayList<>();
+    List<DescriptorPool> pools = new ArrayList<>();
     for (FileDescriptorSet fileDescriptorSet : sets) {
       pool = new ZetaSQLDescriptorPool();
       pool.importFileDescriptorSet(fileDescriptorSet);

@@ -55,13 +55,18 @@ inline std::unique_ptr<google::protobuf::compiler::DiskSourceTree>
 CreateProtoSourceTree() {
   auto source_tree = absl::make_unique<google::protobuf::compiler::DiskSourceTree>();
   // Support both sides of --noincompatible_generated_protos_in_virtual_imports.
-    source_tree->MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
-            "_virtual_imports", "descriptor_proto"));
-    source_tree->MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
-    source_tree->MapPath(
-        "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
+  for (std::string vproto :
+      {"descriptor_proto", "timestamp_proto", "wrappers_proto"}) {
+    source_tree->MapPath("",
+      zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
+                             "_virtual_imports", vproto));
+  }
+  source_tree->MapPath(
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
+  source_tree->MapPath(
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_googleapis_googleapis"));
+  source_tree->MapPath(
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
   return source_tree;
 }
 

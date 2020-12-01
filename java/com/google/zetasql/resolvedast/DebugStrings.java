@@ -25,8 +25,8 @@ import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.Connection;
 import com.google.zetasql.Constant;
+import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.FunctionSignature;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.Model;
 import com.google.zetasql.Procedure;
@@ -111,6 +111,10 @@ class DebugStrings {
   // Used for positional parameters.
   static boolean isDefaultValue(long position) {
     return position == 0;
+  }
+
+  static boolean isDefaultValue(AnnotationMap annotationMap) {
+    return annotationMap == null;
   }
 
   // toStringImpl functions for different node field types, similar to the C++ implementation in
@@ -216,6 +220,10 @@ class DebugStrings {
     return toStringImpl(values, ".");
   }
 
+  static String toStringImpl(AnnotationMap annotationMap) {
+    return annotationMap.debugString();
+  }
+
   static String toStringPeriodSeparatedForFieldDescriptors(List<ZetaSQLFieldDescriptor> fields) {
     StringBuilder sb = new StringBuilder();
     for (ZetaSQLFieldDescriptor field : fields) {
@@ -309,12 +317,18 @@ class DebugStrings {
    */
   static void collectDebugStringFields(
       ResolvedFunctionCallBase node, List<DebugStringField> fields) {
-    Preconditions.checkArgument(fields.size() <= 1);
+    Preconditions.checkArgument(fields.size() <= 2);
 
     fields.clear();
+    Preconditions.checkArgument(
+        node.getArgumentList().isEmpty() || node.getGenericArgumentList().isEmpty());
     if (!node.getArgumentList().isEmpty()) {
       // Use empty name to avoid printing "arguments=" with extra indentation.
-      fields.add(new DebugStringField("", node.getArgumentList()));
+      fields.add(new DebugStringField(/*name=*/ "", node.getArgumentList()));
+    }
+    if (!node.getGenericArgumentList().isEmpty()) {
+      // Use empty name to avoid printing "generic_arguments=" with extra indentation.
+      fields.add(new DebugStringField(/*name=*/ "", node.getGenericArgumentList()));
     }
     if (!node.getHintList().isEmpty()) {
       fields.add(new DebugStringField("hint_list", node.getHintList()));

@@ -44,7 +44,7 @@
 #include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/unparser.h"
-#include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -476,6 +476,12 @@ absl::Status Resolver::ResolveStatement(
         ZETASQL_RETURN_IF_ERROR(ResolveAlterAllRowAccessPoliciesStatement(
             statement->GetAsOrDie<ASTAlterAllRowAccessPoliciesStatement>(),
             &stmt));
+      }
+      break;
+    case AST_ALTER_SCHEMA_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ALTER_SCHEMA_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterSchemaStatement(
+            statement->GetAsOrDie<ASTAlterSchemaStatement>(), &stmt));
       }
       break;
     case AST_ALTER_TABLE_STATEMENT:
@@ -950,6 +956,10 @@ absl::Status Resolver::ResolveColumnSchema(
           << "Nested column options are unsupported";
     }
   }
+  if (schema->type_parameters() != nullptr) {
+    return MakeSqlErrorAt(schema->type_parameters())
+           << "Parameterized types are not supported";
+  }
   ZETASQL_RETURN_IF_ERROR(ValidateColumnAttributeList(attributes));
 
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_column_options;
@@ -1155,14 +1165,18 @@ absl::Status Resolver::ResolveForeignKeys(
         column_definitions,
     std::set<std::string, zetasql_base::StringCaseLess>* constraint_names,
     std::vector<std::unique_ptr<const ResolvedForeignKey>>* foreign_key_list) {
+  std::vector<const Type*> column_types;
+  column_types.reserve(column_definitions.size());
+  for (const auto& column : column_definitions) {
+    column_types.push_back(column->type());
+  }
   for (const auto& ast_table_element : ast_table_elements) {
     std::vector<std::unique_ptr<ResolvedForeignKey>> foreign_keys;
     std::vector<const ASTNode*> ast_foreign_key_nodes;
     if (ast_table_element->node_kind() == AST_FOREIGN_KEY) {
       ZETASQL_RETURN_IF_ERROR(ResolveForeignKeyTableConstraint(
-          column_indexes, column_definitions,
-          static_cast<const ASTForeignKey*>(ast_table_element),
-          &foreign_keys));
+          column_indexes, column_types,
+          static_cast<const ASTForeignKey*>(ast_table_element), &foreign_keys));
       ast_foreign_key_nodes.push_back(ast_table_element);
     } else if (ast_table_element->node_kind() == AST_COLUMN_DEFINITION) {
       const auto* column =
@@ -1172,8 +1186,7 @@ absl::Status Resolver::ResolveForeignKeys(
               AST_FOREIGN_KEY_COLUMN_ATTRIBUTE);
       for (const auto& attribute : attributes) {
         ZETASQL_RETURN_IF_ERROR(ResolveForeignKeyColumnConstraint(
-            column_indexes, column_definitions, column, attribute,
-            &foreign_keys));
+            column_indexes, column_types, column, attribute, &foreign_keys));
         ast_foreign_key_nodes.push_back(attribute);
       }
     }
@@ -1194,8 +1207,7 @@ absl::Status Resolver::ResolveForeignKeys(
 
 absl::Status Resolver::ResolveForeignKeyColumnConstraint(
     const ColumnIndexMap& column_indexes,
-    const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
-        column_definitions,
+    const std::vector<const Type*>& column_types,
     const ASTColumnDefinition* ast_column_definition,
     const ASTForeignKeyColumnAttribute* ast_foreign_key,
     std::vector<std::unique_ptr<ResolvedForeignKey>>* resolved_foreign_keys) {
@@ -1218,11 +1230,9 @@ absl::Status Resolver::ResolveForeignKeyColumnConstraint(
   const ASTIdentifier* ast_referencing_column_identifiers[]
       {ast_column_definition->name()};
   ZETASQL_RETURN_IF_ERROR(ResolveForeignKeyReference(
-      column_indexes,
-      column_definitions,
+      column_indexes, column_types,
       absl::MakeSpan(ast_referencing_column_identifiers, 1),
-      ast_foreign_key->reference(),
-      foreign_key.get()));
+      ast_foreign_key->reference(), foreign_key.get()));
 
   resolved_foreign_keys->push_back(std::move(foreign_key));
   return absl::OkStatus();
@@ -1230,8 +1240,7 @@ absl::Status Resolver::ResolveForeignKeyColumnConstraint(
 
 absl::Status Resolver::ResolveForeignKeyTableConstraint(
     const ColumnIndexMap& column_indexes,
-    const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
-        column_definitions,
+    const std::vector<const Type*>& column_types,
     const ASTForeignKey* ast_foreign_key,
     std::vector<std::unique_ptr<ResolvedForeignKey>>* resolved_foreign_keys) {
   if (!language().LanguageFeatureEnabled(FEATURE_FOREIGN_KEYS)) {
@@ -1247,11 +1256,9 @@ absl::Status Resolver::ResolveForeignKeyTableConstraint(
 
   // FOREIGN KEY referencing_columns REFERENCES table referenced_columns.
   ZETASQL_RETURN_IF_ERROR(ResolveForeignKeyReference(
-      column_indexes,
-      column_definitions,
+      column_indexes, column_types,
       ast_foreign_key->column_list()->identifiers(),
-      ast_foreign_key->reference(),
-      foreign_key.get()));
+      ast_foreign_key->reference(), foreign_key.get()));
 
   // OPTIONS options.
   std::vector<std::unique_ptr<const ResolvedOption>> options;
@@ -1293,8 +1300,7 @@ static ResolvedForeignKey::ActionOperation GetForeignKeyActionOperation(
 
 absl::Status Resolver::ResolveForeignKeyReference(
     const ColumnIndexMap& column_indexes,
-    const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
-        column_definitions,
+    const std::vector<const Type*>& column_types,
     const absl::Span<const ASTIdentifier* const>
         ast_referencing_column_identifiers,
     const ASTForeignKeyReference* ast_foreign_key_reference,
@@ -1346,7 +1352,7 @@ absl::Status Resolver::ResolveForeignKeyReference(
              << ast_referencing_column_identifier->GetAsIdString()
              << " either does not exist or is a pseudocolumn";
     }
-    ZETASQL_RET_CHECK(*referencing_column_offset < column_definitions.size());
+    ZETASQL_RET_CHECK(*referencing_column_offset < column_types.size());
     foreign_key->add_referencing_column_offset_list(
         *referencing_column_offset);
 
@@ -1367,8 +1373,7 @@ absl::Status Resolver::ResolveForeignKeyReference(
     }
     foreign_key->add_referenced_column_offset_list(referenced_column_offset);
 
-    const Type* referencing_type =
-        column_definitions[*referencing_column_offset]->type();
+    const Type* referencing_type = column_types[*referencing_column_offset];
     const Type* referenced_type =
         referenced_table->GetColumn(referenced_column_offset)->GetType();
     ZETASQL_ASSIGN_OR_RETURN(const bool supports_equality,
@@ -3983,9 +3988,14 @@ absl::Status Resolver::ResolveCallStatement(
   FunctionResolver function_resolver(catalog_, type_factory_, this);
   std::unique_ptr<FunctionSignature> result_signature;
   SignatureMatchResult signature_match_result;
+
+  std::vector<const ASTNode*> arg_locations =
+      ToLocations(ast_call->arguments());
   if (!function_resolver.SignatureMatches(
-          input_arg_types, signature, true /* allow_argument_coercion */,
-          &result_signature, &signature_match_result)) {
+          arg_locations, input_arg_types, signature,
+          /* allow_argument_coercion=*/true, /*name_scope=*/nullptr,
+          &result_signature, &signature_match_result,
+          /*arg_overrides=*/nullptr)) {
     return MakeSqlErrorAt(ast_call->procedure_name())
            << Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
                   absl::StrCat("procedure ", name_string), input_arg_types,

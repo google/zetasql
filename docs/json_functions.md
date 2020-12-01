@@ -258,15 +258,15 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
 
 ### TO_JSON_STRING
 
-```
+```sql
 TO_JSON_STRING(value[, pretty_print])
 ```
 
 **Description**
 
 Returns a JSON-formatted string representation of `value`. This function
-supports an optional `pretty_print` parameter. If `pretty_print` is present, the
-returned value is formatted for easy readability.
+supports an optional boolean parameter called `pretty_print`. If `pretty_print`
+is `true`, the returned value is formatted for easy readability.
 
 <table>
 <thead>
@@ -310,7 +310,7 @@ returned value is formatted for easy readability.
     </td>
  </tr>
  <tr>
-    <td>NUMERIC</td>
+   <td>NUMERIC</td>
    <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
      in the range of [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
      part. Values outside of this range are represented as quoted strings. For
@@ -323,7 +323,6 @@ returned value is formatted for easy readability.
  </tr>
  <tr>
     <td>FLOAT, DOUBLE</td>
-
     <td><code>+/-inf</code> and <code>NaN</code> are represented as
     <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>,
     respectively.
@@ -346,7 +345,7 @@ returned value is formatted for easy readability.
  
  <tr>
     <td>ENUM</td>
-    <td><p>Quoted enum name as a string.</p>
+    <td><p>Quoted enum value name as a string.</p>
     <p>Invalid enum values are represented as their number, such as 0 or 42.</p>
     </td>
  </tr>
@@ -378,71 +377,112 @@ returned value is formatted for easy readability.
  </tr>
  <tr>
     <td>ARRAY</td>
-    <td><p><code>[elem1,elem2,...]</code>, where each <code>elem</code> is
-    formatted according to the element type.</p>
-    Example with formatting:
-<pre>[
-  elem1,
-  elem2,
-  ...
+    <td>
+      <p>
+        Array of zero or more elements. Each element is formatted according to
+        its type.
+      </p>
+      <p>
+        Example without formatting:
+      </p>
+      <pre class="lang-sql prettyprint">["red", "blue", "green"]</pre>
+      <p>
+        Example with formatting:
+      </p>
+      <pre class="lang-sql prettyprint">
+[
+  "red",
+  "blue",
+  "green"
 ]</pre>
-    <p>Where each elem is formatted according to the element type. The empty
-    array is represented as <code>[]</code>.</p>
     </td>
  </tr>
  <tr>
     <td>STRUCT</td>
-    <td><code>{"field_name1":field_value1,"field_name2":field_value2,...}</code>
-    <p>Where each <code>field_value</code> is formatted according to its type.
-    </p>
-    Example with formatting:
-<pre>{
-  "field_name1": field_value1,
-  "field_name2": field_value2,
-  ...
+    <td>
+      <p>
+        Object that contains zero or more key/value pairs.
+        Each value is formatted according to its type.
+      </p>
+      <p>
+        Example without formatting:
+      </p>
+      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
+      <p>
+        Example with formatting:
+      </p>
+      <pre class="lang-sql prettyprint">
+{
+  "color":[
+    "red",
+    "blue"
+   ]
+  "purchases":12,
+  "inStock": true
 }</pre>
-    <p>Where each <code>field_value</code> is formatted according to its type.
-    If a <code>field_value</code> is a non-empty ARRAY or STRUCT,
-    elements are indented to the appropriate level. The empty struct is
-    represented as <code>{}</code>.
-    </p>
-    <p>Fields with duplicate names might result in unparseable JSON. Anonymous
-    fields are represented with <code>""</code>.
-    </p>
-    <p>Invalid UTF-8 field names might result in unparseable JSON. String values
-    are escaped according to the JSON standard. Specifically, <code>"</code>,
-    <code>\</code>, and the control characters from <code>U+0000</code> to
-    <code>U+001F</code> are escaped.</p>
+      <p>
+        Fields with duplicate names might result in unparseable JSON. Anonymous
+        fields are represented with <code>""</code>. If a field is a non-empty
+        array or object, elements/fields are indented
+        to the appropriate level.
+      </p>
+      <p>
+        Invalid UTF-8 field names might result in unparseable JSON. String
+        values are escaped according to the JSON standard. Specifically,
+        <code>"</code>, <code>\</code>, and the control characters from
+        <code>U+0000</code> to <code>U+001F</code> are escaped.
+      </p>
     </td>
  </tr>
 
  <tr>
     <td>PROTO</td>
-    <td><code>{"fieldName1":field_value1,"fieldName2":field_value2,...}</code>
-    Example with formatting:
-<pre>{
-  "fieldName1": field_value1,
-  "fieldName2": field_value2,
-  ...
+    <td>
+      <p>
+        Object that contains zero or more key/value pairs.
+        Each value is formatted according to its type.
+      </p>
+      <p>
+        Example without formatting:
+      </p>
+      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
+      <p>
+        Example with formatting:
+      </p>
+      <pre class="lang-sql prettyprint">
+{
+  "color":[
+    "red",
+    "blue"
+   ]
+  "purchases":12,
+  "inStock": true
 }</pre>
-    <p>Field names with underscores are converted to camel-case in accordance
-    with
-    <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-    protobuf json conversion</a>. Field values are formatted according to
-    <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-    protobuf json conversion</a>. If a <code>field_value</code> is a non-empty
-    repeated field or submessage, elements/fields are indented to the
-    appropriate level. The empty struct is represented as <code>{}</code>.</p>
-    <ul>
-    <li>Field names that are not valid UTF-8 might result in unparseable JSON.
-    </li>
-    <li>Field annotations are not taken into account.</li>
-    <li>Repeated fields are represented as arrays.</li>
-    <li>Submessages are formatted as values of PROTO type.</li>
-    <li>Extensions fields are included in the output, where the extension field
-    name is enclosed in brackets and prefixed with the full name of the
-    extension type.
-    </ul>
+      <p>
+        Field names with underscores are converted to camel-case in accordance
+        with
+        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+        protobuf json conversion</a>. Field values are formatted according to
+        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+        protobuf json conversion</a>. If a <code>field_value</code> is a non-empty
+        repeated field or submessage, elements/fields are indented to the
+        appropriate level.
+      </p>
+      <ul>
+        <li>
+          Field names that are not valid UTF-8 might result in unparseable
+          JSON.
+        </li>
+        <li>Field annotations are ignored.</li>
+        <li>Repeated fields are represented as arrays.</li>
+        <li>Submessages are formatted as values of PROTO type.</li>
+        <li>
+          Extension fields are included in the output, where the extension
+          field name is enclosed in brackets and prefixed with the full name of
+          the extension type.
+        </li>
+        
+      </ul>
     </td>
  </tr>
 
@@ -458,78 +498,49 @@ JSON string representation of the value.
 Convert rows in a table to JSON.
 
 ```sql
-WITH Input AS (
-  SELECT [1, 2] AS x, 'foo' AS y, STRUCT(true AS a, DATE '2017-04-05' AS b) AS s UNION ALL
-  SELECT NULL AS x, '' AS y, STRUCT(false AS a, DATE '0001-01-01' AS b) AS s UNION ALL
-  SELECT [3] AS x, 'bar' AS y, STRUCT(NULL AS a, DATE '2016-12-05' AS b) AS s
-)
-SELECT
-  t,
-  TO_JSON_STRING(t) AS json_row
-FROM Input AS t;
-```
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
+FROM CoordinatesTable as t;
 
-The above query produces the following result:
-
-```json
-+-----------------------------------+-------------------------------------------------------+
-| t                                 | json_row                                              |
-+-----------------------------------+-------------------------------------------------------+
-| {[1, 2], foo, {true, 2017-04-05}} | {"x":[1,2],"y":"foo","s":{"a":true,"b":"2017-04-05"}} |
-| {NULL, , {false, 0001-01-01}}     | {"x":null,"y":"","s":{"a":false,"b":"0001-01-01"}}    |
-| {[3], bar, {NULL, 2016-12-05}}    | {"x":[3],"y":"bar","s":{"a":null,"b":"2016-12-05"}}   |
-+-----------------------------------+-------------------------------------------------------+
++--------+-------------+--------------------------------+
+| id     | coordinates | json_data                      |
++--------+-------------+--------------------------------+
+| 1      | [10,20]     | {"id":1,"coordinates":[10,20]} |
+| 2      | [30,40]     | {"id":2,"coordinates":[30,40]} |
+| 3      | [50,60]     | {"id":3,"coordinates":[50,60]} |
++--------+-------------+--------------------------------+
 ```
 
 Convert rows in a table to JSON with formatting.
 
 ```sql
-WITH Input AS (
-  SELECT [1, 2] AS x, 'foo' AS y, STRUCT(true AS a, DATE '2017-04-05' AS b) AS s UNION ALL
-  SELECT NULL AS x, '' AS y, STRUCT(false AS a, DATE '0001-01-01' AS b) AS s UNION ALL
-  SELECT [3] AS x, 'bar' AS y, STRUCT(NULL AS a, DATE '2016-12-05' AS b) AS s
-)
-SELECT
-  TO_JSON_STRING(t, true) AS json_row
-FROM Input AS t;
-```
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates)
+SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
+FROM CoordinatesTable as t;
 
-The above query produces the following result:
-
-```json
-+-----------------------+
-| json_row              |
-+-----------------------+
-| {                     |
-|  "x": [               |
-|    1,                 |
-|    2                  |
-|  ],                   |
-|  "y": "foo",          |
-|  "s": {               |
-|    "a": true,         |
-|    "b": "2017-04-05"  |
-|  }                    |
-|}                      |
-| {                     |
-|  "x": null,           |
-|  "y": "",             |
-|  "s": {               |
-|    "a": false,        |
-|    "b": "0001-01-01"  |
-|  }                    |
-|}                      |
-| {                     |
-|  "x": [               |
-|    3                  |
-|  ],                   |
-|  "y": "bar",          |
-|  "s": {               |
-|    "a": null,         |
-|    "b": "2016-12-05"  |
-|  }                    |
-|}                      |
-+-----------------------+
++--------+-------------+---------------------+
+| id     | coordinates | json_data           |
++--------+-------------+---------------------+
+| 1      | [10,20]     | {                   |
+|        |             |   "id":1,           |
+|        |             |   "coordinates":[   |
+|        |             |     10,             |
+|        |             |     20              |
+|        |             |   ]                 |
+|        |             | }                   |
+| 2      | [30,40]     | {                   |
+|        |             |   "id":2,           |
+|        |             |   "coordinates":[   |
+|        |             |     30,             |
+|        |             |     40              |
+|        |             |   ]                 |
+|        |             | }                   |
++--------+-------------+---------------------+
 ```
 
 ### JSONPath format

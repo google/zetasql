@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -40,18 +39,17 @@ import java.util.TreeMap;
  * resolvedast package.
  */
 public class FileDescriptorSetsBuilder implements Serializable {
-  // We are not using a Map<ZetaSQLDescriptorPool, FileDescriptorSetsBuilder>
+  // We are not using a Map<DescriptorPool, FileDescriptorSetsBuilder>
   // because we need the integer index explicitly.
-  private final Map<ZetaSQLDescriptorPool, Integer> descriptorPoolIndex = new HashMap<>();
+  private final Map<DescriptorPool, Integer> descriptorPoolIndex = new HashMap<>();
   private final List<FileDescriptorSetBuilder> fileDescriptorSetBuilders = new ArrayList<>();
   // Whether build() is called.
   private boolean isBuilt = false;
 
   /**
-   * Build the List of FileDescriptorSet to be passed together with serialized
-   * Types in a ZetaSQL RPC request. To deserialize types in the
-   * response, a list of ZetaSQLDescriptorPool in the same order must be used,
-   * which can be retrieved using {@link #getDescriptorPools}.
+   * Build the List of FileDescriptorSet to be passed together with serialized Types in a ZetaSQL
+   * RPC request. To deserialize types in the response, a list of {@link DescriptorPool} in the same
+   * order must be used, which can be retrieved using {@link #getDescriptorPools}.
    *
    * @throws IllegalStateException if called more than once.
    */
@@ -65,10 +63,10 @@ public class FileDescriptorSetsBuilder implements Serializable {
     return fileDescriptorSets.build();
   }
 
-  ImmutableList<ZetaSQLDescriptorPool> getDescriptorPools() {
-    Map<Integer, ZetaSQLDescriptorPool> pools = new TreeMap<>();
+  ImmutableList<DescriptorPool> getDescriptorPools() {
+    Map<Integer, DescriptorPool> pools = new TreeMap<>();
     // Sort keys of descriptorPoolIndex map by value.
-    for (Entry<ZetaSQLDescriptorPool, Integer> entry : descriptorPoolIndex.entrySet()) {
+    for (Map.Entry<DescriptorPool, Integer> entry : descriptorPoolIndex.entrySet()) {
       pools.put(entry.getValue(), entry.getKey());
     }
     return ImmutableList.copyOf(pools.values());
@@ -78,7 +76,8 @@ public class FileDescriptorSetsBuilder implements Serializable {
     return fileDescriptorSetBuilders.size();
   }
 
-  int addAllFileDescriptors(ZetaSQLDescriptorPool pool) {
+  int addAllFileDescriptors(DescriptorPool pool) {
+    Preconditions.checkNotNull(pool);
     for (FileDescriptor descriptor : pool.getAllFileDescriptors()) {
       addFileDescriptor(descriptor, pool);
     }
@@ -87,25 +86,23 @@ public class FileDescriptorSetsBuilder implements Serializable {
   }
 
   /**
-   * Add the given {@code fileDescriptor} and its dependencies into the
-   * {@code FileDescriptorSet} associated with the given {@code pool}.
+   * Add the given {@code fileDescriptor} and its dependencies into the {@code FileDescriptorSet}
+   * associated with the given {@code pool}.
    *
-   * @return Index of the FileDescriptorSet the {@code fileDescriptor} goes
-   *     into.
-   * @throws IllegalStateException if a new fileDescriptor is added after
-   *     build() is called.
+   * @return Index of the FileDescriptorSet the {@code fileDescriptor} goes into.
+   * @throws IllegalStateException if a new fileDescriptor is added after build() is called.
    */
-  int addFileDescriptor(FileDescriptor fileDescriptor, ZetaSQLDescriptorPool pool) {
+  int addFileDescriptor(FileDescriptor fileDescriptor, DescriptorPool pool) {
     Preconditions.checkState(!isBuilt);
     Integer index = descriptorPoolIndex.get(pool);
     if (index == null) {
-      // When we see a new ZetaSQLDescriptorPool, we need to create a new
+      // When we see a new DescriptorPool, we need to create a new
       // FileDescriptorSet to accommodate the FileDescriptors belonging to it.
       // Otherwise FileDescriptors with the same filename but from different
       // pools will collide when the FileDescriptorSet is deserialized back to
-      // ZetaSQLDescriptorPool.
+      // DescriptorPool.
       fileDescriptorSetBuilders.add(new FileDescriptorSetBuilder());
-      // The array index grows with the number of ZetaSQLDescriptorPools
+      // The array index grows with the number of DescriptorPools
       // we ever seen. It is set in ProtoTypeProto and EnumTypeProto fields
       // to index the List<FileDescriptorSet> built by this class.
       index = fileDescriptorSetBuilders.size() - 1;
@@ -114,11 +111,11 @@ public class FileDescriptorSetsBuilder implements Serializable {
     fileDescriptorSetBuilders.get(index).add(fileDescriptor);
     return index;
   }
-  
+
   void importDescriptorPoolIndex(FileDescriptorSetsBuilder other) {
     Preconditions.checkState(descriptorPoolIndex.isEmpty());
     Preconditions.checkState(fileDescriptorSetBuilders.isEmpty());
-    for (Entry<ZetaSQLDescriptorPool, Integer> entry : other.descriptorPoolIndex.entrySet()) {
+    for (Map.Entry<DescriptorPool, Integer> entry : other.descriptorPoolIndex.entrySet()) {
       descriptorPoolIndex.put(entry.getKey(), entry.getValue());
       fileDescriptorSetBuilders.add(new FileDescriptorSetBuilder());
     }
@@ -135,8 +132,8 @@ public class FileDescriptorSetsBuilder implements Serializable {
       fileDescriptorSetBuilders.add(otherFileDescriptorSet);
       result.fileDescriptorSetBuilders.set(i, otherFileDescriptorSet);
     }
-    for (Entry<ZetaSQLDescriptorPool, Integer> entry : other.descriptorPoolIndex.entrySet()) {
-      ZetaSQLDescriptorPool pool = entry.getKey();
+    for (Map.Entry<DescriptorPool, Integer> entry : other.descriptorPoolIndex.entrySet()) {
+      DescriptorPool pool = entry.getKey();
       int index = entry.getValue();
       if (descriptorPoolIndex.containsKey(entry.getKey())) {
         Preconditions.checkState(index == descriptorPoolIndex.get(entry.getKey()));
@@ -157,9 +154,8 @@ public class FileDescriptorSetsBuilder implements Serializable {
     }
     return result;
   }
-  
-  private Integer getFileDescriptorIndex(
-      FileDescriptor fileDescriptor, ZetaSQLDescriptorPool pool) {
+
+  private Integer getFileDescriptorIndex(FileDescriptor fileDescriptor, DescriptorPool pool) {
     Integer index = descriptorPoolIndex.get(pool);
     if (index != null) {
       FileDescriptorSetBuilder fileDescriptorSetBuilder = fileDescriptorSetBuilders.get(index);
@@ -171,11 +167,10 @@ public class FileDescriptorSetsBuilder implements Serializable {
   }
 
   /**
-   * Returns the index of FileDescriptorSet containing the given
-   * {@code fileDescriptor}, adding it if necessary.
+   * Returns the index of FileDescriptorSet containing the given {@code fileDescriptor}, adding it
+   * if necessary.
    */
-  public int getOrAddFileDescriptorIndex(
-      FileDescriptor fileDescriptor, ZetaSQLDescriptorPool pool) {
+  public int getOrAddFileDescriptorIndex(FileDescriptor fileDescriptor, DescriptorPool pool) {
     Integer index = getFileDescriptorIndex(fileDescriptor, pool);
     if (index == null) {
       return addFileDescriptor(fileDescriptor, pool);
@@ -221,7 +216,7 @@ public class FileDescriptorSetsBuilder implements Serializable {
       in.defaultReadObject();
       this.fileDescriptorSet = FileDescriptorSet.newBuilder().mergeFrom(ByteString.readFrom(in));
     }
-    
+
     /** Merge another FileDescriptorSetBuilder into this one, and return the difference. */
     private FileDescriptorSetBuilder mergeDiff(FileDescriptorSetBuilder otherFileDescriptorSet) {
       FileDescriptorSetBuilder result = new FileDescriptorSetBuilder();

@@ -73,6 +73,11 @@ IMPORT MODULE x.y.z;
 
 The `IMPORT` statement should not include the `.sqlm` file extension.
 
+Note:  If you import module `x.y.z`, ZetaSQL looks for the module at
+`search_path/x/y/z.sqlm`. If the module is not found, ZetaSQL looks for
+the module at `search_path/x/y/z/z.sqlm` and you can import it with either
+`IMPORT MODULE x.y.z` or `IMPORT MODULE x.y.z.z`.
+
 ### Creating objects within modules
 
 Modules can contain `CREATE` statements to create objects within the module.

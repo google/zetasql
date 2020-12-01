@@ -202,6 +202,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterRowAccessPolicyStmt* node) override;
   absl::Status VisitResolvedAlterAllRowAccessPoliciesStmt(
       const ResolvedAlterAllRowAccessPoliciesStmt* node) override;
+  absl::Status VisitResolvedAlterSchemaStmt(
+      const ResolvedAlterSchemaStmt* node) override;
   absl::Status VisitResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* node) override;
   absl::Status VisitResolvedAlterTableStmt(
@@ -231,6 +233,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAggregateFunctionCall* node) override;
   absl::Status VisitResolvedAnalyticFunctionCall(
       const ResolvedAnalyticFunctionCall* node) override;
+  absl::Status VisitResolvedInlineLambda(
+      const ResolvedInlineLambda* node) override;
   absl::Status VisitResolvedGetProtoField(
       const ResolvedGetProtoField* node) override;
   absl::Status VisitResolvedFlatten(const ResolvedFlatten* node) override;
@@ -561,6 +565,10 @@ class SQLBuilder : public ResolvedASTVisitor {
           foreign_key_list,
       const std::vector<std::unique_ptr<const ResolvedCheckConstraint>>&
           check_constraint_list);
+  // Helper function to append foreign key table constraint.
+  zetasql_base::StatusOr<std::string> ProcessForeignKey(
+      const ResolvedForeignKey* foreign_key,
+      const std::vector<std::string>& column_names, bool is_if_not_exists);
   std::string ComputedColumnAliasDebugString() const;
 
   // If we have a recursive view, sets up internal data structures in

@@ -665,6 +665,14 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                      .add_required_language_feature(
                          LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
+  // Is a particular key present in a proto map?
+  InsertFunction(functions, options, "contains_key", SCALAR,
+                 {{type_factory->get_bool(),
+                   {ARG_PROTO_MAP_ANY, ARG_PROTO_MAP_KEY_ANY},
+                   FN_CONTAINS_KEY}},
+                 FunctionOptions().add_required_language_feature(
+                     LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
+
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].
   // * T (if mentioned) would define the array element type. Otherwise the
@@ -862,6 +870,31 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
               bind_front(&GenerateDateTimestampArrayFunctionSQL,
                          "GENERATE_TIMESTAMP_ARRAY")));
 
+  InsertFunction(
+      functions, options, "array_filter", SCALAR,
+      /*signatures=*/
+      {{ARG_ARRAY_TYPE_ANY_1,
+        {ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+        FN_ARRAY_FILTER},
+       {ARG_ARRAY_TYPE_ANY_1,
+        {ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type}, bool_type)},
+        FN_ARRAY_FILTER_WITH_INDEX}});
+
+  InsertFunction(
+      functions, options, "array_transform", SCALAR,
+      /*signatures=*/
+      {{ARG_ARRAY_TYPE_ANY_2,
+        {ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2)},
+        FN_ARRAY_TRANSFORM},
+       {ARG_ARRAY_TYPE_ANY_2,
+        {ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type},
+                                      ARG_TYPE_ANY_2)},
+        FN_ARRAY_TRANSFORM_WITH_INDEX}});
+
   FunctionOptions function_is_volatile;
   function_is_volatile.set_volatility(FunctionEnums::VOLATILE);
 
@@ -911,6 +944,12 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                  {{array_string_type,
                    {string_type, {string_type, OPTIONAL}},
                    FN_JSON_EXTRACT_ARRAY}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_extract_string_array", SCALAR,
+                 {{array_string_type,
+                   {string_type, {string_type, OPTIONAL}},
+                   FN_JSON_EXTRACT_STRING_ARRAY}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
 
@@ -1211,12 +1250,6 @@ void GetNumericFunctions(TypeFactory* type_factory,
                    has_bignumeric_type_argument}},
                  FunctionOptions().set_arguments_are_coercible(false));
 
-  std::vector<FunctionSignatureOnHeap> sqrt_signatures = {
-      {double_type, {double_type}, FN_SQRT_DOUBLE},
-      {bignumeric_type,
-       {bignumeric_type},
-       FN_SQRT_BIGNUMERIC,
-       has_bignumeric_type_argument}};
   InsertFunction(functions, options, "pow", SCALAR,
                  {{double_type, {double_type, double_type}, FN_POW_DOUBLE},
                   {numeric_type,
@@ -1228,60 +1261,58 @@ void GetNumericFunctions(TypeFactory* type_factory,
                    FN_POW_BIGNUMERIC,
                    has_bignumeric_type_argument}},
                  FunctionOptions().set_alias_name("power"));
-  std::vector<FunctionSignatureOnHeap> exp_signatures = {
-      {double_type, {double_type}, FN_EXP_DOUBLE},
-      {bignumeric_type,
-       {bignumeric_type},
-       FN_EXP_BIGNUMERIC,
-       has_bignumeric_type_argument}};
-  std::vector<FunctionSignatureOnHeap> ln_signatures = {
-      {double_type, {double_type}, FN_NATURAL_LOGARITHM_DOUBLE},
-      {bignumeric_type,
-       {bignumeric_type},
-       FN_NATURAL_LOGARITHM_BIGNUMERIC,
-       has_bignumeric_type_argument}};
-  std::vector<FunctionSignatureOnHeap> log_signatures = {
-      {double_type,
-       {double_type, {double_type, OPTIONAL}},
-       FN_LOGARITHM_DOUBLE},
-      {bignumeric_type,
-       {bignumeric_type, {bignumeric_type, OPTIONAL}},
-       FN_LOGARITHM_BIGNUMERIC,
-       has_bignumeric_type_argument}};
-  std::vector<FunctionSignatureOnHeap> log10_signatures = {
-      {double_type, {double_type}, FN_DECIMAL_LOGARITHM_DOUBLE},
-      {bignumeric_type,
-       {bignumeric_type},
-       FN_DECIMAL_LOGARITHM_BIGNUMERIC,
-       has_bignumeric_type_argument}};
-  if (!options.language_options.LanguageFeatureEnabled(
-          FEATURE_NO_ADVANCED_NUMERIC_MATH_SIGNATURES)) {
-    sqrt_signatures.push_back({numeric_type,
-                               {numeric_type},
-                               FN_SQRT_NUMERIC,
-                               has_numeric_type_argument});
-    exp_signatures.push_back({numeric_type,
-                              {numeric_type},
-                              FN_EXP_NUMERIC,
-                              has_numeric_type_argument});
-    ln_signatures.push_back({numeric_type,
-                             {numeric_type},
-                             FN_NATURAL_LOGARITHM_NUMERIC,
-                             has_numeric_type_argument});
-    log_signatures.push_back({numeric_type,
-                              {numeric_type, {numeric_type, OPTIONAL}},
-                              FN_LOGARITHM_NUMERIC,
-                              has_numeric_type_argument});
-    log10_signatures.push_back({numeric_type,
-                                {numeric_type},
-                                FN_DECIMAL_LOGARITHM_NUMERIC,
-                                has_numeric_type_argument});
-  }
-  InsertFunction(functions, options, "sqrt", SCALAR, sqrt_signatures);
-  InsertFunction(functions, options, "exp", SCALAR, exp_signatures);
-  InsertFunction(functions, options, "ln", SCALAR, ln_signatures);
-  InsertFunction(functions, options, "log", SCALAR, log_signatures);
-  InsertFunction(functions, options, "log10", SCALAR, log10_signatures);
+  InsertFunction(functions, options, "sqrt", SCALAR,
+                 {{double_type, {double_type}, FN_SQRT_DOUBLE},
+                  {numeric_type,
+                   {numeric_type},
+                   FN_SQRT_NUMERIC,
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_SQRT_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
+  InsertFunction(functions, options, "exp", SCALAR,
+                 {{double_type, {double_type}, FN_EXP_DOUBLE},
+                  {numeric_type,
+                   {numeric_type},
+                   FN_EXP_NUMERIC,
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_EXP_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
+  InsertFunction(functions, options, "ln", SCALAR,
+                 {{double_type, {double_type}, FN_NATURAL_LOGARITHM_DOUBLE},
+                  {numeric_type,
+                   {numeric_type},
+                   FN_NATURAL_LOGARITHM_NUMERIC,
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_NATURAL_LOGARITHM_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
+  InsertFunction(functions, options, "log", SCALAR,
+                 {{double_type,
+                   {double_type, {double_type, OPTIONAL}},
+                   FN_LOGARITHM_DOUBLE},
+                  {numeric_type,
+                   {numeric_type, {numeric_type, OPTIONAL}},
+                   FN_LOGARITHM_NUMERIC,
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type, {bignumeric_type, OPTIONAL}},
+                   FN_LOGARITHM_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
+  InsertFunction(functions, options, "log10", SCALAR,
+                 {{double_type, {double_type}, FN_DECIMAL_LOGARITHM_DOUBLE},
+                  {numeric_type,
+                   {numeric_type},
+                   FN_DECIMAL_LOGARITHM_NUMERIC,
+                   has_numeric_type_argument},
+                  {bignumeric_type,
+                   {bignumeric_type},
+                   FN_DECIMAL_LOGARITHM_BIGNUMERIC,
+                   has_bignumeric_type_argument}});
 }
 
 void GetTrigonometricFunctions(TypeFactory* type_factory,

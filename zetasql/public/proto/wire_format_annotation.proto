@@ -66,6 +66,25 @@ extend google.protobuf.FieldOptions {
   //
   // NOTE: This is NOT interpreted at query time by zetasql.
   optional bool is_raw_proto = 163760138;
+
+  // Indicate that when the containing proto is converted to a SQL table,
+  // the column for this field will become a hidden column (a pseudo column)
+  // which is hidden in SELECT * expansion.
+  //
+  // This annotation only affects TableFromProto::Init() which converts proto
+  // descriptor to catalog Tables.
+  //
+  // This annotation only affects top level fields (columns) in a table
+  // schema proto. It has no effect on child fields in a compound type (struct,
+  // proto, array etc..), or in a row type in value tables.
+  //
+  // The annotation should be applied outside the is_wrapper message, on the
+  // actual top level fields, e.g.
+  //   optional NullableInt nullable_int = [ (zetasql.is_hidden_column) = true
+  //   ] 1;
+  //
+  // See (broken link) for details
+  optional bool is_hidden_column = 337961191;
 }
 
 enum TableType {

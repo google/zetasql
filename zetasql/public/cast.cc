@@ -237,6 +237,8 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
   ADD_TO_MAP(JSON,       STRING,     EXPLICIT);
 
+  ADD_TO_MAP(TOKENSET,   TOKENSET,   IMPLICIT);
+
   ADD_TO_MAP(ENUM,       STRING,     EXPLICIT);
 
   ADD_TO_MAP(ENUM,       INT32,      EXPLICIT);
@@ -436,11 +438,6 @@ bool SupportsExplicitCast(CastFunctionType type) {
          type == CastFunctionType::EXPLICIT_OR_LITERAL_OR_PARAMETER;
 }
 
-const CastHashMap& GetZetaSQLCasts() {
-  static const CastHashMap* cast_hash_map = InitializeZetaSQLCasts();
-  return *cast_hash_map;
-}
-
 namespace {
 
 // CastContext is an abstract class containing basic set of properties and
@@ -505,7 +502,7 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
   }
 
   // Check to see if the type kinds are castable.
-  if (!zetasql_base::ContainsKey(GetZetaSQLCasts(),
+  if (!zetasql_base::ContainsKey(internal::GetZetaSQLCasts(),
                         TypeKindPair(v.type_kind(), to_type->kind()))) {
     return MakeSqlError() << "Unsupported cast from " << v.type()->DebugString()
                           << " to " << to_type->DebugString();
@@ -682,8 +679,11 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
         return Value::UnvalidatedJsonString(v.string_value());
       } else {
         auto json_value = JSONValue::ParseJSONString(
-            v.string_value(), language_options().LanguageFeatureEnabled(
-                                  FEATURE_JSON_LEGACY_PARSE));
+            v.string_value(),
+            JSONParsingOptions{language_options().LanguageFeatureEnabled(
+                                   FEATURE_JSON_LEGACY_PARSE),
+                               language_options().LanguageFeatureEnabled(
+                                   FEATURE_JSON_STRICT_NUMBER_PARSING)});
         if (!json_value.ok()) {
           return MakeEvalError() << json_value.status().message();
         }
@@ -1082,6 +1082,11 @@ zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
   return CastContextWithoutValidation(default_timezone, language_options,
                                       extended_cast_evaluator)
       .CastValue(from_value, to_type);
+}
+
+const CastHashMap& GetZetaSQLCasts() {
+  static const CastHashMap* cast_hash_map = InitializeZetaSQLCasts();
+  return *cast_hash_map;
 }
 
 }  // namespace internal

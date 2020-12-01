@@ -22,12 +22,14 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/simple_catalog.pb.h"
+#include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_constant.pb.h"
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/annotation.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
@@ -184,6 +186,12 @@ std::string SimpleCatalog::SuggestTable(
     if (!closest_name.empty()) {
       return closest_name;
     }
+    closest_name = ClosestName(absl::AsciiStrToLower(name), table_names());
+    if (!closest_name.empty()) {
+      if (FindTable({closest_name}, &table).ok()) {
+        return table->Name();
+      }
+    }
   }
 
   // No suggestion obtained.
@@ -213,6 +221,21 @@ std::string SimpleCatalog::SuggestFunctionOrTableValuedFunction(
       }
     }
   } else {
+    const std::string closest_name =
+        ClosestName(absl::AsciiStrToLower(name),
+                    is_table_valued_function ? table_valued_function_names()
+                                             : function_names());
+    if (!closest_name.empty()) {
+      return closest_name;
+    }
+
+    // TODO: Add support for suggesting function names from nested
+    // catalogs, once accessing functions in sub_catalogs is supported in
+    // zetasql.
+    // TODO: We should verify that suggested function has a valid
+    // signature where it is suggested. Maybe we should get a list of all
+    // possible names under allowed ~20% edit distance and return the one which
+    // has a matching signature.
   }
 
   // No suggestion obtained.
@@ -250,6 +273,17 @@ std::string SimpleCatalog::SuggestConstant(
       }
     }
   } else {
+    const std::string closest_name =
+        ClosestName(absl::AsciiStrToLower(name), constant_names());
+    if (!closest_name.empty()) {
+      // A suggestion was found based on lower-case string comparison. Retrieve
+      // the suggested Constant and return its original name.
+      const Constant* constant = nullptr;
+      if (FindConstant({closest_name}, &constant).ok()) {
+        ZETASQL_DCHECK_NE(constant, nullptr) << closest_name;
+        return ToIdentifierLiteral(constant->Name());
+      }
+    }
   }
 
   // No suggestion obtained.
@@ -1283,11 +1317,19 @@ absl::Status SimpleTable::Deserialize(
 SimpleColumn::SimpleColumn(const std::string& table_name,
                            const std::string& name, const Type* type,
                            bool is_pseudo_column, bool is_writable_column)
+    : SimpleColumn(table_name, name,
+                   AnnotatedType(type, /*annotation_map=*/nullptr),
+                   is_pseudo_column, is_writable_column) {}
+
+SimpleColumn::SimpleColumn(const std::string& table_name,
+                           const std::string& name,
+                           AnnotatedType annotated_type, bool is_pseudo_column,
+                           bool is_writable_column)
     : name_(name),
       full_name_(absl::StrCat(table_name, ".", name)),
-      type_(type),
       is_pseudo_column_(is_pseudo_column),
-      is_writable_column_(is_writable_column) {}
+      is_writable_column_(is_writable_column),
+      annotated_type_(annotated_type) {}
 
 SimpleColumn::~SimpleColumn() {
 }
@@ -1299,6 +1341,10 @@ absl::Status SimpleColumn::Serialize(
   proto->set_name(Name());
   ZETASQL_RETURN_IF_ERROR(GetType()->SerializeToProtoAndDistinctFileDescriptors(
       proto->mutable_type(), file_descriptor_set_map));
+  if (GetTypeAnnotationMap() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        GetTypeAnnotationMap()->Serialize(proto->mutable_annotation_map()));
+  }
   proto->set_is_pseudo_column(IsPseudoColumn());
   if (!IsWritableColumn()) {
     proto->set_is_writable_column(false);
@@ -1313,9 +1359,14 @@ absl::Status SimpleColumn::Deserialize(
   const Type* type;
   ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
       proto.type(), pools, &type));
-  auto column = absl::make_unique<SimpleColumn>(table_name, proto.name(), type,
-                                                proto.is_pseudo_column(),
-                                                proto.is_writable_column());
+  const AnnotationMap* annotation_map = nullptr;
+  if (proto.has_annotation_map()) {
+    ZETASQL_RETURN_IF_ERROR(factory->DeserializeAnnotationMap(proto.annotation_map(),
+                                                      &annotation_map));
+  }
+  auto column = absl::make_unique<SimpleColumn>(
+      table_name, proto.name(), AnnotatedType(type, annotation_map),
+      proto.is_pseudo_column(), proto.is_writable_column());
   *result = std::move(column);
   return absl::OkStatus();
 }

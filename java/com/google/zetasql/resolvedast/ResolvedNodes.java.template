@@ -34,6 +34,7 @@ import com.google.zetasql.FieldDescriptorRefProto;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.Function;
 import com.google.zetasql.FunctionProtos.TVFArgumentProto;
+import com.google.zetasql.ZetaSQLAnnotation.AnnotationMapProto;
 import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.ResolvedFunctionCallInfo;
 import com.google.zetasql.FunctionProtos.ResolvedFunctionCallInfoProto;
@@ -41,7 +42,7 @@ import com.google.zetasql.FunctionProtos.FunctionSignatureProto;
 import com.google.zetasql.FunctionProtos.TVFSignatureProto;
 import com.google.zetasql.FunctionRefProto;
 import com.google.zetasql.FunctionSignature;
-import com.google.zetasql.ZetaSQLDescriptorPool.ZetaSQLFieldDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
@@ -76,6 +77,26 @@ import com.google.zetasql.{{node.proto_type}};
 
 import java.util.List;
 {{ blank_line }}
+
+/**
+ * This is a dummy implementation of AnnotationMap.
+ * TODO: implement AnnotationMap in
+ *   package com.google.zetasql
+ */
+final class AnnotationMap {
+  public AnnotationMap() {
+  }
+
+  public AnnotationMapProto serialize(
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return AnnotationMapProto.getDefaultInstance();
+  }
+
+  public String debugString() {
+    return "";
+  }
+}
+
 /**
  * This class is a container for all subclasses of {@link ResolvedNode}.
  *
@@ -178,6 +199,12 @@ public final class ResolvedNodes {
     builder.setName(col.getName());
     builder.setType(serialize(col.getType(), fileDescriptorSetsBuilder));
     return builder.build();
+  }
+
+  static AnnotationMapProto serialize(
+      AnnotationMap annotationMap,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return annotationMap.serialize(fileDescriptorSetsBuilder);
   }
 
   public static ResolvedNode deserialize(

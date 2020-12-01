@@ -67,14 +67,20 @@ class ResolvedColumn {
   // zetasql code can't call it.
   ResolvedColumn(int column_id, const std::string& table_name,
                  const std::string& name, const Type* type);
-  ResolvedColumn(int column_id, IdString table_name,
-                 IdString name, const Type* type)
-      : column_id_(column_id), table_name_(table_name),
-        name_(name), type_(type) {
+  ResolvedColumn(int column_id, IdString table_name, IdString name,
+                 const Type* type)
+      : ResolvedColumn(column_id, table_name, name,
+                       AnnotatedType(type, /*annotation_map=*/nullptr)) {}
+  ResolvedColumn(int column_id, IdString table_name, IdString name,
+                 AnnotatedType annotated_type)
+      : column_id_(column_id),
+        table_name_(table_name),
+        name_(name),
+        annotated_type_(annotated_type) {
     ZETASQL_DCHECK_GT(column_id, 0) << "column_id should be positive";
     ZETASQL_DCHECK(!table_name.empty());
     ZETASQL_DCHECK(!name.empty());
-    ZETASQL_DCHECK(type != nullptr);
+    ZETASQL_DCHECK(annotated_type.type != nullptr);
   }
 
   // Return true if this ResolvedColumn has been initialized.
@@ -85,7 +91,7 @@ class ResolvedColumn {
     column_id_ = -1;
     table_name_.clear();
     name_.clear();
-    type_ = nullptr;
+    annotated_type_ = AnnotatedType();
   }
 
   // Return "<table>.<column>#<column_id>".
@@ -116,7 +122,13 @@ class ResolvedColumn {
   IdString table_name_id() const { return table_name_; }
   IdString name_id() const { return name_; }
 
-  const Type* type() const { return type_; }
+  const Type* type() const { return annotated_type_.type; }
+
+  const AnnotationMap* type_annotation_map() const {
+    return annotated_type_.annotation_map;
+  }
+
+  AnnotatedType annotated_type() const { return annotated_type_; }
 
   // Equality is defined using column_id only.
   bool operator==(const ResolvedColumn& other) const {
@@ -147,8 +159,8 @@ class ResolvedColumn {
   // used to select this column (if it was properly scoped).
   IdString name_;
 
-  // The type of this column.  Not owned.
-  const Type* type_ = nullptr;
+  // The type and annotations.  Doesn't own either pointer.
+  AnnotatedType annotated_type_;
 };
 
 // A vector of columns produced by an operation like a scan or subquery.

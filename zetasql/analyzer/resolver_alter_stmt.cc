@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-// This file contains the implementation of ALTER TABLE-related resolver
+// This file contains the implementation of ALTER related resolver
 // methods from resolver.h.
 #include <map>
 #include <memory>
@@ -69,22 +69,19 @@ absl::Status Resolver::ResolveAlterActions(
             MakeResolvedSetOptionsAction(std::move(resolved_options)));
       } break;
       case AST_ADD_CONSTRAINT_ACTION: {
-        auto constraint_kind = action->GetAsOrDie<ASTAddConstraintAction>()
-                                   ->constraint()
-                                   ->node_kind();
-        if (constraint_kind == AST_CHECK_CONSTRAINT &&
-            !language().LanguageFeatureEnabled(FEATURE_CHECK_CONSTRAINT)) {
-          return MakeSqlErrorAt(action) << "CHECK CONSTRAINT is not supported";
-        }
-        if (constraint_kind == AST_FOREIGN_KEY &&
-            !language().LanguageFeatureEnabled(FEATURE_FOREIGN_KEYS)) {
-          return MakeSqlErrorAt(action) << "FOREIGN KEY is not supported";
-        }
-        return MakeSqlErrorAt(action)
-               << "ALTER TABLE ADD CONSTRAINT is not implemented";
-      }
-      case AST_DROP_CONSTRAINT_ACTION:
-        return MakeSqlErrorAt(action) << "DROP CONSTRAINT is not supported";
+        const auto* constraint = action->GetAsOrDie<ASTAddConstraintAction>();
+        std::unique_ptr<const ResolvedAddConstraintAction>
+            resolved_alter_action;
+        ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(altered_table, constraint,
+                                                   &resolved_alter_action));
+        alter_actions->push_back(std::move(resolved_alter_action));
+      } break;
+      case AST_DROP_CONSTRAINT_ACTION: {
+        const auto* constraint = action->GetAsOrDie<ASTDropConstraintAction>();
+        alter_actions->push_back(MakeResolvedDropConstraintAction(
+            constraint->is_if_exists(),
+            constraint->constraint_name()->GetAsString()));
+      } break;
       case AST_ALTER_CONSTRAINT_ENFORCEMENT_ACTION:
         return MakeSqlErrorAt(action)
                << "ALTER CONSTRAINT ENFORCED/NOT ENFORCED is not supported";
@@ -168,6 +165,21 @@ absl::Status Resolver::ResolveAlterDatabaseStatement(
                                       &has_only_set_options_action,
                                       &resolved_alter_actions));
   *output = MakeResolvedAlterDatabaseStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterSchemaStatement(
+    const ASTAlterSchemaStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "SCHEMA", output,
+                                      &has_only_set_options_action,
+                                      &resolved_alter_actions));
+  *output = MakeResolvedAlterSchemaStmt(
       ast_statement->path()->ToIdentifierVector(),
       std::move(resolved_alter_actions), ast_statement->is_if_exists());
   return absl::OkStatus();
@@ -339,6 +351,43 @@ absl::Status Resolver::ResolveAlterEntityStatement(
       std::move(resolved_alter_actions), ast_statement->is_if_exists(),
       ast_statement->type()->GetAsString());
   return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAddConstraintAction(
+    const Table* referencing_table, const ASTAddConstraintAction* alter_action,
+    std::unique_ptr<const ResolvedAddConstraintAction>* resolved_alter_action) {
+  auto constraint_kind = alter_action->constraint()->node_kind();
+  if (constraint_kind == AST_CHECK_CONSTRAINT &&
+      !language().LanguageFeatureEnabled(FEATURE_CHECK_CONSTRAINT)) {
+    return MakeSqlErrorAt(alter_action) << "CHECK CONSTRAINT is not supported";
+  } else if (constraint_kind == AST_FOREIGN_KEY) {
+    if (!language().LanguageFeatureEnabled(FEATURE_FOREIGN_KEYS)) {
+      return MakeSqlErrorAt(alter_action) << "FOREIGN KEY is not supported";
+    }
+
+    ColumnIndexMap column_indexes;
+    std::vector<const Type*> column_types;
+    for (int i = 0; i < referencing_table->NumColumns(); i++) {
+      const Column* column = referencing_table->GetColumn(i);
+      ZETASQL_RET_CHECK(column != nullptr);
+      column_indexes[id_string_pool_->Make(column->Name())] = i;
+      column_types.push_back(column->GetType());
+    }
+
+    const ASTForeignKey* foreign_key =
+        alter_action->constraint()->GetAsOrDie<ASTForeignKey>();
+    std::vector<std::unique_ptr<ResolvedForeignKey>> foreign_keys;
+    ZETASQL_RETURN_IF_ERROR(ResolveForeignKeyTableConstraint(
+        column_indexes, column_types, foreign_key, &foreign_keys));
+    ZETASQL_RET_CHECK(foreign_keys.size() == 1);
+    *resolved_alter_action = MakeResolvedAddConstraintAction(
+        alter_action->is_if_not_exists(), std::move(foreign_keys[0]),
+        referencing_table);
+    return absl::OkStatus();
+  }
+
+  return MakeSqlErrorAt(alter_action)
+         << "ALTER TABLE ADD CONSTRAINT is not implemented";
 }
 
 }  // namespace zetasql

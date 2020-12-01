@@ -85,6 +85,9 @@ message ValueProto {
     // Tag 22 was used for json value as bytes, now obsolete.
     // Json value represented as a string document.
     string json_value = 23;
+    // Encoded interval value. For the encoding format see documentation for
+    // IntervalValue::SerializeAsBytes().
+    bytes interval_value = 24;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;

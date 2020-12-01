@@ -36,6 +36,7 @@
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/proto_util.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -522,7 +523,13 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
   // TODO: move struct and array logic into Type subclasses.
   switch (x.type_kind()) {
     case TYPE_ARRAY: {
-      if (x.num_elements() != y.num_elements()) {
+      // We only treat an array as a map if both sides preserve order.
+      // Otherwise, if there are duplicate keys, we can't tell which key
+      // supersedes the other.
+      const bool treat_as_map = IsProtoMap(x.type()) &&
+                                x.metadata_.preserves_order() &&
+                                y.metadata_.preserves_order();
+      if (x.num_elements() != y.num_elements() && !treat_as_map) {
         if (reason) {
           absl::StrAppend(
               reason,
@@ -536,6 +543,9 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
       }
       auto element_order_spec =
           allow_bags ? &deep_order_spec->children[0] : nullptr;
+      if (treat_as_map) {
+        return EqualElementMap(x, y, element_order_spec, float_margin, reason);
+      }
       if (allow_bags && deep_order_spec->ignores_order) {
         return EqualElementMultiSet(x, y, element_order_spec, float_margin,
                                     reason);
@@ -604,6 +614,94 @@ struct InternalHasher {
   }
   FloatMargin float_margin;
 };
+
+bool Value::EqualElementMap(const Value& x, const Value& y,
+                            DeepOrderKindSpec* deep_order_spec,
+                            FloatMargin float_margin, std::string* reason) {
+  ZETASQL_DCHECK(x.metadata_.preserves_order()) << x.DebugString(/*verbose=*/true);
+  ZETASQL_DCHECK(y.metadata_.preserves_order()) << y.DebugString(/*verbose=*/true);
+  google::protobuf::DynamicMessageFactory factory;
+  absl::flat_hash_map<MapKeyVariant, Value> xentries;
+  absl::Status status = ParseProtoMap(x, factory, xentries);
+  if (!status.ok()) {
+    absl::StrAppend(reason, status.ToString());
+    return false;
+  }
+  absl::flat_hash_map<MapKeyVariant, Value> yentries;
+  status = ParseProtoMap(y, factory, yentries);
+  if (!status.ok()) {
+    absl::StrAppend(reason, status.ToString());
+    return false;
+  }
+
+  bool x_has_null = false;
+  bool y_has_null = false;
+  for (const auto& xval : x.elements()) {
+    if (xval.is_null()) {
+      x_has_null = true;
+      break;
+    }
+  }
+  for (const auto& yval : y.elements()) {
+    if (yval.is_null()) {
+      y_has_null = true;
+      break;
+    }
+  }
+
+  bool all_values_equal = true;
+  std::vector<Value> missing_from_y;
+  for (const auto& entry : xentries) {
+    auto yit = yentries.find(entry.first);
+    if (yit == yentries.end()) {
+      missing_from_y.push_back(entry.second);
+      continue;
+    }
+    const auto& yvalue = yit->second;
+    all_values_equal &=
+        Value::EqualsInternal(entry.second, yvalue, /*allow_bags=*/true,
+                              deep_order_spec, float_margin, reason);
+  }
+
+  std::vector<Value> missing_from_x;
+  for (const auto& entry : yentries) {
+    if (!xentries.contains(entry.first)) {
+      missing_from_x.push_back(entry.second);
+    }
+  }
+
+  if (x_has_null != y_has_null) {
+    if (x_has_null) {
+      missing_from_y.push_back(
+          Value::Null(x.type()->AsArray()->element_type()));
+    } else {
+      missing_from_x.push_back(
+          Value::Null(y.type()->AsArray()->element_type()));
+    }
+  }
+
+  if (missing_from_x.empty() && missing_from_y.empty() && all_values_equal) {
+    return true;
+  }
+
+  if (reason != nullptr) {
+    auto PrintMissingElements =
+        [&](const Value& expected_in, const Value& elements_of,
+            const std::vector<Value>& missing_elements) {
+          if (missing_elements.empty()) return;
+          absl::StrAppend(reason, "Map elements [");
+          for (int i = 0; i < missing_elements.size(); ++i) {
+            absl::StrAppend(reason, i > 0 ? ", " : "",
+                            missing_elements[i].DebugString());
+          }
+          absl::StrAppend(reason, "] of ", elements_of.DebugString(),
+                          " are missing in ", expected_in.DebugString());
+        };
+    PrintMissingElements(y, x, missing_from_y);
+    PrintMissingElements(x, y, missing_from_x);
+  }
+  return false;
+}
 
 // Compares arrays as multisets. Used in tests only. The current algorithm,
 // which counts the number of the same elements, may return false negatives if
@@ -821,14 +919,15 @@ size_t Value::HashCode() const { return absl::Hash<Value>()(*this); }
 // Value objects.
 struct ValueHasherIgnoringFloat {
   const Value& v;
+  bool preserves_order;
 
   template <typename H>
   friend H AbslHashValue(H h, const ValueHasherIgnoringFloat& v) {
-    return HashInternal(std::move(h), v.v);
+    return HashInternal(std::move(h), v.v, v.preserves_order);
   }
 
   template <typename H>
-  static H HashInternal(H h, const Value& v) {
+  static H HashInternal(H h, const Value& v, bool preserves_order) {
     static constexpr uint64_t kFloatApproximateHashCode = 0x1192AA60660CCFABull;
     static constexpr uint64_t kDoubleApproximateHashCode = 0x520C31647E82D8E6ull;
     if (!v.is_valid() || v.is_null()) {
@@ -841,22 +940,41 @@ struct ValueHasherIgnoringFloat {
       case TYPE_DOUBLE:
         return H::combine(std::move(h), kDoubleApproximateHashCode);
       case TYPE_ARRAY: {
-        // We must hash arrays as if unordered to support hash_map and hash_set
-        // of values containing arrays with order_kind()=kIgnoresOrder.
-        // absl::Hash lacks support for unordered containers, so we create a
-        // cheapo solution of just adding the hashcodes.
         absl::Hash<ValueHasherIgnoringFloat> element_hasher;
         size_t combined_hash = 1;
-        for (int i = 0; i < v.num_elements(); i++) {
-          combined_hash +=
-              element_hasher(ValueHasherIgnoringFloat{v.element(i)});
+        google::protobuf::DynamicMessageFactory factory;
+        absl::flat_hash_map<MapKeyVariant, Value> parsed_map;
+        if (preserves_order && IsProtoMap(v.type()) &&
+            ParseProtoMap(v, factory, parsed_map).ok()) {
+          // If we are a proto map, we discard any duplicate keys when computing
+          // the hash. If for whatever reason the map is invalid, then we fall
+          // back to the ordinary hash calculation. Note that when we don't
+          // have order preservation we have no choice but to treat maps like
+          // plain arrays, since the final key in the list no longer has
+          // a coherent meaning.
+          for (const auto& entry : parsed_map) {
+            combined_hash +=
+                element_hasher(ValueHasherIgnoringFloat{entry.second});
+          }
+          for (const auto& element : v.elements()) {
+            if (element.is_null()) {
+              combined_hash +=
+                  element_hasher(ValueHasherIgnoringFloat{element});
+              break;
+            }
+          }
+        } else {
+          for (int i = 0; i < v.num_elements(); i++) {
+            combined_hash +=
+                element_hasher(ValueHasherIgnoringFloat{v.element(i)});
+          }
         }
         return H::combine(std::move(h), TYPE_ARRAY, combined_hash);
       }
       case TYPE_STRUCT: {
         h = H::combine(std::move(h), TYPE_STRUCT);
         for (int i = 0; i < v.num_fields(); i++) {
-          h = HashInternal(std::move(h), v.field(i));
+          h = HashInternal(std::move(h), v.field(i), preserves_order);
         }
         return h;
       }
@@ -873,7 +991,7 @@ size_t Value::HashCodeInternal(FloatMargin float_margin) const {
     // If using inexactly equality, just have all floats/doubles hash to a
     // constant, and let equality deal with float_margin.
     return absl::Hash<ValueHasherIgnoringFloat>()(
-        ValueHasherIgnoringFloat{*this});
+        ValueHasherIgnoringFloat{*this, metadata_.preserves_order()});
   }
 }
 
@@ -1074,6 +1192,8 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "BigNumeric";
     case TYPE_JSON:
       return "Json";
+    case TYPE_TOKENSET:
+      return "TokenSet";
     case TYPE_ENUM:
       return absl::StrCat("Enum<",
                           type->AsEnum()->enum_descriptor()->full_name(), ">");

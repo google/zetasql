@@ -178,32 +178,11 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::UnregisterCatalog(
   return ToGrpcStatus(service_.UnregisterCatalog(req->registered_id()));
 }
 
-grpc::Status ZetaSqlLocalServiceGrpcImpl::RegisterParseResumeLocation(
-    grpc::ServerContext* context,
-    const ParseResumeLocationProto* parse_resume_location,
-    RegisterResponse* resp) {
-  return ToGrpcStatus(
-      service_.RegisterParseResumeLocation(*parse_resume_location, resp));
-}
-
-grpc::Status ZetaSqlLocalServiceGrpcImpl::UnregisterParseResumeLocation(
-    grpc::ServerContext* context, const UnregisterRequest* req,
-    google::protobuf::Empty* unused) {
-  return ToGrpcStatus(
-      service_.UnregisterParseResumeLocation(req->registered_id()));
-}
-
 grpc::Status ZetaSqlLocalServiceGrpcImpl::GetBuiltinFunctions(
     grpc::ServerContext* context,
     const ZetaSQLBuiltinFunctionOptionsProto* options,
     GetBuiltinFunctionsResponse* resp) {
   return ToGrpcStatus(service_.GetBuiltinFunctions(*options, resp));
-}
-
-grpc::Status ZetaSqlLocalServiceGrpcImpl::AddSimpleTable(
-    grpc::ServerContext* context, const AddSimpleTableRequest* req,
-    google::protobuf::Empty* unused) {
-  return ToGrpcStatus(service_.AddSimpleTable(*req));
 }
 
 grpc::Status ZetaSqlLocalServiceGrpcImpl::GetLanguageOptions(

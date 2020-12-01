@@ -138,9 +138,11 @@ cc_test(
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/compliance:functions_testlib",
         "//zetasql/public:numeric_value",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/testing:test_function",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -232,8 +234,10 @@ cc_test(
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/compliance:functions_testlib",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/testing:test_function",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -442,6 +446,35 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "arithmetics_test",
+    size = "small",
+    srcs = ["arithmetics_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":arithmetics",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:type",
+        "//zetasql/public:type_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
 cc_library(
     name = "bitwise",
     srcs = ["bitwise.cc"],
@@ -544,6 +577,27 @@ cc_library(
     ],
     deps = [
         "@com_google_absl//absl/base:core_headers",
+    ],
+)
+
+cc_test(
+    name = "comparison_test",
+    size = "small",
+    srcs = ["comparison_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":comparison",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/random",
     ],
 )
 

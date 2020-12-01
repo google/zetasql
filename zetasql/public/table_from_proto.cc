@@ -69,7 +69,16 @@ absl::Status TableFromProto::Init(const google::protobuf::Descriptor* descriptor
            << " decodes to non-struct type " << row_type->DebugString()
            << " so is not valid to use as a non-value table type";
   }
-  for (const StructType::StructField& field : row_type->AsStruct()->fields()) {
+  if (descriptor->field_count() != row_type->AsStruct()->num_fields()) {
+    return ::zetasql_base::UnknownErrorBuilder()
+           << "Proto " << descriptor->full_name()
+           << " decodes to a struct type with a different number of fields. "
+              "Proto #fields: "
+           << descriptor->field_count()
+           << " struct #fields: " << row_type->AsStruct()->num_fields();
+  }
+  for (int i = 0; i < row_type->AsStruct()->num_fields(); ++i) {
+    const StructType::StructField& field = row_type->AsStruct()->field(i);
     if (!AllowAnonymousColumnName() && field.name.empty()) {
       return ::zetasql_base::UnknownErrorBuilder()
              << "Proto " << descriptor->full_name()
@@ -77,9 +86,12 @@ absl::Status TableFromProto::Init(const google::protobuf::Descriptor* descriptor
              << " which has anonymous fields, so cannot be used as "
                 "a SQL table";
     }
+    const google::protobuf::FieldDescriptor* proto_field = descriptor->field(i);
+    bool is_pseudo_column =
+        proto_field->options().GetExtension(zetasql::is_hidden_column);
     ZETASQL_RETURN_IF_ERROR(AddColumn(
-        new SimpleColumn(FullName(), field.name, field.type),
-        true /* is_owned */));
+        new SimpleColumn(FullName(), field.name, field.type, is_pseudo_column),
+        /*is_owned=*/true));
   }
 
   return absl::OkStatus();

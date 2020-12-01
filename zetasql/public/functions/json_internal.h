@@ -497,6 +497,81 @@ class JSONPathArrayExtractor final : public JSONPathExtractor {
   std::vector<std::string> result_array_;
 };
 
+// A JSONPath extractor that extracts array referred to by JSONPath. Similar to
+// the scalar version of JSONPath extractor, it finds the first sub-tree
+// matching the JSONPath. If it is not an array, returns null. Otherwise it
+// will iterate over all the elements of the array and append them to
+// 'result_array_' as strings and finally return the array.
+class JSONPathStringArrayExtractor final : public JSONPathExtractor {
+ public:
+  // `iter` and the object underlying `json` must outlive this object.
+  JSONPathStringArrayExtractor(absl::string_view json,
+                               ValidJSONPathIterator* iter)
+      : JSONPathExtractor(json, iter) {}
+
+  bool ExtractStringArray(std::vector<std::string>* result, bool* is_null) {
+    bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
+
+    // Parse-failed OR no-match-found OR null-Value OR not-an-array
+    *is_null = !parse_success || !stop_on_first_match_ || parsed_null_result_ ||
+               !scalar_array_accepted_;
+    if (!(*is_null)) {
+      result->assign(result_array_.begin(), result_array_.end());
+    }
+    return parse_success;
+  }
+
+ protected:
+  bool BeginObject() override {
+    if (!JSONPathExtractor::BeginObject()) {
+      return false;
+    }
+    scalar_array_accepted_ = false;
+    return true;
+  }
+
+  bool BeginArray() override {
+    if (!JSONPathExtractor::BeginArray()) {
+      return false;
+    }
+    scalar_array_accepted_ = accept_array_elements_;
+    return true;
+  }
+
+  bool BeginArrayEntry() override {
+    // Stack Usage Invariant: !accept_ && match_
+    if (!accept_ && extend_match_) {
+      MatchAndMaintainInvariant("", true);
+    } else if (accept_array_elements_) {
+      result_json_.clear();
+    }
+    return true;
+  }
+
+  bool EndArrayEntry(bool last) override {
+    if (!accept_ && extend_match_) {
+      stack_.top()++;
+    }
+    if (accept_array_elements_) {
+      result_array_.push_back(result_json_);
+    } else if (accept_ && !last) {
+      absl::StrAppend(&result_json_, ",");
+    }
+    return true;
+  }
+
+  bool ParsedString(const std::string& str) override {
+    if (AcceptableLeaf()) {
+      absl::StrAppend(&result_json_, str);
+    }
+    return !stop_on_first_match_;
+  }
+
+  // Whether the JSONPath points to an array with scalar elements.
+  bool scalar_array_accepted_ = false;
+  std::vector<std::string> result_array_;
+};
+
 }  // namespace json_internal
 }  // namespace functions
 }  // namespace zetasql

@@ -25,6 +25,7 @@
 #include "google/protobuf/descriptor_database.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
@@ -41,6 +42,7 @@
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/ambiguous_has.pb.h"
@@ -276,6 +278,8 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadTemplatedSQLTableValuedFunctions();
   LoadProcedures();
   LoadConstants();
+  LoadWellKnownLambdaArgFunctions();
+  LoadContrivedLambdaArgFunctions();
 }
 
 void SampleCatalog::LoadTypes() {
@@ -457,6 +461,60 @@ void SampleCatalog::LoadTables() {
       " Value",
       {{" Key", types_->get_int64()}, {" Value", types_->get_string()}});
   AddOwnedTable(space_value_table);
+
+  auto collatedTable = new SimpleTable("CollatedTable");
+  const AnnotationMap* annotation_map_string_ci;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(types_->get_string());
+    annotation_map->SetAnnotation(CollationAnnotation::GetId(),
+                                  AnnotationValue::String("unicode:ci"));
+    zetasql_base::StatusOr<const AnnotationMap*> status_or_annotation_map =
+        types_->TakeOwnership(std::move(annotation_map));
+    ZETASQL_CHECK_OK(status_or_annotation_map.status());
+    annotation_map_string_ci = status_or_annotation_map.value();
+  }
+
+  const AnnotationMap* annotation_map_string_cs;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(types_->get_string());
+    annotation_map->SetAnnotation(CollationAnnotation::GetId(),
+                                  AnnotationValue::String("unicode"));
+    zetasql_base::StatusOr<const AnnotationMap*> status_or_annotation_map =
+        types_->TakeOwnership(std::move(annotation_map));
+    ZETASQL_CHECK_OK(status_or_annotation_map.status());
+    annotation_map_string_cs = status_or_annotation_map.value();
+  }
+
+  const AnnotationMap* annotation_map_struct_with_string_ci;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(struct_type_);
+    annotation_map->AsStructMap()->mutable_field(1)->SetAnnotation(
+        CollationAnnotation::GetId(), AnnotationValue::String("unicode:ci"));
+    zetasql_base::StatusOr<const AnnotationMap*> status_or_annotation_map =
+        types_->TakeOwnership(std::move(annotation_map));
+    ZETASQL_CHECK_OK(status_or_annotation_map.status());
+    annotation_map_struct_with_string_ci = status_or_annotation_map.value();
+  }
+
+  auto string_ci = new SimpleColumn(
+      collatedTable->Name(), "string_ci",
+      AnnotatedType(types_->get_string(), annotation_map_string_ci));
+
+  auto string_cs = new SimpleColumn(
+      collatedTable->Name(), "string_cs",
+      AnnotatedType(types_->get_string(), annotation_map_string_cs));
+
+  auto struct_ci = new SimpleColumn(
+      collatedTable->Name(), "struct_with_string_ci",
+      AnnotatedType(struct_type_, annotation_map_struct_with_string_ci));
+
+  ZETASQL_CHECK_OK(collatedTable->AddColumn(string_ci, /*is_owned=*/true));
+  ZETASQL_CHECK_OK(collatedTable->AddColumn(string_cs, /*is_owned=*/true));
+  ZETASQL_CHECK_OK(collatedTable->AddColumn(struct_ci, /*is_owned=*/true));
+  AddOwnedTable(collatedTable);
 
   AddOwnedTable(new SimpleTable(
       "SimpleTypes",
@@ -3605,6 +3663,183 @@ void SampleCatalog::LoadConnections() {
 void SampleCatalog::AddOwnedTable(SimpleTable* table) {
   catalog_->AddOwnedTable(absl::WrapUnique(table));
   zetasql_base::InsertOrDie(&tables_, table->Name(), table);
+}
+
+void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
+  const Type* int64_type = types_->get_int64();
+  const Type* bool_type = types_->get_bool();
+
+  // Models ARRAY_FILTER
+  auto function = absl::make_unique<Function>(
+      "fn_array_filter", "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_ARRAY_TYPE_ANY_1,
+       {ARG_ARRAY_TYPE_ANY_1,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, LAMBDA(<T1>->BOOL)) -> <array<T1>>",
+           function->GetSignature(0)->DebugString());
+  function->AddSignature(
+      {ARG_ARRAY_TYPE_ANY_1,
+       {ARG_ARRAY_TYPE_ANY_1,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_1, int64_type}, bool_type)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, LAMBDA((<T1>, INT64)->BOOL)) -> <array<T1>>",
+           function->GetSignature(1)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Models ARRAY_TRANSFORM
+  function = absl::make_unique<Function>("fn_array_transform",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_ARRAY_TYPE_ANY_2,
+       {ARG_ARRAY_TYPE_ANY_1,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, LAMBDA(<T1>-><T2>)) -> <array<T2>>",
+           function->GetSignature(0)->DebugString());
+  function->AddSignature({ARG_ARRAY_TYPE_ANY_2,
+                          {ARG_ARRAY_TYPE_ANY_1,
+                           FunctionArgumentType::Lambda(
+                               {ARG_TYPE_ANY_1, int64_type}, ARG_TYPE_ANY_2)},
+                          /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, LAMBDA((<T1>, INT64)-><T2>)) -> <array<T2>>",
+           function->GetSignature(1)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  function = absl::make_unique<Function>("fn_fp_array_sort", "sample_functions",
+                                         Function::SCALAR);
+  function->AddSignature({ARG_TYPE_ANY_1,
+                          {ARG_ARRAY_TYPE_ANY_1,
+                           FunctionArgumentType::Lambda(
+                               {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, int64_type)},
+                          /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, LAMBDA((<T1>, <T1>)->INT64)) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Models REDUCE function, which takes an input array, an initial state and a
+  // function to run over each element with the current state to produce the
+  // final state.
+  function = absl::make_unique<Function>("fn_fp_array_reduce",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_2,
+       {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_2,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_2, ARG_TYPE_ANY_1},
+                                     ARG_TYPE_ANY_2)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, <T2>, LAMBDA((<T2>, <T1>)-><T2>)) -> <T2>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+}
+
+void SampleCatalog::LoadContrivedLambdaArgFunctions() {
+  const Type* int64_type = types_->get_int64();
+  const Type* bool_type = types_->get_bool();
+
+  // Demonstrate having to get common super type for two different concrete type
+  // for a single template type.
+  auto function = absl::make_unique<Function>(
+      "fn_fp_T_T_LAMBDA", "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<T1>, <T1>, LAMBDA(<T1>->BOOL)) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // fn_fp_ArrayT_T is provided here to show current behavior to make it easier
+  // for reader to understand fn_fp_ArrayT_T_LAMBDA.
+  function = absl::make_unique<Function>("fn_fp_ArrayT_T", "sample_functions",
+                                         Function::SCALAR);
+  function->AddSignature({ARG_TYPE_ANY_1,
+                          {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1},
+                          /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, <T1>) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Demostrate case where we don't have common super type for T1, due to
+  // ARRAY<T1>.
+  function = absl::make_unique<Function>("fn_fp_ArrayT_T_LAMBDA",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<array<T1>>, <T1>, LAMBDA(<T1>->BOOL)) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Demonstrate that lambda argument type inference conflict with final
+  // concrete type of templated type influenced by lambda body type.
+  function = absl::make_unique<Function>("fn_fp_T_LAMBDA_RET_T",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {ARG_TYPE_ANY_1,
+        FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_1)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(<T1>, LAMBDA(<T1>-><T1>)) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  const auto named_required_format_arg = zetasql::FunctionArgumentType(
+      types_->get_string(),
+      zetasql::FunctionArgumentTypeOptions().set_argument_name(
+          "format_string"));
+  // Signature with lambda and named argument before lambda.
+  function = absl::make_unique<Function>("fn_fp_named_then_lambda",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {named_required_format_arg,
+        FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1)},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(STRING format_string, LAMBDA(INT64-><T1>)) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Signature with lambda and named argument after lambda.
+  function = absl::make_unique<Function>("fn_fp_lambda_then_named",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1),
+        named_required_format_arg},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(LAMBDA(INT64-><T1>), STRING format_string) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Signature with lambda and repeated arguments after lambda.
+  const auto repeated_arg = zetasql::FunctionArgumentType(
+      types_->get_int64(), FunctionArgumentType::REPEATED);
+  function = absl::make_unique<Function>("fn_fp_lambda_then_repeated",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature(
+      {ARG_TYPE_ANY_1,
+       {FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1),
+        repeated_arg},
+       /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(LAMBDA(INT64-><T1>), repeated INT64) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
+
+  // Signature with lambda and repeated arguments before lambda.
+  function = absl::make_unique<Function>("fn_fp_repeated_arg_then_lambda",
+                                         "sample_functions", Function::SCALAR);
+  function->AddSignature({ARG_TYPE_ANY_1,
+                          {repeated_arg, FunctionArgumentType::Lambda(
+                                             {int64_type}, ARG_TYPE_ANY_1)},
+                          /*context_id=*/-1});
+  ZETASQL_CHECK_EQ("(repeated INT64, LAMBDA(INT64-><T1>)) -> <T1>",
+           function->GetSignature(0)->DebugString());
+  catalog_->AddOwnedFunction(function.release());
 }
 
 }  // namespace zetasql

@@ -17,14 +17,9 @@
 
 package com.google.zetasql;
 
-import com.google.common.base.Preconditions;
 import com.google.zetasql.ZetaSQLParser.ParseResumeLocationProto;
-import com.google.zetasql.LocalService.RegisterResponse;
-import com.google.zetasql.LocalService.UnregisterRequest;
-import io.grpc.StatusRuntimeException;
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.logging.Logger;
 
 /**
  * The ParseResumeLocation class stores the parser input and a location, and is used as a restart
@@ -32,15 +27,10 @@ import java.util.logging.Logger;
  * successive call updates this location object so the next call knows where to start.
  */
 public class ParseResumeLocation implements Serializable {
-  private static final Logger logger = Logger.getLogger(ParseResumeLocation.class.getName());
-
   private String filename;
   private String input;
   private int bytePosition = 0;
   private boolean allowResume = true;
-
-  private boolean registered = false;
-  private long registeredId = -1;
 
   /**
    * The constructor of ParseResumeLocation. Initially the value of bytePosition is zero and the
@@ -72,57 +62,6 @@ public class ParseResumeLocation implements Serializable {
     return ret;
   }
 
-  public AutoUnregister register() {
-    Preconditions.checkState(!registered);
-
-    try {
-      RegisterResponse resp = Client.getStub().registerParseResumeLocation(serialize());
-      registeredId = resp.getRegisteredId();
-    } catch (StatusRuntimeException e) {
-      throw new SqlException(e);
-    }
-
-    registered = true;
-    return new AutoUnregister();
-  }
-
-  public void unregister() {
-    Preconditions.checkState(registered);
-    try {
-      Client.getStub()
-          .unregisterParseResumeLocation(
-              UnregisterRequest.newBuilder().setRegisteredId(registeredId).build());
-    } catch (StatusRuntimeException e) {
-      // Maybe caused by double unregistering (in race conditions) or RPC
-      // failure. The latter may cause leak but it's likely due to more serious
-      // problems and there is no good way to recover. Just log and ignore.
-      logger.severe("Failed to unregister parse resume location: " + e.getMessage());
-    } finally {
-      registered = false;
-      registeredId = -1;
-    }
-  }
-
-  public boolean isRegistered() {
-    return registered;
-  }
-
-  long getRegisteredId() {
-    Preconditions.checkState(registered);
-    return registeredId;
-  }
-
-  /**
-   * AutoCloseable implementation that unregisters the ParseResumeLocation automatically when used
-   * in try-with-resources.
-   */
-  public class AutoUnregister implements AutoCloseable {
-    @Override
-    public void close() {
-      unregister();
-    }
-  }
-
   /** Get the filename associated with the parser input. */
   public String getFilename() {
     return filename;
@@ -143,12 +82,10 @@ public class ParseResumeLocation implements Serializable {
   }
 
   public void setFilename(String filename) {
-    Preconditions.checkState(!registered);
     this.filename = filename;
   }
 
   public void setInput(String input) {
-    Preconditions.checkState(!registered);
     this.input = input;
   }
 
@@ -158,7 +95,6 @@ public class ParseResumeLocation implements Serializable {
   }
 
   public void disallowResume() {
-    Preconditions.checkState(!registered);
     this.allowResume = false;
   }
 

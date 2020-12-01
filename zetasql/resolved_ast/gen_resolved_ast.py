@@ -148,6 +148,12 @@ class ScalarType(object):
 
 
 SCALAR_TYPE = ScalarType('const Type*', 'TypeProto', 'Type')
+SCALAR_ANNOTATION_MAP = ScalarType(
+    'const AnnotationMap*',
+    'AnnotationMapProto',
+    cpp_default='nullptr',
+    java_type='AnnotationMap',
+    java_default='null')
 SCALAR_VALUE = ScalarType(
     'Value', 'ValueWithTypeProto', passed_by_reference=True)
 SCALAR_TABLE = ScalarType('const Table*', 'TableRefProto', 'Table')
@@ -601,7 +607,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 160.
+          Next tag_id: 165.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1024,8 +1030,22 @@ def main(argv):
       tag_id=2,
       parent='ResolvedNode',
       is_abstract=True,
-      fields=[Field('type', SCALAR_TYPE, tag_id=2, ignorable=IGNORABLE)],
-      extra_defs="""  bool IsExpression() const final { return true; }""")
+      fields=[
+          Field('type', SCALAR_TYPE, tag_id=2, ignorable=IGNORABLE),
+          Field(
+              'type_annotation_map',
+              SCALAR_ANNOTATION_MAP,
+              tag_id=3,
+              ignorable=IGNORABLE,
+              is_constructor_arg=False)
+      ],
+      extra_defs="""
+        bool IsExpression() const final { return true; }
+
+        AnnotatedType annotated_type() const {
+          return {type(), type_annotation_map()};
+        }
+      """)
 
   gen.AddNode(
       name='ResolvedLiteral',
@@ -2683,9 +2703,19 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedConstraint',
+      tag_id=162,
+      parent='ResolvedArgument',
+      is_abstract=True,
+      comment="""
+      Intermediate class for resolved constraints.
+              """,
+      fields=[])
+
+  gen.AddNode(
       name='ResolvedForeignKey',
       tag_id=110,
-      parent='ResolvedArgument',
+      parent='ResolvedConstraint',
       comment="""
       This represents the FOREIGN KEY constraint on a table. It is of the form:
 
@@ -2722,10 +2752,7 @@ right.
       column attributes (see instead ResolvedColumnAnnotations).
       """,
       fields=[
-          Field(
-              'constraint_name',
-              SCALAR_STRING,
-              tag_id=2),
+          Field('constraint_name', SCALAR_STRING, tag_id=2),
           Field(
               'referencing_column_offset_list',
               SCALAR_INT,
@@ -2733,10 +2760,7 @@ right.
               vector=True,
               to_string_method='ToStringCommaSeparated',
               java_to_string_method='toStringCommaSeparatedForInt'),
-          Field(
-              'referenced_table',
-              SCALAR_TABLE,
-              tag_id=4),
+          Field('referenced_table', SCALAR_TABLE, tag_id=4),
           Field(
               'referenced_column_offset_list',
               SCALAR_INT,
@@ -2744,33 +2768,17 @@ right.
               vector=True,
               to_string_method='ToStringCommaSeparated',
               java_to_string_method='toStringCommaSeparatedForInt'),
-          Field(
-              'match_mode',
-              SCALAR_FOREIGN_KEY_MATCH_MODE,
-              tag_id=6),
-          Field(
-              'update_action',
-              SCALAR_FOREIGN_KEY_ACTION_OPERATION,
-              tag_id=7),
-          Field(
-              'delete_action',
-              SCALAR_FOREIGN_KEY_ACTION_OPERATION,
-              tag_id=8),
-          Field(
-              'enforced',
-              SCALAR_BOOL,
-              tag_id=9),
-          Field(
-              'option_list',
-              'ResolvedOption',
-              tag_id=10,
-              vector=True)
+          Field('match_mode', SCALAR_FOREIGN_KEY_MATCH_MODE, tag_id=6),
+          Field('update_action', SCALAR_FOREIGN_KEY_ACTION_OPERATION, tag_id=7),
+          Field('delete_action', SCALAR_FOREIGN_KEY_ACTION_OPERATION, tag_id=8),
+          Field('enforced', SCALAR_BOOL, tag_id=9),
+          Field('option_list', 'ResolvedOption', tag_id=10, vector=True)
       ])
 
   gen.AddNode(
       name='ResolvedCheckConstraint',
       tag_id=113,
-      parent='ResolvedArgument',
+      parent='ResolvedConstraint',
       comment="""
       This represents the CHECK constraint on a table. It is of the form:
 
@@ -4968,6 +4976,16 @@ right.
       fields=[])
 
   gen.AddNode(
+      name='ResolvedAlterSchemaStmt',
+      tag_id=160,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER SCHEMA [IF NOT EXISTS] <name_path> <alter_action_list>;
+              """,
+      fields=[])
+
+  gen.AddNode(
       name='ResolvedAlterTableStmt',
       tag_id=115,
       parent='ResolvedAlterObjectStmt',
@@ -5022,6 +5040,31 @@ right.
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
           Field(
               'column_definition', 'ResolvedColumnDefinition', tag_id=3)
+      ])
+
+  gen.AddNode(
+      name='ResolvedAddConstraintAction',
+      tag_id=163,
+      parent='ResolvedAlterAction',
+      comment="""
+      ADD CONSTRAINT for ALTER TABLE statement
+              """,
+      fields=[
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
+          Field('constraint', 'ResolvedConstraint', tag_id=3),
+          Field('table', SCALAR_TABLE, tag_id=4),
+      ])
+
+  gen.AddNode(
+      name='ResolvedDropConstraintAction',
+      tag_id=164,
+      parent='ResolvedAlterAction',
+      comment="""
+      DROP CONSTRAINT for ALTER TABLE statement
+              """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
+          Field('name', SCALAR_STRING, tag_id=3),
       ])
 
   gen.AddNode(
@@ -6219,6 +6262,85 @@ ResolvedArgumentRef(y)
               SCALAR_STRING,
               tag_id=2,
               ignorable=NOT_IGNORABLE),
+      ])
+
+  gen.AddNode(
+      name='ResolvedPivotScan',
+      tag_id=161,
+      parent='ResolvedScan',
+      comment="""
+      A scan produced by the following SQL fragment:
+        <input_scan> PIVOT(... FOR ... IN (...))
+
+      The column list of this scan contains grouping columns first, as produced
+      by <group_by_list>, following by pivot columns. The output column
+      corresponding to the pivot expression i, pivot value j is at position:
+        i + j * pivot_expr_list.size() + group_by_list.size()
+
+      Details: (broken link)
+      """,
+      fields=[
+          Field(
+              'input_scan', 'ResolvedScan', tag_id=2, ignorable=NOT_IGNORABLE,
+              comment="""
+              Input to the PIVOT clause
+              """
+              ),
+          Field(
+              'pivot_expr_list',
+              'ResolvedComputedColumn',
+              tag_id=3,
+              ignorable=NOT_IGNORABLE,
+              vector=True,
+              comment="""
+              Pivot expressions which aggregate over the subset of <input_scan>
+              where <for_expr> matches each value in <pivot_value_list>, plus
+              all columns in <group_by_list>.
+              """),
+          Field('for_expr', 'ResolvedExpr', tag_id=4, ignorable=NOT_IGNORABLE,
+            comment="""
+            Expression following the FOR keyword, to be evaluated over each row
+            in <input_scan>. This value is compared with each value in
+            <pivot_value_list> to determine which columns the aggregation
+            results of <pivot_expr_list> should go to.
+            """),
+          Field(
+              'pivot_value_list',
+              'ResolvedExpr',
+              tag_id=5,
+              ignorable=NOT_IGNORABLE,
+              vector=True,
+              comment="""
+              A list of pivot values within the IN list, to be compared against
+              the result of <for_expr> for each row in the input table. Each
+              pivot value generates a distinct column in the output for each
+              pivot expression, representing the result of the corresponding
+              pivot expression over the subset of input where <for_expr> matches
+              this pivot value.
+
+              All pivot values in this list must have the same type as
+              <for_expr> and must be constant.
+              """
+              ),
+          Field(
+              'group_by_list',
+              'ResolvedComputedColumn',
+              tag_id=6,
+              vector=True,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+              Represents additional grouping columns in the input, not
+              explicitly specified in the PIVOT clause. Within each pivot
+              column (defined by a pivot expression/pivot value combination),
+              aggregations are grouped by the columns in this list, with each
+              distinct value of the grouping columns representing a separate
+              row (as opposed to <for_expr>, for which distinct values produce
+              separate columns).
+
+              Each element in this list is a ResolvedColumnRef referring to
+              a unique column in <input_scan>.
+              """
+              ),
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

@@ -312,10 +312,6 @@ void GetTimeAndDatetimeConstructionAndConversionFunctions(
                   {time_type,
                    {time_type},
                    FN_TIME_FROM_TIME,
-                   date_time_constructor_options},
-                  {time_type,
-                   {string_type},
-                   FN_TIME_FROM_STRING,
                    date_time_constructor_options}},
                  time_and_datetime_function_options);
 

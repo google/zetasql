@@ -28,6 +28,8 @@ import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -167,6 +169,35 @@ public class FunctionArgumentTypeTest {
     assertThat(typeUnknown.getType()).isNull();
     assertThat(typeUnknown.isRepeated()).isTrue();
     assertThat(typeUnknown.debugString()).isEqualTo("repeated UNKNOWN_ARG_KIND");
+  }
+
+  @Test
+  public void testLambdaArgumentType() {
+    SimpleType boolType = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
+    FunctionArgumentType boolArgType = new FunctionArgumentType(boolType);
+    SimpleType int64Type = TypeFactory.createSimpleType(TypeKind.TYPE_INT64);
+    FunctionArgumentType int64ArgType = new FunctionArgumentType(int64Type);
+    FunctionArgumentType t1ArgType = new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_1);
+    List<FunctionArgumentType> lambdaArgs = new ArrayList<>();
+    FunctionArgumentType lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
+    assertThat(lambdaArg.debugString()).isEqualTo("LAMBDA(()->BOOL)");
+    assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
+    assertThat(lambdaArg.getType()).isNull();
+    checkSerializeAndDeserialize(lambdaArg);
+
+    lambdaArgs.add(t1ArgType);
+    lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
+    assertThat(lambdaArg.debugString()).isEqualTo("LAMBDA(<T1>->BOOL)");
+    assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
+    assertThat(lambdaArg.getType()).isNull();
+    checkSerializeAndDeserialize(lambdaArg);
+
+    lambdaArgs.add(int64ArgType);
+    lambdaArg = new FunctionArgumentType(lambdaArgs, boolArgType);
+    assertThat(lambdaArg.debugString()).isEqualTo("LAMBDA((<T1>, INT64)->BOOL)");
+    assertThat(lambdaArg.getKind()).isEqualTo(SignatureArgumentKind.ARG_TYPE_LAMBDA);
+    assertThat(lambdaArg.getType()).isNull();
+    checkSerializeAndDeserialize(lambdaArg);
   }
 
   @Test
