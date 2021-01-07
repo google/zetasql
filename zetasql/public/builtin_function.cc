@@ -100,6 +100,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions) {
   GetDatetimeFunctions(type_factory, options, functions);
+  GetIntervalFunctions(type_factory, options, functions);
   GetArithmeticFunctions(type_factory, options, functions);
   GetBitwiseFunctions(type_factory, options, functions);
   GetAggregateFunctions(type_factory, options, functions);
@@ -110,6 +111,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   GetStringFunctions(type_factory, options, functions);
   GetRegexFunctions(type_factory, options, functions);
   GetMiscellaneousFunctions(type_factory, options, functions);
+  GetJSONFunctions(type_factory, options, functions);
   GetMathFunctions(type_factory, options, functions);
   GetHllCountFunctions(type_factory, options, functions);
   GetKllQuantilesFunctions(type_factory, options, functions);
@@ -126,6 +128,10 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   if (options.language_options.LanguageFeatureEnabled(FEATURE_GEOGRAPHY)) {
     GetGeographyFunctions(type_factory, options, functions);
   }
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
+    GetAnonFunctions(type_factory, options, functions);
+  }
+  GetContainsSubstrFunction(type_factory, options, functions);
 }
 
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {

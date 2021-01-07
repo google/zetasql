@@ -25,6 +25,18 @@ namespace zetasql {
 struct AnalyzerOutputProperties {
   // True if a ResolvedFlatten AST node was generated in the analyzer output.
   bool has_flatten = false;
+
+  // Indicates if anonymization was found during analysis.  When resolving
+  // queries, anonymization is found if an AnonymizedAggregateScan is
+  // created.  When resolving expressions, anonymization is found if an
+  // AnonymizedAggregateScan is created (for a subquery expression) or an
+  // anonymized aggregate function call is present.
+  bool has_anonymization = false;
+
+  // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
+  absl::flat_hash_map<const ResolvedTableScan*,
+                      const ResolvedAnonymizedAggregateScan*>
+      resolved_table_scan_to_anonymized_aggregate_scan_map;
 };
 
 }  // namespace zetasql

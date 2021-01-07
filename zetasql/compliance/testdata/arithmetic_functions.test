@@ -1,0 +1,126 @@
+[name=arithmetic_functions_1]
+SELECT 1+1
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=arithmetic_functions_2]
+SELECT 3.0+5.7
+--
+ARRAY<STRUCT<DOUBLE>>[{8.7}]
+==
+[name=arithmetic_functions_3]
+SELECT 1+NULL
+--
+ERROR: generic::invalid_argument: Operands of + cannot be literal NULL [at 1:10]
+SELECT 1+NULL
+         ^
+==
+[name=arithmetic_functions_4]
+SELECT 1-1
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[name=arithmetic_functions_5]
+SELECT 1*2
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=arithmetic_functions_6]
+SELECT 2147483648*2147483648
+--
+ARRAY<STRUCT<INT64>>[{4611686018427387904}]
+==
+[name=arithmetic_functions_7]
+SELECT 3.0*5.7
+--
+ARRAY<STRUCT<DOUBLE>>[{17.1}]
+==
+[name=arithmetic_functions_8]
+SELECT 1/2
+--
+ARRAY<STRUCT<DOUBLE>>[{0.5}]
+==
+[name=arithmetic_functions_8_safe_divide]
+SELECT safe_divide(1, 2)
+--
+ARRAY<STRUCT<DOUBLE>>[{0.5}]
+==
+[name=arithmetic_functions_8_safe_divide_int32]
+SELECT safe_divide(cast(1 as int32), cast(2 as int32))
+--
+ARRAY<STRUCT<DOUBLE>>[{0.5}]
+==
+[name=arithmetic_functions_8_div_int32]
+SELECT div(cast(1 as int32), cast(2 as int32))
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[name=arithmetic_functions_9]
+SELECT 1.8/3.0
+--
+ARRAY<STRUCT<DOUBLE>>[{0.6}]
+==
+[name=arithmetic_functions_9_safe_divide]
+SELECT safe_divide(1.8, 3.0)
+--
+ARRAY<STRUCT<DOUBLE>>[{0.6}]
+==
+[name=arithmetic_functions_10]
+SELECT 1/0
+--
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+[name=arithmetic_functions_10_safe_divide]
+SELECT safe_divide(1, 0)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=arithmetic_functions_11]
+SELECT 0/0
+--
+ERROR: generic::out_of_range: division by zero: 0 / 0
+==
+[name=arithmetic_functions_11_safe_divide]
+SELECT safe_divide(0, 0)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=arithmetic_functions_12]
+SELECT 1.0/0
+--
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+[name=arithmetic_functions_12_safe_divide]
+SELECT safe_divide(1.0, 0)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=arithmetic_functions_13]
+SELECT 1.0/(-0.0)
+--
+ERROR: generic::out_of_range: division by zero: 1 / -0
+==
+[name=arithmetic_functions_13_safe_divide]
+SELECT safe_divide(1.0, -0.0)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=arithmetic_functions_14]
+SELECT 1e300/1e-300
+--
+ERROR: generic::out_of_range: double overflow: 1e+300 / 1e-300
+==
+[name=arithmetic_functions_14_safe_divide]
+SELECT safe_divide(1e300, 1e-300)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=arithmetic_functions_15]
+SELECT 0.0/0.0
+--
+ERROR: generic::out_of_range: division by zero: 0 / 0
+==
+[name=arithmetic_functions_15_safe_divide]
+SELECT safe_divide(0.0, 0.0)
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]

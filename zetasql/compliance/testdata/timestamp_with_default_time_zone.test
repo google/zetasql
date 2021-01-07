@@ -1,0 +1,246 @@
+# This file was originally copied from timestamp.test, but instead of using a
+# default time zone of 'America/Los_Angeles' it uses a default time zone of
+# '+00'.  Note that TIMESTAMPs render in the results using time zone '+00',
+# so it is easy to see the results are as expected.
+#
+# The "timestamp_type_and_functions" label applies to all queries in this
+# file related to the ZetaSQL V1 TIMESTAMP type.
+#
+# TODO: Once we can set the default time zone anywhere in the
+# file, then merge timestamp_with_default_time_zone_2.test into this file
+# and show side-by-side how changing the default time zone affects the
+# results of queries.
+#
+# TODO: Support a default default_time_zone correctly, i.e.,
+# [default default_time_zone=...], like we do other configuration settings,
+# and make [default_time_zone=...] be specific to the query it is part of.
+# Right now, [default_time_zone=...] acts like the default default (applies
+# to all queries after it).
+[default_time_zone=+00]
+[default global_labels=timestamp_type_and_functions,different_default_time_zone]
+
+[load_proto_files=zetasql/testdata/test_schema.proto]
+[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_enum_names=zetasql_test.TestEnum]
+
+[prepare_database]
+CREATE TABLE Table1 AS
+SELECT timestamp '2014-12-01' as timestamp_val
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 00:00:00+00}]
+==
+
+[prepare_database]
+CREATE TABLE EpochTable AS
+SELECT timestamp '1970-01-01 00:00:00+00' as timestamp_column,
+       '1970-01-01 00:00:00+00' as string_with_timezone_column,
+       '1970-01-01 00:00:00' as string_without_timezone_column
+--
+ARRAY<STRUCT<
+        timestamp_column TIMESTAMP,
+        string_with_timezone_column STRING,
+        string_without_timezone_column STRING
+      >>
+[{
+   1970-01-01 00:00:00+00,
+   "1970-01-01 00:00:00+00",
+   "1970-01-01 00:00:00"
+ }]
+==
+
+[prepare_database]
+CREATE TABLE Table2 AS
+SELECT timestamp '1970-01-01 00:00:00.000000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.000001+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.000010+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.000100+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.001000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.010000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.100000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:01.000000+00' as timestamp_val
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[
+  {1970-01-01 00:00:00+00},
+  {1970-01-01 00:00:00.000001+00},
+  {1970-01-01 00:00:00.000010+00},
+  {1970-01-01 00:00:00.000100+00},
+  {1970-01-01 00:00:00.001+00},
+  {1970-01-01 00:00:00.010+00},
+  {1970-01-01 00:00:00.100+00},
+  {1970-01-01 00:00:01+00}
+]
+==
+
+[name=timestamp_type_1]
+SELECT timestamp '2014-12-01'
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 00:00:00+00}]
+==
+
+[name=timestamp_type_2]
+SELECT timestamp_val
+FROM Table1
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 00:00:00+00}]
+==
+
+[name=timestamp_diff_1]
+SELECT timestamp_diff(timestamp1, timestamp2, HOUR)
+from (select timestamp '2014-12-25' as timestamp1,
+             timestamp '2014-12-25' as timestamp2)
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+
+[name=timestamp_diff_2]
+SELECT timestamp_diff(timestamp "2014-12-26", timestamp1, HOUR)
+from (select timestamp '2014-12-25' as timestamp1)
+--
+ARRAY<STRUCT<INT64>>[{24}]
+==
+
+[name=timestamp_to_string_1]
+select [cast(timestamp "2015-01-28" as string),
+        cast(timestamp "2015-01-28 00:00:00" as string),
+        cast(timestamp "2015-01-28 00:00:00.0" as string),
+        cast(timestamp "2015-01-28 00:00:00.00" as string),
+        cast(timestamp "2015-01-28 00:00:00.000" as string),
+        cast(timestamp "2015-01-28 00:00:00.0000" as string),
+        cast(timestamp "2015-01-28 00:00:00.00000" as string),
+        cast(timestamp "2015-01-28 00:00:00.000000" as string)]
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00+00"
+   ]}
+]
+==
+
+[name=timestamp_to_string_2]
+select [cast(timestamp "2015-01-28 00:00:00" as string),
+        cast(timestamp "2015-01-28 00:00:00.1" as string),
+        cast(timestamp "2015-01-28 00:00:00.01" as string),
+        cast(timestamp "2015-01-28 00:00:00.001" as string),
+        cast(timestamp "2015-01-28 00:00:00.0001" as string),
+        cast(timestamp "2015-01-28 00:00:00.00001" as string),
+        cast(timestamp "2015-01-28 00:00:00.000001" as string)]
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[
+     "2015-01-28 00:00:00+00",
+     "2015-01-28 00:00:00.100+00",
+     "2015-01-28 00:00:00.010+00",
+     "2015-01-28 00:00:00.001+00",
+     "2015-01-28 00:00:00.000100+00",
+     "2015-01-28 00:00:00.000010+00",
+     "2015-01-28 00:00:00.000001+00"
+   ]}
+]
+==
+
+[name=timestamp_to_string_3]
+select cast(timestamp_val as string)
+from Table2
+--
+ARRAY<STRUCT<STRING>>[
+  {"1970-01-01 00:00:00.000001+00"},
+  {"1970-01-01 00:00:00.000100+00"},
+  {"1970-01-01 00:00:00.010+00"},
+  {"1970-01-01 00:00:01+00"},
+  {"1970-01-01 00:00:00+00"},
+  {"1970-01-01 00:00:00.000010+00"},
+  {"1970-01-01 00:00:00.001+00"},
+  {"1970-01-01 00:00:00.100+00"}
+]
+==
+
+[name=literal_string_without_timezone_to_timestamp_1]
+select cast("2014-12-01 12:34:56" as timestamp)
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 12:34:56+00}]
+==
+
+[name=literal_string_with_timezone_to_timestamp_1]
+select cast("2014-12-01 12:34:56+07:30" as timestamp)
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56+00}]
+==
+
+[name=epoch_casts_between_string_and_timestamp]
+select timestamp_column, cast(timestamp_column as string),
+       string_with_timezone_column,
+       cast(string_with_timezone_column as timestamp),
+       string_without_timezone_column,
+       cast(string_without_timezone_column as timestamp)
+from EpochTable
+--
+ARRAY<STRUCT<
+        timestamp_column TIMESTAMP,
+        STRING,
+        string_with_timezone_column STRING,
+        TIMESTAMP,
+        string_without_timezone_column STRING,
+        TIMESTAMP
+      >>
+[{
+   1970-01-01 00:00:00+00,
+   "1970-01-01 00:00:00+00",
+   "1970-01-01 00:00:00+00",
+   1970-01-01 00:00:00+00,
+   "1970-01-01 00:00:00",
+   1970-01-01 00:00:00+00
+ }]
+
+==
+
+# Ideally this would be in GetFunctionTestsDateFromTimestamp() alongside the
+# other tests for timestamp -> date conversion, but the code-based compliance
+# tests do not support setting the default timezone.
+[name=date_from_timestamp]
+select date(timestamp('2014-01-31 18:12:34'))
+--
+ARRAY<STRUCT<DATE>>[{2014-01-31}]
+==
+
+# Ideally this would be in GetFunctionTestsTimestampFromDate() alongside the
+# other tests for date -> timestamp conversion, but the code-based compliance
+# tests do not support setting the default timezone.
+[name=timestamp_from_date]
+select timestamp(date '2014-01-31')
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-01-31 00:00:00+00}]
+==
+
+[name=timestamp_trunc]
+select
+  timestamp_trunc('2000-02-03 04:05:06.789', SECOND),
+  timestamp_trunc('2000-02-03 04:05:06.789', MINUTE),
+  timestamp_trunc('2000-02-03 04:05:06.789', HOUR),
+  timestamp_trunc('2000-02-03 04:05:06.789', DAY),
+  timestamp_trunc('2000-02-03 04:05:06.789', MONTH),
+  timestamp_trunc('2000-02-03 04:05:06.789', YEAR)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2000-02-03 04:05:06+00,
+    2000-02-03 04:05:00+00,
+    2000-02-03 04:00:00+00,
+    2000-02-03 00:00:00+00,
+    2000-02-01 00:00:00+00,
+    2000-01-01 00:00:00+00
+  }
+]

@@ -1,0 +1,312 @@
+[name=logical_and_true_true]
+SELECT true AND TRUE
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_and_true_false]
+SELECT true AND false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_false_true]
+SELECT FALSE AND true
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_false_false]
+SELECT false AND false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_true_null]
+SELECT true AND null
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_and_null_true]
+SELECT null AND true
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_and_false_null]
+SELECT false AND null
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_null_false]
+SELECT NULL AND false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_null_null]
+SELECT null AND NULL
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_and_true_and_true_false]
+SELECT true AND true AND false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_true_and_true_true]
+SELECT true AND true AND true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_and_true_and_false_null]
+SELECT true AND false AND NULL
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_true_and_true_null]
+SELECT true AND true AND NULL
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_or_true_true]
+SELECT true OR true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_true_false]
+SELECT true OR false
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_true]
+SELECT false OR true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_false]
+SELECT false OR FALSE
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_or_true_null]
+SELECT true OR null
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_null_true]
+SELECT null OR true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_null]
+SELECT false OR null
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_or_null_false]
+SELECT null OR false
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_or_null_null]
+SELECT null OR null
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_or_false_or_true_false]
+SELECT false OR true OR false
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_or_false_false]
+SELECT false OR false OR false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_or_false_or_null_true]
+SELECT false OR NULL OR true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_or_null_false]
+SELECT false OR NULL OR false
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_or_true_and_true_true]
+SELECT true OR true AND true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_and_true_true]
+SELECT false OR (true AND true)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_true_and_false_true]
+SELECT true OR false AND true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_and_false_true_true]
+SELECT (false AND true) OR true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_null_and_true_true]
+SELECT NULL OR (true AND true)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_true_and_null_true]
+SELECT true OR (NULL AND true)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_and_or_true_false_true]
+SELECT (true OR false) AND true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_and_or_false_false_true]
+SELECT (false OR false) AND true
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_or_true_true_false]
+SELECT (true OR true) AND false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_false_or_true_true]
+SELECT false AND (true OR true)
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_null_or_true_true]
+SELECT null AND (true OR true)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_and_null_or_false_false]
+SELECT null AND (false OR false)
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_true_or_null_true]
+SELECT true AND (NULL OR true)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_and_true_or_null_false]
+SELECT true AND (NULL OR false)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_not_true]
+SELECT NOT true
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_not_false]
+SELECT NOT false
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_not_zero]
+SELECT NOT 0
+--
+ERROR: generic::invalid_argument: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
+SELECT NOT 0
+       ^
+==
+[name=logical_not_one]
+SELECT NOT 1
+--
+ERROR: generic::invalid_argument: No matching signature for operator NOT for argument types: INT64. Supported signature: NOT (BOOL) [at 1:8]
+SELECT NOT 1
+       ^
+==
+[name=logical_not_null]
+SELECT NOT null
+--
+ERROR: generic::invalid_argument: Operands of NOT cannot be literal NULL [at 1:12]
+SELECT NOT null
+           ^
+==
+[name=logical_not_not_true]
+SELECT NOT NOT true
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_not_not_false]
+SELECT NOT NOT false
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_not_not_null]
+SELECT NOT NOT null
+--
+ERROR: generic::invalid_argument: Operands of NOT cannot be literal NULL [at 1:16]
+SELECT NOT NOT null
+               ^
+==
+[name=logical_not_and_true_false]
+SELECT NOT (TRUE AND FALSE)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_not_or_true_false]
+SELECT NOT (true OR false)
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_and_true_not_false]
+SELECT true AND NOT false
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_or_false_not_false]
+SELECT false OR NOT false
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_not_and_true_null]
+SELECT NOT (TRUE AND NULL)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=logical_is_true_true]
+select true IS TRUE;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_is_false_true]
+select false IS TRUE;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_is_null_true]
+select NULL IS TRUE;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_is_true_null]
+select TRUE IS NULL;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_is_true_false]
+select true IS FALSE;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_is_false_false]
+select false IS FALSE;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=logical_is_null_false]
+select NULL IS false;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=logical_is_false_null]
+select FALSE IS NULL;
+--
+ARRAY<STRUCT<BOOL>>[{false}]

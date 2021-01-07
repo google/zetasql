@@ -925,7 +925,7 @@ public class ValueTest {
                     .setMicros(0)
                     .setNanoFractions((short) 0)
                     .build(),
-                "Month: 0, Days: 0, Micros: 0 Nano Fractions: 0")
+                "0-0 0 0:0:0")
             .put(
                 IntervalValue.builder()
                     .setMonths(12 * 10000)
@@ -933,7 +933,7 @@ public class ValueTest {
                     .setMicros(366 * 10000 * 24L * 3600 * 1000000)
                     .setNanoFractions((short) 0)
                     .build(),
-                "Month: 120000, Days: 3660000, Micros: 316224000000000000 Nano Fractions: 0")
+                "10000-0 3660000 87840000:0:0")
             .put(
                 IntervalValue.builder()
                     .setMonths(-12 * 10000)
@@ -941,7 +941,7 @@ public class ValueTest {
                     .setMicros(-366 * 10000 * 24L * 3600 * 1000000)
                     .setNanoFractions((short) 999)
                     .build(),
-                "Month: -120000, Days: -3660000, Micros: -316224000000000000 Nano Fractions: 999")
+                "-10000-0 -3660000 -87839999:59:59.999999001")
             .build();
     for (Map.Entry<IntervalValue, String> entry : validIntervalAndValueStrings.entrySet()) {
       IntervalValue val = entry.getKey();

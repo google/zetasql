@@ -1,0 +1,348 @@
+# KEYS.NEW_KEYSET is volatile--it doesn't produce the same keyset each time--
+# so we can't call it directly as part of this table creation. Instead, the
+# base64 strings here represent a few different keysets created using
+# KEYS.NEW_KEYSET and KEY.ADD_KEY_FROM_RAW_BYTES.
+[prepare_database]
+CREATE TABLE KeysetTable AS
+SELECT
+  1 AS kt_id,
+  FROM_BASE64('CJmMp4UJEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIP7Xj33VJoXuk9KMRwXsjkuDmo5P40WUSaVtJAzyve80GAEQARiZjKeFCSAB') AS keyset,
+  'abc' AS aad_string,
+  b'\x00\x01\x02' AS aad_bytes
+UNION ALL
+SELECT
+  2,
+  FROM_BASE64('CNnv5+cHEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIJg18Y4DFqVKes4Acs3h55Fe7yqPrqao+rfu70el0KPRGAEQARjZ7+fnByAB'),
+  '',
+  b''
+UNION ALL
+SELECT
+  3,
+  FROM_BASE64('CKGMgekFEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIE4Tia+cXn5OC3blTmI6KkPOAeE9zg0LxpD96L92bWG2GAEQARihjIHpBSABEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIDEyMzQxMjM0MTIzNDEyMzQxMjM0MTIzNDEyMzQxMjM0GAEQARirptH5DSAD'),
+  REPEAT('abc', 10),
+  REPEAT(b'abc', 10)
+UNION ALL
+SELECT
+  4,
+  FROM_BASE64('CNCso94EEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIB2qbQpyD+/M1uDxXnmIUWKMxRuL0ZDAqDbg2v8cBXUgGAEQARjQrKPeBCABEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIDEyMzQxMjM0MTIzNDEyMzQxMjM0MTIzNDEyMzQxMjM0GAEQARjmu9iLBiADEmMKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIGFiY2RhYmNkYWJjZGFiY2RhYmNkYWJjZGFiY2RhYmNkGAEQARiCkKwaIAM='),
+  '1234',
+  b'1234'
+UNION ALL
+SELECT
+  5,
+  NULL,
+  '1234',
+  b'1234'
+UNION ALL
+SELECT
+  6,
+  FROM_BASE64('CKOPsoUIEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIDjN158ZUGzLVM9Wz5mkJ57rykSFOeAV2BkEksmaTdSEGAEQARijj7KFCCAB'),
+  NULL,
+  NULL
+UNION ALL
+SELECT
+  7,
+  NULL,
+  NULL,
+  NULL
+--
+ARRAY<STRUCT<kt_id INT64, keyset BYTES, aad_string STRING, aad_bytes BYTES>>[
+  {
+    1,
+    b'\x08\x99\x8c\xa7\x85\x09\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a \xfe\xd7\x8f}\xd5&\x85\xee\x93\xd2\x8cG\x05\xec\x8eK\x83\x9a\x8eO\xe3E\x94I\xa5m$\x0c\xf2\xbd\xef4\x18\x01\x10\x01\x18\x99\x8c\xa7\x85\x09 \x01',
+    "abc",
+    b"\x00\x01\x02"
+  },
+  {
+    2,
+    b'\x08\xd9\xef\xe7\xe7\x07\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a \x985\xf1\x8e\x03\x16\xa5Jz\xce\x00r\xcd\xe1\xe7\x91^\xef*\x8f\xae\xa6\xa8\xfa\xb7\xee\xefG\xa5\xd0\xa3\xd1\x18\x01\x10\x01\x18\xd9\xef\xe7\xe7\x07 \x01',
+    "",
+    b""
+  },
+  {
+    3,
+    b'\x08\xa1\x8c\x81\xe9\x05\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a N\x13\x89\xaf\x9c^~N\x0bv\xe5Nb:*C\xce\x01\xe1=\xce\x0d\x0b\xc6\x90\xfd\xe8\xbfvma\xb6\x18\x01\x10\x01\x18\xa1\x8c\x81\xe9\x05 \x01\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a 12341234123412341234123412341234\x18\x01\x10\x01\x18\xab\xa6\xd1\xf9\x0d \x03',
+    "abcabcabcabcabcabcabcabcabcabc",
+    b"abcabcabcabcabcabcabcabcabcabc"
+  },
+  {
+    4,
+    b'\x08\xd0\xac\xa3\xde\x04\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a \x1d\xaam\x0ar\x0f\xef\xcc\xd6\xe0\xf1^y\x88Qb\x8c\xc5\x1b\x8b\xd1\x90\xc0\xa86\xe0\xda\xff\x1c\x05u \x18\x01\x10\x01\x18\xd0\xac\xa3\xde\x04 \x01\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a 12341234123412341234123412341234\x18\x01\x10\x01\x18\xe6\xbb\xd8\x8b\x06 \x03\x12c\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a abcdabcdabcdabcdabcdabcdabcdabcd\x18\x01\x10\x01\x18\x82\x90\xac\x1a \x03',
+    "1234",
+    b"1234"
+  },
+  {5, NULL, "1234", b"1234"},
+  {
+    6,
+    b"\x08\xa3\x8f\xb2\x85\x08\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12\"\x1a 8\xcd\xd7\x9f\x19Pl\xcbT\xcfV\xcf\x99\xa4'\x9e\xeb\xcaD\x859\xe0\x15\xd8\x19\x04\x92\xc9\x9aM\xd4\x84\x18\x01\x10\x01\x18\xa3\x8f\xb2\x85\x08 \x01",
+    NULL,
+    NULL
+  },
+  {7, NULL, NULL, NULL}
+]
+==
+
+[prepare_database]
+CREATE TABLE PlaintextTable AS
+SELECT
+  1 AS pt_id,
+  'plaintext' AS plaintext_string,
+  b'plaintext' AS plaintext_bytes
+UNION ALL
+SELECT
+  2,
+  'жэчыщчыщя',
+  b'\x00\x01\x02\x03\x03\xFF\xFE\xFD'
+UNION ALL
+SELECT
+  3,
+  '',
+  b''
+UNION ALL
+SELECT
+  4,
+  NULL,
+  NULL
+--
+ARRAY<STRUCT<
+        pt_id INT64,
+        plaintext_string STRING,
+        plaintext_bytes BYTES
+      >>
+[{1, "plaintext", b"plaintext"},
+ {
+   2,
+   "жэчыщчыщя",
+   b"\x00\x01\x02\x03\x03\xff\xfe\xfd"
+ },
+ {3, "", b""},
+ {4, NULL, NULL}]
+==
+
+[name=encrypt_decrypt_roundtrip]
+[required_features=ENCRYPTION]
+SELECT
+  kt_id,
+  pt_id,
+  plaintext_string,
+  plaintext_bytes,
+  AEAD.DECRYPT_STRING(
+    keyset,
+    AEAD.ENCRYPT(keyset, plaintext_string, aad_string),
+    aad_string),
+  AEAD.DECRYPT_BYTES(
+    keyset,
+    AEAD.ENCRYPT(keyset, plaintext_bytes, aad_bytes),
+    aad_bytes),
+  -- Decrypting the string as bytes is fine
+  AEAD.DECRYPT_BYTES(
+    keyset,
+    AEAD.ENCRYPT(keyset, CAST(plaintext_string AS BYTES), aad_bytes),
+    aad_bytes)
+FROM KeysetTable
+CROSS JOIN PlaintextTable
+ORDER BY 1, 2
+--
+ARRAY<STRUCT<
+        kt_id INT64,
+        pt_id INT64,
+        plaintext_string STRING,
+        plaintext_bytes BYTES,
+        STRING,
+        BYTES,
+        BYTES
+      >>
+[
+  {1, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    1,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {1, 3, "", b"", "", b"", b""},
+  {1, 4, NULL, NULL, NULL, NULL, NULL},
+  {2, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    2,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {2, 3, "", b"", "", b"", b""},
+  {2, 4, NULL, NULL, NULL, NULL, NULL},
+  {3, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    3,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {3, 3, "", b"", "", b"", b""},
+  {3, 4, NULL, NULL, NULL, NULL, NULL},
+  {4, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    4,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {4, 3, "", b"", "", b"", b""},
+  {4, 4, NULL, NULL, NULL, NULL, NULL},
+  {5, 1, "plaintext", b"plaintext", NULL, NULL, NULL},
+  {
+    5,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    NULL,
+    NULL,
+    NULL
+  },
+  {5, 3, "", b"", NULL, NULL, NULL},
+  {5, 4, NULL, NULL, NULL, NULL, NULL},
+  {6, 1, "plaintext", b"plaintext", NULL, NULL, NULL},
+  {
+    6,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    NULL,
+    NULL,
+    NULL
+  },
+  {6, 3, "", b"", NULL, NULL, NULL},
+  {6, 4, NULL, NULL, NULL, NULL, NULL},
+  {7, 1, "plaintext", b"plaintext", NULL, NULL, NULL},
+  {
+    7,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    NULL,
+    NULL,
+    NULL
+  },
+  {7, 3, "", b"", NULL, NULL, NULL},
+  {7, 4, NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[name=encrypt_different_outputs]
+[required_features=ENCRYPTION]
+SELECT COUNT(DISTINCT AEAD.ENCRYPT(keyset, 'plaintext', aad_string))
+FROM KeysetTable
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
+
+# Verify that encrypting the same input with the same keyset produces different
+# outputs, even in the same select list.
+[name=encrypt_same_keyset_different_outputs]
+[required_features=ENCRYPTION]
+SELECT
+  AEAD.ENCRYPT(keyset, 'plaintext', aad_string) =
+    AEAD.ENCRYPT(keyset, 'plaintext', aad_string),
+  AEAD.ENCRYPT(keyset, b'plaintext', aad_bytes) =
+    AEAD.ENCRYPT(keyset, b'plaintext', aad_bytes)
+FROM KeysetTable
+GROUP BY 1, 2
+ORDER BY 1, 2
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{NULL, NULL}, {false, false}]
+==
+
+[required_features=ENCRYPTION]
+[name=decrypt_invalid_keyset]
+SELECT
+  AEAD.DECRYPT_STRING(
+    b'', AEAD.ENCRYPT(keyset, 'plaintext', aad_string), aad_string
+  )
+FROM KeysetTable
+--
+ERROR: generic::out_of_range: AEAD.DECRYPT_STRING failed: Creation of AEAD primitive failed: A valid keyset must contain at least one key.
+==
+
+[required_features=ENCRYPTION]
+[name=decrypt_invalid_ciphertext]
+SELECT
+  AEAD.DECRYPT_STRING(keyset, b'123', aad_string)
+FROM KeysetTable
+--
+ERROR: generic::out_of_range: AEAD.DECRYPT_STRING failed: decryption failed
+==
+
+[required_features=ENCRYPTION]
+[name=decrypt_invalid_additional_data]
+SELECT
+  AEAD.DECRYPT_STRING(
+    keyset, AEAD.ENCRYPT(keyset, 'plaintext', aad_string), 'different aad'
+  )
+FROM KeysetTable
+--
+ERROR: generic::out_of_range: AEAD.DECRYPT_STRING failed: decryption failed
+==
+
+[required_features=ENCRYPTION]
+[name=decrypt_bytes_invalid_additional_data]
+SELECT
+  AEAD.DECRYPT_BYTES(
+    keyset, AEAD.ENCRYPT(keyset, b'plaintext', aad_bytes), b'different aad'
+  )
+FROM KeysetTable
+--
+ERROR: generic::out_of_range: AEAD.DECRYPT_BYTES failed: decryption failed
+==
+
+[required_features=ENCRYPTION]
+[name=decrypt_invalid_string]
+SELECT
+  AEAD.DECRYPT_STRING(
+    keyset, AEAD.ENCRYPT(keyset, b'\xFF\xFE', CAST(aad_string AS BYTES)),
+    aad_string
+  )
+FROM KeysetTable
+--
+ERROR: generic::out_of_range: AEAD.DECRYPT_STRING failed: Decrypted plaintext is not a valid UTF-8 string. To decrypt to BYTES, use AEAD.DECRYPT_BYTES
+==
+
+# The WITH clause should have exactly-once semantics for evaluation of the
+# expression.
+[required_features=ENCRYPTION]
+[name=encrypt_with_clause]
+WITH T AS (
+  SELECT AEAD.ENCRYPT(keyset, plaintext_string, aad_string) AS ciphertext
+  FROM KeysetTable
+  CROSS JOIN PlaintextTable
+  WHERE kt_id = 1 AND pt_id = 1
+)
+SELECT ciphertext = ciphertext
+FROM T
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# Various error cases with the SAFE version of the functions.
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=safe_functions]
+SELECT
+  -- Bad keyset
+  SAFE.AEAD.ENCRYPT(b'', b'', b''),
+  -- Bad keyset
+  SAFE.AEAD.DECRYPT_BYTES(b'', b'', b''),
+  -- Bad ciphertext/aad for the keyset
+  SAFE.AEAD.DECRYPT_BYTES(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), b'', b'')
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{NULL, NULL, NULL}]

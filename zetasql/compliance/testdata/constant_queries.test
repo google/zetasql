@@ -1,0 +1,152 @@
+[name=constant_1]
+SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=constant_2]
+SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=constant_3]
+SELECT 3.0
+--
+ARRAY<STRUCT<DOUBLE>>[{3}]
+==
+[name=constant_4]
+SELECT 'hi'
+--
+ARRAY<STRUCT<STRING>>[{"hi"}]
+==
+[name=constant_5]
+SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=constant_subquery_array]
+SELECT (SELECT [1])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1]}]
+==
+[name=constant_no_from_no_where]
+SELECT 1 as a, 'c' as b
+WHERE a > 10;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have a WHERE clause [at 2:1]
+WHERE a > 10;
+^
+==
+[name=constant_no_from_no_agg]
+SELECT SUM(1);
+--
+ERROR: generic::invalid_argument: SELECT without FROM clause cannot use aggregation [at 1:1]
+SELECT SUM(1);
+^
+==
+[name=constant_no_from_no_group]
+SELECT 1 as a
+GROUP BY a;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have a GROUP BY clause [at 2:1]
+GROUP BY a;
+^
+==
+[name=constant_no_from_no_agg_no_group0]
+SELECT 1 as a, SUM(2)
+GROUP BY a;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have a GROUP BY clause [at 2:1]
+GROUP BY a;
+^
+==
+[name=constant_no_from_no_agg_no_group1]
+SELECT 1 as a, SUM(2)
+GROUP BY 1;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have a GROUP BY clause [at 2:1]
+GROUP BY 1;
+^
+==
+[name=constant_no_from_no_distinct]
+SELECT DISTINCT 1 as a, 2 as b, 'distinct' as c;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot use SELECT DISTINCT [at 1:1]
+SELECT DISTINCT 1 as a, 2 as b, 'distinct' as c;
+^
+==
+[name=constant_no_from_no_order0]
+SELECT 1 as a, 2.1 as b, 'order' as c
+ORDER BY b, c;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have an ORDER BY clause [at 2:1]
+ORDER BY b, c;
+^
+==
+[name=constant_no_from_no_order1]
+SELECT 1 as a, 2.1 as b, 'order' as c
+ORDER BY 2;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have an ORDER BY clause [at 2:1]
+ORDER BY 2;
+^
+==
+[name=constant_no_from_no_having]
+SELECT 1 as a, 2.3 as b
+HAVING true;
+--
+ERROR: generic::invalid_argument: Query without FROM clause cannot have a HAVING clause [at 2:1]
+HAVING true;
+^
+==
+[name=constant_no_from_no_analytic0]
+[test_features1=ANALYTIC_FUNCTIONS]
+SELECT sum(1) OVER ();
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Analytic functions not supported [at 1:8]
+SELECT sum(1) OVER ();
+       ^
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS
+ERROR: generic::invalid_argument: SELECT without FROM clause cannot use analytic functions [at 1:1]
+SELECT sum(1) OVER ();
+^
+==
+[name=constant_no_from_limit0]
+SELECT 1 as a
+LIMIT 0;
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+[name=constant_no_from_limit1]
+SELECT 1 as a
+LIMIT 1;
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+[name=constant_no_from_limit2]
+SELECT 1 as a
+LIMIT 5;
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+[name=constant_no_from_limit_offset0]
+SELECT 1 as b, 'b' as b
+LIMIT 0 OFFSET 1;
+--
+ARRAY<STRUCT<b INT64, b STRING>>[]
+==
+[name=constant_no_from_limit_offset1]
+SELECT 1 as b, 'b' as b
+LIMIT 1 OFFSET 1;
+--
+ARRAY<STRUCT<b INT64, b STRING>>[]
+==
+[name=constant_no_from_limit_offset2]
+SELECT 1 as b, 'b' as b
+LIMIT 1 OFFSET 0;
+--
+ARRAY<STRUCT<b INT64, b STRING>>[{1, "b"}]
+==
+
+

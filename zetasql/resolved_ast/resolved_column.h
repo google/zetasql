@@ -65,6 +65,11 @@ class ResolvedColumn {
   // unbounded number of strings.
   // TODO Maybe get this removed, or figure out a way to enforce that
   // zetasql code can't call it.
+  ABSL_DEPRECATED(
+      "Please use ResolvedColumn(int, IdString, IdString, const Type*) "
+      "instead, using IdString::MakeGlobal if you do not mind the fact that "
+      "this creates and never deallocates the strings being passed into it "
+      "(for instance, in unit test code).")
   ResolvedColumn(int column_id, const std::string& table_name,
                  const std::string& name, const Type* type);
   ResolvedColumn(int column_id, IdString table_name, IdString name,

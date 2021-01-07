@@ -141,6 +141,7 @@ bool IsSameFieldPath(const ResolvedExpr* field_path1,
 void QueryGroupByAndAggregateInfo::Reset() {
   has_group_by = false;
   has_aggregation = false;
+  has_anonymized_aggregation = false;
   aggregate_expr_map.clear();
   group_by_columns_to_compute.clear();
   group_by_expr_map.clear();
@@ -327,6 +328,9 @@ std::string QueryResolutionInfo::DebugString() const {
                   "\n");
   absl::StrAppend(&debug_string,
                   "has_aggregation: ", group_by_info_.has_aggregation, "\n");
+  absl::StrAppend(&debug_string,
+                  "has_anonymized_aggregation: ",
+                  group_by_info_.has_anonymized_aggregation, "\n");
   absl::StrAppend(&debug_string, "group_by_columns(size ",
                   group_by_info_.group_by_columns_to_compute.size(), "):\n");
   for (const auto& column : group_by_info_.group_by_columns_to_compute) {

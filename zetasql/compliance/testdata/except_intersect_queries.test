@@ -1,0 +1,1220 @@
+# The "set_operations" label applies to all set operations except UNION ALL.
+#
+# Table1 contains a column for each primitive data type.
+# This means no enums, structs and arrays.
+# Each column has 9 rows of data with different repeated counts.
+# 1, 1, 1, 2, 2, 3, 4, NULL, NULL
+[default global_labels=set_operations]
+
+[load_proto_files=zetasql/testdata/test_schema.proto]
+[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_enum_names=zetasql_test.TestEnum]
+
+[prepare_database]
+CREATE TABLE Table1 AS
+SELECT cast(1 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(2 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(3 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(4 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(5 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(6 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(7 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-4 as int32) as int32_val, cast(-4 as int64) as int64_val,
+       cast(4 as uint32) as uint32_val, cast(4 as uint64) as uint64_val,
+       cast(0.4 as float) as float_val, cast(0.4 as double) as double_val,
+       cast("4" as string) as str_val, CAST("4" as bytes) as bytes_val
+UNION ALL
+SELECT cast(8 as int64) as primary_key, cast(NULL as bool) as bool_val,
+       cast(NULL as int32) as int32_val, cast(NULL as int64) as int64_val,
+       cast(NULL as uint32) as uint32_val, cast(NULL as uint64) as uint64_val,
+       cast(NULL as float) as float_val, cast(NULL as double) as double_val,
+       cast(NULL as string) as str_val, CAST(NULL as bytes) as bytes_val
+UNION ALL
+SELECT cast(9 as int64) as primary_key, cast(NULL as bool) as bool_val,
+       cast(NULL as int32) as int32_val, cast(NULL as int64) as int64_val,
+       cast(NULL as uint32) as uint32_val, cast(NULL as uint64) as uint64_val,
+       cast(NULL as float) as float_val, cast(NULL as double) as double_val,
+       cast(NULL as string) as str_val, CAST(NULL as bytes) as bytes_val
+--
+ARRAY<STRUCT<primary_key INT64,
+             bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {1, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {2, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {3, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {4, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {5, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {6, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {7, false, -4, -4, 4, 4, 0.4, 0.4, "4", b"4"},
+  {8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {9, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+==
+# Table2 contains a column for each primitive data type.
+# This means no enums, structs and arrays.
+# Each column has 8 rows of data with different repeated counts.
+# 3, 3, 3, 2, 2, 1, 0, NULL
+[prepare_database]
+CREATE TABLE Table2 AS
+SELECT cast(1 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(2 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(3 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-3 as int32) as int32_val, cast(-3 as int64) as int64_val,
+       cast(3 as uint32) as uint32_val, cast(3 as uint64) as uint64_val,
+       cast(0.3 as float) as float_val, cast(0.3 as double) as double_val,
+       cast("3" as string) as str_val, CAST("3" as bytes) as bytes_val
+UNION ALL
+SELECT cast(4 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(5 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(-2 as int32) as int32_val, cast(-2 as int64) as int64_val,
+       cast(2 as uint32) as uint32_val, cast(2 as uint64) as uint64_val,
+       cast(0.2 as float) as float_val, cast(0.2 as double) as double_val,
+       cast("2" as string) as str_val, CAST("2" as bytes) as bytes_val
+UNION ALL
+SELECT cast(6 as int64) as primary_key, cast(true as bool) as bool_val,
+       cast(-1 as int32) as int32_val, cast(-1 as int64) as int64_val,
+       cast(1 as uint32) as uint32_val, cast(1 as uint64) as uint64_val,
+       cast(0.1 as float) as float_val, cast(0.1 as double) as double_val,
+       cast("1" as string) as str_val, CAST("1" as bytes) as bytes_val
+UNION ALL
+SELECT cast(7 as int64) as primary_key, cast(false as bool) as bool_val,
+       cast(0 as int32) as int32_val, cast(0 as int64) as int64_val,
+       cast(0 as uint32) as uint32_val, cast(0 as uint64) as uint64_val,
+       cast(0.0 as float) as float_val, cast(0.0 as double) as double_val,
+       cast("0" as string) as str_val, CAST("0" as bytes) as bytes_val
+UNION ALL
+SELECT cast(8 as int64) as primary_key, cast(NULL as bool) as bool_val,
+       cast(NULL as int32) as int32_val, cast(NULL as int64) as int64_val,
+       cast(NULL as uint32) as uint32_val, cast(NULL as uint64) as uint64_val,
+       cast(NULL as float) as float_val, cast(NULL as double) as double_val,
+       cast(NULL as string) as str_val, CAST(NULL as bytes) as bytes_val
+--
+ARRAY<STRUCT<primary_key INT64,
+             bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {1, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {2, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {3, true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"},
+  {4, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {5, false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {6, true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {7, false, 0, 0, 0, 0, 0, 0, "0", b"0"},
+  {8, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+==
+# Table with enums, arrays, structs (both values and nulls)
+[prepare_database]
+CREATE TABLE TableComplex1 AS
+SELECT cast(1 as int64) as primary_key, CAST(0 AS `zetasql_test.TestEnum`) as enum_val,
+       [0, 0, 0] AS array_val,
+       (0, 0) AS struct_val
+UNION ALL
+SELECT 2, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+UNION ALL
+SELECT 3, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+UNION ALL
+SELECT 4, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+UNION ALL
+SELECT 5, NULL, NULL, NULL
+UNION ALL
+SELECT 6, NULL, NULL, NULL
+--
+ARRAY<STRUCT<
+        primary_key INT64,
+        enum_val ENUM<zetasql_test.TestEnum>,
+        array_val ARRAY<>,
+        struct_val STRUCT<INT64, INT64>
+      >>
+[{
+   1,
+   TESTENUM0,
+   ARRAY<INT64>[0, 0, 0],
+   {0, 0}
+ },
+ {
+   2,
+   TESTENUM1,
+   ARRAY<INT64>[1, 1, 1],
+   {1, 1}
+ },
+ {
+   3,
+   TESTENUM1,
+   ARRAY<INT64>[1, 1, 1],
+   {1, 1}
+ },
+ {
+   4,
+   TESTENUM1,
+   ARRAY<INT64>[1, 1, 1],
+   {1, 1}
+ },
+ {5, NULL, ARRAY<INT64>(NULL), NULL},
+ {6, NULL, ARRAY<INT64>(NULL), NULL}]
+==
+[prepare_database]
+CREATE TABLE TableComplex2 AS
+SELECT cast(1 as int64) as primary_key, CAST(0 AS `zetasql_test.TestEnum`) as enum_val,
+       [0, 0, 0] AS array_val,
+       (0, 0) AS struct_val
+UNION ALL
+SELECT 2, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+UNION ALL
+SELECT 3, NULL, NULL, NULL
+UNION ALL
+SELECT 4, NULL, NULL, NULL
+--
+ARRAY<STRUCT<
+        primary_key INT64,
+        enum_val ENUM<zetasql_test.TestEnum>,
+        array_val ARRAY<>,
+        struct_val STRUCT<INT64, INT64>
+      >>
+[{
+   1,
+   TESTENUM0,
+   ARRAY<INT64>[0, 0, 0],
+   {0, 0}
+ },
+ {
+   2,
+   TESTENUM1,
+   ARRAY<INT64>[1, 1, 1],
+   {1, 1}
+ },
+ {3, NULL, ARRAY<INT64>(NULL), NULL},
+ {4, NULL, ARRAY<INT64>(NULL), NULL}]
+==
+# The queries are structured such that every query is repeated 4 times:
+# INTERSECT DISTINCT, INTERSECT ALL, EXCEPT DISTINCT, EXCEPT ALL.
+#
+# ******************************
+#
+# The "set_operations" label applies to all set operations except UNION ALL.
+[default global_labels=set_operations]
+
+[name=except_intersect_1]
+SELECT 1 INTERSECT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_2]
+SELECT 1 INTERSECT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_3]
+SELECT 1 EXCEPT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_4]
+SELECT 1 EXCEPT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[]
+==
+# ******************************
+[name=except_intersect_5]
+(SELECT 1 UNION ALL SELECT 1) INTERSECT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_6]
+(SELECT 1 UNION ALL SELECT 1) INTERSECT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_7]
+(SELECT 1 UNION ALL SELECT 1) EXCEPT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_8]
+(SELECT 1 UNION ALL SELECT 1) EXCEPT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+# ******************************
+[name=except_intersect_9]
+(SELECT 1 UNION ALL SELECT 1) INTERSECT DISTINCT (SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_10]
+(SELECT 1 UNION ALL SELECT 1) INTERSECT ALL (SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}, {1}]
+==
+[name=except_intersect_11]
+(SELECT 1 UNION ALL SELECT 1) EXCEPT DISTINCT (SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_12]
+(SELECT 1 UNION ALL SELECT 1) EXCEPT ALL (SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+# ******************************
+[name=except_intersect_13]
+SELECT 1 INTERSECT DISTINCT SELECT 2
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_14]
+SELECT 1 INTERSECT ALL SELECT 2
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_15]
+SELECT 1 EXCEPT ALL SELECT 2
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_16]
+SELECT 1 EXCEPT DISTINCT SELECT 2
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+# ******************************
+[name=except_intersect_17]
+SELECT NULL INTERSECT DISTINCT SELECT 2
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_18]
+SELECT NULL INTERSECT ALL SELECT 2
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_19]
+SELECT NULL EXCEPT DISTINCT SELECT 2
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=except_intersect_20]
+SELECT NULL EXCEPT ALL SELECT 2
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+# ******************************
+[name=except_intersect_21]
+SELECT NULL INTERSECT DISTINCT SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=except_intersect_22]
+SELECT NULL INTERSECT ALL SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=except_intersect_23]
+SELECT NULL EXCEPT DISTINCT SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_24]
+SELECT NULL EXCEPT ALL SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[]
+==
+# ******************************
+[name=except_intersect_25]
+(SELECT NULL UNION ALL SELECT NULL) INTERSECT DISTINCT SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=except_intersect_26]
+(SELECT NULL UNION ALL SELECT NULL) INTERSECT ALL SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+[name=except_intersect_27]
+(SELECT NULL UNION ALL SELECT NULL) EXCEPT DISTINCT SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_28]
+(SELECT NULL UNION ALL SELECT NULL) EXCEPT ALL SELECT NULL
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+# ******************************
+[name=except_intersect_29]
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0) INTERSECT DISTINCT
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0)
+--
+ARRAY<STRUCT<INT64, INT64>>[{NULL, 0}]
+==
+[name=except_intersect_30]
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0) INTERSECT ALL
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0)
+--
+ARRAY<STRUCT<INT64, INT64>>[{NULL, 0}, {NULL, 0}]
+==
+[name=except_intersect_31]
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0) EXCEPT DISTINCT
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0)
+--
+ARRAY<STRUCT<INT64, INT64>>[]
+==
+[name=except_intersect_32]
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0) EXCEPT ALL
+(SELECT NULL, 0 UNION ALL SELECT NULL, 0)
+--
+ARRAY<STRUCT<INT64, INT64>>[]
+==
+# ******************************
+[name=except_intersect_33]
+(SELECT 1 UNION ALL SELECT 2) INTERSECT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_34]
+(SELECT 1 UNION ALL SELECT 2) INTERSECT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_35]
+(SELECT 1 UNION ALL SELECT 2) EXCEPT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=except_intersect_36]
+(SELECT 1 UNION ALL SELECT 2) EXCEPT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+# ******************************
+[name=except_intersect_37]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) INTERSECT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_38]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) INTERSECT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_39]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) EXCEPT DISTINCT SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=except_intersect_40]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) EXCEPT ALL SELECT 1
+--
+ARRAY<STRUCT<INT64>>[{2}, {1}]
+==
+# ******************************
+[name=except_intersect_41]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) INTERSECT DISTINCT
+(SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_42]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) INTERSECT ALL
+(SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}, {1}]
+==
+[name=except_intersect_43]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) EXCEPT DISTINCT
+(SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=except_intersect_44]
+(SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 1) EXCEPT ALL
+(SELECT 1 UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+# ******************************
+[name=except_intersect_45]
+(SELECT 1 UNION ALL SELECT 3) INTERSECT DISTINCT
+SELECT 1                      INTERSECT DISTINCT
+SELECT 3
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_46]
+(SELECT 1 UNION ALL SELECT 3) INTERSECT ALL
+SELECT 1                      INTERSECT ALL
+SELECT 3
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_47]
+(SELECT 1 UNION ALL SELECT 3) EXCEPT DISTINCT
+SELECT 1                      EXCEPT DISTINCT
+SELECT 3
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_48]
+(SELECT 1 UNION ALL SELECT 3) EXCEPT ALL
+SELECT 1                      EXCEPT ALL
+SELECT 3
+--
+ARRAY<STRUCT<INT64>>[]
+==
+# ******************************
+[name=except_intersect_49]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+INTERSECT DISTINCT
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[{1}, {NULL}]
+==
+[name=except_intersect_50]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+INTERSECT ALL
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[{1}, {NULL}, {NULL}]
+==
+[name=except_intersect_51]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+EXCEPT DISTINCT
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_52]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+EXCEPT ALL
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+# ******************************
+[name=except_intersect_53]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+INTERSECT DISTINCT
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+INTERSECT DISTINCT
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[{1}, {NULL}]
+==
+[name=except_intersect_54]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+INTERSECT ALL
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+INTERSECT ALL
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[{1}, {NULL}]
+==
+[name=except_intersect_55]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+EXCEPT DISTINCT
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+EXCEPT DISTINCT
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_56]
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT 1 UNION ALL SELECT NULL)
+EXCEPT ALL
+(SELECT 1 UNION ALL SELECT NULL UNION ALL SELECT NULL)
+EXCEPT ALL
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+# ******************************
+[name=except_intersect_57]
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+INTERSECT DISTINCT
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[{2}, {4}, {3}]
+==
+[name=except_intersect_58]
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+INTERSECT ALL
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[{2}, {4}, {4}, {4}, {3}, {3}]
+==
+[name=except_intersect_59]
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+EXCEPT DISTINCT
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_60]
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+EXCEPT ALL
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[{2}, {4}, {1}, {3}]
+==
+# ******************************
+[name=except_intersect_61]
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+INTERSECT DISTINCT
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[{2}, {4}, {3}]
+==
+[name=except_intersect_62]
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+INTERSECT ALL
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[{2}, {4}, {4}, {4}, {3}, {3}]
+==
+[name=except_intersect_63]
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+EXCEPT DISTINCT
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_64]
+(SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+EXCEPT ALL
+(SELECT 1 UNION ALL
+ SELECT 2 UNION ALL SELECT 2 UNION ALL
+ SELECT 3 UNION ALL SELECT 3 UNION ALL SELECT 3 UNION ALL
+ SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4 UNION ALL SELECT 4)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+# ******************************
+[name=except_intersect_65]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+INTERSECT DISTINCT
+(SELECT 1)
+INTERSECT DISTINCT
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_66]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+INTERSECT ALL
+(SELECT 1)
+INTERSECT ALL
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_67]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+EXCEPT DISTINCT
+(SELECT 1)
+EXCEPT DISTINCT
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_68]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+EXCEPT ALL
+(SELECT 1)
+EXCEPT ALL
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}, {1}]
+==
+# ******************************
+[name=except_intersect_69]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL
+ SELECT NULL UNION ALL SELECT NULL UNION ALL SELECT NULL)
+INTERSECT DISTINCT
+(SELECT 1 UNION ALL SELECT NULL)
+INTERSECT DISTINCT
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_70]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL
+ SELECT NULL UNION ALL SELECT NULL UNION ALL SELECT NULL)
+INTERSECT ALL
+(SELECT 1 UNION ALL SELECT NULL)
+INTERSECT ALL
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=except_intersect_71]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL
+ SELECT NULL UNION ALL SELECT NULL UNION ALL SELECT NULL)
+EXCEPT DISTINCT
+(SELECT 1 UNION ALL SELECT NULL)
+EXCEPT DISTINCT
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_72]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL
+ SELECT NULL UNION ALL SELECT NULL UNION ALL SELECT NULL)
+EXCEPT ALL
+(SELECT 1 UNION ALL SELECT NULL)
+EXCEPT ALL
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}, {1}, {NULL}, {NULL}]
+==
+# ******************************
+[name=except_intersect_73]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+INTERSECT DISTINCT
+(SELECT 0)
+INTERSECT DISTINCT
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_74]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+INTERSECT ALL
+(SELECT 0)
+INTERSECT ALL
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_75]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+EXCEPT DISTINCT
+(SELECT 0)
+EXCEPT DISTINCT
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[]
+==
+[name=except_intersect_76]
+(SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1 UNION ALL SELECT 1)
+EXCEPT ALL
+(SELECT 0)
+EXCEPT ALL
+(SELECT 1)
+--
+ARRAY<STRUCT<INT64>>[{1}, {1}, {1}]
+==
+# ******************************
+[name=intersect_distinct_multiple_cols]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table1
+INTERSECT DISTINCT
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {true, -1, -1, 1, 1, "1", b"1"},
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {false, -2, -2, 2, 2, "2", b"2"},
+  {true, -3, -3, 3, 3, "3", b"3"}
+]
+==
+[name=intersect_distinct_multiple_cols_float]
+[test_features1=DISALLOW_GROUP_BY_FLOAT]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table1
+INTERSECT DISTINCT
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table2
+--
+WITH FEATURES: <none>
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"}
+]
+--
+WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
+ERROR: generic::invalid_argument: Column 6 in INTERSECT DISTINCT has type that does not support set operation comparisons: FLOAT [at 4:1]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+^
+==
+[name=intersect_all_multiple_cols]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table1
+INTERSECT ALL
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {true, -1, -1, 1, 1, "1", b"1"},
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {false, -2, -2, 2, 2, "2", b"2"},
+  {false, -2, -2, 2, 2, "2", b"2"},
+  {true, -3, -3, 3, 3, "3", b"3"}
+]
+==
+[name=intersect_all_multiple_cols_float]
+[test_features1=DISALLOW_GROUP_BY_FLOAT]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table1
+INTERSECT ALL
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table2
+--
+WITH FEATURES: <none>
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {false, -2, -2, 2, 2, 0.2, 0.2, "2", b"2"},
+  {true, -3, -3, 3, 3, 0.3, 0.3, "3", b"3"}
+]
+--
+WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
+ERROR: generic::invalid_argument: Column 6 in INTERSECT ALL has type that does not support set operation comparisons: FLOAT [at 4:1]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+^
+==
+[name=except_distinct_multiple_cols]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table1
+EXCEPT DISTINCT
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             str_val STRING,
+             bytes_val BYTES>>[{false, -4, -4, 4, 4, "4", b"4"}]
+==
+[name=except_distinct_multiple_cols_float]
+[test_features1=DISALLOW_GROUP_BY_FLOAT]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table1
+EXCEPT DISTINCT
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table2
+--
+WITH FEATURES: <none>
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>[{false, -4, -4, 4, 4, 0.4, 0.4, "4", b"4"}]
+--
+WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
+ERROR: generic::invalid_argument: Column 6 in EXCEPT DISTINCT has type that does not support set operation comparisons: FLOAT [at 4:1]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+^
+==
+[name=except_all_multiple_cols]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table1
+EXCEPT ALL
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       str_val, bytes_val FROM Table2
+--
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {false, -4, -4, 4, 4, "4", b"4"},
+  {true, -1, -1, 1, 1, "1", b"1"},
+  {true, -1, -1, 1, 1, "1", b"1"},
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+==
+[name=except_all_multiple_cols_float]
+[test_features1=DISALLOW_GROUP_BY_FLOAT]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table1
+EXCEPT ALL
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+       float_val, double_val, str_val, bytes_val FROM Table2
+--
+WITH FEATURES: <none>
+ARRAY<STRUCT<bool_val BOOL,
+             int32_val INT32,
+             int64_val INT64,
+             uint32_val UINT32,
+             uint64_val UINT64,
+             float_val FLOAT,
+             double_val DOUBLE,
+             str_val STRING,
+             bytes_val BYTES>>
+[
+  {false, -4, -4, 4, 4, 0.4, 0.4, "4", b"4"},
+  {true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {true, -1, -1, 1, 1, 0.1, 0.1, "1", b"1"},
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+--
+WITH FEATURES: DISALLOW_GROUP_BY_FLOAT
+ERROR: generic::invalid_argument: Column 6 in EXCEPT ALL has type that does not support set operation comparisons: FLOAT [at 4:1]
+SELECT bool_val, int32_val, int64_val, uint32_val, uint64_val,
+^
+==
+# ******************************
+# SELECT enum column.
+[name=intersect_distinct_datatype_enum]
+SELECT enum_val FROM TableComplex1
+INTERSECT DISTINCT
+SELECT enum_val FROM TableComplex2
+--
+# SELECT enum column.
+ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+  {TESTENUM0},
+  {NULL},
+  {TESTENUM1}
+]
+==
+# SELECT enum column.
+[name=intersect_all_datatype_enum]
+SELECT enum_val FROM TableComplex1
+INTERSECT ALL
+SELECT enum_val FROM TableComplex2
+--
+ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+  {TESTENUM0},
+  {NULL},
+  {NULL},
+  {TESTENUM1}
+]
+==
+# SELECT enum column.
+[name=except_distinct_datatype_enum]
+SELECT enum_val FROM TableComplex1
+EXCEPT DISTINCT
+SELECT enum_val FROM TableComplex2
+--
+ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[]
+==
+# SELECT enum column.
+[name=except_all_datatype_enum]
+SELECT enum_val FROM TableComplex1
+EXCEPT ALL
+SELECT enum_val FROM TableComplex2
+--
+ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+  {TESTENUM1},
+  {TESTENUM1}
+]
+==
+# ******************************
+# SELECT struct column from table.
+[name=intersect_distinct_datatype_struct]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT struct_val FROM TableComplex1
+INTERSECT DISTINCT
+SELECT struct_val FROM TableComplex2
+--
+ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[{{0, 0}}, {NULL}, {{1, 1}}]
+==
+# SELECT struct column.
+[name=intersect_all_datatype_struct]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT struct_val FROM TableComplex1
+INTERSECT ALL
+SELECT struct_val FROM TableComplex2
+--
+ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[
+  {{0, 0}},
+  {NULL},
+  {NULL},
+  {{1, 1}}
+]
+==
+# SELECT struct column.
+[name=except_distinct_datatype_struct]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT struct_val FROM TableComplex1
+EXCEPT DISTINCT
+SELECT struct_val FROM TableComplex2
+--
+ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[]
+==
+# SELECT struct column.
+[name=except_all_datatype_struct]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT struct_val FROM TableComplex1
+EXCEPT ALL
+SELECT struct_val FROM TableComplex2
+--
+ARRAY<STRUCT<struct_val STRUCT<INT64, INT64>>>[{{1, 1}}, {{1, 1}}]
+==
+# ******************************
+# SELECT struct type resulting from subquery.
+# These tests do not require tables to support struct type.
+#
+[name=intersect_distinct_struct_subquery]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT AS STRUCT bool_val, int64_val from table1
+INTERSECT DISTINCT
+SELECT as struct bool_val, int64_val from table2
+--
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[
+  {true, -1},
+  {NULL, NULL},
+  {false, -2},
+  {true, -3}
+]
+==
+[name=intersect_all_struct_subquery]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT as struct bool_val, int64_val from table1
+INTERSECT ALL
+SELECT as struct bool_val, int64_val from table2
+--
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[
+  {true, -1},
+  {NULL, NULL},
+  {false, -2},
+  {false, -2},
+  {true, -3}
+]
+==
+[name=except_distinct_struct_subquery]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT as struct bool_val, int64_val from table1
+EXCEPT DISTINCT
+SELECT as struct bool_val, int64_val from table2
+--
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[{false, -4}]
+==
+[name=except_all_struct_subquery]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT as struct bool_val, int64_val from table1
+EXCEPT ALL
+SELECT as struct bool_val, int64_val from table2
+--
+ARRAY<STRUCT<bool_val BOOL, int64_val INT64>>[
+  {false, -4},
+  {true, -1},
+  {true, -1},
+  {NULL, NULL}
+]
+==
+# ******************************
+[name=intersect_homogeneous]
+SELECT bool_val, int32_val, int64_val FROM Table1
+INTERSECT DISTINCT
+SELECT bool_val, int32_val, int64_val FROM Table2
+INTERSECT DISTINCT
+SELECT bool_val, int32_val, int64_val FROM Table1
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, int64_val INT64>>[
+  {true, -1, -1},
+  {NULL, NULL, NULL},
+  {false, -2, -2},
+  {true, -3, -3}
+]
+==
+[name=except_intersect_bad_precedence]
+SELECT bool_val, int32_val, int64_val FROM Table1
+INTERSECT DISTINCT
+SELECT bool_val, int32_val, int64_val FROM Table2
+EXCEPT ALL
+SELECT bool_val, int32_val, int64_val FROM Table1
+--
+ERROR: generic::invalid_argument: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+EXCEPT ALL
+^
+==
+[name=except_intersect_good_precedence]
+SELECT bool_val, int32_val, int64_val FROM Table1
+INTERSECT DISTINCT
+(
+SELECT bool_val, int32_val, int64_val FROM Table2
+EXCEPT ALL
+SELECT bool_val, int32_val, int64_val FROM Table1
+)
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, int64_val INT64>>[{true, -3, -3}]
+==
+[name=except_intersect_heterogeneous_good_2]
+(
+SELECT bool_val, int32_val, int64_val FROM Table1
+INTERSECT DISTINCT
+SELECT bool_val, int32_val, int64_val FROM Table2
+)
+EXCEPT ALL
+SELECT bool_val, int32_val, int64_val FROM Table1
+--
+ARRAY<STRUCT<bool_val BOOL, int32_val INT32, int64_val INT64>>[]
+==
+# @nan_01 and @nan_02 are both nans with different bitwise representation.
+[name=intersect_distinct_nan_different_bitwise_representation]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+SELECT * FROM UNNEST([@nan_01])
+INTERSECT DISTINCT
+SELECT * FROM UNNEST([@nan_02]);
+--
+ARRAY<STRUCT<DOUBLE>>[{nan}]
+==
+# @nan_01 and @nan02 are both nans with different bitwise representation.
+[name=except_distinct_nan_different_bitwise_representation_empty1]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+SELECT * FROM UNNEST([@nan_01])
+EXCEPT DISTINCT
+SELECT * FROM UNNEST([@nan_02]);
+--
+ARRAY<STRUCT<DOUBLE>>[]
+==
+# @nan_01 and @nan02 are both nans with different bitwise representation.
+[name=intersect_all_nan_different_bitwise_representation]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+SELECT * FROM UNNEST([@nan_02])
+INTERSECT ALL
+SELECT * FROM UNNEST([@nan_01]);
+--
+ARRAY<STRUCT<DOUBLE>>[{nan}]
+==
+# @nan_01 and @nan02 are both nans with different bitwise representation.
+[name=except_all_nan_different_bitwise_representation]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+SELECT * FROM UNNEST([@nan_01])
+EXCEPT ALL
+SELECT * FROM UNNEST([@nan_02]);
+--
+ARRAY<STRUCT<DOUBLE>>[]

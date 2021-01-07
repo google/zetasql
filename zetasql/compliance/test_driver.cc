@@ -54,6 +54,9 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
     for (LanguageFeature feature : options.required_features()) {
       options_proto->add_required_features(feature);
     }
+    if (!options.userid_column().empty()) {
+      options_proto->set_userid_column(options.userid_column());
+    }
   }
   return absl::OkStatus();
 }

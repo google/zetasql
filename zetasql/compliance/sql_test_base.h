@@ -902,6 +902,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
                             const std::string& sql_without_options,
                             const std::map<std::string, Value>& parameters,
                             const std::set<LanguageFeature>& required_features
+                            ,
+                            const std::string& userid_column
   );
 
   // Validate a statement result to make sure the status is OK, the value is not
@@ -959,8 +961,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   std::string name_prefix_;
   bool name_prefix_need_result_type_name_ = false;
   std::string result_type_name_;
-
-  bool known_error_file_uses_legacy_fingerprint_ = false;
 
   // Turns a string into an RE2 safe string. Used to generate names for
   // code-based statements. Names must be RE2 safe as known error list

@@ -363,6 +363,29 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 // By default, Bison chooses "shift", treating GENERATED as a keyword. To use it
 // as an identifier, it needs to be escaped with backticks.
 //
+// AMBIGUOUS CASE 9: WITH ANONYMIZATION opt_options_list
+// -------------------------------------------------------------
+// 'WITH ANONYMIZATION OPTIONS' produces 1 shift-reduce conflict:
+//   SELECT WITH ANONYMIZATION OPTIONS(a=b) x FROM foo;
+//   SELECT WITH ANONYMIZATION OPTIONS FROM foo;
+// When seeing OPTIONS, it could be shifted to match against the parenthesized
+// options list, or it could be reduced as an identifier (i.e., interpreted
+// as 'foo.OPTIONS') in the SELECT list.  We use the shift in this case.
+//
+// AMBIGUOUS CASE 10: DESCRIPTOR(...)
+// --------------------------------
+// The DESCRIPTOR keyword is non-reserved and can be used as an identifier. This
+// causes one shift/reduce conflict between keyword_as_identifier and the rule
+// that starts with "DESCRIPTOR" "(". It is resolved in favor of DESCRIPTOR(
+// rule, which is the desired behavior.
+//
+// AMBIGUOUS CASE 11: FILTER_FIELDS(...)
+// --------------------------------
+// The FILTER_FIELDS keyword is non-reserved and can be used as an identifier.
+// This causes a shift/reduce conflict between keyword_as_identifier and the
+// rule that starts with "FILTER_FIELDS" "(". It is resolved in favor of the
+// FILTER_FIELDS( rule, which is the desired behavior.
+//
 // Total expected shift/reduce conflicts as described above:
 //   2: EXPRESSION SUBQUERY
 //   1: INSERT VALUES
@@ -375,7 +398,8 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: CREATE EXTERNAL TABLE FUNCTION
 //   1: DESCRIPTOR
 //   1: FILTER FIELDS
-%expect 18
+//   1: WITH ANONYMIZATION
+%expect 19
 
 %union {
   bool boolean;
@@ -504,7 +528,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 %left "OR"
 %left "AND"
 %left UNARY_NOT_PRECEDENCE
-%nonassoc "=" "<>" ">" "<" ">=" "<=" "!=" "LIKE" "IN" "BETWEEN" "IS" "NOT for BETWEEN/IN/LIKE"
+%nonassoc "=" "<>" ">" "<" ">=" "<=" "!=" "LIKE" "IN" "DISTINCT" "BETWEEN" "IS" "NOT_SPECIAL"
 %left "|"
 %left "^"
 %left "&"
@@ -713,7 +737,7 @@ using zetasql::ASTDropStatement;
 // This is a different token because using KW_NOT for BETWEEN/IN/LIKE would
 // confuse the operator precedence parsing. Boolean NOT has a different
 // precedence than NOT BETWEEN/IN/LIKE.
-%token KW_NOT_FOR_BETWEEN_IN_LIKE "NOT for BETWEEN/IN/LIKE"
+%token KW_NOT_SPECIAL "NOT_SPECIAL"
 
 // Non-reserved keywords.  These can also be used as identifiers.
 // These must all be listed explicitly in the "keyword_as_identifier" rule
@@ -726,6 +750,7 @@ using zetasql::ASTDropStatement;
 %token KW_ADD "ADD"
 %token KW_AGGREGATE "AGGREGATE"
 %token KW_ALTER "ALTER"
+%token KW_ANONYMIZATION "ANONYMIZATION"
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
 %token KW_BEGIN "BEGIN"
@@ -735,6 +760,7 @@ using zetasql::ASTDropStatement;
 %token KW_CALL "CALL"
 %token KW_CASCADE "CASCADE"
 %token KW_CHECK "CHECK"
+%token KW_CLAMPED "CLAMPED"
 %token KW_CLUSTER "CLUSTER"
 %token KW_COLUMN "COLUMN"
 %token KW_COLUMNS "COLUMNS"
@@ -1045,6 +1071,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_as_query_or_string
 %type <node> opt_as_sql_function_body_or_string
 %type <node> opt_assert_rows_modified
+%type <node> opt_clamped_between_modifier
 %type <node> opt_cluster_by_clause_no_hint
 %type <node> opt_collate_clause
 %type <node> opt_column_list
@@ -1053,6 +1080,7 @@ using zetasql::ASTDropStatement;
 %type <create_scope> opt_create_scope
 %type <node> opt_at_system_time
 %type <node> opt_description
+%type <expression> opt_at_time_zone
 %type <node> opt_format
 %type <drop_mode> opt_drop_mode
 %type <node> opt_else
@@ -1253,6 +1281,7 @@ using zetasql::ASTDropStatement;
 %type <not_keyword_presence> in_operator
 %type <not_keyword_presence> is_operator
 %type <not_keyword_presence> like_operator
+%type <not_keyword_presence> distinct_operator
 
 %type <preceding_or_following_keyword> preceding_or_following
 
@@ -1274,6 +1303,7 @@ using zetasql::ASTDropStatement;
 %type <boolean> opt_stored
 %type <boolean> opt_unique
 %type <boolean> opt_search
+%type <node> opt_with_anonymization
 %type <node> primary_key_column_attribute
 %type <node> hidden_column_attribute
 %type <node> not_null_column_attribute
@@ -1322,6 +1352,7 @@ using zetasql::ASTDropStatement;
 %type <node> with_partition_columns_clause
 %type <node> opt_with_partition_columns_clause
 %type <pivot_clause_and_alias> opt_pivot_clause_and_alias
+%type <expression> is_distinct_from_expression
 
 %start start_mode
 %%
@@ -2836,7 +2867,9 @@ opt_foreign_key_match:
 foreign_key_match_mode:
     "SIMPLE" { $$ = zetasql::ASTForeignKeyReference::SIMPLE; }
     | "FULL" { $$ = zetasql::ASTForeignKeyReference::FULL; }
-    | "NOT" "DISTINCT" { $$ = zetasql::ASTForeignKeyReference::NOT_DISTINCT; }
+    | "NOT_SPECIAL" "DISTINCT" {
+      $$ = zetasql::ASTForeignKeyReference::NOT_DISTINCT;
+    }
     ;
 
 opt_foreign_key_actions:
@@ -3511,19 +3544,20 @@ query_primary_maybe_expression:
 
 select:
     "SELECT" opt_hint
-    placeholder
+    opt_with_anonymization
     opt_all_or_distinct
     opt_select_as_clause select_list opt_from_clause opt_where_clause
     opt_group_by_clause opt_having_clause opt_window_clause
       {
         auto* select =
             MAKE_NODE(ASTSelect, @$, {$2,
+                                      $3,
                                       $5, $6, $7, $8, $9, $10, $11});
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
     | "SELECT" opt_hint
-      placeholder
+      opt_with_anonymization
       opt_all_or_distinct
       opt_select_as_clause "FROM"
       {
@@ -3531,6 +3565,20 @@ select:
             @6,
             "Syntax error: SELECT list must not be empty");
       }
+    ;
+
+opt_with_anonymization:
+    "WITH" "ANONYMIZATION" opt_options_list
+    {
+      $$ = $3;
+      if ($$ == nullptr ) {
+        // Since WITH ANONYMIZATION is present but there was no options list
+        // specified, we indicate the presence of WITH ANONYMIZATION by
+        // returning an empty options list.
+        $$ = MAKE_NODE(ASTOptionsList, @$);
+      }
+    }
+    | /* Nothing */ { $$ = nullptr; }
     ;
 
 // AS STRUCT, AS VALUE, or AS <path expression>. This needs some special
@@ -4531,6 +4579,14 @@ opt_having_modifier:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
+opt_clamped_between_modifier:
+    "CLAMPED" "BETWEEN" expression "AND for BETWEEN" expression
+      {
+        $$ = MAKE_NODE(ASTClampedBetweenModifier, @$, {$3, $5})
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 opt_null_handling_modifier:
     "IGNORE" "NULLS"
       {
@@ -4786,7 +4842,7 @@ import_type:
 // Returns NotKeywordPresence to indicate whether NOT was present.
 like_operator:
     "LIKE" { $$ = NotKeywordPresence::kAbsent; } %prec "LIKE"
-    | "NOT for BETWEEN/IN/LIKE" "LIKE"
+    | "NOT_SPECIAL" "LIKE"
       {
         @$ = @2;  // Error messages should point at the "LIKE".
         $$ = NotKeywordPresence::kPresent;
@@ -4799,17 +4855,29 @@ between_operator:
       {
         $$ = NotKeywordPresence::kAbsent;
       } %prec "BETWEEN"
-    | "NOT for BETWEEN/IN/LIKE" "BETWEEN"
+    | "NOT_SPECIAL" "BETWEEN"
       {
         @$ = @2;  // Error messages should point at the "BETWEEN".
         $$ = NotKeywordPresence::kPresent;
       } %prec "BETWEEN"
     ;
 
+distinct_operator:
+    "IS" "DISTINCT" "FROM"
+      {
+        $$ = NotKeywordPresence::kAbsent;
+      } %prec "DISTINCT"
+    | "IS" "NOT_SPECIAL" "DISTINCT" "FROM"
+      {
+        @$ = @3;  // Error messages should point at the "DISTINCT".
+        $$ = NotKeywordPresence::kPresent;
+      } %prec "DISTINCT"
+    ;
+
 // Returns NotKeywordPresence to indicate whether NOT was present.
 in_operator:
     "IN" { $$ = NotKeywordPresence::kAbsent; } %prec "IN"
-    | "NOT for BETWEEN/IN/LIKE" "IN"
+    | "NOT_SPECIAL" "IN"
       {
         @$ = @2;  // Error messages should point at the "IN".
         $$ = NotKeywordPresence::kPresent;
@@ -4963,6 +5031,22 @@ expression:
               MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
           binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           binary_expression->set_op(zetasql::ASTBinaryExpression::LIKE);
+          $$ = binary_expression;
+        }
+    | expression distinct_operator expression %prec "DISTINCT"
+        {
+          if (parser->language_options() == nullptr
+              || !parser->language_options()->LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_3_IS_DISTINCT)) {
+            YYERROR_AND_ABORT_AT(
+                @2,
+                "IS DISTINCT FROM is not supported");
+          }
+          auto binary_expression =
+              MAKE_NODE(ASTBinaryExpression, @1, @3, {$1, $3});
+              binary_expression->set_is_not($2 == NotKeywordPresence::kPresent);
+              binary_expression->set_op(
+                  zetasql::ASTBinaryExpression::DISTINCT);
           $$ = binary_expression;
         }
     | expression in_operator opt_hint unnest_expression %prec "IN"
@@ -5593,7 +5677,7 @@ templated_parameter_kind:
       }
     | identifier
       {
-        const std::string templated_type_string = $1->GetAsString();
+        const absl::string_view templated_type_string = $1->GetAsStringView();
         if (zetasql_base::CaseEqual(templated_type_string, "TABLE")) {
           $$ = zetasql::ASTTemplatedParameterType::ANY_TABLE;
         } else if (zetasql_base::CaseEqual(templated_type_string, "TYPE")) {
@@ -5701,10 +5785,19 @@ case_expression:
       }
     ;
 
+opt_at_time_zone:
+    "AT" "TIME" "ZONE" expression
+      {
+        $$ = $4;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+
 opt_format:
-    "FORMAT" expression
+    "FORMAT" expression opt_at_time_zone
        {
-         $$ = MAKE_NODE(ASTFormatClause, @$, {$2});
+         $$ = MAKE_NODE(ASTFormatClause, @$, {$2, $3});
        }
     | /* Nothing */ { $$ = nullptr; }
     ;
@@ -6018,6 +6111,7 @@ function_call_expression_with_args_prefix:
       }
     // The first argument may be a "*" instead of an expression. This is valid
     // for COUNT(*), which has no other arguments
+    // and ANON_COUNT(*), which has multiple other arguments.
     // The analyzer must validate the "*" is not used with other functions.
     | function_call_expression_base "*"
       {
@@ -6039,17 +6133,19 @@ function_call_expression:
         $$ = WithExtraChildren(WithEndLocation($1, @$), {$2, $3, $4});
       }
     // Non-empty argument list.
+    // opt_clamped_between_modifier and
     // opt_null_handling_modifier only appear here as they require at least
     // one argument.
     | function_call_expression_with_args_prefix opt_null_handling_modifier
       opt_having_modifier
-      placeholder
+      opt_clamped_between_modifier
       opt_order_by_clause
       opt_limit_offset_clause ")"
       {
         $1->set_null_handling_modifier($2);
         $$ = WithExtraChildren(WithEndLocation($1, @$), {
             $3,
+            $4,
             $5, $6});
       }
     ;
@@ -6624,6 +6720,7 @@ keyword_as_identifier:
     | "AGGREGATE"
     | "ADD"
     | "ALTER"
+    | "ANONYMIZATION"
     | "ASSERT"
     | "BATCH"
     | "BEGIN"
@@ -6633,6 +6730,7 @@ keyword_as_identifier:
     | "CALL"
     | "CASCADE"
     | "CHECK"
+    | "CLAMPED"
     | "CLUSTER"
     | "COLUMN"
     | "COLUMNS"
@@ -8070,8 +8168,6 @@ next_statement_kind_without_hint:
     | "TRUNCATE"
       { $$ = zetasql::ASTTruncateStatement::kConcreteNodeKind; }
     ;
-
-placeholder:;
 
 %%
 

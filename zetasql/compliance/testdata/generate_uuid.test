@@ -1,0 +1,58 @@
+# Verify that uuid string satisfies the form:
+# xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx
+# where 'x' represents a lowercase hexidecimal digit.
+[name=regexp]
+SELECT
+  REGEXP_CONTAINS(
+      GENERATE_UUID(),
+      '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  );
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# When GENERATE_UUID() is used in WITH clause, the result has to be the same
+# because of run-once behavior
+[name=with]
+WITH T AS (
+  SELECT GENERATE_UUID() AS uuid
+)
+SELECT COUNT(DISTINCT uuid) AS cnt
+FROM (
+  SELECT uuid FROM T
+  UNION ALL
+  SELECT uuid FROM T
+)
+--
+ARRAY<STRUCT<cnt INT64>>[{1}]
+==
+
+# Tests which should pass with very high probability
+
+# Different columns should have different values
+[name=different_columns]
+SELECT (r1 = r2 OR r2 = r3) wrong FROM
+(SELECT GENERATE_UUID() r1, GENERATE_UUID() r2, GENERATE_UUID() r3)
+--
+ARRAY<STRUCT<wrong BOOL>>[{false}]
+==
+
+# Different rows should have different values
+[name=different_rows]
+SELECT COUNT(DISTINCT GENERATE_UUID()) AS cnt
+FROM UNNEST([1, 2, 3])
+--
+ARRAY<STRUCT<cnt INT64>>[{3}]
+==
+
+[name=branches_of_union]
+SELECT COUNT(DISTINCT val)
+FROM (
+  SELECT GENERATE_UUID() val
+  UNION ALL
+  SELECT GENERATE_UUID() val
+  UNION ALL
+  SELECT GENERATE_UUID() val
+)
+--
+ARRAY<STRUCT<INT64>>[{3}]

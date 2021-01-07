@@ -85,21 +85,7 @@ ABSL_FLAG(std::string, query_name_pattern, "",
 ABSL_FLAG(bool, auto_generate_test_names, false,
           "When true, test cases in file don't have to have [name] tag, the "
           "names will be automatically generated when name is missing.");
-ABSL_FLAG(bool, compliance_known_error_print_migrate_string, false,
-          "Temporary flag to aid in migrating signatures. "
-          "See b/170481056 for more details");
 namespace zetasql {
-
-namespace {
-// Burn down list for known error files still using the legacy fingerprint
-// functions.
-// TODO: Get this to empty.
-absl::flat_hash_set<std::string> GetKnownErrorFilesWithLegacyFingerprint() {
-  return {
-  };
-}
-
-}  // namespace
 
 std::unique_ptr<SQLTestBase::Stats> SQLTestBase::stats_;
 std::unique_ptr<MatcherCollection<absl::Status>>
@@ -899,6 +885,7 @@ void SQLTestBase::StepPrepareTimeZoneProtosEnums() {
 
 static LazyRE2 kCreateTablePattern = {
     R"((?is)\s*CREATE\s+TABLE\s+(\w+)\s+)"
+    R"((?:OPTIONS\s*\(\s*userid_column\s*=\s*(\w+)\s*\)\s*|))"
     R"(AS\s+(.*))"};
 
 void SQLTestBase::StepPrepareDatabase() {
@@ -906,13 +893,15 @@ void SQLTestBase::StepPrepareDatabase() {
 
   if (options_->GetBool(kPrepareDatabase)) {
     std::string table_name;
+    std::string userid_column_name;
     if (CREATE_DATABASE == file_workflow_) {
       if (!RE2::FullMatch(sql_, *kCreateTablePattern, &table_name,
-                          &sql_)) {
+                          &userid_column_name, &sql_)) {
         absl::Status status(
             absl::StatusCode::kInvalidArgument,
             absl::StrCat("Syntax error",
                          "\nExpected: CREATE TABLE <table_name> "
+                         "[OPTIONS (userid_column=value)] "
                          "AS SELECT ...",
                          "\n  Actual: ", sql_));
         CheckCancellation(status, "Invalid CREATE TABLE statement");
@@ -939,9 +928,8 @@ void SQLTestBase::StepPrepareDatabase() {
         }
       }
 
-      CheckCancellation(
-          PrepareTable(table_name, sql_, parameters_, required_features  //
-                       ),
+      CheckCancellation(PrepareTable(table_name, sql_, parameters_,
+                                     required_features, userid_column_name),
                         "Failed to create table");
       if (CANCELLED == statement_workflow_) return;
     } else {
@@ -1241,15 +1229,8 @@ absl::Status SQLTestBase::AddKnownErrorEntry(
 }
 
 void SQLTestBase::LoadKnownErrorFiles(const std::vector<std::string>& files) {
-  absl::Status status;
-  absl::flat_hash_set<std::string> legacy_fingerprint_files =
-      GetKnownErrorFilesWithLegacyFingerprint();
   for (const std::string& file : files) {
-    if (zetasql_base::ContainsKey(legacy_fingerprint_files, file)) {
-      known_error_file_uses_legacy_fingerprint_ = true;
-      ZETASQL_LOG(INFO) << "Using legacy fingerprint due to " << file;
-    }
-    ZETASQL_CHECK_OK(LoadKnownErrorFile(file)) << internal::StatusToString(status);
+    ZETASQL_CHECK_OK(LoadKnownErrorFile(file));
   }
 
   if (ZETASQL_VLOG_IS_ON(3)) {
@@ -1365,37 +1346,18 @@ std::string SQLTestBase::SignatureOfString(absl::string_view str) const {
   if (escape.size() <= kLengthOfLeftSlice + kLengthOfRightSlice) {
     std::string safe = SafeString(escape);
     return absl::StrCat("<", safe, ">");
-  } else {
-    // Generated Old
-    std::string old;
-    std::string newstr;
-    {
-    }
-    {
-      // Generate New
-      uint64_t hash = farmhash::Fingerprint64(escape);
-      uint64_t* hash_ptr = &hash;
-      std::string hash_raw_str(reinterpret_cast<const char*>(hash_ptr),
-                               sizeof(hash));
-
-      std::string mid_raw = absl::WebSafeBase64Escape(hash_raw_str);
-      ZETASQL_CHECK_EQ(mid_raw.size(), 11) << mid_raw;
-      newstr = mid_raw.substr(0, 11);
-    }
-    std::string left = SafeString(escape.substr(0, kLengthOfLeftSlice));
-    std::string right = SafeString(escape.substr(
-        escape.size() - kLengthOfRightSlice, kLengthOfRightSlice));
-    if (absl::GetFlag(FLAGS_compliance_known_error_print_migrate_string)) {
-      ZETASQL_LOG(INFO) << "sedsedsed -e 's;"
-                << "_" << old << "_;_" << newstr << "_"
-                << ";g' \\";
-    }
-    if (known_error_file_uses_legacy_fingerprint_) {
-      return absl::StrCat("<", left, "_", old, "_", right, ">");
-    } else {
-      return absl::StrCat("<", left, "_", newstr, "_", right, ">");
-    }
   }
+  uint64_t hash = farmhash::Fingerprint64(escape);
+  uint64_t* hash_ptr = &hash;
+  std::string hash_raw_str(reinterpret_cast<const char*>(hash_ptr),
+                           sizeof(hash));
+  std::string mid_raw = absl::WebSafeBase64Escape(hash_raw_str);
+  ZETASQL_CHECK_EQ(mid_raw.size(), 11) << mid_raw;
+  std::string mid = mid_raw.substr(0, 11);
+  std::string left = SafeString(escape.substr(0, kLengthOfLeftSlice));
+  std::string right = SafeString(
+      escape.substr(escape.size() - kLengthOfRightSlice, kLengthOfRightSlice));
+  return absl::StrCat("<", left, "_", mid, "_", right, ">");
 }
 
 std::string SQLTestBase::SignatureOfCompositeValue(const Value& value) const {
@@ -1698,6 +1660,8 @@ absl::Status SQLTestBase::PrepareTable(
     const std::string& table_name, const std::string& sql_without_options,
     const std::map<std::string, Value>& parameters,
     const std::set<LanguageFeature>& required_features
+    ,
+    const std::string& userid_column
 ) {
   bool is_deterministic_output;
   bool uses_unsupported_type = false;  // unused
@@ -1714,6 +1678,12 @@ absl::Status SQLTestBase::PrepareTable(
   *test_table.options.mutable_required_features() = required_features;
   if (IsValueTable(sql_without_options, ref_result.value())) {
     test_table.options.set_is_value_table(true);
+  }
+  if (!userid_column.empty()) {
+    ZETASQL_RET_CHECK(TableContainsColumn(test_table.table_as_value, userid_column))
+        << absl::StrCat("Failed to find userid column ", userid_column,
+                        " in table ", table_name);
+    test_table.options.set_userid_column(userid_column);
   }
   ZETASQL_RET_CHECK(test_db_.tables.emplace(table_name, test_table).second)
       << table_name;

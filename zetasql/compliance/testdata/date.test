@@ -1,0 +1,140 @@
+[name=current_date_1]
+select current_date() = current_date,
+       current_date() >= '2015-03-17',
+       current_date() >= date_from_unix_date(0),
+       current_date() >= date_from_unix_date(-719162),
+       current_date() <= date_from_unix_date(2932896)
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true, true}]
+==
+
+[name=unix_date_1]
+select unix_date("2014-01-01"),
+       unix_date("1970-01-01"),
+       unix_date("1969-01-01");
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{16071, 0, -365}]
+==
+
+[name=date_from_unix_date_1]
+select date_from_unix_date(-719162),
+       date_from_unix_date(-365),
+       date_from_unix_date(0),
+       date_from_unix_date(16071),
+       date_from_unix_date(2932896)
+--
+ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE>>[
+  {0001-01-01, 1969-01-01, 1970-01-01, 2014-01-01, 9999-12-31}
+]
+==
+
+[name=date_boundaries_1]
+select unix_date(date "0001-01-01"),
+       unix_date(date "1970-01-01"),
+       unix_date(date "9999-12-31")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{-719162, 0, 2932896}]
+==
+
+[name=date_boundaries_back_and_forth]
+select date_from_unix_date(unix_date(date "0001-01-01")),
+       date_from_unix_date(unix_date(date "1970-01-01")),
+       date_from_unix_date(unix_date(date "9999-12-31")),
+       unix_date(date_from_unix_date(-719162)),
+       unix_date(date_from_unix_date(0)),
+       unix_date(date_from_unix_date(2932896))
+--
+ARRAY<STRUCT<DATE, DATE, DATE, INT64, INT64, INT64>>[
+  {0001-01-01, 1970-01-01, 9999-12-31, -719162, 0, 2932896}
+]
+==
+
+[name=current_date_in_exotic_timezone]
+select abs(date_diff(current_date('+05'), current_date('-06'), DAY)) IN (0,1)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=current_date_with_null_timezone]
+select current_date(cast(null as string))
+--
+ARRAY<STRUCT<DATE>>[{NULL}]
+==
+
+[name=current_date_with_invalid_timezone]
+select current_date('foo')
+--
+ERROR: generic::out_of_range: Invalid time zone: foo
+
+==
+# Note that DATE_DIFF with the WEEK part uses week numbers rather than just
+# taking the difference in the number of days and dividing by seven, so it's
+# expected that the two computations will not always match.
+[name=date_diff_with_week]
+SELECT
+  d1,
+  d2,
+  DATE_DIFF(d1, d2, WEEK),
+  CAST((UNIX_DATE(d1) - UNIX_DATE(d2)) / 7 AS INT64)
+FROM (
+  SELECT DATE '2017-05-17' AS d1, DATE '2017-05-25' AS d2 UNION ALL
+  SELECT DATE '2017-05-22' AS d1, DATE '2017-05-19' AS d2 UNION ALL
+  SELECT DATE '2012-12-31', DATE '2013-01-01' UNION ALL
+  SELECT DATE '2000-01-01', DATE '2001-01-01'
+)
+ORDER BY d1
+--
+ARRAY<STRUCT<d1 DATE, d2 DATE, INT64, INT64>>[
+  {2000-01-01, 2001-01-01, -53, -52},
+  {2012-12-31, 2013-01-01, 0, 0},
+  {2017-05-17, 2017-05-25, -1, -1},
+  {2017-05-22, 2017-05-19, 1, 0}
+]
+==
+
+[test_features1=V_1_3_DATE_TIME_CONSTRUCTORS]
+[name=date_from_string_literal]
+select date('2020-09-01 12:34:56.789-08')
+
+--
+WITH FEATURES: <none>
+WITH FEATURES: V_1_3_DATE_TIME_CONSTRUCTORS
+ARRAY<STRUCT<DATE>>[{2020-09-01}]
+==
+
+[required_features=V_1_3_DATE_TIME_CONSTRUCTORS]
+[name=date_from_string_non_literal_timestamp]
+select date('2020-09-01' || ' ' || '12:34:56.789-08')
+
+--
+ARRAY<STRUCT<DATE>>[{2020-09-01}]
+==
+
+[required_features=V_1_3_DATE_TIME_CONSTRUCTORS]
+[name=date_constructor]
+select date(date '9876-12-31'), date('1999' || '-' || '10' || '-' || '20'), string(date '1234-01-02')
+--
+ARRAY<STRUCT<DATE, DATE, STRING>>[{9876-12-31, 1999-10-20, "1234-01-02"}]
+==
+
+# Note, that the default time zone is PST (America/Los_Angeles) - hence the results.
+[test_features1=V_1_3_DATE_TIME_CONSTRUCTORS]
+[parameters='2019-08-01 03:00:00+00' as p1, '2019-08-01 03:00:00' as p2, '2020-01-02' as p3]
+[name=date_from_string_parameter]
+select
+  date(@p1), date('2019-08-01 03:00:00+00'), date(timestamp '2019-08-01 03:00:00+00'),
+  date(@p2), date('2019-08-01 03:00:00'),    date(timestamp '2019-08-01 03:00:00'),
+  date(@p3), date('2020-01-02')
+--
+WITH FEATURES: <none>
+WITH FEATURES: V_1_3_DATE_TIME_CONSTRUCTORS
+ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE, DATE, DATE, DATE>>[
+  {2019-07-31,
+   2019-07-31,
+   2019-07-31,
+   2019-08-01,
+   2019-08-01,
+   2019-08-01,
+   2020-01-02,
+   2020-01-02}
+]

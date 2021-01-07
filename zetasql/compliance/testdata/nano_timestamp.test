@@ -1,0 +1,121 @@
+# Note that the default time zone for compliance tests is 'America/Los_Angeles'.
+# Note that converting timestamp to string without a specific time zone
+# uses '+00'.
+#
+# The "timestamp_type_and_functions" label applies to all queries in this
+# file related to the ZetaSQL V1 TIMESTAMP type.
+[default global_labels=timestamp_type_and_functions]
+
+[load_proto_files=zetasql/testdata/test_schema.proto]
+[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_enum_names=zetasql_test.TestEnum]
+
+[name=timestamp_to_string_1]
+[test_features1=TIMESTAMP_NANOS]
+select [cast(timestamp "2015-01-28" as string),
+        cast(timestamp "2015-01-28 00:00:00" as string),
+        cast(timestamp "2015-01-28 00:00:00.0" as string),
+        cast(timestamp "2015-01-28 00:00:00.00" as string),
+        cast(timestamp "2015-01-28 00:00:00.000" as string),
+        cast(timestamp "2015-01-28 00:00:00.0000" as string),
+        cast(timestamp "2015-01-28 00:00:00.00000" as string),
+        cast(timestamp "2015-01-28 00:00:00.000000" as string),
+        cast(timestamp "2015-01-28 00:00:00.0000000" as string),
+        cast(timestamp "2015-01-28 00:00:00.00000000" as string),
+        cast(timestamp "2015-01-28 00:00:00.000000000" as string)]
+--
+WITH FEATURES: TIMESTAMP_NANOS
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08"
+   ]}
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Invalid TIMESTAMP literal [at 9:14]
+        cast(timestamp "2015-01-28 00:00:00.0000000" as string),
+             ^
+==
+# With FEATURE_TIMESTAMP_NANOS, ZetaSQL resolver can resolve up-to 9 digits
+# subseconds TIMESTAMP literals. But the reference driver can only support
+# 6-digit TIMESTAMP values. So the last 3 digits in the subseconds are truncated
+# right after the literal is resolved.
+[name=timestamp_to_string_2]
+[test_features1=TIMESTAMP_NANOS]
+select [cast(timestamp "2015-01-28 00:00:00" as string),
+        cast(timestamp "2015-01-28 00:00:00.1" as string),
+        cast(timestamp "2015-01-28 00:00:00.01" as string),
+        cast(timestamp "2015-01-28 00:00:00.001" as string),
+        cast(timestamp "2015-01-28 00:00:00.0001" as string),
+        cast(timestamp "2015-01-28 00:00:00.00001" as string),
+        cast(timestamp "2015-01-28 00:00:00.000001" as string),
+        cast(timestamp "2015-01-28 00:00:00.0000001" as string),
+        cast(timestamp "2015-01-28 00:00:00.00000001" as string),
+        cast(timestamp "2015-01-28 00:00:00.000000001" as string)]
+--
+WITH FEATURES: TIMESTAMP_NANOS
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00.100-08",
+     "2015-01-28 00:00:00.010-08",
+     "2015-01-28 00:00:00.001-08",
+     "2015-01-28 00:00:00.000100-08",
+     "2015-01-28 00:00:00.000010-08",
+     "2015-01-28 00:00:00.000001-08",
+     "2015-01-28 00:00:00.000000100-08",
+     "2015-01-28 00:00:00.000000010-08",
+     "2015-01-28 00:00:00.000000001-08"
+   ]}
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Invalid TIMESTAMP literal [at 8:14]
+        cast(timestamp "2015-01-28 00:00:00.0000001" as string),
+             ^
+==
+
+[name=literal_string_without_timezone_to_timestamp_1]
+[test_features1=TIMESTAMP_NANOS]
+select cast("2014-12-01 12:34:56.123456789" as timestamp)
+--
+WITH FEATURES: TIMESTAMP_NANOS
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 20:34:56.123456789+00}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Could not cast literal "2014-12-01 12:34:56.123456789" to type TIMESTAMP [at 1:13]
+select cast("2014-12-01 12:34:56.123456789" as timestamp)
+            ^
+==
+
+[name=literal_string_with_timezone_to_timestamp_1]
+[test_features1=TIMESTAMP_NANOS]
+select cast("2014-12-01 12:34:56.123456789+07:30" as timestamp)
+--
+WITH FEATURES: TIMESTAMP_NANOS
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56.123456789+00}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Could not cast literal "2014-12-01 12:34:56.123456789+07:30" to type TIMESTAMP [at 1:13]
+select cast("2014-12-01 12:34:56.123456789+07:30" as timestamp)
+            ^
+==
+[name=literal_string_more_than_9_digits]
+[test_features1=TIMESTAMP_NANOS]
+select cast("2014-12-01 12:34:56.0123456789" as timestamp)
+--
+WITH FEATURES: <none>
+WITH FEATURES: TIMESTAMP_NANOS
+ERROR: generic::invalid_argument: Could not cast literal "2014-12-01 12:34:56.0123456789" to type TIMESTAMP [at 1:13]
+select cast("2014-12-01 12:34:56.0123456789" as timestamp)
+            ^

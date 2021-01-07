@@ -38,7 +38,7 @@ static void CreateTestAnnotationMap(const Type* type, TypeFactory* type_factory,
                                     const AnnotationMap** annotation_map) {
   std::unique_ptr<AnnotationMap> annotation = AnnotationMap::Create(type);
   annotation->SetAnnotation(CollationAnnotation::GetId(),
-                            AnnotationValue::Int64(10000));
+                            SimpleValue::Int64(10000));
   zetasql_base::StatusOr<const AnnotationMap*> statusOrMap =
       type_factory->TakeOwnership(std::move(annotation));
   ZETASQL_CHECK_OK(statusOrMap.status());
@@ -69,7 +69,7 @@ TEST(ResolvedColumnTest, Test) {
   // multiple columns that all come from the same table.
   EXPECT_EQ("[]", ResolvedColumnListToString(ResolvedColumnList{}));
   EXPECT_EQ("[T1.C1#1]", ResolvedColumnListToString(ResolvedColumnList{c1}));
-  EXPECT_EQ("T1.[C1#1, C2#2{COLLATION:10000}]",
+  EXPECT_EQ("T1.[C1#1, C2#2]",
             ResolvedColumnListToString(ResolvedColumnList{c1, c2}));
   EXPECT_EQ("[T1.C1#1, T1.C2#2{COLLATION:10000}, T2.C3#3]",
             ResolvedColumnListToString(ResolvedColumnList{c1, c2, c3}));
@@ -105,7 +105,7 @@ TEST(ResolvedColumnTest, SaveTo) {
   EXPECT_EQ(1, proto.annotation_map().annotations_size());
   EXPECT_EQ(CollationAnnotation::GetId(),
             proto.annotation_map().annotations(0).id());
-  EXPECT_EQ(10000, proto.annotation_map().annotations(0).int64_value());
+  EXPECT_EQ(10000, proto.annotation_map().annotations(0).value().int64_value());
 
   const ProtoType* proto_type;
   ZETASQL_CHECK_OK(type_factory.MakeProtoType(TypeProto::descriptor(), &proto_type));

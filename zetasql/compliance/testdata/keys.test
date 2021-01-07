@@ -1,0 +1,630 @@
+[prepare_database]
+CREATE TABLE RawKeyTable AS
+SELECT 1 AS id, b'0123456789abcdef' AS raw_key_bytes
+UNION ALL
+SELECT 2, REPEAT(b'0123456789abcdef', 2)
+UNION ALL
+SELECT 3, NULL
+--
+ARRAY<STRUCT<id INT64, raw_key_bytes BYTES>>[
+  {1, b"0123456789abcdef"},
+  {
+    2,
+    b"0123456789abcdef0123456789abcdef"
+  },
+  {3, NULL}
+]
+==
+
+# KEYS.NEW_KEYSET is volatile--it doesn't produce the same keyset each time--
+# so we can't call it directly as part of this table creation. Instead, the
+# base64 strings here represent a few different keysets created using
+# KEYS.NEW_KEYSET and KEY.ADD_KEY_FROM_RAW_BYTES.
+[prepare_database]
+CREATE TABLE KeysetTable AS
+SELECT
+  1 AS kt_id,
+  FROM_BASE64('CJmMp4UJEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIP7Xj33VJoXuk9KMRwXsjkuDmo5P40WUSaVtJAzyve80GAEQARiZjKeFCSAB') AS keyset,
+  'abc' AS aad_string,
+  b'\x00\x01\x02' AS aad_bytes
+UNION ALL
+SELECT
+  2,
+  FROM_BASE64('CNnv5+cHEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIJg18Y4DFqVKes4Acs3h55Fe7yqPrqao+rfu70el0KPRGAEQARjZ7+fnByAB'),
+  '',
+  b''
+UNION ALL
+SELECT
+  3,
+  FROM_BASE64('CKGMgekFEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIE4Tia+cXn5OC3blTmI6KkPOAeE9zg0LxpD96L92bWG2GAEQARihjIHpBSABEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIDEyMzQxMjM0MTIzNDEyMzQxMjM0MTIzNDEyMzQxMjM0GAEQARirptH5DSAD'),
+  REPEAT('abc', 10),
+  REPEAT(b'abc', 10)
+UNION ALL
+SELECT
+  4,
+  FROM_BASE64('CNCso94EEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIB2qbQpyD+/M1uDxXnmIUWKMxRuL0ZDAqDbg2v8cBXUgGAEQARjQrKPeBCABEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIDEyMzQxMjM0MTIzNDEyMzQxMjM0MTIzNDEyMzQxMjM0GAEQARjmu9iLBiADEmMKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIGFiY2RhYmNkYWJjZGFiY2RhYmNkYWJjZGFiY2RhYmNkGAEQARiCkKwaIAM='),
+  '1234',
+  b'1234'
+UNION ALL
+SELECT
+  5,
+  NULL,
+  '1234',
+  b'1234'
+UNION ALL
+SELECT
+  6,
+  FROM_BASE64('CKOPsoUIEmQKWAowdHlwZS5nb29nbGVhcGlzLmNvbS9nb29nbGUuY3J5cHRvLnRpbmsuQWVzR2NtS2V5EiIaIDjN158ZUGzLVM9Wz5mkJ57rykSFOeAV2BkEksmaTdSEGAEQARijj7KFCCAB'),
+  NULL,
+  NULL
+UNION ALL
+SELECT
+  7,
+  NULL,
+  NULL,
+  NULL
+--
+ARRAY<STRUCT<kt_id INT64, keyset BYTES, aad_string STRING, aad_bytes BYTES>>[
+  {
+    1,
+    b'\x08\x99\x8c\xa7\x85\x09\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a \xfe\xd7\x8f}\xd5&\x85\xee\x93\xd2\x8cG\x05\xec\x8eK\x83\x9a\x8eO\xe3E\x94I\xa5m$\x0c\xf2\xbd\xef4\x18\x01\x10\x01\x18\x99\x8c\xa7\x85\x09 \x01',
+    "abc",
+    b"\x00\x01\x02"
+  },
+  {
+    2,
+    b'\x08\xd9\xef\xe7\xe7\x07\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a \x985\xf1\x8e\x03\x16\xa5Jz\xce\x00r\xcd\xe1\xe7\x91^\xef*\x8f\xae\xa6\xa8\xfa\xb7\xee\xefG\xa5\xd0\xa3\xd1\x18\x01\x10\x01\x18\xd9\xef\xe7\xe7\x07 \x01',
+    "",
+    b""
+  },
+  {
+    3,
+    b'\x08\xa1\x8c\x81\xe9\x05\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a N\x13\x89\xaf\x9c^~N\x0bv\xe5Nb:*C\xce\x01\xe1=\xce\x0d\x0b\xc6\x90\xfd\xe8\xbfvma\xb6\x18\x01\x10\x01\x18\xa1\x8c\x81\xe9\x05 \x01\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a 12341234123412341234123412341234\x18\x01\x10\x01\x18\xab\xa6\xd1\xf9\x0d \x03',
+    "abcabcabcabcabcabcabcabcabcabc",
+    b"abcabcabcabcabcabcabcabcabcabc"
+  },
+  {
+    4,
+    b'\x08\xd0\xac\xa3\xde\x04\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a \x1d\xaam\x0ar\x0f\xef\xcc\xd6\xe0\xf1^y\x88Qb\x8c\xc5\x1b\x8b\xd1\x90\xc0\xa86\xe0\xda\xff\x1c\x05u \x18\x01\x10\x01\x18\xd0\xac\xa3\xde\x04 \x01\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a 12341234123412341234123412341234\x18\x01\x10\x01\x18\xe6\xbb\xd8\x8b\x06 \x03\x12c\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12"\x1a abcdabcdabcdabcdabcdabcdabcdabcd\x18\x01\x10\x01\x18\x82\x90\xac\x1a \x03',
+    "1234",
+    b"1234"
+  },
+  {5, NULL, "1234", b"1234"},
+  {
+    6,
+    b"\x08\xa3\x8f\xb2\x85\x08\x12d\x0aX\x0a0type.googleapis.com/google.crypto.tink.AesGcmKey\x12\"\x1a 8\xcd\xd7\x9f\x19Pl\xcbT\xcfV\xcf\x99\xa4'\x9e\xeb\xcaD\x859\xe0\x15\xd8\x19\x04\x92\xc9\x9aM\xd4\x84\x18\x01\x10\x01\x18\xa3\x8f\xb2\x85\x08 \x01",
+    NULL,
+    NULL
+  },
+  {7, NULL, NULL, NULL}
+]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_1]
+SELECT KEYS.NEW_KEYSET('AEAD_AES_GCM_256') != b''
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_2]
+SELECT KEYS.NEW_KEYSET(NULL)
+--
+ERROR: generic::invalid_argument: First argument (key type) in function KEYS.NEW_KEYSET must be a string literal or query parameter [at 1:8]
+SELECT KEYS.NEW_KEYSET(NULL)
+       ^
+==
+
+[required_features=ENCRYPTION]
+[name=keys_3]
+[parameters='AEAD_AES_GCM_256' as key_type]
+SELECT KEYS.NEW_KEYSET(@key_type) != b''
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_4]
+[parameters=CAST(NULL AS STRING) as key_type]
+SELECT KEYS.NEW_KEYSET(@key_type)
+--
+ARRAY<STRUCT<BYTES>>[{NULL}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_5]
+SELECT
+  KEYS.NEW_KEYSET('AEAD_AES_GCM_256') != KEYS.NEW_KEYSET('AEAD_AES_GCM_256')
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# KEYS.NEW_KEYSET should produce a different keyset for each invocation since
+# individual keys are created using BoringSSL's random number generator.
+[required_features=ENCRYPTION]
+[name=keys_6]
+SELECT
+  COUNT(DISTINCT KEYS.NEW_KEYSET('AEAD_AES_GCM_256'))
+FROM UNNEST(GENERATE_ARRAY(1, 100))
+--
+ARRAY<STRUCT<INT64>>[{100}]
+==
+
+# The WITH clause should have exactly-once semantics for evaluation of the
+# expression.
+[required_features=ENCRYPTION]
+[name=keys_with_clause_1]
+WITH T AS (
+  SELECT KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
+)
+SELECT keyset = keyset
+FROM T
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# Similarly, referencing the WITH clause multiple times as part of a join should
+# result in the same value on both sides
+[required_features=ENCRYPTION]
+[name=keys_with_clause_2]
+WITH T AS (
+  SELECT KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
+)
+SELECT T1.keyset = T2.keyset
+FROM T T1 JOIN T T2 USING (keyset);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[required_features=ENCRYPTION]
+[name=rotate_keyset_1]
+SELECT
+  KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+                     'AEAD_AES_GCM_256') != b'',
+  KEYS.KEYSET_LENGTH(
+    KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+                       'AEAD_AES_GCM_256'))
+--
+ARRAY<STRUCT<BOOL, INT64>>[{true, 2}]
+==
+
+[required_features=ENCRYPTION]
+[name=rotate_keyset_2]
+[parameters='AEAD_AES_GCM_256' as key_type]
+SELECT
+  KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+                     @key_type) != b'',
+  KEYS.KEYSET_LENGTH(
+    KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+                       @key_type))
+--
+ARRAY<STRUCT<BOOL, INT64>>[{true, 2}]
+==
+
+[required_features=ENCRYPTION]
+[name=rotate_keyset_3]
+[parameters=CAST(NULL AS STRING) as key_type]
+SELECT
+  KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+                     @key_type),
+  KEYS.KEYSET_LENGTH(NULL)
+--
+ARRAY<STRUCT<BYTES, INT64>>[{NULL, NULL}]
+==
+
+# KEYS.ROTATE_KEYSET should produce a different keyset for each invocation since
+# individual keys are created using BoringSSL's random number generator.
+[required_features=ENCRYPTION]
+[name=rotate_keyset_4]
+SELECT
+  KEYS.ROTATE_KEYSET(keyset, 'AEAD_AES_GCM_256') !=
+    KEYS.ROTATE_KEYSET(keyset, 'AEAD_AES_GCM_256')
+FROM (
+  SELECT KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset
+)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# KEYS.ROTATE_KEYSET should produce a different keyset for each invocation since
+# individual keys are created using BoringSSL's random number generator.
+[required_features=ENCRYPTION]
+[name=rotate_keyset_5]
+SELECT
+  COUNT(DISTINCT KEYS.ROTATE_KEYSET(keyset, 'AEAD_AES_GCM_256'))
+FROM (SELECT KEYS.NEW_KEYSET('AEAD_AES_GCM_256') AS keyset),
+UNNEST(GENERATE_ARRAY(1, 100))
+--
+ARRAY<STRUCT<INT64>>[{100}]
+==
+
+[required_features=ENCRYPTION]
+[name=rotate_keyset_6]
+SELECT
+  KEYS.KEYSET_LENGTH(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'))
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+# Rotating an empty keyset has the effect of creating a new keyset with a single
+# key.
+[required_features=ENCRYPTION]
+[name=rotate_keyset_7]
+SELECT KEYS.KEYSET_LENGTH(KEYS.ROTATE_KEYSET(b'', 'AEAD_AES_GCM_256'))
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[required_features=ENCRYPTION]
+[name=rotate_keyset_8]
+SELECT
+  KEYS.KEYSET_LENGTH(
+    KEYS.ROTATE_KEYSET(
+      KEYS.ROTATE_KEYSET(
+        KEYS.ROTATE_KEYSET(
+          KEYS.ROTATE_KEYSET(
+            KEYS.ROTATE_KEYSET(
+              KEYS.ROTATE_KEYSET(
+                KEYS.NEW_KEYSET('AEAD_AES_GCM_256'),
+                'AEAD_AES_GCM_256'),
+              'AEAD_AES_GCM_256'),
+            'AEAD_AES_GCM_256'),
+          'AEAD_AES_GCM_256'),
+        'AEAD_AES_GCM_256'),
+      'AEAD_AES_GCM_256')
+    )
+--
+ARRAY<STRUCT<INT64>>[{7}]
+==
+
+# The WITH clause should have exactly-once semantics for evaluation of the
+# expression.
+[required_features=ENCRYPTION]
+[name=rotate_keyset_with_clause_1]
+WITH T AS (
+  SELECT KEYS.ROTATE_KEYSET(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AEAD_AES_GCM_256') AS keyset
+)
+SELECT keyset = keyset
+FROM T
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# Similarly, referencing the WITH clause multiple times as part of a join should
+# result in the same value on both sides
+[required_features=ENCRYPTION]
+[name=rotate_keyset_with_clause_2]
+WITH T AS (
+  SELECT KEYS.ROTATE_KEYSET(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AEAD_AES_GCM_256') AS keyset
+)
+SELECT T1.keyset = T2.keyset
+FROM T T1 JOIN T T2 USING (keyset);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_from_table]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_GCM', raw_key_bytes
+  ) != b''
+FROM RawKeyTable
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_from_table_cbc_pkcs]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_CBC_PKCS', raw_key_bytes
+  ) != b''
+FROM RawKeyTable
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+==
+
+# The order in which the keys are added determines their order in the keyset.
+# Both TINK and RAW AES-GCM keys use AesGcmKey for their representation,
+# whereas AES-CBC-PKCS keys use AesCbcPkcs7Key.
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_from_table_mixed_types]
+SELECT
+  KEYS.KEYSET_TO_JSON(
+    KEYS.ADD_KEY_FROM_RAW_BYTES(
+      KEYS.ADD_KEY_FROM_RAW_BYTES(
+        KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_CBC_PKCS', raw_key_bytes
+      ), 'AES_GCM', raw_key_bytes
+    )
+  ) LIKE '%AesGcmKey%AesCbcPkcs7Key%AesGcmKey%'
+FROM RawKeyTable
+ORDER BY id
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_key_type_as_query_parameter]
+[parameters='AES_GCM' as key_type]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), @key_type, raw_key_bytes
+  ) != b''
+FROM RawKeyTable
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_invalid_key_type_as_query_parameter]
+[parameters='AEAD_AES_GCM_256' as key_type]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), @key_type, raw_key_bytes
+  ) != b''
+FROM RawKeyTable
+--
+ERROR: generic::out_of_range: Invalid key type provided to KEYS.ADD_KEY_FROM_RAW_BYTES: AEAD_AES_GCM_256
+==
+
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_null_keyset]
+SELECT KEYS.ADD_KEY_FROM_RAW_BYTES(NULL, 'AES_GCM', raw_key_bytes)
+FROM RawKeyTable
+--
+ARRAY<STRUCT<BYTES>>[{NULL}, {NULL}, {NULL}]
+==
+
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_null_query_parameter_key_type]
+[parameters=CAST(NULL AS STRING) as key_type]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), @key_type, raw_key_bytes
+  )
+FROM RawKeyTable
+--
+ARRAY<STRUCT<BYTES>>[{NULL}, {NULL}, {NULL}]
+==
+
+# Even with an explicit raw key, we expect the output of
+# KEYS.ADD_KEY_FROM_RAW_BYTES to differ across invocations since the nonce is
+# random.
+[required_features=ENCRYPTION]
+[name=keys_raw_bytes_volatile_output]
+SELECT
+  COUNT(DISTINCT keyset),
+  COUNT(DISTINCT KEYS.ADD_KEY_FROM_RAW_BYTES(keyset, 'AES_GCM', raw_key_bytes)),
+  COUNT(DISTINCT KEYS.ADD_KEY_FROM_RAW_BYTES(keyset, 'AES_CBC_PKCS',
+                                             raw_key_bytes))
+FROM RawKeyTable,
+  UNNEST([KEYS.NEW_KEYSET('AEAD_AES_GCM_256')]) AS keyset,
+  UNNEST(GENERATE_ARRAY(1, 100))
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{3, 200, 200}]
+==
+
+# The WITH clause should have exactly-once semantics for evaluation of the
+# expression.
+[required_features=ENCRYPTION]
+[name=keys_with_clause_raw_key]
+WITH T AS (
+  SELECT
+    KEYS.ADD_KEY_FROM_RAW_BYTES(
+      KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_GCM', raw_key_bytes
+    ) AS keyset
+  FROM RawKeyTable
+)
+SELECT keyset = keyset
+FROM T
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {NULL}]
+==
+
+# Similarly, referencing the WITH clause multiple times as part of a join should
+# result in the same value on both sides
+[required_features=ENCRYPTION]
+[name=keys_with_clause_raw_key_two_references]
+WITH T AS (
+  SELECT
+    KEYS.ADD_KEY_FROM_RAW_BYTES(
+      KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_GCM', raw_key_bytes
+    ) AS keyset
+  FROM RawKeyTable
+)
+SELECT T1.keyset = T2.keyset
+FROM T T1 JOIN T T2 USING (keyset)
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}]
+==
+
+# The key length must be either 16 or 32 bytes.
+[required_features=ENCRYPTION]
+[name=keys_bad_key_length_1]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_GCM',
+    RPAD(raw_key_bytes, 17, b'12')
+  ) AS keyset
+FROM RawKeyTable
+--
+ERROR: generic::out_of_range: Failed to add a key from raw bytes: Unsupported key size: 17 bytes; expected 16 or 32 bytes.
+==
+
+# The key length must be either 16 or 32 bytes.
+[required_features=ENCRYPTION]
+[name=keys_bad_key_length_2]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_GCM',
+    RPAD(raw_key_bytes, 5, b'12')
+  ) AS keyset
+FROM RawKeyTable
+--
+ERROR: generic::out_of_range: Failed to add a key from raw bytes: Unsupported key size: 5 bytes; expected 16 or 32 bytes.
+==
+
+# The key length must be 16, 24, or 32 bytes.
+[required_features=ENCRYPTION]
+[name=keys_bad_key_length_3]
+SELECT
+  KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_CBC_PKCS',
+    RPAD(raw_key_bytes, 5, b'12')
+  ) AS keyset
+FROM RawKeyTable
+--
+ERROR: generic::out_of_range: Failed to add a key from raw bytes: Unsupported key size: 5 bytes; expected 16, 24, or 32 bytes.
+==
+
+[required_features=ENCRYPTION]
+[name=json_keyset_1]
+SELECT kt_id, KEYS.KEYSET_TO_JSON(keyset)
+FROM KeysetTable
+ORDER BY kt_id
+--
+ARRAY<STRUCT<kt_id INT64, STRING>>[
+  {
+    1,
+    '{"key":[{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiD+14991SaF7pPSjEcF7I5Lg5qOT+NFlEmlbSQM8r3vNA=="},"keyId":2427045401,"outputPrefixType":"TINK","status":"ENABLED"}],"primaryKeyId":2427045401}'
+  },
+  {
+    2,
+    '{"key":[{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiCYNfGOAxalSnrOAHLN4eeRXu8qj66mqPq37u9HpdCj0Q=="},"keyId":2096756697,"outputPrefixType":"TINK","status":"ENABLED"}],"primaryKeyId":2096756697}'
+  },
+  {
+    3,
+    '{"key":[{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiBOE4mvnF5+Tgt25U5iOipDzgHhPc4NC8aQ/ei/dm1htg=="},"keyId":1562396193,"outputPrefixType":"TINK","status":"ENABLED"},{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiAxMjM0MTIzNDEyMzQxMjM0MTIzNDEyMzQxMjM0MTIzNA=="},"keyId":3744748331,"outputPrefixType":"RAW","status":"ENABLED"}],"primaryKeyId":1562396193}'
+  },
+  {
+    4,
+    '{"key":[{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiAdqm0Kcg/vzNbg8V55iFFijMUbi9GQwKg24Nr/HAV1IA=="},"keyId":1271453264,"outputPrefixType":"TINK","status":"ENABLED"},{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiAxMjM0MTIzNDEyMzQxMjM0MTIzNDEyMzQxMjM0MTIzNA=="},"keyId":1635130854,"outputPrefixType":"RAW","status":"ENABLED"},{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiBhYmNkYWJjZGFiY2RhYmNkYWJjZGFiY2RhYmNkYWJjZA=="},"keyId":55248898,"outputPrefixType":"RAW","status":"ENABLED"}],"primaryKeyId":1271453264}'
+  },
+  {5, NULL},
+  {
+    6,
+    '{"key":[{"keyData":{"keyMaterialType":"SYMMETRIC","typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiA4zdefGVBsy1TPVs+ZpCee68pEhTngFdgZBJLJmk3UhA=="},"keyId":2158790563,"outputPrefixType":"TINK","status":"ENABLED"}],"primaryKeyId":2158790563}'
+  },
+  {7, NULL}
+]
+==
+
+# Every output from the comparison with 'keyset' should be true or NULL, since
+# round-tripping should produce the same value.
+[required_features=ENCRYPTION]
+[name=json_keyset_2]
+SELECT kt_id, KEYS.KEYSET_FROM_JSON(KEYS.KEYSET_TO_JSON(keyset)) = keyset
+FROM KeysetTable
+ORDER BY kt_id
+--
+ARRAY<STRUCT<kt_id INT64, BOOL>>[
+  {1, true},
+  {2, true},
+  {3, true},
+  {4, true},
+  {5, NULL},
+  {6, true},
+  {7, NULL}
+]
+==
+
+# While not a target use case, it's possible to build JSON using SQL and then
+# convert it to a keyset using KEYS.KEYSET_FROM_JSON. In reality, the
+# expectation is that some users may want to import keysets represented as JSON
+# from other systems. This test verifies that it is possible to create a keyset
+# from JSON directly and that it round-trips back to serialized keyset form.
+[required_features=ENCRYPTION]
+[name=json_keyset_3]
+SELECT
+  struct_keyset,
+  TO_JSON_STRING(struct_keyset),
+  TO_JSON_STRING(struct_keyset, true),
+  KEYS.KEYSET_FROM_JSON(TO_JSON_STRING(struct_keyset)),
+  -- pretty print the input JSON
+  KEYS.KEYSET_FROM_JSON(TO_JSON_STRING(struct_keyset, true)),
+  KEYS.KEYSET_TO_JSON(KEYS.KEYSET_FROM_JSON(TO_JSON_STRING(struct_keyset)))
+FROM (
+  SELECT
+    STRUCT(
+      ARRAY<STRUCT<keyId INT64, outputPrefixType STRING, status STRING>>[
+        (1234, "TINK", "DESTROYED")
+      ] AS key,
+      4321 AS primaryKeyId
+    ) AS struct_keyset
+)
+--
+ARRAY<STRUCT<
+        struct_keyset STRUCT<key ARRAY<>, primaryKeyId INT64>,
+        STRING,
+        STRING,
+        BYTES,
+        BYTES,
+        STRING
+      >>
+[
+  {
+    {ARRAY<STRUCT<
+             keyId INT64,
+             outputPrefixType STRING,
+             status STRING
+           >>[{1234, "TINK", "DESTROYED"}],
+     4321},
+    '{"key":[{"keyId":1234,"outputPrefixType":"TINK","status":"DESTROYED"}],"primaryKeyId":4321}',
+    '{\n  "key": [\n    {\n      "keyId": 1234,\n      "outputPrefixType": "TINK",\n      "status": "DESTROYED"\n    }\n  ],\n  "primaryKeyId": 4321\n}',
+    b"\x08\xe1!\x12\x07\x10\x03\x18\xd2\x09 \x01",
+    b"\x08\xe1!\x12\x07\x10\x03\x18\xd2\x09 \x01",
+    '{"key":[{"keyId":1234,"outputPrefixType":"TINK","status":"DESTROYED"}],"primaryKeyId":4321}'
+  }
+]
+==
+
+# Various error cases with the SAFE version of the functions.
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=safe_functions]
+[parameters='invalid' as key_type]
+SELECT
+  -- Bad key type
+  SAFE.KEYS.NEW_KEYSET(@key_type),
+  -- Bad key type
+  SAFE.KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), @key_type, b'01234567890123456'
+  ),
+  -- Bad keyset
+  SAFE.KEYS.ADD_KEY_FROM_RAW_BYTES(
+    b'', 'AES_GCM', b'01234567890123456'
+  ),
+  -- Bad raw key bytes
+  SAFE.KEYS.ADD_KEY_FROM_RAW_BYTES(
+    KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), 'AES_GCM', b'01'
+  )
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES, BYTES>>[{NULL, NULL, NULL, NULL}]
+==
+
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=safe_functions_2]
+[parameters='invalid' as key_type]
+SELECT
+  -- Bad key type
+  SAFE.KEYS.ROTATE_KEYSET(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), @key_type),
+  -- Bad keyset
+  SAFE.KEYS.ROTATE_KEYSET(b'123', 'AEAD_AES_GCM_256'),
+  -- Bad keyset
+  SAFE.KEYS.KEYSET_LENGTH(b'123')
+--
+ARRAY<STRUCT<BYTES, BYTES, INT64>>[{NULL, NULL, NULL}]
+==
+
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=safe_functions_3]
+SELECT
+  -- Bad keyset
+  SAFE.KEYS.KEYSET_TO_JSON(b'123'),
+  -- Bad JSON
+  SAFE.KEYS.KEYSET_FROM_JSON('{"key":123}')
+--
+ARRAY<STRUCT<STRING, BYTES>>[{NULL, NULL}]

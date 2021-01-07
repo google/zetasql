@@ -139,6 +139,7 @@ struct QueryGroupByAndAggregateInfo {
   // (sub)query.
   bool has_group_by = false;
   bool has_aggregation = false;
+  bool has_anonymized_aggregation = false;
 
   // Map from an aggregate function ASTNode to the related
   // ResolvedComputedColumn.  Populated during the first pass resolution of
@@ -441,6 +442,13 @@ class QueryResolutionInfo {
     group_by_info_.has_group_by = has_group_by;
   }
   bool has_group_by() const { return group_by_info_.has_group_by; }
+
+  void set_has_anonymized_aggregation(bool has_anonymized_aggregation) {
+    group_by_info_.has_anonymized_aggregation = has_anonymized_aggregation;
+  }
+  bool has_anonymized_aggregation() const {
+    return group_by_info_.has_anonymized_aggregation;
+  }
 
   void set_has_having(bool has_having) { has_having_ = has_having; }
   bool has_having() const { return has_having_; }

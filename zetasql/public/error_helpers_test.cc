@@ -25,6 +25,7 @@
 #include "zetasql/base/enum_utils.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
+#include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
@@ -40,6 +41,8 @@
 
 namespace zetasql {
 
+using ::zetasql::testing::EqualsProto;
+using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
@@ -156,7 +159,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
       internal::StatusToString(status2));
   EXPECT_TRUE(HasErrorLocation(status2));
   EXPECT_TRUE(GetErrorLocation(status2, &location));
-  EXPECT_EQ("line: 1 column: 2", location.ShortDebugString());
+  EXPECT_THAT(location, EqualsProto("line: 1 column: 2"));
   ClearErrorLocation(&status2);
   EXPECT_EQ("generic::unknown: Message2", internal::StatusToString(status2));
   // No payload, not an empty payload.
@@ -186,7 +189,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
 
   EXPECT_TRUE(HasErrorLocation(status3));
   EXPECT_TRUE(GetErrorLocation(status3, &location));
-  EXPECT_EQ("line: 3 column: 4", location.ShortDebugString());
+  EXPECT_THAT(location, EqualsProto("line: 3 column: 4"));
   ClearErrorLocation(&status3);
   EXPECT_EQ(
       "generic::invalid_argument: Message3 "
@@ -314,7 +317,7 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
   // positions.  These look like substring of the full string of
   // length <= kMaxWidth that try to start at word boundary.
   // Some don't find an acceptable word boundary and just point at the middle.
-  EXPECT_THAT(outputs, testing::ElementsAreArray({
+  EXPECT_THAT(outputs, ElementsAreArray({
       "1_34 6_34567890 17_4567890123456 34_45678901234567890...\n"
       "^",
       "1_34 6_34567890 17_4567890123456 34_45678901234567890...\n"

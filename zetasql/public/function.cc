@@ -73,6 +73,8 @@ absl::Status FunctionOptions::Deserialize(
   options->set_supports_null_handling_modifier(
       proto.supports_null_handling_modifier());
   options->set_supports_having_modifier(proto.supports_having_modifier());
+  options->set_supports_clamped_between_modifier(
+      proto.supports_clamped_between_modifier());
   options->set_uses_upper_case_sql_name(proto.uses_upper_case_sql_name());
 
   *result = std::move(options);
@@ -93,6 +95,8 @@ void FunctionOptions::Serialize(FunctionOptionsProto* proto) const {
   proto->set_supports_order_by(supports_order_by);
   proto->set_supports_safe_error_mode(supports_safe_error_mode);
   proto->set_supports_having_modifier(supports_having_modifier);
+  proto->set_supports_clamped_between_modifier(
+      supports_clamped_between_modifier);
   proto->set_uses_upper_case_sql_name(uses_upper_case_sql_name);
 
   for (const LanguageFeature each : required_language_features) {
@@ -617,6 +621,10 @@ bool Function::SupportsHavingModifier() const {
 
 bool Function::SupportsDistinctModifier() const {
   return function_options_.supports_distinct_modifier;
+}
+
+bool Function::SupportsClampedBetweenModifier() const {
+  return function_options_.supports_clamped_between_modifier;
 }
 
 }  // namespace zetasql

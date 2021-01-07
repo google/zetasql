@@ -773,6 +773,29 @@ java_library(
             sha256 = "17f66ba76073a290add024a4ce7f5f92883832b7da85ffd7677e1f5de9a36153",
         )
 
+    if not native.existing_rule("org_publicsuffix"):
+        http_archive(
+            name = "org_publicsuffix",
+            strip_prefix = "list-d111481d5931f704c1d9d3a50af19e4e34fc5ba3",
+            urls = ["https://github.com/publicsuffix/list/archive/d111481d5931f704c1d9d3a50af19e4e34fc5ba3.zip"],
+            sha256 = "2f84929af28e2b712a235ab544fbb4dd7bd5d075ac351de0723915e528c99a38",
+            build_file_content = """licenses(["reciprocal"])
+
+exports_files([
+    "LICENSE",
+    "public_suffix_list.dat",
+    "tests/test_psl.txt",
+    ],
+    visibility = ["//visibility:public"]
+)
+alias(
+    name = "test_psl.txt",
+    actual = "tests/test_psl.txt",
+    visibility = ["//visibility:public"]
+)
+""",
+        )
+
     ##########################################################################
     # Rules which depend on rules_foreign_cc
     #

@@ -156,10 +156,13 @@ public final class DeserializationHelper {
   }
 
   Table deserialize(TableRefProto proto) {
-    return checkNotNull(
-        catalog.getTableById(proto.getSerializationId()),
-        "Could not find table '%s' in catalog.",
-        proto.getName());
+    if (proto.hasSerializationId()) {
+      return checkNotNull(
+          catalog.getTableById(proto.getSerializationId()),
+          "Could not find table '%s' in catalog.",
+          proto.getName());
+    }
+    return null;
   }
 
   Type deserialize(TypeProto proto) {

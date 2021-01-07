@@ -22,11 +22,12 @@
 #include <type_traits>
 #include <utility>
 
+#include "zetasql/base/arena.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/analyzer_impl.h"
+#include "zetasql/analyzer/anonymization_rewriter.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/resolver.h"
-#include "zetasql/public/table_name_resolver.h"
-#include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -35,6 +36,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/table_name_resolver.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -48,49 +50,16 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
-ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
-          "Run validator on resolved AST before returning it.");
+ABSL_DECLARE_FLAG(bool, zetasql_validate_resolved_ast);
 
 // This provides a way to extract and look at the zetasql resolved AST
 // from within some other test or tool.  It prints to cout rather than logging
 // because the output is often too big to log without truncating.
-ABSL_FLAG(bool, zetasql_print_resolved_ast, false,
-          "Print resolved AST to stdout after resolving (for debugging)");
+ABSL_DECLARE_FLAG(bool, zetasql_print_resolved_ast);
 
 namespace zetasql {
 
 namespace {
-
-// Verifies that the provided AnalyzerOptions have a valid combination of
-// settings.
-absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
-  switch (options.parameter_mode()) {
-    case PARAMETER_NAMED:
-      ZETASQL_RET_CHECK(options.positional_query_parameters().empty())
-          << "Positional parameters cannot be provided in named parameter "
-             "mode";
-      break;
-    case PARAMETER_POSITIONAL:
-      ZETASQL_RET_CHECK(options.query_parameters().empty())
-          << "Named parameters cannot be provided in positional parameter "
-             "mode";
-      // AddPositionalQueryParameter guards against the case where
-      // allow_undeclared_parameters is true and a positional parameter is
-      // added, but not the reverse order.
-      ZETASQL_RET_CHECK(!options.allow_undeclared_parameters() ||
-                options.positional_query_parameters().empty())
-          << "When undeclared parameters are allowed, no positional query "
-             "parameters can be provided";
-      break;
-    case PARAMETER_NONE:
-      ZETASQL_RET_CHECK(options.query_parameters().empty() &&
-                options.positional_query_parameters().empty())
-          << "Parameters are disabled and cannot be provided";
-      break;
-  }
-
-  return absl::OkStatus();
-}
 
 // Sets <has_default_resolution_time> to true for every table name in
 // 'table_names' if it does not have "FOR SYSTEM_TIME AS OF" expression.
@@ -104,20 +73,6 @@ void EnsureResolutionTimeInfoForEveryTable(
       expressions.has_default_resolution_time = true;
     }
   }
-}
-
-// Returns <options> if it already has all arenas initialized, or otherwise
-// populates <copy> as a copy for <options>, creates arenas in <copy> and
-// returns it. This avoids unnecessary duplication of AnalyzerOptions, which
-// might be expensive.
-const AnalyzerOptions& GetOptionsWithArenas(
-    const AnalyzerOptions* options, std::unique_ptr<AnalyzerOptions>* copy) {
-  if (options->AllArenasAreInitialized()) {
-    return *options;
-  }
-  *copy = absl::make_unique<AnalyzerOptions>(*options);
-  (*copy)->CreateDefaultArenasIfNotSet();
-  return **copy;
 }
 
 }  // namespace
@@ -389,118 +344,20 @@ absl::Status AnalyzeStatementFromParserAST(
       /*take_parser_output_ownership_on_success=*/false, output);
 }
 
-// Coerces <resolved_expr> to <target_type>, using assignment semantics
-// For details, see Coercer::AssignableTo() in
-// .../public/coercer.h
-//
-// Upon success, a resolved tree that implements the conversion is stored in
-// <resolved_expr>, replacing the tree that was previously there.
-static absl::Status ConvertExprToTargetType(
-    const ASTExpression& ast_expression, absl::string_view sql,
-    const AnalyzerOptions& analyzer_options, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
-  Resolver resolver(catalog, type_factory, &analyzer_options);
-  return ConvertInternalErrorLocationToExternal(
-      resolver.CoerceExprToType(&ast_expression, target_type,
-                                     /*assignment_semantics=*/true,
-                                     /*clause_name=*/nullptr, resolved_expr),
-      sql);
-}
-
-static absl::Status AnalyzeExpressionFromParserASTImpl(
-    const ASTExpression& ast_expression,
-    std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
-    const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
-    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
-  std::unique_ptr<const ResolvedExpr> resolved_expr;
-  Resolver resolver(catalog, type_factory, &options);
-  ZETASQL_RETURN_IF_ERROR(resolver.ResolveStandaloneExpr(
-      sql, &ast_expression, &resolved_expr));
-  ZETASQL_VLOG(3) << "Resolved AST:\n" << resolved_expr->DebugString();
-
-  if (target_type != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ConvertExprToTargetType(ast_expression, sql, options,
-                                            catalog, type_factory, target_type,
-                                            &resolved_expr));
-  }
-
-  if (absl::GetFlag(FLAGS_zetasql_validate_resolved_ast)) {
-    Validator validator(options.language());
-    ZETASQL_RETURN_IF_ERROR(
-        validator.ValidateStandaloneResolvedExpr(resolved_expr.get()));
-  }
-
-  if (absl::GetFlag(FLAGS_zetasql_print_resolved_ast)) {
-    std::cout << "Resolved AST from thread "
-              << std::this_thread::get_id()
-              << ":" << std::endl
-              << resolved_expr->DebugString() << std::endl;
-  }
-
-  if (options.language().error_on_deprecated_syntax() &&
-      !resolver.deprecation_warnings().empty()) {
-    return resolver.deprecation_warnings().front();
-  }
-
-  // Make sure we're starting from a clean state for CheckFieldsAccessed.
-  resolved_expr->ClearFieldsAccessed();
-
-  auto original_output = absl::make_unique<AnalyzerOutput>(
-      options.id_string_pool(), options.arena(), std::move(resolved_expr),
-      resolver.analyzer_output_properties(),
-      std::move(parser_output),
-      ConvertInternalErrorLocationsAndAdjustErrorStrings(
-          options.error_message_mode(), sql, resolver.deprecation_warnings()),
-      resolver.undeclared_parameters(),
-      resolver.undeclared_positional_parameters(),
-      resolver.max_column_id());
-  ZETASQL_RETURN_IF_ERROR(
-      RewriteResolvedAst(options, catalog, type_factory, *original_output));
-  *output = std::move(original_output);
-  return absl::OkStatus();
-}
-
-static absl::Status AnalyzeExpressionImpl(
-    absl::string_view sql, const AnalyzerOptions& options_in, Catalog* catalog,
-    TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output) {
-  output->reset();
-
-  ZETASQL_VLOG(1) << "Parsing expression:\n" << sql;
-  std::unique_ptr<AnalyzerOptions> copy;
-  const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
-
-  std::unique_ptr<ParserOutput> parser_output;
-  ParserOptions parser_options = options.GetParserOptions();
-  ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, &parser_output));
-  const ASTExpression* expression = parser_output->expression();
-  ZETASQL_VLOG(5) << "Parsed AST:\n" << expression->DebugString();
-
-  return AnalyzeExpressionFromParserASTImpl(
-      *expression, std::move(parser_output), sql, options, catalog,
-      type_factory, target_type, output);
-}
-
 absl::Status AnalyzeExpression(absl::string_view sql,
                                const AnalyzerOptions& options, Catalog* catalog,
                                TypeFactory* type_factory,
                                std::unique_ptr<const AnalyzerOutput>* output) {
-  return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), sql,
-      AnalyzeExpressionImpl(sql, options, catalog, type_factory, nullptr,
-                            output));
+  return InternalAnalyzeExpression(sql, options, catalog, type_factory, nullptr,
+                                   output);
 }
 
 absl::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
-  return ConvertInternalErrorLocationAndAdjustErrorString(
-      options.error_message_mode(), sql,
-      AnalyzeExpressionImpl(sql, options, catalog, type_factory, target_type,
-                            output));
+  return InternalAnalyzeExpression(sql, options, catalog, type_factory,
+                                   target_type, output);
 }
 
 absl::Status AnalyzeExpressionFromParserAST(
@@ -518,7 +375,7 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
     const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
-  const absl::Status status = AnalyzeExpressionFromParserASTImpl(
+  const absl::Status status = InternalAnalyzeExpressionFromParserAST(
       ast_expression, /*parser_output=*/nullptr, sql, options, catalog,
       type_factory, target_type, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
@@ -717,6 +574,43 @@ absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
       sql, ast_script, options, table_names);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
+}
+
+zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
+    const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
+    const AnalyzerOptions& analyzer_options, Catalog* catalog,
+    TypeFactory* type_factory) {
+  ZETASQL_RET_CHECK_NE(analyzer_output->resolved_statement(), nullptr);
+
+  ColumnFactory column_factory(analyzer_output->max_column_id(),
+                               analyzer_options.column_id_sequence_number());
+  ZETASQL_ASSIGN_OR_RETURN(
+      RewriteForAnonymizationOutput anonymized_output,
+      RewriteForAnonymization(*analyzer_output->resolved_statement(), catalog,
+                              type_factory, analyzer_options, column_factory));
+  Validator validator(analyzer_options.language());
+  ZETASQL_RET_CHECK(anonymized_output.node->Is<ResolvedStatement>());
+  ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
+      anonymized_output.node->GetAs<ResolvedStatement>()));
+  AnalyzerOutputProperties analyzer_output_properties_with_map(
+      analyzer_output->analyzer_output_properties());
+  analyzer_output_properties_with_map
+      .resolved_table_scan_to_anonymized_aggregate_scan_map =
+      anonymized_output.table_scan_to_anon_aggr_scan_map;
+
+  // We have a rewritten AST, so create a new AnalyzerOutput with the
+  // rewritten AST.  The new AnalyzerOutput uses the (shared) IdStringPool and
+  // Arena from <analyzer_output>, and we also copy the deprecation warnings
+  // and parameter info from the <analyzer_output>.
+  return absl::make_unique<AnalyzerOutput>(
+      analyzer_output->id_string_pool(), analyzer_output->arena(),
+      absl::WrapUnique(
+          anonymized_output.node.release()->GetAs<ResolvedStatement>()),
+      analyzer_output_properties_with_map,
+      /*parser_output=*/nullptr, analyzer_output->deprecation_warnings(),
+      analyzer_output->undeclared_parameters(),
+      analyzer_output->undeclared_positional_parameters(),
+      column_factory.max_column_id());
 }
 
 }  // namespace zetasql

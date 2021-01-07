@@ -1,0 +1,39 @@
+[required_features=INTERVAL_TYPE]
+[name=literal]
+SELECT INTERVAL '1' YEAR, INTERVAL '-20 30' MONTH TO DAY, INTERVAL '-10000' MINUTE, INTERVAL '10:20:30.456789' HOUR TO SECOND
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
+  {
+    1-0 0 0:0:0,
+    -1-8 30 0:0:0,
+    0-0 0 -166:40:0,
+    0-0 0 10:20:30.456789
+  }
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=constructor]
+SELECT INTERVAL n YEAR, INTERVAL 10 * n + 5 DAY, INTERVAL 10001 * n SECOND
+FROM UNNEST([NULL, 0, 1, -2]) n
+ORDER BY n
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL>>[
+  {NULL, NULL, NULL},
+  {-2-0 0 0:0:0, 0-0 -15 0:0:0, 0-0 0 -5:33:22},
+  {0-0 0 0:0:0, 0-0 5 0:0:0, 0-0 0 0:0:0},
+  {1-0 0 0:0:0, 0-0 15 0:0:0, 0-0 0 2:46:41}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=parametrized_constructor]
+[parameters=-10 AS back_ten, NULL AS nothing]
+SELECT INTERVAL @back_ten QUARTER, INTERVAL @nothing WEEK
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL>>[{-2-6 0 0:0:0, NULL}]
+==
+[required_features=INTERVAL_TYPE]
+[name=null]
+SELECT CAST(NULL AS INTERVAL)
+--
+ARRAY<STRUCT<INTERVAL>>[{NULL}]
+==

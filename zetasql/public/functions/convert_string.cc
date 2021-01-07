@@ -23,6 +23,7 @@
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/strip.h"
@@ -135,9 +136,9 @@ bool NumericToString(BigNumericValue value, std::string* out,
 
 template <>
 bool StringToNumeric(absl::string_view value, bool* out, absl::Status* error) {
-  if (zetasql_base::CaseEqual(value, kTrueStringValue)) {
+  if (absl::EqualsIgnoreCase(value, kTrueStringValue)) {
     *out = true;
-  } else if (zetasql_base::CaseEqual(value, kFalseStringValue)) {
+  } else if (absl::EqualsIgnoreCase(value, kFalseStringValue)) {
     *out = false;
   } else {
     return internal::UpdateError(error,

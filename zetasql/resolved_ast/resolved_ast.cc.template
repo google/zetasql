@@ -215,6 +215,9 @@ static std::string ToStringImpl(ResolvedImportStmt::ImportKind kind) {
 static std::string ToStringImpl(const FunctionSignature& signature) {
   return signature.DebugString();
 }
+static std::string ToStringImpl(const std::shared_ptr<FunctionSignature>& signature) {
+  return signature->DebugString();
+}
 static std::string ToStringImpl(
     const std::shared_ptr<ResolvedFunctionCallInfo>& function_call_info) {
   if (function_call_info == nullptr) return "<null>";
@@ -223,8 +226,11 @@ static std::string ToStringImpl(
 static std::string ToStringVerbose(const FunctionSignature& signature) {
   return signature.DebugString("" /* function_name */, true /* verbose */);
 }
+static std::string ToStringVerbose(const std::shared_ptr<FunctionSignature>& signature) {
+  return signature->DebugString("" /* function_name */, true /* verbose */);
+}
 static std::string ToStringImpl(const Table* table) {
-  return table->FullName();
+  return table == nullptr ? "<null>" : table->FullName();
 }
 static std::string ToStringImpl(const Model* model) {
   return model->FullName();
@@ -358,6 +364,11 @@ static FunctionEnums::Volatility DeterminismLevelToVolatility(
   }
 }
 
+// Use template functions to allow functions with the same argument list but
+// different return types.
+template <class R, class P>
+zetasql_base::StatusOr<R> RestoreFromImpl(const P& proto, const ResolvedNode::RestoreParams& params);
+
 // The SaveToImpl(ScalarType, FileDescriptorSetMap*, ScalarProtoType*) functions
 // implement the serialization logic for scalar types. The FileDescriptorSetMap
 // argument is used for serialization of zetasql::Type and data structures
@@ -367,19 +378,27 @@ static absl::Status SaveToImpl(
     const Table* table,
     FileDescriptorSetMap* file_descriptor_set_map,
     TableRefProto* proto) {
-  proto->set_name(table->Name());
-  proto->set_serialization_id(table->GetSerializationId());
-  proto->set_full_name(table->FullName());
+  if (table != nullptr) {
+    proto->set_name(table->Name());
+    proto->set_serialization_id(table->GetSerializationId());
+    proto->set_full_name(table->FullName());
+  }
   return absl::OkStatus();
 }
 
 // The RestoreFrom functions reverse the effect of the SaveTo functions.
-static zetasql_base::StatusOr<const Table*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Table*> RestoreFromImpl(
     const TableRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Table* table;
   const std::vector<std::string> path = absl::StrSplit(proto.full_name(), '.');
-  ZETASQL_RETURN_IF_ERROR(params.catalog->FindTable(path, &table));
+  if (proto.has_serialization_id()) {
+    ZETASQL_RETURN_IF_ERROR(params.catalog->FindTable(path, &table));
+  } else {
+    // The original table was a nullptr.
+    table = nullptr;
+  }
   return table;
 }
 
@@ -394,7 +413,8 @@ static absl::Status SaveToImpl(
 }
 
 // The RestoreFrom functions reverse the effect of the SaveTo functions.
-static zetasql_base::StatusOr<const Model*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Model*> RestoreFromImpl(
     const ModelRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Model* model;
@@ -412,7 +432,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const Connection*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Connection*> RestoreFromImpl(
     const ConnectionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Connection* connection;
@@ -430,7 +451,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const Constant*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Constant*> RestoreFromImpl(
     const ConstantRefProto& proto, const ResolvedNode::RestoreParams& params) {
   if (proto.name().empty()) {
     return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
@@ -452,7 +474,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const Function*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Function*> RestoreFromImpl(
     const FunctionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   // Serialized function names include the group. We do not need this to look
@@ -478,7 +501,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const TableValuedFunction*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const TableValuedFunction*> RestoreFromImpl(
     const TableValuedFunctionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const TableValuedFunction* func;
@@ -495,7 +519,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const Procedure*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Procedure*> RestoreFromImpl(
     const ProcedureRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Procedure* procedure;
@@ -511,7 +536,8 @@ static absl::Status SaveToImpl(
   return sig.Serialize(file_descriptor_set_map, proto);
 }
 
-static zetasql_base::StatusOr<FunctionSignature> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<FunctionSignature> RestoreFromImpl(
     const FunctionSignatureProto& proto,
     const ResolvedNode::RestoreParams& params) {
   // Some fields demand being set as FunctionSignature, not
@@ -524,6 +550,29 @@ static zetasql_base::StatusOr<FunctionSignature> RestoreFromImpl(
 }
 
 static absl::Status SaveToImpl(
+    const std::shared_ptr<FunctionSignature>& sig,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    FunctionSignatureProto* proto) {
+  if (sig != nullptr) {
+    return sig->Serialize(file_descriptor_set_map, proto);
+  }
+  return absl::OkStatus();
+}
+
+template<>
+zetasql_base::StatusOr<std::shared_ptr<FunctionSignature>> RestoreFromImpl(
+    const FunctionSignatureProto& proto,
+    const ResolvedNode::RestoreParams& params) {
+  // Some fields demand being set as FunctionSignature, not
+  // std::unique_ptr<FunctionSignature>. It's fine if we just copy the returned
+  // one though.
+  std::unique_ptr<FunctionSignature> sig;
+  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
+      proto, params.pools, params.type_factory, &sig));
+  return std::move(sig);
+}
+
+static absl::Status SaveToImpl(
     const Type* type,
     FileDescriptorSetMap* file_descriptor_set_map,
     TypeProto* proto) {
@@ -531,7 +580,8 @@ static absl::Status SaveToImpl(
       proto, file_descriptor_set_map);
 }
 
-static zetasql_base::StatusOr<const Type*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const Type*> RestoreFromImpl(
     const TypeProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Type* type;
@@ -555,7 +605,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
     const FieldDescriptorRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   TypeProto type_proto;
@@ -601,7 +652,8 @@ static absl::Status SaveToImpl(const google::protobuf::OneofDescriptor* oneof_de
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
     const OneofDescriptorRefProto& oneof_proto,
     const ResolvedNode::RestoreParams& params) {
   TypeProto containing_proto;
@@ -630,7 +682,8 @@ static absl::Status SaveToImpl(
   return column.SaveTo(file_descriptor_set_map, proto);
 }
 
-static zetasql_base::StatusOr<ResolvedColumn> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<ResolvedColumn> RestoreFromImpl(
     const ResolvedColumnProto& proto,
     const ResolvedNode::RestoreParams& params) {
   return ResolvedColumn::RestoreFrom(proto, params);
@@ -648,7 +701,8 @@ static absl::Status SaveToImpl(
       value.type(), file_descriptor_set_map, proto->mutable_type());
 }
 
-static zetasql_base::StatusOr<Value> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<Value> RestoreFromImpl(
     const ValueWithTypeProto& proto,
     const ResolvedNode::RestoreParams& params) {
   if (!proto.has_value()) {
@@ -656,7 +710,7 @@ static zetasql_base::StatusOr<Value> RestoreFromImpl(
     // value. So that's what we return if we see !has_value.
     return Value();
   }
-  ZETASQL_ASSIGN_OR_RETURN(const Type* type, RestoreFromImpl(proto.type(), params));
+  ZETASQL_ASSIGN_OR_RETURN(const Type* type, RestoreFromImpl<const Type*>(proto.type(), params));
   return Value::Deserialize(proto.value(), type);
 }
 
@@ -726,7 +780,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
+template<>
+zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
     const TVFSignatureProto& proto,
     const ResolvedNode::RestoreParams& params) {
   std::vector<TVFInputArgumentType> input_args;
@@ -738,7 +793,8 @@ static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
       cols.reserve(relation_arg.column_size());
       const Type* type = nullptr;
       for (const TVFRelationColumnProto& col_proto : relation_arg.column()) {
-        ZETASQL_ASSIGN_OR_RETURN(type, RestoreFromImpl(col_proto.type(), params));
+        ZETASQL_ASSIGN_OR_RETURN(
+            type, RestoreFromImpl<const Type*>(col_proto.type(), params));
         cols.emplace_back(TVFRelation::Column(col_proto.name(), type));
       }
       if (relation_arg.is_value_table()) {
@@ -773,11 +829,12 @@ static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
       const ValueWithTypeProto& scalar_arg = argument.scalar_argument();
       if (scalar_arg.has_value()) {
         ZETASQL_ASSIGN_OR_RETURN(const Value value,
-                         RestoreFromImpl(scalar_arg, params));
+                         RestoreFromImpl<Value>(scalar_arg, params));
         input_args.push_back(TVFInputArgumentType(InputArgumentType(value)));
       } else {
-        ZETASQL_ASSIGN_OR_RETURN(const Type* type,
-                         RestoreFromImpl(scalar_arg.type(), params));
+        ZETASQL_ASSIGN_OR_RETURN(
+            const Type* type,
+            RestoreFromImpl<const Type*>(scalar_arg.type(), params));
         input_args.push_back(TVFInputArgumentType(InputArgumentType(type)));
       }
     }
@@ -787,7 +844,8 @@ static zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
   const Type* type = nullptr;
   for (const TVFRelationColumnProto& col_proto :
        proto.output_schema().column()) {
-    ZETASQL_ASSIGN_OR_RETURN(type, RestoreFromImpl(col_proto.type(), params));
+    ZETASQL_ASSIGN_OR_RETURN(
+        type, RestoreFromImpl<const Type*>(col_proto.type(), params));
     cols.emplace_back(TVFRelation::Column(col_proto.name(), type,
                                           col_proto.is_pseudo_column()));
   }
@@ -819,7 +877,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
+template<>
+zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
     RestoreFromImpl(
         const ResolvedFunctionCallInfoProto& proto,
         const ResolvedNode::RestoreParams& params) {
@@ -842,7 +901,8 @@ static absl::Status SaveToImpl(
   return absl::OkStatus();
 }
 
-static zetasql_base::StatusOr<const AnnotationMap*>
+template<>
+zetasql_base::StatusOr<const AnnotationMap*>
     RestoreFromImpl(
         const AnnotationMapProto& proto,
         const ResolvedNode::RestoreParams& params) {
@@ -948,12 +1008,18 @@ absl::Status {{node.name}}::SaveTo(
    # endif
   }
  # else
+  # if field.not_serialize_if_default
+    if (!IsDefaultValue({{field.member_name}})) {
+  # endif
   # if field.has_proto_setter
   proto->set_{{field.name}}({{field.member_name}});
   # else
   ZETASQL_RETURN_IF_ERROR(SaveToImpl(
       {{field.member_name}}, file_descriptor_set_map,
       proto->mutable_{{field.name}}()));
+  # endif
+  # if field.not_serialize_if_default
+    }
   # endif
  # endif
 # endfor
@@ -1021,18 +1087,37 @@ zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFro
     # if field.has_proto_setter
     {{field.name}}.push_back(elem);
     # else
-    ZETASQL_ASSIGN_OR_RETURN(auto elem_restored, RestoreFromImpl(elem, params));
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto elem_restored,
+        RestoreFromImpl<{{field.member_type}}::value_type>(elem, params));
     {{field.name}}.push_back(std::move(elem_restored));
     # endif
   }
   # else
+   # if field.not_serialize_if_default
+  {{field.member_type}} {{field.name}};
+  if (!proto{{path_to_serialized_has(node, field)}}()) {
+    {{field.name}} = {{field.cpp_default}};
+  } else {
    # if field.has_proto_setter
+    {{field.name}} = proto{{path_to_serialized(node, field)}}();
+   # else
+    ZETASQL_ASSIGN_OR_RETURN({{field.name}},
+                     RestoreFromImpl<{{field.member_type}}>(
+                         proto{{path_to_serialized(node, field)}}(),
+                         params));
+   # endif
+  }
+   # else
+     # if field.has_proto_setter
   {{field.member_type}} {{field.name}} =
       proto{{path_to_serialized(node, field)}}();
-   # else
-  ZETASQL_ASSIGN_OR_RETURN({{field.member_type}} {{field.name}},
-                   RestoreFromImpl(proto{{path_to_serialized(node, field)}}(),
-                                   params));
+     # else
+  ZETASQL_ASSIGN_OR_RETURN(auto {{field.name}},
+                   RestoreFromImpl<{{field.member_type}}>(
+                       proto{{path_to_serialized(node, field)}}(),
+                       params));
+     # endif
    # endif
   # endif
  # endfor

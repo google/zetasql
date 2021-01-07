@@ -35,7 +35,7 @@ inline IntervalValue Micros(int64_t micros) {
   return IntervalValue::FromMicros(micros).ValueOrDie();
 }
 
-inline IntervalValue Nanos(int64_t nanos) {
+inline IntervalValue Nanos(__int128 nanos) {
   return IntervalValue::FromNanos(nanos).ValueOrDie();
 }
 
@@ -43,8 +43,26 @@ inline IntervalValue MonthsDaysMicros(int64_t months, int64_t days, int64_t micr
   return IntervalValue::FromMonthsDaysMicros(months, days, micros).ValueOrDie();
 }
 
-inline IntervalValue MonthsDaysNanos(int64_t months, int64_t days, int64_t nanos) {
+inline IntervalValue MonthsDaysNanos(int64_t months, int64_t days, __int128 nanos) {
   return IntervalValue::FromMonthsDaysNanos(months, days, nanos).ValueOrDie();
+}
+
+inline IntervalValue YMDHMS(int64_t years, int64_t months, int64_t days, int64_t hours,
+                            int64_t minutes, int64_t seconds) {
+  return IntervalValue::FromYMDHMS(years, months, days, hours, minutes, seconds)
+      .ValueOrDie();
+}
+
+inline IntervalValue Years(int64_t years) { return YMDHMS(years, 0, 0, 0, 0, 0); }
+
+inline IntervalValue Hours(int64_t hours) { return YMDHMS(0, 0, 0, hours, 0, 0); }
+
+inline IntervalValue Minutes(int64_t minutes) {
+  return YMDHMS(0, 0, 0, 0, minutes, 0);
+}
+
+inline IntervalValue Seconds(int64_t seconds) {
+  return YMDHMS(0, 0, 0, 0, 0, seconds);
 }
 
 }  // namespace interval_testing

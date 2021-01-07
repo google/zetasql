@@ -33,6 +33,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -850,9 +851,9 @@ absl::Status TableNameResolver::FindInDeleteStatement(
 
   AliasSet visible_aliases;
   zetasql_base::InsertIfNotPresent(table_names_, path);
-  const std::string alias = statement->alias() == nullptr
-                                ? path.back()
-                                : statement->alias()->GetAsString();
+  const absl::string_view alias = statement->alias() == nullptr
+                                      ? path.back()
+                                      : statement->alias()->GetAsStringView();
   zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
 
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->where(), visible_aliases));
@@ -903,9 +904,9 @@ absl::Status TableNameResolver::FindInUpdateStatement(
   const std::vector<std::string> path = path_expr->ToIdentifierVector();
 
   zetasql_base::InsertIfNotPresent(table_names_, path);
-  const std::string alias = statement->alias() == nullptr
-                                ? path.back()
-                                : statement->alias()->GetAsString();
+  const absl::string_view alias = statement->alias() == nullptr
+                                      ? path.back()
+                                      : statement->alias()->GetAsStringView();
   zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(alias));
 
   if (statement->from_clause() != nullptr) {
@@ -958,14 +959,14 @@ absl::Status TableNameResolver::FindInQuery(
       for (const ASTWithClauseEntry* with_entry :
            query->with_clause()->with()) {
         const std::string with_alias =
-            absl::AsciiStrToLower(with_entry->alias()->GetAsString());
+            absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
         zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
       }
       for (const ASTWithClauseEntry* with_entry :
            query->with_clause()->with()) {
         ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
         const std::string with_alias =
-            absl::AsciiStrToLower(with_entry->alias()->GetAsString());
+            absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
       }
     } else {
       // In WITH without RECURSIVE, entries can only access with aliases defined
@@ -974,7 +975,7 @@ absl::Status TableNameResolver::FindInQuery(
            query->with_clause()->with()) {
         ZETASQL_RETURN_IF_ERROR(FindInQuery(with_entry->query(), visible_aliases));
         const std::string with_alias =
-            absl::AsciiStrToLower(with_entry->alias()->GetAsString());
+            absl::AsciiStrToLower(with_entry->alias()->GetAsStringView());
         zetasql_base::InsertIfNotPresent(&local_table_aliases_, with_alias);
       }
     }
@@ -1147,8 +1148,11 @@ absl::Status TableNameResolver::FindInTVF(
               arg->table_clause()->table_path()->ToIdentifierVector());
         } else {
           // This is a single-part name.
-          const std::string lower_name = absl::AsciiStrToLower(
-              arg->table_clause()->table_path()->first_name()->GetAsString());
+          const std::string lower_name =
+              absl::AsciiStrToLower(arg->table_clause()
+                                        ->table_path()
+                                        ->first_name()
+                                        ->GetAsStringView());
           if (!zetasql_base::ContainsKey(local_table_aliases_, lower_name)) {
             zetasql_base::InsertIfNotPresent(
                 table_names_,
@@ -1177,7 +1181,7 @@ absl::Status TableNameResolver::FindInTableSubquery(
   if (table_subquery->alias() != nullptr) {
     zetasql_base::InsertIfNotPresent(
         local_visible_aliases,
-        absl::AsciiStrToLower(table_subquery->alias()->GetAsString()));
+        absl::AsciiStrToLower(table_subquery->alias()->GetAsStringView()));
   }
   return absl::OkStatus();
 }

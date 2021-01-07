@@ -1,0 +1,9 @@
+[name=session_user_not_null]
+SELECT SESSION_USER() IS NOT NULL;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=session_user_not_empty]
+SELECT LENGTH(SESSION_USER()) > 0;
+--
+ARRAY<STRUCT<BOOL>>[{true}]

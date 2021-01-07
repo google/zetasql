@@ -1,0 +1,64 @@
+# While we cannot test results of RAND function directly, we test its
+# properties.
+
+[name=range]
+SELECT RAND() BETWEEN 0 AND 1 right1, RAND() < 0 wrong1, RAND() > 1 wrong2
+--
+ARRAY<STRUCT<right1 BOOL, wrong1 BOOL, wrong2 BOOL>>[{true, false, false}]
+==
+
+# When RAND() is used in WITH clause, the result has to be the same because of
+# run-once behavior
+[name=with]
+WITH R AS (SELECT RAND() r)
+SELECT (rs[offset(0)] = rs[offset(1)]) right1 FROM (
+SELECT ARRAY_AGG(t.r) rs FROM (
+(SELECT r FROM R) UNION ALL (SELECT r FROM R)) t)
+--
+ARRAY<STRUCT<right1 BOOL>>[{true}]
+==
+
+# Tests which should pass with very high probability
+
+# Different columns should have different values
+[name=different_columns]
+SELECT (r1 = r2 and r2 = r3) wrong FROM
+(SELECT rand() r1, rand() r2, rand() r3)
+--
+ARRAY<STRUCT<wrong BOOL>>[{false}]
+==
+
+# Different rows should have different values
+[name=different_rows]
+SELECT (rs[offset(0)] = rs[offset(1)] and rs[offset(0)] = rs[offset(2)]) wrong
+FROM
+  (SELECT
+     (SELECT array_agg(r) r
+      FROM
+        (SELECT rand() r
+         FROM unnest([1,2,3]) x)) rs);
+--
+ARRAY<STRUCT<wrong BOOL>>[{false}]
+==
+
+[name=uniform_distribution]
+SELECT
+  MAX(RAND()) > 0.5 right1,
+  MIN(RAND()) < 0.5 right2
+FROM UNNEST([1,2,3,4,5,6,7,8,9,10]), UNNEST([1,2,3,4,5,6,7,8,9,10])
+--
+ARRAY<STRUCT<right1 BOOL, right2 BOOL>>[{true, true}]
+==
+
+[name=branches_of_union]
+SELECT COUNT(DISTINCT val) >= 2
+FROM (
+  SELECT RAND() val
+  UNION ALL
+  SELECT RAND() val
+  UNION ALL
+  SELECT RAND() val
+)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==

@@ -766,8 +766,9 @@ Some interactive tools require statements to have a terminating semicolon.
 ## Trailing commas 
 <a id="trailing_commas"></a>
 
-You can optionally use a trailing comma (`,`) at the end of a list in a `SELECT`
-statement.
+You can optionally use a trailing comma (`,`) at the end of a column list in a
+`SELECT` statement. You might have a trailing comma as the result of
+programmatically creating a column list.
 
 **Example**
 

@@ -91,6 +91,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CASE_VALUE_EXPRESSION] = "CaseValueExpression";
   map[AST_CAST_EXPRESSION] = "CastExpression";
   map[AST_CHECK_CONSTRAINT] = "CheckConstraint";
+  map[AST_CLAMPED_BETWEEN_MODIFIER] = "ClampedBetweenModifier";
   map[AST_CLUSTER_BY] = "ClusterBy";
   map[AST_COLLATE] = "Collate";
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
@@ -297,7 +298,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_TVF_SCHEMA_COLUMN] = "TVFSchemaColumn";
   map[AST_TVF_SCHEMA] = "TVFSchema";
   map[AST_TVF] = "TVF";
-  map[AST_TYPE_PARAMETER_LIST] = "TypePrameterList";
+  map[AST_TYPE_PARAMETER_LIST] = "TypeParameterList";
   map[AST_UNARY_EXPRESSION] = "UnaryExpression";
   map[AST_UNNEST_EXPRESSION] = "UnnestExpression";
   map[AST_UNNEST_EXPRESSION_WITH_OPT_ALIAS_AND_OFFSET] =
@@ -541,8 +542,16 @@ std::string ASTAlias::GetAsString() const {
   return identifier()->GetAsString();
 }
 
+absl::string_view ASTAlias::GetAsStringView() const {
+  return identifier()->GetAsStringView();
+}
+
 std::string ASTIntoAlias::GetAsString() const {
   return identifier()->GetAsString();
+}
+
+absl::string_view ASTIntoAlias::GetAsStringView() const {
+  return identifier()->GetAsStringView();
 }
 
 const ASTNode* ASTTableExpression::alias_location() const {
@@ -676,6 +685,8 @@ std::string ASTBinaryExpression::GetSQLForOperator() const {
       return "/";
     case CONCAT_OP:
       return "||";
+    case DISTINCT:
+      return is_not_ ? "IS NOT DISTINCT FROM" : "IS DISTINCT FROM";
   }
 }
 
@@ -792,7 +803,7 @@ std::string ASTPathExpression::ToIdentifierPathString(
   std::string ret;
   for (int i = 0; i < end; ++i) {
     if (i != 0) ret += ".";
-    ret += ToIdentifierLiteral(names_[i]->GetAsString());
+    ret += ToIdentifierLiteral(names_[i]->GetAsStringView());
   }
   return ret;
 }

@@ -29,6 +29,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
@@ -977,6 +978,99 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDateTime() {
       v,
       TestCastDateTimeWithString(),
   });
+}
+
+using interval_testing::Days;
+using interval_testing::Micros;
+using interval_testing::Months;
+using interval_testing::MonthsDaysMicros;
+using interval_testing::Nanos;
+using interval_testing::YMDHMS;
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
+  std::vector<QueryParamsWithResult> tests({
+      // INTERVAL -> INTERVAL
+      {{NullInterval()}, NullInterval()},
+      {{Interval(Months(0))}, Interval(Months(0))},
+      // INTERVAL -> STRING
+      {{Interval(Months(0))}, String("0-0 0 0:0:0")},
+      {{Interval(Months(-240))}, String("-20-0 0 0:0:0")},
+      {{Interval(Days(30))}, String("0-0 30 0:0:0")},
+      {{Interval(Micros(-1))}, String("0-0 0 -0:0:0.000001")},
+      {{Interval(Nanos(-1))}, String("0-0 0 -0:0:0.000000001")},
+      {{Interval(MonthsDaysMicros(1, 2, 3000000))}, String("0-1 2 0:0:3")},
+      {{Interval(YMDHMS(1, 2, 3, 4, 5, 6))}, String("1-2 3 4:5:6")},
+      // STRING -> INTERVAL
+      {{String("0-0 0 0:0:0.0")}, Interval(Months(0))},
+      {{String("1-2 3 4:5:6")}, Interval(YMDHMS(1, 2, 3, 4, 5, 6))},
+      {{String("-1-2 -3 -4:5:6")}, Interval(YMDHMS(-1, -2, -3, -4, -5, -6))},
+      {{String("1-2 3 +4:5")}, Interval(YMDHMS(1, 2, 3, 4, 5, 0))},
+      {{String("1-2 +3 -4:5")}, Interval(YMDHMS(1, 2, 3, -4, -5, 0))},
+      {{String("1-2 3 4")}, Interval(YMDHMS(1, 2, 3, 4, 0, 0))},
+      {{String("1-2 3 -4")}, Interval(YMDHMS(1, 2, 3, -4, 0, 0))},
+      {{String("+1-2 3")}, Interval(YMDHMS(1, 2, 3, 0, 0, 0))},
+      {{String("-1-2 -3")}, Interval(YMDHMS(-1, -2, -3, 0, 0, 0))},
+      {{String("1-2")}, Interval(YMDHMS(1, 2, 0, 0, 0, 0))},
+      {{String("-1-2")}, Interval(YMDHMS(-1, -2, 0, 0, 0, 0))},
+      {{String("0-1 2 -3:4:5")}, Interval(YMDHMS(0, 1, 2, -3, -4, -5))},
+      {{String("0-1 2 3:4")}, Interval(YMDHMS(0, 1, 2, 3, 4, 0))},
+      {{String("0-1 2 3")}, Interval(YMDHMS(0, 1, 2, 3, 0, 0))},
+      {{String("0-1 -2 -3")}, Interval(YMDHMS(0, 1, -2, -3, 0, 0))},
+      {{String("1 2:3:4")}, Interval(YMDHMS(0, 0, 1, 2, 3, 4))},
+      {{String("1 2:3")}, Interval(YMDHMS(0, 0, 1, 2, 3, 0))},
+      {{String("+1:2:3")}, Interval(YMDHMS(0, 0, 0, 1, 2, 3))},
+      {{String("-1:2:3")}, Interval(YMDHMS(0, 0, 0, -1, -2, -3))},
+      {{String("-0:0:0.0003")}, Interval(Micros(-300))},
+
+      // Bad formats
+      {{String("0-0-0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:0:0:0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:0.0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:0:0.")}, NullInterval(), OUT_OF_RANGE},
+      {{String(" 0-0 0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0-0 +-0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1  2 3")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1\t2 3")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1:2:3 ")}, NullInterval(), OUT_OF_RANGE},
+      {{String("++1:2:3")}, NullInterval(), OUT_OF_RANGE},
+      {{String("+-1:2:3")}, NullInterval(), OUT_OF_RANGE},
+      {{String("--1:2:3")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String(" ")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1")}, NullInterval(), OUT_OF_RANGE},
+      {{String("+")}, NullInterval(), OUT_OF_RANGE},
+      {{String(":")}, NullInterval(), OUT_OF_RANGE},
+      {{String(".")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:0:1.234e-6")}, NullInterval(), OUT_OF_RANGE},
+      // Ambiguous formats
+      {{String("1 2")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1:2")}, NullInterval(), OUT_OF_RANGE},
+      // Too many fractional digits
+      {{String("0:0:0.0000000000")}, NullInterval(), OUT_OF_RANGE},
+      // Integer parsing overflow
+      {{String("9223372036854775808-0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0-9223372036854775808")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:9223372036854775808:0")}, NullInterval(), OUT_OF_RANGE},
+      // Exceeds maximum allowed values
+      {{String("10001-0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("-10000-1")}, NullInterval(), OUT_OF_RANGE},
+      {{String("-0-120001")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1-120000")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0-0 3660001")}, NullInterval(), OUT_OF_RANGE},
+      {{String("-87840001:0:0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("87840000:0:0.001")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:5270400001:0")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:5270400000:0.000001")}, NullInterval(), OUT_OF_RANGE},
+      {{String("0:0:316224000001")}, NullInterval(), OUT_OF_RANGE},
+      {{String("-0:0:316224000000.0001")}, NullInterval(), OUT_OF_RANGE},
+  });
+
+  std::vector<QueryParamsWithResult> result;
+  result.reserve(tests.size());
+  for (const auto& test : tests) {
+    result.push_back(test.WrapWithFeature(FEATURE_INTERVAL_TYPE));
+  }
+  return result;
 }
 
 static std::vector<QueryParamsWithResult> GetFunctionTestsCastIntPorted() {
@@ -2284,6 +2378,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
       GetFunctionTestsCastBool(),
       GetFunctionTestsCastComplex(),
       GetFunctionTestsCastDateTime(),
+      GetFunctionTestsCastInterval(),
       GetFunctionTestsCastNumeric(),
       GetFunctionTestsCastString(),
       GetFunctionTestsCastNumericString(),

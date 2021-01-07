@@ -121,6 +121,7 @@ public final class ResolvedNodes {
 
   static FunctionSignatureProto serialize(FunctionSignature functionSignature,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    if (functionSignature == null) return null;
     return functionSignature.serialize(fileDescriptorSetsBuilder);
   }
 
@@ -314,10 +315,18 @@ public final class ResolvedNodes {
       {{field.name|lower_camel_case}} = {{field.name|lower_camel_case}}Builder.build();
       # endif
     # else
+      # if field.not_serialize_if_default
+      if (proto.has{{field.name|upper_camel_case}}()) {
+      # endif
       # if field.has_proto_setter
       {{field.name|lower_camel_case}} = proto.get{{field.name|upper_camel_case}}();
       # else
       {{field.name|lower_camel_case}} = helper.deserialize(proto.get{{field.name|upper_camel_case}}());
+      # endif
+      # if field.not_serialize_if_default
+      } else {
+      {{field.name|lower_camel_case}} = {{field.java_default}};
+      }
       # endif
     # endif
   # endfor

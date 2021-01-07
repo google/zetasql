@@ -103,6 +103,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     language_options.EnableLanguageFeature(FEATURE_V_1_2_CIVIL_TIME);
     language_options.EnableLanguageFeature(FEATURE_BIGNUMERIC_TYPE);
     language_options.EnableLanguageFeature(FEATURE_JSON_TYPE);
+    language_options.EnableLanguageFeature(FEATURE_INTERVAL_TYPE);
     ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(
         expression_sql, AnalyzerOptions(language_options), &catalog_,
         &type_factory_, &output));
@@ -452,7 +453,7 @@ TEST_F(ProtoValueConversionTest, DateDecimal) {
     ASSERT_TRUE(struct_type != nullptr);
     std::unique_ptr<google::protobuf::Message> proto;
     ZETASQL_ASSERT_OK(ValueToProto(value, options, &proto));
-    ASSERT_EQ("d: 19700102", proto->ShortDebugString());
+    ASSERT_THAT(*proto, EqualsProto("d: 19700102"));
 
     // Now, overwrite the proto with one that has 0 for the date field.
     ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString("d: 0", proto.get()));

@@ -1,0 +1,249 @@
+[name=struct_1]
+SELECT (SELECT t FROM (SELECT 3 a, 5 b) t).b
+--
+ARRAY<STRUCT<b INT64>>[{5}]
+==
+[name=struct_2]
+SELECT (SELECT t FROM (SELECT 3 a, 5 b) t).a
+--
+ARRAY<STRUCT<a INT64>>[{3}]
+==
+[name=struct_3]
+SELECT x.a, x.b, x.a + x.b FROM (SELECT (SELECT t FROM (SELECT 3 a, 5 b) t) x)
+--
+ARRAY<STRUCT<a INT64, b INT64, INT64>>[{3, 5, 8}]
+==
+
+# Create struct with zero field.
+[name=struct_with_zero_field]
+SELECT STRUCT()
+--
+ARRAY<STRUCT<STRUCT<>>>[{{}}]
+==
+# Create struct with one field.
+[name=struct_with_one_field]
+SELECT STRUCT(1)
+--
+ARRAY<STRUCT<STRUCT<INT64>>>[{{1}}]
+==
+# Create struct with duplicate field names of different types.
+[name=struct_with_duplicate_field_names_of_different_types]
+SELECT STRUCT("abc" AS a, 3 AS a)
+--
+ARRAY<STRUCT<STRUCT<a STRING, a INT64>>>[{{"abc", 3}}]
+==
+# Create struct with duplicate field names of the same type.
+[name=struct_with_duplicate_field_names_of_the_same_type]
+SELECT STRUCT("abc" AS a, "3" AS a)
+--
+ARRAY<STRUCT<STRUCT<a STRING, a STRING>>>[{{"abc", "3"}}]
+==
+# Create struct with anonymous fields of different types.
+[name=struct_with_anonymous_field_names_of_different_types]
+SELECT STRUCT("abc", 3)
+--
+ARRAY<STRUCT<STRUCT<STRING, INT64>>>[{{"abc", 3}}]
+==
+# Create struct with anonymous fields of the same type.
+[name=struct_with_anonymous_field_names_of_the_same_type]
+SELECT STRUCT("abc", "3")
+--
+ARRAY<STRUCT<STRUCT<STRING, STRING>>>[{{"abc", "3"}}]
+==
+# Create struct from a table subquery.
+[name=struct_from_subquery]
+SELECT STRUCT(2*v) FROM (SELECT 1 AS v) t
+--
+ARRAY<STRUCT<STRUCT<INT64>>>[{{2}}]
+==
+# Create struct containing struct.
+[name=struct_containing_struct]
+SELECT STRUCT(STRUCT(11, 12))
+--
+ARRAY<STRUCT<STRUCT<STRUCT<INT64, INT64>>>>[{{{11, 12}}}]
+==
+# Create struct containing array.
+[name=struct_containing_array]
+SELECT STRUCT(ARRAY<INT64>[21, 22])
+--
+ARRAY<STRUCT<STRUCT<ARRAY<>>>>[{{ARRAY<INT64>[21, 22]}}]
+==
+# Create struct containing array of struct.
+[name=struct_containing_array_of_struct]
+SELECT STRUCT(ARRAY<STRUCT<INT64, INT64>>[(11, 12), (21, 22)])
+--
+ARRAY<STRUCT<STRUCT<ARRAY<>>>>[
+  {{ARRAY<STRUCT<INT64, INT64>>[{11, 12}, {21, 22}]}}
+]
+==
+
+# Accessing struct field.
+[name=struct_access_field]
+SELECT s.a FROM (SELECT STRUCT("abc" AS a, 3 AS b) s) t
+--
+ARRAY<STRUCT<a STRING>>[{"abc"}]
+==
+
+# Select a struct constructed like (x,y) as a value.
+[name=struct_select_as_value]
+SELECT STRUCT("abc", 3)
+--
+ARRAY<STRUCT<STRUCT<STRING, INT64>>>[{{"abc", 3}}]
+==
+# Select an alias from the from clause, get it as a struct.
+[name=struct_alias]
+SELECT t from (SELECT STRUCT("abc" AS a, 3 AS b) t ) x
+--
+ARRAY<STRUCT<t STRUCT<a STRING, b INT64>>>[{{"abc", 3}}]
+==
+
+# Cast struct.
+[name=struct_cast]
+SELECT CAST(STRUCT<DOUBLE, INT32>(3.5, 5) AS STRUCT<INT64, DOUBLE>)
+--
+ARRAY<STRUCT<STRUCT<INT64, DOUBLE>>>[{{4, 5}}]
+==
+
+# Union structs.
+[name=struct_union]
+SELECT STRUCT("abc" AS a, 3 AS b)
+UNION ALL
+SELECT STRUCT("def" AS a, 5 AS b)
+UNION ALL
+SELECT STRUCT("def" AS a, 5 AS b)
+--
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[
+  {{"abc", 3}},
+  {{"def", 5}},
+  {{"def", 5}}
+]
+==
+
+# Union distinct structs.
+[name=struct_union_distinct]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT STRUCT("abc" AS a, 3 AS b)
+UNION DISTINCT
+SELECT STRUCT("def" AS a, 5 AS b)
+UNION DISTINCT
+SELECT STRUCT("def" AS a, 5 AS b)
+--
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{"abc", 3}}, {{"def", 5}}]
+==
+
+# Union distinct structs with null
+[name=struct_union_distinct_null]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT STRUCT("abc" AS a, NULL AS b)
+UNION DISTINCT
+SELECT STRUCT(NULL AS a, 5 AS b)
+UNION DISTINCT
+SELECT STRUCT(NULL AS a, 5 AS b)
+--
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{NULL, 5}}, {{"abc", NULL}}]
+==
+
+# The following functions are currently not working in the analyzer.
+# We will implement them later.
+
+# Union anonymous structs with matching types, different names.
+[name=struct_union_different_names]
+SELECT STRUCT("abc" AS a, 3 AS b)
+UNION ALL
+SELECT STRUCT("def" AS c, 5 AS d)
+--
+ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{"abc", 3}}, {{"def", 5}}]
+==
+# Union structs requiring coercion.
+[name=struct_union_requiring_coercion]
+SELECT STRUCT<INT64, DOUBLE>(3, 5.5)
+UNION ALL
+SELECT STRUCT<DOUBLE, INT32>(1.4, 2)
+--
+ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[{{3, 5.5}}, {{1.4, 2}}]
+==
+[name=struct_union_distinct_requiring_coercion]
+[required_features=V_1_2_GROUP_BY_STRUCT]
+SELECT STRUCT<INT64, DOUBLE>(3, 5.5)
+UNION DISTINCT
+SELECT STRUCT<DOUBLE, INT32>(1.4, 2)
+--
+ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[{{1.4, 2}}, {{3, 5.5}}]
+==
+# Case with structs values requiring coercion.
+[name=struct_case_requiring_coercion]
+SELECT CASE
+  WHEN TRUE THEN STRUCT(1.4, 1)
+  ELSE STRUCT(3, 3.5)
+END
+--
+ARRAY<STRUCT<STRUCT<DOUBLE, DOUBLE>>>[{{1.4, 1}}]
+==
+
+# Struct equality.
+[name=struct_equality]
+SELECT STRUCT(3 AS a, 5.5 AS b) = STRUCT(3 AS c, 5.5 AS d)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# Equality between STRUCTs with different field names.
+[name=struct_equality_different_field_names]
+--
+SELECT STRUCT<a int64, b double>(3 AS a, 5.5 AS b) =
+       STRUCT<c int64, d double>(3 AS c, 5.5 AS d)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# Comparisons of empty STRUCT
+[name=empty_struct_equality]
+SELECT
+  STRUCT<>() = STRUCT<>(),
+  STRUCT<>() <> STRUCT<>(),
+  STRUCT<>() = CAST(NULL AS STRUCT<>),
+  STRUCT<>() <> CAST(NULL AS STRUCT<>),
+  STRUCT<>() = null_struct,
+  STRUCT<>() <> null_struct,
+  null_struct = CAST(NULL AS STRUCT<>),
+  null_struct <> CAST(NULL AS STRUCT<>),
+  null_struct = null_struct,
+  null_struct <> null_struct
+FROM (SELECT CAST(NULL AS STRUCT<>) AS null_struct)
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+# IN on struct.
+[name=struct_in]
+SELECT STRUCT(3, 5) IN (STRUCT(3, 5), STRUCT(4, 6))
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# CASE and NULLIF on struct with null field.
+[name=struct_equality_null_field]
+SELECT
+  CASE s WHEN STRUCT(1, 2) THEN 1
+         WHEN STRUCT(NULL, 2) THEN 2
+         ELSE 3
+  END AS value1,
+  NULLIF(s, (NULL, 2)) AS value2
+FROM (SELECT STRUCT(1 AS x, 2 AS y) AS s
+      UNION ALL SELECT STRUCT(NULL AS x, 2 AS y) AS s
+      UNION ALL SELECT STRUCT(3 AS x, 2 AS y) AS s)
+--
+ARRAY<STRUCT<
+        value1 INT64,
+        value2 STRUCT<x INT64, y INT64>
+      >>
+[{3, {NULL, 2}}, {1, {1, 2}}, {3, {3, 2}}]
+==
+
+# b/28942765
+[name=struct_from_table_reference]
+SELECT CAST(q AS STRUCT<a INT64>) FROM (SELECT 1) AS q;
+--
+ARRAY<STRUCT<STRUCT<a INT64>>>[{{1}}]

@@ -66,6 +66,7 @@ class QueryExpression {
                            const std::string& order_by_hints);
   bool TrySetLimitClause(const std::string& limit);
   bool TrySetOffsetClause(const std::string& offset);
+  bool TrySetWithAnonymizationClause(const std::string& anonymization_options);
 
   // The below CanSet... methods return true if filling in the concerned clause
   // in the QueryExpression will succeed (without mutating it or wrapping it as
@@ -79,6 +80,7 @@ class QueryExpression {
   bool CanSetOrderByClause() const;
   bool CanSetLimitClause() const;
   bool CanSetOffsetClause() const;
+  bool CanSetWithAnonymizationClause() const;
 
   // The below Has... methods return true if the concerned clause is present
   // inside the QueryExpression. Otherwise false.
@@ -91,6 +93,9 @@ class QueryExpression {
   bool HasOrderByClause() const { return !order_by_list_.empty(); }
   bool HasLimitClause() const { return !limit_.empty(); }
   bool HasOffsetClause() const { return !offset_.empty(); }
+  bool HasWithAnonymizationClause() const {
+    return !anonymization_options_.empty();
+  }
 
   void ResetSelectClause();
 
@@ -180,6 +185,8 @@ class QueryExpression {
 
   std::string limit_;
   std::string offset_;
+
+  std::string anonymization_options_;
 };
 
 }  // namespace zetasql

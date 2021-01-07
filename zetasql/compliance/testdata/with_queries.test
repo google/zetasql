@@ -1,0 +1,213 @@
+# S is unused in main query
+[name=with_1]
+WITH
+  R AS (SELECT 2 a),
+  S AS (SELECT a FROM R)
+SELECT a FROM R
+--
+ARRAY<STRUCT<a INT64>>[{2}]
+==
+# R is used by S, S is used by main query
+[name=with_2]
+WITH
+  R AS (SELECT 2 a),
+  S AS (SELECT a-1 x, a+1 y FROM R)
+SELECT x, y FROM S
+--
+ARRAY<STRUCT<x INT64, y INT64>>[{1, 3}]
+==
+# R and S are joined
+[name=with_3]
+WITH
+  R AS (SELECT 2 a),
+  S AS (SELECT a-1 x, a+1 y FROM R)
+SELECT a, x, y FROM R, S
+--
+ARRAY<STRUCT<a INT64, x INT64, y INT64>>[{2, 1, 3}]
+==
+# R is non-deterministic
+[name=with_4]
+WITH
+  R AS (SELECT 10 a UNION ALL SELECT 20 LIMIT 1)
+SELECT R1.a = R2.a FROM R AS R1, R AS R2
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+# Subquery returns 0 rows.
+[name=with_5]
+WITH R AS (SELECT 1 a FROM (SELECT 2) WHERE 1<0)
+SELECT a FROM R
+--
+ARRAY<STRUCT<a INT64>>[]
+==
+# Top-level query has extra renaming (column b)
+[name=with_6]
+WITH r AS (SELECT COUNT(*) a FROM (SELECT 0 UNION ALL SELECT 1))
+SELECT ANY_VALUE(a) b FROM r
+--
+ARRAY<STRUCT<b INT64>>[{2}]
+==
+
+[name=with_on_table_subquery]
+[test_features1=V_1_1_WITH_ON_SUBQUERY]
+select x,y
+from (with Q as (select 1 x, 2 y, 3 z) select y, x from Q)
+--
+WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
+ARRAY<STRUCT<x INT64, y INT64>>[{1, 2}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 2:7]
+from (with Q as (select 1 x, 2 y, 3 z) select y, x from Q)
+      ^
+==
+
+[name=with_on_expr_subquery]
+[test_features1=V_1_1_WITH_ON_SUBQUERY]
+select (with Q as (select 1 x, 2 y) select x from Q)
+--
+WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
+ARRAY<STRUCT<INT64>>[{1}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 1:9]
+select (with Q as (select 1 x, 2 y) select x from Q)
+        ^
+==
+
+[name=with_on_in_subquery]
+[test_features1=V_1_1_WITH_ON_SUBQUERY]
+select x, x in (with Q as (select 1 x, 2 y) select y from Q)
+from unnest([1,2,3]) x
+--
+WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
+ARRAY<STRUCT<x INT64, BOOL>>[{2, true}, {1, false}, {3, false}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 1:17]
+select x, x in (with Q as (select 1 x, 2 y) select y from Q)
+                ^
+==
+
+[name=with_on_expr_subquery2]
+[test_features1=V_1_1_WITH_ON_SUBQUERY]
+select (with Q as (select 1 x, 2 y) select x+z from Q)
+from (select 3 z)
+--
+WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
+ARRAY<STRUCT<INT64>>[{4}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 1:9]
+select (with Q as (select 1 x, 2 y) select x+z from Q)
+        ^
+==
+
+[name=with_on_set_op]
+[test_features1=V_1_1_WITH_ON_SUBQUERY]
+with q1 as (select 1 x)
+select * from q1
+union all
+(with q2 as (select 2 y) select y from q2)
+union all
+(with q2 as (select x xx from q1) select xx from q2)
+union all
+(with q2 as (select 'abc') select x from q1)
+--
+WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
+ARRAY<STRUCT<x INT64>>[{1}, {2}, {1}, {1}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 4:2]
+(with q2 as (select 2 y) select y from q2)
+ ^
+==
+
+[name=with_on_multiple_levels]
+[test_features1=V_1_1_WITH_ON_SUBQUERY]
+with q1 as (select 1 x)
+select y, x
+from (with q2 as (select x+10 y from q1) select y from q2),
+     (with q1 as (select x+100 x from q1) select x from q1)
+--
+WITH FEATURES: V_1_1_WITH_ON_SUBQUERY
+ARRAY<STRUCT<y INT64, x INT64>>[{11, 101}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: WITH is not supported on subqueries in this language version [at 3:7]
+from (with q2 as (select x+10 y from q1) select y from q2),
+      ^
+==
+
+# Order is not preserved here.
+[name=with_subquery_has_order]
+with T as (select 1 c union all select 3 union all select 2),
+     S as (select c from T order by 1)
+select * from S;
+--
+ARRAY<STRUCT<c INT64>>[{1}, {2}, {3}]
+==
+
+# Order is preserved here.
+[name=with_main_query_has_order]
+with T as (select 1 c union all select 3 union all select 2)
+select c from T order by 1;
+--
+ARRAY<STRUCT<c INT64>>[{1}, {2}, {3}]
+==
+
+# WITH subquery has run-once semantics.
+[name=with_run_once1]
+WITH Q AS (select k, rand() r from UNNEST([1,2,3,4,5]) k)
+SELECT COUNT(*)
+FROM Q q1 JOIN Q q2 USING (k)
+WHERE abs(q1.r - q2.r) < 0.0000000001
+--
+ARRAY<STRUCT<INT64>>[{5}]
+==
+
+[name=with_run_once2]
+WITH Q AS (select k, rand() r from UNNEST([1,2,3,4,5,6,7,8,9,10]) k
+           ORDER by r LIMIT 4)
+SELECT count(*), count(distinct k)
+FROM
+ (SELECT * FROM Q
+  UNION ALL
+  SELECT * FROM Q)
+--
+ARRAY<STRUCT<INT64, INT64>>[{8, 4}]
+==
+
+[name=with_run_once3]
+WITH t1 AS (select k1,k2 from UNNEST([1,2,3,4,5,6,7,8,9,10]) k1,
+                              UNNEST([11,12,13,14,15]) k2),
+     t2 AS (select k1+k2*100 c from t1 LIMIT 10),
+     t3 AS (select c from t2
+            UNION ALL
+            select c from t2)
+SELECT count(*), count(distinct c)
+FROM t3;
+--
+ARRAY<STRUCT<INT64, INT64>>[{20, 10}]
+==
+
+[name=with_run_once4]
+WITH t1 AS (select k1,k2 from UNNEST([1,2,3,4,5,6,7,8,9,10]) k1,
+                              UNNEST([11,12,13,14,15]) k2),
+     t2 AS (select ANY_VALUE(k1+k2) c FROM t1)
+SELECT a.c=b.c from t2 a CROSS JOIN t2 b;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=bug119901615_a]
+WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a;
+--
+ARRAY<STRUCT<INT64>>[{15}]
+==
+
+[name=bug119901615_b]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
+SELECT 1 IN (WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a);
+--
+ARRAY<STRUCT<BOOL>>[{false}]

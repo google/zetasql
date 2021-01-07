@@ -1,0 +1,174 @@
+[name=array_join_simple]
+SELECT a, b FROM (SELECT 1 a), UNNEST([1, 2, 3]) b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}, {1, 1}, {1, 3}]
+==
+[name=array_join_condition]
+SELECT a, b FROM (SELECT 1 a) JOIN UNNEST([1, 2, 3]) b ON b > a
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}, {1, 3}]
+==
+[name=array_join_correlated]
+SELECT a, b FROM (SELECT 1 a), UNNEST([a, a+1, a+2]) b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}, {1, 1}, {1, 3}]
+==
+[name=array_join_array]
+SELECT a, b FROM UNNEST([1, 2, 3]) a JOIN UNNEST(["a", "b", "c"]) b
+--
+ARRAY<STRUCT<a INT64, b STRING>>[
+  {2, "b"},
+  {2, "a"},
+  {2, "c"},
+  {1, "b"},
+  {1, "a"},
+  {1, "c"},
+  {3, "b"},
+  {3, "a"},
+  {3, "c"}
+]
+==
+[name=array_join_empty_array]
+SELECT a, b FROM UNNEST(ARRAY<INT64>[]) a JOIN UNNEST(["a", "b", "c"]) b
+--
+ARRAY<STRUCT<a INT64, b STRING>>[]
+==
+[name=array_join_null_array]
+SELECT a, b
+FROM UNNEST(CAST(NULL as ARRAY<INT64>)) a
+JOIN UNNEST(["a", "b", "c"]) b
+--
+ARRAY<STRUCT<a INT64, b STRING>>[]
+==
+[name=array_join_array_with_nulls]
+SELECT a, b FROM UNNEST([1, NULL, 3]) a JOIN UNNEST(["a", NULL, "c"]) b
+--
+ARRAY<STRUCT<a INT64, b STRING>>[
+  {NULL, NULL},
+  {NULL, "a"},
+  {NULL, "c"},
+  {1, NULL},
+  {1, "a"},
+  {1, "c"},
+  {3, NULL},
+  {3, "a"},
+  {3, "c"}
+]
+==
+[name=array_inner_join_array_with_nulls]
+SELECT a, b
+FROM UNNEST([1, 1, 2, 3, 5, 8, 13, NULL]) a
+JOIN UNNEST([1, 2, 3, 5, 7, 11, 13, NULL]) b
+  ON a = b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[
+  {1, 1},
+  {3, 3},
+  {1, 1},
+  {2, 2},
+  {5, 5},
+  {13, 13}
+]
+==
+[name=array_left_join_array_with_nulls]
+SELECT a, b
+FROM UNNEST([1, 1, 2, 3, 5, 8, 13, NULL]) a
+LEFT JOIN UNNEST([1, 2, 3, 5, 7, 11, 13, NULL]) b
+  ON a = b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[
+  {1, 1},
+  {3, 3},
+  {8, NULL},
+  {NULL, NULL},
+  {1, 1},
+  {2, 2},
+  {5, 5},
+  {13, 13}
+]
+==
+[name=array_left_join_to_empty_array]
+SELECT a, b
+FROM UNNEST([1, 1, 2, 3, 5, 8, 13, NULL]) a
+LEFT JOIN UNNEST(ARRAY<INT64>[]) b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[
+  {1, NULL},
+  {3, NULL},
+  {8, NULL},
+  {NULL, NULL},
+  {1, NULL},
+  {2, NULL},
+  {5, NULL},
+  {13, NULL}
+]
+==
+[name=array_left_join_to_null_array]
+SELECT a, b
+FROM UNNEST([1, 1, 2, 3, 5, 8, 13, NULL]) a
+LEFT JOIN UNNEST(CAST(NULL AS ARRAY<INT64>)) b
+--
+ARRAY<STRUCT<a INT64, b INT64>>[
+  {1, NULL},
+  {3, NULL},
+  {8, NULL},
+  {NULL, NULL},
+  {1, NULL},
+  {2, NULL},
+  {5, NULL},
+  {13, NULL}
+]
+==
+[name=array_right_join_array_with_nulls]
+SELECT a, b
+FROM UNNEST([1, 1, 2, 3, 5, 8, 13, NULL]) a
+RIGHT JOIN UNNEST([1, 2, 3, 5, 7, 11, 13, NULL]) b
+  ON a = b
+--
+ERROR: generic::invalid_argument: Array scan is not allowed with RIGHT JOIN: UNNEST expression [at 3:12]
+RIGHT JOIN UNNEST([1, 2, 3, 5, 7, 11, 13, NULL]) b
+           ^
+==
+[name=array_outer_join_array_with_nulls]
+SELECT a, b
+FROM UNNEST([1, 1, 2, 3, 5, 8, 13, NULL]) a
+FULL OUTER JOIN UNNEST([1, 2, 3, 5, 7, 11, 13, NULL]) b
+  ON a = b
+--
+ERROR: generic::invalid_argument: Array scan is not allowed with FULL JOIN: UNNEST expression [at 3:17]
+FULL OUTER JOIN UNNEST([1, 2, 3, 5, 7, 11, 13, NULL]) b
+                ^
+==
+[name=array_join_array_with_nulls_and_offset]
+SELECT a, b
+FROM UNNEST([1, 2, 3, 4, 5, 6, 7, NULL]) a WITH OFFSET
+JOIN UNNEST(["a", "b", "c", "d", "e", "f", "g", NULL]) b WITH OFFSET
+  USING (offset);
+--
+ARRAY<STRUCT<a INT64, b STRING>>[
+  {2, "b"},
+  {4, "d"},
+  {6, "f"},
+  {NULL, NULL},
+  {1, "a"},
+  {3, "c"},
+  {5, "e"},
+  {7, "g"}
+]
+==
+[name=array_join_arrays_with_nulls_and_aliased_offset]
+SELECT a, b
+FROM UNNEST([1, 2, 3, 4, 5, 6, 7, NULL]) a WITH OFFSET a_off
+JOIN UNNEST(["a", "b", "c", "d", "e", "f", "g", NULL]) b WITH OFFSET b_off
+  ON a_off = b_off;
+--
+ARRAY<STRUCT<a INT64, b STRING>>[
+  {2, "b"},
+  {4, "d"},
+  {6, "f"},
+  {NULL, NULL},
+  {1, "a"},
+  {3, "c"},
+  {5, "e"},
+  {7, "g"}
+]

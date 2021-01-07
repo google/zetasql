@@ -1,0 +1,58 @@
+[name=default_error_int64]
+SELECT ERROR("message")
+--
+ERROR: generic::out_of_range: message
+==
+
+[name=default_safe_error_int64]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.ERROR("message")
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=default_error_no_rows]
+SELECT ERROR("message") FROM UNNEST([])
+--
+ARRAY<STRUCT<INT64>>[]
+==
+
+# Tests that an engine can properly handle ERROR() with a non-INT64 return type.
+# (The tests for INT64 are in the code-based tests.)
+[name=cast_error_as_string]
+SELECT CAST(ERROR("message") AS BYTES)
+--
+ERROR: generic::out_of_range: message
+==
+
+[name=cast_safe_error_as_string]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
+SELECT CAST(SAFE.ERROR("message") AS STRING)
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+[name=if_error]
+SELECT IF(TRUE, ERROR("message"), "foo")
+--
+ERROR: generic::out_of_range: message
+==
+
+[name=if_no_error]
+SELECT IF(FALSE, ERROR("message"), "foo")
+--
+ARRAY<STRUCT<STRING>>[{"foo"}]
+==
+
+[name=safe_error_fn_with_division_by_zero]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.ERROR(IF(1/0 = 0, "abc", ""));
+--
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+
+[name=safe_error_fn_with_error]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.ERROR(ERROR("custom error message"))
+--
+ERROR: generic::out_of_range: custom error message

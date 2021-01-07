@@ -85,6 +85,7 @@ std::vector<QueryParamsWithResult>
 GetFunctionTestsCastComplex();  // complex types
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastDateTime();
+std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval();
 
 std::vector<QueryParamsWithResult>
 GetFunctionTestsCastNumeric();  // numeric only
@@ -168,6 +169,8 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertDatetimeToTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToTime();
 std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime();
 
+std::vector<FunctionTestCall> GetFunctionTestsIntervalConstructor();
+
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();
 
@@ -196,6 +199,8 @@ std::vector<FunctionTestCall> GetFunctionTestsRegexpInstr();
 std::vector<FunctionTestCall> GetFunctionTestsFormat();
 std::vector<FunctionTestCall> GetFunctionTestsArray();
 std::vector<FunctionTestCall> GetFunctionTestsNormalize();
+std::vector<FunctionTestCall> GetFunctionTestsBase2();
+std::vector<FunctionTestCall> GetFunctionTestsBase8();
 std::vector<FunctionTestCall> GetFunctionTestsBase32();
 std::vector<FunctionTestCall> GetFunctionTestsBase64();
 std::vector<FunctionTestCall> GetFunctionTestsHex();
@@ -225,13 +230,19 @@ std::vector<FunctionTestCall> GetFunctionTestsStringJsonQuery();
 std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtract();
 std::vector<FunctionTestCall> GetFunctionTestsStringJsonValue();
 std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtractScalar();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtractArray();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonExtractStringArray();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonQueryArray();
+std::vector<FunctionTestCall> GetFunctionTestsStringJsonValueArray();
+
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQuery();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtract();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValue();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractScalar();
-std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArray();
-std::vector<FunctionTestCall> GetFunctionTestsJsonExtractArrayStandardSql();
-std::vector<FunctionTestCall> GetFunctionTestsJsonExtractStringArray();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractArray();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractStringArray();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQueryArray();
+std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValueArray();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
     bool include_nano_timestamp);
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
@@ -240,6 +251,8 @@ std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();
 
 std::vector<FunctionTestCall> GetFunctionTestsError();
+
+std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion();
 
 }  // namespace zetasql
 

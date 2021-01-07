@@ -43,6 +43,7 @@ TEST(TestDriverTest, ClassAndProtoSize) {
     bool is_value_table;
     double nullable_probability;
     std::set<LanguageFeature> required_features;
+    std::string userid_column;
   };
   struct MockTestTable {
     Value table_as_value;
@@ -53,9 +54,7 @@ TEST(TestDriverTest, ClassAndProtoSize) {
                 "TestDatabaseProto (test_driver.proto) tests if TestDatabase "
                 "is modified.");
   EXPECT_EQ(5, TestDatabaseProto::descriptor()->field_count());
-  EXPECT_EQ(  //
-      5,
-      TestTableOptionsProto::descriptor()->field_count());
+  EXPECT_EQ(6, TestTableOptionsProto::descriptor()->field_count());
   EXPECT_EQ(3, TestTableProto::descriptor()->field_count());
 }
 

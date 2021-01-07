@@ -36,12 +36,12 @@
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/proto_util.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value_content.h"
+#include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/hash/hash.h"
@@ -79,6 +79,7 @@ using zetasql::types::Int64ArrayType;
 using zetasql::types::Int64Type;
 using zetasql::types::NumericArrayType;
 using zetasql::types::NumericType;
+using zetasql::types::JsonArrayType;
 using zetasql::types::StringArrayType;
 using zetasql::types::StringType;
 using zetasql::types::TimestampType;
@@ -523,13 +524,7 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
   // TODO: move struct and array logic into Type subclasses.
   switch (x.type_kind()) {
     case TYPE_ARRAY: {
-      // We only treat an array as a map if both sides preserve order.
-      // Otherwise, if there are duplicate keys, we can't tell which key
-      // supersedes the other.
-      const bool treat_as_map = IsProtoMap(x.type()) &&
-                                x.metadata_.preserves_order() &&
-                                y.metadata_.preserves_order();
-      if (x.num_elements() != y.num_elements() && !treat_as_map) {
+      if (x.num_elements() != y.num_elements()) {
         if (reason) {
           absl::StrAppend(
               reason,
@@ -543,9 +538,6 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
       }
       auto element_order_spec =
           allow_bags ? &deep_order_spec->children[0] : nullptr;
-      if (treat_as_map) {
-        return EqualElementMap(x, y, element_order_spec, float_margin, reason);
-      }
       if (allow_bags && deep_order_spec->ignores_order) {
         return EqualElementMultiSet(x, y, element_order_spec, float_margin,
                                     reason);
@@ -614,94 +606,6 @@ struct InternalHasher {
   }
   FloatMargin float_margin;
 };
-
-bool Value::EqualElementMap(const Value& x, const Value& y,
-                            DeepOrderKindSpec* deep_order_spec,
-                            FloatMargin float_margin, std::string* reason) {
-  ZETASQL_DCHECK(x.metadata_.preserves_order()) << x.DebugString(/*verbose=*/true);
-  ZETASQL_DCHECK(y.metadata_.preserves_order()) << y.DebugString(/*verbose=*/true);
-  google::protobuf::DynamicMessageFactory factory;
-  absl::flat_hash_map<MapKeyVariant, Value> xentries;
-  absl::Status status = ParseProtoMap(x, factory, xentries);
-  if (!status.ok()) {
-    absl::StrAppend(reason, status.ToString());
-    return false;
-  }
-  absl::flat_hash_map<MapKeyVariant, Value> yentries;
-  status = ParseProtoMap(y, factory, yentries);
-  if (!status.ok()) {
-    absl::StrAppend(reason, status.ToString());
-    return false;
-  }
-
-  bool x_has_null = false;
-  bool y_has_null = false;
-  for (const auto& xval : x.elements()) {
-    if (xval.is_null()) {
-      x_has_null = true;
-      break;
-    }
-  }
-  for (const auto& yval : y.elements()) {
-    if (yval.is_null()) {
-      y_has_null = true;
-      break;
-    }
-  }
-
-  bool all_values_equal = true;
-  std::vector<Value> missing_from_y;
-  for (const auto& entry : xentries) {
-    auto yit = yentries.find(entry.first);
-    if (yit == yentries.end()) {
-      missing_from_y.push_back(entry.second);
-      continue;
-    }
-    const auto& yvalue = yit->second;
-    all_values_equal &=
-        Value::EqualsInternal(entry.second, yvalue, /*allow_bags=*/true,
-                              deep_order_spec, float_margin, reason);
-  }
-
-  std::vector<Value> missing_from_x;
-  for (const auto& entry : yentries) {
-    if (!xentries.contains(entry.first)) {
-      missing_from_x.push_back(entry.second);
-    }
-  }
-
-  if (x_has_null != y_has_null) {
-    if (x_has_null) {
-      missing_from_y.push_back(
-          Value::Null(x.type()->AsArray()->element_type()));
-    } else {
-      missing_from_x.push_back(
-          Value::Null(y.type()->AsArray()->element_type()));
-    }
-  }
-
-  if (missing_from_x.empty() && missing_from_y.empty() && all_values_equal) {
-    return true;
-  }
-
-  if (reason != nullptr) {
-    auto PrintMissingElements =
-        [&](const Value& expected_in, const Value& elements_of,
-            const std::vector<Value>& missing_elements) {
-          if (missing_elements.empty()) return;
-          absl::StrAppend(reason, "Map elements [");
-          for (int i = 0; i < missing_elements.size(); ++i) {
-            absl::StrAppend(reason, i > 0 ? ", " : "",
-                            missing_elements[i].DebugString());
-          }
-          absl::StrAppend(reason, "] of ", elements_of.DebugString(),
-                          " are missing in ", expected_in.DebugString());
-        };
-    PrintMissingElements(y, x, missing_from_y);
-    PrintMissingElements(x, y, missing_from_x);
-  }
-  return false;
-}
 
 // Compares arrays as multisets. Used in tests only. The current algorithm,
 // which counts the number of the same elements, may return false negatives if
@@ -911,25 +815,25 @@ Value Value::SqlEquals(const Value& that) const {
 size_t Value::HashCode() const { return absl::Hash<Value>()(*this); }
 
 // A dummy struct to allow an alternative hashing scheme within the
-// absl hashing framework.  This overrides all double and float hashes
-// to be constants, and overrides recursive hashes to use this hasher.
-// This is used for tests which want to be more lenient (i.e. use a float
-// margin) on float equality.
-// Note, this is not guaranteed to produce identical hash-values for float-less
-// Value objects.
+// absl hashing framework.  This overrides hashes for double, float and protos
+// with floating-point fields to be constants, and overrides recursive hashes to
+// use this hasher. This is used for tests which want to be more lenient (i.e.
+// use a float margin) on float equality. Note, this is not guaranteed to
+// produce identical hash-values for float-less Value objects.
 struct ValueHasherIgnoringFloat {
   const Value& v;
-  bool preserves_order;
 
   template <typename H>
   friend H AbslHashValue(H h, const ValueHasherIgnoringFloat& v) {
-    return HashInternal(std::move(h), v.v, v.preserves_order);
+    return HashInternal(std::move(h), v.v);
   }
 
   template <typename H>
-  static H HashInternal(H h, const Value& v, bool preserves_order) {
+  static H HashInternal(H h, const Value& v) {
     static constexpr uint64_t kFloatApproximateHashCode = 0x1192AA60660CCFABull;
     static constexpr uint64_t kDoubleApproximateHashCode = 0x520C31647E82D8E6ull;
+    static constexpr uint64_t kMessageWithFloatingPointFieldApproximateHashCode =
+        0x1F6432686AAF52A4ull;
     if (!v.is_valid() || v.is_null()) {
       // Check this first as type_kind() will crash in this case.
       return AbslHashValue(std::move(h), v);
@@ -940,47 +844,50 @@ struct ValueHasherIgnoringFloat {
       case TYPE_DOUBLE:
         return H::combine(std::move(h), kDoubleApproximateHashCode);
       case TYPE_ARRAY: {
+        // We must hash arrays as if unordered to support hash_map and hash_set
+        // of values containing arrays with order_kind()=kIgnoresOrder.
+        // absl::Hash lacks support for unordered containers, so we create a
+        // cheapo solution of just adding the hashcodes.
         absl::Hash<ValueHasherIgnoringFloat> element_hasher;
         size_t combined_hash = 1;
-        google::protobuf::DynamicMessageFactory factory;
-        absl::flat_hash_map<MapKeyVariant, Value> parsed_map;
-        if (preserves_order && IsProtoMap(v.type()) &&
-            ParseProtoMap(v, factory, parsed_map).ok()) {
-          // If we are a proto map, we discard any duplicate keys when computing
-          // the hash. If for whatever reason the map is invalid, then we fall
-          // back to the ordinary hash calculation. Note that when we don't
-          // have order preservation we have no choice but to treat maps like
-          // plain arrays, since the final key in the list no longer has
-          // a coherent meaning.
-          for (const auto& entry : parsed_map) {
-            combined_hash +=
-                element_hasher(ValueHasherIgnoringFloat{entry.second});
-          }
-          for (const auto& element : v.elements()) {
-            if (element.is_null()) {
-              combined_hash +=
-                  element_hasher(ValueHasherIgnoringFloat{element});
-              break;
-            }
-          }
-        } else {
-          for (int i = 0; i < v.num_elements(); i++) {
-            combined_hash +=
-                element_hasher(ValueHasherIgnoringFloat{v.element(i)});
-          }
+        for (int i = 0; i < v.num_elements(); i++) {
+          combined_hash +=
+              element_hasher(ValueHasherIgnoringFloat{v.element(i)});
         }
         return H::combine(std::move(h), TYPE_ARRAY, combined_hash);
       }
       case TYPE_STRUCT: {
         h = H::combine(std::move(h), TYPE_STRUCT);
         for (int i = 0; i < v.num_fields(); i++) {
-          h = HashInternal(std::move(h), v.field(i), preserves_order);
+          h = HashInternal(std::move(h), v.field(i));
         }
         return h;
+      }
+      case TYPE_PROTO: {
+        if (HasFloatingPointFields(v.type()->AsProto()->descriptor())) {
+          return H::combine(std::move(h),
+                            kMessageWithFloatingPointFieldApproximateHashCode);
+        }
+        ABSL_FALLTHROUGH_INTENDED;
       }
       default:
         return AbslHashValue(std::move(h), v);
     }
+  }
+
+ private:
+  static bool HasFloatingPointFields(const google::protobuf::Descriptor* d) {
+    for (int i = 0; i < d->field_count(); ++i) {
+      const google::protobuf::FieldDescriptor* f = d->field(i);
+      if (f->type() == google::protobuf::FieldDescriptor::TYPE_FLOAT ||
+          f->type() == google::protobuf::FieldDescriptor::TYPE_DOUBLE) {
+        return true;
+      } else if (f->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
+                 HasFloatingPointFields(f->message_type())) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 
@@ -991,7 +898,7 @@ size_t Value::HashCodeInternal(FloatMargin float_margin) const {
     // If using inexactly equality, just have all floats/doubles hash to a
     // constant, and let equality deal with float_margin.
     return absl::Hash<ValueHasherIgnoringFloat>()(
-        ValueHasherIgnoringFloat{*this, metadata_.preserves_order()});
+        ValueHasherIgnoringFloat{*this});
   }
 }
 
@@ -1249,7 +1156,11 @@ std::string Value::ComplexValueToDebugString(const Value* root, bool verbose) {
     } else {
       if (top.next_child_index == 0) {
         if (verbose) {
-          result.append("Array");
+          if (top.value->elements().empty()) {
+            result.append(CapitalizedNameForType(type));
+          } else {
+            result.append("Array");
+          }
         }
         if (top.value->order_kind() == kIgnoresOrder) {
           result.append("[unordered: ");
@@ -1545,7 +1456,7 @@ std::string FormatBlock(absl::string_view block_template,
   int prefix_len = FindSubstitutionMarker(block_template);
   // The position of the last line-return before the substitution marker
   // or minus one.
-  int last_line_start = block_template.rfind("\n", prefix_len) + 1;
+  int last_line_start = block_template.rfind('\n', prefix_len) + 1;
   // The column at which "COLUMN" style will wrap.
   int column_wrap_len = block_indent_cols + prefix_len - last_line_start;
   // The column at which "INDENT" style will wrap.
@@ -1557,7 +1468,7 @@ std::string FormatBlock(absl::string_view block_template,
     size_t max_length = 0;
     bool multi_line_child = false;
     for (const std::string& elem : elements) {
-      int line_return_pos = elem.find("\n");
+      int line_return_pos = elem.find('\n');
       if (line_return_pos == std::string::npos) {
         sum_length += elem.size();
         max_length = std::max(max_length, elem.size());
@@ -1682,10 +1593,10 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     std::string templ = absl::StrCat(sanitized_type_string, "[$0]");
     // Force a wrap after the type if the type consumes multiple lines and
     // there is more than one element (or one element over multiple lines).
-    if (type_string.find("\n") != std::string::npos &&
+    if (type_string.find('\n') != std::string::npos &&
         (elements().size() > 1 ||
          (!elements().empty() &&
-          element_strings[0].find("\n") != std::string::npos))) {
+          element_strings[0].find('\n') != std::string::npos))) {
       templ = absl::StrCat(sanitized_type_string, "\n", Indent(indent), "[$0]");
     }
     return FormatBlock(templ, element_strings, ",", indent, WrapStyle::AUTO);
@@ -1851,6 +1762,22 @@ Value BigNumericArray(absl::Span<const BigNumericValue> values) {
     value_vector.push_back(Value::BigNumeric(v));
   }
   return Value::Array(BigNumericArrayType(), value_vector);
+}
+
+Value JsonArray(absl::Span<const JSONValue> values) {
+  std::vector<Value> value_vector;
+  for (const auto& v : values) {
+    value_vector.push_back(Value::Json(JSONValue::CopyFrom(v.GetConstRef())));
+  }
+  return Value::Array(JsonArrayType(), value_vector);
+}
+
+Value UnvalidatedJsonStringArray(absl::Span<const std::string> values) {
+  std::vector<Value> value_vector;
+  for (const auto& v : values) {
+    value_vector.push_back(Value::UnvalidatedJsonString(v));
+  }
+  return Value::Array(JsonArrayType(), value_vector);
 }
 
 }  // namespace values

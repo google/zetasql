@@ -26,6 +26,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
@@ -337,6 +338,7 @@ void SampleCatalog::LoadTypes() {
       types_->MakeArrayType(types_->get_timestamp(), &timestamp_array_type_));
   ZETASQL_CHECK_OK(types_->MakeArrayType(proto_TestExtraPB_, &proto_array_type_));
   ZETASQL_CHECK_OK(types_->MakeArrayType(struct_type_, &struct_array_type_));
+  ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_json(), &json_array_type_));
 
   ZETASQL_CHECK_OK(types_->MakeStructType(
       {{"x", types_->get_int64()}, {"y", struct_type_},
@@ -468,7 +470,7 @@ void SampleCatalog::LoadTables() {
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(types_->get_string());
     annotation_map->SetAnnotation(CollationAnnotation::GetId(),
-                                  AnnotationValue::String("unicode:ci"));
+                                  SimpleValue::String("unicode:ci"));
     zetasql_base::StatusOr<const AnnotationMap*> status_or_annotation_map =
         types_->TakeOwnership(std::move(annotation_map));
     ZETASQL_CHECK_OK(status_or_annotation_map.status());
@@ -480,7 +482,7 @@ void SampleCatalog::LoadTables() {
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(types_->get_string());
     annotation_map->SetAnnotation(CollationAnnotation::GetId(),
-                                  AnnotationValue::String("unicode"));
+                                  SimpleValue::String("unicode"));
     zetasql_base::StatusOr<const AnnotationMap*> status_or_annotation_map =
         types_->TakeOwnership(std::move(annotation_map));
     ZETASQL_CHECK_OK(status_or_annotation_map.status());
@@ -492,7 +494,7 @@ void SampleCatalog::LoadTables() {
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(struct_type_);
     annotation_map->AsStructMap()->mutable_field(1)->SetAnnotation(
-        CollationAnnotation::GetId(), AnnotationValue::String("unicode:ci"));
+        CollationAnnotation::GetId(), SimpleValue::String("unicode:ci"));
     zetasql_base::StatusOr<const AnnotationMap*> status_or_annotation_map =
         types_->TakeOwnership(std::move(annotation_map));
     ZETASQL_CHECK_OK(status_or_annotation_map.status());
@@ -541,6 +543,98 @@ void SampleCatalog::LoadTables() {
        {"numeric", types_->get_numeric()},
        {"bignumeric", types_->get_bignumeric()},
        {"json", types_->get_json()}}));
+
+  {
+    auto simple_table_with_uid =
+        absl::make_unique<SimpleTable>("SimpleTypesWithAnonymizationUid",
+                                       std::vector<SimpleTable::NameAndType>{
+                                           {"int32", types_->get_int32()},
+                                           {"int64", types_->get_int64()},
+                                           {"uint32", types_->get_uint32()},
+                                           {"uint64", types_->get_uint64()},
+                                           {"string", types_->get_string()},
+                                           {"bytes", types_->get_bytes()},
+                                           {"bool", types_->get_bool()},
+                                           {"float", types_->get_float()},
+                                           {"double", types_->get_double()},
+                                           {"date", types_->get_date()},
+                                           {"uid", types_->get_int64()},
+                                           {"numeric", types_->get_numeric()}});
+    ZETASQL_CHECK_OK(simple_table_with_uid->SetAnonymizationInfo("uid"));
+    AddOwnedTable(simple_table_with_uid.release());
+  }
+
+  {
+    auto array_table_with_uid = absl::make_unique<SimpleTable>(
+        "ArrayWithAnonymizationUid",
+        std::vector<SimpleTable::NameAndType>{{"int64_array", int64array_type_},
+                                              {"uid", types_->get_int64()}});
+    ZETASQL_CHECK_OK(array_table_with_uid->SetAnonymizationInfo("uid"));
+    AddOwnedTable(array_table_with_uid.release());
+  }
+
+  {
+    auto table_with_string_uid = absl::make_unique<SimpleTable>(
+        "T1StringAnonymizationUid",
+        std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()}});
+    ZETASQL_CHECK_OK(table_with_string_uid->SetAnonymizationInfo("uid"));
+    AddOwnedTable(table_with_string_uid.release());
+  }
+
+  {
+    auto table_with_string_uid = absl::make_unique<SimpleTable>(
+        "T2StringAnonymizationUid",
+        std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()}});
+    ZETASQL_CHECK_OK(table_with_string_uid->SetAnonymizationInfo("uid"));
+    AddOwnedTable(table_with_string_uid.release());
+  }
+
+  {
+    auto table_with_proto_uid = absl::make_unique<SimpleTable>(
+        "ProtoAnonymizationUid",
+        std::vector<SimpleTable::NameAndType>{{"uid", proto_KitchenSinkPB_}});
+    ZETASQL_CHECK_OK(table_with_proto_uid->SetAnonymizationInfo("uid"));
+    AddOwnedTable(table_with_proto_uid.release());
+  }
+
+  {
+    auto value_table_with_uid = absl::make_unique<SimpleTable>(
+        "KitchenSinkWithUidValueTable", proto_KitchenSinkPB_);
+    ZETASQL_CHECK_OK(value_table_with_uid->SetAnonymizationInfo("string_val"));
+    AddOwnedTable(value_table_with_uid.release());
+  }
+
+  {
+    auto value_table_with_uid = absl::make_unique<SimpleTable>(
+        "TestStructWithUidValueTable", struct_type_);
+    ZETASQL_CHECK_OK(value_table_with_uid->SetAnonymizationInfo("a"));
+    AddOwnedTable(value_table_with_uid.release());
+  }
+
+  {
+    auto value_table_with_doubly_nested_uid = absl::make_unique<SimpleTable>(
+        "TestWithDoublyNestedStructUidValueTable", doubly_nested_struct_type_);
+    ZETASQL_CHECK_OK(value_table_with_doubly_nested_uid->SetAnonymizationInfo(
+        {"f", "d", "a"}));
+    AddOwnedTable(value_table_with_doubly_nested_uid.release());
+  }
+
+  {
+    auto value_table_with_proto_uid = absl::make_unique<SimpleTable>(
+        "TestWithProtoUidValueTable", proto_MessageWithKitchenSinkPB_);
+    ZETASQL_CHECK_OK(value_table_with_proto_uid->SetAnonymizationInfo(
+        {"kitchen_sink", "nested_value", "nested_int64"}));
+    AddOwnedTable(value_table_with_proto_uid.release());
+  }
+
+  {
+    auto value_table_with_proto_uid_of_wrong_type =
+        absl::make_unique<SimpleTable>("TestWithWrongTypeProtoUidValueTable",
+                                       proto_MessageWithKitchenSinkPB_);
+    ZETASQL_CHECK_OK(value_table_with_proto_uid_of_wrong_type->SetAnonymizationInfo(
+        std::vector<std::string>({"kitchen_sink", "nested_value"})));
+    AddOwnedTable(value_table_with_proto_uid_of_wrong_type.release());
+  }
 
   AddOwnedTable(
       new SimpleTable("GeographyTable", {{"key", types_->get_int64()},
@@ -792,7 +886,8 @@ void SampleCatalog::LoadProtoTables() {
        // Real types resume here.
        {"TimestampArray", timestamp_array_type_},
        {"ProtoArray", proto_array_type_},
-       {"StructArray", struct_array_type_}}));
+       {"StructArray", struct_array_type_},
+       {"JsonArray", json_array_type_}}));
 
   const EnumType* enum_TestEnum =
       GetEnumType(zetasql_test::TestEnum_descriptor());
@@ -1324,6 +1419,19 @@ void SampleCatalog::LoadFunctions() {
        CreateDeprecationWarning(
            /*id=*/5, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE)});
   function->AddSignature(two_deprecation_warnings_signature);
+  catalog_->AddOwnedFunction(function);
+
+  function = new AnonFunction(
+      "anon_test", "sample_functions",
+      {{types_->get_int64(),
+        {/*expr=*/types_->get_int64(),
+         /*lower_bound=*/{types_->get_int64(), FunctionArgumentType::OPTIONAL},
+         /*upper_bound=*/{types_->get_int64(), FunctionArgumentType::OPTIONAL}},
+        /*context_id=*/-1}},
+      FunctionOptions()
+          .set_supports_clamped_between_modifier(true)
+          .set_supports_over_clause(false),
+      "sum");
   catalog_->AddOwnedFunction(function);
 
   // Add a function that takes two named arguments with one signature.
@@ -2730,6 +2838,17 @@ void SampleCatalog::LoadTableValuedFunctions2() {
        /*context_id=*/-1},
       output_schema_two_types));
 
+  // Add a TVF with one optional named "any table" relation argument and an
+  // optional scalar argument.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_optional_any_relation_arg_optional_scalar_arg"},
+      {FunctionArgumentType::RelationWithSchema(
+           output_schema_two_types,
+           /*extra_relation_input_columns_allowed=*/false),
+       {named_optional_any_relation_arg, named_optional_string_arg},
+       /*context_id=*/-1},
+      output_schema_two_types));
+
   // Add a TVF with one required named "any table" relation argument.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_required_any_relation_arg"},
@@ -3068,6 +3187,16 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
                         context_id++),
       /*arg_name_list=*/{"x"}, ParseResumeLocation::FromString("select x")));
 
+  // Add a TVF with a valid templated SQL body that refers to a scalar argument
+  // with a name that is potentially ambiguous with an in scope column name.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_int64_arg_with_name_ambiguity"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(types::Int64Type())},
+                        context_id++),
+      /*arg_name_list=*/{"x"},
+      ParseResumeLocation::FromString("SELECT x FROM (SELECT -99 AS x)")));
+
   // Add a TVF with a valid templated SQL body that refers to a scalar argument.
   catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
       {"tvf_templated_select_any_scalar_arg"},
@@ -3209,6 +3338,32 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
           context_id++),
       /*arg_name_list=*/{"x", "t"},
       ParseResumeLocation::FromString("select key from t where key < x")));
+
+  // This is the same TVF as above, but without a schema specified for the
+  // relation argument.
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_select_scalar_and_relation_args_no_schema"},
+      FunctionSignature(ARG_TYPE_RELATION,
+                        {FunctionArgumentType(types::Int64Type()),
+                         FunctionArgumentType::AnyRelation()},
+                        context_id++),
+      /*arg_name_list=*/{"x", "t"},
+      ParseResumeLocation::FromString("select key from t where key < x")));
+
+  // This is the same TVF as above, but without a schema specified for the
+  // relation argument.
+  const StructType* arg_type = nullptr;
+  std::vector<StructType::StructField> fields{{"y", types::Int64Type()},
+                                              {"z", types::StringType()}};
+  ZETASQL_CHECK_OK(type_factory()->MakeStructType(fields, &arg_type));
+  catalog_->AddOwnedTableValuedFunction(new TemplatedSQLTVF(
+      {"tvf_templated_with_struct_param"},
+      FunctionSignature(
+          ARG_TYPE_RELATION,
+          {FunctionArgumentType(arg_type), FunctionArgumentType::AnyRelation()},
+          context_id++),
+      /*arg_name_list=*/{"x", "t"},
+      ParseResumeLocation::FromString("select x.y from t as x")));
 
   // Add a TVF with a valid templated SQL body that refers to both a scalar
   // date argument and a relation argument.

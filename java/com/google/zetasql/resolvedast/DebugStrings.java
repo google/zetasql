@@ -54,6 +54,7 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedWindowFrameExpr;
 import com.google.zetasql.resolvedast.ResolvedStatementEnums.ObjectAccess;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Helper functions for generating debug strings for {@link ResolvedNode}s.
@@ -88,8 +89,8 @@ class DebugStrings {
     return !v.isValid();
   }
 
-  static boolean isDefaultValue(FunctionSignature signature) {
-    return signature.isDefaultValue();
+  static boolean isDefaultValue(@Nullable FunctionSignature signature) {
+    return signature == null || signature.isDefaultValue();
   }
 
   static boolean isDefaultValue(ResolvedFunctionCallInfo call) {
@@ -115,6 +116,10 @@ class DebugStrings {
 
   static boolean isDefaultValue(AnnotationMap annotationMap) {
     return annotationMap == null;
+  }
+
+  static boolean isDefaultValue(Table table) {
+    return table == null || table.getName().isEmpty();
   }
 
   // toStringImpl functions for different node field types, similar to the C++ implementation in
@@ -357,9 +362,12 @@ class DebugStrings {
    if (node.getReturnNullOnError()) {
      fields.add(new DebugStringField("return_null_on_error", "TRUE"));
    }
-    if (node.getExtendedCast() != null) {
-      fields.add(new DebugStringField("extended_cast", node.getExtendedCast()));
-    }
+   if (node.getExtendedCast() != null) {
+     fields.add(new DebugStringField("extended_cast", node.getExtendedCast()));
+   }
+   if (node.getFormat() != null) {
+     fields.add(new DebugStringField("format", node.getFormat()));
+   }
   }
 
   static String getNameForDebugString(ResolvedCast node) {

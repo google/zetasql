@@ -1,0 +1,1304 @@
+# Tests for UPDATE that do not involve structs or protos (which have their own
+# files).
+
+[prepare_database]
+CREATE TABLE TableInt64Values AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as value1,
+       cast(100 as int64) as value2,
+       cast(1000 as int64) as value3
+UNION ALL
+SELECT 2, 20, 200, 2000
+--
+ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+  {1, 10, 100, 1000},
+  {2, 20, 200, 2000}
+]
+==
+
+# Used for testing joins with TableInt64Values.
+[prepare_database]
+CREATE TABLE TableInt64Values2 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(100 as int64) as value1,
+       cast(1000 as int64) as value2,
+       cast(1000 as int64) as value3
+UNION ALL
+SELECT 2, 200, 2000, 1000
+--
+ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+  {1, 100, 1000, 1000},
+  {2, 200, 2000, 1000}
+]
+==
+
+# Used for testing a self-join.
+[prepare_database]
+CREATE Table TableNonTrivialInt64PrimaryKeys AS
+SELECT cast(1 as int64) as primary_key, cast(101 as int64) value
+UNION ALL
+SELECT 2, 102
+UNION ALL
+SELECT 3, 103
+UNION ALL
+SELECT 4, 104
+UNION ALL
+SELECT 5, 105
+UNION ALL
+SELECT 6, 106
+--
+ARRAY<STRUCT<primary_key INT64, value INT64>>[
+  {1, 101},
+  {2, 102},
+  {3, 103},
+  {4, 104},
+  {5, 105},
+  {6, 106}
+]
+==
+
+# Use a new table in case some engines don't support array-valued primary keys,
+# so we can't combine this table with some other table that may be used by
+# compliance tests that have nothing to do with array-valued primary keys.
+#
+# We must annotate this [prepare_database] statement with
+# [required_features=V_1_2_GROUP_BY_ARRAY] in order to pass the compliace test
+# framework's validation that the first column can be thought of as a primary
+# key. As a result, the table will only be created for drivers that support
+# V_1_2_GROUP_BY_ARRAY, and it will only be visible to tests that require
+# that feature.
+[prepare_database]
+[required_features=V_1_2_GROUP_BY_ARRAY]
+CREATE TABLE TableArrayKey AS
+SELECT cast([1, 2, 3] as ARRAY<INT64>) as primary_key,
+       cast(100 as int64) as int64_value
+UNION ALL
+SELECT [10, 11, 12], 200
+--
+ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
+  {
+    ARRAY<INT64>[1, 2, 3],
+    100
+  },
+  {
+    ARRAY<INT64>[10, 11, 12],
+    200
+  }
+]
+==
+
+# Use a new table because some engines don't support 32-bit types.
+[prepare_database]
+CREATE TABLE TableInt32Value AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int32) as int32_value
+UNION ALL
+SELECT 2, 20
+--
+ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[{1, 10}, {2, 20}]
+==
+
+# Use a new table because some engines don't support unsigned types.
+[prepare_database]
+CREATE TABLE TableUInt32Value AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as uint32) as uint32_value
+UNION ALL
+SELECT 2, 20
+--
+ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[{1, 10}, {2, 20}]
+==
+
+# Use a new table because some engines don't support arrays.
+[prepare_database]
+CREATE TABLE TableArrayValue AS
+SELECT cast(1 as int64) as primary_key,
+       ARRAY<INT64>[11, 12, 13] as array_value,
+       ARRAY<INT64>[111, 112, 112] as array_value2
+UNION ALL
+SELECT 2, [21, 22, 23], [221, 222, 223]
+UNION ALL
+SELECT 3, NULL, NULL
+--
+ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+  {
+    1,
+    ARRAY<INT64>[11, 12, 13],
+    ARRAY<INT64>[111, 112, 112]
+  },
+  {
+    2,
+    ARRAY<INT64>[21, 22, 23],
+    ARRAY<INT64>[221, 222, 223]
+  },
+  {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+]
+==
+
+[name=assign_column]
+UPDATE TableInt64Values SET value1 = 5 WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 5, 100, 1000},
+    {2, 5, 200, 2000}
+  ]}
+==
+
+[name=assign_column_null]
+UPDATE TableInt64Values SET value1 = NULL WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, NULL, 100, 1000},
+    {2, NULL, 200, 2000}
+  ]}
+==
+
+[name=assign_column_default]
+UPDATE TableInt64Values SET value1 = DEFAULT WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, NULL, 100, 1000},
+    {2, NULL, 200, 2000}
+  ]}
+==
+
+# Column assignment does nothing if the where clause doesn't match any rows.
+[name=assign_column_does_not_run]
+UPDATE TableInt64Values SET value1 = NULL WHERE False
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=assign_column_where_null]
+UPDATE TableInt64Values SET value1 = 10000 WHERE NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=assign_column_where_expr_null]
+UPDATE TableInt64Values SET value1 = 10000
+WHERE IF(primary_key = 1, True, NULL)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10000, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Set a column to a value that depends on the previous value of that column.
+[name=assign_column_increment]
+UPDATE TableInt64Values SET value1 = value1 + 1000 WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 1010, 100, 1000},
+    {2, 1020, 200, 2000}
+  ]}
+==
+
+# Set a column to a value that depends on another column.
+[name=assign_column_other]
+UPDATE TableInt64Values SET value1 = primary_key + 1 WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 2, 100, 1000},
+    {2, 3, 200, 2000}
+  ]}
+==
+
+[name=assert_rows_modified_failure]
+UPDATE TableInt64Values SET value1 = 5 WHERE True
+ASSERT_ROWS_MODIFIED 0
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 0 rows modified, but found 2
+==
+
+[name=assert_rows_modified_success]
+UPDATE TableInt64Values SET value1 = 5 WHERE True
+ASSERT_ROWS_MODIFIED 2
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 5, 100, 1000},
+    {2, 5, 200, 2000}
+  ]}
+==
+
+[name=assert_rows_modified_no_op_success]
+UPDATE TableInt64Values SET value1 = value1 WHERE True
+ASSERT_ROWS_MODIFIED 2
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# A negative value for ASSERT_ROWS_MODIFIED will always result in failure.
+[name=assert_rows_modified_negative]
+[parameters=-1 param]
+UPDATE TableInt64Values SET value1 = 5 WHERE True
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 2
+==
+
+# A NULL value for ASSERT_ROWS_MODIFIED gives a runtime error.
+[name=assert_rows_modified_null]
+[parameters=NULL param]
+UPDATE TableInt64Values SET value1 = 5 WHERE True
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+[name=non_trivial_where]
+UPDATE TableInt64Values SET value1 = 5 WHERE primary_key = 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 5, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Non-trivial WHERE clause involving the column being modified.
+[name=where_involving_modified_column]
+UPDATE TableInt64Values SET value1 = 5 WHERE value1 = 10
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 5, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Same as above, but with parameters.
+[name=params]
+[parameters=5 param1, 10 param2]
+UPDATE TableInt64Values SET value1 = @param1 WHERE value1 = @param2
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 5, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_primary_key_assert_rows_modified]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
+ASSERT_ROWS_MODIFIED 1
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {100, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 100 WHERE primary_key = 1
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {100, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_primary_key_null]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[test_features2=DISALLOW_NULL_PRIMARY_KEYS]
+UPDATE TableInt64Values SET primary_key = NULL WHERE primary_key = 1
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {NULL, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_primary_key_default]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[test_features2=DISALLOW_NULL_PRIMARY_KEYS]
+UPDATE TableInt64Values SET primary_key = DEFAULT WHERE primary_key = 1
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {NULL, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# A trivial modification to a primary key is allowed.
+#
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_primary_key_to_itself]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = primary_key WHERE True
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# Setting one row's primary key equal to a previously existing row's primary key
+# is an error.
+#
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_primary_key_to_another_row]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 2 WHERE primary_key = 1
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: <none>
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key (2)
+==
+
+# Setting two rows to the same (previously non-existent, non-NULL) primary key is
+# an error.
+#
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_two_primary_keys_to_a_third_value]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableInt64Values SET primary_key = 100 WHERE True
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: <none>
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key (100)
+==
+
+# Setting two primary keys to NULL is an error.
+#
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=update_two_primary_keys_to_null]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+[test_features2=DISALLOW_NULL_PRIMARY_KEYS]
+UPDATE TableInt64Values SET primary_key = NULL WHERE True
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS,DISALLOW_PRIMARY_KEY_UPDATES
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot set a primary key column to NULL with UPDATE
+--
+WITH FEATURES: <none>
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key (NULL)
+==
+
+# An update that explicitly requires INT64 -> INT32 assignment coercion.
+[name=assignment_coercion_int64_to_int32]
+UPDATE TableInt32Value SET int32_value = CAST(5 AS INT64) WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[{1, 5}, {2, 5}]
+}
+==
+
+# Same as above, but the coercion fails.
+[name=assignment_coercion_int64_to_int32_failed]
+UPDATE TableInt32Value SET int32_value = (CAST(1 AS INT64) << 60) WHERE True
+--
+ERROR: generic::out_of_range: int32 out of range: 1152921504606846976
+==
+
+# Same as above, but the coercion doesn't run because no rows are actually
+# updated.
+[name=assignment_coercion_int64_to_int32_does_not_run]
+UPDATE TableInt32Value SET int32_value = (CAST(1 AS INT64) << 60) WHERE False
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, int32_value INT32>>[{1, 10}, {2, 20}]
+}
+==
+
+# An update that explicitly requires UINT64 -> UINT32 assignment coercion.
+[name=assignment_coercion_uint64_to_uint32]
+UPDATE TableUInt32Value SET uint32_value = CAST(5 AS UINT64) WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[{1, 5}, {2, 5}]
+}
+==
+
+# Same as above, but the coercion fails.
+[name=assignment_coercion_uint64_to_uint32_failed]
+UPDATE TableUInt32Value SET uint32_value = (CAST(1 AS UINT64) << 60) WHERE True
+--
+ERROR: generic::out_of_range: uint32 out of range: 1152921504606846976
+==
+
+# Same as above, but the coercion doesn't run because no rows are actually
+# updated.
+[name=assignment_coercion_uint64_to_uint32_does_not_run]
+UPDATE TableUInt32Value SET uint32_value = (CAST(1 AS UINT64) << 60) WHERE False
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32>>[{1, 10}, {2, 20}]
+}
+==
+
+[name=assign_array_column]
+UPDATE TableArrayValue SET array_value = [100, 200, 300] WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  3,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[100, 200, 300],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[100, 200, 300],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {
+      3,
+      ARRAY<INT64>[100, 200, 300],
+      ARRAY<INT64>(NULL)
+    }
+  ]
+}
+==
+
+[name=assign_array_column_null]
+UPDATE TableArrayValue SET array_value = NULL WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  3,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>(NULL),
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>(NULL),
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=assign_array_column_with_null_element]
+UPDATE TableArrayValue SET array_value = [1, NULL, 3] WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  3,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[1, NULL, 3],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[1, NULL, 3],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {
+      3,
+      ARRAY<INT64>[1, NULL, 3],
+      ARRAY<INT64>(NULL)
+    }
+  ]
+}
+==
+
+[name=assign_array_column_default]
+UPDATE TableArrayValue SET array_value = DEFAULT WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  3,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>(NULL),
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>(NULL),
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_first_array_element_with_set]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue SET array_value[OFFSET(0)] = 100 WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[100, 12, 13],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[100, 22, 23],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_first_array_element_to_null_with_set]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue SET array_value[OFFSET(0)] = NULL WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[NULL, 12, 13],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[NULL, 22, 23],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_second_array_element_with_set]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue SET array_value[OFFSET(1)] = 100 WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[11, 100, 13],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[21, 100, 23],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_array_element_with_set_nonliteral_offset]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(primary_key)] = 100
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[11, 100, 13],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[21, 22, 100],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+# ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
+# ORDINAL work end-to-end.
+[name=update_array_element_with_set_nonliteral_ordinal]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[ORDINAL(primary_key)] = 100
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[100, 12, 13],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[21, 100, 23],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_two_array_elements_with_set]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(0)] = 100,
+    array_value[OFFSET(1)] = 200
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[100, 200, 13],
+      ARRAY<INT64>[111, 112, 112]
+    },
+    {
+      2,
+      ARRAY<INT64>[100, 200, 23],
+      ARRAY<INT64>[221, 222, 223]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_duplicate_array_elements_with_set]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(0)] = 100,
+    array_value[OFFSET(0)] = 200
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<INT64>
+==
+
+[name=update_array_element_with_set_null_array]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue SET array_value[OFFSET(1)] = 100 WHERE True
+--
+ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY<INT64>
+==
+
+[name=update_array_element_with_set_null_index]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(NULL)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<INT64>
+==
+
+[name=update_array_element_with_set_negative_index]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(-1)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<INT64> of size 3
+==
+
+# ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
+# ORDINAL work end-to-end.
+[name=update_array_element_with_set_negative_offset_with_ordinal]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[ORDINAL(0)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<INT64> of size 3
+==
+
+[name=update_array_element_with_set_index_too_large]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(1000)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<INT64> of size 3
+==
+
+# ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
+# ORDINAL work end-to-end.
+[name=update_array_element_with_set_offset_too_large_with_ordinal]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[ORDINAL(1001)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<INT64> of size 3
+==
+
+[name=update_array_element_with_set_index_barely_too_large]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[OFFSET(3)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of size 3
+==
+
+# ORDINAL vs. OFFSET is handled by the analyzer here, but it's still good to see
+# ORDINAL work end-to-end.
+[name=update_array_element_with_set_offset_barely_too_large_with_ordinal]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue
+SET array_value[ORDINAL(4)] = 100
+WHERE array_value IS NOT NULL
+--
+ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<INT64> of size 3
+==
+
+# Repeat the primary key tests above, but with an array as the primary key.
+[name=update_array_primary_key_to_itself]
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableArrayKey SET primary_key = primary_key WHERE True
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: V_1_2_GROUP_BY_ARRAY
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key ARRAY<>, int64_value INT64>>[
+    {
+      ARRAY<INT64>[1, 2, 3],
+      100
+    },
+    {
+      ARRAY<INT64>[10, 11, 12],
+      200
+    }
+  ]}
+==
+
+[name=update_array_primary_key_to_another_row]
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableArrayKey SET primary_key = [10, 11, 12] WHERE primary_key[OFFSET(0)] = 1
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([10, 11, 12])
+==
+
+[name=update_two_primary_array_keys_to_a_third_value]
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableArrayKey SET primary_key = [100, 101, 102] WHERE True
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([100, 101, 102])
+==
+
+[name=update_two_primary_array_keys_to_null]
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableArrayKey SET primary_key = NULL WHERE True
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key (NULL)
+==
+
+# TODO: The reference implementation does not correctly support
+# DISALLOW_NULL_PRIMARY_KEYS yet, because it supposed to disallow arrays with a
+# NULL element when that feature is enabled. It doesn't seem worth it to fix
+# this until there is actually some engine that cares. In the meantime, we only
+# run this compliance test with DISALLOW_NULL_PRIMARY_KEYS is disabled.
+[name=update_two_primary_array_keys_with_null_element]
+[forbidden_features=DISALLOW_NULL_PRIMARY_KEYS]
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_PRIMARY_KEY_UPDATES]
+UPDATE TableArrayKey SET primary_key = [1, NULL, 2] WHERE True
+--
+WITH FEATURES: DISALLOW_PRIMARY_KEY_UPDATES,V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Cannot modify a primary key column with UPDATE
+--
+WITH FEATURES: V_1_2_GROUP_BY_ARRAY
+ERROR: generic::out_of_range: Modification resulted in duplicate primary key ([1, NULL, 2])
+==
+
+[name=assign_two_columns]
+UPDATE TableInt64Values SET value1 = 5, value2 = 10 WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 5, 10, 1000},
+    {2, 5, 10, 2000}
+  ]}
+==
+
+# All right hand side values are evaluated before anything is changed.
+# Note that there is also a third value column that is unchanged.
+[name=assign_two_columns_to_each_other]
+UPDATE TableInt64Values SET value1 = value2, value2 = value1 WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 100, 10, 1000},
+    {2, 200, 20, 2000}
+  ]}
+==
+
+[name=modify_two_arrays_twice]
+[required_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
+UPDATE TableArrayValue SET
+  array_value[OFFSET(0)] = 1000,
+  array_value[OFFSET(1)] = 2000,
+  array_value2[OFFSET(0)] = 3000,
+  array_value2[OFFSET(2)] = 4000
+WHERE primary_key != 3
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>, array_value2 ARRAY<>>>[
+    {
+      1,
+      ARRAY<INT64>[1000, 2000, 13],
+      ARRAY<INT64>[3000, 112, 4000]
+    },
+    {
+      2,
+      ARRAY<INT64>[1000, 2000, 23],
+      ARRAY<INT64>[3000, 222, 4000]
+    },
+    {3, ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}
+  ]
+}
+==
+
+[name=update_with_join]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 110, 100, 1000},
+    {2, 220, 200, 2000}
+  ]}
+==
+
+[name=update_with_join_no_join_condition]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value2 + TableInt64Values2.value3
+FROM TableInt64Values2
+WHERE TableInt64Values.value1 = 10 AND TableInt64Values2.value1 = 100
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 1100, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# The FROM/WHERE does not join with any rows, so the table is unmodified.
+[name=update_with_join_no_match]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = 100000
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key < 0
+      AND TableInt64Values.primary_key = TableInt64Values2.primary_key
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+# No rows are modified because we are trying to join with an empty table.
+[name=update_with_join_no_match_from_query]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = value1 + 1
+FROM (SELECT value2 FROM TableInt64Values2 WHERE False)
+WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 10, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=update_with_double_join]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 +
+             TableInt64Values2.value2 +
+             TableInt64Values3.value3
+FROM TableInt64Values2,
+     (SELECT * FROM TableInt64Values2) AS TableInt64Values3
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = TableInt64Values3.primary_key
+      AND TableInt64Values.primary_key = 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 2010, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=update_with_join_on]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 +
+             TableInt64Values2.value2 +
+             TableInt64Values3.value3
+FROM TableInt64Values2
+  JOIN (SELECT primary_key, value3 FROM TableInt64Values2)
+       AS TableInt64Values3
+  ON TableInt64Values2.primary_key = TableInt64Values3.primary_key
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 2010, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=update_with_join_to_self]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableNonTrivialInt64PrimaryKeys
+SET value = Table2.max_value
+FROM (SELECT 2 * CAST(primary_key / 2 AS INT64) AS truncated_key,
+             MIN(value) AS max_value
+      FROM TableNonTrivialInt64PrimaryKeys
+      GROUP BY truncated_key) AS Table2
+WHERE TableNonTrivialInt64PrimaryKeys.primary_key = Table2.truncated_key
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{3,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+    {1, 101},
+    {2, 101},
+    {3, 103},
+    {4, 103},
+    {5, 105},
+    {6, 105}
+  ]}
+==
+
+# Adapted from above, adding parameters.
+[name=update_with_join_on_with_params]
+[required_features=DML_UPDATE_WITH_JOIN]
+[parameters=10000 param1, 1000 param2, 1 param3]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 +
+             TableInt64Values2.value2 +
+             TableInt64Values3.value3 + @param1
+FROM TableInt64Values2
+  JOIN (SELECT primary_key, (value3 + @param2) AS value3
+        FROM TableInt64Values2)
+       AS TableInt64Values3
+  ON TableInt64Values2.primary_key = TableInt64Values3.primary_key
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = @param3
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 13010, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=update_with_join_too_many_rows]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = 100000
+FROM TableInt64Values2
+WHERE TableInt64Values.value3 = TableInt64Values2.value3
+--
+ERROR: generic::out_of_range: UPDATE with join requires that each row of the table being updated correspond with at most one joined row that matches the WHERE clause
+==
+
+[name=update_with_join_assert_rows_modified]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = 1
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[
+    {1, 110, 100, 1000},
+    {2, 20, 200, 2000}
+  ]}
+==
+
+[name=update_with_join_assert_rows_modified_failure]
+[required_features=DML_UPDATE_WITH_JOIN]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = 1
+ASSERT_ROWS_MODIFIED 0
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 0 rows modified, but found 1
+==
+
+[name=update_with_join_assert_rows_modified_null]
+[required_features=DML_UPDATE_WITH_JOIN]
+[parameters=NULL param]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = 1
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+[name=update_with_join_assert_rows_modified_negative]
+[required_features=DML_UPDATE_WITH_JOIN]
+[parameters=-1 param]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+      AND TableInt64Values.primary_key = 1
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 1

@@ -65,6 +65,8 @@ enum class FunctionKind {
   kSafeNegate,
   // Comparison functions
   kEqual,
+  kIsDistinct,
+  kIsNotDistinct,
   kLess,
   kLessOrEqual,
   // Logical functions
@@ -167,6 +169,7 @@ enum class FunctionKind {
   kArrayAtOffset,
   kSafeArrayAtOrdinal,
   kSafeArrayAtOffset,
+  kSubscript,
   kArrayIsDistinct,
   kGenerateArray,
   kGenerateDateArray,
@@ -282,6 +285,25 @@ enum class FunctionKind {
   kParseDatetime,
   kParseTime,
   kParseTimestamp,
+  // Interval functions
+  kIntervalCtor,
+  // Net functions
+  kNetFormatIP,
+  kNetParseIP,
+  kNetFormatPackedIP,
+  kNetParsePackedIP,
+  kNetIPInNet,
+  kNetMakeNet,
+  kNetHost,
+  kNetRegDomain,
+  kNetPublicSuffix,
+  kNetIPFromString,
+  kNetSafeIPFromString,
+  kNetIPToString,
+  kNetIPNetMask,
+  kNetIPTrunc,
+  kNetIPv4FromInt64,
+  kNetIPv4ToInt64,
   // Numbering functions
   kDenseRank,
   kRank,
@@ -359,7 +381,9 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
 
   static zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCast(
       const LanguageOptions& language_options, const Type* output_type,
-      std::unique_ptr<ValueExpr> argument, bool return_null_on_error,
+      std::unique_ptr<ValueExpr> argument,
+      std::unique_ptr<ValueExpr> format,
+      bool return_null_on_error,
       ResolvedFunctionCallBase::ErrorMode error_mode,
       std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator);
 
@@ -736,6 +760,13 @@ class MathFunction : public BuiltinScalarFunction {
             Value* result, absl::Status* status) const override;
 };
 
+class NetFunction : public BuiltinScalarFunction {
+ public:
+  using BuiltinScalarFunction::BuiltinScalarFunction;
+  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, absl::Status* status) const override;
+};
+
 class StringFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
@@ -1009,6 +1040,13 @@ class ExtractTimeFromFunction : public SimpleBuiltinScalarFunction {
 };
 
 class ExtractDatetimeFromFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class IntervalFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,

@@ -873,7 +873,7 @@ std::string IdentifierPathToString(absl::Span<const IdString> path,
 static bool AdvanceToNextBackquote(absl::string_view::const_iterator end,
                                    absl::string_view::const_iterator* pos) {
   absl::string_view::const_iterator p = *pos;
-  while (*p != '`' && p < end) {
+  while (p < end && *p != '`') {
     // Skip escaped backquotes.
     absl::string_view::const_iterator next_byte = p + 1;
     if (*p == '\\' && next_byte < end &&
@@ -954,7 +954,7 @@ absl::Status ParseIdentifierPath(absl::string_view str,
 
     // Find the next '.'. The main logic applied here is to skip dots within
     // backquoted sections - validation is handled when parsing the value.
-    while (*p != '.' && p < end) {
+    while (p < end && *p != '.') {
       // Path identifiers can only be alphanumeric or '_'. Backquotes indicate
       // the beginning of an escape sequence and are therefore allowed.
       if (!isalnum(*p) && *p != '_' && *p != '`') {

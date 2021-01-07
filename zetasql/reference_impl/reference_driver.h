@@ -30,6 +30,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/time/time.h"
@@ -161,6 +162,9 @@ class ReferenceDriver : public TestDriver {
   std::unique_ptr<TypeFactory> type_factory_;
   LanguageOptions language_options_;
   std::vector<TableInfo> tables_;
+  class BuiltinFunctionCache;
+
+  std::unique_ptr<BuiltinFunctionCache> function_cache_;
   std::unique_ptr<SimpleCatalog> catalog_;
 
   std::vector<std::string> errors_;

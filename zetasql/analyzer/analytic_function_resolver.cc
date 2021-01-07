@@ -234,7 +234,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       expr_resolution_info,
       expr_resolution_info->name_scope,
       expr_resolution_info->clause_name,
-      false /* allows_analytic_in */);
+      /*allows_analytic_in=*/false);
   WindowExprInfoList* partition_by_info = nullptr;  // Not owned.
   if (ast_partition_by != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveWindowPartitionByPreAggregation(
@@ -796,7 +796,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
       const InputArgumentType input_argument_type =
           GetInputArgumentTypeForExpr((*resolved_offset_expr).get());
       if (!coercer().CoercesTo(input_argument_type, ordering_expr_type,
-                               false /* is_explicit */, &result)) {
+                               /*is_explicit=*/false, &result)) {
         return MakeSqlErrorAt(ast_frame_expr)
                << "Window framing expression has type "
                << Type::TypeKindToString(

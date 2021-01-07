@@ -1,0 +1,164 @@
+[default required_features=ANALYTIC_FUNCTIONS]
+[prepare_database]
+CREATE TABLE TestTable AS
+SELECT cast(1 as int64) as row_id,
+       cast(NULL as bool) as bool_val UNION ALL
+  SELECT 2,  true  UNION ALL
+  SELECT 3,  false UNION ALL
+  SELECT 4,  true  UNION ALL
+  SELECT 5,  false UNION ALL
+  SELECT 6,  true  UNION ALL
+  SELECT 7,  false UNION ALL
+  SELECT 8,  true  UNION ALL
+  SELECT 9,  false UNION ALL
+  SELECT 10, false UNION ALL
+  SELECT 11, false UNION ALL
+  SELECT 12, true  UNION ALL
+  SELECT 13, true  UNION ALL
+  SELECT 14, true  UNION ALL
+  SELECT 15, NULL  UNION ALL
+  SELECT 16, NULL  UNION ALL
+  SELECT 17, NULL  UNION ALL
+  SELECT 18, false UNION ALL
+  SELECT 19, false UNION ALL
+  SELECT 20, false
+--
+ARRAY<STRUCT<row_id INT64, bool_val BOOL>>[
+  {1, NULL},
+  {2, true},
+  {3, false},
+  {4, true},
+  {5, false},
+  {6, true},
+  {7, false},
+  {8, true},
+  {9, false},
+  {10, false},
+  {11, false},
+  {12, true},
+  {13, true},
+  {14, true},
+  {15, NULL},
+  {16, NULL},
+  {17, NULL},
+  {18, false},
+  {19, false},
+  {20, false}
+]
+==
+[name=logical_and_unbounded]
+SELECT t.row_id, logical_and(t.bool_val)
+OVER()
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BOOL>>[
+  {1, false},
+  {2, false},
+  {3, false},
+  {4, false},
+  {5, false},
+  {6, false},
+  {7, false},
+  {8, false},
+  {9, false},
+  {10, false},
+  {11, false},
+  {12, false},
+  {13, false},
+  {14, false},
+  {15, false},
+  {16, false},
+  {17, false},
+  {18, false},
+  {19, false},
+  {20, false}
+]
+==
+[name=logical_and_one_preceding_one_following]
+SELECT t.row_id, logical_and(t.bool_val)
+OVER(ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BOOL>>[
+  {1, true},
+  {2, false},
+  {3, false},
+  {4, false},
+  {5, false},
+  {6, false},
+  {7, false},
+  {8, false},
+  {9, false},
+  {10, false},
+  {11, false},
+  {12, false},
+  {13, true},
+  {14, true},
+  {15, true},
+  {16, NULL},
+  {17, false},
+  {18, false},
+  {19, false},
+  {20, false}
+]
+==
+[name=logical_and_current_row_unbounded_following]
+SELECT t.row_id, logical_and(t.bool_val)
+OVER(ORDER BY row_id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BOOL>>[
+  {1, false},
+  {2, false},
+  {3, false},
+  {4, false},
+  {5, false},
+  {6, false},
+  {7, false},
+  {8, false},
+  {9, false},
+  {10, false},
+  {11, false},
+  {12, false},
+  {13, false},
+  {14, false},
+  {15, false},
+  {16, false},
+  {17, false},
+  {18, false},
+  {19, false},
+  {20, false}
+]
+==
+[name=logical_and_unbounded_preceding_current_row]
+SELECT t.row_id, logical_and(t.bool_val)
+OVER(ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BOOL>>[
+  {1, NULL},
+  {2, true},
+  {3, false},
+  {4, false},
+  {5, false},
+  {6, false},
+  {7, false},
+  {8, false},
+  {9, false},
+  {10, false},
+  {11, false},
+  {12, false},
+  {13, false},
+  {14, false},
+  {15, false},
+  {16, false},
+  {17, false},
+  {18, false},
+  {19, false},
+  {20, false}
+]
+==

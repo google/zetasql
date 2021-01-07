@@ -195,6 +195,9 @@ class Algebrizer {
   zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> AlgebrizeGetStructField(
       const ResolvedGetStructField* get_struct_field);
 
+  zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> AlgebrizeGetJsonField(
+      const ResolvedGetJsonField* get_json_field);
+
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoField(
       const ResolvedGetProtoField* get_proto_field);
 

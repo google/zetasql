@@ -1,0 +1,160 @@
+[default required_features=JSON_TYPE]
+[name=json_int_scalar]
+SELECT JSON '1'
+--
+ARRAY<STRUCT<JSON>>[{1}]
+==
+[name=json_string_scalar]
+SELECT JSON '"foo"'
+--
+ARRAY<STRUCT<JSON>>[{"foo"}]
+==
+[name=json_array]
+SELECT JSON '["foo", 12, null, 0.123]'
+--
+ARRAY<STRUCT<JSON>>[{["foo",12,null,0.123]}]
+==
+[name=json_object]
+SELECT JSON '{"a": "foo", "b": 12, "c": null, "d": 0.123}'
+--
+ARRAY<STRUCT<JSON>>[{{"a":"foo","b":12,"c":null,"d":0.123}}]
+==
+[name=json_object_and_array]
+SELECT JSON '{"a": "foo", "b": 12, "c": null, "d": [{"f": "bar"}, {"d": 1}, [null, 1]]}'
+--
+ARRAY<STRUCT<JSON>>[
+  {{"a":"foo","b":12,"c":null,"d":[{"f":"bar"},{"d":1},[null,1]]}}
+]
+==
+[name=json_escaping]
+SELECT JSON '{"a\\"b\\\\c": 12}'
+--
+ARRAY<STRUCT<JSON>>[{{"a\"b\\c":12}}]
+==
+[name=json_null]
+SELECT JSON 'null' IS NULL, JSON_EXTRACT(JSON 'null', "$") IS NULL,
+       JSON_EXTRACT(JSON 'null', "$.a") IS NULL
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, false, true}]
+==
+[name=json_cast]
+SELECT CAST(NULL AS JSON), CAST('1' AS JSON), CAST('"foo"' AS JSON),
+       CAST('null' AS JSON), CAST('{"a": [1, 2]}' AS JSON)
+--
+ARRAY<STRUCT<JSON, JSON, JSON, JSON, JSON>>[
+  {NULL, 1, "foo", null, {"a":[1,2]}}
+]
+==
+[name=json_extract]
+SELECT JSON_EXTRACT(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$[a][1]['b.c']")
+--
+ARRAY<STRUCT<JSON>>[{[10,20]}]
+==
+[name=json_extract_scalar]
+SELECT JSON_EXTRACT_SCALAR(JSON '{"a": [1, {"b.c": [10, 20]}]}',
+  "$[a][1]['b.c'][0]")
+--
+ARRAY<STRUCT<STRING>>[{"10"}]
+==
+[name=json_query]
+SELECT JSON_QUERY(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"")
+--
+ARRAY<STRUCT<JSON>>[{[10,20]}]
+==
+[name=json_value]
+SELECT JSON_VALUE(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"[0]")
+--
+ARRAY<STRUCT<STRING>>[{"10"}]
+==
+[name=json_dot_notation]
+SELECT (JSON '{"a": "foo"}').a
+--
+ARRAY<STRUCT<a JSON>>[{"foo"}]
+==
+[name=json_dot_notation_special_characters]
+SELECT (JSON '{"a\\"\\\\foo\\t@! \'bar": {"b.c": [10, 20]}}').`a\"\\foo\t@! \'bar`.`b.c`
+--
+ARRAY<STRUCT<b.c JSON>>[{[10,20]}]
+==
+[name=json_dot_notation_invalid_paths]
+SELECT json_val.field, json_val.fie, json_val.array, json_val.array.field2 FROM
+(SELECT JSON '{"field": 1, "array": [{"field2": 20}, {"field2": 30}]}' AS json_val)
+--
+ARRAY<STRUCT<field JSON, fie JSON, array JSON, field2 JSON>>[
+  {
+    1,
+    NULL,
+    [{"field2":20},{"field2":30}],
+    NULL
+  }
+]
+==
+[name=json_subscript_int64_and_string]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0]["a"]
+--
+ARRAY<STRUCT<JSON>>[{"foo"}]
+==
+[name=json_subscript_invalid_index]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[2]
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_null_json]
+SELECT (JSON 'null')[0]
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_special_character]
+SELECT (JSON '{"a\\"\\\\foo\\t@! \'bar": {"b.c": [10, 20]}}')['a"\\foo\t@! \'bar']['b.c']
+--
+ARRAY<STRUCT<JSON>>[{[10,20]}]
+==
+[name=json_subscript_invalid_paths]
+SELECT json_val["field"], json_val["fie"], json_val.array[0]["field2"], json_val.array1[0]["field2"] FROM
+(SELECT JSON '{"field": 1, "array": [{"field2": 20}, {"field2": 30}]}' AS json_val)
+--
+ARRAY<STRUCT<JSON, JSON, JSON, JSON>>[{1, NULL, 20, NULL}]
+==
+[name=json_subscript_null]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[NULL];
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_null_string]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[CAST(NULL AS STRING)]
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_int64_null_string]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][CAST(NULL AS STRING)];
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_int64_null_string_param]
+[parameters=CAST(NULL AS STRING) AS string_null_param]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][@string_null_param];
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_null_int64_string_param]
+[parameters=CAST(NULL AS INT64) AS int64_null_param, CAST(NULL AS STRING) AS string_null_param]
+SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[@int64_null_param][@string_null_param];
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
+[name=json_subscript_computed_param]
+SELECT (JSON '{"f1": {"f2":"foo"}}')[CONCAT('f', '1')][CONCAT('f', '2')];
+--
+ARRAY<STRUCT<JSON>>[{"foo"}]
+==
+[name=json_subscript_invalid_json_test]
+[required_features=JSON_TYPE,JSON_NO_VALIDATION]
+SELECT (JSON '{"f1": {"f2":"foo"}')['f1']
+--
+ERROR: generic::invalid_argument: parse error at line 1, column 20: syntax error while parsing object - unexpected end of input; expected '}'
+==
+[name=json_subscript_valid_json_test]
+[required_features=JSON_TYPE,JSON_NO_VALIDATION]
+SELECT (JSON '{"f1": {"f2":"foo"}}')['f1']['f2']
+--
+ARRAY<STRUCT<JSON>>[{"foo"}]

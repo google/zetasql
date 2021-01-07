@@ -136,6 +136,10 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
       // references to it.
       case FN_TIME_FROM_STRING:
         continue;
+      // TODO: Remove FN_CONTAINS_SUBSTR when FEATURE_CONTAINS_SUBSTR
+      // no longer has ideally_enabled=false.
+      case FN_CONTAINS_SUBSTR:
+        continue;
       default:
         break;
     }

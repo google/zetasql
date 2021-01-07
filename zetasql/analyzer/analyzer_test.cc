@@ -1350,6 +1350,78 @@ TEST(AnalyzerTest, ExternalExtension) {
                              &output1));
 }
 
+static void ExpectStatementHasAnonymization(
+    const std::string& sql, bool expect_anonymization = true,
+    bool expect_analyzer_success = true) {
+  AnalyzerOptions options;
+  options.mutable_language()->SetSupportedStatementKinds(
+      {RESOLVED_QUERY_STMT, RESOLVED_CREATE_TABLE_AS_SELECT_STMT});
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ANONYMIZATION);
+  options.enable_rewrite(REWRITE_ANONYMIZATION, /*enable=*/false);
+  SampleCatalog catalog(options.language());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+  absl::Status status = AnalyzeStatement(
+      sql, options, catalog.catalog(), &type_factory, &output);
+  if (expect_analyzer_success) {
+    ZETASQL_EXPECT_OK(status);
+    EXPECT_EQ(output->analyzer_output_properties().has_anonymization,
+              expect_anonymization);
+  } else {
+    // Note that if the analyzer failed, then there is no AnalyzerOutput.
+    EXPECT_FALSE(status.ok());
+  }
+}
+
+TEST(AnalyzerTest, TestStatementHasAnonymization) {
+  ExpectStatementHasAnonymization(
+      "SELECT * FROM KeyValue", false);
+  ExpectStatementHasAnonymization(
+      "SELECT WITH ANONYMIZATION key FROM KeyValue GROUP BY key");
+  ExpectStatementHasAnonymization("SELECT ANON_COUNT(*) FROM KeyValue");
+  ExpectStatementHasAnonymization("SELECT ANON_SUM(key) FROM KeyValue");
+  ExpectStatementHasAnonymization("SELECT ANON_AVG(key) FROM KeyValue");
+  ExpectStatementHasAnonymization("SELECT ANON_COUNT(value) FROM KeyValue");
+  ExpectStatementHasAnonymization(
+      "SELECT * FROM (SELECT ANON_COUNT(*) FROM KeyValue)");
+  ExpectStatementHasAnonymization(
+      "SELECT (SELECT ANON_COUNT(*) FROM KeyValue) FROM KeyValue");
+  ExpectStatementHasAnonymization(
+      absl::StrCat("SELECT * FROM KeyValue ",
+                   "WHERE key IN (SELECT ANON_COUNT(*) FROM KeyValue)"));
+  // DDL has anonymization
+  ExpectStatementHasAnonymization(
+      "CREATE TABLE foo AS SELECT ANON_COUNT(*) AS a FROM KeyValue");
+
+  // Resolution fails, has_anonymization is false even though we found it
+  // in the first part of the query (before finding the error).
+  ExpectStatementHasAnonymization(
+      absl::StrCat("SELECT ANON_COUNT(*) FROM KeyValue ",
+                   "UNION ALL ",
+                   "SELECT 'string_literal'"), false, false);
+}
+
+static void ExpectExpressionHasAnonymization(const std::string& sql,
+                                             bool expect_anonymization = true) {
+  AnalyzerOptions options;
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ANONYMIZATION);
+  SampleCatalog catalog(options.language());
+  TypeFactory type_factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+  absl::Status status = AnalyzeExpression(
+      sql, options, catalog.catalog(), &type_factory, &output);
+  ZETASQL_ASSERT_OK(status);
+  EXPECT_EQ(output->analyzer_output_properties().has_anonymization,
+            expect_anonymization);
+}
+
+TEST(AnalyzerTest, TestExpressionHasAnonymization) {
+  // Note that AnalyzeExpression only works for scalar expressions, not
+  // aggregate expressions.
+  ExpectExpressionHasAnonymization("concat('a', 'b')", false);
+  ExpectExpressionHasAnonymization("5 IN (SELECT ANON_COUNT(*) FROM KeyValue)");
+}
+
 TEST(AnalyzerTest, AstRewriting) {
   AnalyzerOptions options;
   options.mutable_language()->EnableLanguageFeature(

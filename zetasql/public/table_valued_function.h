@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_TABLE_VALUED_FUNCTION_H_
 #define ZETASQL_PUBLIC_TABLE_VALUED_FUNCTION_H_
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -286,6 +287,14 @@ struct TVFSchemaColumn {
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory);
 
+  std::string DebugString(bool is_for_value_table) const {
+    // Prevent concatenating value column name.
+    if (!is_for_value_table || is_pseudo_column) {
+      return absl::StrCat(name, " ", type->DebugString());
+    }
+    return type->DebugString();
+  }
+
   std::string name;
   const Type* type = nullptr;
   bool is_pseudo_column;
@@ -296,6 +305,11 @@ struct TVFSchemaColumn {
   absl::optional<ParseLocationRange> name_parse_location_range;
   absl::optional<ParseLocationRange> type_parse_location_range;
 };
+
+// To support ZETASQL_RET_CHECK_EQ.
+bool operator==(const TVFSchemaColumn& a, const TVFSchemaColumn& b);
+inline std::ostream& operator<<(std::ostream& out,
+                                const TVFSchemaColumn& column);
 
 // This represents a relation passed as an input argument to a TVF, or returned
 // from a TVF. It either contains a list of columns, where each column contains
@@ -371,6 +385,14 @@ class TVFRelation {
   ColumnList columns_;
   bool is_value_table_;
 };
+
+bool operator == (const TVFRelation& a, const TVFRelation& b);
+
+inline std::ostream& operator<<(std::ostream& out,
+                                const TVFRelation& relation) {
+  out << relation.DebugString();
+  return out;
+}
 
 // This represents a model passed as an input argument to a TVF. It contains a
 // pointer to the model object in the catalog.

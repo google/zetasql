@@ -52,6 +52,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "unicode/casemap.h"
 #include "unicode/uniset.h"
 #include "unicode/utypes.h"
@@ -441,12 +442,12 @@ bool BytesToCodePoints(absl::string_view str, std::vector<int64_t>* out,
 
 // Converts from codepoints to a UTF8 string. Returns an error if any of the
 // elements in 'codepoints' is not a valid UTF8 codepoint.
-bool CodePointsToString(const std::vector<int64_t>& codepoints, std::string* out,
+bool CodePointsToString(absl::Span<const int64_t> codepoints, std::string* out,
                         absl::Status* error);
 
 // Converts from extended ASCII values to bytes. Returns an error if the input
 // values are not in the range [0, 255].
-bool CodePointsToBytes(const std::vector<int64_t>& codepoints, std::string* out,
+bool CodePointsToBytes(absl::Span<const int64_t> codepoints, std::string* out,
                        absl::Status* error);
 
 // Represents a potential rewrite of a LIKE pattern, e.g. "s LIKE pattern" to
@@ -549,6 +550,19 @@ bool TranslateUtf8(absl::string_view str, absl::string_view source_characters,
 bool TranslateBytes(absl::string_view str, absl::string_view source_bytes,
                     absl::string_view target_bytes, std::string* out,
                     absl::Status* error);
+
+// Converts from bytes to a encoded string with specific encoding format
+// (Proposal doc (broken link)).
+bool BytesToString(absl::string_view str, absl::string_view format,
+                   std::string* out, absl::Status* error);
+
+// Converts from a encoded string with specific encoding format to bytes
+// (Proposal doc (broken link)).
+bool StringToBytes(absl::string_view str, absl::string_view format,
+                   std::string* out, absl::Status* error);
+
+// Validates the format string used by BytesToString() and StringToBytes().
+absl::Status ValidateFormat(absl::string_view format);
 
 }  // namespace functions
 }  // namespace zetasql

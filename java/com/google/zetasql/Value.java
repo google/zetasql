@@ -684,6 +684,7 @@ public class Value implements Serializable {
       case TYPE_NUMERIC:
       case TYPE_BIGNUMERIC:
       case TYPE_JSON:
+      case TYPE_INTERVAL:
         return ZetaSQLStrings.convertSimpleValueToString(this, verbose);
       case TYPE_ENUM:
         {

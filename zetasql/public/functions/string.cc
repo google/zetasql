@@ -22,8 +22,10 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdlib>
+#include <functional>
 #include <iterator>
 #include <limits>
+#include <ostream>
 #include <set>
 #include <string>
 #include <vector>
@@ -38,9 +40,13 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
+#include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
@@ -57,6 +63,7 @@
 #include "unicode/utypes.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/stl_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -70,6 +77,9 @@ constexpr absl::string_view kUtf8ReplacementChar = "\uFFFD";
 constexpr UChar32 kUChar32ReplacementChar = 0xfffd;
 
 const size_t kMaxOutputSize = (1 << 20);  // 1MB
+// Based on https://tools.ietf.org/html/rfc2045#section-6.8
+const size_t kMaxLineLengthBase64M = 76;
+
 const char kExceededPadOutputSize[] =
     "Output of LPAD/RPAD exceeds max allowed output size of 1MB";
 const char kExceededRepeatOutputSize[] =
@@ -87,6 +97,8 @@ constexpr absl::string_view kBadPosStringPos = "Position must be non-zero";
 // handled by the calling function.
 constexpr absl::string_view kDefaultDelimiters =
     "[](){}/|\\<>!?@\"#$&~_,.:;*%+-^";
+
+constexpr absl::string_view kInvalidFormat = "Invalid format '$0'";
 
 // Verifies that the string length can be represented in a 32-bit signed int and
 // returns that value. Fitting in an int32_t is a requirement for icu methods.
@@ -1324,7 +1336,7 @@ bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
 }
 
 bool CodePointToString(int64_t codepoint, std::string* out, absl::Status* error) {
-  return CodePointsToString({codepoint}, out, error);
+  return CodePointsToString(absl::MakeConstSpan(&codepoint, 1), out, error);
 }
 
 
@@ -1361,7 +1373,7 @@ bool BytesToCodePoints(absl::string_view str, std::vector<int64_t>* out,
   return true;
 }
 
-bool CodePointsToString(const std::vector<int64_t>& codepoints, std::string* out,
+bool CodePointsToString(absl::Span<const int64_t> codepoints, std::string* out,
                         absl::Status* error) {
   out->clear();
   if (codepoints.empty()) {
@@ -1407,7 +1419,7 @@ bool CodePointsToString(const std::vector<int64_t>& codepoints, std::string* out
   return true;
 }
 
-bool CodePointsToBytes(const std::vector<int64_t>& codepoints, std::string* out,
+bool CodePointsToBytes(absl::Span<const int64_t> codepoints, std::string* out,
                        absl::Status* error) {
   out->clear();
   for (int64_t codepoint : codepoints) {
@@ -1881,7 +1893,7 @@ bool Utf8Translator::Initialize(absl::string_view source_characters,
     U8_NEXT(source_characters.data(), source_offset, source_length32,
             character);
     if (character < 0) {
-      return !internal::UpdateError(error, kBadUtf8);
+      return internal::UpdateError(error, kBadUtf8);
     }
 
     absl::string_view target_string_view;
@@ -2023,6 +2035,321 @@ bool TranslateBytes(absl::string_view str, absl::string_view source_bytes,
     return false;
   }
   return translator.Translate(str, out, error);
+}
+
+// Helper function and constants for String/Bytes conversion functions
+namespace {
+
+void ThreeBytesToEightBase8Digits(const unsigned char* in_bytes,
+                                         char* out) {
+  // It's easier to just hard code this.
+  // The conversion is based on the following picture of the division of a
+  // 24-bit block into 8 3-byte words:
+  //
+  //       3   3  2   1  3   3  1  2   3   3
+  //     [:::|:::|::][:|:::|:::|:][::|:::|:::]
+  //
+  //
+  out[0] = (in_bytes[0] >> 5) + '0';
+  out[1] = ((in_bytes[0] & 0x1C) >> 2) + '0';
+  out[2] = ((in_bytes[0] & 0x03) << 1 | in_bytes[1] >> 7) + '0';
+  out[3] = ((in_bytes[1] & 0x70) >> 4) + '0';
+  out[4] = ((in_bytes[1] & 0x0E) >> 1) + '0';
+  out[5] = ((in_bytes[1] & 0x01) << 2 | in_bytes[2] >> 6) + '0';
+  out[6] = ((in_bytes[2] & 0x38) >> 3) + '0';
+  out[7] = (in_bytes[2] & 0x07) + '0';
+}
+
+// Mapping from number N of Base8 escaped digits (0 through 7) to number M
+// of unescaped bytes (that would generate N escaped digits).
+// When M = 0,1,2, N = 0,3,6 respectively. When N is in [1,2] and [4,5], we
+// assume the escaped bytes has omitted leading '0' digits to make N become 3
+// and 6, so M would be 1 and 2 respectively. When N is 7, assuming the escaped
+// bytes has omitted 1 leading '0', M would be 3 to generate these 8 escaped
+// bytes.
+const int kBase8NumUnescapedBytes[] = {0, 1, 1, 1, 2, 2, 2, 3};
+
+void EightBase8DigitsToThreeBytes(const char* in,
+                                         unsigned char* bytes_out) {
+  // It's easier to just hard code this.
+  // The conversion is based on the following picture of the division of a
+  // 3-byte words into 8 bytes:
+  //
+  //       3   3  2   1  3   3  1  2   3   3
+  //     [:::|:::|::][:|:::|:::|:][::|:::|:::]
+  //       0   1   2     3   4     5   6   7
+  //
+  const unsigned char* inval = reinterpret_cast<const unsigned char*>(in);
+  bytes_out[2] =
+      (inval[7] - '0') | ((inval[6] - '0') << 3) | ((inval[5] - '0') << 6);
+  bytes_out[1] = ((inval[5] - '0') >> 2) | ((inval[4] - '0') << 1) |
+                 ((inval[3] - '0') << 4) | ((inval[2] - '0') << 7);
+  bytes_out[0] = ((inval[2] - '0') >> 1) | ((inval[1] - '0') << 2) |
+                 ((inval[0] - '0') << 5);
+}
+}  // namespace
+
+// Converts a sequence of bytes into base8-encoded string.
+bool ToBase8(absl::string_view str, std::string* out, absl::Status* error) {
+  size_t src_size = str.size();
+  size_t output_size = src_size * 8 / 3 + (src_size * 8 % 3 != 0);
+  // make sure we didn't overflow
+  if (output_size < src_size) {
+    return internal::UpdateError(
+        error, "Failed to calculate Base8 escaped string length");
+  }
+  out->resize(output_size);
+
+  const unsigned char* src = reinterpret_cast<const unsigned char*>(str.data());
+  char* dest = const_cast<char*>(out->c_str());
+
+  if (src_size == 0) return true;
+
+  char* cur_dest = dest + output_size;
+  const unsigned char* cur_src = src + src_size;
+
+  while (src_size >= 3) {
+    cur_dest -= 8;
+    cur_src -= 3;
+    ThreeBytesToEightBase8Digits(cur_src, cur_dest);
+    src_size -= 3;
+  }
+
+  if (src_size > 0) {
+    // Copy the remaining part of source string (first < 3 bytes) to last_chunk,
+    // left padded with \0, then convert to base8 digits and put at the
+    // beginning of the dest buffer
+    unsigned char last_chunk[3] = {'\0'};
+    memcpy(last_chunk + 3 - src_size, src, src_size);
+
+    char escaped_bytes[8];
+    ThreeBytesToEightBase8Digits(last_chunk, escaped_bytes);
+    size_t num_escaped = src_size * 8 / 3 + (src_size * 8 % 3 != 0);
+    memcpy(dest, escaped_bytes + 8 - num_escaped, num_escaped);
+  }
+
+  return true;
+}
+
+// Converts a base8-encoded string into bytes.
+bool FromBase8(absl::string_view str, std::string* out, absl::Status* error) {
+  size_t src_size = str.size();
+  const size_t output_size =
+      (src_size / 8) * 3 + kBase8NumUnescapedBytes[src_size % 8];
+  out->resize(output_size);
+
+  const char* src = str.data();
+  char* dest = &(*out)[0];
+
+  if (src_size == 0) return true;
+
+  for (size_t i = 0; i < src_size; ++i) {
+    if (!(src[i] >= '0' && src[i] <= '7'))
+      return internal::UpdateError(error,
+                                   "Failed to decode invalid base8 string");
+  }
+
+  char* cur_dest = dest + output_size;
+  const char* cur_src = src + src_size;
+
+  while (src_size >= 8) {
+    cur_dest -= 3;
+    cur_src -= 8;
+    EightBase8DigitsToThreeBytes(cur_src,
+                                 reinterpret_cast<unsigned char*>(cur_dest));
+    src_size -= 8;
+  }
+
+  if (src_size > 0) {
+    // Copy the remaining part of source string (first < 8 digits) to
+    // escaped_bytes buffer, left padded with '0', then convert to bytes
+    char escaped_bytes[8] = {'0'};
+    unsigned char unescaped_bytes[3];
+    const int num_unescaped = kBase8NumUnescapedBytes[src_size];
+
+    memcpy(escaped_bytes + 8 - src_size, src, src_size);
+
+    EightBase8DigitsToThreeBytes(escaped_bytes, unescaped_bytes);
+    memcpy(dest, unescaped_bytes + 3 - num_unescaped, num_unescaped);
+  }
+
+  return true;
+}
+
+// Converts a sequence of bytes into base2-encoded string.
+bool ToBase2(absl::string_view str, std::string* out, absl::Status* error) {
+  size_t output_size = 8 * str.size();
+  // make sure we didn't overflow
+  if (output_size < str.size()) {
+    return internal::UpdateError(
+        error, "Failed to calculate Base2 escaped string length");
+  }
+  out->resize(output_size);
+
+  const unsigned char* cur_src =
+      reinterpret_cast<const unsigned char*>(str.data());
+  char* cur_dest = &(*out)[0];
+
+  for (size_t i = 0; i < str.size(); ++i) {
+    unsigned char temp_cur_src_byte = *cur_src;
+    for (int j = 7; j >= 0; --j) {
+      cur_dest[j] = (temp_cur_src_byte & 1) + '0';
+      temp_cur_src_byte >>= 1;
+    }
+    cur_src++;
+    cur_dest += 8;
+  }
+  return true;
+}
+
+// Converts a base2-encoded string into bytes.
+bool FromBase2(absl::string_view str, std::string* out, absl::Status* error) {
+  size_t required_output_size = str.size() / 8;
+  if (str.size() % 8) {
+    required_output_size += 1;
+  }
+  out->resize(required_output_size);
+
+  size_t src_size = str.size();
+
+  char* cur_dest = &(*out)[0] + required_output_size;
+  const unsigned char* cur_src =
+      reinterpret_cast<const unsigned char*>(str.data()) + src_size;
+
+  while (src_size > 0) {
+    size_t num_src_chars_to_add = (src_size < 8) ? src_size : 8;
+
+    cur_dest--;
+    cur_src -= num_src_chars_to_add;
+
+    *cur_dest = 0;
+
+    for (int i = 0; i < num_src_chars_to_add; ++i) {
+      if (!(cur_src[i] == '0' || cur_src[i] == '1')) {
+        return internal::UpdateError(
+            error, absl::StrFormat("Failed to decode invalid base2 string due "
+                                   "to character '%c' at offset %d",
+                                   cur_src[i], i));
+        return false;
+      }
+
+      *cur_dest |= ((cur_src[i] - '0') << (num_src_chars_to_add - i - 1));
+    }
+
+    src_size -= num_src_chars_to_add;
+  }
+  return true;
+}
+
+// Checks the characters in the input str for ASCII encoding and then copies
+// to the destination if all characters are valid.
+bool ASCIICheckAndCopy(absl::string_view str, std::string* out,
+                       absl::Status* error) {
+  for (unsigned char c : str) {
+    if (!absl::ascii_isascii(c)) {
+      return internal::UpdateError(error,
+                                   "Failed to decode invalid ASCII string");
+    }
+  }
+  *out = std::string(str);
+  return true;
+}
+
+// Checks the bytes in the input str for UTF8 encoding and then copies
+// to the destination if all bytes are valid.
+bool UTF8CheckAndCopy(absl::string_view str, std::string* out,
+                      absl::Status* error) {
+  if (!IsWellFormedUTF8(str)) {
+    return internal::UpdateError(error, kBadUtf8);
+  }
+
+  *out = std::string(str);
+  return true;
+}
+
+bool BytesToString(absl::string_view str, absl::string_view format,
+                   std::string* out, absl::Status* error) {
+  const std::string lower_format = absl::AsciiStrToLower(format);
+  if (lower_format == "base2") {
+    return ToBase2(str, out, error);
+  }
+  if (lower_format == "base8") {
+    return ToBase8(str, out, error);
+  }
+  if (lower_format == "base16" || lower_format == "hex") {
+    return ToHex(str, out, error);
+  }
+  if (lower_format == "base64") {
+    return ToBase64(str, out, error);
+  }
+  if (lower_format == "base64m") {
+    bool result = ToBase64(str, out, error);
+    if (result && !out->empty() && out->size() > kMaxLineLengthBase64M) {
+      size_t newline_cnt = (out->size() - 1) / kMaxLineLengthBase64M;
+      size_t newline_pos = 0;
+      while (newline_cnt > 0) {
+        newline_pos += kMaxLineLengthBase64M;
+        out->insert(newline_pos, "\n");
+        newline_cnt--;
+      }
+    }
+    return result;
+  }
+  if (lower_format == "ascii") {
+    return ASCIICheckAndCopy(str, out, error);
+  }
+  if (lower_format == "utf8" || lower_format == "utf-8") {
+    return UTF8CheckAndCopy(str, out, error);
+  }
+  return internal::UpdateError(
+      error, absl::Substitute(kInvalidFormat, format));
+}
+
+bool StringToBytes(absl::string_view str, absl::string_view format,
+                   std::string* out, absl::Status* error) {
+  const std::string lower_format = absl::AsciiStrToLower(format);
+  if (lower_format == "base2") {
+    return FromBase2(str, out, error);
+  }
+  if (lower_format == "base8") {
+    return FromBase8(str, out, error);
+  }
+  if (lower_format == "base16" || lower_format == "hex") {
+    return FromHex(str, out, error);
+  }
+  if (lower_format == "base64" || lower_format == "base64m") {
+    return FromBase64(str, out, error);
+  }
+  if (lower_format == "ascii") {
+    return ASCIICheckAndCopy(str, out, error);
+  }
+  if (lower_format == "utf8" || lower_format == "utf-8") {
+    return UTF8CheckAndCopy(str, out, error);
+  }
+  return internal::UpdateError(
+      error, absl::Substitute(kInvalidFormat, format));
+}
+
+// Gets the set of all formats supported by StringToBytes() and BytesToString().
+static const absl::flat_hash_set<std::string>& GetFormatSet() {
+  static const absl::flat_hash_set<std::string>* format_set = nullptr;
+  if (format_set == nullptr) {
+    auto* set = new absl::flat_hash_set<std::string>();
+    set->insert({"base2", "base8", "base16", "hex",
+                 "base64", "base64m", "ascii", "utf8", "utf-8"});
+
+    format_set = set;
+  }
+  return *format_set;
+}
+
+absl::Status ValidateFormat(absl::string_view format) {
+  const std::string lower_format = absl::AsciiStrToLower(format);
+  if (!GetFormatSet().contains(lower_format)) {
+    return absl::Status(absl::StatusCode::kOutOfRange,
+                        absl::Substitute(kInvalidFormat, format));
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace functions

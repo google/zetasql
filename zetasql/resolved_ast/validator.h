@@ -202,6 +202,9 @@ class Validator {
   absl::Status ValidateResolvedAggregateScan(
       const ResolvedAggregateScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+  absl::Status ValidateResolvedAnonymizedAggregateScan(
+      const ResolvedAnonymizedAggregateScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
   absl::Status ValidateResolvedTableScan(
       const ResolvedTableScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -277,6 +280,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedGetProtoField* get_proto_field);
+
+  absl::Status ValidateResolvedGetJsonFieldExpr(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGetJsonField* get_json_field);
 
   absl::Status ValidateResolvedFlatten(
       const std::set<ResolvedColumn>& visible_columns,
@@ -455,8 +463,8 @@ class Validator {
       const std::vector<const Type*> column_types,
       absl::flat_hash_set<std::string>* constraint_names);
 
-  // Check that <expr> contains only ColumnRefs, GetProtoField and
-  // GetStructField expressions. Sets 'ref' to point to the leaf
+  // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
+  // and GetJsonField expressions. Sets 'ref' to point to the leaf
   // ResolvedColumnRef.
   absl::Status CheckExprIsPath(const ResolvedExpr* expr,
                                const ResolvedColumnRef** ref);

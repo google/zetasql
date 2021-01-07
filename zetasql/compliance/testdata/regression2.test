@@ -1,0 +1,50 @@
+# This file is an addition to 'regression.test.'
+# IMPORTANT: Please see the comments at the top 'regression.test' as those
+# guidelines need to be respected here as well.
+#
+# This file is separate from 'regression.test' because the [prepare_database]
+# below fails with Spandex and Mini-spandex, which leads to all regression tests
+# failing for them.
+#
+# Table used for b/19300607
+[prepare_database]
+CREATE TABLE UnsupportedTypesTable AS
+SELECT CAST('2014-01-01' AS DATE) as date_val,
+       TIMESTAMP '2014-01-01 00:00:01.011011 UTC' as
+           timestamp_val,
+       ARRAY<INT32>[0] as array_val,
+       STRUCT("abc" as a) as struct_val
+--
+ARRAY<STRUCT<
+        date_val DATE,
+        timestamp_val TIMESTAMP,
+        array_val ARRAY<>,
+        struct_val STRUCT<a STRING>
+      >>
+[{
+   2014-01-01,
+   2014-01-01 00:00:01.011011+00,
+   ARRAY<INT32>[0],
+   {"abc"}
+ }]
+==
+# Tests for b/19300607
+[name=b/19300607_1]
+SELECT date_val FROM UnsupportedTypesTable t
+--
+ARRAY<STRUCT<date_val DATE>>[{2014-01-01}]
+==
+[name=b/19300607_4]
+SELECT timestamp_val FROM UnsupportedTypesTable t
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-01-01 00:00:01.011011+00}]
+==
+[name=b/19300607_5]
+SELECT array_val FROM UnsupportedTypesTable t
+--
+ARRAY<STRUCT<array_val ARRAY<>>>[{ARRAY<INT32>[0]}]
+==
+[name=b/19300607_6]
+SELECT struct_val FROM UnsupportedTypesTable t
+--
+ARRAY<STRUCT<struct_val STRUCT<a STRING>>>[{{"abc"}}]

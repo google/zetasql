@@ -1,0 +1,1048 @@
+[prepare_database]
+CREATE TABLE FloatComparisons AS
+SELECT * FROM (SELECT
+  'nan/non-nan' AS testcase,
+  CAST('NaN' AS DOUBLE) AS d1,
+  0.2 AS d2,
+  CAST('NaN' AS FLOAT) AS f1,
+  CAST(0.2 AS FLOAT) AS f2
+UNION ALL (SELECT
+  'non-null/null' AS testcase,
+  5.2 AS d1,
+  NULL AS d2,
+  CAST('NaN' AS FLOAT) AS f1,
+  NULL AS f2)
+UNION ALL (SELECT
+  'equal non-null/non-nan values' AS testcase,
+  6.2 AS d1,
+  6.2 AS d2,
+  CAST(6.2 AS FLOAT) AS f1,
+  CAST(6.2 AS FLOAT) AS f2)
+UNION ALL (SELECT
+  'null values' AS testcase,
+  NULL AS d1,
+  NULL AS d2,
+  NULL AS f1,
+  NULL AS f2)
+);
+--
+ARRAY<STRUCT<testcase STRING, d1 DOUBLE, d2 DOUBLE, f1 FLOAT, f2 FLOAT>>[
+  {"nan/non-nan", nan, 0.2, nan, 0.2},
+  {"non-null/null", 5.2, NULL, nan, NULL},
+  {
+    "equal non-null/non-nan values",
+    6.2,
+    6.2,
+    6.2,
+    6.2
+  },
+  {"null values", NULL, NULL, NULL, NULL}
+]
+==
+[prepare_database]
+CREATE TABLE StructComparisons AS (
+  SELECT * FROM (
+    SELECT
+      1 AS rowid,
+      CAST(NULL AS STRUCT<>) AS s1,
+      STRUCT<>() AS s2,
+      STRUCT(NULL) AS s3,
+      STRUCT(3) AS s4
+    UNION ALL (
+    SELECT
+      2 AS rowid,
+      STRUCT<>() AS s1,
+      CAST(NULL AS STRUCT<>) AS s2,
+      STRUCT(3) AS s3,
+      STRUCT(NULL) AS s4
+    )
+    UNION ALL (
+    SELECT
+      3 AS rowid,
+      STRUCT<>() AS s1,
+      NULL AS s2,
+      NULL AS s3,
+      NULL AS s4
+    )
+));
+--
+ARRAY<STRUCT<rowid INT64,
+             s1 STRUCT<>,
+             s2 STRUCT<>,
+             s3 STRUCT<INT64>,
+             s4 STRUCT<INT64>>>
+[
+  {1, NULL, {}, {NULL}, {3}},
+  {2, {}, NULL, {3}, {NULL}},
+  {3, {}, NULL, NULL, NULL}
+]
+==
+[prepare_database]
+CREATE TABLE Int64Uint64Comparisons AS (
+  SELECT * FROM (
+    SELECT
+      0 AS rowid,
+      1 AS a,
+      CAST(1 AS UINT64) AS b,
+    UNION ALL (
+    SELECT
+      1 AS rowid,
+      -1 AS a,
+      /*uint64 max*/CAST(18446744073709551615 AS UINT64) AS b
+    ) UNION ALL (
+    SELECT
+      2 AS rowid,
+      /*int64 min*/-9223372036854775808 AS a,
+      CAST(9223372036854775808 AS UINT64) AS b
+    ) UNION ALL (
+    SELECT
+      3 AS rowid,
+      NULL AS a,
+      NULL AS b
+    ) UNION ALL (
+    SELECT
+      4 AS rowid,
+      NULL AS a,
+      0 AS b
+    )
+));
+--
+ARRAY<STRUCT<rowid INT64, a INT64, b UINT64>>[
+  {0, 1, 1},
+  {1, -1, 18446744073709551615},
+  {2, -9223372036854775808, 9223372036854775808},
+  {3, NULL, NULL},
+  {4, NULL, 0}
+]
+==
+[prepare_database]
+CREATE TABLE StringComparisons AS (
+  SELECT * FROM (
+    SELECT
+      0 AS rowid,
+      'abc' AS a,
+      'abc' AS b,
+    UNION ALL (
+    SELECT
+      1 AS rowid,
+      'abc' AS a,
+      'abcd' AS b
+    ) UNION ALL (
+    SELECT
+      2 AS rowid,
+      NULL AS a,
+      '' AS b
+    ) UNION ALL (
+    SELECT
+      3 AS rowid,
+      NULL AS a,
+      NULL AS b
+    )
+));
+--
+ARRAY<STRUCT<rowid INT64, a STRING, b STRING>>[
+  {0, "abc", "abc"},
+  {1, "abc", "abcd"},
+  {2, NULL, ""},
+  {3, NULL, NULL}
+]
+==
+[name=comparison_functions_1]
+SELECT 1=1
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_2]
+SELECT 1 IS NULL
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_3]
+SELECT 1 IS NOT NULL
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_4]
+SELECT NULL IS NULL
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_5]
+SELECT NULL IS NOT NULL
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_6]
+SELECT "a" IN ("a")
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_7]
+SELECT "a" IN ("b")
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_8]
+SELECT "c" IN ("a", "b", "c")
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_9]
+SELECT "z" IN ("a", "b", "c")
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_10]
+SELECT NULL IN ("a", "b", "c", NULL)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_functions_11]
+SELECT "a" IN (NULL, "a", NULL)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_12]
+SELECT "a" IN (NULL, "b", NULL)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_in_array_1]
+SELECT "a" IN UNNEST(["a"])
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_function_in_array_2]
+SELECT "a" IN UNNEST(["b"])
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_in_array_3]
+SELECT "c" IN UNNEST(["a", "b", "c"])
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_function_in_array_4]
+SELECT "z" IN UNNEST(["a", "b", "c"])
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_null_in_array_1]
+SELECT NULL IN UNNEST(["a", "b", "c", NULL])
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_null_in_array_2]
+SELECT NULL IN UNNEST(["a", "b", "c"])
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_null_in_array_3]
+[parameters=cast(null as string) as string_param]
+SELECT @string_param IN UNNEST(["a", "b", "c"])
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_null_in_array_4]
+[parameters=concat("aaa", null) as string_param]
+SELECT @string_param IN UNNEST(["a", "b", "c"])
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_null_in_null_array_1]
+SELECT NULL IN UNNEST(cast(NULL as array<string>))
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_null_in_null_array_2]
+[parameters=cast(null as string) as string_param]
+SELECT @string_param IN UNNEST(cast(NULL as array<string>))
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_null_in_null_array_3]
+[parameters=concat("aaa", null) as string_param]
+SELECT @string_param IN UNNEST(cast(NULL as array<string>))
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_in_array_6]
+SELECT "a" IN UNNEST([NULL, "a", NULL])
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_function_in_array_7]
+SELECT "a" IN UNNEST([NULL, "b", NULL])
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_in_array_8]
+SELECT 1 IN UNNEST(arr) FROM (SELECT [1,2,3] arr)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_function_in_array_9]
+SELECT 1 IN UNNEST(ARRAY<INT64>[])
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_in_array_10]
+SELECT 1 IN UNNEST(ARRAY<INT64>[NULL])
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_function_in_array_11]
+SELECT 1 IN UNNEST(CAST(NULL AS ARRAY<INT64>))
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_function_in_array_12]
+SELECT true FROM (SELECT ARRAY(SELECT 1) arr) WHERE 1 IN UNNEST(arr)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_13]
+SELECT 1.1 IN (SELECT CAST(NULL AS DOUBLE))
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_functions_14]
+SELECT 1.1 IN (SELECT 1.1)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_15]
+SELECT 1.1 IN (SELECT 2.2)
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_16]
+SELECT 1 IN (SELECT NULL UNION ALL SELECT 1)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_17]
+SELECT 1 IN (SELECT NULL UNION ALL SELECT 2)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_functions_18]
+SELECT 1 IN (SELECT 0 UNION ALL SELECT 2)
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_19]
+SELECT 1 IN (SELECT NULL UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_functions_20]
+SELECT "a" IN (SELECT NULL UNION ALL SELECT "a" UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_21]
+SELECT "a" IN (SELECT NULL UNION ALL SELECT "b" UNION ALL SELECT NULL)
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=comparison_functions_22]
+SELECT "a" IN (SELECT "b" UNION ALL SELECT "c" UNION ALL SELECT "d")
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_23]
+SELECT 1 IN (SELECT a FROM (SELECT 0 a) WHERE a > 0)
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_24]
+SELECT 5 BETWEEN 1 AND 10;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_25]
+SELECT 0 BETWEEN 1 AND 10;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_26]
+SELECT 11 BETWEEN 1 AND 10;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=comparison_functions_27]
+SELECT 1 BETWEEN 1 AND 10;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=comparison_functions_28]
+SELECT 10 BETWEEN 1 AND 10;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=between_min_and_max]
+SELECT x BETWEEN -5 AND 1
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
+--
+ARRAY<STRUCT<BOOL>>[{false}, {true}, {false}, {false}, {false}, {false}]
+==
+[name=between_min_and_nan]
+SELECT x BETWEEN 0 AND CAST("nan" AS DOUBLE)
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x;
+--
+ARRAY<STRUCT<BOOL>>[{false}, {false}, {false}, {false}, {false}, {false}]
+==
+[name=between_min_and_inf]
+SELECT x BETWEEN 0 AND CAST("inf" AS DOUBLE)
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
+--
+ARRAY<STRUCT<BOOL>>[{false}, {true}, {true}, {false}, {true}, {false}]
+==
+[name=between_nan_and_max]
+SELECT x BETWEEN CAST("nan" AS DOUBLE) AND 0
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x;
+--
+ARRAY<STRUCT<BOOL>>[{false}, {false}, {false}, {false}, {false}, {false}]
+==
+[name=between_neginf_and_max]
+SELECT x BETWEEN CAST("-inf" AS DOUBLE) AND 0
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {false}, {false}, {false}, {true}]
+==
+[name=between_nan_and_nan]
+SELECT x BETWEEN CAST("nan" AS DOUBLE) AND CAST("nan" AS DOUBLE)
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x;
+--
+ARRAY<STRUCT<BOOL>>[{false}, {false}, {false}, {false}, {false}, {false}]
+==
+[name=between_neginf_and_inf]
+SELECT x BETWEEN CAST("-inf" AS DOUBLE) AND CAST("inf" AS DOUBLE)
+FROM UNNEST([-10.0, 0.0, 10.0, CAST("nan" AS DOUBLE), CAST("inf" AS DOUBLE), CAST("-inf" AS DOUBLE)]) AS x WITH OFFSET ORDER BY OFFSET;
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}, {false}, {true}, {true}]
+==
+[name=between_null_and_number_possible]
+SELECT 1 BETWEEN NULL AND 5
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=between_null_and_number_impossible]
+SELECT 10 BETWEEN NULL AND 5
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=between_number_and_null_possible]
+SELECT 1 BETWEEN -5 AND NULL
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=between_number_and_null_impossible]
+SELECT -5 BETWEEN 1 AND NULL
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=null_between_min_and_max]
+SELECT NULL BETWEEN -0x7FFFFFFFFFFFFFFF - 1 AND 0x7FFFFFFFFFFFFFFF
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=null_between_nulls]
+SELECT NULL BETWEEN NULL AND NULL
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=null_between_impossible_range]
+SELECT NULL BETWEEN 10 AND 1
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+[name=between_uncoercible_literals_int32]
+SELECT CAST(1 as INT32) BETWEEN -1 AND 5000000000,
+       CAST(1 as INT32) BETWEEN -4294967296 AND 10;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+[name=between_uncoercible_literals_uint32]
+SELECT CAST(1 as UINT32) BETWEEN 0 AND 4294967296,
+       CAST(1 as UINT32) BETWEEN -1 AND 100;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+# positive INT32 BETWEEN min and max int64 values
+[name=between_int32_pos_with_int64]
+SELECT cast(1 as INT32) BETWEEN -9223372036854775808 AND 9223372036854775807;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+# UINT32 BETWEEN min/max int64 values
+[name=between_uint32_with_int64]
+SELECT cast(1 as UINT32) BETWEEN -9223372036854775808 AND 9223372036854775807;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+# UINT32 BETWEEN uint64 values
+[name=between_uint32_with_uint64]
+SELECT cast(1 as UINT32) BETWEEN 9223372036854775808 AND 9223372036854775809;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+# UINT64 BETWEEN INT64 literals
+[name=between_uint64_with_int64_literals]
+SELECT cast(1 as UINT64) BETWEEN 0 AND 1;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+# UINT64 BETWEEN INT64 literals
+[name=between_uint64_with_negative_int64_literals]
+[required_features=BETWEEN_UINT64_INT64]
+SELECT cast(0 as UINT64) BETWEEN -2 AND -1;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+# UINT64 BETWEEN INT64 literals
+[name=between_uint64_with_negative_and_positive_int64_literals]
+[required_features=BETWEEN_UINT64_INT64]
+SELECT cast(0 as UINT64) BETWEEN -2 AND 2;
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=between_uint64_int64_combos]
+[required_features=BETWEEN_UINT64_INT64]
+select CAST(1 as UINT64) BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64),
+       CAST(4 as UINT64) BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64),
+       CAST(1 as UINT64) BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64),
+       CAST(4 as UINT64) BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64),
+       CAST(1 as INT64) BETWEEN CAST(1 as UINT64) AND CAST(3 as UINT64),
+       CAST(4 as INT64) BETWEEN CAST(1 as UINT64) AND CAST(3 as UINT64),
+       CAST(1 as INT64) BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64),
+       CAST(4 as INT64) BETWEEN CAST(1 as INT64) AND CAST(3 as UINT64),
+       CAST(1 as INT64) BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64),
+       CAST(4 as INT64) BETWEEN CAST(1 as UINT64) AND CAST(3 as INT64),
+       CAST(1 as UINT64) BETWEEN CAST(1 as INT64) AND CAST(3 as INT64),
+       CAST(4 as UINT64) BETWEEN CAST(1 as INT64) AND CAST(3 as INT64);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, false, true, false, true, false, true, false, true, false, true, false}
+]
+==
+# positive INT32 BETWEEN uint64 values
+[name=between_int32_pos_with_uint64]
+[required_features=BETWEEN_UINT64_INT64]
+SELECT cast(1 as INT32) BETWEEN 9223372036854775808 AND 9223372036854775809;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+# negative INT32 BETWEEN uint64 values
+[name=between_int32_neg_with_uint64]
+[required_features=BETWEEN_UINT64_INT64]
+SELECT cast(-1 as INT32) BETWEEN 9223372036854775808 AND 9223372036854775809;
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=between_with_nan_and_null]
+select CAST('NaN' as DOUBLE) BETWEEN 1 AND NULL,
+       CAST('NaN' as DOUBLE) BETWEEN NULL AND 1,
+       CAST('NaN' as DOUBLE) BETWEEN NULL AND NULL,
+       CAST('NaN' as DOUBLE) BETWEEN NULL AND CAST('NaN' as DOUBLE),
+       CAST('NaN' as DOUBLE) BETWEEN CAST('NaN' as DOUBLE) AND NULL,
+       1 BETWEEN CAST('Nan' AS DOUBLE) AND NULL,
+       1 BETWEEN NULL AND CAST('Nan' AS DOUBLE),
+       NULL BETWEEN CAST('Nan' AS DOUBLE) AND 1,
+       NULL BETWEEN 1 AND CAST('Nan' AS DOUBLE),
+       NULL BETWEEN CAST('Nan' AS DOUBLE) AND CAST('Nan' AS DOUBLE);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, NULL, false, false, false, false, NULL, NULL, NULL}
+]
+==
+[name=not_between_with_nan_and_null]
+select CAST('NaN' as DOUBLE) NOT BETWEEN 1 AND NULL,
+       CAST('NaN' as DOUBLE) NOT BETWEEN NULL AND 1,
+       CAST('NaN' as DOUBLE) NOT BETWEEN NULL AND NULL,
+       CAST('NaN' as DOUBLE) NOT BETWEEN NULL AND CAST('NaN' as DOUBLE),
+       CAST('NaN' as DOUBLE) NOT BETWEEN CAST('NaN' as DOUBLE) AND NULL,
+       1 NOT BETWEEN CAST('Nan' AS DOUBLE) AND NULL,
+       1 NOT BETWEEN NULL AND CAST('Nan' AS DOUBLE),
+       NULL NOT BETWEEN CAST('Nan' AS DOUBLE) AND 1,
+       NULL NOT BETWEEN 1 AND CAST('Nan' AS DOUBLE),
+       NULL NOT BETWEEN CAST('Nan' AS DOUBLE) AND CAST('Nan' AS DOUBLE);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, NULL, true, true, true, true, NULL, NULL, NULL}
+]
+==
+# Google's new birthday
+[name=timestamp_equal_true]
+SELECT TIMESTAMP '2005-09-27 12:00:00 UTC' = TIMESTAMP '2005-09-27 12:00:00 UTC';
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=timestamp_equal_false]
+SELECT TIMESTAMP '2100-01-23 01:23:45.678 UTC' = TIMESTAMP '2100-01-23 01:23:45.679';
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+# Sputnik launch was before Yuri Gagarin went to Cosmos
+[name=timestamp_less_true]
+SELECT TIMESTAMP '1957-10-04 19:28:00 UTC' < TIMESTAMP '1961-04-12 06:07:00 UTC';
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+# Prince William's royal wedding was before his son was born
+[name=timestamp_less_false]
+SELECT TIMESTAMP '2013-07-22 16:24:00 Europe/London' < TIMESTAMP '2011-04-29 10:48:00 Europe/London';
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+# Philae landing on the comet came after separation from Rosetta
+[name=timestamp_greater_true]
+SELECT TIMESTAMP '2014-11-12 16:02:20 UTC' > TIMESTAMP '2014-11-12 10:03:20 UTC';
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+# Seahawks scored first points in Superbowl XLVIII 12 seconds after it started
+[name=timestamp_greater_false]
+SELECT TIMESTAMP '2014-02-02 18:30:00 America/New_York' > TIMESTAMP '2014-02-02 18:30:12 America/New_York'
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=timestamp_greater_less_equal]
+SELECT TIMESTAMP '2010-10-10 20:10:20 UTC' >= TIMESTAMP '2010-10-10 20:10:20 UTC',
+       TIMESTAMP '2010-10-10 20:10:20 UTC' >= TIMESTAMP '2010-10-10 20:10:19 UTC',
+       TIMESTAMP '2010-10-10 20:10:20 UTC' >= TIMESTAMP '2010-10-10 20:10:21 UTC',
+       TIMESTAMP '2010-10-10 20:10:20 UTC' <= TIMESTAMP '2010-10-10 20:10:20 UTC',
+       TIMESTAMP '2010-10-10 20:10:20 UTC' <= TIMESTAMP '2010-10-10 20:10:21 UTC',
+       TIMESTAMP '2010-10-10 20:10:20 UTC' <= TIMESTAMP '2010-10-10 20:10:19 UTC';
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, false, true, true, false}
+]
+==
+[name=timestamp_between]
+SELECT TIMESTAMP '1985-09-01 12:34:56 UTC' BETWEEN TIMESTAMP '1985-09-01 12:34:56 UTC' AND TIMESTAMP '1985-09-01 12:34:56 UTC',
+       TIMESTAMP '1985-09-01 12:34:56 UTC' BETWEEN TIMESTAMP '1985-09-01 12:34:55 UTC' AND TIMESTAMP '1985-09-01 12:34:56 UTC',
+       TIMESTAMP '1985-09-01 12:34:56 UTC' BETWEEN TIMESTAMP '1985-09-01 12:34:56 UTC' AND TIMESTAMP '1985-09-01 12:34:57 UTC',
+       TIMESTAMP '1985-09-01 12:34:56 UTC' BETWEEN TIMESTAMP '1985-09-01 12:34:57 UTC' AND TIMESTAMP '1985-09-01 12:34:57 UTC',
+       TIMESTAMP '1985-09-01 12:34:56 UTC' BETWEEN TIMESTAMP '1985-09-01 12:34:55 UTC' AND TIMESTAMP '1985-09-01 12:34:55 UTC';
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{true, true, true, false, false}]
+==
+[name=date_between]
+SELECT DATE '1969-12-25' BETWEEN '1960-01-01' AND '1969-12-31',
+       DATE '2000-01-01' BETWEEN '2000-01-01' AND '2001-01-02',
+       DATE '2000-01-01' BETWEEN '1999-12-31' AND '2001-01-01',
+       DATE '2000-01-01' BETWEEN '2000-01-01' AND '2000-01-01',
+       DATE '2015-06-07' BETWEEN '2015-07-06' AND '2016-04-05',
+       DATE '4321-10-20' BETWEEN '4320-01-01' AND '4320-02-02',
+       DATE '1990-10-10' BETWEEN NULL AND '2000-11-11',
+       DATE '1990-10-10' BETWEEN '1980-12-12' AND NULL,
+       DATE '1990-10-10' BETWEEN NULL AND NULL,
+       CAST(NULL AS DATE) BETWEEN '0001-01-01' AND '9999-12-31',
+       CAST(NULL AS DATE) BETWEEN NULL AND NULL
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, false, false, NULL, NULL, NULL, NULL, NULL}
+]
+==
+[required_features=V_1_2_CIVIL_TIME]
+[name=datetime_between]
+SELECT DATETIME '1969-12-31 00:15:30' BETWEEN '1960-01-01 10:20:30' AND '1969-12-31 23:00:00',
+       DATETIME '2000-01-01 23:59:59' BETWEEN '2000-01-01 23:59:59' AND '2001-01-02 00:00:00',
+       DATETIME '2000-01-01 00:00:00' BETWEEN '1999-12-31 23:59:59' AND '2001-01-01 00:00:00',
+       DATETIME '2000-01-01 10:20:30' BETWEEN '2000-01-01 10:20:30' AND '2000-01-01 10:20:30',
+       DATETIME '2015-05-05 22:00:00' BETWEEN '2015-05-05 22:22:00' AND '2016-06-06 06:00:30',
+       DATETIME '4321-10-20 10:20:30' BETWEEN '4320-01-01 10:20:30' AND '4320-02-02 10:20:30',
+       DATETIME '1990-10-10 10:10:10' BETWEEN NULL AND '2000-11-11 20:20:20',
+       DATETIME '1990-10-10 10:10:10' BETWEEN '1980-12-12 21:30:45' AND NULL,
+       DATETIME '1990-10-10 10:10:10' BETWEEN NULL AND NULL,
+       CAST(NULL AS DATETIME) BETWEEN '0001-01-01 00:00:00' AND '9999-12-31 23:59:59',
+       CAST(NULL AS DATETIME) BETWEEN NULL AND NULL
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, false, false, NULL, NULL, NULL, NULL, NULL}
+]
+==
+[required_features=V_1_2_CIVIL_TIME]
+[name=time_between]
+SELECT TIME '02:03:04.123' BETWEEN '01:02:03' AND '03:04:05',
+       TIME '17:59:59' BETWEEN '17:59:59' AND '18:00:00',
+       TIME '18:00:00' BETWEEN '17:59:59' AND '18:00:00',
+       TIME '10:20:30.456789' BETWEEN '10:20:30.456789' AND '10:20:30.456789',
+       TIME '22:00:00' BETWEEN '21:50:01' AND '21:58:59',
+       TIME '07:00:00' BETWEEN '07:01:00' AND '07:02:00',
+       TIME '10:10:10' BETWEEN NULL AND '11:11:11',
+       TIME '10:10:10' BETWEEN '09:09:09' AND NULL,
+       CAST(NULL AS TIME) BETWEEN '00:00:00' AND '23:59:59.999999',
+       CAST(NULL AS TIME) BETWEEN NULL AND NULL,
+       -- Reverse order of boundaries
+       TIME '15:15:15' BETWEEN '20:20:20' AND '10:10:10'
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, false, false, NULL, NULL, NULL, NULL, false}
+]
+==
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_integers]
+SELECT
+  1 IS DISTINCT FROM 1,
+  1 IS DISTINCT FROM 0,
+  1 IS NOT DISTINCT FROM 1,
+  1 IS NOT DISTINCT FROM 0;
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_strings]
+SELECT
+  '1' IS DISTINCT FROM '1',
+  '1' IS DISTINCT FROM '0',
+  '1' IS NOT DISTINCT FROM '1',
+  '1' IS NOT DISTINCT FROM '0';
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
+==
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_bytes]
+SELECT
+  b'1' IS DISTINCT FROM b'1',
+  b'1' IS DISTINCT FROM b'11',
+  b'1' IS NOT DISTINCT FROM b'1',
+  b'1' IS NOT DISTINCT FROM b'11';
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
+==
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_null_second_arg]
+SELECT
+  1 IS DISTINCT FROM NULL,
+  1 IS NOT DISTINCT FROM NULL;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[name=is_distinct_null_second_arg_struct]
+SELECT
+  STRUCT(NULL) IS DISTINCT FROM NULL,
+  STRUCT(NULL) IS NOT DISTINCT FROM NULL;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[name=is_distinct_null_second_arg_array]
+SELECT
+  [NULL] IS DISTINCT FROM NULL,
+  [NULL] IS NOT DISTINCT FROM NULL;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_null_first_arg]
+SELECT
+  NULL IS DISTINCT FROM 1,
+  NULL IS NOT DISTINCT FROM 1;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_nan]
+SELECT
+  inf_positive IS DISTINCT FROM inf_positive,
+  inf_positive IS DISTINCT FROM inf_negative,
+  inf_positive IS DISTINCT FROM nan,
+  nan IS DISTINCT FROM nan,
+
+  inf_positive IS NOT DISTINCT FROM inf_positive,
+  inf_positive IS NOT DISTINCT FROM inf_negative,
+  inf_positive IS NOT DISTINCT FROM nan,
+  nan IS NOT DISTINCT FROM nan,
+FROM (SELECT
+    IEEE_DIVIDE(1, 0) AS inf_positive,
+    IEEE_DIVIDE(-1, 0) AS inf_negative,
+    IEEE_DIVIDE(0, 0) AS nan)
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, true, true, false, true, false, false, true}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[name=is_distinct_nan_struct]
+SELECT
+  STRUCT(inf_positive, inf_negative, nan) IS DISTINCT FROM
+  STRUCT(inf_positive, inf_negative, nan),
+
+  STRUCT(inf_positive, inf_negative, nan) IS NOT DISTINCT FROM
+  STRUCT(inf_positive, inf_negative, nan),
+
+  STRUCT(inf_negative, inf_positive, nan) IS DISTINCT FROM
+  STRUCT(inf_positive, inf_negative, nan),
+
+  STRUCT(inf_negative, inf_positive, nan) IS NOT DISTINCT FROM
+  STRUCT(inf_positive, inf_negative, nan),
+FROM (SELECT
+    IEEE_DIVIDE(1, 0) AS inf_positive,
+    IEEE_DIVIDE(-1, 0) AS inf_negative,
+    IEEE_DIVIDE(0, 0) AS nan)
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[name=is_distinct_nan_array]
+SELECT
+  [inf_positive, inf_negative, nan] IS DISTINCT FROM
+  [inf_positive, inf_negative, nan],
+
+  [inf_positive, inf_negative, nan] IS NOT DISTINCT FROM
+  [inf_positive, inf_negative, nan],
+
+  [inf_negative, inf_positive, nan] IS DISTINCT FROM
+  [inf_positive, inf_negative, nan],
+
+  [inf_negative, inf_positive, nan] IS NOT DISTINCT FROM
+  [inf_positive, inf_negative, nan],
+FROM (SELECT
+    IEEE_DIVIDE(1, 0) AS inf_positive,
+    IEEE_DIVIDE(-1, 0) AS inf_negative,
+    IEEE_DIVIDE(0, 0) AS nan)
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_int64_int32]
+SELECT
+  CAST(1 AS INT32) IS DISTINCT FROM CAST(1 AS INT64),
+  CAST(1 AS INT32) IS NOT DISTINCT FROM CAST(1 AS INT64),
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_int64_uint64]
+SELECT
+  CAST(1 AS INT64) IS DISTINCT FROM CAST(1 AS UINT64),
+  CAST(1 AS INT64) IS NOT DISTINCT FROM CAST(1 AS UINT64),
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_uint64_int64]
+SELECT
+  CAST(1 AS UINT64) IS DISTINCT FROM CAST(1 AS INT64),
+  CAST(1 AS UINT64) IS NOT DISTINCT FROM CAST(1 AS INT64),
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_uint64_int64_out_of_range]
+ -- This covers cases where int64 and uint64 values share the same bit pattern,
+ -- but one value is out of range of the other's type, so they should not be
+ -- considered equal.
+WITH t AS (
+  SELECT
+    -- 2^64 - 1
+    CAST(18446744073709551615 AS UINT64) AS uint64_max,
+    -1 AS uint64_max_as_int64,
+
+    -- -2^63
+    -9223372036854775808 AS int64_min,
+    CAST(9223372036854775808 AS UINT64) AS int64_min_as_uint64
+)
+SELECT
+  uint64_max IS DISTINCT FROM uint64_max_as_int64,
+  uint64_max IS NOT DISTINCT FROM uint64_max_as_int64,
+  uint64_max_as_int64 IS DISTINCT FROM uint64_max,
+  uint64_max_as_int64 IS NOT DISTINCT FROM uint64_max,
+
+  int64_min IS DISTINCT FROM int64_min_as_uint64,
+  int64_min IS NOT DISTINCT FROM int64_min_as_uint64,
+  int64_min_as_uint64 IS DISTINCT FROM int64_min,
+  int64_min_as_uint64 IS NOT DISTINCT FROM int64_min
+FROM t
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, false, true, false, true, false, true, false}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[name=is_distinct_structs]
+SELECT
+  STRUCT(1 AS x, 2 AS y) IS DISTINCT FROM STRUCT (1 AS a, 2 AS b),
+  STRUCT(1 AS x, 2 AS y) IS DISTINCT FROM NULL,
+  CAST(NULL AS STRUCT<INT64, INT64>) IS DISTINCT FROM
+    CAST(NULL AS STRUCT<INT64, INT64>);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, true, false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[name=is_distinct_empty_structs]
+WITH t AS (
+  SELECT
+    STRUCT<>() AS empty_struct,
+    CAST(NULL AS STRUCT<>) AS null_empty_struct
+)
+SELECT
+  empty_struct IS DISTINCT FROM empty_struct,
+  empty_struct IS DISTINCT FROM null_empty_struct,
+  null_empty_struct IS DISTINCT FROM empty_struct,
+  null_empty_struct IS DISTINCT FROM null_empty_struct,
+
+  -- Empty structs nested inside of larger structs
+  STRUCT(empty_struct) IS DISTINCT FROM STRUCT(empty_struct),
+  STRUCT(empty_struct) IS DISTINCT FROM STRUCT(null_empty_struct),
+  STRUCT(null_empty_struct) IS DISTINCT FROM STRUCT(empty_struct),
+  STRUCT(null_empty_struct) IS DISTINCT FROM STRUCT(null_empty_struct),
+  STRUCT(null_empty_struct) IS DISTINCT FROM NULL
+FROM t;
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, true, true, false, false, true, true, false, true}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_ARRAY]
+[name=is_distinct_arrays]
+SELECT
+  [1, 2] IS DISTINCT FROM [1, 2];
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_uint64_int64_null_vs_null]
+SELECT
+  CAST(NULL AS INT64) IS DISTINCT FROM CAST(NULL AS UINT64),
+  CAST(NULL AS INT64) IS NOT DISTINCT FROM CAST(NULL AS UINT64),
+  CAST(NULL AS UINT64) IS DISTINCT FROM CAST(NULL AS INT64),
+  CAST(NULL AS UINT64) IS NOT DISTINCT FROM CAST(NULL AS INT64);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_uint64_int64_null_vs_nonnull]
+SELECT
+  CAST(NULL AS INT64) IS DISTINCT FROM CAST(0 AS UINT64),
+  CAST(NULL AS INT64) IS NOT DISTINCT FROM CAST(0 AS UINT64),
+  CAST(NULL AS UINT64) IS DISTINCT FROM CAST(0 AS INT64),
+  CAST(NULL AS UINT64) IS NOT DISTINCT FROM CAST(0 AS INT64);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, true, false}]
+==
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_uint64_int64_nonnull_vs_null]
+SELECT
+  CAST(0 AS INT64) IS DISTINCT FROM CAST(NULL AS UINT64),
+  CAST(0 AS INT64) IS NOT DISTINCT FROM CAST(NULL AS UINT64),
+  CAST(0 AS UINT64) IS DISTINCT FROM CAST(NULL AS INT64),
+  CAST(0 AS UINT64) IS NOT DISTINCT FROM CAST(NULL AS INT64);
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, true, false}]
+==
+
+# Floating point IS DISTINCT operations involving predefined tables
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_float_predefined_tables]
+SELECT
+  testcase,
+  f1 IS DISTINCT FROM f1,
+  f2 IS DISTINCT FROM f2,
+  d1 IS DISTINCT FROM d1,
+  d2 IS DISTINCT FROM d2,
+
+  f1 IS DISTINCT FROM f2,
+  f1 IS NOT DISTINCT FROM f2,
+  d1 IS DISTINCT FROM d2,
+  d1 IS NOT DISTINCT FROM d2
+FROM FloatComparisons
+ORDER BY testcase;
+--
+ARRAY<STRUCT<testcase STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {
+    "equal non-null/non-nan values",
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+    false,
+    true
+  },
+  {"nan/non-nan", false, false, false, false, true, false, true, false},
+  {"non-null/null", false, false, false, false, true, false, true, false},
+  {"null values", false, false, false, false, false, true, false, true}
+]
+==
+
+# Struct IS DISTINCT comparisons from predefined tables
+[required_features=V_1_3_IS_DISTINCT,V_1_2_GROUP_BY_STRUCT]
+[name=is_distinct_struct_predefined_tables]
+SELECT
+  rowid,
+  s1 IS DISTINCT FROM s1,
+  s1 IS DISTINCT FROM s2,
+  s3 IS DISTINCT FROM s3,
+  s3 IS DISTINCT FROM s4,
+  s1 IS NOT DISTINCT FROM s1,
+  s1 IS NOT DISTINCT FROM s2,
+  s3 IS NOT DISTINCT FROM s3,
+  s3 IS NOT DISTINCT FROM s4,
+FROM StructComparisons
+ORDER BY rowid;
+--
+ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {1, false, true, false, true, true, false, true, false},
+  {2, false, true, false, true, true, false, true, false},
+  {3, false, true, false, false, true, false, true, true}
+]
+==
+
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_int64_uint64_predefined_tables]
+SELECT
+  rowid,
+  a IS DISTINCT FROM b,
+  b IS DISTINCT FROM a,
+  a IS NOT DISTINCT FROM b,
+  b IS NOT DISTINCT FROM a
+FROM Int64Uint64Comparisons
+ORDER BY rowid;
+--
+ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[
+  {0, false, false, true, true},
+  {1, true, true, false, false},
+  {2, true, true, false, false},
+  {3, false, false, true, true},
+  {4, true, true, false, false}
+]
+==
+[required_features=V_1_3_IS_DISTINCT]
+[name=is_distinct_string_predefined_tables]
+SELECT
+  rowid,
+  a IS DISTINCT FROM b,
+  b IS DISTINCT FROM a,
+  a IS NOT DISTINCT FROM b,
+  b IS NOT DISTINCT FROM a
+FROM StringComparisons
+ORDER BY rowid;
+--
+ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[
+  {0, false, false, true, true},
+  {1, true, true, false, false},
+  {2, true, true, false, false},
+  {3, false, false, true, true}
+]

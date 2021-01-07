@@ -62,6 +62,8 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_PIVOT);
       features.insert(FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
       features.insert(FEATURE_V_1_3_COLLATION_SUPPORT);
+      features.insert(FEATURE_V_1_3_IS_DISTINCT);
+      features.insert(FEATURE_V_1_3_FORMAT_IN_CAST);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

@@ -1,0 +1,122 @@
+[default required_features=TABLESAMPLE]
+
+[name=bernoulli_none]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(0 PERCENT)
+--
+ARRAY<STRUCT<INT64>>[{0}]
+===
+
+[name=bernoulli_all]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(100 PERCENT)
+--
+ARRAY<STRUCT<INT64>>[{50}]
+===
+
+[name=reservoir_none]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(0 ROWS)
+--
+ARRAY<STRUCT<INT64>>[{0}]
+===
+
+[name=reservoir_full]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(5 ROWS)
+--
+ARRAY<STRUCT<INT64>>[{5}]
+===
+
+[name=reservoir_exact]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(50 ROWS)
+--
+ARRAY<STRUCT<INT64>>[{50}]
+===
+
+[name=reservoir_not_enough_rows_in_input]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(1000 ROWS)
+--
+ARRAY<STRUCT<INT64>>[{50}]
+===
+
+[name=bernoulli_filtered]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(100 PERCENT)
+WHERE FALSE
+--
+ARRAY<STRUCT<INT64>>[{0}]
+===
+
+[name=reservoir_filtered]
+SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(100 ROWS)
+WHERE FALSE
+--
+ARRAY<STRUCT<INT64>>[{0}]
+===
+
+[name=bernoulli_likely]
+SELECT COUNT(*) > 0 FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(95.5 PERCENT)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+===
+
+[name=error_bernoulli_sample_size_null]
+[parameters=NULL as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(@P PERCENT)
+--
+ERROR: generic::out_of_range: SampleScan requires non-null size
+===
+
+[name=error_bernoulli_sample_size_negative]
+[parameters=-10 as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(@P PERCENT)
+--
+ERROR: generic::out_of_range: PERCENT value must be in the range [0, 100]
+===
+
+[name=error_bernoulli_sample_size_above_100]
+[parameters=100.1 as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE BERNOULLI(@P PERCENT)
+--
+ERROR: generic::out_of_range: PERCENT value must be in the range [0, 100]
+===
+
+[name=error_reservoir_sample_size_null]
+[parameters=NULL as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(@P ROWS)
+--
+ERROR: generic::out_of_range: SampleScan requires non-null size
+===
+
+[name=error_reservoir_sample_size_negative]
+[parameters=-10 as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(@P ROWS)
+--
+ERROR: generic::out_of_range: SampleScan requires non-negative size
+===
+
+[name=error_repeatable_null]
+[parameters=NULL as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(5 ROWS) REPEATABLE(@P)
+--
+ERROR: generic::out_of_range: REPEATABLE must not be null
+===
+
+[name=error_repeatable_negative]
+[parameters=-10 as P]
+SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
+TABLESAMPLE RESERVOIR(5 ROWS) REPEATABLE(@P)
+--
+ERROR: generic::out_of_range: REPEATABLE must not be negative
+===

@@ -1,0 +1,309 @@
+# Tests for functions accepting timezone as argument when timezone is not a
+# constant.
+
+[prepare_database]
+CREATE TABLE Timezones AS
+SELECT  1 as id, 'Etc/Greenwich' as tz       -- +00:00
+union all
+SELECT  2 as id, 'Europe/Amsterdam' as tz    -- +01:00
+union all
+SELECT  3 as id, 'Antarctica/Syowa' as tz    -- +03:00
+union all
+SELECT  4 as id, 'Asia/Dubai' as tz          -- +04:00
+union all
+SELECT  5 as id, 'Asia/Calcutta' as tz       -- +05:30
+union all
+SELECT  6 as id, 'Australia/Eucla' as tz     -- +08:45
+union all
+SELECT  7 as id, NULL as tz                  -- NULL in the middle
+union all
+SELECT  8 as id, 'Pacific/Norfolk' as tz     -- +11:30
+union all
+SELECT  9 as id, 'NZ-CHAT' as tz             -- +12:45
+union all
+SELECT 10 as id, 'US/Eastern' as tz          -- -05:00
+union all
+SELECT 11 as id, 'America/Vancouver' as tz   -- -08:00
+union all
+SELECT 12 as id, 'Pacific/Honolulu' as tz    -- -10:00
+union all
+SELECT 13 as id, 'UTC+1234' as tz
+--
+ARRAY<STRUCT<id INT64, tz STRING>>[
+  {1, "Etc/Greenwich"},
+  {2, "Europe/Amsterdam"},
+  {3, "Antarctica/Syowa"},
+  {4, "Asia/Dubai"},
+  {5, "Asia/Calcutta"},
+  {6, "Australia/Eucla"},
+  {7, NULL},
+  {8, "Pacific/Norfolk"},
+  {9, "NZ-CHAT"},
+  {10, "US/Eastern"},
+  {11, "America/Vancouver"},
+  {12, "Pacific/Honolulu"},
+  {13, "UTC+1234"}
+]
+==
+[name=current_date]
+select
+  logical_and(date_diff(current_date(tz), current_date('UTC'), day) in (0,1,-1))
+from Timezones
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+#TODO: TIMESTAMP function is not supported in reference implementation.
+#[name=date_to_timestamp]
+#select tz, TIMESTAMP(DATE '2004-02-29', tz) from Timezones
+#--
+#==
+
+[name=timestamp_trunc]
+select tz, timestamp_trunc(timestamp '2010-10-20 10:20:30.456789', DAY, tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, TIMESTAMP>>[
+  {
+    "Europe/Amsterdam",
+    2010-10-19 22:00:00+00
+  },
+  {
+    "Asia/Dubai",
+    2010-10-19 20:00:00+00
+  },
+  {
+    "Australia/Eucla",
+    2010-10-20 15:15:00+00
+  },
+  {
+    "Pacific/Norfolk",
+    2010-10-20 12:30:00+00
+  },
+  {
+    "US/Eastern",
+    2010-10-20 04:00:00+00
+  },
+  {
+    "Pacific/Honolulu",
+    2010-10-20 10:00:00+00
+  },
+  {
+    "Etc/Greenwich",
+    2010-10-20 00:00:00+00
+  },
+  {
+    "Antarctica/Syowa",
+    2010-10-19 21:00:00+00
+  },
+  {
+    "Asia/Calcutta",
+    2010-10-19 18:30:00+00
+  },
+  {NULL, NULL},
+  {
+    "NZ-CHAT",
+    2010-10-20 10:15:00+00
+  },
+  {
+    "America/Vancouver",
+    2010-10-20 07:00:00+00
+  },
+  {
+    "UTC+1234",
+    2010-10-20 11:26:00+00
+  }
+]
+==
+
+[name=extract_from_timestamp]
+select tz, extract(date from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, DATE>>[
+  {"Europe/Amsterdam", 2000-01-01},
+  {"Asia/Dubai", 2000-01-01},
+  {"Australia/Eucla", 2000-01-01},
+  {"Pacific/Norfolk", 2000-01-01},
+  {"US/Eastern", 2000-01-01},
+  {"Pacific/Honolulu", 1999-12-31},
+  {"Etc/Greenwich", 2000-01-01},
+  {"Antarctica/Syowa", 2000-01-01},
+  {"Asia/Calcutta", 2000-01-01},
+  {NULL, NULL},
+  {"NZ-CHAT", 2000-01-01},
+  {"America/Vancouver", 2000-01-01},
+  {"UTC+1234", 2000-01-01}
+]
+==
+
+[required_features=V_1_2_CIVIL_TIME]
+[name=extract_time_from_timestamp]
+select tz, extract(time from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, TIME>>[
+  {"Europe/Amsterdam", 09:00:00},
+  {"Asia/Dubai", 12:00:00},
+  {"Australia/Eucla", 16:45:00},
+  {"Pacific/Norfolk", 19:30:00},
+  {"US/Eastern", 03:00:00},
+  {"Pacific/Honolulu", 22:00:00},
+  {"Etc/Greenwich", 08:00:00},
+  {"Antarctica/Syowa", 11:00:00},
+  {"Asia/Calcutta", 13:30:00},
+  {NULL, NULL},
+  {"NZ-CHAT", 21:45:00},
+  {"America/Vancouver", 00:00:00},
+  {"UTC+1234", 20:34:00}
+]
+==
+
+[required_features=V_1_2_CIVIL_TIME]
+[name=extract_datetime_from_timestamp]
+select tz, extract(datetime from timestamp '2000-01-01 00:00:00' AT TIME ZONE tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, DATETIME>>[
+  {"Europe/Amsterdam", 2000-01-01 09:00:00},
+  {"Asia/Dubai", 2000-01-01 12:00:00},
+  {"Australia/Eucla", 2000-01-01 16:45:00},
+  {"Pacific/Norfolk", 2000-01-01 19:30:00},
+  {"US/Eastern", 2000-01-01 03:00:00},
+  {"Pacific/Honolulu", 1999-12-31 22:00:00},
+  {"Etc/Greenwich", 2000-01-01 08:00:00},
+  {"Antarctica/Syowa", 2000-01-01 11:00:00},
+  {"Asia/Calcutta", 2000-01-01 13:30:00},
+  {NULL, NULL},
+  {"NZ-CHAT", 2000-01-01 21:45:00},
+  {"America/Vancouver", 2000-01-01 00:00:00},
+  {"UTC+1234", 2000-01-01 20:34:00}
+]
+==
+
+[name=parse_timestamp]
+select tz, parse_timestamp('%y', '0', tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, TIMESTAMP>>[
+  {
+    "Europe/Amsterdam",
+    1999-12-31 23:00:00+00
+  },
+  {
+    "Asia/Dubai",
+    1999-12-31 20:00:00+00
+  },
+  {
+    "Australia/Eucla",
+    1999-12-31 15:15:00+00
+  },
+  {
+    "Pacific/Norfolk",
+    1999-12-31 12:30:00+00
+  },
+  {
+    "US/Eastern",
+    2000-01-01 05:00:00+00
+  },
+  {
+    "Pacific/Honolulu",
+    2000-01-01 10:00:00+00
+  },
+  {
+    "Etc/Greenwich",
+    2000-01-01 00:00:00+00
+  },
+  {
+    "Antarctica/Syowa",
+    1999-12-31 21:00:00+00
+  },
+  {
+    "Asia/Calcutta",
+    1999-12-31 18:30:00+00
+  },
+  {NULL, NULL},
+  {
+    "NZ-CHAT",
+    1999-12-31 10:15:00+00
+  },
+  {
+    "America/Vancouver",
+    2000-01-01 08:00:00+00
+  },
+  {
+    "UTC+1234",
+    1999-12-31 11:26:00+00
+  }
+]
+==
+
+[name=format_timestamp]
+select tz, format_timestamp('%y', timestamp '2000-01-01 00:00:00', tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, STRING>>[
+  {"Europe/Amsterdam", "00"},
+  {"Asia/Dubai", "00"},
+  {"Australia/Eucla", "00"},
+  {"Pacific/Norfolk", "00"},
+  {"US/Eastern", "00"},
+  {"Pacific/Honolulu", "99"},
+  {"Etc/Greenwich", "00"},
+  {"Antarctica/Syowa", "00"},
+  {"Asia/Calcutta", "00"},
+  {NULL, NULL},
+  {"NZ-CHAT", "00"},
+  {"America/Vancouver", "00"},
+  {"UTC+1234", "00"}
+]
+==
+
+[name=string_from_timestamp]
+select tz, string(timestamp '2014-02-28 10:20:30', tz) from Timezones
+--
+ARRAY<STRUCT<tz STRING, STRING>>[
+  {
+    "Europe/Amsterdam",
+    "2014-02-28 19:20:30+01"
+  },
+  {
+    "Asia/Dubai",
+    "2014-02-28 22:20:30+04"
+  },
+  {
+    "Australia/Eucla",
+    "2014-03-01 03:05:30+08:45"
+  },
+  {
+    "Pacific/Norfolk",
+    "2014-03-01 05:50:30+11:30"
+  },
+  {
+    "US/Eastern",
+    "2014-02-28 13:20:30-05"
+  },
+  {
+    "Pacific/Honolulu",
+    "2014-02-28 08:20:30-10"
+  },
+  {
+    "Etc/Greenwich",
+    "2014-02-28 18:20:30+00"
+  },
+  {
+    "Antarctica/Syowa",
+    "2014-02-28 21:20:30+03"
+  },
+  {
+    "Asia/Calcutta",
+    "2014-02-28 23:50:30+05:30"
+  },
+  {NULL, NULL},
+  {
+    "NZ-CHAT",
+    "2014-03-01 08:05:30+13:45"
+  },
+  {
+    "America/Vancouver",
+    "2014-02-28 10:20:30-08"
+  },
+  {
+    "UTC+1234",
+    "2014-03-01 06:54:30+12:34"
+  }
+]

@@ -25,154 +25,12 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-
-// static
-AnnotationValue AnnotationValue::String(std::string v) {
-  return AnnotationValue(TYPE_STRING, std::move(v));
-}
-
-// static
-AnnotationValue AnnotationValue::Int64(int64_t v) {
-  return AnnotationValue(TYPE_INT64, v);
-}
-
-AnnotationValue::AnnotationValue(AnnotationValue&& that) {
-  // NOLINTNEXTLINE - suppress clang-tidy warning on not TriviallyCopyable.
-  memcpy(this, &that, sizeof(AnnotationValue));
-  // Invalidate 'that' to disable its destructor.
-  that.type_ = TYPE_INVALID;
-}
-
-AnnotationValue& AnnotationValue::operator=(const AnnotationValue& that) {
-  // Self-copying must not clear the contents of the value.
-  if (this == &that) {
-    return *this;
-  }
-  Clear();
-  CopyFrom(that);
-  return *this;
-}
-
-AnnotationValue& AnnotationValue::operator=(AnnotationValue&& that) {
-  Clear();
-  // NOLINTNEXTLINE - suppress clang-tidy warning on not TriviallyCopyable.
-  memcpy(this, &that, sizeof(AnnotationValue));
-  // Invalidate 'that' to disable its destructor.
-  that.type_ = TYPE_INVALID;
-  return *this;
-}
-
-void AnnotationValue::Clear() {
-  switch (type_) {
-    case TYPE_STRING:
-      string_ptr_->Unref();
-      break;
-    case TYPE_INVALID:
-    case TYPE_INT64:
-      // Nothing to clear.
-      break;
-    default:
-      ZETASQL_CHECK(false) << "All ValueType must be explicitly handled in Clear()";
-  }
-  type_ = TYPE_INVALID;
-}
-
-void AnnotationValue::CopyFrom(const AnnotationValue& that) {
-  // Self-copy check is done in the copy constructor. Here we just ZETASQL_DCHECK that.
-  ZETASQL_DCHECK_NE(this, &that);
-  // NOLINTNEXTLINE - suppress clang-tidy warning on not TriviallyCopyable.
-  memcpy(this, &that, sizeof(AnnotationValue));
-  if (!IsValid()) {
-    return;
-  }
-  switch (type_) {
-    case TYPE_STRING:
-      string_ptr_->Ref();
-      break;
-    case TYPE_INVALID:
-    case TYPE_INT64:
-      // memcpy() has copied all the data.
-      break;
-  }
-}
-
-int64_t AnnotationValue::int64_value() const {
-  ZETASQL_CHECK(has_int64_value()) << "Not an int64_t value";
-  return int64_value_;
-}
-
-const std::string& AnnotationValue::string_value() const {
-  ZETASQL_CHECK(has_string_value()) << "Not a string value";
-  return string_ptr_->value();
-}
-
-absl::Status AnnotationValue::Serialize(AnnotationProto* proto) const {
-  switch (type_) {
-    case AnnotationValue::TYPE_INVALID:
-      ZETASQL_RET_CHECK_FAIL()
-          << "AnnotationValue with TYPE_INVALID cannot be serialized";
-      break;
-    case AnnotationValue::TYPE_INT64:
-      proto->set_int64_value(int64_value());
-      break;
-    case AnnotationValue::TYPE_STRING:
-      proto->set_string_value(string_value());
-      break;
-    default:
-      ZETASQL_RET_CHECK_FAIL() << "Unknown ValueType: " << type_;
-  }
-  return absl::OkStatus();
-}
-
-// static
-zetasql_base::StatusOr<AnnotationValue> AnnotationValue::Deserialize(
-    const AnnotationProto& proto) {
-  AnnotationValue value;
-  switch (proto.value_case()) {
-    case AnnotationProto::kInt64Value:
-      value = AnnotationValue::Int64(proto.int64_value());
-      break;
-    case AnnotationProto::kStringValue:
-      value = AnnotationValue::String(proto.string_value());
-      break;
-    case AnnotationProto::VALUE_NOT_SET:
-      ZETASQL_RET_CHECK_FAIL() << "No value set on AnnotationProto::value";
-    default:
-      ZETASQL_RET_CHECK_FAIL() << "Unknown annotationProto.value_case():"
-                       << proto.value_case();
-  }
-  return value;
-}
-
-bool AnnotationValue::Equals(const AnnotationValue& that) const {
-  if (type_ != that.type_) {
-    return false;
-  }
-  switch (type_) {
-    case TYPE_INT64:
-      return int64_value_ == that.int64_value();
-    case TYPE_STRING:
-      return string_value() == that.string_value();
-    case TYPE_INVALID:
-      return true;
-  }
-}
-
-std::string AnnotationValue::DebugString() const {
-  switch (type_) {
-    case TYPE_INT64:
-      return std::to_string(int64_value());
-    case TYPE_STRING:
-      return absl::StrCat("\"", string_value(), "\"");
-    case TYPE_INVALID:
-      return "<INVALID>";
-  }
-}
 
 static std::string GetAnnotationKindName(AnnotationKind kind) {
   switch (kind) {
@@ -187,7 +45,8 @@ absl::Status AnnotationMap::Serialize(AnnotationMapProto* proto) const {
   for (const auto& annotation_pair : annotations_) {
     AnnotationProto* annotation_proto = proto->add_annotations();
     annotation_proto->set_id(annotation_pair.first);
-    ZETASQL_RETURN_IF_ERROR(annotation_pair.second.Serialize(annotation_proto));
+    ZETASQL_RETURN_IF_ERROR(
+        annotation_pair.second.Serialize(annotation_proto->mutable_value()));
   }
   return absl::OkStatus();
 }
@@ -213,12 +72,30 @@ zetasql_base::StatusOr<std::unique_ptr<AnnotationMap>> AnnotationMap::Deserializ
   }
   // Deserialize annotation map.
   for (const auto& annotation_proto : proto.annotations()) {
-    ZETASQL_ASSIGN_OR_RETURN(AnnotationValue value,
-                     AnnotationValue::Deserialize(annotation_proto));
+    ZETASQL_ASSIGN_OR_RETURN(SimpleValue value,
+                     SimpleValue::Deserialize(annotation_proto.value()));
     annotation_map->SetAnnotation(static_cast<int>(annotation_proto.id()),
                                   value);
   }
   return annotation_map;
+}
+
+absl::Status AnnotationMap::CopyFrom(const AnnotationMap& that) {
+  annotations_ = that.annotations_;
+
+  if (IsStructMap()) {
+    ZETASQL_RET_CHECK(that.IsStructMap());
+    ZETASQL_RET_CHECK_EQ(AsStructMap()->num_fields(), that.AsStructMap()->num_fields());
+    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
+      ZETASQL_RETURN_IF_ERROR(AsStructMap()->mutable_field(i)->CopyFrom(
+          that.AsStructMap()->field(i)));
+    }
+  } else if (IsArrayMap()) {
+    ZETASQL_RET_CHECK(that.IsArrayMap());
+    ZETASQL_RETURN_IF_ERROR(AsArrayMap()->mutable_element()->CopyFrom(
+        that.AsArrayMap()->element()));
+  }
+  return absl::OkStatus();
 }
 
 bool AnnotationMap::HasMatchingStructure(const Type* type) const {
@@ -239,6 +116,24 @@ bool AnnotationMap::HasMatchingStructure(const Type* type) const {
                                   type->AsArray()->element_type());
   }
   return !type->IsStruct() && !type->IsArray();
+}
+
+int64_t AnnotationMap::GetEstimatedOwnedMemoryBytesSize() const {
+  int64_t total_size = 0;
+  for (const auto& annotation : annotations_) {
+    total_size += sizeof(annotation.first) +
+                  annotation.second.GetEstimatedOwnedMemoryBytesSize();
+  }
+  if (IsStructMap()) {
+    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
+      total_size += sizeof(std::unique_ptr<AnnotationMap>) +
+                    AsStructMap()->field(i).GetEstimatedOwnedMemoryBytesSize();
+    }
+  } else if (IsArrayMap()) {
+    total_size += sizeof(std::unique_ptr<AnnotationMap>) +
+                  AsArrayMap()->element().GetEstimatedOwnedMemoryBytesSize();
+  }
+  return total_size;
 }
 
 bool AnnotationMap::Equals(const AnnotationMap& that) const {
@@ -295,23 +190,19 @@ std::string AnnotationMap::DebugString() const {
     return "";
   }
   std::string out("{");
-  bool first = true;
-  for (const auto& pair : annotations_) {
-    if (first) {
-      first = false;
-    } else {
-      absl::StrAppend(&out, " ,");
-    }
-    std::string annotation_id;
-    if (pair.first <=
-        static_cast<int>(AnnotationKind::kMaxBuiltinAnnotationKind)) {
-      annotation_id =
-          GetAnnotationKindName(static_cast<AnnotationKind>(pair.first));
-    } else {
-      annotation_id = std::to_string(pair.first);
-    }
-    absl::StrAppend(&out, annotation_id, ":", pair.second.DebugString());
-  }
+  absl::StrAppend(
+      &out,
+      absl::StrJoin(annotations_, ", ", [](std::string* out, const auto& pair) {
+        std::string annotation_id;
+        if (pair.first <=
+            static_cast<int>(AnnotationKind::kMaxBuiltinAnnotationKind)) {
+          annotation_id =
+              GetAnnotationKindName(static_cast<AnnotationKind>(pair.first));
+        } else {
+          annotation_id = std::to_string(pair.first);
+        }
+        absl::StrAppend(out, annotation_id, ":", pair.second.DebugString());
+      }));
   absl::StrAppend(&out, "}");
   return out;
 }
@@ -338,7 +229,9 @@ std::string StructAnnotationMap::DebugString() const {
   std::string out(AnnotationMap::DebugString());
   absl::StrAppend(&out, "<");
   for (int i = 0; i < num_fields(); i++) {
-    absl::StrAppend(&out, field(i).DebugString());
+    std::string field_debug_string = field(i).DebugString();
+    absl::StrAppend(&out,
+                    field_debug_string.empty() ? "{}" : field_debug_string);
     if (i != num_fields() - 1) {
       absl::StrAppend(&out, ",");
     }

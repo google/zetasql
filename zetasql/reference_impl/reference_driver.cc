@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/reference_driver.h"
 
+#include <map>
 #include <utility>
 
 #include "zetasql/base/logging.h"
@@ -42,6 +43,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testing/test_value.h"
 #include <cstdint>
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -73,8 +75,50 @@ ABSL_FLAG(bool, reference_impl_enable_optional_rewrites, false,
 
 namespace zetasql {
 
+class ReferenceDriver::BuiltinFunctionCache {
+ public:
+  ~BuiltinFunctionCache() { DumpStats(); }
+  void SetLanguageOptions(const LanguageOptions& options,
+                          SimpleCatalog* catalog) {
+    ++total_calls_;
+    const BuiltinFunctionMap* builtin_function_map = nullptr;
+    if (auto it = function_cache_.find(options); it != function_cache_.end()) {
+      cache_hit_++;
+      builtin_function_map = &it->second;
+    } else {
+      std::map<std::string, std::unique_ptr<Function>> function_map;
+      // We have to call type_factory() while not holding mutex_.
+      TypeFactory* type_factory = catalog->type_factory();
+      GetZetaSQLFunctions(type_factory, options, &function_map);
+      builtin_function_map =
+          &(function_cache_.emplace(options, std::move(function_map))
+                .first->second);
+    }
+    std::vector<const Function*> functions;
+    functions.reserve(builtin_function_map->size());
+    for (const auto& entry : *builtin_function_map) {
+      functions.push_back(entry.second.get());
+    }
+    catalog->ClearFunctions();
+    catalog->AddZetaSQLFunctions(functions);
+  }
+  void DumpStats() {
+    ZETASQL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
+              << total_calls_ << "(" << (cache_hit_ * 100. / total_calls_)
+              << "%)"
+              << " size: " << function_cache_.size();
+  }
+
+ private:
+  using BuiltinFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
+  int total_calls_ = 0;
+  int cache_hit_ = 0;
+  absl::flat_hash_map<LanguageOptions, BuiltinFunctionMap> function_cache_;
+};
+
 ReferenceDriver::ReferenceDriver()
     : type_factory_(new TypeFactory),
+      function_cache_(absl::make_unique<BuiltinFunctionCache>()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -95,6 +139,7 @@ ReferenceDriver::ReferenceDriver()
 ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
     : type_factory_(new TypeFactory),
       language_options_(options),
+      function_cache_(absl::make_unique<BuiltinFunctionCache>()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -211,7 +256,7 @@ absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
     AddTable(table_name, test_table);
   }
   // Add functions to the catalog.
-  catalog_->AddZetaSQLFunctions(language_options_);
+  function_cache_->SetLanguageOptions(language_options_, catalog_.get());
   return absl::OkStatus();
 }
 
@@ -233,11 +278,8 @@ absl::Status ReferenceDriver::SetStatementEvaluationTimeout(
 
 void ReferenceDriver::SetLanguageOptions(const LanguageOptions& options) {
   language_options_ = options;
-
   if (catalog_ != nullptr) {
-    // Reinitialize the set of visible functions according to options.
-    catalog_->ClearFunctions();
-    catalog_->AddZetaSQLFunctions(language_options_);
+    function_cache_->SetLanguageOptions(language_options_, catalog_.get());
   }
 }
 

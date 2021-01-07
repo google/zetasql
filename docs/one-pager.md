@@ -777,8 +777,9 @@ Some interactive tools require statements to have a terminating semicolon.
 ### Trailing commas 
 <a id="trailing_commas"></a>
 
-You can optionally use a trailing comma (`,`) at the end of a list in a `SELECT`
-statement.
+You can optionally use a trailing comma (`,`) at the end of a column list in a
+`SELECT` statement. You might have a trailing comma as the result of
+programmatically creating a column list.
 
 **Example**
 
@@ -3289,9 +3290,8 @@ calculations.
 </thead>
 <tbody>
 
-<a id="numeric-type"></a>
-<tr>
-  <td style="vertical-align:middle"><code>NUMERIC</code>
+<tr id="numeric_type">
+  <td id="numeric-type" style="vertical-align:middle"><code>NUMERIC</code>
     <br><code>DECIMAL</code></td>
   <td style="vertical-align:middle">
     Precision: 38<br>
@@ -4498,16 +4498,7 @@ FROM locations l;
 +---------+------------+
 ```
 
-#### SELECT modifiers
-
-You can modify the results returned from a `SELECT` query, as follows.
-
-##### SELECT DISTINCT
-
-A `SELECT DISTINCT` statement discards duplicate rows and returns only the
-remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
-
-+  `PROTO`
+#### Modifiers for * operator
 
 ##### SELECT * EXCEPT
 
@@ -4572,6 +4563,17 @@ FROM orders;
 
 Note: `SELECT * REPLACE` does not replace columns that do not have names.
 
+#### Duplicate row handling
+
+You can modify the results returned from a `SELECT` query, as follows.
+
+##### SELECT DISTINCT
+
+A `SELECT DISTINCT` statement discards duplicate rows and returns only the
+remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
+
++  `PROTO`
+
 ##### SELECT ALL
 A `SELECT ALL` statement returns all rows, including duplicate rows.
 `SELECT ALL` is the default behavior of `SELECT`.
@@ -4599,7 +4601,7 @@ syntaxes below:
 ##### SELECT AS STRUCT
 
 ```sql
-SELECT AS STRUCT expr1 [struct_field_name1] [,... ]
+SELECT AS STRUCT expr [[AS] struct_field_name1] [,...]
 ```
 
 This produces a value table with a STRUCT row type,
@@ -4609,16 +4611,14 @@ column names and types produced in the `SELECT` list.
 Example:
 
 ```sql
-SELECT
-  ARRAY(SELECT AS STRUCT t.f1, t.f2 WHERE t.f3=true)
-FROM
-  Table t
+SELECT ARRAY(SELECT AS STRUCT 1 a, 2 b)
 ```
 
 `SELECT AS STRUCT` can be used in a scalar or array subquery to produce a single
 STRUCT type grouping multiple values together. Scalar
-and array subqueries (see [Subqueries][subquery-concepts]) are normally not allowed to
-return multiple columns.
+and array subqueries (see [Subqueries][subquery-concepts]) are normally not
+allowed to return multiple columns, but can return a single column with
+STRUCT type.
 
 Anonymous columns and duplicate columns
 are allowed.
@@ -4651,7 +4651,7 @@ alias the column had will be discarded in the value table.
 Example:
 
 ```sql
-SELECT AS VALUE Int64Column FROM Table;
+SELECT AS VALUE 1
 ```
 
 The query above produces a table with row type INT64.
@@ -4659,7 +4659,7 @@ The query above produces a table with row type INT64.
 Example:
 
 ```sql
-SELECT AS VALUE STRUCT(1 a, 2 b) xyz FROM Table;
+SELECT AS VALUE STRUCT(1 AS a, 2 AS b) xyz
 ```
 
 The query above produces a table with row type `STRUCT<a int64, b int64>`.
@@ -4667,7 +4667,7 @@ The query above produces a table with row type `STRUCT<a int64, b int64>`.
 Example:
 
 ```sql
-SELECT AS VALUE v FROM ValueTable v WHERE v.field=true;
+SELECT AS VALUE v FROM (SELECT AS STRUCT 1 a, true b) v WHERE v.b
 ```
 
 Given a value table `v` as input, the query above filters out certain values in
@@ -11473,13 +11473,15 @@ parameter value:
 The following example shows a UDF that employs a SQL function.
 
 ```sql
-CREATE TEMP FUNCTION addFourAndDivide(x INT64, y INT64) AS ((x + 4) / y);
+CREATE TEMP FUNCTION AddFourAndDivide(x INT64, y INT64)
+RETURNS DOUBLE
+AS ((x + 4) / y);
 WITH numbers AS
   (SELECT 1 as val UNION ALL
    SELECT 3 as val UNION ALL
    SELECT 4 as val UNION ALL
    SELECT 5 as val)
-SELECT val, addFourAndDivide(val, 2) AS result
+SELECT val, AddFourAndDivide(val, 2) AS result
 FROM numbers;
 
 +-----+--------+
@@ -11498,9 +11500,10 @@ aggregate parameter `dividend`, while the non-aggregate division operator
 ( `/` ) takes the non-aggregate parameter `divisor`.
 
 ```sql
-CREATE TEMP AGGREGATE FUNCTION scaled_sum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
+CREATE TEMP AGGREGATE FUNCTION ScaledSum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
+RETURNS DOUBLE
 AS (SUM(dividend) / divisor);
-SELECT scaled_sum(col1, 2) AS scaled_sum
+SELECT ScaledSum(col1, 2) AS scaled_sum
 FROM (SELECT 1 AS col1 UNION ALL
       SELECT 3 AS col1 UNION ALL
       SELECT 5 AS col1);
@@ -11517,11 +11520,13 @@ The following example shows a SQL UDF that uses a
 accepts arguments of various types.
 
 ```sql
-CREATE TEMP FUNCTION addFourAndDivideAny(x ANY TYPE, y ANY TYPE) AS (
+CREATE TEMP FUNCTION AddFourAndDivideAny(x ANY TYPE, y ANY TYPE)
+AS (
   (x + 4) / y
 );
-SELECT addFourAndDivideAny(3, 4) AS integer_output,
-       addFourAndDivideAny(1.59, 3.14) AS floating_point_output;
+
+SELECT AddFourAndDivideAny(3, 4) AS integer_output,
+       AddFourAndDivideAny(1.59, 3.14) AS floating_point_output;
 
 +----------------+-----------------------+
 | integer_output | floating_point_output |
@@ -11535,12 +11540,13 @@ The following example shows a SQL UDF that uses a
 element of an array of any type.
 
 ```sql
-CREATE TEMP FUNCTION lastArrayElement(arr ANY TYPE) AS (
+CREATE TEMP FUNCTION LastArrayElement(arr ANY TYPE)
+AS (
   arr[ORDINAL(ARRAY_LENGTH(arr))]
 );
 SELECT
   names[OFFSET(0)] AS first_name,
-  lastArrayElement(names) AS last_name
+  LastArrayElement(names) AS last_name
 FROM (
   SELECT ['Fred', 'McFeely', 'Rogers'] AS names UNION ALL
   SELECT ['Marie', 'Skłodowska', 'Curie']
@@ -11617,7 +11623,7 @@ This syntax consists of the following components:
 The following example creates a persistent UDF.
 
 ```sql
-CREATE FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
@@ -11628,7 +11634,7 @@ WITH numbers AS
   SELECT 2 AS x, 10 as y
   UNION ALL
   SELECT 3 as x, 15 as y)
-SELECT x, y, multiplyInputs(x, y) as product
+SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
 +-----+-----+--------------+
@@ -11643,7 +11649,7 @@ FROM numbers;
 The following example creates a temporary UDF.
 
 ```sql
-CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
@@ -11654,7 +11660,7 @@ WITH numbers AS
   SELECT 2 AS x, 10 as y
   UNION ALL
   SELECT 3 as x, 15 as y)
-SELECT x, y, multiplyInputs(x, y) as product
+SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
 +-----+-----+--------------+
@@ -11669,12 +11675,12 @@ FROM numbers;
 You can create multiple UDFs before a query. For example:
 
 ```sql
-CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
 """;
-CREATE TEMP FUNCTION divideByTwo(x DOUBLE)
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x / 2;
@@ -11687,9 +11693,9 @@ WITH numbers AS
   SELECT 3 as x, 15 as y)
 SELECT x,
   y,
-  multiplyInputs(x, y) as product,
-  divideByTwo(x) as half_x,
-  divideByTwo(y) as half_y
+  MultiplyInputs(x, y) as product,
+  DivideByTwo(x) as half_x,
+  DivideByTwo(y) as half_y
 FROM numbers;
 
 +-----+-----+--------------+--------+--------+
@@ -11704,12 +11710,12 @@ FROM numbers;
 You can pass the result of a UDF as input to another UDF. For example:
 
 ```sql
-CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
 """;
-CREATE TEMP FUNCTION divideByTwo(x DOUBLE)
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x/2;
@@ -11722,7 +11728,7 @@ WITH numbers AS
   SELECT 3 as x, 15 as y)
 SELECT x,
   y,
-  multiplyInputs(divideByTwo(x), divideByTwo(y)) as half_product
+  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
 FROM numbers;
 
 +-----+-----+--------------+
@@ -11792,11 +11798,11 @@ You must enclose external code in quotes. There are a few options:
 **Examples**
 
 ```sql
-CREATE TEMP FUNCTION plusOne(x DOUBLE)
+CREATE TEMP FUNCTION PlusOne(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
 AS "return x+1;";
-SELECT val, plusOne(val) AS result
+SELECT val, PlusOne(val) AS result
 FROM UNNEST([1, 2, 3]) AS val;
 
 +-----------+-----------+
@@ -11809,7 +11815,7 @@ FROM UNNEST([1, 2, 3]) AS val;
 ```
 
 ```sql
-CREATE TEMP FUNCTION customGreeting(a STRING)
+CREATE TEMP FUNCTION CustomGreeting(a STRING)
 RETURNS STRING
 LANGUAGE js AS """
   var d = new Date();
@@ -11819,7 +11825,7 @@ LANGUAGE js AS """
     return 'Good Evening, ' + a + '!';
   }
   """;
-SELECT customGreeting(names) as everyone
+SELECT CustomGreeting(names) as everyone
 FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 +-----------------------+
 | everyone              |
@@ -11831,13 +11837,14 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 ```
 
 ```sql
-CREATE TEMP FUNCTION plusOne(x STRING)
+CREATE TEMP FUNCTION PlusOne(x STRING)
 RETURNS STRING
 LANGUAGE js AS R"""
 var re = /[a-z]/g;
 return x.match(re);
 """;
-SELECT val, plusOne(val) AS result
+
+SELECT val, PlusOne(val) AS result
 FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
 
 +---------+
@@ -14991,8 +14998,34 @@ ABS(X)
 
 Computes absolute value. Returns an error if the argument is an integer and the
 output value cannot be represented as the same type; this happens only for the
-largest negative input value, which has no positive representation. Returns
-`+inf` for a `+/-inf` argument.
+largest negative input value, which has no positive representation.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ABS(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>25</td>
+      <td>25</td>
+    </tr>
+    <tr>
+      <td>-25</td>
+      <td>25</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15017,9 +15050,36 @@ SIGN(X)
 
 **Description**
 
-Returns -1, 0, or +1 for negative, zero and positive arguments respectively. For
-floating point arguments, this function does not distinguish between positive
-and negative zero. Returns `NaN` for a `NaN` argument.
+Returns `-1`, `0`, or `+1` for negative, zero and positive arguments
+respectively. For floating point arguments, this function does not distinguish
+between positive and negative zero.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SIGN(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>25</td>
+      <td>+1</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>-25</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <td>NaN</td>
+      <td>NaN</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15046,7 +15106,28 @@ IS_INF(X)
 
 Returns `TRUE` if the value is positive or negative infinity.
 
-Returns `NULL` for `NULL` inputs.
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>IS_INF(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>TRUE</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>TRUE</code></td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td><code>FALSE</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### IS_NAN
 
@@ -15058,7 +15139,24 @@ IS_NAN(X)
 
 Returns `TRUE` if the value is a `NaN` value.
 
-Returns `NULL` for` NULL` inputs.
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>IS_NAN(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>TRUE</code></td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td><code>FALSE</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### IEEE_DIVIDE
 
@@ -15071,57 +15169,64 @@ IEEE_DIVIDE(X, Y)
 Divides X by Y; this function never fails. Returns
 `DOUBLE` unless
 both X and Y are `FLOAT`, in which case it returns
-FLOAT. Unlike the division operator (/),
+`FLOAT`. Unlike the division operator (/),
 this function does not generate errors for division by zero or overflow.</p>
 
-Special cases:
-
-+   If the result overflows, returns `+/-inf`.
-+   If Y=0 and X=0, returns `NaN`.
-+   If Y=0 and X!=0, returns `+/-inf`.
-+   If X = `+/-inf` and Y = `+/-inf`, returns `NaN`.
-
-The behavior of `IEEE_DIVIDE` is further illustrated in the table below.
-
-##### Special cases for `IEEE_DIVIDE`
-
-The following table lists special cases for `IEEE_DIVIDE`.
-
 <table>
-<thead>
-<tr>
-<th>Numerator Data Type (X)</th>
-<th>Denominator Data Type (Y)</th>
-<th>Result Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Anything except 0</td>
-<td>0</td>
-<td><code>+/-inf</code></td>
-</tr>
-<tr>
-<td>0</td>
-<td>0</td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td>0</td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td><code>NaN</code></td>
-<td>0</td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td><code>+/-inf</code></td>
-<td><code>+/-inf</code></td>
-<td><code>NaN</code></td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>IEEE_DIVIDE(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20.0</td>
+      <td>4.0</td>
+      <td>5.0</td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td>25.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>25.0</td>
+      <td>0.0</td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>-25.0</td>
+      <td>0.0</td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td>0.0</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
 </table>
 
 #### RAND
@@ -15132,8 +15237,8 @@ RAND()
 
 **Description**
 
-Generates a pseudo-random value of type DOUBLE in the
-range of [0, 1), inclusive of 0 and exclusive of 1.
+Generates a pseudo-random value of type `DOUBLE` in
+the range of [0, 1), inclusive of 0 and exclusive of 1.
 
 #### SQRT
 
@@ -15145,7 +15250,28 @@ SQRT(X)
 
 Computes the square root of X. Generates an error if X is less than 0.
 
-Returns `+inf` if X is `+inf`.
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SQRT(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>25.0</code></td>
+      <td><code>5.0</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>X &lt; 0</code></td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15171,13 +15297,97 @@ POW(X, Y)
 **Description**
 
 Returns the value of X raised to the power of Y. If the result underflows and is
-not representable, then the function returns a  value of zero. Returns an error
-if one of the following is true:
+not representable, then the function returns a  value of zero.
 
-+ X is a finite value less than 0 and Y is a non-integer
-+ X is 0 and Y is a finite value less than 0
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>POW(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>3.0</td>
+      <td>8.0</td>
+    </tr>
+    <tr>
+      <td>1.0</td>
+      <td>Any value including <code>NaN</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>Any value including <code>NaN</code></td>
+      <td>0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>-1.0</td>
+      <td><code>+inf</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>-1.0</td>
+      <td><code>-inf</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td>ABS(X) &lt; 1</td>
+      <td><code>-inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>ABS(X) &gt; 1</td>
+      <td><code>-inf</code></td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>ABS(X) &lt; 1</td>
+      <td><code>+inf</code></td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>ABS(X) &gt; 1</td>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Y &lt; 0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Y &gt; 0</td>
+      <td><code>-inf</code> if Y is an odd integer, <code>+inf</code> otherwise</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Y &lt; 0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Y &gt; 0</td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>Finite value &lt; 0</td>
+      <td>Non-integer</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>Finite value &lt; 0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
+
 The return data type is determined by the argument types with the following
 table.
 
@@ -15201,77 +15411,6 @@ table.
 
 </table>
 
-**Special cases for** `POW(X, Y)`
-
-The following are special cases for `POW(X, Y)`.
-
-<table>
-<thead>
-<tr>
-<th>X</th>
-<th>Y</th>
-<th>POW(X, Y) or POWER(X, Y)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1.0</td>
-<td>Any value including <code>NaN</code></td>
-<td>1.0</td>
-</tr>
-<tr>
-<td>any including <code>NaN</code></td>
-<td>0</td>
-<td>1.0</td>
-</tr>
-<tr>
-<td>-1.0</td>
-<td><code>+/-inf</code></td>
-<td>1.0</td>
-</tr>
-<tr>
-<td>ABS(X) &lt; 1</td>
-<td><code>-inf</code></td>
-<td><code>+inf</code></td>
-</tr>
-<tr>
-<td>ABS(X) &gt; 1</td>
-<td><code>-inf</code></td>
-<td>0</td>
-</tr>
-<tr>
-<td>ABS(X) &lt; 1</td>
-<td><code>+inf</code></td>
-<td>0</td>
-</tr>
-<tr>
-<td>ABS(X) &gt; 1</td>
-<td><code>+inf</code></td>
-<td><code>+inf</code></td>
-</tr>
-<tr>
-<td><code>-inf</code></td>
-<td>Y &lt; 0</td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>-inf</code></td>
-<td>Y &gt; 0</td>
-<td><code>-inf</code> if Y is an odd integer, <code>+inf</code> otherwise</td>
-</tr>
-<tr>
-<td><code>+inf</code></td>
-<td>Y &lt; 0</td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>+inf</code></td>
-<td>Y &gt; 0</td>
-<td><code>+inf</code></td>
-</tr>
-</tbody>
-</table>
-
 #### POWER
 
 ```
@@ -15292,7 +15431,30 @@ EXP(X)
 
 Computes *e* to the power of X, also called the natural exponential function. If
 the result underflows, this function returns a zero. Generates an error if the
-result overflows. If X is `+/-inf`, then this function returns `+inf` or 0.
+result overflows.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>EXP(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>0.0</td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15318,7 +15480,30 @@ LN(X)
 **Description**
 
 Computes the natural logarithm of X. Generates an error if X is less than or
-equal to zero. If X is `+inf`, then this function returns `+inf`.
+equal to zero.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>LN(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>1.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>X &lt; 0</code></td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15343,12 +15528,60 @@ LOG(X [, Y])
 
 **Description**
 
-If only X is present, `LOG` is a synonym of `LN`. If Y is also present, `LOG`
-computes the logarithm of X to base Y. Generates an error in these cases:
+If only X is present, `LOG` is a synonym of `LN`. If Y is also present,
+`LOG` computes the logarithm of X to base Y.
 
-+ X is less than or equal to zero
-+ Y is 1.0
-+ Y is less than or equal to zero.
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>LOG(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>100.0</td>
+      <td>10.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Any value</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>0.0 &lt; Y &lt; 1.0</td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Y &gt; 1.0</td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td>X &lt;= 0</td>
+      <td>Any value</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td>Y &lt;= 0</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td>1.0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15372,43 +15605,6 @@ computes the logarithm of X to base Y. Generates an error in these cases:
 
 </table>
 
-The behavior of `LOG(X, Y)` is further illustrated in the table below.
-
-##### Special cases for `LOG(X, Y)` 
-<a id="special_log"></a>
-
-<table>
-<thead>
-<tr>
-<th>X</th>
-<th>Y</th>
-<th>LOG(X, Y)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>-inf</code></td>
-<td>Any value</td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td>Any value</td>
-<td><code>+inf</code></td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td><code>+inf</code></td>
-<td>0.0 Y &lt; 1.0</td>
-<td><code>-inf</code></td>
-</tr>
-<tr>
-<td><code>+inf</code></td>
-<td>Y &gt; 1.0</td>
-<td><code>+inf</code></td>
-</tr>
-</tbody>
-</table>
-
 #### LOG10
 
 ```
@@ -15418,6 +15614,33 @@ LOG10(X)
 **Description**
 
 Similar to `LOG`, but computes logarithm to base 10.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>LOG10(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>100.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt;= 0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15442,9 +15665,22 @@ GREATEST(X1,...,XN)
 
 **Description**
 
-Returns <code>NULL</code> if any of the inputs is <code>NULL</code>. Otherwise,
-returns <code>NaN</code> if any of the inputs is <code>NaN</code>. Otherwise,
-returns the largest value among X1,...,XN according to the &lt; comparison.
+Returns the largest value among X1,...,XN according to the &lt; comparison.
+
+<table>
+  <thead>
+    <tr>
+      <th>X1,...,XN</th>
+      <th>GREATEST(X1,...,XN)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>3,5,1</td>
+      <td>5</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Types**
 
@@ -15458,9 +15694,22 @@ LEAST(X1,...,XN)
 
 **Description**
 
-Returns `NULL` if any of the inputs is `NULL`. Returns `NaN` if any of the
-inputs is `NaN`. Otherwise, returns the smallest value among X1,...,XN
-according to the &gt; comparison.
+Returns the smallest value among X1,...,XN according to the &gt; comparison.
+
+<table>
+  <thead>
+    <tr>
+      <th>X1,...,XN</th>
+      <th>LEAST(X1,...,XN)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td>3,5,1</td>
+      <td>1</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Types**
 
@@ -15476,6 +15725,33 @@ DIV(X, Y)
 
 Returns the result of integer division of X by Y. Division by zero returns
 an error. Division by -1 may overflow.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>DIV(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>20</td>
+      <td>4</td>
+      <td>5</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>20</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>0</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15510,6 +15786,8 @@ SAFE_DIVIDE(X, Y)
 Equivalent to the division operator (<code>X / Y</code>), but returns
 <code>NULL</code> if an error occurs, such as a division by zero error.
 
+<table><thead><tr><th>X</th><th>Y</th><th>SAFE_DIVIDE(X, Y)</th></tr></thead><tbody><tr><td>20</td><td>4</td><td>5</td></tr><tr><td>0</td><td>20</td><td><code>0</code></td></tr><tr><td>20</td><td>0</td><td><code>NULL</code></td></tr></tbody></table>
+
 **Return Data Type**
 
 <table style="font-size:small"><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>INT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>INT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT32</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT64</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
@@ -15524,6 +15802,8 @@ SAFE_MULTIPLY(X, Y)
 
 Equivalent to the multiplication operator (<code>*</code>), but returns
 <code>NULL</code> if overflow occurs.
+
+<table><thead><tr><th>X</th><th>Y</th><th>SAFE_MULTIPLY(X, Y)</th></tr></thead><tbody><tr><td>20</td><td>4</td><td>80</td></tr></tbody></table>
 
 **Return Data Type**
 
@@ -15540,6 +15820,8 @@ SAFE_NEGATE(X)
 Equivalent to the unary minus operator (<code>-</code>), but returns
 <code>NULL</code> if overflow occurs.
 
+<table><thead><tr><th>X</th><th>SAFE_NEGATE(X)</th></tr></thead><tbody><tr><td>+1</td><td>-1</td></tr><tr><td>-1</td><td>+1</td></tr><tr><td>0</td><td>0</td></tr></tbody></table>
+
 **Return Data Type**
 
 <table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
@@ -15554,6 +15836,8 @@ SAFE_ADD(X, Y)
 
 Equivalent to the addition operator (<code>+</code>), but returns
 <code>NULL</code> if overflow occurs.
+
+<table><thead><tr><th>X</th><th>Y</th><th>SAFE_ADD(X, Y)</th></tr></thead><tbody><tr><td>5</td><td>4</td><td>9</td></tr></tbody></table>
 
 **Return Data Type**
 
@@ -15571,6 +15855,8 @@ Returns the result of Y subtracted from X.
 Equivalent to the subtraction operator (<code>-</code>), but returns
 <code>NULL</code> if overflow occurs.
 
+<table><thead><tr><th>X</th><th>Y</th><th>SAFE_SUBTRACT(X, Y)</th></tr></thead><tbody><tr><td>5</td><td>4</td><td>1</td></tr></tbody></table>
+
 **Return Data Type**
 
 <table style="font-size:small"><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>INT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>INT64</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT32</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>UINT64</th><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>FLOAT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr><tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
@@ -15585,6 +15871,27 @@ MOD(X, Y)
 
 Modulo function: returns the remainder of the division of X by Y. Returned
 value has the same sign as X. An error is generated if Y is 0.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>MOD(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>25</td>
+      <td>12</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>25</td>
+      <td>0</td>
+      <td>Error</td>
+    </tr>
+</table>
 
 **Return Data Type**
 
@@ -15608,8 +15915,7 @@ table.
 
 </table>
 
-#### ROUND 
-<a id="rounding_functions"></a>
+#### ROUND
 
 ```
 ROUND(X [, N])
@@ -15621,6 +15927,61 @@ If only X is present, `ROUND` rounds X to the nearest integer. If N is present,
 `ROUND` rounds X to N decimal places after the decimal point. If N is negative,
 `ROUND` will round off digits to the left of the decimal point. Rounds halfway
 cases away from zero. Generates an error if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ROUND(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.3</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.8</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td>2.5</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td>-2.3</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>-2.8</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>-2.5</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15649,6 +16010,61 @@ If only X is present, `TRUNC` rounds X to the nearest integer whose absolute
 value is not greater than the absolute value of X. If N is also present, `TRUNC`
 behaves like `ROUND(X, N)`, but always rounds towards zero and never overflows.
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>TRUNC(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.3</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.8</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.5</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>-2.3</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>-2.8</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>-2.5</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
 **Return Data Type**
 
 <table>
@@ -15673,6 +16089,61 @@ CEIL(X)
 **Description**
 
 Returns the smallest integral value that is not less than X.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CEIL(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.3</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td>2.8</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td>2.5</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <td>-2.3</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>-2.8</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>-2.5</td>
+      <td>-2.0</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 **Return Data Type**
 
@@ -15709,6 +16180,61 @@ FLOOR(X)
 
 Returns the largest integral value that is not greater than X.
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>FLOOR(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2.0</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.3</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.8</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>2.5</td>
+      <td>2.0</td>
+    </tr>
+    <tr>
+      <td>-2.3</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>-2.8</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>-2.5</td>
+      <td>-3.0</td>
+    </tr>
+    <tr>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
 **Return Data Type**
 
 <table>
@@ -15724,95 +16250,7 @@ Returns the largest integral value that is not greater than X.
 
 </table>
 
-##### Example rounding function behavior
-Example behavior of ZetaSQL rounding functions:
-
-<table>
-<thead>
-<tr>
-<th>Input "X"</th>
-<th>ROUND(X)</th>
-<th>TRUNC(X)</th>
-<th>CEIL(X)</th>
-<th>FLOOR(X)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>2.0</td>
-<td>2.0</td>
-<td>2.0</td>
-<td>2.0</td>
-<td>2.0</td>
-</tr>
-<tr>
-<td>2.3</td>
-<td>2.0</td>
-<td>2.0</td>
-<td>3.0</td>
-<td>2.0</td>
-</tr>
-<tr>
-<td>2.8</td>
-<td>3.0</td>
-<td>2.0</td>
-<td>3.0</td>
-<td>2.0</td>
-</tr>
-<tr>
-<td>2.5</td>
-<td>3.0</td>
-<td>2.0</td>
-<td>3.0</td>
-<td>2.0</td>
-</tr>
-<tr>
-<td>-2.3</td>
-<td>-2.0</td>
-<td>-2.0</td>
-<td>-2.0</td>
-<td>-3.0</td>
-</tr>
-<tr>
-<td>-2.8</td>
-<td>-3.0</td>
-<td>-2.0</td>
-<td>-2.0</td>
-<td>-3.0</td>
-</tr>
-<tr>
-<td>-2.5</td>
-<td>-3.0</td>
-<td>-2.0</td>
-<td>-2.0</td>
-<td>-3.0</td>
-</tr>
-<tr>
-<td>0</td>
-<td>0</td>
-<td>0</td>
-<td>0</td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>+/-inf</code></td>
-<td><code>+/-inf</code></td>
-<td><code>+/-inf</code></td>
-<td><code>+/-inf</code></td>
-<td><code>+/-inf</code></td>
-</tr>
-<tr>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-</tr>
-</tbody>
-</table>
-
-#### COS 
-<a id="trigonometric_and_hyperbolic_functions"></a>
+#### COS
 
 ```
 COS(X)
@@ -15821,6 +16259,29 @@ COS(X)
 **Description**
 
 Computes the cosine of X where X is specified in radians. Never fails.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>COS(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### COSH
 
@@ -15832,6 +16293,29 @@ COSH(X)
 
 Computes the hyperbolic cosine of X where X is specified in radians.
 Generates an error if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>COSH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### ACOS
 
@@ -15845,6 +16329,37 @@ Computes the principal value of the inverse cosine of X. The return value is in
 the range [0,&pi;]. Generates an error if X is a value outside of the
 range [-1, 1].
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ACOS(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt; -1</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>X &gt; 1</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
 #### ACOSH
 
 ```
@@ -15856,6 +16371,33 @@ ACOSH(X)
 Computes the inverse hyperbolic cosine of X. Generates an error if X is a value
 less than 1.
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ACOSH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt; 1</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
 #### SIN
 
 ```
@@ -15865,6 +16407,29 @@ SIN(X)
 **Description**
 
 Computes the sine of X where X is specified in radians. Never fails.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SIN(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### SINH
 
@@ -15876,6 +16441,29 @@ SINH(X)
 
 Computes the hyperbolic sine of X where X is specified in radians. Generates
 an error if overflow occurs.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SINH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### ASIN
 
@@ -15889,6 +16477,37 @@ Computes the principal value of the inverse sine of X. The return value is in
 the range [-&pi;/2,&pi;/2]. Generates an error if X is outside of
 the range [-1, 1].
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ASIN(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt; -1</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>X &gt; 1</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
 #### ASINH
 
 ```
@@ -15898,6 +16517,29 @@ ASINH(X)
 **Description**
 
 Computes the inverse hyperbolic sine of X. Does not fail.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ASINH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### TAN
 
@@ -15910,6 +16552,29 @@ TAN(X)
 Computes the tangent of X where X is specified in radians. Generates an error if
 overflow occurs.
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>TAN(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
 #### TANH
 
 ```
@@ -15920,6 +16585,29 @@ TANH(X)
 
 Computes the hyperbolic tangent of X where X is specified in radians. Does not
 fail.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>TANH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>1.0</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>-1.0</td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
 
 #### ATAN
 
@@ -15932,6 +16620,29 @@ ATAN(X)
 Computes the principal value of the inverse tangent of X. The return value is
 in the range [-&pi;/2,&pi;/2]. Does not fail.
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ATAN(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>-&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+  </tbody>
+</table>
+
 #### ATANH
 
 ```
@@ -15943,144 +16654,119 @@ ATANH(X)
 Computes the inverse hyperbolic tangent of X. Generates an error if X is outside
 of the range [-1, 1].
 
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>ATANH(X)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>X &lt; -1</td>
+      <td>Error</td>
+    </tr>
+    <tr>
+      <td>X &gt; 1</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
 #### ATAN2
 
 ```
-ATAN2(Y, X)
+ATAN2(X, Y)
 ```
 
 **Description**
 
-Calculates the principal value of the inverse tangent of Y/X using the signs of
+Calculates the principal value of the inverse tangent of X/Y using the signs of
 the two arguments to determine the quadrant. The return value is in the range
 [-&pi;,&pi;].
 
-The behavior of this function is further illustrated in <a
-href="#special_atan2">the table below</a>.
-
-##### Special cases for `ATAN2()` 
-<a id="special_atan2"></a>
-
 <table>
-<thead>
-<tr>
-<th>Y</th>
-<th>X</th>
-<th>ATAN2(Y, X)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NaN</code></td>
-<td>Any value</td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td>Any value</td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td>0</td>
-<td>0</td>
-<td>0, &pi; or -&pi; depending on the sign of X and Y</td>
-</tr>
-<tr>
-<td>Finite value</td>
-<td><code>-inf</code></td>
-<td>&pi; or -&pi; depending on the sign of Y</td>
-</tr>
-<tr>
-<td>Finite value</td>
-<td><code>+inf</code></td>
-<td>0</td>
-</tr>
-<tr>
-<td><code>+/-inf</code></td>
-<td>Finite value</td>
-<td>&pi;/2 or &pi;/2 depending on the sign of Y</td>
-</tr>
-<tr>
-<td><code>+/-inf</code></td>
-<td><code>-inf</code></td>
-<td>&frac34;&pi; or -&frac34;&pi; depending on the sign of Y</td>
-</tr>
-<tr>
-<td><code>+/-inf</code></td>
-<td><code>+inf</code></td>
-<td>&pi;/4 or -&pi;/4 depending on the sign of Y</td>
-</tr>
-</tbody>
-</table>
-
-##### Special cases for trigonometric and hyperbolic rounding functions 
-<a id="special_trig_hyperbolic"></a>
-
-<table>
-<thead>
-<tr>
-<th>X</th>
-<th>COS(X)</th>
-<th>COSH(X)</th>
-<th>ACOS(X)</th>
-<th>ACOSH(X)</th>
-<th>SIN(X)</th>
-<th>SINH(X)</th>
-<th>ASIN(X)</th>
-<th>ASINH(X)</th>
-<th>TAN(X)</th>
-<th>TANH(X)</th>
-<th>ATAN(X)</th>
-<th>ATANH(X)</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>+/-inf</code></td>
-<td><code>NaN</code></td>
-<td><code>=+inf</code></td>
-<td><code>NaN</code></td>
-<td><code>=+inf</code></td>
-<td><code>NaN</code></td>
-<td><code>=+inf</code></td>
-<td><code>NaN</code></td>
-<td><code>=+inf</code></td>
-<td><code>NaN</code></td>
-<td>=+1.0</td>
-<td>&pi;/2</td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td><code>-inf</code></td>
-<td><code>NaN</code></td>
-<td><code>=+inf</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>-inf</code></td>
-<td><code>NaN</code></td>
-<td><code>-inf</code></td>
-<td><code>NaN</code></td>
-<td>-1.0</td>
-<td>-&pi;/2</td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>Y</th>
+      <th>ATAN2(X, Y)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>NaN</code></td>
+      <td>Any value</td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>Any value</td>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td>0.0</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>Positive Finite value</td>
+      <td><code>-inf</code></td>
+      <td>&pi;</td>
+    </tr>
+    <tr>
+      <td>Negative Finite value</td>
+      <td><code>-inf</code></td>
+      <td>-&pi;</td>
+    </tr>
+    <tr>
+      <td>Finite value</td>
+      <td><code>+inf</code></td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td>Finite value</td>
+      <td>&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td>Finite value</td>
+      <td>-&pi;/2</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>-inf</code></td>
+      <td>&frac34;&pi;</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+      <td>-&frac34;&pi;</td>
+    </tr>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>+inf</code></td>
+      <td>&pi;/4</td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>+inf</code></td>
+      <td>-&pi;/4</td>
+    </tr>
+  </tbody>
 </table>
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
@@ -18057,6 +18743,11 @@ Converts the base64-encoded input `string_expr` into
 `BYTES` to a base64-encoded `STRING`,
 use [TO_BASE64][string-link-to-base64].
 
+There are several base64 encodings in common use that vary in exactly which
+alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
+See [RFC 4648](https://tools.ietf.org/html/rfc4648#section-4) for details. This
+function expects the alphabet `[A-Za-z0-9+/=]`.
+
 **Return type**
 
 `BYTES`
@@ -18064,13 +18755,29 @@ use [TO_BASE64][string-link-to-base64].
 **Example**
 
 ```sql
-SELECT FROM_BASE64('3q2+7w==') AS byte_data;
+SELECT FROM_BASE64('/+A=') AS byte_data;
 
-+------------------+
-| byte_data        |
-+------------------+
-| \xde\xad\xbe\xef |
-+------------------+
++------------+
+| byte_data |
++-----------+
+| \377\340  |
++-----------+
+```
+
+To work with an encoding using a different base64 alphabet, you might need to
+compose `FROM_BASE64` with the `REPLACE` function. For instance, the
+`base64url` url-safe and filename-safe encoding commonly used in web programming
+uses `-_=` as the last characters rather than `+/=`. To decode a
+`base64url`-encoded string, replace `+` and `/` with `-` and `_` respectively.
+
+```sql
+SELECT FROM_BASE64(REPLACE(REPLACE("_-A=", "-", "+"), "_", "/")) AS binary;
+
++-----------+
+| binary    |
++-----------+
+| \377\340  |
++-----------+
 ```
 
 #### FROM_HEX
@@ -19810,6 +20517,11 @@ TO_BASE64(bytes_expr)
 Converts a sequence of `BYTES` into a base64-encoded `STRING`. To convert a
 base64-encoded `STRING` into `BYTES`, use [FROM_BASE64][string-link-to-from-base64].
 
+There are several base64 encodings in common use that vary in exactly which
+alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
+See [RFC 4648](https://tools.ietf.org/html/rfc4648#section-4) for details. This
+function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
+
 **Return type**
 
 `STRING`
@@ -19817,13 +20529,29 @@ base64-encoded `STRING` into `BYTES`, use [FROM_BASE64][string-link-to-from-base
 **Example**
 
 ```sql
-SELECT TO_BASE64(b'\xde\xad\xbe\xef') AS base64_string;
+SELECT TO_BASE64(b'\377\340') AS base64_string;
 
 +---------------+
 | base64_string |
 +---------------+
-| 3q2+7w==      |
+| /+A=          |
 +---------------+
+```
+
+To work with an encoding using a different base64 alphabet, you might need to
+compose `TO_BASE64` with the `REPLACE` function. For instance, the
+`base64url` url-safe and filename-safe encoding commonly used in web programming
+uses `-_=` as the last characters rather than `+/=`. To encode a
+`base64url`-encoded string, replace `-` and `_` with `+` and `/` respectively.
+
+```sql
+SELECT REPLACE(REPLACE(TO_BASE64(b"\377\340"), "+", "-"), "/", "_") as websafe_base64;
+
++----------------+
+| websafe_base64 |
++----------------+
+| _-A=           |
++----------------+
 ```
 
 #### TO_CODE_POINTS
@@ -24190,7 +24918,7 @@ SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
 -- Results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
-| timestamp_str                               |
+| timestamp_datetime                          |
 +---------------------------------------------+
 | 2008-12-25 15:30:00.000 America/Los_Angeles |
 +---------------------------------------------+
@@ -24201,7 +24929,7 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 -- Results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
-| timestamp_str                               |
+| timestamp_date                              |
 +---------------------------------------------+
 | 2008-12-25 00:00:00.000 America/Los_Angeles |
 +---------------------------------------------+

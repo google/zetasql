@@ -53,6 +53,7 @@ java_library(
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
+        "@com_google_code_findbugs_jsr305//jar",
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
     ],

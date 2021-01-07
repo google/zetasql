@@ -148,6 +148,7 @@ static absl::Status CheckFieldFormat(const Value& value,
     case TYPE_TIMESTAMP:
     case TYPE_TIME:
     case TYPE_DATETIME:
+    case TYPE_INTERVAL:
     case TYPE_GEOGRAPHY:
     case TYPE_NUMERIC:
     case TYPE_BIGNUMERIC:
@@ -381,6 +382,17 @@ absl::Status MergeValueToProtoField(const Value& value,
         reflection->SetInt64(proto_out, field, value.ToPacked64TimeMicros());
       }
       return absl::OkStatus();
+    case TYPE_INTERVAL: {
+      ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_BYTES);
+      const std::string serialized_value =
+          value.interval_value().SerializeAsBytes();
+      if (field->is_repeated()) {
+        reflection->AddString(proto_out, field, serialized_value);
+      } else {
+        reflection->SetString(proto_out, field, serialized_value);
+      }
+      return absl::OkStatus();
+    }
     case TYPE_ENUM: {
       ZETASQL_RET_CHECK_EQ(field->type(), google::protobuf::FieldDescriptor::TYPE_ENUM);
       const google::protobuf::EnumDescriptor* enum_descriptor = field->enum_type();
@@ -525,7 +537,7 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
   if (!type->IsDate() && !type->IsTimestamp() && !type->IsArray() &&
       !type->IsTime() && !type->IsDatetime() && !type->IsGeography() &&
       !type->IsNumericType() && !type->IsBigNumericType() &&
-      !type->IsJsonType()) {
+      !type->IsInterval() && !type->IsJsonType()) {
     ZETASQL_RET_CHECK_EQ(FieldFormat::DEFAULT_FORMAT, field_format)
         << "Format " << FieldFormat::Format_Name(field_format)
         << " not supported for zetasql type " << type->DebugString();
@@ -814,6 +826,18 @@ absl::Status ProtoFieldToValue(const google::protobuf::Message& proto,
                << " with format: " << FieldFormat::Format_Name(field_format);
       }
       *value_out = Value::Time(time);
+      return absl::OkStatus();
+    }
+    case TypeKind::TYPE_INTERVAL: {
+      ZETASQL_RET_CHECK_EQ(google::protobuf::FieldDescriptor::CPPTYPE_STRING, field->cpp_type())
+          << field->DebugString();
+      std::string value =
+          field->is_repeated() ?
+          reflection->GetRepeatedString(proto, field, index) :
+          reflection->GetString(proto, field);
+      ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval_value,
+                       IntervalValue::DeserializeFromBytes(value));
+      *value_out = Value::Interval(interval_value);
       return absl::OkStatus();
     }
     case TypeKind::TYPE_NUMERIC: {

@@ -172,9 +172,8 @@ calculations.
 </thead>
 <tbody>
 
-<a id="numeric-type"></a>
-<tr>
-  <td style="vertical-align:middle"><code>NUMERIC</code>
+<tr id="numeric_type">
+  <td id="numeric-type" style="vertical-align:middle"><code>NUMERIC</code>
     <br><code>DECIMAL</code></td>
   <td style="vertical-align:middle">
     Precision: 38<br>

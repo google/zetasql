@@ -309,8 +309,8 @@ absl::Status GetNextStatementProperties(
     for (const ASTHintEntry* hint : statement_level_hints->hint_entries()) {
       std::string hint_name_text =
           (hint->qualifier() == nullptr ? hint->name()->GetAsString()
-           : absl::StrCat(hint->qualifier()->GetAsString(), ".",
-                          hint->name()->GetAsString()));
+           : absl::StrCat(hint->qualifier()->GetAsStringView(), ".",
+                          hint->name()->GetAsStringView()));
 
       // Get the start and end byte offset of the hint's value expression,
       // and use the text from the input string.

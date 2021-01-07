@@ -264,16 +264,7 @@ FROM locations l;
 +---------+------------+
 ```
 
-### SELECT modifiers
-
-You can modify the results returned from a `SELECT` query, as follows.
-
-#### SELECT DISTINCT
-
-A `SELECT DISTINCT` statement discards duplicate rows and returns only the
-remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
-
-+  `PROTO`
+### Modifiers for * operator
 
 #### SELECT * EXCEPT
 
@@ -338,6 +329,17 @@ FROM orders;
 
 Note: `SELECT * REPLACE` does not replace columns that do not have names.
 
+### Duplicate row handling
+
+You can modify the results returned from a `SELECT` query, as follows.
+
+#### SELECT DISTINCT
+
+A `SELECT DISTINCT` statement discards duplicate rows and returns only the
+remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
+
++  `PROTO`
+
 #### SELECT ALL
 A `SELECT ALL` statement returns all rows, including duplicate rows.
 `SELECT ALL` is the default behavior of `SELECT`.
@@ -365,7 +367,7 @@ syntaxes below:
 #### SELECT AS STRUCT
 
 ```sql
-SELECT AS STRUCT expr1 [struct_field_name1] [,... ]
+SELECT AS STRUCT expr [[AS] struct_field_name1] [,...]
 ```
 
 This produces a value table with a STRUCT row type,
@@ -375,16 +377,14 @@ column names and types produced in the `SELECT` list.
 Example:
 
 ```sql
-SELECT
-  ARRAY(SELECT AS STRUCT t.f1, t.f2 WHERE t.f3=true)
-FROM
-  Table t
+SELECT ARRAY(SELECT AS STRUCT 1 a, 2 b)
 ```
 
 `SELECT AS STRUCT` can be used in a scalar or array subquery to produce a single
 STRUCT type grouping multiple values together. Scalar
-and array subqueries (see [Subqueries][subquery-concepts]) are normally not allowed to
-return multiple columns.
+and array subqueries (see [Subqueries][subquery-concepts]) are normally not
+allowed to return multiple columns, but can return a single column with
+STRUCT type.
 
 Anonymous columns and duplicate columns
 are allowed.
@@ -417,7 +417,7 @@ alias the column had will be discarded in the value table.
 Example:
 
 ```sql
-SELECT AS VALUE Int64Column FROM Table;
+SELECT AS VALUE 1
 ```
 
 The query above produces a table with row type INT64.
@@ -425,7 +425,7 @@ The query above produces a table with row type INT64.
 Example:
 
 ```sql
-SELECT AS VALUE STRUCT(1 a, 2 b) xyz FROM Table;
+SELECT AS VALUE STRUCT(1 AS a, 2 AS b) xyz
 ```
 
 The query above produces a table with row type `STRUCT<a int64, b int64>`.
@@ -433,7 +433,7 @@ The query above produces a table with row type `STRUCT<a int64, b int64>`.
 Example:
 
 ```sql
-SELECT AS VALUE v FROM ValueTable v WHERE v.field=true;
+SELECT AS VALUE v FROM (SELECT AS STRUCT 1 a, true b) v WHERE v.b
 ```
 
 Given a value table `v` as input, the query above filters out certain values in

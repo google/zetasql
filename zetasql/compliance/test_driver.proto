@@ -51,6 +51,14 @@ message TestTableOptionsProto {
   // required features, and even then it is only visible in tests that list all
   // of its required features in their [required_features] sections.
   repeated zetasql.LanguageFeature required_features = 5;
+
+  // Identifies which column contains the user id for
+  // (broken link)
+  // Used to set zetasql::Table::GetUserIdColumn()
+  //
+  // If unset, no user id metadata is set for this table. This field should not
+  // be set to an empty string.
+  optional string userid_column = 6;
 }
 
 message TestTableProto {

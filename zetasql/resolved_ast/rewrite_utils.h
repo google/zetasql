@@ -54,12 +54,13 @@ class ColumnFactory {
   zetasql_base::SequenceNumber* sequence_;
 };
 
-// Returns a copy of 'expr' where all ResolvedColumnRef are updated to be marked
-// as correlated column refs.
+// Returns a copy of 'expr' where all ResolvedColumnRef that are not below
+// a subquery are updated to be marked as correlated column refs.
 zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
     const ResolvedExpr& expr);
 
-// Fills column_refs with a copy of all ResolvedColumnRef nodes under 'node'.
+// Fills column_refs with a copy of all ResolvedColumnRef nodes under 'node'
+// which are not below a subquery.
 absl::Status CollectColumnRefs(
     const ResolvedNode& node,
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs);

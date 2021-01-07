@@ -401,6 +401,9 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
       return absl::HashState::combine(std::move(state),
                                       value.GetAs<DateTimeValueContentType>(),
                                       value.simple_type_extended_content_);
+    case TYPE_INTERVAL:
+      return absl::HashState::combine(std::move(state),
+                                      GetIntervalValue(value));
     case TYPE_NUMERIC:
       return absl::HashState::combine(std::move(state), GetNumericValue(value));
     case TYPE_BIGNUMERIC:
@@ -640,6 +643,13 @@ std::string SimpleType::FormatValueContent(
       std::string s = GetBigNumericValue(value).ToString();
       return options.add_simple_type_prefix()
                  ? absl::StrCat("BIGNUMERIC ", ToStringLiteral(s))
+                 : s;
+    }
+    case TYPE_INTERVAL: {
+      std::string s = GetIntervalValue(value).ToString();
+      return options.mode != FormatValueContentOptions::Mode::kDebug
+                 ? absl::StrCat("INTERVAL ", ToStringLiteral(s),
+                                " YEAR TO SECOND")
                  : s;
     }
     case TYPE_JSON: {

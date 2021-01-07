@@ -32,6 +32,7 @@
 #include <memory>
 
 #include "zetasql/public/annotation.pb.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/value_representations.h"
 #include "absl/memory/memory.h"
@@ -44,81 +45,7 @@
 
 namespace zetasql {
 
-// Represents an immutable annotation value.  AnnotationValue supports cheap
-// copying and assignment. More general scalar types or vector types (e.g.
-// vector<string>) could be added when needed.
-class AnnotationValue {
- public:
-  enum ValueType {
-    TYPE_INVALID = 0,
-    TYPE_INT64,
-    TYPE_STRING,
-  };
-  // Factory methods to create atomic values.
-  static AnnotationValue Int64(int64_t v);
-  static AnnotationValue String(std::string v);
-
-  // Constructs an invalid value.  Needed for using values with STL.  All
-  // methods that fetch value will crash if called on invalid values.
-  AnnotationValue() : type_(TYPE_INVALID) {}
-
-  AnnotationValue(const AnnotationValue& that) { CopyFrom(that); }
-  AnnotationValue(AnnotationValue&&);
-  ~AnnotationValue() { Clear(); }
-  AnnotationValue& operator=(const AnnotationValue& that);
-  AnnotationValue& operator=(AnnotationValue&& that);
-
-  bool operator==(const AnnotationValue& that) const { return Equals(that); }
-  bool operator!=(const AnnotationValue& that) const { return !Equals(that); }
-
-  // Returns true if the value is valid (invalid values are created by the
-  // default constructor).
-  bool IsValid() const { return type_ != TYPE_INVALID; }
-  bool has_int64_value() const { return type_ == TYPE_INT64; }
-  bool has_string_value() const { return type_ == TYPE_STRING; }
-  // Crashes if type is not TYPE_INT64.
-  int64_t int64_value() const;
-  // Crashes if type is not TYPE_STRING.
-  const std::string& string_value() const;
-
-  // Returns true if this instance equals <that>.
-  bool Equals(const AnnotationValue& that) const;
-
-  // Serializes this instance to proto.
-  absl::Status Serialize(AnnotationProto* proto) const;
-
-  // Deserializes and returns an instance from a proto.
-  static zetasql_base::StatusOr<AnnotationValue> Deserialize(
-      const AnnotationProto& proto);
-
-  std::string DebugString() const;
-
- private:
-  friend class AnnotationTest;
-  // Hide constructors below.  Users should always use factory method to create
-  // an instance.
-  AnnotationValue(ValueType type, int64_t value)
-      : type_(type), int64_value_(value) {}
-  AnnotationValue(ValueType type, std::string value)
-      : type_(type), string_ptr_(new internal::StringRef(std::move(value))) {}
-
-  // Clears the contents and makes it invalid.
-  void Clear();
-
-  // Copies the contents of this instance from <that>. Crashes if this pointer
-  // equals to <that>.
-  void CopyFrom(const AnnotationValue& that);
-
-  ValueType type_;
-  union {
-    int64_t int64_value_ = 0;            // Assigned for TYPE_INT64.
-    // Assigned for TYPE_STRING.  An instance of AnnotationValue may share
-    // ownership of the pointer with other instances with references being
-    // counted.
-    internal::StringRef* string_ptr_;
-  };
-};
-
+class AnnotationMap;
 class AnnotationSpec;
 class StructAnnotationMap;
 class ArrayAnnotationMap;
@@ -131,7 +58,7 @@ enum class AnnotationKind {
   kMaxBuiltinAnnotationKind = 10000,
 };
 
-// Maps from AnnotationSpec ID to AnnotationValue.
+// Maps from AnnotationSpec ID to SimpleValue.
 class AnnotationMap {
  public:
   // Creates an instance of AnnotationMap. Returns a StructAnnotationMap
@@ -147,14 +74,14 @@ class AnnotationMap {
   // value if it exists.
   // Returns a self reference for caller to be able to chain SetAnnotation()
   // calls.
-  AnnotationMap& SetAnnotation(int id, const AnnotationValue& value) {
+  AnnotationMap& SetAnnotation(int id, const SimpleValue& value) {
     ZETASQL_DCHECK(value.IsValid());
     annotations_[id] = value;
     return *this;
   }
   // Returns annotation value for given AnnotationSpec ID. Returns nullptr if
   // the ID is not in the map.
-  const AnnotationValue* GetAnnotation(int id) const {
+  const SimpleValue* GetAnnotation(int id) const {
     return zetasql_base::FindOrNull(annotations_, id);
   }
 
@@ -169,6 +96,10 @@ class AnnotationMap {
 
   // Decides if two AnnotationMap instances are equal.
   bool Equals(const AnnotationMap& that) const;
+
+  // Copies annotations from another AnnotationMap recursively. Returns error
+  // status if this instance and <that> don't have matching structure.
+  absl::Status CopyFrom(const AnnotationMap& that);
 
   // Returns true if this and all the nested AnnotationMap are empty.
   bool Empty() const;
@@ -194,8 +125,16 @@ class AnnotationMap {
   AnnotationMap() {}
 
  private:
-  // Maps from AnnotationSpec ID to AnnotationValue.
-  absl::flat_hash_map<int, AnnotationValue> annotations_;
+  friend class AnnotationTest;
+  friend class TypeFactory;
+
+  // Returns estimated size of memory owned by this AnnotationMap. The estimated
+  // size includes size of the fields if this instance is a StructAnnotationMap
+  // and size of the element if this instance is an ArrayAnnotationMap.
+  int64_t GetEstimatedOwnedMemoryBytesSize() const;
+
+  // Maps from AnnotationSpec ID to SimpleValue.
+  absl::flat_hash_map<int, SimpleValue> annotations_;
 };
 
 // Represents annotations of a STRUCT type. In addition to the annotation on the

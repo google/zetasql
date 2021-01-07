@@ -531,20 +531,10 @@ H AbslHashValue(H h, const Value& v) {
   return v.HashValueInternal<H>(std::move(h));
 }
 
-// We predeclare these functions because we can't include proto_util.h directly.
-// It would be a circular inclusion. Fortunately, proto_util and value are
-// part of the same library, so it's fine to have mutual dependencies, as
-// long as they aren't textual.
-bool IsProtoMap(const Type* type);
-using MapKeyVariant = absl::variant<bool, int64_t, uint64_t, std::string>;
-absl::Status ParseProtoMap(const Value& array_of_map_entry,
-                           google::protobuf::DynamicMessageFactory& factory,
-                           absl::flat_hash_map<MapKeyVariant, Value>& output);
-
 template <typename H>
 H Value::HashValueInternal(H h) const {
   // This code is picked arbitrarily.
-  static constexpr uint64_t kNullHashCode = 0xCBFD5377B126E80Dull;
+  static constexpr uint64_t kNullHashCode =      0xCBFD5377B126E80Dull;
 
   // If we use TypeKind instead of int16_t here,
   // VerifyTypeImplementsAbslHashCorrectly finds collisions between NULL(INT)
@@ -581,32 +571,8 @@ H Value::HashValueInternal(H h) const {
       // cheapo solution of just adding the hashcodes.
       absl::Hash<Value> element_hasher;
       size_t combined_hash = 1;
-      google::protobuf::DynamicMessageFactory factory;
-      absl::flat_hash_map<MapKeyVariant, Value> parsed_map;
-      if (metadata_.preserves_order() && IsProtoMap(type()) &&
-          ParseProtoMap(*this, factory, parsed_map).ok()) {
-        // If we are a proto map, we discard any duplicate keys when computing
-        // the hash. If for whatever reason the map is invalid, then we fall
-        // back to the ordinary hash calculation. We can only do this for
-        // order-preserving arrays, since if the arrays don't preserve order
-        // then we can't assume the latter key controls.
-        for (const auto& entry : parsed_map) {
-          combined_hash += element_hasher(entry.second);
-        }
-        // We only count null entries once in maps. Technically a map with a
-        // NULL is probably malformed, but in the interest of ensuring
-        // non-equivalence with empty maps in result comparison, we'll hash
-        // empty maps and maps with nulls differently.
-        for (const auto& element : elements()) {
-          if (element.is_null()) {
-            combined_hash += element_hasher(element);
-            break;
-          }
-        }
-      } else {
-        for (int i = 0; i < num_elements(); i++) {
-          combined_hash += element_hasher(element(i));
-        }
+      for (int i = 0; i < num_elements(); i++) {
+        combined_hash += element_hasher(element(i));
       }
       return H::combine(std::move(h), combined_hash);
     }

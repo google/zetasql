@@ -1,0 +1,107 @@
+[prepare_database]
+CREATE TABLE TestTable AS
+SELECT cast(1 as int64) as row_id,
+       cast(null as bool) as bool_val,
+       cast(null as int64) as int64_val,
+       cast(null as int32) as int32_val,
+       cast(null as string) as str_val UNION ALL
+  SELECT 2,  true,  null, null,  null  UNION ALL
+  SELECT 3,  false, 1,    1,     "A"   UNION ALL
+  SELECT 4,  true,  1,    2,     "A"   UNION ALL
+  SELECT 5,  false, 1,    3,     "aA"   UNION ALL
+  SELECT 6,  true,  2,    2,     "Aa"   UNION ALL
+  SELECT 7,  false, 1,    1,     'a'   UNION ALL
+  SELECT 8,  true,  2,    1,     "a"   UNION ALL
+  SELECT 9,  false, 2,    3,     "b"   UNION ALL
+  SELECT 10, true,  2,    1,     "B"
+--
+ARRAY<STRUCT<row_id INT64,
+             bool_val BOOL,
+             int64_val INT64,
+             int32_val INT32,
+             str_val STRING>>
+[
+  {1, NULL, NULL, NULL, NULL},
+  {2, true, NULL, NULL, NULL},
+  {3, false, 1, 1, "A"},
+  {4, true, 1, 2, "A"},
+  {5, false, 1, 3, "aA"},
+  {6, true, 2, 2, "Aa"},
+  {7, false, 1, 1, "a"},
+  {8, true, 2, 1, "a"},
+  {9, false, 2, 3, "b"},
+  {10, true, 2, 1, "B"}
+]
+==
+
+[default required_features=ANALYTIC_FUNCTIONS]
+[name=row_number_1]
+SELECT ROW_NUMBER() OVER ()
+FROM TestTable
+--
+ARRAY<STRUCT<INT64>>[{1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}]
+==
+
+[name=row_number_2]
+SELECT bool_val, row_id, ROW_NUMBER() OVER (PARTITION BY bool_val
+                                            ORDER BY row_id, int64_val)
+FROM TestTable
+--
+ARRAY<STRUCT<bool_val BOOL, row_id INT64, INT64>>[
+  {NULL, 1, 1},
+  {false, 3, 1},
+  {false, 5, 2},
+  {false, 7, 3},
+  {false, 9, 4},
+  {true, 2, 1},
+  {true, 4, 2},
+  {true, 6, 3},
+  {true, 8, 4},
+  {true, 10, 5}
+]
+==
+
+[name=row_number_3]
+SELECT row_id, ROW_NUMBER() OVER (ROWS 2 PRECEDING) FROM TestTable
+--
+ERROR: generic::invalid_argument: Window framing clause is not allowed for analytic function row_number [at 1:35]
+SELECT row_id, ROW_NUMBER() OVER (ROWS 2 PRECEDING) FROM TestTable
+                                  ^
+==
+
+[name=order_by_nulls_last_analytic_rownumber]
+[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+SELECT int64_val, ROW_NUMBER() OVER (ORDER BY int64_val DESC NULLS LAST)
+FROM TestTable t
+--
+ARRAY<STRUCT<int64_val INT64, INT64>>[
+  {2, 1},
+  {2, 2},
+  {2, 3},
+  {2, 4},
+  {1, 5},
+  {1, 6},
+  {1, 7},
+  {1, 8},
+  {NULL, 9},
+  {NULL, 10}
+]
+==
+
+[name=order_by_nulls_first_analytic_rownumber]
+[required_features=ANALYTIC_FUNCTIONS,V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
+SELECT int64_val, ROW_NUMBER() OVER (ORDER BY int64_val DESC NULLS FIRST)
+FROM TestTable t
+--
+ARRAY<STRUCT<int64_val INT64, INT64>>[
+  {NULL, 1},
+  {NULL, 2},
+  {2, 3},
+  {2, 4},
+  {2, 5},
+  {2, 6},
+  {1, 7},
+  {1, 8},
+  {1, 9},
+  {1, 10}
+]

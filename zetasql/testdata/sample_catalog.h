@@ -127,6 +127,7 @@ class SampleCatalog {
   const ArrayType* timestamp_array_type_;
   const ArrayType* proto_array_type_;
   const ArrayType* struct_array_type_;
+  const ArrayType* json_array_type_;
 
   const EnumType* enum_TestEnum_;
   const EnumType* enum_AnotherTestEnum_;

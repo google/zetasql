@@ -84,7 +84,8 @@ class ScalarType(object):
                is_enum=False,
                scoped_ctype=None,
                java_default=None,
-               cpp_default=None):
+               cpp_default=None,
+               not_serialize_if_default=None):
     """Create a ScalarType.
 
     Args:
@@ -116,6 +117,9 @@ class ScalarType(object):
       cpp_default: Non-Constructor args and optional constructor args require a
           default value. This value could be set using this argument, otherwise
           C++ default value is used.
+      not_serialize_if_default: Do not serialize this field when its value is in
+          the default value, and set to default value during deserialization
+          when its proto field is empty.
     """
     self.ctype = ctype
     self.is_enum = is_enum
@@ -143,6 +147,10 @@ class ScalarType(object):
       self.cpp_default = ''
     else:
       self.cpp_default = cpp_default
+    if not_serialize_if_default is None:
+      self.not_serialize_if_default = False
+    else:
+      self.not_serialize_if_default = not_serialize_if_default
     assert ctype not in SCALAR_TYPES
     SCALAR_TYPES[ctype] = self
 
@@ -166,6 +174,13 @@ SCALAR_CONSTANT = ScalarType('const Constant*', 'ConstantRefProto', 'Constant')
 SCALAR_FUNCTION = ScalarType('const Function*', 'FunctionRefProto', 'Function')
 SCALAR_FUNCTION_SIGNATURE = ScalarType(
     'FunctionSignature', 'FunctionSignatureProto', passed_by_reference=True)
+SCALAR_FUNCTION_SIGNATURE_PTR = ScalarType(
+    'std::shared_ptr<FunctionSignature>', 'FunctionSignatureProto',
+    passed_by_reference=True,
+    java_type='FunctionSignature',
+    java_default='null',
+    cpp_default='nullptr',
+    not_serialize_if_default=True)
 SCALAR_FUNCTION_CALL_INFO = ScalarType(
     'std::shared_ptr<ResolvedFunctionCallInfo>',
     'ResolvedFunctionCallInfoProto',
@@ -375,7 +390,7 @@ def Field(name,
     is_constructor_arg: True if this field should be in the constructor's
                         argument list.
     is_optional_constructor_arg: True if node class should have two
-                                 constructurs, and this field should be present
+                                 constructors, and this field should be present
                                  in one of them and absent in another. Requires:
                                  is_constructor_arg=True.
     to_string_method: Override the default ToStringImpl method used to print
@@ -436,6 +451,7 @@ def Field(name,
     release_return_type = None
     is_enum = ctype.is_enum
     is_move_only = False
+    not_serialize_if_default = ctype.not_serialize_if_default
 
     if ctype.passed_by_reference:
       setter_arg_type = 'const %s&' % member_type
@@ -476,6 +492,7 @@ def Field(name,
     nullable_java_type = ctype
     is_enum = False
     is_move_only = True
+    not_serialize_if_default = False
     cpp_default = ''
     if vector:
       element_arg_type = element_pointer_type
@@ -572,7 +589,8 @@ def Field(name,
       'is_optional_constructor_arg': is_optional_constructor_arg,
       'to_string_method': to_string_method,
       'java_to_string_method': java_to_string_method,
-      'propagate_order': propagate_order
+      'propagate_order': propagate_order,
+      'not_serialize_if_default': not_serialize_if_default
   }
 
 
@@ -607,7 +625,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 165.
+          Next tag_id: 169.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1524,6 +1542,15 @@ def main(argv):
               If at least one of types involved in this cast is or contains an
               extended (TYPE_EXTENDED) type, this field contains information
               necessary to execute this cast.
+                      """),
+          Field(
+              'format',
+              'ResolvedExpr',
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              The format string specified by the FORMAT clause.
                       """)
       ])
 
@@ -1684,6 +1711,18 @@ def main(argv):
               zetasql.use_defaults=true. This cannot be set when <get_has_bit>
               is true or the field is required.
                       """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedGetJsonField',
+      tag_id=165,
+      parent='ResolvedExpr',
+      comment="""
+      Get the field <field_name> from <expr>, which has a JSON type.
+              """,
+      fields=[
+          Field('expr', 'ResolvedExpr', tag_id=2),
+          Field('field_name', SCALAR_STRING, tag_id=3)
       ])
 
   gen.AddNode(
@@ -2057,10 +2096,15 @@ value.
       <column_index_list> will include only columns that were referenced
       in the user query. (SELECT * counts as referencing all columns.)
       This column_list can then be used for column-level ACL checking on tables.
+      Pruning has no effect on value tables (the value is never pruned).
 
       for_system_time_expr when non NULL resolves to TIMESTAMP used in
       FOR SYSTEM_TIME AS OF clause. The expression is expected to be constant
       and no columns are visible to it.
+
+      <column_index_list> This list matches 1-1 with the <column_list>, and
+      identifies the ordinal of the corresponding column in the <table>'s
+      column list.
 
       If provided, <alias> refers to an explicit alias which was used to
       reference a Table in the user query. If the Table was given an implicitly
@@ -2068,9 +2112,10 @@ value.
 
       TODO: Enforce <column_index_list> in the constructor arg list. For
       historical reasons, some clients match <column_list> to Table columns by
-      name. All code building this should always set_column_index_list() to
-      provide the indexes of all columns in <table> right after the construction
-      of a ResolvedTableScan.
+      ResolvedColumn name. This violates the ResolvedColumn contract, which
+      explicitly states that the ResolvedColumn name has no semantic meaning.
+      All code building a ResolvedTableScan should always
+      set_column_index_list() immediately after construction.
               """,
       fields=[
           Field('table', SCALAR_TABLE, tag_id=2),
@@ -2286,6 +2331,36 @@ value.
           Field(
               'rollup_column_list',
               'ResolvedColumnRef',
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT)
+      ])
+  gen.AddNode(
+      name='ResolvedAnonymizedAggregateScan',
+      tag_id=112,
+      parent='ResolvedAggregateScanBase',
+      comment="""
+      Apply differentially private aggregation (anonymization) to rows produced
+      from input_scan, and output anonymized rows.
+      Spec: (broken link)
+
+      <k_threshold_expr> when non-null, points to a function call in
+      the <aggregate_list> and adds a filter that acts like:
+        HAVING <k_threshold_expr> >= <implementation-defined k-threshold>
+      omitting any rows that would not pass this condition.
+      TODO: Update this comment after splitting the rewriter out
+      into a separate stage.
+
+      <anonymization_option_list> provides user-specified options, and
+      requires that option names are one of: delta, epsilon, kappa, or
+      k_threshold.
+
+              """,
+      fields=[
+          Field('k_threshold_expr', 'ResolvedColumnRef', tag_id=5),
+          Field(
+              'anonymization_option_list',
+              'ResolvedOption',
               tag_id=6,
               vector=True,
               ignorable=IGNORABLE_DEFAULT)
@@ -2750,6 +2825,9 @@ right.
 
       <option_list> for foreign key table constraints. Empty for foreign key
       column attributes (see instead ResolvedColumnAnnotations).
+
+      <referencing_column_list> provides the names for the foreign key's
+      referencing columns.
       """,
       fields=[
           Field('constraint_name', SCALAR_STRING, tag_id=2),
@@ -2772,7 +2850,13 @@ right.
           Field('update_action', SCALAR_FOREIGN_KEY_ACTION_OPERATION, tag_id=7),
           Field('delete_action', SCALAR_FOREIGN_KEY_ACTION_OPERATION, tag_id=8),
           Field('enforced', SCALAR_BOOL, tag_id=9),
-          Field('option_list', 'ResolvedOption', tag_id=10, vector=True)
+          Field('option_list', 'ResolvedOption', tag_id=10, vector=True),
+          Field(
+              'referencing_column_list',
+              SCALAR_STRING,
+              tag_id=11,
+              vector=True,
+              ignorable=IGNORABLE)
       ])
 
   gen.AddNode(
@@ -2869,9 +2953,15 @@ right.
       the required columns. Each provided column has the same name and type as
       the corresponding required column.
 
+      If AnalyzerOptions::prune_unused_columns is true, the <column_list> and
+      <column_index_list> will include only columns that were referenced
+      in the user query. (SELECT * counts as referencing all columns.)
+      Pruning has no effect on value tables (the value is never pruned).
+
       <column_list> is a set of new ResolvedColumns created by this scan.
-      These output columns match positionally with the columns in the output
-      schema of <signature>.
+      The <column_list>[i] should be matched to the related TVFScan's output
+      relation column by
+      <signature>.result_schema().column(<column_index_list>[i]).
 
       <tvf> The TableValuedFunction entry that the catalog returned for this TVF
             scan. Contains non-concrete function signatures which may include
@@ -2883,8 +2973,33 @@ right.
                   provide extra custom information and return an instance
                   of the subclass from the TableValuedFunction::Resolve
                   method.
-      <argument_list> The vector of resolved arguments for this TVF call.
+      <argument_list> The vector of resolved concrete arguments for this TVF
+                      call, including the default values or NULLs injected for
+                      the omitted arguments (Note the NULL injection is a
+                      temporary solution to handle omitted named arguments. This
+                      is subject to change by upcoming CLs).
+
+      <column_index_list> This list matches 1-1 with the <column_list>, and
+      identifies the index of the corresponding column in the <signature>'s
+      result relation column list.
+
       <alias> The AS alias for the scan, or empty if none.
+      <function_call_signature> The FunctionSignature object from the
+                                <tvf->signatures()> list that matched the
+                                current call. The TVFScan's
+                                <FunctionSignature::ConcreteArgument> list
+                                matches 1:1 to <argument_list>, while its
+                                <FunctionSignature::arguments> list still has
+                                the full argument list.
+                                The analyzer only sets this field when
+                                it could be ambiguous for an engine to figure
+                                out the actual arguments provided, e.g., when
+                                there are arguments omitted from the call. When
+                                it is provided, engines may use this object to
+                                check for the argument names and omitted
+                                arguments. SQLBuilder may also need this object
+                                in cases when the named argument notation is
+                                required for this call.
               """,
       fields=[
           Field('tvf', TABLE_VALUED_FUNCTION, tag_id=2),
@@ -2894,7 +3009,22 @@ right.
               'ResolvedFunctionArgument',
               tag_id=5,
               vector=True),
-          Field('alias', SCALAR_STRING, tag_id=6, ignorable=IGNORABLE)
+          Field(
+              'column_index_list',
+              SCALAR_INT,
+              tag_id=8,
+              ignorable=IGNORABLE,
+              vector=True,
+              is_constructor_arg=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparatedForInt'),
+          Field('alias', SCALAR_STRING, tag_id=6, ignorable=IGNORABLE),
+          Field(
+              'function_call_signature',
+              SCALAR_FUNCTION_SIGNATURE_PTR,
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True)
       ])
 
   gen.AddNode(
@@ -5052,7 +5182,7 @@ right.
       fields=[
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
           Field('constraint', 'ResolvedConstraint', tag_id=3),
-          Field('table', SCALAR_TABLE, tag_id=4),
+          Field('table', SCALAR_TABLE, tag_id=4, ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -6265,6 +6395,57 @@ ResolvedArgumentRef(y)
       ])
 
   gen.AddNode(
+      'ResolvedPivotColumn',
+      tag_id=166,
+      parent='ResolvedArgument',
+      comment="""
+              Represents a column produced by aggregating a particular pivot
+              expression over a subset of the input for which the FOR expression
+              matches a particular pivot value. This aggregation is further
+              broken up by the enclosing ResolvedPivotScan's groupby columns,
+              with each distinct value of the groupby columns producing a
+              separate row in the output.
+
+              In any pivot column, 'c',
+              'c' is produced by aggregating pivot expression
+                <pivot_expr_list[c.pivot_expr_index]>
+              over input rows such that
+                <for_expr> IS NOT DISTINCT FROM
+                <pivot_value_list[c.pivot_value_index]>
+              """,
+      fields=[
+          Field(
+              'column',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=2,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+                The output column used to represent the result of the pivot.
+                """),
+          Field(
+              'pivot_expr_index',
+              SCALAR_INT,
+              tag_id=3,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+              Specifies the index of the pivot expression
+              within the enclosing ResolvedPivotScan's <pivot_expr_list> used to
+              determine the result of the column.
+              """),
+          Field(
+              'pivot_value_index',
+              SCALAR_INT,
+              tag_id=4,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+              Specifies the index of the pivot value within
+              the enclosing ResolvedPivotScan's <pivot_value_list> used to
+              determine the subset of input rows the pivot expression should be
+              evaluated over.
+              """),
+      ])
+
+  gen.AddNode(
       name='ResolvedPivotScan',
       tag_id=161,
       parent='ResolvedScan',
@@ -6272,24 +6453,39 @@ ResolvedArgumentRef(y)
       A scan produced by the following SQL fragment:
         <input_scan> PIVOT(... FOR ... IN (...))
 
-      The column list of this scan contains grouping columns first, as produced
-      by <group_by_list>, following by pivot columns. The output column
-      corresponding to the pivot expression i, pivot value j is at position:
-        i + j * pivot_expr_list.size() + group_by_list.size()
+      The column list of this scan consists of a subset of columns from
+      <group_by_column_list> and <pivot_column_list>.
 
       Details: (broken link)
       """,
       fields=[
           Field(
-              'input_scan', 'ResolvedScan', tag_id=2, ignorable=NOT_IGNORABLE,
+              'input_scan',
+              'ResolvedScan',
+              tag_id=2,
+              ignorable=NOT_IGNORABLE,
               comment="""
               Input to the PIVOT clause
-              """
-              ),
+              """),
           Field(
-              'pivot_expr_list',
+              'group_by_list',
               'ResolvedComputedColumn',
               tag_id=3,
+              vector=True,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+              The columns from <input_scan> to group by.
+              The output will have one row for each distinct combination of
+              values for all grouping columns. (There will be one output row if
+              this list is empty.)
+
+              Each element is a ResolvedComputedColumn. The expression is always
+              a ResolvedColumnRef that references a column from <input_scan>.
+              """),
+          Field(
+              'pivot_expr_list',
+              'ResolvedExpr',
+              tag_id=4,
               ignorable=NOT_IGNORABLE,
               vector=True,
               comment="""
@@ -6297,8 +6493,12 @@ ResolvedArgumentRef(y)
               where <for_expr> matches each value in <pivot_value_list>, plus
               all columns in <group_by_list>.
               """),
-          Field('for_expr', 'ResolvedExpr', tag_id=4, ignorable=NOT_IGNORABLE,
-            comment="""
+          Field(
+              'for_expr',
+              'ResolvedExpr',
+              tag_id=5,
+              ignorable=NOT_IGNORABLE,
+              comment="""
             Expression following the FOR keyword, to be evaluated over each row
             in <input_scan>. This value is compared with each value in
             <pivot_value_list> to determine which columns the aggregation
@@ -6307,7 +6507,7 @@ ResolvedArgumentRef(y)
           Field(
               'pivot_value_list',
               'ResolvedExpr',
-              tag_id=5,
+              tag_id=6,
               ignorable=NOT_IGNORABLE,
               vector=True,
               comment="""
@@ -6320,27 +6520,18 @@ ResolvedArgumentRef(y)
 
               All pivot values in this list must have the same type as
               <for_expr> and must be constant.
-              """
-              ),
+              """),
           Field(
-              'group_by_list',
-              'ResolvedComputedColumn',
-              tag_id=6,
+              'pivot_column_list',
+              'ResolvedPivotColumn',
+              tag_id=7,
               vector=True,
               ignorable=NOT_IGNORABLE,
               comment="""
-              Represents additional grouping columns in the input, not
-              explicitly specified in the PIVOT clause. Within each pivot
-              column (defined by a pivot expression/pivot value combination),
-              aggregations are grouped by the columns in this list, with each
-              distinct value of the grouping columns representing a separate
-              row (as opposed to <for_expr>, for which distinct values produce
-              separate columns).
-
-              Each element in this list is a ResolvedColumnRef referring to
-              a unique column in <input_scan>.
-              """
-              ),
+              List of columns created to store the output pivot columns.
+              Each is computed using one of pivot_expr_list and one of
+              pivot_value_list.
+              """),
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

@@ -94,13 +94,15 @@ parameter value:
 The following example shows a UDF that employs a SQL function.
 
 ```sql
-CREATE TEMP FUNCTION addFourAndDivide(x INT64, y INT64) AS ((x + 4) / y);
+CREATE TEMP FUNCTION AddFourAndDivide(x INT64, y INT64)
+RETURNS DOUBLE
+AS ((x + 4) / y);
 WITH numbers AS
   (SELECT 1 as val UNION ALL
    SELECT 3 as val UNION ALL
    SELECT 4 as val UNION ALL
    SELECT 5 as val)
-SELECT val, addFourAndDivide(val, 2) AS result
+SELECT val, AddFourAndDivide(val, 2) AS result
 FROM numbers;
 
 +-----+--------+
@@ -119,9 +121,10 @@ aggregate parameter `dividend`, while the non-aggregate division operator
 ( `/` ) takes the non-aggregate parameter `divisor`.
 
 ```sql
-CREATE TEMP AGGREGATE FUNCTION scaled_sum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
+CREATE TEMP AGGREGATE FUNCTION ScaledSum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
+RETURNS DOUBLE
 AS (SUM(dividend) / divisor);
-SELECT scaled_sum(col1, 2) AS scaled_sum
+SELECT ScaledSum(col1, 2) AS scaled_sum
 FROM (SELECT 1 AS col1 UNION ALL
       SELECT 3 AS col1 UNION ALL
       SELECT 5 AS col1);
@@ -138,11 +141,13 @@ The following example shows a SQL UDF that uses a
 accepts arguments of various types.
 
 ```sql
-CREATE TEMP FUNCTION addFourAndDivideAny(x ANY TYPE, y ANY TYPE) AS (
+CREATE TEMP FUNCTION AddFourAndDivideAny(x ANY TYPE, y ANY TYPE)
+AS (
   (x + 4) / y
 );
-SELECT addFourAndDivideAny(3, 4) AS integer_output,
-       addFourAndDivideAny(1.59, 3.14) AS floating_point_output;
+
+SELECT AddFourAndDivideAny(3, 4) AS integer_output,
+       AddFourAndDivideAny(1.59, 3.14) AS floating_point_output;
 
 +----------------+-----------------------+
 | integer_output | floating_point_output |
@@ -156,12 +161,13 @@ The following example shows a SQL UDF that uses a
 element of an array of any type.
 
 ```sql
-CREATE TEMP FUNCTION lastArrayElement(arr ANY TYPE) AS (
+CREATE TEMP FUNCTION LastArrayElement(arr ANY TYPE)
+AS (
   arr[ORDINAL(ARRAY_LENGTH(arr))]
 );
 SELECT
   names[OFFSET(0)] AS first_name,
-  lastArrayElement(names) AS last_name
+  LastArrayElement(names) AS last_name
 FROM (
   SELECT ['Fred', 'McFeely', 'Rogers'] AS names UNION ALL
   SELECT ['Marie', 'Skłodowska', 'Curie']
@@ -238,7 +244,7 @@ This syntax consists of the following components:
 The following example creates a persistent UDF.
 
 ```sql
-CREATE FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
@@ -249,7 +255,7 @@ WITH numbers AS
   SELECT 2 AS x, 10 as y
   UNION ALL
   SELECT 3 as x, 15 as y)
-SELECT x, y, multiplyInputs(x, y) as product
+SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
 +-----+-----+--------------+
@@ -264,7 +270,7 @@ FROM numbers;
 The following example creates a temporary UDF.
 
 ```sql
-CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
@@ -275,7 +281,7 @@ WITH numbers AS
   SELECT 2 AS x, 10 as y
   UNION ALL
   SELECT 3 as x, 15 as y)
-SELECT x, y, multiplyInputs(x, y) as product
+SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
 +-----+-----+--------------+
@@ -290,12 +296,12 @@ FROM numbers;
 You can create multiple UDFs before a query. For example:
 
 ```sql
-CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
 """;
-CREATE TEMP FUNCTION divideByTwo(x DOUBLE)
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x / 2;
@@ -308,9 +314,9 @@ WITH numbers AS
   SELECT 3 as x, 15 as y)
 SELECT x,
   y,
-  multiplyInputs(x, y) as product,
-  divideByTwo(x) as half_x,
-  divideByTwo(y) as half_y
+  MultiplyInputs(x, y) as product,
+  DivideByTwo(x) as half_x,
+  DivideByTwo(y) as half_y
 FROM numbers;
 
 +-----+-----+--------------+--------+--------+
@@ -325,12 +331,12 @@ FROM numbers;
 You can pass the result of a UDF as input to another UDF. For example:
 
 ```sql
-CREATE TEMP FUNCTION multiplyInputs(x DOUBLE, y DOUBLE)
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x*y;
 """;
-CREATE TEMP FUNCTION divideByTwo(x DOUBLE)
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js AS """
   return x/2;
@@ -343,7 +349,7 @@ WITH numbers AS
   SELECT 3 as x, 15 as y)
 SELECT x,
   y,
-  multiplyInputs(divideByTwo(x), divideByTwo(y)) as half_product
+  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
 FROM numbers;
 
 +-----+-----+--------------+
@@ -413,11 +419,11 @@ You must enclose external code in quotes. There are a few options:
 **Examples**
 
 ```sql
-CREATE TEMP FUNCTION plusOne(x DOUBLE)
+CREATE TEMP FUNCTION PlusOne(x DOUBLE)
 RETURNS DOUBLE
 LANGUAGE js
 AS "return x+1;";
-SELECT val, plusOne(val) AS result
+SELECT val, PlusOne(val) AS result
 FROM UNNEST([1, 2, 3]) AS val;
 
 +-----------+-----------+
@@ -430,7 +436,7 @@ FROM UNNEST([1, 2, 3]) AS val;
 ```
 
 ```sql
-CREATE TEMP FUNCTION customGreeting(a STRING)
+CREATE TEMP FUNCTION CustomGreeting(a STRING)
 RETURNS STRING
 LANGUAGE js AS """
   var d = new Date();
@@ -440,7 +446,7 @@ LANGUAGE js AS """
     return 'Good Evening, ' + a + '!';
   }
   """;
-SELECT customGreeting(names) as everyone
+SELECT CustomGreeting(names) as everyone
 FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 +-----------------------+
 | everyone              |
@@ -452,13 +458,14 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 ```
 
 ```sql
-CREATE TEMP FUNCTION plusOne(x STRING)
+CREATE TEMP FUNCTION PlusOne(x STRING)
 RETURNS STRING
 LANGUAGE js AS R"""
 var re = /[a-z]/g;
 return x.match(re);
 """;
-SELECT val, plusOne(val) AS result
+
+SELECT val, PlusOne(val) AS result
 FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
 
 +---------+

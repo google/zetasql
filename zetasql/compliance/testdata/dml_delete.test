@@ -1,0 +1,135 @@
+[prepare_database]
+CREATE TABLE Table1 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as value
+UNION ALL
+SELECT 2, 20
+--
+ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+==
+
+[name=delete_nothing]
+DELETE Table1 WHERE False
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+}
+==
+
+[name=null_assertion]
+[parameters=NULL param]
+DELETE Table1 WHERE False
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+# A negative value for ASSERT_ROWS_MODIFIED will always result in a runtime
+# error.
+[name=negative_assertion]
+[parameters=-1 param]
+DELETE Table1 WHERE False
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 0
+==
+
+[name=delete_nothing_with_assertion]
+DELETE Table1 WHERE False
+ASSERT_ROWS_MODIFIED 0
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+}
+==
+
+[name=delete_nothing_with_failed_assertion]
+DELETE Table1 WHERE False
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 0
+==
+
+[name=delete_everything]
+DELETE Table1 WHERE True
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[]
+}
+==
+
+[name=delete_everything_with_assertion]
+DELETE Table1 WHERE True
+ASSERT_ROWS_MODIFIED 2
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[]
+}
+==
+
+[name=delete_everything_with_failed_assertion]
+DELETE Table1 WHERE True
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 2
+==
+
+[name=delete_half]
+DELETE Table1 WHERE primary_key = 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{2, 20}]
+}
+==
+
+[name=delete_half_with_assertion]
+DELETE Table1 WHERE primary_key = 1
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{2, 20}]
+}
+==
+
+[name=delete_half_with_failed_assertion]
+DELETE Table1 WHERE primary_key = 1
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+[name=delete_with_query_param_in_where]
+[parameters=1 param]
+DELETE Table1 WHERE primary_key = @param
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{2, 20}]
+}

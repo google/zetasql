@@ -258,6 +258,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedMakeStruct(const ResolvedMakeStruct* node) override;
   absl::Status VisitResolvedGetStructField(
       const ResolvedGetStructField* node) override;
+  absl::Status VisitResolvedGetJsonField(
+      const ResolvedGetJsonField* node) override;
   absl::Status VisitResolvedOrderByItem(
       const ResolvedOrderByItem* node) override;
   absl::Status VisitResolvedComputedColumn(
@@ -294,6 +296,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedOrderByScan* node) override;
   absl::Status VisitResolvedAggregateScan(
       const ResolvedAggregateScan* node) override;
+  absl::Status VisitResolvedAnonymizedAggregateScan(
+      const ResolvedAnonymizedAggregateScan* node) override;
   absl::Status VisitResolvedRecursiveScan(
       const ResolvedRecursiveScan* node) override;
   absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
@@ -567,8 +571,7 @@ class SQLBuilder : public ResolvedASTVisitor {
           check_constraint_list);
   // Helper function to append foreign key table constraint.
   zetasql_base::StatusOr<std::string> ProcessForeignKey(
-      const ResolvedForeignKey* foreign_key,
-      const std::vector<std::string>& column_names, bool is_if_not_exists);
+      const ResolvedForeignKey* foreign_key, bool is_if_not_exists);
   std::string ComputedColumnAliasDebugString() const;
 
   // If we have a recursive view, sets up internal data structures in

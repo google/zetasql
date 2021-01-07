@@ -117,7 +117,28 @@ public final class FunctionArgumentType implements Serializable {
   }
 
   public boolean isConcrete() {
-    return kind == SignatureArgumentKind.ARG_TYPE_FIXED && numOccurrences >= 0;
+    if (kind != SignatureArgumentKind.ARG_TYPE_FIXED
+        && kind != SignatureArgumentKind.ARG_TYPE_RELATION
+        && kind != SignatureArgumentKind.ARG_TYPE_MODEL
+        && kind != SignatureArgumentKind.ARG_TYPE_CONNECTION
+        && kind != SignatureArgumentKind.ARG_TYPE_LAMBDA) {
+      return false;
+    }
+    if (numOccurrences < 0) {
+      return false;
+    }
+
+    // Lambda is concrete if all args and body are concrete.
+    if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
+      for (FunctionArgumentType arg : lambda.argumentTypes) {
+        if (!arg.isConcrete()) {
+          return false;
+        }
+      }
+      return lambda.bodyType.isConcrete();
+    }
+
+    return true;
   }
 
   public int getNumOccurrences() {

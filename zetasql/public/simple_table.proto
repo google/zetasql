@@ -24,6 +24,12 @@ import "zetasql/public/type.proto";
 option java_package = "com.google.zetasql";
 option java_outer_classname = "SimpleTableProtos";
 
+message SimpleAnonymizationInfoProto {
+  // Stores the name path of the 'column' field that identifies the userid
+  // column. Required to be set and non-empty.
+  repeated string userid_column_name = 1;
+}
+
 message SimpleTableProto {
   optional string name = 1;
   optional int64 serialization_id = 2;
@@ -37,6 +43,11 @@ message SimpleTableProto {
   optional string name_in_catalog = 5;
   optional bool allow_anonymous_column_name = 6;
   optional bool allow_duplicate_column_names = 7;
+  // Stores anonymization options and information related to this table.
+  // If set, this table is considered to support anonymization semantics and
+  // contain private data. If not set, this table is assumed to not be usable
+  // in an anonymization context, and not contain private data.
+  optional SimpleAnonymizationInfoProto anonymization_info = 8;
 }
 
 message SimpleColumnProto {

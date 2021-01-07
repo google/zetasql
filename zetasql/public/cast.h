@@ -20,10 +20,13 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/statusor.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
 #include "zetasql/base/status_builder.h"
 
 // The full specification for ZetaSQL casting and coercion is at:
@@ -72,6 +75,15 @@ struct CastFunctionProperty {
 
 using CastHashMap = absl::flat_hash_map<TypeKindPair, CastFunctionProperty>;
 
+
+// The CastFormatMap maps a TypeKindPair to a validation function of the format
+// string. If a TypeKindPair exists in the map, it means that a format string is
+// allowed for the type cast represented by the TypeKindPair. The corresponding
+// validation function will be called to validate the format string at analysis
+// time.
+typedef absl::Status (*FormatValidationFunc)(absl::string_view format);
+using CastFormatMap = absl::flat_hash_map<TypeKindPair, FormatValidationFunc>;
+
 // Returns <from_value> casted to <to_type>. Returns an error if the types are
 // incompatible or the value cannot be cast successfully to <to_type>.
 //
@@ -113,6 +125,17 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                 const LanguageOptions& language_options,
                                 const Type* to_type,
                                 Catalog* catalog = nullptr);
+
+// Same as the previous method, but includes <format>, which is the format
+// string used in the cast.
+zetasql_base::StatusOr<Value> CastValue(
+    const Value& from_value,
+    absl::TimeZone default_timezone,
+    const LanguageOptions& language_options,
+    const Type* to_type,
+    const absl::optional<std::string>& format,
+    Catalog* catalog = nullptr);
+
 // DEPRECATED name for CastValue()
 inline zetasql_base::StatusOr<Value> CastStatusOrValue(
     const Value& from_value, absl::TimeZone default_timezone,
@@ -133,6 +156,7 @@ namespace internal {  //   For internal use only
 zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
+    const absl::optional<std::string>& format,
     const ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
 
 // Returns a hash map with TypeKindPair as key, and CastFunctionProperty as
@@ -140,6 +164,12 @@ zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
 // allowed explicitly, implicitly, etc., and what the cost is for the cast.
 // If a (from, to) pair is not in the map, then that cast is not allowed.
 const CastHashMap& GetZetaSQLCasts();
+
+// Returns a hash map with TypeKindPair as key, and FormatValidationFunc as
+// value. If a (from, to) pair is in the map, then a format string is allowed
+// for that cast. The corresponding validation function will be called to
+// validate the format string at analysis time.
+const CastFormatMap& GetCastFormatMap();
 
 }  // namespace internal
 

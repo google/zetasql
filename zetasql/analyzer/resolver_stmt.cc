@@ -74,6 +74,7 @@
 #include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
@@ -599,7 +600,7 @@ absl::Status Resolver::ResolveQueryStatement(
   std::unique_ptr<const ResolvedScan> resolved_scan;
   ZETASQL_RETURN_IF_ERROR(ResolveQuery(
       query_stmt->query(), empty_name_scope_.get(), kQueryId,
-      true /* is_outer_query */, &resolved_scan, output_name_list));
+      /*is_outer_query=*/true, &resolved_scan, output_name_list));
 
   // Sanity check: WITH aliases get unregistered as they go out of scope.
   ZETASQL_RET_CHECK(named_subquery_map_.empty());
@@ -1401,6 +1402,10 @@ absl::Status Resolver::ResolveForeignKeyReference(
       ast_foreign_key_reference->actions()->delete_action()));
   foreign_key->set_enforced(ast_foreign_key_reference->enforced());
 
+  for (const auto* column : ast_referencing_column_identifiers) {
+    foreign_key->add_referencing_column_list(column->GetAsString());
+  }
+
   return absl::OkStatus();
 }
 
@@ -1825,9 +1830,9 @@ absl::Status Resolver::ResolveCreateModelStatement(
       column_definition_list_ptr =
           transform_clause == nullptr ? nullptr : &transform_input_column_list;
   ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-      query, /*object_type=*/"MODEL", /*recursive_view=*/false, table_name_id,
-      kCreateAsId, &query_scan, &is_value_table, &query_output_column_list,
-      column_definition_list_ptr));
+      query, /*object_type=*/"MODEL", /*is_recursive_view=*/false,
+      table_name_id, kCreateAsId, &query_scan, &is_value_table,
+      &query_output_column_list, column_definition_list_ptr));
 
   // Resolve transform list.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> transform_list;
@@ -2042,8 +2047,8 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
           &statement_base_properties->output_column_list));
     } else {
       ZETASQL_RETURN_IF_ERROR(ResolveQueryAndOutputColumns(
-          query, "TABLE", /*recursive_view=*/false, table_name_id, kCreateAsId,
-          &statement_base_properties->query_scan,
+          query, "TABLE", /*is_recursive_view=*/false, table_name_id,
+          kCreateAsId, &statement_base_properties->query_scan,
           &statement_base_properties->is_value_table,
           &statement_base_properties->output_column_list,
           &statement_base_properties->column_definition_list));
@@ -2238,7 +2243,7 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
         &query_name_list));
   } else {
     ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, empty_name_scope_.get(),
-                                 internal_table_name, true /* is_outer_query */,
+                                 internal_table_name, /*is_outer_query=*/true,
                                  query_scan, &query_name_list));
   }
   *is_value_table = query_name_list->is_value_table();
@@ -2292,7 +2297,7 @@ absl::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
   std::shared_ptr<const NameList> query_name_list;
   ZETASQL_RETURN_IF_ERROR(
       ResolveQuery(query, empty_name_scope_.get(),
-                   kCreateAsId, true /* is_outer_query */,
+                   kCreateAsId, /*is_outer_query=*/true,
                    query_scan, &query_name_list));
   if (query_name_list->is_value_table()) {
     return MakeSqlErrorAt(table_element_list)
@@ -2661,15 +2666,12 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   }
 
   std::vector<std::string> function_name;
-  std::vector<std::string> argument_names;
-  FunctionArgumentTypeList signature_arguments;
-  bool contains_templated_arguments = false;
+  auto arg_info = absl::make_unique<FunctionArgumentInfo>();
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionDeclaration(
       ast_statement->function_declaration(),
       is_aggregate ? ResolveFunctionDeclarationType::AGGREGATE_FUNCTION
                    : ResolveFunctionDeclarationType::SCALAR_FUNCTION,
-      &function_name, &argument_names, &signature_arguments,
-      &contains_templated_arguments));
+      &function_name, arg_info.get()));
   const Type* return_type = nullptr;
   const bool has_explicit_return_type = ast_statement->return_type() != nullptr;
   bool has_return_type = false;
@@ -2707,7 +2709,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   }
   const std::string language_string =
       (is_sql_function ? "SQL" : function_language->GetAsString());
-  if (zetasql_base::CaseEqual(language_string, "SQL") && !is_sql_function) {
+  if (absl::EqualsIgnoreCase(language_string, "SQL") && !is_sql_function) {
     return MakeSqlErrorAt(ast_statement->language())
            << "To write SQL functions, omit the LANGUAGE clause "
            << "and write the function body using 'AS (expression)'";
@@ -2728,8 +2730,13 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
 
   // Resolve the SQL function body if this function declaration includes one and
   // the function declaration does not contain any templated arguments.
-  if (sql_function_body != nullptr && !contains_templated_arguments) {
+  if (sql_function_body != nullptr &&
+      !arg_info->contains_templated_arguments()) {
     ZETASQL_RET_CHECK(is_sql_function);
+    // Set the argument info member variable in Resolver so that arguments are
+    // in scope for the function body. The scoped_reset will set the variable
+    // back to nullptr after resolving the function body.
+    auto scoped_reset = SetArgumentInfo(arg_info.get());
     {
       if (!is_aggregate) {
         // This branch disallows aggregates inside function definitions.
@@ -2746,9 +2753,9 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
         ExprResolutionInfo expr_info(
             empty_name_scope_.get() /* name_scope */,
             empty_name_scope_.get() /* aggregate_name_scope */,
-            true /* allows_aggregation */,
-            false /* allows_analytic */,
-            false /* use_post_grouping_columns */,
+            /*allows_aggregation_in=*/true,
+            /*allows_analytic_in=*/false,
+            /*use_post_grouping_columns_in=*/false,
             "SQL function body",
             &query_info);
 
@@ -2778,7 +2785,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
           GetInputArgumentTypeForExpr(resolved_expr.get());
       SignatureMatchResult result;
       if (coercer_.CoercesTo(input_argument_type, return_type,
-                             false /* is_explicit */, &result)) {
+                             /*is_explicit=*/false, &result)) {
         ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
             sql_function_body->expression(), return_type,
             nullptr /* scan */, false /* set_has_explicit_type */,
@@ -2791,7 +2798,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
                << function_body_type->ShortTypeName(language().product_mode());
       }
     }
-  } else if (is_sql_function && !contains_templated_arguments) {
+  } else if (is_sql_function && !arg_info->contains_templated_arguments()) {
     return MakeSqlErrorAt(ast_statement)
            << "SQL function must have a non-empty body";
   }
@@ -2813,15 +2820,20 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   std::unique_ptr<FunctionSignature> signature;
   if (has_return_type) {
     signature = absl::make_unique<FunctionSignature>(
-        return_type, signature_arguments, 0 /* context_id */,
+        return_type, arg_info->SignatureArguments(), /*context_id=*/0,
         signature_options);
   } else {
     const FunctionArgumentType any_type(ARG_TYPE_ARBITRARY,
                                         /*num_occurrences=*/1);
     signature = absl::make_unique<FunctionSignature>(
-        any_type, signature_arguments, 0 /* context_id */, signature_options);
+        any_type, arg_info->SignatureArguments(), /*context_id=*/0,
+        signature_options);
   }
 
+  // Option resolution is done with an empty namescope. That includes any
+  // function arguments. Function arguments have values at function invocation
+  // time, but not at function create time when options are evaluated.
+  ZETASQL_RET_CHECK_EQ(function_argument_info_, nullptr);
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
                                      &resolved_options));
@@ -2846,7 +2858,8 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   }
 
   if (!has_return_type) {
-    ZETASQL_RET_CHECK(contains_templated_arguments) << ast_statement->DebugString();
+    ZETASQL_RET_CHECK(arg_info->contains_templated_arguments())
+        << ast_statement->DebugString();
     // TODO: The return type is unused for templated function
     // declarations since the FunctionSignature contains the relevant
     // information instead. Remove this part when the 'return_type' field is
@@ -2866,8 +2879,8 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
 
   *output = MakeResolvedCreateFunctionStmt(
       function_name, create_scope, create_mode, has_explicit_return_type,
-      return_type, argument_names, *signature, is_aggregate, language_string,
-      code_string, std::move(resolved_aggregate_exprs),
+      return_type, arg_info->ArgumentNames(), *signature, is_aggregate,
+      language_string, code_string, std::move(resolved_aggregate_exprs),
       std::move(resolved_expr), std::move(resolved_options), sql_security,
       ConvertDeterminismLevel(ast_statement->determinism_level()));
   MaybeRecordParseLocation(ast_statement->function_declaration()->name(),
@@ -2889,13 +2902,11 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
       ast_statement, "CREATE TABLE FUNCTION", &create_scope, &create_mode));
 
   std::vector<std::string> function_name;
-  std::vector<std::string> argument_names;
-  FunctionArgumentTypeList signature_arguments;
-  bool contains_templated_arguments = false;
-  ZETASQL_RETURN_IF_ERROR(ResolveFunctionDeclaration(
-      ast_statement->function_declaration(),
-      ResolveFunctionDeclarationType::TABLE_FUNCTION, &function_name,
-      &argument_names, &signature_arguments, &contains_templated_arguments));
+  auto arg_info = absl::make_unique<FunctionArgumentInfo>();
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveFunctionDeclaration(ast_statement->function_declaration(),
+                                 ResolveFunctionDeclarationType::TABLE_FUNCTION,
+                                 &function_name, arg_info.get()));
   TVFRelation return_tvf_relation({});
   bool has_return_tvf_relation = false;
   if (ast_statement->return_tvf_schema() != nullptr) {
@@ -2925,7 +2936,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
   std::string language_string = "UNDECLARED";
   if (language != nullptr) {
     language_string = language->GetAsString();
-    if (zetasql_base::CaseEqual(language_string, "SQL")) {
+    if (absl::EqualsIgnoreCase(language_string, "SQL")) {
       return MakeSqlErrorAt(ast_statement->language())
              << "To write SQL table-valued functions, omit the LANGUAGE clause "
              << "and write the function body using 'AS SELECT ...'";
@@ -2951,7 +2962,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
 
   // Resolve the SQL function body if this function declaration includes one
   // and the function declaration does not contain any templated arguments.
-  if (query != nullptr && !contains_templated_arguments) {
+  if (query != nullptr && !arg_info->contains_templated_arguments()) {
     for (const ASTFunctionParameter* param :
          ast_statement->function_declaration()
              ->parameters()->parameter_entries()) {
@@ -2962,10 +2973,15 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
     }
     ZETASQL_RET_CHECK_EQ(language, nullptr);
     std::shared_ptr<const NameList> tvf_body_name_list;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveQuery(query, empty_name_scope_.get(), kQueryId,
-                     false /* is_outer_query */,
-                     &resolved_query, &tvf_body_name_list));
+    {
+      // Set the argument info member variable in Resolver so that arguments are
+      // in scope for the function body. The scoped_reset will set the variable
+      // back to nullptr after resolving the function body.
+      auto scoped_reset = SetArgumentInfo(arg_info.get());
+      ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, empty_name_scope_.get(), kQueryId,
+                                   /*is_outer_query=*/false, &resolved_query,
+                                   &tvf_body_name_list));
+    }
     for (const NamedColumn& column : tvf_body_name_list->columns()) {
       resolved_output_column_list.emplace_back(
           MakeResolvedOutputColumn(column.name.ToString(), column.column));
@@ -3030,9 +3046,9 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
       has_return_tvf_relation
           ? FunctionArgumentType::RelationWithSchema(
                 return_tvf_relation,
-                true /* extra_relation_input_columns_allowed */)
+                /*extra_relation_input_columns_allowed=*/true)
           : FunctionArgumentType::AnyRelation(),
-      signature_arguments, 0 /* context_id */, signature_options);
+      arg_info->SignatureArguments(), /*context_id=*/0, signature_options);
 
   auto sql_security = static_cast<ResolvedCreateStatementEnums::SqlSecurity>(
       ast_statement->sql_security());
@@ -3044,6 +3060,10 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
            << CreateScopeErrorString(create_scope) << " modifier.";
   }
 
+  // Option resolution is done with an empty namescope. That includes any
+  // function arguments. Function arguments have values at function invocation
+  // time, but not at function create time when options are evaluated.
+  ZETASQL_RET_CHECK_EQ(function_argument_info_, nullptr);
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   ZETASQL_RETURN_IF_ERROR(
       ResolveOptionsList(ast_statement->options_list(), &resolved_options));
@@ -3058,8 +3078,8 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
         range.end().GetByteOffset() - range.start().GetByteOffset()));
   }
   *output = MakeResolvedCreateTableFunctionStmt(
-      function_name, create_scope, create_mode, argument_names, signature,
-      std::move(resolved_options), language_string, code_string,
+      function_name, create_scope, create_mode, arg_info->ArgumentNames(),
+      signature, std::move(resolved_options), language_string, code_string,
       std::move(resolved_query), std::move(resolved_output_column_list),
       return_tvf_relation.is_value_table(), sql_security);
   MaybeRecordParseLocation(ast_statement->function_declaration()->name(),
@@ -3198,7 +3218,7 @@ absl::Status Resolver::CheckSQLBodyReturnTypesAndCoerceIfNeeded(
         tvf_body_name_list->column(provided_col_idx).column.type();
     SignatureMatchResult signature_match_result;
     if (!coercer_.CoercesTo(InputArgumentType(provided_col_type),
-                            required_col_type, false /* is_explicit */,
+                            required_col_type, /*is_explicit=*/false,
                             &signature_match_result)) {
       std::string column_description;
       if (return_tvf_relation.is_value_table()) {
@@ -3285,10 +3305,10 @@ absl::Status Resolver::CheckSQLBodyReturnTypesAndCoerceIfNeeded(
         new_column_list.emplace_back(AllocateColumnId(), new_project_alias,
                                      provided_col.name_id(), required_col_type);
         std::unique_ptr<const ResolvedExpr> resolved_cast =
-            MakeColumnRef(provided_col, false /* is_correlated */);
+            MakeColumnRef(provided_col, /*is_correlated=*/false);
         ZETASQL_RETURN_IF_ERROR(ResolveCastWithResolvedArgument(
             statement_location, required_col_type,
-            false /* return_null_on_error */, &resolved_cast));
+            /*return_null_on_error=*/false, &resolved_cast));
         new_project_columns.push_back(MakeResolvedComputedColumn(
             new_column_list.back(), std::move(resolved_cast)));
         RecordColumnAccess(new_column_list.back());
@@ -3359,16 +3379,13 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
 
   const std::vector<std::string> procedure_name =
       ast_statement->name()->ToIdentifierVector();
-  std::vector<std::string> argument_names;
-  FunctionArgumentTypeList signature_arguments;
-  bool contains_templated_arguments = false;
+  auto arg_info = absl::make_unique<FunctionArgumentInfo>();
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionParameters(
-      ast_statement->parameters(),
-      ResolveFunctionDeclarationType::PROCEDURE, &argument_names,
-      &signature_arguments, &contains_templated_arguments));
+      ast_statement->parameters(), ResolveFunctionDeclarationType::PROCEDURE,
+      arg_info.get()));
 
   auto signature = absl::make_unique<FunctionSignature>(
-      FunctionArgumentType(ARG_TYPE_VOID), signature_arguments,
+      FunctionArgumentType(ARG_TYPE_VOID), arg_info->SignatureArguments(),
       /*context_id=*/0);
 
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
@@ -3404,8 +3421,8 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
   ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(absl::nullopt));
 
   *output = MakeResolvedCreateProcedureStmt(
-      procedure_name, create_scope, create_mode, argument_names, *signature,
-      std::move(resolved_options), std::string(procedure_body));
+      procedure_name, create_scope, create_mode, arg_info->ArgumentNames(),
+      *signature, std::move(resolved_options), std::string(procedure_body));
   MaybeRecordParseLocation(ast_statement->name(), output->get());
   return absl::OkStatus();
 }
@@ -3427,24 +3444,17 @@ static FunctionEnums::ProcedureArgumentMode GetProcedureArgumentMode(
 absl::Status Resolver::ResolveFunctionDeclaration(
     const ASTFunctionDeclaration* function_declaration,
     ResolveFunctionDeclarationType function_type,
-    std::vector<std::string>* function_name,
-    std::vector<std::string>* argument_names,
-    FunctionArgumentTypeList* signature_arguments,
-    bool* contains_templated_arguments) {
+    std::vector<std::string>* function_name, FunctionArgumentInfo* arg_info) {
   ZETASQL_RET_CHECK(function_declaration->name() != nullptr);
   *function_name = function_declaration->name()->ToIdentifierVector();
-  return ResolveFunctionParameters(
-      function_declaration->parameters(), function_type, argument_names,
-      signature_arguments, contains_templated_arguments);
+  return ResolveFunctionParameters(function_declaration->parameters(),
+                                   function_type, arg_info);
 }
 
 absl::Status Resolver::ResolveFunctionParameters(
     const ASTFunctionParameters* ast_function_parameters,
     ResolveFunctionDeclarationType function_type,
-    std::vector<std::string>* argument_names,
-    FunctionArgumentTypeList* signature_arguments,
-    bool* contains_templated_arguments) {
-  IdStringSetCase unique_argument_names;
+    FunctionArgumentInfo* arg_info) {
   for (const ASTFunctionParameter* function_param :
        ast_function_parameters->parameter_entries()) {
     ZETASQL_RET_CHECK(function_param != nullptr);
@@ -3514,8 +3524,7 @@ absl::Status Resolver::ResolveFunctionParameters(
       arg_kind = ResolvedArgumentDef::SCALAR;
     }
     const IdString name = function_param->name()->GetAsIdString();
-    argument_names->push_back(name.ToString());
-    if (!zetasql_base::InsertIfNotPresent(&unique_argument_names, name)) {
+    if (arg_info->HasArg(name)) {
       return MakeSqlErrorAt(function_param->name())
           << "Duplicate argument name " << name;
     }
@@ -3527,9 +3536,9 @@ absl::Status Resolver::ResolveFunctionParameters(
                   "statement";
       }
       if (is_any_table_arg) {
-        *contains_templated_arguments = true;
-        signature_arguments->push_back(FunctionArgumentType(
-            ARG_TYPE_RELATION, argument_type_options, /*num_occurrences=*/1));
+        ZETASQL_RETURN_IF_ERROR(arg_info->AddRelationArg(
+            name, FunctionArgumentType(ARG_TYPE_RELATION, argument_type_options,
+                                       /*num_occurrences=*/1)));
         continue;
       }
       ZETASQL_RET_CHECK(function_param->type() == nullptr);
@@ -3538,8 +3547,6 @@ absl::Status Resolver::ResolveFunctionParameters(
           function_param->tvf_schema(),
           ResolveTVFSchemaCheckPropertiesType::INVALID_TABLE_ARGUMENT,
           &resolved_tvf_relation));
-      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&function_table_arguments_, name,
-                                        resolved_tvf_relation));
       argument_type_options = FunctionArgumentTypeOptions(
           resolved_tvf_relation,
           /*extra_relation_input_columns_allowed=*/true);
@@ -3547,23 +3554,23 @@ absl::Status Resolver::ResolveFunctionParameters(
         RecordArgumentParseLocationsIfPresent(*function_param,
                                               &argument_type_options);
       }
-      signature_arguments->push_back(
-          FunctionArgumentType(ARG_TYPE_RELATION, argument_type_options));
+      ZETASQL_RETURN_IF_ERROR(arg_info->AddRelationArg(
+          name,
+          FunctionArgumentType(ARG_TYPE_RELATION, argument_type_options)));
     } else {
       if (is_any_type_arg) {
-        *contains_templated_arguments = true;
-        signature_arguments->push_back(FunctionArgumentType(
-            ARG_TYPE_ARBITRARY, argument_type_options, /*num_occurrences=*/1));
+        ZETASQL_RETURN_IF_ERROR(arg_info->AddScalarArg(
+            name, arg_kind,
+            FunctionArgumentType(ARG_TYPE_ARBITRARY, argument_type_options,
+                                 /*num_occurrences=*/1)));
         continue;
       }
       ZETASQL_RET_CHECK(function_param->type() != nullptr);
       const Type* resolved_type = nullptr;
       ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type));
-      auto argument_ref =
-          MakeResolvedArgumentRef(resolved_type, name.ToString(), arg_kind);
-      ZETASQL_RET_CHECK(!zetasql_base::ContainsKey(function_arguments_, name));
-      function_arguments_[name] = std::move(argument_ref);
-      signature_arguments->emplace_back(resolved_type, argument_type_options);
+      ZETASQL_RETURN_IF_ERROR(arg_info->AddScalarArg(
+          name, arg_kind,
+          FunctionArgumentType(resolved_type, argument_type_options)));
     }
   }
   return absl::OkStatus();
@@ -3581,13 +3588,13 @@ absl::Status Resolver::ResolveTableAndPredicate(
 
   std::shared_ptr<const NameList> target_name_list(new NameList);
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
-      table_path, alias, false /* has_explicit_alias */, alias_location,
-      nullptr /* hints */, nullptr /* systime */, empty_name_scope_.get(),
+      table_path, alias, /*has_explicit_alias=*/false, alias_location,
+      /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
       resolved_table_scan, &target_name_list));
   ZETASQL_RET_CHECK(target_name_list->HasRangeVariable(alias));
 
   const std::shared_ptr<const NameScope> target_scope(
-      new NameScope(nullptr /* parent_scope */, target_name_list));
+      new NameScope(/*previous_scope=*/nullptr, target_name_list));
 
   if (predicate != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(predicate, target_scope.get(),
@@ -3599,7 +3606,7 @@ absl::Status Resolver::ResolveTableAndPredicate(
       // Extract the string form of predicate expression using ZetaSQL
       // unparser.
       parser::Unparser predicate_unparser(predicate_str);
-      predicate->Accept(&predicate_unparser, nullptr /* data */);
+      predicate->Accept(&predicate_unparser, /*data=*/nullptr);
       predicate_unparser.FlushLine();
       absl::StripAsciiWhitespace(predicate_str);
     }
@@ -3891,7 +3898,7 @@ absl::Status Resolver::ResolveExportDataStatement(
   std::shared_ptr<const NameList> query_name_list;
   ZETASQL_RETURN_IF_ERROR(
       ResolveQuery(ast_statement->query(), empty_name_scope_.get(),
-                   kCreateAsId, true /* is_outer_query */,
+                   kCreateAsId, /*is_outer_query=*/true,
                    &query_scan, &query_name_list));
 
   std::unique_ptr<const ResolvedConnection> resolved_connection;
@@ -4262,7 +4269,7 @@ absl::Status Resolver::ResolveDropFunctionStatement(
         signature_arguments.push_back(
             FunctionArgumentType::RelationWithSchema(
                 resolved_tvf_relation,
-                false /* extra_relation_input_columns_allowed */));
+                /*extra_relation_input_columns_allowed=*/false));
       } else {
         const Type* resolved_type;
         ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type));
@@ -4285,7 +4292,7 @@ absl::Status Resolver::ResolveDropFunctionStatement(
     signature = MakeResolvedFunctionSignatureHolder(
         FunctionSignature{{ARG_TYPE_VOID} /* return_type */,
                           signature_arguments,
-                          nullptr /* context_ptr */});
+                          /*context_ptr=*/nullptr});
   }
   *output =
       MakeResolvedDropFunctionStmt(ast_statement->is_if_exists(),

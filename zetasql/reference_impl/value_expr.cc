@@ -746,6 +746,17 @@ bool FlattenExpr::Eval(absl::Span<const TupleData* const> params,
                                                status)) {
     return false;
   }
+  if (slot.value().is_null()) {
+    result->SetValue(Value::Null(output_type()));
+    return true;
+  }
+  // If the input array is non-deterministic, the output is non-deterministic.
+  if (InternalValue::GetOrderKind(slot.value()) !=
+          InternalValue::kPreservesOrder &&
+      slot.value().num_elements() > 1) {
+    context->SetNonDeterministicOutput();
+  }
+
   std::vector<Value> values;
   AddValues(slot.value(), &values);
 
@@ -771,11 +782,7 @@ bool FlattenExpr::Eval(absl::Span<const TupleData* const> params,
     next_values.swap(values);
   }
 
-  if (values.empty()) {
-    result->SetValue(Value::Null(output_type()));
-  } else {
-    result->SetValue(Value::Array(output_type()->AsArray(), values));
-  }
+  result->SetValue(Value::Array(output_type()->AsArray(), values));
   return true;
 }
 

@@ -137,6 +137,11 @@ class TestTableOptions {
     return &required_features_;
   }
 
+  const std::string& userid_column() const { return userid_column_; }
+  void set_userid_column(const std::string& userid_column) {
+    userid_column_ = userid_column;
+  }
+
  private:
   // LINT.IfChange
   // Defines expected table size after populating it with random data. The
@@ -154,6 +159,14 @@ class TestTableOptions {
   // required features, and even then it is only visible in tests that list all
   // of its required features in their [required_features] sections.
   std::set<LanguageFeature> required_features_;
+
+  // Table metadata identifying the User ID column for
+  // (broken link). Corresponds to
+  // zetasql::Table::GetUserIdColumn().
+  //
+  // An empty string means no user id column is set for this table (the default
+  // case).
+  std::string userid_column_;
 };
 
 // This describes a table that should be present in the created database.

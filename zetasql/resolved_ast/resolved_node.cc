@@ -393,6 +393,9 @@ void ResolvedCast::CollectDebugStringFields(
   if (extended_cast_ != nullptr) {
     fields->emplace_back("extended_cast", extended_cast_.get());
   }
+  if (format_ != nullptr) {
+    fields->emplace_back("format", format_.get());
+  }
 }
 
 std::string ResolvedCast::GetNameForDebugString() const {

@@ -1,0 +1,831 @@
+[prepare_database]
+CREATE TABLE TableAllTypes AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(true AS bool) as bool_val,
+       CAST(1 AS double) as double_val,
+       CAST(1 AS float) as float_val,
+       CAST(1 AS uint32) as uint32_val,
+       CAST(1 AS int32) as int32_val,
+       CAST(1 AS uint64) as uint64_val,
+       CAST(1 AS int64) as int64_val,
+       CAST("1" AS string) as str_val,
+       CAST("1" AS BYTES) as bytes_val,
+       CAST('2001-01-01' AS DATE) as date_val,
+       CAST('2001-01-01 00:00:00 UTC' AS TIMESTAMP) as timestamp_val,
+       CAST([1,2,3] AS ARRAY<INT64>) as array_int64_val,
+       STRUCT<INT64 INT64, STRING STRING>(1, "a") as struct_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        double_val DOUBLE,
+        float_val FLOAT,
+        uint32_val UINT32,
+        int32_val INT32,
+        uint64_val UINT64,
+        int64_val INT64,
+        str_val STRING,
+        bytes_val BYTES,
+        date_val DATE,
+        timestamp_val TIMESTAMP,
+        array_int64_val ARRAY<>,
+        struct_val STRUCT<INT64 INT64, STRING STRING>
+      >>
+[{
+   1,
+   true,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   "1",
+   b"1",
+   2001-01-01,
+   2001-01-01 00:00:00+00,
+   ARRAY<INT64>[1, 2, 3],
+   {1, "a"}
+ }]
+
+# ----------------------------------------------------------------------------
+# APPROX_COUNT_DISTINCT
+# ----------------------------------------------------------------------------
+
+==
+[name=approx_count_distinct_empty]
+SELECT APPROX_COUNT_DISTINCT(x) FROM (SELECT 1 as x) WHERE x < 0
+--
+ARRAY<STRUCT<INT64>>[{0}]
+
+==
+[name=approx_count_distinct_ignores_nulls]
+SELECT APPROX_COUNT_DISTINCT(x)
+FROM UNNEST([NULL, NULL, NULL]) x
+--
+ARRAY<STRUCT<INT64>>[{0}]
+
+==
+[name=approx_count_distinct_is_positive]
+SELECT APPROX_COUNT_DISTINCT(x) > 0
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_count_distinct_is_reasonale]
+SELECT approx_dc BETWEEN exact_dc / 2 AND exact_dc * 2 FROM (
+SELECT COUNT(DISTINCT x) exact_dc, APPROX_COUNT_DISTINCT(x) approx_dc
+FROM UNNEST([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]) x)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_count_distinct_all_types]
+SELECT
+  APPROX_COUNT_DISTINCT(bool_val),
+  APPROX_COUNT_DISTINCT(uint32_val),
+  APPROX_COUNT_DISTINCT(int32_val),
+  APPROX_COUNT_DISTINCT(uint64_val),
+  APPROX_COUNT_DISTINCT(int64_val),
+  APPROX_COUNT_DISTINCT(str_val),
+  APPROX_COUNT_DISTINCT(bytes_val),
+  APPROX_COUNT_DISTINCT(float_val),
+  APPROX_COUNT_DISTINCT(double_val),
+  APPROX_COUNT_DISTINCT(date_val),
+  APPROX_COUNT_DISTINCT(timestamp_val)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64>>[{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}]
+==
+
+[required_features=NUMERIC_TYPE]
+[name=approx_count_distinct_numeric]
+SELECT APPROX_COUNT_DISTINCT(x)
+FROM UNNEST([NUMERIC "1.23", NUMERIC "1.23", NUMERIC "3.14"]) x
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[required_features=BIGNUMERIC_TYPE]
+[name=approx_count_distinct_bignumeric]
+SELECT APPROX_COUNT_DISTINCT(x)
+FROM UNNEST([BIGNUMERIC "1.23", BIGNUMERIC "1.23", BIGNUMERIC "3.14"]) x
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[name=approx_count_distinct_array]
+SELECT APPROX_COUNT_DISTINCT(array_int64_val)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[required_features=V_1_2_GROUP_BY_STRUCT]
+[name=approx_count_distinct_struct]
+SELECT APPROX_COUNT_DISTINCT(struct_val)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+# ----------------------------------------------------------------------------
+# APPROX_QUANTILES
+# ----------------------------------------------------------------------------
+
+[name=approx_quantiles_empty]
+SELECT APPROX_QUANTILES(x,3) FROM (SELECT 1 as x) WHERE x < 0
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+
+==
+# Support of bool is easy to miss. If an implementation doesn't calculate
+# the min and the max of boolean values, the algorithm is probably faulty.
+[name=approx_quantiles_bool]
+SELECT APPROX_QUANTILES(x,1) FROM UNNEST([true, false, true, false, true]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[false, true]}]
+
+==
+[name=approx_quantiles_ignores_nulls]
+SELECT APPROX_QUANTILES(x,1)
+FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+
+==
+[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=approx_quantiles_with_ignore_nulls]
+SELECT APPROX_QUANTILES(x,1 IGNORE NULLS)
+FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+
+==
+[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=approx_quantiles_with_respect_nulls]
+SELECT APPROX_QUANTILES(x,1 RESPECT NULLS)
+FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, NULL]}]
+
+==
+[name=approx_quantiles_ignores_nulls2]
+SELECT APPROX_QUANTILES(x,1)
+FROM UNNEST([1, NULL, 1, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 1]}]
+
+==
+[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=approx_quantiles_with_ignore_nulls2]
+SELECT APPROX_QUANTILES(x,1 IGNORE NULLS)
+FROM UNNEST([1, NULL, 1, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[1, 1]}]
+
+==
+[required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[name=approx_quantiles_with_respect_nulls2]
+SELECT APPROX_QUANTILES(x,1 RESPECT NULLS)
+FROM UNNEST([1, NULL, 1, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, 1]}]
+
+==
+[name=approx_quantiles_invalid_0]
+[parameters=0 as count]
+SELECT APPROX_QUANTILES(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_QUANTILES function must be positive
+
+==
+[name=approx_quantiles_invalid_minus1]
+[parameters=-1 as count]
+SELECT APPROX_QUANTILES(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_QUANTILES function must be positive
+
+==
+[name=approx_quantiles_invalid_null]
+[parameters=NULL as count]
+SELECT APPROX_QUANTILES(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_QUANTILES function must not be NULL
+
+==
+[name=approx_quantiles_invalid_huge_count]
+[parameters=100000000 as count]
+SELECT APPROX_QUANTILES(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_QUANTILES function cannot be greater than 100000
+
+==
+[name=approx_quantiles_fixed_count_1]
+[parameters=1 as count]
+SELECT ARRAY_LENGTH(APPROX_QUANTILES(x, @count))
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{2}]
+
+==
+[name=approx_quantiles_fixed_count_2]
+[parameters=2 as count]
+SELECT ARRAY_LENGTH(APPROX_QUANTILES(x, @count))
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{3}]
+
+==
+[name=approx_quantiles_fixed_count_10]
+[parameters=10 as count]
+SELECT ARRAY_LENGTH(APPROX_QUANTILES(x, @count))
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{11}]
+
+==
+[name=approx_quantiles_fixed_count_100]
+[parameters=100 as count]
+SELECT ARRAY_LENGTH(APPROX_QUANTILES(x, @count))
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{101}]
+
+==
+[name=approx_quantiles_fixed_count_1000]
+[parameters=1000 as count]
+SELECT ARRAY_LENGTH(APPROX_QUANTILES(x, @count))
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{1001}]
+
+==
+[name=approx_quantiles_with_cast_arg]
+[parameters=1000 as count]
+SELECT ARRAY_LENGTH(APPROX_QUANTILES(x, cast(cast(@count as int32) as int64)))
+FROM UNNEST([1,2,3,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{1001}]
+
+==
+[name=approx_quantiles_are_ordered]
+SELECT
+ (SELECT LOGICAL_AND(IF(offset > 0, a[offset(offset)] >= a[offset(offset-1)], true)) FROM UNNEST(a) WITH OFFSET)
+FROM (SELECT APPROX_QUANTILES(x,5) a
+FROM UNNEST([9,3,6,1,5,7,10,0,3,6,9,2,2,4,5,6,8,2,7,4,13,1,22]) x);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_quantiles_same_inputs]
+SELECT APPROX_QUANTILES(x, 3)
+FROM UNNEST(['foo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo']) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo", "foo", "foo", "foo"]}]
+
+==
+[name=approx_quantiles_boundaries_are_same_as_min_max]
+select
+  q[offset(0)],
+  min,
+  q[ordinal(array_length(q))],
+  max
+from (
+  select approx_quantiles(x+y, 7) q, min(x+y) min, max(x+y) max
+    from
+      (select x from unnest([0,1,2,3,4,5,6,7,8,9]) x)
+      cross join
+      (select y from unnest([-50,-40,-30,-20,-10,0,10,20,30,40,50]) y)
+);
+--
+
+ARRAY<STRUCT<INT64, min INT64, INT64, max INT64>>[{-50, -50, 59, 59}]
+==
+[name=approx_quantiles_all_types]
+SELECT
+  APPROX_QUANTILES(double_val, 1),
+  APPROX_QUANTILES(float_val, 1),
+  APPROX_QUANTILES(uint32_val, 1),
+  APPROX_QUANTILES(int32_val, 1),
+  APPROX_QUANTILES(uint64_val, 1),
+  APPROX_QUANTILES(int64_val, 1),
+  APPROX_QUANTILES(str_val, 1),
+  APPROX_QUANTILES(bytes_val, 1),
+  APPROX_QUANTILES(date_val, 1),
+  APPROX_QUANTILES(timestamp_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>>>
+[{ARRAY<DOUBLE>[1, 1],
+  ARRAY<FLOAT>[1, 1],
+  ARRAY<UINT32>[1, 1],
+  ARRAY<INT32>[1, 1],
+  ARRAY<UINT64>[1, 1],
+  ARRAY<INT64>[1, 1],
+  ARRAY<STRING>["1", "1"],
+  ARRAY<BYTES>[b"1", b"1"],
+  ARRAY<DATE>[2001-01-01, 2001-01-01],
+  ARRAY<TIMESTAMP>[
+    2001-01-01 00:00:00+00,
+    2001-01-01 00:00:00+00
+  ]}]
+
+==
+[required_features=NUMERIC_TYPE]
+[name=approx_quantiles_numeric]
+SELECT APPROX_QUANTILES(x, 1)
+FROM UNNEST([NUMERIC "1.23", NUMERIC "1.23", NUMERIC "1.23"]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[1.23, 1.23]}]
+
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=approx_quantiles_bignumeric]
+SELECT APPROX_QUANTILES(x, 1)
+FROM UNNEST([BIGNUMERIC "1.23", BIGNUMERIC "1.23", BIGNUMERIC "1.23"]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BIGNUMERIC>[1.23, 1.23]}]
+
+# ----------------------------------------------------------------------------
+# APPROX_TOP_COUNT
+# ----------------------------------------------------------------------------
+
+==
+[name=approx_top_count_empty]
+SELECT APPROX_TOP_COUNT(x, 3) FROM (SELECT 1 as x) WHERE x < 0
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<value INT64, count INT64>>(NULL)}]
+
+==
+[name=approx_top_count_includes_nulls]
+SELECT APPROX_TOP_COUNT(x, 2)
+FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<value INT64, count INT64>>[{NULL, 5}]}]
+
+==
+[name=approx_top_count_ordered]
+SELECT
+ (SELECT LOGICAL_AND(IF(offset > 0, top[offset(offset)].count <= top[offset(offset-1)].count, true)) FROM UNNEST(top) WITH OFFSET)
+FROM (SELECT APPROX_TOP_COUNT(x,5) top
+FROM UNNEST([9,3,6,1,5,7,10,0,3,6,9,2,2,4,5,6,8,2,7,4,13,1,22]) x);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_top_count_top_1]
+SELECT APPROX_TOP_COUNT(x,1)[offset(0)].value
+FROM UNNEST(['bar', 'baz', 'zoo', 'foo', 'foo', 'foo', 'foo', 'foo', 'foo']) x
+--
+ARRAY<STRUCT<value STRING>>[{"foo"}]
+
+==
+[name=approx_top_count_invalid_0]
+[parameters=0 as count]
+SELECT APPROX_TOP_COUNT(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_COUNT function must be positive
+
+==
+[name=approx_top_count_invalid_minus1]
+[parameters=-1 as count]
+SELECT APPROX_TOP_COUNT(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_COUNT function must be positive
+
+==
+[name=approx_top_count_invalid_null]
+[parameters=NULL as count]
+SELECT APPROX_TOP_COUNT(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_COUNT function must not be NULL
+
+==
+[name=approx_top_count_invalid_huge_count]
+[parameters=100000000 as count]
+SELECT APPROX_TOP_COUNT(x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_COUNT function cannot be greater than 100000
+
+==
+[name=approx_top_count_fixed_1]
+[parameters=1 as count]
+SELECT ARRAY_LENGTH(APPROX_TOP_COUNT(x, @count))
+FROM UNNEST([5,4,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{1}]
+
+==
+[name=approx_top_count_fixed_2]
+[parameters=2 as count]
+SELECT ARRAY_LENGTH(APPROX_TOP_COUNT(x, @count))
+FROM UNNEST([5,4,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=approx_top_count_fixed_5]
+[parameters=5 as count]
+SELECT ARRAY_LENGTH(APPROX_TOP_COUNT(x, @count))
+FROM UNNEST([10,9,8,7,6,5,4,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{5}]
+
+==
+[name=approx_top_count_big_count_small_unique_input]
+[parameters=[1,2,3] as input]
+SELECT ARRAY_LENGTH(APPROX_TOP_COUNT(x, 10000)) <= ARRAY_LENGTH(@input)
+FROM UNNEST(@input) x
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_top_count_big_count_small_nonunique_input]
+[parameters=[1,1,1,2,2,2,3,3,3] as input]
+SELECT ARRAY_LENGTH(APPROX_TOP_COUNT(x, 10000)) <= ARRAY_LENGTH(@input)
+FROM UNNEST(@input) x
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_top_count_all_types]
+SELECT
+  APPROX_TOP_COUNT(double_val, 1),
+  APPROX_TOP_COUNT(float_val, 1),
+  APPROX_TOP_COUNT(uint32_val, 1),
+  APPROX_TOP_COUNT(int32_val, 1),
+  APPROX_TOP_COUNT(uint64_val, 1),
+  APPROX_TOP_COUNT(int64_val, 1),
+  APPROX_TOP_COUNT(str_val, 1),
+  APPROX_TOP_COUNT(bytes_val, 1),
+  APPROX_TOP_COUNT(date_val, 1),
+  APPROX_TOP_COUNT(timestamp_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>>>
+[{ARRAY<STRUCT<value DOUBLE, count INT64>>[{1, 1}],
+  ARRAY<STRUCT<value FLOAT, count INT64>>[{1, 1}],
+  ARRAY<STRUCT<value UINT32, count INT64>>[{1, 1}],
+  ARRAY<STRUCT<value INT32, count INT64>>[{1, 1}],
+  ARRAY<STRUCT<value UINT64, count INT64>>[{1, 1}],
+  ARRAY<STRUCT<value INT64, count INT64>>[{1, 1}],
+  ARRAY<STRUCT<value STRING, count INT64>>[{"1", 1}],
+  ARRAY<STRUCT<value BYTES, count INT64>>[{b"1", 1}],
+  ARRAY<STRUCT<value DATE, count INT64>>[{2001-01-01, 1}],
+  ARRAY<STRUCT<value TIMESTAMP, count INT64>>[
+    {
+      2001-01-01 00:00:00+00,
+      1
+    }
+  ]}]
+
+==
+
+[required_features=NUMERIC_TYPE]
+[name=approx_top_count_numeric]
+SELECT APPROX_TOP_COUNT(x, 1)
+FROM UNNEST([NUMERIC "1.23", NUMERIC "1.23", NUMERIC "3.14"]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<value NUMERIC, count INT64>>[{1.23, 2}]}]
+==
+
+[required_features=BIGNUMERIC_TYPE]
+[name=approx_top_count_bignumeric]
+SELECT APPROX_TOP_COUNT(x, 1)
+FROM UNNEST([BIGNUMERIC "1.23", BIGNUMERIC "1.23", BIGNUMERIC "3.14"]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value BIGNUMERIC, count INT64>>[{1.23, 2}]}
+]
+==
+
+
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[name=approx_top_count_array]
+SELECT APPROX_TOP_COUNT(array_int64_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value ARRAY<>, count INT64>>[
+     {
+       ARRAY<INT64>[1, 2, 3],
+       1
+     }
+   ]}
+]
+==
+
+[required_features=V_1_2_GROUP_BY_STRUCT]
+[name=approx_top_count_struct]
+SELECT APPROX_TOP_COUNT(struct_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<
+           value STRUCT<INT64 INT64, STRING STRING>,
+           count INT64
+         >>[{{1, "a"}, 1}]}
+]
+==
+
+# ----------------------------------------------------------------------------
+# APPROX_TOP_SUM
+# ----------------------------------------------------------------------------
+
+[name=approx_top_sum_empty]
+SELECT APPROX_TOP_SUM(x, y, 3) FROM (SELECT 1 as x, 2.0 as y) WHERE x < 0
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<value INT64, sum DOUBLE>>(NULL)}]
+
+==
+[name=approx_top_sum_includes_nulls]
+SELECT APPROX_TOP_SUM(x, x, 2)
+FROM UNNEST([NULL, NULL, NULL, NULL, NULL]) x
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<value INT64, sum INT64>>[{NULL, NULL}]}]
+
+==
+[name=approx_top_sum_ordered]
+SELECT
+ (SELECT LOGICAL_AND(IF(offset > 0, top[offset(offset)].sum <= top[offset(offset-1)].sum, true)) FROM UNNEST(top) WITH OFFSET)
+FROM (SELECT APPROX_TOP_SUM(-x, x, 5) top
+FROM UNNEST([9,3,6,1,5,7,10,0,3,6,9,2,2,4,5,6,8,2,7,4,13,1,22]) x);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_top_sum_top_2]
+SELECT APPROX_TOP_SUM(x, y, 2)
+FROM (
+  SELECT "null+inf" AS x, CAST(NULL AS DOUBLE) AS y
+  UNION ALL SELECT "null+80", CAST(NULL AS DOUBLE)
+  UNION ALL SELECT "null", CAST(NULL AS DOUBLE)
+  UNION ALL SELECT "null+inf", CAST("inf" AS DOUBLE)
+  UNION ALL SELECT "70+50", 70.0
+  UNION ALL SELECT "null+null", CAST(NULL AS DOUBLE)
+  UNION ALL SELECT "null+80", 80.0
+  UNION ALL SELECT "100", 100.0
+  UNION ALL SELECT "null+null", CAST(NULL AS DOUBLE)
+  UNION ALL SELECT "70+50", 50.0
+  UNION ALL SELECT "0", 0.0
+  UNION ALL SELECT "-0", -0.0
+)
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value STRING, sum DOUBLE>>[{"null+inf", inf}, {"70+50", 120}]}
+]
+
+==
+[name=approx_top_sum_negative_const_int64_weight]
+SELECT APPROX_TOP_SUM(x, -1, 1) FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: APPROX_TOP_SUM does not support negative or NaN weights in the second argument; got -1
+
+==
+[name=approx_top_sum_negative_int64_weight_expr]
+SELECT APPROX_TOP_SUM(x, -x, 1) FROM UNNEST([2]) x
+--
+ERROR: generic::out_of_range: APPROX_TOP_SUM does not support negative or NaN weights in the second argument; got -2
+
+==
+[name=approx_top_sum_negative_double_weight]
+SELECT APPROX_TOP_SUM(x, x, 1) FROM UNNEST([-0.1]) x
+--
+ERROR: generic::out_of_range: APPROX_TOP_SUM does not support negative or NaN weights in the second argument; got -0.1
+
+==
+[name=approx_top_sum_negative_inf_weight]
+SELECT APPROX_TOP_SUM(x, x / 10, 1) FROM UNNEST([-CAST("inf" AS DOUBLE)]) x
+--
+ERROR: generic::out_of_range: APPROX_TOP_SUM does not support negative or NaN weights in the second argument; got -inf
+
+==
+[name=approx_top_sum_nan_weight]
+SELECT APPROX_TOP_SUM(x, x, 1) from UNNEST([CAST("nan" AS DOUBLE)]) x
+--
+ERROR: generic::out_of_range: APPROX_TOP_SUM does not support negative or NaN weights in the second argument; got nan
+
+==
+[name=approx_top_sum_top_weight_overflow]
+SELECT APPROX_TOP_SUM("", x, 1)
+FROM UNNEST([~(1 << 63), 1]) x
+--
+ERROR: generic::out_of_range: int64 overflow: 9223372036854775807 + 1
+
+==
+[name=approx_top_sum_invalid_0]
+[parameters=0 as count]
+SELECT APPROX_TOP_SUM(x, x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_SUM function must be positive
+
+==
+[name=approx_top_sum_invalid_minus1]
+[parameters=-1 as count]
+SELECT APPROX_TOP_SUM(x, x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_SUM function must be positive
+
+==
+[name=approx_top_sum_invalid_null]
+[parameters=NULL as count]
+SELECT APPROX_TOP_SUM(x, x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_SUM function must not be NULL
+
+==
+[name=approx_top_sum_invalid_huge_count]
+[parameters=100000000 as count]
+SELECT APPROX_TOP_SUM(x, x, @count)
+FROM UNNEST([1]) x
+--
+ERROR: generic::out_of_range: The second argument to APPROX_TOP_SUM function cannot be greater than 100000
+
+==
+[name=approx_top_sum_fixed_1]
+[parameters=1 as count]
+SELECT ARRAY_LENGTH(APPROX_TOP_SUM(x, x, @count))
+FROM UNNEST([5,4,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{1}]
+
+==
+[name=approx_top_sum_fixed_2]
+[parameters=2 as count]
+SELECT ARRAY_LENGTH(APPROX_TOP_SUM(x, x, @count))
+FROM UNNEST([5,4,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+[name=approx_top_sum_fixed_5]
+[parameters=5 as count]
+SELECT ARRAY_LENGTH(APPROX_TOP_SUM(x, x, @count))
+FROM UNNEST([10,9,8,7,6,5,4,3,2,1]) x
+--
+ARRAY<STRUCT<INT64>>[{5}]
+
+==
+[name=approx_top_sum_big_count_small_unique_input]
+[parameters=[1,2,3] as input]
+SELECT ARRAY_LENGTH(APPROX_TOP_SUM(x, x, 10000)) <= ARRAY_LENGTH(@input)
+FROM UNNEST(@input) x
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_top_sum_big_count_small_nonunique_input]
+[parameters=[1,1,1,2,2,2,3,3,3] as input]
+SELECT ARRAY_LENGTH(APPROX_TOP_SUM(x, x, 10000)) <= ARRAY_LENGTH(@input)
+FROM UNNEST(@input) x
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=approx_top_sum_all_types]
+SELECT
+  APPROX_TOP_SUM(double_val, double_val, 1),
+  APPROX_TOP_SUM(float_val, double_val, 1),
+  APPROX_TOP_SUM(uint32_val, int64_val, 1),
+  APPROX_TOP_SUM(int32_val, uint64_val, 1),
+  APPROX_TOP_SUM(uint64_val, int64_val, 1),
+  APPROX_TOP_SUM(int64_val, uint64_val, 1),
+  APPROX_TOP_SUM(str_val, int64_val, 1),
+  APPROX_TOP_SUM(bytes_val, double_val, 1),
+  APPROX_TOP_SUM(date_val, uint64_val, 1),
+  APPROX_TOP_SUM(timestamp_val, int64_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>,
+             ARRAY<>>>
+[{ARRAY<STRUCT<value DOUBLE, sum DOUBLE>>[{1, 1}],
+  ARRAY<STRUCT<value FLOAT, sum DOUBLE>>[{1, 1}],
+  ARRAY<STRUCT<value UINT32, sum INT64>>[{1, 1}],
+  ARRAY<STRUCT<value INT32, sum UINT64>>[{1, 1}],
+  ARRAY<STRUCT<value UINT64, sum INT64>>[{1, 1}],
+  ARRAY<STRUCT<value INT64, sum UINT64>>[{1, 1}],
+  ARRAY<STRUCT<value STRING, sum INT64>>[{"1", 1}],
+  ARRAY<STRUCT<value BYTES, sum DOUBLE>>[{b"1", 1}],
+  ARRAY<STRUCT<value DATE, sum UINT64>>[{2001-01-01, 1}],
+  ARRAY<STRUCT<value TIMESTAMP, sum INT64>>[
+    {
+      2001-01-01 00:00:00+00,
+      1
+    }
+  ]}]
+
+==
+
+[required_features=NUMERIC_TYPE]
+[name=approx_top_sum_numeric]
+SELECT APPROX_TOP_SUM(x, w, 1)
+FROM (SELECT NUMERIC "1.23" as x, 2 as w)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRUCT<value NUMERIC, sum INT64>>[{1.23, 2}]}]
+==
+
+[required_features=NUMERIC_TYPE]
+[name=approx_top_sum_numeric_with_numeric_weight]
+SELECT APPROX_TOP_SUM(x, w, 1)
+FROM (SELECT NUMERIC "1.23" as x, NUMERIC "2.11" as w)
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value NUMERIC, sum NUMERIC>>[{1.23, 2.11}]}
+]
+==
+
+[required_features=BIGNUMERIC_TYPE]
+[name=approx_top_sum_bignumeric]
+SELECT APPROX_TOP_SUM(x, w, 1)
+FROM (SELECT BIGNUMERIC "1.23" as x, 2 as w)
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value BIGNUMERIC, sum INT64>>[{1.23, 2}]}
+]
+==
+
+
+[required_features=BIGNUMERIC_TYPE]
+[name=approx_top_sum_bignumeric_with_bignumeric_weight]
+SELECT APPROX_TOP_SUM(x, w, 1)
+FROM (SELECT BIGNUMERIC "1.23" as x, BIGNUMERIC "2.11" as w)
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value BIGNUMERIC, sum BIGNUMERIC>>[{1.23, 2.11}]}
+]
+==
+
+[required_features=V_1_2_GROUP_BY_ARRAY]
+[name=approx_top_sum_array]
+SELECT APPROX_TOP_SUM(array_int64_val, double_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value ARRAY<>, sum DOUBLE>>[
+     {
+       ARRAY<INT64>[1, 2, 3],
+       1
+     }
+   ]}
+]
+==
+
+[required_features=V_1_2_GROUP_BY_STRUCT]
+[name=approx_top_sum_struct]
+SELECT APPROX_TOP_SUM(struct_val, double_val, 1)
+FROM TableAllTypes
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<
+           value STRUCT<INT64 INT64, STRING STRING>,
+           sum DOUBLE
+         >>[{{1, "a"}, 1}]}
+]

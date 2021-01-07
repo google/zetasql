@@ -25,6 +25,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
@@ -41,6 +42,7 @@
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
@@ -820,6 +822,29 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
                                                        functions);
 }
 
+namespace {
+
+std::string IntervalConstructorSQL(const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  return absl::StrFormat("INTERVAL %s %s", inputs[0], inputs[1]);
+}
+
+}  // namespace
+
+void GetIntervalFunctions(TypeFactory* type_factory,
+                          const ZetaSQLBuiltinFunctionOptions& options,
+                          NameToFunctionMap* functions) {
+  const Type* interval_type = type_factory->get_interval();
+  const Type* int64_type = type_factory->get_int64();
+  const Type* datepart_type = types::DatePartEnumType();
+  const Function::Mode SCALAR = Function::SCALAR;
+
+  InsertFunction(
+      functions, options, "$interval", SCALAR,
+      {{interval_type, {int64_type, datepart_type}, FN_INTERVAL_CONSTRUCTOR}},
+      FunctionOptions().set_get_sql_callback(&IntervalConstructorSQL));
+}
+
 void GetArithmeticFunctions(TypeFactory* type_factory,
                             const ZetaSQLBuiltinFunctionOptions& options,
                             NameToFunctionMap* functions) {
@@ -1567,6 +1592,35 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForComparisonOperator)
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "!=")));
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_IS_DISTINCT)) {
+    InsertFunction(
+        functions, options, "$is_distinct_from", SCALAR,
+        {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_DISTINCT},
+         {bool_type, {int64_type, uint64_type}, FN_DISTINCT_INT64_UINT64},
+         {bool_type, {uint64_type, int64_type}, FN_DISTINCT_UINT64_INT64}},
+        FunctionOptions()
+            .set_sql_name("IS DISTINCT FROM")
+            .set_get_sql_callback(
+                bind_front(&InfixFunctionSQL, "IS DISTINCT FROM"))
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(
+                bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
+
+    InsertFunction(
+        functions, options, "$is_not_distinct_from", SCALAR,
+        {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_DISTINCT},
+         {bool_type, {int64_type, uint64_type}, FN_NOT_DISTINCT_INT64_UINT64},
+         {bool_type, {uint64_type, int64_type}, FN_NOT_DISTINCT_UINT64_INT64}},
+        FunctionOptions()
+            .set_sql_name("IS NOT DISTINCT FROM")
+            .set_get_sql_callback(
+                bind_front(&InfixFunctionSQL, "IS NOT DISTINCT FROM"))
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(
+                bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
+  }
 
   InsertFunction(
       functions, options, "$less", SCALAR,

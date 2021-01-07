@@ -1,0 +1,695 @@
+[prepare_database]
+[required_features=NUMERIC_TYPE]
+CREATE TABLE TableNumericEmpty AS
+SELECT CAST(1 as int64) as row_id, val FROM (SELECT CAST(1 as NUMERIC) as val) WHERE false
+--
+ARRAY<STRUCT<row_id INT64, val NUMERIC>>[]
+==
+[required_features=NUMERIC_TYPE]
+[prepare_database]
+CREATE TABLE TableNumericNull AS
+SELECT CAST(1 as int64) as row_id, CAST(NULL AS NUMERIC) as val
+--
+ARRAY<STRUCT<row_id INT64, val NUMERIC>>[{1, NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[prepare_database]
+CREATE TABLE TableNumericOneValue AS
+SELECT CAST(1 as int64) as row_id, CAST(1 AS NUMERIC) as val
+--
+ARRAY<STRUCT<row_id INT64, val NUMERIC>>[{1, 1}]
+==
+[required_features=NUMERIC_TYPE]
+[prepare_database]
+CREATE TABLE TableNumericAllValues AS
+SELECT CAST(1 as int64) as row_id, CAST(1 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(2 as int64) as row_id, CAST(2 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(3 as int64) as row_id, CAST(3 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(4 as int64) as row_id, CAST(4 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(5 as int64) as row_id, CAST(5 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(6 as int64) as row_id, CAST(-1.1 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(7 as int64) as row_id, CAST(-2.2 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(8 as int64) as row_id, CAST(-3.3 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(9 as int64) as row_id, CAST(-4.4 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(10 as int64) as row_id, CAST(-5.5 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(11 as int64) as row_id, CAST(NULL AS NUMERIC) as val
+--
+ARRAY<STRUCT<row_id INT64, val NUMERIC>>[
+  {1, 1},
+  {2, 2},
+  {3, 3},
+  {4, 4},
+  {5, 5},
+  {6, -1.1},
+  {7, -2.2},
+  {8, -3.3},
+  {9, -4.4},
+  {10, -5.5},
+  {11, NULL}
+]
+==
+[required_features=NUMERIC_TYPE]
+[prepare_database]
+CREATE TABLE TableNumericLargeValues AS
+SELECT CAST(1 as int64) as row_id, CAST("99999999999999999999999999999.999999999" AS NUMERIC) as val
+UNION ALL
+SELECT CAST(2 as int64) as row_id, CAST("99999999999999999999999999999.999999999" AS NUMERIC) as val
+UNION ALL
+SELECT CAST(3 as int64) as row_id, CAST("99999999999999999999999999999.999999999" AS NUMERIC) as val
+UNION ALL
+SELECT CAST(4 as int64) as row_id, CAST("-99999999999999999999999999999.999999999" AS NUMERIC) as val
+UNION ALL
+SELECT CAST(5 as int64) as row_id, CAST(1 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(6 as int64) as row_id, CAST(10 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(7 as int64) as row_id, CAST(-1 AS NUMERIC) as val
+UNION ALL
+SELECT CAST(8 as int64) as row_id, CAST("-99999999999999999999999999999.999999999" AS NUMERIC) as val
+UNION ALL
+SELECT CAST(9 as int64) as row_id, CAST("-99999999999999999999999999999.999999999" AS NUMERIC) as val
+--
+ARRAY<STRUCT<row_id INT64, val NUMERIC>>[
+  {
+    1,
+    99999999999999999999999999999.999999999
+  },
+  {
+    2,
+    99999999999999999999999999999.999999999
+  },
+  {
+    3,
+    99999999999999999999999999999.999999999
+  },
+  {
+    4,
+    -99999999999999999999999999999.999999999
+  },
+  {5, 1},
+  {6, 10},
+  {7, -1},
+  {
+    8,
+    -99999999999999999999999999999.999999999
+  },
+  {
+    9,
+    -99999999999999999999999999999.999999999
+  }
+]
+==
+[prepare_database]
+[required_features=BIGNUMERIC_TYPE]
+CREATE TABLE TableBigNumericEmpty AS
+SELECT CAST(1 as int64) as row_id, val FROM (SELECT CAST(1 as BIGNUMERIC) as val) WHERE false
+--
+ARRAY<STRUCT<row_id INT64, val BIGNUMERIC>>[]
+==
+[prepare_database]
+[required_features=BIGNUMERIC_TYPE]
+CREATE TABLE TableBigNumericNull AS
+SELECT CAST(1 as int64) as row_id,
+       CAST(NULL AS bignumeric) as val
+--
+ARRAY<STRUCT<row_id INT64, val BIGNUMERIC>>[{1, NULL}]
+==
+[prepare_database]
+[required_features=BIGNUMERIC_TYPE]
+CREATE TABLE TableBigNumericOneValue AS
+SELECT CAST(1 AS int64) as row_id,
+       CAST('1' AS bignumeric) as val
+--
+ARRAY<STRUCT<row_id INT64, val BIGNUMERIC>>[{1, 1}]
+==
+[prepare_database]
+[required_features=BIGNUMERIC_TYPE]
+CREATE TABLE TableBigNumericAllValues AS
+SELECT CAST(1 AS int64) as row_id,
+       CAST('1.1' AS bignumeric) as val
+UNION ALL
+SELECT CAST(2 AS int64) as row_id,
+       CAST('1.1' AS bignumeric) as val
+UNION ALL
+SELECT CAST(3 AS int64) as row_id,
+       CAST(NULL AS bignumeric) as val
+UNION ALL
+SELECT CAST(4 AS int64) as row_id,
+       CAST('-3.3' AS bignumeric) as val
+UNION ALL
+SELECT CAST(5 AS int64) as row_id,
+       CAST(NULL AS bignumeric) as val
+UNION ALL
+SELECT CAST(6 AS int64) as row_id,
+       CAST('-8.8' AS bignumeric) as val
+UNION ALL
+SELECT CAST(7 AS int64) as row_id,
+       CAST('13.13' AS bignumeric) as val
+UNION ALL
+SELECT CAST(8 AS int64) as row_id,
+       CAST('-21.21' AS bignumeric) as val
+UNION ALL
+SELECT CAST(9 AS int64) as row_id,
+       CAST('34.34' AS bignumeric) as val
+UNION ALL
+SELECT CAST(10 AS int64) as row_id,
+       CAST('-55.55' AS bignumeric) as val
+UNION ALL
+SELECT CAST(11 AS int64) as row_id,
+       CAST('89.89' AS bignumeric) as val
+UNION ALL
+SELECT CAST(12 AS int64) as row_id,
+       CAST(NULL AS bignumeric) as val
+UNION ALL
+SELECT CAST(13 AS int64) as row_id,
+       CAST('233.233' AS bignumeric) as val
+UNION ALL
+SELECT CAST(14 AS int64) as row_id,
+       CAST('-377.377' AS bignumeric) as val
+UNION ALL
+SELECT CAST(15 AS int64) as row_id,
+       CAST('610.610' AS bignumeric) as val
+UNION ALL
+SELECT CAST(16 AS int64) as row_id,
+       CAST('-987.987' AS bignumeric) as val
+UNION ALL
+SELECT CAST(17 AS int64) as row_id,
+       CAST('1597.1597' AS bignumeric) as val
+--
+ARRAY<STRUCT<row_id INT64, val BIGNUMERIC>>[
+  {1, 1.1},
+  {2, 1.1},
+  {3, NULL},
+  {4, -3.3},
+  {5, NULL},
+  {6, -8.8},
+  {7, 13.13},
+  {8, -21.21},
+  {9, 34.34},
+  {10, -55.55},
+  {11, 89.89},
+  {12, NULL},
+  {13, 233.233},
+  {14, -377.377},
+  {15, 610.61},
+  {16, -987.987},
+  {17, 1597.1597}
+]
+==
+[prepare_database]
+[required_features=BIGNUMERIC_TYPE]
+CREATE TABLE TableBigNumericLargeValues AS
+SELECT CAST(1 AS int64) as row_id,
+       CAST('578960446186580977117854925043439539266.34992332820282019728792003956564819967' AS bignumeric) as val
+UNION ALL
+SELECT CAST(2 AS int64) as row_id,
+       CAST('-578960446186580977117854925043439539266.34992332820282019728792003956564819968' AS bignumeric) as val
+UNION ALL
+SELECT CAST(3 AS int64) as row_id,
+       CAST(NULL AS bignumeric) as val
+UNION ALL
+SELECT CAST(4 AS int64) as row_id,
+       CAST('123456789012345678901234567890123456789.12345678901234567890123456789012345678' AS bignumeric) as val
+UNION ALL
+SELECT CAST(5 AS int64) as row_id,
+       CAST(NULL AS bignumeric) as val
+UNION ALL
+SELECT CAST(6 AS int64) as row_id,
+       CAST('-123456789012345678901234567890123456789.12345678901234567890123456789012345678' AS bignumeric) as val
+UNION ALL
+SELECT CAST(7 AS int64) as row_id,
+       CAST('1' AS bignumeric) as val
+UNION ALL
+SELECT CAST(8 AS int64) as row_id,
+       CAST('-10' AS bignumeric) as val
+UNION ALL
+SELECT CAST(9 AS int64) as row_id,
+       CAST('-578960446186580977117854925043439539266.34992332820282019728792003956564819968' AS bignumeric) as val
+UNION ALL
+SELECT CAST(10 AS int64) as row_id,
+       CAST('578960446186580977117854925043439539266.34992332820282019728792003956564819967' AS bignumeric) as val
+--
+ARRAY<STRUCT<row_id INT64, val BIGNUMERIC>>[
+  {
+    1,
+    578960446186580977117854925043439539266.34992332820282019728792003956564819967
+  },
+  {
+    2,
+    -578960446186580977117854925043439539266.34992332820282019728792003956564819968
+  },
+  {3, NULL},
+  {
+    4,
+    123456789012345678901234567890123456789.12345678901234567890123456789012345678
+  },
+  {5, NULL},
+  {
+    6,
+    -123456789012345678901234567890123456789.12345678901234567890123456789012345678
+  },
+  {7, 1},
+  {8, -10},
+  {
+    9,
+    -578960446186580977117854925043439539266.34992332820282019728792003956564819968
+  },
+  {
+    10,
+    578960446186580977117854925043439539266.34992332820282019728792003956564819967
+  }
+]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_null]
+SELECT SUM(val) FROM TableNumericNull
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_one]
+SELECT SUM(val) FROM TableNumericOneValue
+--
+ARRAY<STRUCT<NUMERIC>>[{1}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_all]
+SELECT SUM(val) FROM TableNumericAllValues
+--
+ARRAY<STRUCT<NUMERIC>>[{-1.5}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_all_filtered_null]
+SELECT SUM(val) FROM TableNumericAllValues WHERE row_id = 11
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_all_filtered_none]
+SELECT SUM(val) FROM TableNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_large]
+SELECT SUM(val) FROM TableNumericLargeValues
+--
+ARRAY<STRUCT<NUMERIC>>[{10}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_overflow_1]
+SELECT SUM(val) FROM TableNumericLargeValues WHERE row_id in (1, 5)
+--
+ERROR: generic::out_of_range: numeric overflow: SUM
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_sum_overflow_2]
+SELECT SUM(val) FROM TableNumericLargeValues WHERE row_id in (4, 7)
+--
+ERROR: generic::out_of_range: numeric overflow: SUM
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_null]
+SELECT AVG(val) FROM TableNumericNull
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_one]
+SELECT AVG(val) FROM TableNumericOneValue
+--
+ARRAY<STRUCT<NUMERIC>>[{1}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_all]
+SELECT AVG(val) FROM TableNumericAllValues
+--
+ARRAY<STRUCT<NUMERIC>>[{-0.15}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_all_filtered_null]
+SELECT AVG(val) FROM TableNumericAllValues WHERE row_id = 11
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_all_filtered_none]
+SELECT AVG(val) FROM TableNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_large]
+SELECT AVG(val) FROM TableNumericLargeValues
+--
+ARRAY<STRUCT<NUMERIC>>[{1.111111111}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_overflow_1]
+SELECT AVG(val) FROM TableNumericLargeValues WHERE row_id in (1, 5)
+--
+ARRAY<STRUCT<NUMERIC>>[{50000000000000000000000000000.5}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_avg_overflow_2]
+SELECT AVG(val) FROM TableNumericLargeValues WHERE row_id in (4, 7)
+--
+ARRAY<STRUCT<NUMERIC>>[{-50000000000000000000000000000.5}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_null]
+SELECT SUM(val) FROM TableBigNumericNull
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_one]
+SELECT SUM(val) FROM TableBigNumericOneValue
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{1}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_all]
+SELECT SUM(val) FROM TableBigNumericAllValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{1126.3387}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_all_filtered_null]
+SELECT SUM(val) FROM TableBigNumericAllValues WHERE row_id = 3
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_all_filtered_none]
+SELECT SUM(val) FROM TableBigNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_large]
+SELECT SUM(val) FROM TableBigNumericLargeValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{-9.00000000000000000000000000000000000002}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_overflow_1]
+SELECT SUM(val) FROM TableBigNumericLargeValues WHERE row_id in (1, 7)
+--
+ERROR: generic::out_of_range: BIGNUMERIC overflow: SUM
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_sum_overflow_2]
+SELECT SUM(val) FROM TableBigNumericLargeValues WHERE row_id in (8, 9)
+--
+ERROR: generic::out_of_range: BIGNUMERIC overflow: SUM
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_null]
+SELECT AVG(val) FROM TableBigNumericNull
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_one]
+SELECT AVG(val) FROM TableBigNumericOneValue
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{1}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_all]
+SELECT AVG(val) FROM TableBigNumericAllValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{80.45276428571428571428571428571428571429}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_all_filtered_null]
+SELECT AVG(val) FROM TableBigNumericAllValues WHERE row_id = 3
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_all_filtered_none]
+SELECT AVG(val) FROM TableBigNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_large]
+SELECT AVG(val) FROM TableBigNumericLargeValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{-1.125}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_overflow_on_sum_1]
+SELECT AVG(val) FROM TableBigNumericLargeValues WHERE row_id in (1, 7)
+--
+ARRAY<STRUCT<BIGNUMERIC>>[
+  {
+    289480223093290488558927462521719769633.67496166410141009864396001978282409984
+  }
+]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_avg_overflow_on_sum_2]
+SELECT AVG(val) FROM TableBigNumericLargeValues WHERE row_id in (8, 9)
+--
+ARRAY<STRUCT<BIGNUMERIC>>[
+  {
+    -289480223093290488558927462521719769638.17496166410141009864396001978282409984
+  }
+]
+==
+[name=numeric_min_empty]
+[required_features=NUMERIC_TYPE]
+SELECT MIN(val) FROM TableNumericEmpty
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_min_null]
+SELECT MIN(val) FROM TableNumericNull
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_min_one]
+SELECT MIN(val) FROM TableNumericOneValue
+--
+ARRAY<STRUCT<NUMERIC>>[{1}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_min_all]
+SELECT MIN(val) FROM TableNumericAllValues
+--
+ARRAY<STRUCT<NUMERIC>>[{-5.5}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_min_all_filtered_null]
+SELECT MIN(val) FROM TableNumericAllValues WHERE row_id = 11
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_min_all_filtered_none]
+SELECT MIN(val) FROM TableNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_min_large_values]
+SELECT MIN(val) FROM TableNumericLargeValues
+--
+ARRAY<STRUCT<NUMERIC>>[{-99999999999999999999999999999.999999999}]
+==
+[name=numeric_max_empty]
+[required_features=NUMERIC_TYPE]
+SELECT MAX(val) FROM TableNumericEmpty
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_max_null]
+SELECT MAX(val) FROM TableNumericNull
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_max_one]
+SELECT MAX(val) FROM TableNumericOneValue
+--
+ARRAY<STRUCT<NUMERIC>>[{1}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_max_all]
+SELECT MAX(val) FROM TableNumericAllValues
+--
+ARRAY<STRUCT<NUMERIC>>[{5}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_max_all_filtered_null]
+SELECT MAX(val) FROM TableNumericAllValues WHERE row_id = 11
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_max_all_filtered_none]
+SELECT MAX(val) FROM TableNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<NUMERIC>>[{NULL}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_max_large_values]
+SELECT MAX(val) FROM TableNumericLargeValues
+--
+ARRAY<STRUCT<NUMERIC>>[{99999999999999999999999999999.999999999}]
+==
+[name=bignumeric_min_empty]
+[required_features=BIGNUMERIC_TYPE]
+SELECT MIN(val) FROM TableBigNumericEmpty
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_min_null]
+SELECT MIN(val) FROM TableBigNumericNull
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_min_one]
+SELECT MIN(val) FROM TableBigNumericOneValue
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{1}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_min_all]
+SELECT MIN(val) FROM TableBigNumericAllValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{-987.987}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_min_all_filtered_null]
+SELECT MIN(val) FROM TableBigNumericAllValues WHERE row_id = 3
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_min_all_filtered_none]
+SELECT MIN(val) FROM TableBigNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_min_large_values]
+SELECT MIN(val) FROM TableBigNumericLargeValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[
+  {
+    -578960446186580977117854925043439539266.34992332820282019728792003956564819968
+  }
+]
+==
+[name=bignumeric_max_empty]
+[required_features=BIGNUMERIC_TYPE]
+SELECT MAX(val) FROM TableBigNumericEmpty
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_max_null]
+SELECT MAX(val) FROM TableBigNumericNull
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_max_one]
+SELECT MAX(val) FROM TableBigNumericOneValue
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{1}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_max_all]
+SELECT MAX(val) FROM TableBigNumericAllValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{1597.1597}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_max_all_filtered_null]
+SELECT MAX(val) FROM TableBigNumericAllValues WHERE row_id = 3
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_max_all_filtered_none]
+SELECT MAX(val) FROM TableBigNumericAllValues WHERE row_id = 100
+--
+ARRAY<STRUCT<BIGNUMERIC>>[{NULL}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_max_large_values]
+SELECT MAX(val) FROM TableBigNumericLargeValues
+--
+ARRAY<STRUCT<BIGNUMERIC>>[
+  {
+    578960446186580977117854925043439539266.34992332820282019728792003956564819967
+  }
+]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_count_all]
+SELECT COUNT(val) FROM TableNumericAllValues
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_count_null]
+SELECT COUNT(val) FROM TableNumericNull
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_count_one]
+SELECT COUNT(val) FROM TableNumericOneValue
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_count_distinct]
+SELECT COUNT(DISTINCT val) FROM TableNumericLargeValues
+--
+ARRAY<STRUCT<INT64>>[{5}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_count_all]
+SELECT COUNT(val) FROM TableBigNumericAllValues
+--
+ARRAY<STRUCT<INT64>>[{14}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_count_null]
+SELECT COUNT(val) FROM TableBigNumericNull
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_count_one]
+SELECT COUNT(val) FROM TableBigNumericOneValue
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_count_distinct]
+SELECT COUNT(DISTINCT val) FROM TableBigNumericLargeValues
+--
+ARRAY<STRUCT<INT64>>[{6}]

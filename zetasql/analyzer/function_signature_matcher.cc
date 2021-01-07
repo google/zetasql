@@ -596,6 +596,13 @@ bool FunctionSignatureMatcher::
     if (param_typeset == nullptr) {
       return false;
     }
+    // Untyped arguments get their types after all templated args are
+    // registered. But lambdas are resolved before the registration completes.
+    // We are not able to infer types of lambda arguments.
+    if (param_typeset->kind() !=
+        SignatureArgumentKindTypeSet::TYPED_ARGUMENTS) {
+      return false;
+    }
     // Get the type from typeset.
     const Type* common_supertype = nullptr;
     const absl::Status s = coercer_.GetCommonSuperType(

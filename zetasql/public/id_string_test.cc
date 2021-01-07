@@ -24,6 +24,7 @@
 #include "absl/container/node_hash_set.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 
@@ -210,7 +211,7 @@ TEST(IdString, CaseEquals) {
 
     for (int j = 0; j < test_cases.size(); ++j) {
       EXPECT_EQ(test_id_string1[i].CaseEquals(test_id_string2[j]),
-                zetasql_base::CaseEqual(test_cases[i], test_cases[j]))
+                absl::EqualsIgnoreCase(test_cases[i], test_cases[j]))
           << "input1 = " << test_cases[i] << ", input2 = " << test_cases[j];
     }
   }

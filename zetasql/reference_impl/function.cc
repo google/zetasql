@@ -57,6 +57,7 @@
 #include "zetasql/public/functions/generate_array.h"
 #include "zetasql/public/functions/like.h"
 #include "zetasql/public/functions/math.h"
+#include "zetasql/public/functions/net.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/parse_date_time.h"
 #include "zetasql/public/functions/percentile.h"
@@ -429,6 +430,7 @@ FunctionMap::FunctionMap() {
                      "SafeArrayAtOffset");
     RegisterFunction(FunctionKind::kSafeArrayAtOrdinal,
                      "$safe_array_at_ordinal", "SafeArrayAtOrdinal");
+    RegisterFunction(FunctionKind::kSubscript, "$subscript", "Subscript");
     RegisterFunction(FunctionKind::kArrayIsDistinct, "array_is_distinct",
                      "ArrayIsDistinct");
     RegisterFunction(FunctionKind::kAvg, "avg", "Avg");
@@ -472,6 +474,10 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kSafeDivide, "safe_divide", "SafeDivide");
     RegisterFunction(FunctionKind::kDiv, "div", "Div");
     RegisterFunction(FunctionKind::kEqual, "$equal", "Equal");
+    RegisterFunction(FunctionKind::kIsDistinct, "$is_distinct_from",
+                     "IsDistinct");
+    RegisterFunction(FunctionKind::kIsNotDistinct, "$is_not_distinct_from",
+                     "IsDistinct");
     RegisterFunction(FunctionKind::kExists, "exists", "Exists");
     RegisterFunction(FunctionKind::kGenerateArray, "generate_array",
                      "GenerateArray");
@@ -676,6 +682,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kParseTime, "parse_time", "Parse_time");
     RegisterFunction(FunctionKind::kParseTimestamp, "parse_timestamp",
                      "Parse_timestamp");
+    RegisterFunction(FunctionKind::kIntervalCtor, "$interval", "$interval");
     RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
     RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
     RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
@@ -687,6 +694,34 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kDatetime, "datetime", "Datetime");
   }();
   [this]() {
+    RegisterFunction(FunctionKind::kNetFormatIP, "net.format_ip",
+                     "Net.Format_ip");
+    RegisterFunction(FunctionKind::kNetParseIP, "net.parse_ip", "Net.Parse_ip");
+    RegisterFunction(FunctionKind::kNetFormatPackedIP, "net.format_packed_ip",
+                     "Net.Format_packed_ip");
+    RegisterFunction(FunctionKind::kNetParsePackedIP, "net.parse_packed_ip",
+                     "Net.Parse_packed_ip");
+    RegisterFunction(FunctionKind::kNetIPInNet, "net.ip_in_net",
+                     "Net.Ip_in_net");
+    RegisterFunction(FunctionKind::kNetMakeNet, "net.make_net", "Net.Make_net");
+    RegisterFunction(FunctionKind::kNetHost, "net.host", "Net.Host");
+    RegisterFunction(FunctionKind::kNetRegDomain, "net.reg_domain",
+                     "Net.Reg_domain");
+    RegisterFunction(FunctionKind::kNetPublicSuffix, "net.public_suffix",
+                     "Net.Public_suffix");
+    RegisterFunction(FunctionKind::kNetIPFromString, "net.ip_from_string",
+                     "Net.Ip_from_string");
+    RegisterFunction(FunctionKind::kNetSafeIPFromString,
+                     "net.safe_ip_from_string", "Net.Safe_ip_from_string");
+    RegisterFunction(FunctionKind::kNetIPToString, "net.ip_to_string",
+                     "Net.Ip_to_string");
+    RegisterFunction(FunctionKind::kNetIPNetMask, "net.ip_net_mask",
+                     "Net.Ip_net_mask");
+    RegisterFunction(FunctionKind::kNetIPTrunc, "net.ip_trunc", "Net.ip_trunc");
+    RegisterFunction(FunctionKind::kNetIPv4FromInt64, "net.ipv4_from_int64",
+                     "Net.Ipv4_from_int64");
+    RegisterFunction(FunctionKind::kNetIPv4ToInt64, "net.ipv4_to_int64",
+                     "Net.Ipv4_to_int64");
     RegisterFunction(FunctionKind::kDenseRank, "dense_rank", "Dense_rank");
     RegisterFunction(FunctionKind::kRank, "rank", "Rank");
     RegisterFunction(FunctionKind::kRowNumber, "row_number", "Row_number");
@@ -1182,7 +1217,9 @@ static absl::Status ValidateSupportedTypes(
 zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCast(
     const LanguageOptions& language_options, const Type* output_type,
-    std::unique_ptr<ValueExpr> argument, bool return_null_on_error,
+    std::unique_ptr<ValueExpr> argument,
+    std::unique_ptr<ValueExpr> format,
+    bool return_null_on_error,
     ResolvedFunctionCallBase::ErrorMode error_mode,
     std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator) {
   ZETASQL_ASSIGN_OR_RETURN(auto null_on_error_exp,
@@ -1194,6 +1231,9 @@ BuiltinScalarFunction::CreateCast(
   std::vector<std::unique_ptr<ValueExpr>> args;
   args.push_back(std::move(argument));
   args.push_back(std::move(null_on_error_exp));
+  if (format != nullptr) {
+    args.push_back(std::move(format));
+  }
 
   return ScalarFunctionCallExpr::Create(
       absl::make_unique<CastFunction>(output_type,
@@ -1249,6 +1289,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kEqual:
     case FunctionKind::kLess:
     case FunctionKind::kLessOrEqual:
+    case FunctionKind::kIsDistinct:
+    case FunctionKind::kIsNotDistinct:
       ZETASQL_RETURN_IF_ERROR(ValidateInputTypesSupportEqualityComparison(
           kind, input_types));
       return new ComparisonFunction(kind, output_type);
@@ -1392,6 +1434,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new GenerateArrayFunction(output_type);
     case FunctionKind::kRangeBucket:
       return new RangeBucketFunction();
+    case FunctionKind::kSubscript:
     case FunctionKind::kJsonExtract:
     case FunctionKind::kJsonExtractScalar:
     case FunctionKind::kJsonExtractArray:
@@ -1488,6 +1531,25 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new ParseTimeFunction(kind, output_type);
     case FunctionKind::kParseTimestamp:
       return new ParseTimestampFunction(kind, output_type);
+    case FunctionKind::kIntervalCtor:
+      return new IntervalFunction(kind, output_type);
+    case FunctionKind::kNetFormatIP:
+    case FunctionKind::kNetParseIP:
+    case FunctionKind::kNetFormatPackedIP:
+    case FunctionKind::kNetParsePackedIP:
+    case FunctionKind::kNetIPInNet:
+    case FunctionKind::kNetMakeNet:
+    case FunctionKind::kNetHost:
+    case FunctionKind::kNetRegDomain:
+    case FunctionKind::kNetPublicSuffix:
+    case FunctionKind::kNetIPFromString:
+    case FunctionKind::kNetSafeIPFromString:
+    case FunctionKind::kNetIPToString:
+    case FunctionKind::kNetIPNetMask:
+    case FunctionKind::kNetIPTrunc:
+    case FunctionKind::kNetIPv4FromInt64:
+    case FunctionKind::kNetIPv4ToInt64:
+      return new NetFunction(kind, output_type);
     case FunctionKind::kMakeProto:
       ZETASQL_RET_CHECK_FAIL() << "MakeProto needs extra parameters";
       break;
@@ -2170,6 +2232,37 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
   return false;
 }
 
+static bool IsDistinctFromInt64UInt64(Value int64_value, Value uint64_value) {
+  if (int64_value.is_null() || uint64_value.is_null()) {
+    return int64_value.is_null() != uint64_value.is_null();
+  }
+
+  if (int64_value.int64_value() < 0) {
+    return true;  // int64_t value out of range of uint64_t; must be distinct
+  }
+  return uint64_value.uint64_value() !=
+         static_cast<uint64_t>(int64_value.int64_value());
+}
+
+static bool IsDistinctFrom(const Value& x, const Value& y) {
+  // Special case to handle INT64/UINT64 signatures of $is_distinct_from and
+  // $is_not_distinct_from().
+  //
+  // The reference implementation's function registry does not allow different
+  // overloads of the same function name to get different function kinds, so
+  // we get here regardless of overload.
+  if (x.type()->IsInt64() && y.type()->IsUint64()) {
+    return IsDistinctFromInt64UInt64(x, y);
+  } else if (x.type()->IsUint64() && y.type()->IsInt64()) {
+    return IsDistinctFromInt64UInt64(y, x);
+  }
+
+  // The function signatures of $is_distinct_from/$is_not_distinct_from
+  // guarantees that, in all other cases, x and y are the same type.
+  ZETASQL_DCHECK(x.type()->Equals(y.type()));
+  return !x.Equals(y);
+}
+
 bool ComparisonFunction::Eval(absl::Span<const Value> args,
                               EvaluationContext* context, Value* result,
                               absl::Status* status) const {
@@ -2199,6 +2292,14 @@ bool ComparisonFunction::Eval(absl::Span<const Value> args,
                 << TypeKind_Name(y.type_kind());
       return false;
     }
+    return true;
+  }
+
+  if (kind() == FunctionKind::kIsDistinct) {
+    *result = Value::Bool(IsDistinctFrom(x, y));
+    return true;
+  } else if (kind() == FunctionKind::kIsNotDistinct) {
+    *result = Value::Bool(!IsDistinctFrom(x, y));
     return true;
   }
 
@@ -2513,14 +2614,24 @@ bool IsFunction::Eval(absl::Span<const Value> args, EvaluationContext* context,
 
 zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 1);
+  ZETASQL_RET_CHECK_GE(args.size(), 1);
   const Value& v = args[0];
   const bool return_null_on_error =
-      args.size() == 2 ? args[1].bool_value() : false;
+      args.size() >= 2 ? args[1].bool_value() : false;
+
+  absl::optional<std::string> format;
+  if (args.size() >= 3) {
+    // Returns NULL if format is null.
+    if (args[2].is_null()) {
+      return zetasql_base::StatusOr<Value>(Value::Null(output_type()));
+    }
+
+    format = args[2].string_value();
+  }
 
   zetasql_base::StatusOr<Value> status_or = internal::CastValueWithoutTypeValidation(
       v, context->GetDefaultTimeZone(), context->GetLanguageOptions(),
-      output_type(), extended_cast_evaluator_.get());
+      output_type(), format, extended_cast_evaluator_.get());
   if (!status_or.ok() && return_null_on_error) {
     // TODO: check that failure is not due to absence of
     // extended_type_function. In this case we still probably wants to fail the
@@ -4306,6 +4417,72 @@ bool MathFunction::Eval(absl::Span<const Value> args,
   return false;
 }
 
+bool NetFunction::Eval(absl::Span<const Value> args, EvaluationContext* context,
+                       Value* result, absl::Status* status) const {
+  if (HasNulls(args)) {
+    *result = Value::Null(output_type());
+    return true;
+  }
+  switch (FCT_TYPE_ARITY(kind(), args[0].type_kind(), args.size())) {
+    case FCT_TYPE_ARITY(FunctionKind::kNetFormatIP, TYPE_INT64, 1):
+      return InvokeString<std::string>(&functions::net::FormatIP, result,
+                                       status, args[0].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetParseIP, TYPE_STRING, 1):
+      return Invoke<int64_t>(&functions::net::ParseIP, result, status,
+                           args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetFormatPackedIP, TYPE_BYTES, 1):
+      return InvokeString<std::string>(&functions::net::FormatPackedIP, result,
+                                       status, args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetParsePackedIP, TYPE_STRING, 1):
+      return InvokeBytes<std::string>(&functions::net::ParsePackedIP, result,
+                                      status, args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPInNet, TYPE_STRING, 2):
+      return Invoke<bool>(&functions::net::IPInNet, result, status,
+                          args[0].string_value(), args[1].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetMakeNet, TYPE_STRING, 2):
+      return InvokeString<std::string>(&functions::net::MakeNet, result, status,
+                                       args[0].string_value(),
+                                       args[1].int32_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetHost, TYPE_STRING, 1):
+      return InvokeNullableString<absl::string_view>(
+          &functions::net::Host, result, status, args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetRegDomain, TYPE_STRING, 1):
+      return InvokeNullableString<absl::string_view>(
+          &functions::net::RegDomain, result, status, args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetPublicSuffix, TYPE_STRING, 1):
+      return InvokeNullableString<absl::string_view>(
+          &functions::net::PublicSuffix, result, status,
+          args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPFromString, TYPE_STRING, 1):
+      return InvokeBytes<std::string>(&functions::net::IPFromString, result,
+                                      status, args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetSafeIPFromString, TYPE_STRING, 1):
+      return InvokeNullableBytes<std::string>(&functions::net::SafeIPFromString,
+                                              result, status,
+                                              args[0].string_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPToString, TYPE_BYTES, 1):
+      return InvokeString<std::string>(&functions::net::IPToString, result,
+                                       status, args[0].bytes_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPNetMask, TYPE_INT64, 2):
+      return InvokeBytes<std::string>(&functions::net::IPNetMask, result,
+                                      status, args[0].int64_value(),
+                                      args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPTrunc, TYPE_BYTES, 2):
+      return InvokeBytes<std::string>(&functions::net::IPTrunc, result, status,
+                                      args[0].bytes_value(),
+                                      args[1].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPv4FromInt64, TYPE_INT64, 1):
+      return InvokeBytes<std::string>(&functions::net::IPv4FromInt64, result,
+                                      status, args[0].int64_value());
+    case FCT_TYPE_ARITY(FunctionKind::kNetIPv4ToInt64, TYPE_BYTES, 1):
+      return Invoke<int64_t>(&functions::net::IPv4ToInt64, result, status,
+                           args[0].bytes_value());
+  }
+  *status = ::zetasql_base::UnimplementedErrorBuilder()
+            << "Unsupported net function: " << debug_name();
+  return false;
+}
+
 bool StringFunction::Eval(absl::Span<const Value> args,
                           EvaluationContext* context, Value* result,
                           absl::Status* status) const {
@@ -5881,6 +6058,29 @@ zetasql_base::StatusOr<Value> ExtractDatetimeFromFunction::Eval(
         args[0].ToTime(), args[1].string_value(), &datetime));
   }
   return Value::Datetime(datetime);
+}
+
+zetasql_base::StatusOr<Value> IntervalFunction::Eval(absl::Span<const Value> args,
+                                             EvaluationContext* context) const {
+  if (HasNulls(args)) {
+    return Value::NullInterval();
+  }
+
+  IntervalValue interval;
+  switch (kind()) {
+    case FunctionKind::kIntervalCtor: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          interval,
+          IntervalValue::FromInteger(
+              args[0].int64_value(),
+              static_cast<functions::DateTimestampPart>(args[1].enum_value())));
+      break;
+    }
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unexpected function: " << debug_name();
+  }
+  return Value::Interval(interval);
 }
 
 zetasql_base::StatusOr<Value> RandFunction::Eval(absl::Span<const Value> args,

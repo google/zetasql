@@ -58,6 +58,8 @@ class ResolvedExpr;
 class ResolvedLiteral;
 class ResolvedOption;
 class ResolvedStatement;
+class ResolvedTableScan;
+class ResolvedAnonymizedAggregateScan;
 
 // Associates each system variable with its current value.
 using SystemVariableValuesMap =
@@ -127,9 +129,6 @@ absl::Status AnalyzeStatementFromParserAST(
     const ASTStatement& statement, const AnalyzerOptions& options,
     absl::string_view sql, Catalog* catalog, TypeFactory* type_factory,
     std::unique_ptr<const AnalyzerOutput>* output);
-
-// Similar to the previous function, but does *not* change ownership of
-// <statement_parser_output>.
 
 // Analyze a ZetaSQL expression.  The expression may include query
 // parameters, subqueries, and any other valid expression syntax.
@@ -400,6 +399,52 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     TableResolutionTimeInfoMap* table_resolution_time_info_map);
 
+// Given an AnalyzerOutput that contains a ResolvedStatement, transforms that
+// AST to reflect the semantics defined in (broken link)
+// (the AnalyzerOutput's ResolvedStatement is replaced).  This method also
+// does some additional validation, for example enforcing that only anonymized
+// aggregation functions are used.
+// TODO: perform all validation in the initial analyzer call
+//
+// Resolving an AST containing ANON_* functions with differential privacy
+// semantics in the initial analysis pass is complex.  Instead, during
+// initial query analysis the resolver returns a 'normal' resolved AST
+// containing a ResolvedAnonymizedAggregateScan and ANON_* aggregate
+// function calls, similar to other aggregate function calls and scans.
+//
+// In order to conform to ZetaSQL semantics for ANON_* functions, an engine
+// must execute the query in a differentially private way.  To facilitate
+// conformance, the engine can pass the originally resolved AST to this
+// rewriter, which performs several tasks:
+//
+//   1) injects per-user aggregation into the query
+//   2) adds noisy k-threshold filtering
+//   3) adds kappa filtering (see (broken link))
+//   4) validates that uid columns from tables are preserved from the related
+//      TableScans up to the AnonymizedAggregateScan - including through joins,
+//      subqueries, and aggregations
+//   5) validates that joins between tables with uid columns include the
+//      uid in the join predicate (joins must always be per-user)
+//
+// The rewritten AST that includes these transformations is one way of
+// providing differentially private results, and is relatively easy for
+// engines to consume.  Therefore this rewriter relieves engines of much of
+// the semantic complexity while allowing engines to leverage this logic
+// and conform to ZetaSQL semantics.
+//
+// Calls to RewriteForAnonymization are not currently idempotent - so you
+// should not call RewriteForAnonymization() on AnalyzerOutput from a previous
+// RewriteForAnonymization() call since you will not get semantically
+// equivalent results.
+// TODO: Add a state enum to ResolvedAnonymizedAggregateScan to
+// track rewrite status and provide idempotence.
+//
+// Does not take ownership of <catalog> or <type_factory>.
+zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
+    const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
+    const AnalyzerOptions& analyzer_options, Catalog* catalog,
+    TypeFactory* type_factory);
+
 // Performs resolved AST rewrites as requested with the enabled rewrites in
 // 'analyzer_options'.
 //
@@ -413,6 +458,19 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                 Catalog* catalog, TypeFactory* type_factory,
                                 AnalyzerOutput& analyzer_output);
+
+// Same as above function, except caller provides the sql text, which will
+// eventually be used for error messages.
+//
+// Note: Soon, the above function will be deprecated and this will be the only
+// overload of RewriteResolvedAst().
+inline absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
+                                       absl::string_view sql, Catalog* catalog,
+                                       TypeFactory* type_factory,
+                                       AnalyzerOutput& analyzer_output) {
+  return RewriteResolvedAst(analyzer_options, catalog, type_factory,
+                            analyzer_output);
+}
 
 }  // namespace zetasql
 

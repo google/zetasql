@@ -1106,6 +1106,11 @@ Converts the base64-encoded input `string_expr` into
 `BYTES` to a base64-encoded `STRING`,
 use [TO_BASE64][string-link-to-base64].
 
+There are several base64 encodings in common use that vary in exactly which
+alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
+See [RFC 4648](https://tools.ietf.org/html/rfc4648#section-4) for details. This
+function expects the alphabet `[A-Za-z0-9+/=]`.
+
 **Return type**
 
 `BYTES`
@@ -1113,13 +1118,29 @@ use [TO_BASE64][string-link-to-base64].
 **Example**
 
 ```sql
-SELECT FROM_BASE64('3q2+7w==') AS byte_data;
+SELECT FROM_BASE64('/+A=') AS byte_data;
 
-+------------------+
-| byte_data        |
-+------------------+
-| \xde\xad\xbe\xef |
-+------------------+
++------------+
+| byte_data |
++-----------+
+| \377\340  |
++-----------+
+```
+
+To work with an encoding using a different base64 alphabet, you might need to
+compose `FROM_BASE64` with the `REPLACE` function. For instance, the
+`base64url` url-safe and filename-safe encoding commonly used in web programming
+uses `-_=` as the last characters rather than `+/=`. To decode a
+`base64url`-encoded string, replace `+` and `/` with `-` and `_` respectively.
+
+```sql
+SELECT FROM_BASE64(REPLACE(REPLACE("_-A=", "-", "+"), "_", "/")) AS binary;
+
++-----------+
+| binary    |
++-----------+
+| \377\340  |
++-----------+
 ```
 
 ### FROM_HEX
@@ -2859,6 +2880,11 @@ TO_BASE64(bytes_expr)
 Converts a sequence of `BYTES` into a base64-encoded `STRING`. To convert a
 base64-encoded `STRING` into `BYTES`, use [FROM_BASE64][string-link-to-from-base64].
 
+There are several base64 encodings in common use that vary in exactly which
+alphabet of 65 ASCII characters are used to encode the 64 digits and padding.
+See [RFC 4648](https://tools.ietf.org/html/rfc4648#section-4) for details. This
+function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
+
 **Return type**
 
 `STRING`
@@ -2866,13 +2892,29 @@ base64-encoded `STRING` into `BYTES`, use [FROM_BASE64][string-link-to-from-base
 **Example**
 
 ```sql
-SELECT TO_BASE64(b'\xde\xad\xbe\xef') AS base64_string;
+SELECT TO_BASE64(b'\377\340') AS base64_string;
 
 +---------------+
 | base64_string |
 +---------------+
-| 3q2+7w==      |
+| /+A=          |
 +---------------+
+```
+
+To work with an encoding using a different base64 alphabet, you might need to
+compose `TO_BASE64` with the `REPLACE` function. For instance, the
+`base64url` url-safe and filename-safe encoding commonly used in web programming
+uses `-_=` as the last characters rather than `+/=`. To encode a
+`base64url`-encoded string, replace `-` and `_` with `+` and `/` respectively.
+
+```sql
+SELECT REPLACE(REPLACE(TO_BASE64(b"\377\340"), "+", "-"), "/", "_") as websafe_base64;
+
++----------------+
+| websafe_base64 |
++----------------+
+| _-A=           |
++----------------+
 ```
 
 ### TO_CODE_POINTS

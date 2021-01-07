@@ -1,0 +1,595 @@
+# STRING_AGG queries
+
+[default required_features=ANALYTIC_FUNCTIONS]
+[name=string_agg_STRING_analytic_from_first_row]
+SELECT
+  elem,
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast('aσ' as STRING) elem UNION ALL
+      SELECT 'bcπ'                     UNION ALL
+      SELECT 'd⨝'                      UNION ALL
+      SELECT ''                        UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
+  {NULL, NULL, NULL, "", ",aσ,bcπ,d⨝"},
+  {"", NULL, "", ",aσ", ",aσ,bcπ,d⨝"},
+  {"aσ", "", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝"},
+  {"bcπ", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"},
+  {"d⨝", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"}
+]
+==
+[name=string_agg_STRING_analytic_from_preceding_row]
+SELECT
+  elem,
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 1 PRECEDING AND 2 PRECEDING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND 2 PRECEDING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast('aσ' as STRING) elem UNION ALL
+      SELECT 'bcπ'                     UNION ALL
+      SELECT 'd⨝'                      UNION ALL
+      SELECT ''                        UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING, STRING, STRING>>[
+  {NULL, NULL, "aσ", "aσ;", "aσ;", "aσ;", "aσ;"},
+  {"", NULL, "bcπ", "bcπ;aσ", "bcπ;aσ;", "bcπ;aσ;", "bcπ;aσ;"},
+  {"aσ",
+   NULL,
+   "d⨝",
+   "d⨝;bcπ",
+   "d⨝;bcπ;aσ",
+   "d⨝;bcπ;aσ;",
+   "d⨝;bcπ;aσ;"},
+  {"bcπ", NULL, NULL, "d⨝", "d⨝;bcπ", "d⨝;bcπ;aσ", "d⨝;bcπ;aσ;"},
+  {"d⨝", NULL, NULL, NULL, "d⨝", "d⨝;bcπ", "d⨝;bcπ;aσ;"}
+]
+==
+[name=string_agg_STRING_analytic_from_current_row]
+SELECT
+  elem,
+  STRING_AGG(elem, "")
+    OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND CURRENT ROW),
+  STRING_AGG(elem, "")
+    OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING),
+  STRING_AGG(elem, "")
+    OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast('aσ' as STRING) elem UNION ALL
+      SELECT 'bcπ'                     UNION ALL
+      SELECT 'd⨝'                      UNION ALL
+      SELECT ''                        UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING>>[
+  {NULL, NULL, "", "aσbcπd⨝"},
+  {"", "", "aσ", "aσbcπd⨝"},
+  {"aσ", "aσ", "aσbcπ", "aσbcπd⨝"},
+  {"bcπ", "bcπ", "bcπd⨝", "bcπd⨝"},
+  {"d⨝", "d⨝", "d⨝", "d⨝"}
+]
+==
+[name=string_agg_STRING_analytic_from_following_row]
+SELECT
+  elem,
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 1 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast('aσ' as STRING) elem UNION ALL
+      SELECT 'bcπ'                     UNION ALL
+      SELECT 'd⨝'                      UNION ALL
+      SELECT ''                        UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
+  {NULL, NULL, "aσ", "; aσ", "aσ; bcπ; d⨝"},
+  {"", NULL, "bcπ", "aσ; bcπ", "bcπ; d⨝"},
+  {"aσ", NULL, "d⨝", "bcπ; d⨝", "d⨝"},
+  {"bcπ", NULL, NULL, "d⨝", NULL},
+  {"d⨝", NULL, NULL, NULL, NULL}
+]
+==
+[name=string_agg_BYTES_analytic_from_first_row]
+SELECT
+  elem,
+  STRING_AGG(elem) OVER(PARTITION BY LENGTH(elem) ORDER BY elem),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast(b'aσ' as BYTES) elem UNION ALL
+      SELECT b'bcπ'                    UNION ALL
+      SELECT b'd⨝'                     UNION ALL
+      SELECT b''                       UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {NULL, NULL, NULL, NULL, NULL, NULL},
+  {b"", b"", NULL, b"", b"", b""},
+  {b"a\xcf\x83", b"a\xcf\x83", NULL, b"a\xcf\x83", b"a\xcf\x83", b"a\xcf\x83"},
+  {
+    b"bc\xcf\x80",
+    b"bc\xcf\x80",
+    NULL,
+    b"bc\xcf\x80",
+    b"bc\xcf\x80,d\xe2\xa8\x9d",
+    b"bc\xcf\x80,d\xe2\xa8\x9d"
+  },
+  {
+    b"d\xe2\xa8\x9d",
+    b"bc\xcf\x80,d\xe2\xa8\x9d",
+    b"bc\xcf\x80",
+    b"bc\xcf\x80,d\xe2\xa8\x9d",
+    b"bc\xcf\x80,d\xe2\xa8\x9d",
+    b"bc\xcf\x80,d\xe2\xa8\x9d"
+  }
+]
+==
+[name=string_agg_BYTES_analytic_from_preceding_row]
+SELECT
+  elem,
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 1 PRECEDING AND 2 PRECEDING),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast(b'aσ' as BYTES) elem UNION ALL
+      SELECT b'bcπ'                    UNION ALL
+      SELECT b'd⨝'                     UNION ALL
+      SELECT b''                       UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    b"",
+    b";a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d"
+  },
+  {
+    b"",
+    NULL,
+    NULL,
+    b"",
+    b";a\xcf\x83",
+    b";a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d"
+  },
+  {
+    b"a\xcf\x83",
+    NULL,
+    b"",
+    b";a\xcf\x83",
+    b";a\xcf\x83;bc\xcf\x80",
+    b";a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d"
+  },
+  {
+    b"bc\xcf\x80",
+    NULL,
+    b";a\xcf\x83",
+    b";a\xcf\x83;bc\xcf\x80",
+    b";a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d",
+    b";a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d"
+  },
+  {
+    b"d\xe2\xa8\x9d",
+    NULL,
+    b"a\xcf\x83;bc\xcf\x80",
+    b"a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d",
+    b"a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d",
+    b"a\xcf\x83;bc\xcf\x80;d\xe2\xa8\x9d"
+  }
+]
+==
+[name=string_agg_BYTES_analytic_from_current_row]
+SELECT
+  elem,
+  STRING_AGG(elem, b"")
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND CURRENT ROW),
+  STRING_AGG(elem, b"")
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING),
+  STRING_AGG(elem, b"")
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast(b'aσ' as BYTES) elem UNION ALL
+      SELECT b'bcπ'                    UNION ALL
+      SELECT b'd⨝'                     UNION ALL
+      SELECT b''                       UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES>>[
+  {NULL, NULL, NULL, NULL},
+  {b"", b"", b"", b""},
+  {b"a\xcf\x83", b"a\xcf\x83", b"a\xcf\x83", b"a\xcf\x83"},
+  {b"bc\xcf\x80", b"bc\xcf\x80", b"bc\xcf\x80", b"bc\xcf\x80"},
+  {
+    b"d\xe2\xa8\x9d",
+    b"d\xe2\xa8\x9d",
+    b"d\xe2\xa8\x9dbc\xcf\x80",
+    b"d\xe2\xa8\x9dbc\xcf\x80"
+  }
+]
+==
+[name=string_agg_BYTES_analytic_from_following_row]
+SELECT
+  elem,
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 1 FOLLOWING),
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM (SELECT cast(b'aσ' as BYTES) elem UNION ALL
+      SELECT b'bcπ'                    UNION ALL
+      SELECT b'd⨝'                     UNION ALL
+      SELECT b''                       UNION ALL
+      SELECT null) order by elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {
+    NULL,
+    NULL,
+    b"a\xcf\x83",
+    b"; a\xcf\x83",
+    b"a\xcf\x83; bc\xcf\x80; d\xe2\xa8\x9d"
+  },
+  {
+    b"",
+    NULL,
+    b"bc\xcf\x80",
+    b"a\xcf\x83; bc\xcf\x80",
+    b"bc\xcf\x80; d\xe2\xa8\x9d"
+  },
+  {
+    b"a\xcf\x83",
+    NULL,
+    b"d\xe2\xa8\x9d",
+    b"bc\xcf\x80; d\xe2\xa8\x9d",
+    b"d\xe2\xa8\x9d"
+  },
+  {b"bc\xcf\x80", NULL, NULL, b"d\xe2\xa8\x9d", NULL},
+  {b"d\xe2\xa8\x9d", NULL, NULL, NULL, NULL}
+]
+==
+[name=string_agg_STRING_analytic_from_first_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem)
+    OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
+  {"", NULL, "", ",aσ", ",aσ,bcπ,d⨝,xyz"},
+  {"aσ", "", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝,xyz"},
+  {"bcπ", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝,xyz"},
+  {"d⨝",
+   ",aσ,bcπ",
+   ",aσ,bcπ,d⨝",
+   ",aσ,bcπ,d⨝,xyz",
+   ",aσ,bcπ,d⨝,xyz"},
+  {"xyz",
+   ",aσ,bcπ,d⨝",
+   ",aσ,bcπ,d⨝,xyz",
+   ",aσ,bcπ,d⨝,xyz",
+   ",aσ,bcπ,d⨝,xyz"}
+]
+==
+[name=string_agg_STRING_analytic_from_preceding_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 1 PRECEDING AND 2 PRECEDING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem, ";")
+    OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING, STRING>>[
+  {"xyz", NULL, NULL, "xyz", "xyz;d⨝", "xyz;d⨝;bcπ;aσ;"},
+  {"d⨝", NULL, "xyz", "xyz;d⨝", "xyz;d⨝;bcπ", "xyz;d⨝;bcπ;aσ;"},
+  {"bcπ",
+   NULL,
+   "xyz;d⨝",
+   "xyz;d⨝;bcπ",
+   "xyz;d⨝;bcπ;aσ",
+   "xyz;d⨝;bcπ;aσ;"},
+  {"aσ",
+   NULL,
+   "d⨝;bcπ",
+   "d⨝;bcπ;aσ",
+   "d⨝;bcπ;aσ;",
+   "d⨝;bcπ;aσ;"},
+  {"", NULL, "bcπ;aσ", "bcπ;aσ;", "bcπ;aσ;", "bcπ;aσ;"}
+]
+==
+[name=string_agg_STRING_analytic_from_current_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem, "")
+    OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND CURRENT ROW),
+  STRING_AGG(elem, "")
+    OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING),
+  STRING_AGG(elem, "")
+    OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING>>[
+  {"", "", "aσ", "aσbcπd⨝xyz"},
+  {"aσ", "aσ", "aσbcπ", "aσbcπd⨝xyz"},
+  {"bcπ", "bcπ", "bcπd⨝", "bcπd⨝xyz"},
+  {"d⨝", "d⨝", "d⨝xyz", "d⨝xyz"},
+  {"xyz", "xyz", "xyz", "xyz"}
+]
+==
+[name=string_agg_STRING_analytic_from_following_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 1 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
+  {"", NULL, "bcπ", "aσ; bcπ", "bcπ; d⨝; xyz"},
+  {"aσ", NULL, "d⨝", "bcπ; d⨝", "d⨝; xyz"},
+  {"bcπ", NULL, "xyz", "d⨝; xyz", "xyz"},
+  {"d⨝", NULL, NULL, "xyz", NULL},
+  {"xyz", NULL, NULL, NULL, NULL}
+]
+==
+[name=string_agg_BYTES_analytic_from_first_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem) OVER(PARTITION BY LENGTH(elem) ORDER BY elem),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem)
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {b"", b"", NULL, b"", b"", b""},
+  {b"A", b"A", NULL, b"A", b"A,D", b"A,D,E"},
+  {b"D", b"A,D", b"A", b"A,D", b"A,D,E", b"A,D,E"},
+  {b"E", b"A,D,E", b"A,D", b"A,D,E", b"A,D,E", b"A,D,E"},
+  {b"BC", b"BC", NULL, b"BC", b"BC", b"BC"},
+  {b"xyz", b"xyz", NULL, b"xyz", b"xyz", b"xyz"}
+]
+==
+[name=string_agg_BYTES_analytic_from_preceding_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 1 PRECEDING AND 2 PRECEDING),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem, b";")
+    OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {b"", NULL, NULL, b"", b";A", b";A;BC;D;E;xyz"},
+  {b"A", NULL, b"", b";A", b";A;BC", b";A;BC;D;E;xyz"},
+  {b"BC", NULL, b";A", b";A;BC", b";A;BC;D", b";A;BC;D;E;xyz"},
+  {b"D", NULL, b"A;BC", b"A;BC;D", b"A;BC;D;E", b"A;BC;D;E;xyz"},
+  {b"E", NULL, b"BC;D", b"BC;D;E", b"BC;D;E;xyz", b"BC;D;E;xyz"},
+  {b"xyz", NULL, b"D;E", b"D;E;xyz", b"D;E;xyz", b"D;E;xyz"}
+]
+==
+[name=string_agg_BYTES_analytic_from_current_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem, b"")
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND CURRENT ROW),
+  STRING_AGG(elem, b"")
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING),
+  STRING_AGG(elem, b"")
+    OVER(PARTITION BY LENGTH(elem)
+         ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES>>[
+  {b"", b"", b"", b""},
+  {b"E", b"E", b"ED", b"EDA"},
+  {b"D", b"D", b"DA", b"DA"},
+  {b"A", b"A", b"A", b"A"},
+  {b"BC", b"BC", b"BC", b"BC"},
+  {b"xyz", b"xyz", b"xyz", b"xyz"}
+]
+==
+[name=string_agg_BYTES_analytic_from_following_row_non_null]
+SELECT
+  elem,
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 1 FOLLOWING),
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, b"; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+--
+ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES>>[
+  {b"", NULL, b"BC", b"A; BC", b"BC; D; E; xyz"},
+  {b"A", NULL, b"D", b"BC; D", b"D; E; xyz"},
+  {b"BC", NULL, b"E", b"D; E", b"E; xyz"},
+  {b"D", NULL, b"xyz", b"E; xyz", b"xyz"},
+  {b"E", NULL, NULL, b"xyz", NULL},
+  {b"xyz", NULL, NULL, NULL, NULL}
+]
+==
+[name=string_agg_STRING_analytic_with_longer_string]
+SELECT
+  elem,
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 1 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
+  STRING_AGG(elem, "; ")
+    OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM UNNEST(ARRAY<STRING>['ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzσ',
+                          'bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ',
+                          'd⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+                          '',
+                          'xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+                          'xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
+                          '甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾']) elem;
+--
+ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
+  {
+    "",
+    NULL,
+    "bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ",
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzσ; bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ",
+    "bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ; d⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789; 甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾"
+  },
+  {
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzσ",
+    NULL,
+    "d⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    "bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ; d⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    "d⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789; 甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾"
+  },
+  {
+    "bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ",
+    NULL,
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    "d⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789; 甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾"
+  },
+  {
+    "d⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    NULL,
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz; xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789; 甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾"
+  },
+  {
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+    NULL,
+    "甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾",
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789; 甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾",
+    "甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾"
+  },
+  {
+    "xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+    NULL,
+    NULL,
+    "甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾",
+    NULL
+  },
+  {
+    "甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾",
+    NULL,
+    NULL,
+    NULL,
+    NULL
+  }
+]
+==
+[name=string_agg_STRING_analytic_from_first_row_for_multi_partition]
+SELECT
+  part_id, elem,
+  STRING_AGG(elem)
+    OVER(PARTITION BY part_id ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING),
+  STRING_AGG(elem)
+    OVER(PARTITION BY part_id ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+  STRING_AGG(elem)
+    OVER(PARTITION BY part_id ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING),
+  STRING_AGG(elem)
+    OVER(PARTITION BY part_id ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING
+                                                     AND UNBOUNDED FOLLOWING)
+FROM (SELECT 1 part_id, cast('aσ' as STRING) elem UNION ALL
+      SELECT 1, 'bcπ'                     UNION ALL
+      SELECT 1, 'd⨝'                     UNION ALL
+      SELECT 1, ''                        UNION ALL
+      SELECT 1, null                      UNION ALL
+      SELECT 2, 'aσ'                      UNION ALL
+      SELECT 2, 'bcπ'                     UNION ALL
+      SELECT 2, 'd⨝'                     UNION ALL
+      SELECT 2, ''                        UNION ALL
+      SELECT 2, null) order by part_id, elem;
+--
+ARRAY<STRUCT<part_id INT64, elem STRING, STRING, STRING, STRING, STRING>>[
+  {1, NULL, NULL, NULL, "", ",aσ,bcπ,d⨝"},
+  {1, "", NULL, "", ",aσ", ",aσ,bcπ,d⨝"},
+  {1, "aσ", "", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝"},
+  {1, "bcπ", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"},
+  {1, "d⨝", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"},
+  {2, NULL, NULL, NULL, "", ",aσ,bcπ,d⨝"},
+  {2, "", NULL, "", ",aσ", ",aσ,bcπ,d⨝"},
+  {2, "aσ", "", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝"},
+  {2, "bcπ", ",aσ", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"},
+  {2, "d⨝", ",aσ,bcπ", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝", ",aσ,bcπ,d⨝"}
+]

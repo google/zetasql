@@ -17,9 +17,11 @@
 #include "zetasql/public/interval_value.h"
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/interval_value_test_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/hash/hash_testing.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
 
@@ -28,12 +30,17 @@ namespace {
 
 using zetasql_base::testing::StatusIs;
 
-using interval_testing::Months;
 using interval_testing::Days;
+using interval_testing::Hours;
 using interval_testing::Micros;
-using interval_testing::Nanos;
+using interval_testing::Minutes;
+using interval_testing::Months;
 using interval_testing::MonthsDaysMicros;
 using interval_testing::MonthsDaysNanos;
+using interval_testing::Nanos;
+using interval_testing::Seconds;
+using interval_testing::Years;
+using interval_testing::YMDHMS;
 
 TEST(IntervalValueTest, Months) {
   IntervalValue interval;
@@ -198,6 +205,47 @@ TEST(IntervalValueTest, MonthsDaysNanos) {
                                                    IntervalValue::kMinNanos));
   EXPECT_EQ(static_cast<__int128>(-943488000000000000) * 1000,
             interval.GetAsNanos());
+}
+
+TEST(IntervalValueTest, FromYMDHMS) {
+  EXPECT_EQ("0-0 0 0:0:0", YMDHMS(0, 0, 0, 0, 0, 0).ToString());
+  EXPECT_EQ("-1-0 0 0:0:0", YMDHMS(-1, 0, 0, 0, 0, 0).ToString());
+  EXPECT_EQ("-0-2 0 0:0:0", YMDHMS(0, -2, 0, 0, 0, 0).ToString());
+  EXPECT_EQ("0-0 0 0:0:0", YMDHMS(1, -12, 0, 0, 0, 0).ToString());
+  EXPECT_EQ("2-0 0 0:0:0", YMDHMS(3, -12, 0, 0, 0, 0).ToString());
+  EXPECT_EQ("0-0 100 0:0:0", YMDHMS(0, 0, 100, 0, 0, 0).ToString());
+  EXPECT_EQ("0-0 -5 0:0:0", YMDHMS(0, 0, -5, 0, 0, 0).ToString());
+  EXPECT_EQ("0-0 0 24:0:0", YMDHMS(0, 0, 0, 24, 0, 0).ToString());
+  EXPECT_EQ("0-0 0 22:0:0", YMDHMS(0, 0, 0, 24, -120, 0).ToString());
+  EXPECT_EQ("0-0 0 -2:0:0", YMDHMS(0, 0, 0, 0, -120, 0).ToString());
+  EXPECT_EQ("0-0 0 0:59:0", YMDHMS(0, 0, 0, 0, 59, 0).ToString());
+  EXPECT_EQ("0-0 0 1:0:0", YMDHMS(0, 0, 0, 0, 59, 60).ToString());
+  EXPECT_EQ("0-0 0 -10:20:30", YMDHMS(0, 0, 0, -10, -20, -30).ToString());
+  EXPECT_EQ("0-0 0 -9:40:25", YMDHMS(0, 0, 0, -10, 20, -25).ToString());
+  EXPECT_EQ("0-0 0 10:19:35", YMDHMS(0, 0, 0, 10, 20, -25).ToString());
+  EXPECT_EQ("1-2 3 4:5:6", YMDHMS(1, 2, 3, 4, 5, 6).ToString());
+
+  EXPECT_THAT(IntervalValue::FromYMDHMS(std::numeric_limits<int64_t>::max(), 0, 0,
+                                        0, 0, 0),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::FromYMDHMS(IntervalValue::kMaxYears, 1, 0, 0, 0, 0),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::FromYMDHMS(-1, IntervalValue::kMinMonths, 0, 0, 0, 0),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::FromYMDHMS(0, 0, IntervalValue::kMaxDays + 1, 0, 0, 0),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::FromYMDHMS(0, 0, 0, IntervalValue::kMaxHours, 0, 1),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::FromYMDHMS(0, 0, 0, 0, IntervalValue::kMaxMinutes, 1),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::FromYMDHMS(0, 0, 0, 0, 0, IntervalValue::kMaxSeconds + 1),
+      StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(IntervalValueTest, Deserialize) {
@@ -483,7 +531,7 @@ using functions::SECOND;
 using functions::WEEK;
 using functions::YEAR;
 
-TEST(IntervalValueTest, ParseFromString) {
+TEST(IntervalValueTest, ParseFromString1) {
   EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", YEAR));
   EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0", YEAR));
   EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0", YEAR));
@@ -671,6 +719,701 @@ TEST(IntervalValueTest, ParseFromString) {
   ExpectParseError("0", functions::WEEK_THURSDAY);
   ExpectParseError("0", functions::WEEK_FRIDAY);
   ExpectParseError("0", functions::WEEK_SATURDAY);
+}
+
+std::string ParseToString(absl::string_view input,
+                          functions::DateTimestampPart from,
+                          functions::DateTimestampPart to) {
+  return IntervalValue::ParseFromString(input, from, to)
+      .ValueOrDie()
+      .ToString();
+}
+
+void ExpectParseError(absl::string_view input,
+                      functions::DateTimestampPart from,
+                      functions::DateTimestampPart to) {
+  EXPECT_THAT(IntervalValue::ParseFromString(input, from, to),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalValueTest, ParseFromString2) {
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0", YEAR, MONTH));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0-0", YEAR, MONTH));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("+0-0", YEAR, MONTH));
+  EXPECT_EQ("1-0 0 0:0:0", ParseToString("1-0", YEAR, MONTH));
+  EXPECT_EQ("1-0 0 0:0:0", ParseToString("+1-0", YEAR, MONTH));
+  EXPECT_EQ("-1-0 0 0:0:0", ParseToString("-1-0", YEAR, MONTH));
+  EXPECT_EQ("0-1 0 0:0:0", ParseToString("0-1", YEAR, MONTH));
+  EXPECT_EQ("0-1 0 0:0:0", ParseToString("+0-1", YEAR, MONTH));
+  EXPECT_EQ("-0-1 0 0:0:0", ParseToString("-0-1", YEAR, MONTH));
+  EXPECT_EQ("1-0 0 0:0:0", ParseToString("0-12", YEAR, MONTH));
+  EXPECT_EQ("-1-0 0 0:0:0", ParseToString("-0-12", YEAR, MONTH));
+  EXPECT_EQ("1-8 0 0:0:0", ParseToString("0-20", YEAR, MONTH));
+  EXPECT_EQ("-1-8 0 0:0:0", ParseToString("-0-20", YEAR, MONTH));
+  EXPECT_EQ("10000-0 0 0:0:0", ParseToString("9999-12", YEAR, MONTH));
+  EXPECT_EQ("-10000-0 0 0:0:0", ParseToString("-9999-12", YEAR, MONTH));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0", YEAR, DAY));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 -0", YEAR, DAY));
+  EXPECT_EQ("0-0 7 0:0:0", ParseToString("0-0 7", YEAR, DAY));
+  EXPECT_EQ("0-0 -7 0:0:0", ParseToString("0-0 -7", YEAR, DAY));
+  EXPECT_EQ("0-0 7 0:0:0", ParseToString("-0-0 +7", YEAR, DAY));
+  EXPECT_EQ("11-8 30 0:0:0", ParseToString("10-20 30", YEAR, DAY));
+  EXPECT_EQ("11-8 -30 0:0:0", ParseToString("10-20 -30", YEAR, DAY));
+  EXPECT_EQ("-11-8 -30 0:0:0", ParseToString("-10-20 -30", YEAR, DAY));
+  EXPECT_EQ("0-0 3660000 0:0:0", ParseToString("0-0 3660000", YEAR, DAY));
+  EXPECT_EQ("0-0 -3660000 0:0:0", ParseToString("0-0 -3660000", YEAR, DAY));
+  EXPECT_EQ("10000-0 3660000 0:0:0",
+            ParseToString("10000-0 3660000", YEAR, DAY));
+  EXPECT_EQ("-10000-0 -3660000 0:0:0",
+            ParseToString("-10000-0 -3660000", YEAR, DAY));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0", YEAR, HOUR));
+  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0-0 0 24", YEAR, HOUR));
+  EXPECT_EQ("0-0 0 -24:0:0", ParseToString("0-0 0 -24", YEAR, HOUR));
+  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0-0 0 +24", YEAR, HOUR));
+  EXPECT_EQ("1-2 3 4:0:0", ParseToString("1-2 3 4", YEAR, HOUR));
+  EXPECT_EQ("-1-2 -3 -4:0:0", ParseToString("-1-2 -3 -4", YEAR, HOUR));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0-0 0 87840000", YEAR, HOUR));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0-0 0 -87840000", YEAR, HOUR));
+  EXPECT_EQ("10000-0 3660000 87840000:0:0",
+            ParseToString("10000-0 3660000 87840000", YEAR, HOUR));
+  EXPECT_EQ("-10000-0 -3660000 -87840000:0:0",
+            ParseToString("-10000-0 -3660000 -87840000", YEAR, HOUR));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0-0 0 12:34", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("0-0 0 -12:34", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0-0 0 +12:34", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0-0 0 100:100", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0-0 0 -100:100", YEAR, MINUTE));
+  EXPECT_EQ("10-2 30 43:21:0", ParseToString("10-2 30 43:21", YEAR, MINUTE));
+  EXPECT_EQ("10-2 30 -43:21:0", ParseToString("10-2 30 -43:21", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0-0 0 0:5270400000", YEAR, MINUTE));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0-0 0 -0:5270400000", YEAR, MINUTE));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0:0", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0-0 0 0:0:9", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0-0 0 -0:0:9", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0-0 0 0:0:09", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0-0 0 -0:0:09", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0-0 0 0:0:59", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0-0 0 -0:0:59", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0-0 0 0:0:123", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0-0 0 -0:0:123", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0-0 0 1:2:3", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0-0 0 -1:2:3", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0-0 0 01:02:03", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0-0 0 -01:02:03", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0-0 0 12:34:56", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0-0 0 -12:34:56", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0-0 0 +12:34:56", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 101:41:40",
+            ParseToString("0-0 0 100:100:100", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -101:41:40",
+            ParseToString("0-0 0 -100:100:100", YEAR, SECOND));
+  EXPECT_EQ("10-2 30 4:56:7", ParseToString("10-2 30 4:56:7", YEAR, SECOND));
+  EXPECT_EQ("10-2 30 -4:56:7", ParseToString("10-2 30 -4:56:7", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0-0 0 0:0:316224000000", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0-0 0 -0:0:316224000000", YEAR, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 0:0:0.0", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0-0 0 -0:0:0.0000", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0-0 0 0:0:0.1", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0-0 0 -0:0:0.1", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:1.234500",
+            ParseToString("0-0 0 0:0:1.2345", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:1.234500",
+            ParseToString("0-0 0 -0:0:1.2345", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 0:1:2.345678",
+            ParseToString("0-0 0 0:1:2.345678", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -0:1:2.345678",
+            ParseToString("0-0 0 -0:1:2.345678", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3.000456789",
+            ParseToString("0-0 0 1:2:3.000456789", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3.000456789",
+            ParseToString("0-0 0 -1:2:3.000456789", YEAR, SECOND));
+  EXPECT_EQ("10-2 30 4:56:7.891234500",
+            ParseToString("10-2 30 4:56:7.8912345", YEAR, SECOND));
+  EXPECT_EQ("10-2 30 -4:56:7.891234500",
+            ParseToString("10-2 30 -4:56:7.8912345", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 87839999:59:1.999999999",
+            ParseToString("0-0 0 0:0:316223999941.999999999", YEAR, SECOND));
+  EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
+            ParseToString("0-0 0 -0:0:316223999941.999999999", YEAR, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0", MONTH, DAY));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 -0", MONTH, DAY));
+  EXPECT_EQ("0-0 7 0:0:0", ParseToString("0 7", MONTH, DAY));
+  EXPECT_EQ("0-0 -7 0:0:0", ParseToString("0 -7", MONTH, DAY));
+  EXPECT_EQ("0-0 7 0:0:0", ParseToString("-0 +7", MONTH, DAY));
+  EXPECT_EQ("11-8 30 0:0:0", ParseToString("140 30", MONTH, DAY));
+  EXPECT_EQ("11-8 -30 0:0:0", ParseToString("140 -30", MONTH, DAY));
+  EXPECT_EQ("-11-8 -30 0:0:0", ParseToString("-140 -30", MONTH, DAY));
+  EXPECT_EQ("0-0 3660000 0:0:0", ParseToString("0 3660000", MONTH, DAY));
+  EXPECT_EQ("0-0 -3660000 0:0:0", ParseToString("0 -3660000", MONTH, DAY));
+  EXPECT_EQ("10000-0 3660000 0:0:0",
+            ParseToString("120000 3660000", MONTH, DAY));
+  EXPECT_EQ("-10000-0 -3660000 0:0:0",
+            ParseToString("-120000 -3660000", MONTH, DAY));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0", MONTH, HOUR));
+  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 0 24", MONTH, HOUR));
+  EXPECT_EQ("0-0 0 -24:0:0", ParseToString("0 0 -24", MONTH, HOUR));
+  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 0 +24", MONTH, HOUR));
+  EXPECT_EQ("1-0 3 4:0:0", ParseToString("12 3 4", MONTH, HOUR));
+  EXPECT_EQ("-1-0 -3 -4:0:0", ParseToString("-12 -3 -4", MONTH, HOUR));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0 87840000", MONTH, HOUR));
+  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("0 0 -87840000", MONTH, HOUR));
+  EXPECT_EQ("10000-0 3660000 87840000:0:0",
+            ParseToString("120000 3660000 87840000", MONTH, HOUR));
+  EXPECT_EQ("-10000-0 -3660000 -87840000:0:0",
+            ParseToString("-120000 -3660000 -87840000", MONTH, HOUR));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0:0", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 0 12:34", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("0 0 -12:34", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 0 +12:34", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0 0 100:100", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0 0 -100:100", MONTH, MINUTE));
+  EXPECT_EQ("10-2 30 43:21:0", ParseToString("122 30 43:21", MONTH, MINUTE));
+  EXPECT_EQ("10-2 30 -43:21:0", ParseToString("122 30 -43:21", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0 0 0:5270400000", MONTH, MINUTE));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0 0 -0:5270400000", MONTH, MINUTE));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0:0:0", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0 0:0:9", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 0 -0:0:9", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0 0:0:09", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 0 -0:0:09", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0 0 0:0:59", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0 0 -0:0:59", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0 0 0:0:123", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0 0 -0:0:123", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 0 1:2:3", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 0 -1:2:3", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 0 01:02:03", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 0 -01:02:03", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 0 12:34:56", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0 0 -12:34:56", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 0 +12:34:56", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 101:41:40", ParseToString("0 0 100:100:100", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -101:41:40",
+            ParseToString("0 0 -100:100:100", MONTH, SECOND));
+  EXPECT_EQ("1-8 30 4:56:7", ParseToString("20 30 4:56:7", MONTH, SECOND));
+  EXPECT_EQ("1-8 30 -4:56:7", ParseToString("20 30 -4:56:7", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0 0 0:0:316224000000", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0 0 -0:0:316224000000", MONTH, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 0:0:0.0", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0 -0:0:0.0000", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0 0 0:0:0.1", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0 0 -0:0:0.1", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:0:1.234500",
+            ParseToString("0 0 0:0:1.2345", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:1.234500",
+            ParseToString("0 0 -0:0:1.2345", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 0:1:2.345678",
+            ParseToString("0 0 0:1:2.345678", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -0:1:2.345678",
+            ParseToString("0 0 -0:1:2.345678", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3.000456789",
+            ParseToString("0 0 1:2:3.000456789", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3.000456789",
+            ParseToString("0 0 -1:2:3.000456789", MONTH, SECOND));
+  EXPECT_EQ("1-8 30 4:56:7.891234500",
+            ParseToString("20 30 4:56:7.8912345", MONTH, SECOND));
+  EXPECT_EQ("1-8 30 -4:56:7.891234500",
+            ParseToString("20 30 -4:56:7.8912345", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 87839999:59:1.999999999",
+            ParseToString("0 0 0:0:316223999941.999999999", MONTH, SECOND));
+  EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
+            ParseToString("0 0 -0:0:316223999941.999999999", MONTH, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0", DAY, HOUR));
+  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 24", DAY, HOUR));
+  EXPECT_EQ("0-0 0 -24:0:0", ParseToString("0 -24", DAY, HOUR));
+  EXPECT_EQ("0-0 0 24:0:0", ParseToString("0 +24", DAY, HOUR));
+  EXPECT_EQ("0-0 3 4:0:0", ParseToString("3 4", DAY, HOUR));
+  EXPECT_EQ("0-0 -3 -4:0:0", ParseToString("-3 -4", DAY, HOUR));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 87840000", DAY, HOUR));
+  EXPECT_EQ("0-0 0 -87840000:0:0", ParseToString("0 -87840000", DAY, HOUR));
+  EXPECT_EQ("0-0 3660000 87840000:0:0",
+            ParseToString("3660000 87840000", DAY, HOUR));
+  EXPECT_EQ("0-0 -3660000 -87840000:0:0",
+            ParseToString("-3660000 -87840000", DAY, HOUR));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0:0", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 12:34", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("0 -12:34", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("0 +12:34", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 101:40:0", ParseToString("0 100:100", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("0 -100:100", DAY, MINUTE));
+  EXPECT_EQ("0-0 30 43:21:0", ParseToString("30 43:21", DAY, MINUTE));
+  EXPECT_EQ("0-0 30 -43:21:0", ParseToString("30 -43:21", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0 0:5270400000", DAY, MINUTE));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0 -0:5270400000", DAY, MINUTE));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0:0:0", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0:0:9", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 -0:0:9", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0 0:0:09", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("0 -0:0:09", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0 0:0:59", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("0 -0:0:59", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0 0:0:123", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("0 -0:0:123", DAY, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 1:2:3", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 -1:2:3", DAY, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("0 01:02:03", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("0 -01:02:03", DAY, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 12:34:56", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("0 -12:34:56", DAY, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("0 +12:34:56", DAY, SECOND));
+  EXPECT_EQ("0-0 0 101:41:40", ParseToString("0 100:100:100", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("0 -100:100:100", DAY, SECOND));
+  EXPECT_EQ("0-0 30 4:56:7", ParseToString("30 4:56:7", DAY, SECOND));
+  EXPECT_EQ("0-0 30 -4:56:7", ParseToString("30 -4:56:7", DAY, SECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0 0:0:316224000000", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("0 -0:0:316224000000", DAY, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 0:0:0.0", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0 -0:0:0.0000", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0 0:0:0.1", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("0 -0:0:0.1", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0 0:0:1.2345", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:1.234500", ParseToString("0 -0:0:1.2345", DAY, SECOND));
+  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0 0:1:2.345678", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -0:1:2.345678",
+            ParseToString("0 -0:1:2.345678", DAY, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3.000456789",
+            ParseToString("0 1:2:3.000456789", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3.000456789",
+            ParseToString("0 -1:2:3.000456789", DAY, SECOND));
+  EXPECT_EQ("0-0 30 4:56:7.891234500",
+            ParseToString("30 4:56:7.8912345", DAY, SECOND));
+  EXPECT_EQ("0-0 30 -4:56:7.891234500",
+            ParseToString("30 -4:56:7.8912345", DAY, SECOND));
+  EXPECT_EQ("0-0 0 87839999:59:1.999999999",
+            ParseToString("0 0:0:316223999941.999999999", DAY, SECOND));
+  EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
+            ParseToString("0 -0:0:316223999941.999999999", DAY, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("12:34", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 -12:34:0", ParseToString("-12:34", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 12:34:0", ParseToString("+12:34", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 101:40:0", ParseToString("100:100", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 -101:40:0", ParseToString("-100:100", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 87840000:0:0", ParseToString("0:5270400000", HOUR, MINUTE));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("-0:5270400000", HOUR, MINUTE));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0:0", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:0:9", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:0:9", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:0:09", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:0:09", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0:0:59", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("-0:0:59", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0:0:123", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-0:0:123", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("1:2:3", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("-1:2:3", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("01:02:03", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("-01:02:03", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("12:34:56", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -12:34:56", ParseToString("-12:34:56", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 12:34:56", ParseToString("+12:34:56", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 101:41:40", ParseToString("100:100:100", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -101:41:40", ParseToString("-100:100:100", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0:0:316224000000", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("-0:0:316224000000", HOUR, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0:0.0", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0:0:0.0000", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0:0:0.1", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("-0:0:0.1", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0:0:1.2345", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:1.234500", ParseToString("-0:0:1.2345", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("0:1:2.345678", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -0:1:2.345678",
+            ParseToString("-0:1:2.345678", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 1:2:3.000456789",
+            ParseToString("1:2:3.000456789", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -1:2:3.000456789",
+            ParseToString("-1:2:3.000456789", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 87839999:59:1.999999999",
+            ParseToString("0:0:316223999941.999999999", HOUR, SECOND));
+  EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
+            ParseToString("-0:0:316223999941.999999999", HOUR, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:9", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:9", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:9", ParseToString("0:09", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:9", ParseToString("-0:09", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:59", ParseToString("0:59", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:59", ParseToString("-0:59", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("0:123", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-0:123", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("2:3", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-2:3", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:2:3", ParseToString("02:03", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:2:3", ParseToString("-02:03", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 20:34:56", ParseToString("1234:56", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -20:34:56", ParseToString("-1234:56", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 20:34:56", ParseToString("+1234:56", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 87840000:0:0",
+            ParseToString("0:316224000000", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0",
+            ParseToString("-0:316224000000", MINUTE, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("0:0.0", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0", ParseToString("-0:0.0000", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:0.100", ParseToString("0:0.1", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:0.100", ParseToString("-0:0.1", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:0:1.234500", ParseToString("0:1.2345", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:0:1.234500", ParseToString("-0:1.2345", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 0:1:2.345678", ParseToString("1:2.345678", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -0:1:2.345678",
+            ParseToString("-1:2.345678", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 2:0:3.000456789",
+            ParseToString("120:3.000456789", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -2:0:3.000456789",
+            ParseToString("-120:3.000456789", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 87839999:59:1.999999999",
+            ParseToString("0:316223999941.999999999", MINUTE, SECOND));
+  EXPECT_EQ("0-0 0 -87839999:59:1.999999999",
+            ParseToString("-0:316223999941.999999999", MINUTE, SECOND));
+
+  std::array<functions::DateTimestampPart, 6> parts = {YEAR, MONTH,  DAY,
+                                                       HOUR, MINUTE, SECOND};
+  for (int i = 0; i < parts.size(); i++) {
+    for (int j = i + 1; j < parts.size(); j++) {
+      ExpectParseError("", parts[i], parts[j]);
+      ExpectParseError(" ", parts[i], parts[j]);
+      ExpectParseError("0", parts[i], parts[j]);
+      ExpectParseError(".", parts[i], parts[j]);
+    }
+  }
+
+  // Whitespace padding
+  ExpectParseError(" 0-0", YEAR, MONTH);
+  ExpectParseError("0-0 ", YEAR, MONTH);
+  ExpectParseError("\t0-0", YEAR, MONTH);
+  ExpectParseError("0-0\t", YEAR, MONTH);
+  ExpectParseError("0- 0", YEAR, MONTH);
+  ExpectParseError("- 0-0", YEAR, MONTH);
+
+  // Exceeds maximum allowed value
+  ExpectParseError("10001-0", YEAR, MONTH);
+  ExpectParseError("-10001-0", YEAR, MONTH);
+  ExpectParseError("0-120001", YEAR, MONTH);
+  ExpectParseError("-0-120001", YEAR, MONTH);
+  ExpectParseError("10000-1", YEAR, MONTH);
+  ExpectParseError("-10000-1", YEAR, MONTH);
+  ExpectParseError("0 3660001", MONTH, DAY);
+  ExpectParseError("0 -3660001", MONTH, DAY);
+  ExpectParseError("0 87840001:0:0", DAY, SECOND);
+  ExpectParseError("0 -87840001:0:0", DAY, SECOND);
+  ExpectParseError("0 0:5270400001:0", DAY, SECOND);
+  ExpectParseError("0 -0:5270400001:0", DAY, SECOND);
+  ExpectParseError("0 0:0:316224000001", DAY, SECOND);
+  ExpectParseError("0 -0:0:316224000001", DAY, SECOND);
+  ExpectParseError("0 0:0:316224000000.000000001", DAY, SECOND);
+  ExpectParseError("0 -0:0:316224000000.000000001", DAY, SECOND);
+  ExpectParseError("0 87840000:0:0.000000001", DAY, SECOND);
+  ExpectParseError("0 -87840000:0:0.000000001", DAY, SECOND);
+
+  // Numbers too large to fit into int64_t
+  ExpectParseError("9223372036854775808-0", YEAR, MONTH);
+  ExpectParseError("-9223372036854775808-0", YEAR, MONTH);
+  ExpectParseError("0-9223372036854775808", YEAR, MONTH);
+  ExpectParseError("-0-9223372036854775808", YEAR, MONTH);
+  ExpectParseError("0 9223372036854775808", MONTH, DAY);
+  ExpectParseError("0 -9223372036854775808", MONTH, DAY);
+  ExpectParseError("0 9223372036854775808:0:0", DAY, SECOND);
+  ExpectParseError("0 -9223372036854775808:0:0", DAY, SECOND);
+  ExpectParseError("0 0:9223372036854775808:0", DAY, SECOND);
+  ExpectParseError("0 -0:9223372036854775808:0", DAY, SECOND);
+  ExpectParseError("0 0:0:9223372036854775808", DAY, SECOND);
+  ExpectParseError("0 -0:0:9223372036854775808", DAY, SECOND);
+
+  // Too many fractional digits
+  ExpectParseError("0-0 0 0:0:0.0000000000", YEAR, SECOND);
+  ExpectParseError("0 0 0:0:0.0000000000", MONTH, SECOND);
+  ExpectParseError("0 0:0:0.0000000000", DAY, SECOND);
+  ExpectParseError("0:0:0.0000000000", HOUR, SECOND);
+  ExpectParseError("0:0.0000000000", MINUTE, SECOND);
+
+  // Trailing dot
+  ExpectParseError("0-0 0 0:0:0.", YEAR, SECOND);
+  ExpectParseError("0 0 0:0:0.", MONTH, SECOND);
+  ExpectParseError("0 0:0:0.", DAY, SECOND);
+  ExpectParseError("0:0:0.", HOUR, SECOND);
+  ExpectParseError("0:0.", MINUTE, SECOND);
+
+  // Unsupported combinations of dateparts
+  for (int i = 0; i < parts.size(); i++) {
+    // same part cannot be used twice
+    ExpectParseError("0", parts[i], parts[i]);
+    for (int j = i + 1; j < parts.size(); j++) {
+      // reverse order of parts
+      ExpectParseError("0", parts[j], parts[i]);
+    }
+  }
+}
+
+void TestRoundtrip(const IntervalValue& interval) {
+  std::string interval_text = interval.ToString();
+  ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval_reparsed,
+                       IntervalValue::ParseFromString(
+                           interval_text, functions::YEAR, functions::SECOND));
+  EXPECT_EQ(interval, interval_reparsed);
+  EXPECT_EQ(interval_text, interval_reparsed.ToString());
+}
+
+// Generate random interval, convert to string, parse back and verify that
+// the result is the same as original interval.
+TEST(IntervalValueTest, ParseFromStringYearToSecond) {
+  absl::BitGen gen;
+
+  int64_t months;
+  int64_t days;
+  int64_t seconds;
+  int64_t micros;
+  int64_t nano_fractions;
+  __int128 nanos;
+
+  for (int i = 0; i < 10000; i++) {
+    months = absl::Uniform(gen, IntervalValue::kMinMonths,
+                           IntervalValue::kMaxMonths);
+    days = absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
+    seconds = absl::Uniform(
+        gen, IntervalValue::kMinMicros / IntervalValue::kMicrosInSecond,
+        IntervalValue::kMaxMicros / IntervalValue::kMicrosInSecond);
+    micros = absl::Uniform(gen, IntervalValue::kMinMicros,
+                           IntervalValue::kMaxMicros);
+    nano_fractions = absl::Uniform(gen, -999, 999);
+    IntervalValue interval;
+    // Seconds granularity
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        interval, IntervalValue::FromMonthsDaysMicros(
+                      months, days, seconds * IntervalValue::kMicrosInSecond));
+    TestRoundtrip(interval);
+    // Microseconds granularity
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        interval, IntervalValue::FromMonthsDaysMicros(months, days, micros));
+    TestRoundtrip(interval);
+    // Nanoseconds granularity
+    nanos = IntervalValue::kNanosInMicro128 * micros + nano_fractions;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        interval, IntervalValue::FromMonthsDaysNanos(months, days, nanos));
+    TestRoundtrip(interval);
+  }
+}
+
+std::string ParseToString(absl::string_view input) {
+  return IntervalValue::ParseFromString(input).ValueOrDie().ToString();
+}
+
+void ExpectParseError(absl::string_view input) {
+  EXPECT_THAT(IntervalValue::ParseFromString(input),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalValueTest, ParseFromString) {
+  EXPECT_EQ("1-2 3 4:5:6", ParseToString("1-2 3 4:5:6"));
+  EXPECT_EQ("-1-2 3 4:5:6.700", ParseToString("-1-2 3 4:5:6.7"));
+  EXPECT_EQ("1-2 3 -4:5:6.780", ParseToString("1-2 3 -4:5:6.78"));
+  EXPECT_EQ("-1-2 -3 4:5:6.789", ParseToString("-1-2 -3 +4:5:6.78900"));
+  EXPECT_EQ("1-2 3 4:5:0", ParseToString("1-2 3 4:5"));
+  EXPECT_EQ("1-2 3 -4:5:0", ParseToString("1-2 3 -4:5"));
+  EXPECT_EQ("1-2 3 4:0:0", ParseToString("1-2 3 4"));
+  EXPECT_EQ("1-2 3 -4:0:0", ParseToString("1-2 3 -4"));
+  EXPECT_EQ("1-2 3 0:0:0", ParseToString("1-2 3"));
+  EXPECT_EQ("-1-2 -3 0:0:0", ParseToString("-1-2 -3"));
+  EXPECT_EQ("1-2 0 0:0:0", ParseToString("1-2"));
+  EXPECT_EQ("1-2 0 0:0:0", ParseToString("+1-2"));
+  EXPECT_EQ("-1-2 0 0:0:0", ParseToString("-1-2"));
+  EXPECT_EQ("0-1 2 3:0:0", ParseToString("1 2 3"));
+  EXPECT_EQ("0-1 -2 3:0:0", ParseToString("1 -2 3"));
+  EXPECT_EQ("-0-1 -2 -3:0:0", ParseToString("-1 -2 -3"));
+  EXPECT_EQ("0-1 2 3:4:0", ParseToString("1 2 3:4"));
+  EXPECT_EQ("0-1 2 -3:4:0", ParseToString("1 2 -3:4"));
+  EXPECT_EQ("0-1 2 3:4:5", ParseToString("1 2 3:4:5"));
+  EXPECT_EQ("0-1 2 -3:4:5.600", ParseToString("1 2 -3:4:5.6"));
+  EXPECT_EQ("0-0 1 2:3:0", ParseToString("1 2:3"));
+  EXPECT_EQ("0-0 -1 -2:3:0", ParseToString("-1 -2:3"));
+  EXPECT_EQ("0-0 1 2:3:4", ParseToString("1 2:3:4"));
+  EXPECT_EQ("0-0 -1 2:3:4.567800", ParseToString("-1 2:3:4.5678"));
+  EXPECT_EQ("0-0 0 1:2:3", ParseToString("1:2:3"));
+  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("-1:2:3"));
+  EXPECT_EQ("0-0 0 -1:2:3.456", ParseToString("-1:2:3.456"));
+  EXPECT_EQ("0-0 0 -1:2:3.456789100", ParseToString("-1:2:3.4567891"));
+
+  // Ambiguous: Could be MONTH TO DAY or DAY TO HOUR
+  ExpectParseError("1 2");
+  // Ambiguous: Could be HOUR TO MINUTE or MINUTE TO SECOND
+  ExpectParseError("1:2");
+  // Good number of spaces/colons/dashes, but wrong format
+  ExpectParseError("1:2:3 2");
+  ExpectParseError("1 2-3");
+  ExpectParseError("1-2  1:2:3");
+  // Unexpected number of spaces/colons/dashes
+  ExpectParseError("1-2 1:2:3");
+  ExpectParseError("1-2-3");
+}
+
+std::vector<IntervalValue>* kInterestingIntervals =
+    new std::vector<IntervalValue>{
+        Years(0),
+        Years(1),
+        Years(-2),
+        Months(3),
+        Months(-4),
+        Days(5),
+        Days(-6),
+        Hours(7),
+        Hours(-8),
+        Minutes(9),
+        Minutes(-10),
+        Seconds(11),
+        Seconds(-12),
+        Micros(13),
+        Micros(-14),
+        Nanos(15),
+        Nanos(-16),
+        MonthsDaysMicros(1, -2, 3),
+        MonthsDaysMicros(-4, 5, -6),
+        MonthsDaysNanos(7, -8, 9),
+        MonthsDaysNanos(10, -11, 12),
+        YMDHMS(1, -2, 3, -4, 5, -6),
+        YMDHMS(-7, 8, -9, 10, -11, 12),
+        Months(IntervalValue::kMaxMonths),
+        Months(IntervalValue::kMinMonths),
+        Days(IntervalValue::kMaxDays),
+        Days(IntervalValue::kMinDays),
+        Micros(IntervalValue::kMaxMicros),
+        Micros(IntervalValue::kMinMicros),
+        Nanos(IntervalValue::kMaxNanos),
+        Nanos(IntervalValue::kMinNanos),
+        MonthsDaysMicros(IntervalValue::kMaxMonths, IntervalValue::kMaxDays,
+                         IntervalValue::kMaxMicros),
+        MonthsDaysMicros(IntervalValue::kMinMonths, IntervalValue::kMinDays,
+                         IntervalValue::kMinMicros),
+        MonthsDaysNanos(IntervalValue::kMaxMonths, IntervalValue::kMaxDays,
+                        IntervalValue::kMaxNanos),
+        MonthsDaysNanos(IntervalValue::kMinMonths, IntervalValue::kMinDays,
+                        IntervalValue::kMinNanos),
+    };
+
+TEST(IntervalValueTest, HashCode) {
+  EXPECT_TRUE(
+      absl::VerifyTypeImplementsAbslHashCorrectly(*kInterestingIntervals));
+
+  // Values which compare equal even though have different binary
+  // representations, check that they have same hash code.
+  std::vector<IntervalValue> values{
+      Years(1),  Months(IntervalValue::kMonthsInYear),
+      Months(1), Days(IntervalValue::kDaysInMonth),
+      Days(1),   Hours(IntervalValue::kHoursInDay),
+      Hours(1),  Micros(IntervalValue::kMicrosInHour),
+  };
+  EXPECT_TRUE(absl::VerifyTypeImplementsAbslHashCorrectly(values));
+}
+
+TEST(IntervalValueTest, ToStringParseRoundtrip) {
+  for (IntervalValue value : *kInterestingIntervals) {
+    std::string str = value.ToString();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue roundtrip_value,
+                         IntervalValue::ParseFromString(str));
+    EXPECT_EQ(value, roundtrip_value);
+  }
+}
+
+std::string FromIntegerToString(int64_t value,
+                                functions::DateTimestampPart part) {
+  return IntervalValue::FromInteger(value, part).ValueOrDie().ToString();
+}
+
+void ExpectFromIntegerError(int64_t value, functions::DateTimestampPart part) {
+  EXPECT_THAT(IntervalValue::FromInteger(value, part),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalValueTest, FromInteger) {
+  EXPECT_EQ("1-0 0 0:0:0", FromIntegerToString(1, YEAR));
+  EXPECT_EQ("-10000-0 0 0:0:0", FromIntegerToString(-10000, YEAR));
+  EXPECT_EQ("0-6 0 0:0:0", FromIntegerToString(2, QUARTER));
+  EXPECT_EQ("10000-0 0 0:0:0", FromIntegerToString(40000, QUARTER));
+  EXPECT_EQ("-0-2 0 0:0:0", FromIntegerToString(-2, MONTH));
+  EXPECT_EQ("10000-0 0 0:0:0", FromIntegerToString(120000, MONTH));
+  EXPECT_EQ("0-0 28 0:0:0", FromIntegerToString(4, WEEK));
+  EXPECT_EQ("0-0 -3659999 0:0:0", FromIntegerToString(-522857, WEEK));
+  EXPECT_EQ("0-0 -5 0:0:0", FromIntegerToString(-5, DAY));
+  EXPECT_EQ("0-0 3660000 0:0:0", FromIntegerToString(3660000, DAY));
+  EXPECT_EQ("0-0 0 6:0:0", FromIntegerToString(6, HOUR));
+  EXPECT_EQ("0-0 0 -87840000:0:0", FromIntegerToString(-87840000, HOUR));
+  EXPECT_EQ("0-0 0 -0:7:0", FromIntegerToString(-7, MINUTE));
+  EXPECT_EQ("0-0 0 87840000:0:0", FromIntegerToString(5270400000, MINUTE));
+  EXPECT_EQ("0-0 0 0:0:8", FromIntegerToString(8, SECOND));
+  EXPECT_EQ("0-0 0 -87840000:0:0", FromIntegerToString(-316224000000, SECOND));
+
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, YEAR));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, QUARTER));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, MONTH));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, WEEK));
+  EXPECT_EQ("0-0 0 0:0:0", FromIntegerToString(0, DAY));
+
+  // Exceeds maximum allowed value
+  ExpectFromIntegerError(10001, YEAR);
+  ExpectFromIntegerError(-40001, QUARTER);
+  ExpectFromIntegerError(120001, MONTH);
+  ExpectFromIntegerError(522858, WEEK);
+  ExpectFromIntegerError(-3660001, DAY);
+  ExpectFromIntegerError(87840001, HOUR);
+  ExpectFromIntegerError(-5270400001, MINUTE);
+  ExpectFromIntegerError(316224000001, SECOND);
+
+  // Overflow in multiplication
+  ExpectFromIntegerError(9223372036854775807, QUARTER);
+  ExpectFromIntegerError(-9223372036854775807, QUARTER);
+  ExpectFromIntegerError(9223372036854775807, WEEK);
+  ExpectFromIntegerError(-9223372036854775807, WEEK);
+
+  // Invalid datetime part fields
+  ExpectFromIntegerError(0, functions::DAYOFWEEK);
+  ExpectFromIntegerError(0, functions::DAYOFYEAR);
+  ExpectFromIntegerError(0, functions::MILLISECOND);
+  ExpectFromIntegerError(0, functions::MICROSECOND);
+  ExpectFromIntegerError(0, functions::NANOSECOND);
+  ExpectFromIntegerError(0, functions::DATE);
+  ExpectFromIntegerError(0, functions::DATETIME);
+  ExpectFromIntegerError(0, functions::TIME);
+  ExpectFromIntegerError(0, functions::ISOYEAR);
+  ExpectFromIntegerError(0, functions::ISOWEEK);
+  ExpectFromIntegerError(0, functions::WEEK_MONDAY);
+  ExpectFromIntegerError(0, functions::WEEK_TUESDAY);
+  ExpectFromIntegerError(0, functions::WEEK_WEDNESDAY);
+  ExpectFromIntegerError(0, functions::WEEK_THURSDAY);
+  ExpectFromIntegerError(0, functions::WEEK_FRIDAY);
+  ExpectFromIntegerError(0, functions::WEEK_SATURDAY);
 }
 
 }  // namespace

@@ -155,8 +155,18 @@ absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
   return absl::OkStatus();
 }
 
+absl::optional<std::vector<JSONValueConstRef>> JsonPathEvaluator::ExtractArray(
+    JSONValueConstRef input) const {
+  absl::optional<JSONValueConstRef> json = Extract(input);
+  if (!json.has_value() || json->IsNull() || !json->IsArray()) {
+    return absl::nullopt;
+  }
+
+  return json->GetArrayElements();
+}
+
 absl::Status JsonPathEvaluator::ExtractStringArray(
-    absl::string_view json, std::vector<std::string>* value,
+    absl::string_view json, std::vector<absl::optional<std::string>>* value,
     bool* is_null) const {
   json_internal::JSONPathStringArrayExtractor array_parser(
       json, path_iterator_.get());
@@ -168,6 +178,34 @@ absl::Status JsonPathEvaluator::ExtractStringArray(
                            << JSONPathExtractor::kMaxParsingDepth;
   }
   return absl::OkStatus();
+}
+
+absl::optional<std::vector<absl::optional<std::string>>>
+JsonPathEvaluator::ExtractStringArray(JSONValueConstRef input) const {
+  absl::optional<std::vector<JSONValueConstRef>> json_array =
+      ExtractArray(input);
+  if (!json_array.has_value()) {
+    return absl::nullopt;
+  }
+
+  std::vector<absl::optional<std::string>> results;
+  results.reserve(json_array->size());
+  for (JSONValueConstRef element : *json_array) {
+    if (element.IsArray() || element.IsObject()) {
+      return absl::nullopt;
+    }
+
+    if (element.IsNull()) {
+      results.push_back(absl::nullopt);
+    } else if (element.IsString()) {
+      // ToString() adds extra quotes and escapes special characters,
+      // which we don't want.
+      results.push_back(element.GetString());
+    } else {
+      results.push_back(element.ToString());
+    }
+  }
+  return results;
 }
 
 std::string ConvertJSONPathTokenToSqlStandardMode(

@@ -284,6 +284,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTLimitOffset(const ASTLimitOffset* node, void* data) override;
   void visitASTHavingModifier(const ASTHavingModifier* node,
                               void* data) override;
+  void visitASTClampedBetweenModifier(const ASTClampedBetweenModifier* node,
+                                      void* data) override;
   void visitASTOrderingExpression(const ASTOrderingExpression* node,
                                   void* data) override;
   void visitASTIdentifier(const ASTIdentifier* node, void* data) override;

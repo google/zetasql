@@ -534,4 +534,147 @@ absl::Status Catalog::EmptyNamePathInternalError(
          << "Invalid empty " << object_type << " name path";
 }
 
+
+// static
+zetasql_base::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
+    const Column* column) {
+  ZETASQL_RET_CHECK_NE(column, nullptr);
+  ZETASQL_RET_CHECK(!column->Name().empty());
+  return AnonymizationUserIdInfo(column);
+}
+
+// static
+zetasql_base::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
+    absl::Span<const std::string> column_name_path) {
+  ZETASQL_RET_CHECK(!column_name_path.empty());
+  return AnonymizationUserIdInfo(column_name_path);
+}
+
+AnonymizationUserIdInfo::AnonymizationUserIdInfo(const Column* column)
+    : column_(column), column_name_path_(1, column->Name()) {
+}
+
+AnonymizationUserIdInfo::AnonymizationUserIdInfo(
+    absl::Span<const std::string> column_name_path)
+    : column_name_path_(column_name_path.begin(), column_name_path.end()) {}
+
+// static
+zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
+    const Table* table, absl::Span<const std::string> userid_column_name_path) {
+  ZETASQL_RET_CHECK_NE(table, nullptr);
+  absl::Status not_found_error =
+      zetasql_base::InvalidArgumentErrorBuilder()
+      << "The anonymization userid column name "
+      << IdentifierPathToString(userid_column_name_path)
+      << " was not found in table " << table->Name();
+  if (userid_column_name_path.empty()) {
+    return not_found_error;
+  }
+
+  if (table->IsValueTable()) {
+    // Value tables can have pseudo columns that are not part of the Value,
+    // and the userid column can be one of these pseudo columns.  We first
+    // look for a non-pseudo column from the struct/proto.  As per contract,
+    // value tables require that their first column (column 0) be the value
+    // table value column.
+    ZETASQL_RET_CHECK_GE(table->NumColumns(), 1);
+    const Column* value_table_column = table->GetColumn(0);
+    ZETASQL_RET_CHECK_NE(value_table_column, nullptr);
+    ZETASQL_RET_CHECK(value_table_column->GetType()->IsStruct() ||
+              value_table_column->GetType()->IsProto());
+    if (value_table_column->GetType()->IsStruct()) {
+      bool is_ambiguous = false;
+      bool user_id_column_found = true;
+      const StructType* struct_type = value_table_column->GetType()->AsStruct();
+      const StructField* struct_field = nullptr;
+      for (const std::string& userid_column_field : userid_column_name_path) {
+        if (struct_type == nullptr) {
+          user_id_column_found = false;
+          break;
+        }
+        struct_field =
+            struct_type->FindField(userid_column_field, &is_ambiguous);
+        if (struct_field == nullptr) {
+          user_id_column_found = false;
+          break;
+        }
+        if (is_ambiguous) {
+          return zetasql_base::InvalidArgumentErrorBuilder()
+                 << "The anonymization userid column name "
+                 << IdentifierPathToString(userid_column_name_path)
+                 << " is ambiguous in table " << table->Name();
+        }
+        struct_type = struct_field->type->AsStruct();
+      }
+
+      if (user_id_column_found) {
+        // We found the field from the struct, so return an AnonymizationInfo
+        // with this name (if it is not ambiguous).
+        std::unique_ptr<AnonymizationInfo> anonymization_info;
+        ZETASQL_ASSIGN_OR_RETURN(
+            AnonymizationUserIdInfo userid_info,
+            AnonymizationUserIdInfo::Create(userid_column_name_path));
+        anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
+
+        return std::move(anonymization_info);
+      }
+    } else {
+      bool user_id_column_found = true;
+      const google::protobuf::Descriptor* descriptor =
+          value_table_column->GetType()->AsProto()->descriptor();
+      const google::protobuf::FieldDescriptor* field_descriptor = nullptr;
+      for (const std::string& userid_column_field : userid_column_name_path) {
+        if (descriptor == nullptr) {
+          user_id_column_found = false;
+          break;
+        }
+        field_descriptor = ProtoType::FindFieldByNameIgnoreCase(
+            descriptor, userid_column_field);
+        if (field_descriptor == nullptr) {
+          user_id_column_found = false;
+          break;
+        }
+        descriptor = field_descriptor->message_type();
+      }
+
+      if (user_id_column_found) {
+        // We found the field from the proto, so return an AnonymizationInfo
+        // with this name.
+        std::unique_ptr<AnonymizationInfo> anonymization_info;
+        ZETASQL_ASSIGN_OR_RETURN(
+            AnonymizationUserIdInfo userid_info,
+            AnonymizationUserIdInfo::Create(userid_column_name_path));
+        anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
+        return std::move(anonymization_info);
+      }
+    }
+  }
+
+  // TODO: support subfield user column id for non-value tables.
+  if (userid_column_name_path.size() > 1) {
+    return not_found_error;
+  }
+
+  // Either the table is not a value table, or we did not find the specified
+  // userid column name from the value table's struct/proto.  Try to find the
+  // userid column by name instead (this handles both non-value table columns,
+  // and value table pseudocolumns).
+  const Column* column =
+      table->FindColumnByName(userid_column_name_path.back());
+  if (column != nullptr) {
+    std::unique_ptr<AnonymizationInfo> anonymization_info;
+    ZETASQL_ASSIGN_OR_RETURN(
+        AnonymizationUserIdInfo userid_info,
+        AnonymizationUserIdInfo::Create(column));
+    anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
+    return std::move(anonymization_info);
+  }
+
+  return not_found_error;
+}
+
+absl::Span<const std::string> AnonymizationInfo::UserIdColumnNamePath() const {
+  return userid_info_.get_column_name_path();
+}
+
 }  // namespace zetasql

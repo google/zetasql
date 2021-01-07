@@ -1193,6 +1193,16 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractScalar, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractScalar()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
+  SetNamePrefix("StringJsonExtractArray");
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractArray()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractStringArray, 1) {
+  SetNamePrefix("StringJsonExtractStringArray");
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractStringArray()));
+}
+
 namespace {
 
 // Wraps test cases with FEATURE_JSON_TYPE.
@@ -1228,16 +1238,6 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractScalar, 1) {
   SetNamePrefix("NativeJsonExtractScalar");
   RunFunctionCalls(Shard(
       EnableJsonFeatureForTest(GetFunctionTestsNativeJsonExtractScalar())));
-}
-
-SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonExtractArray, 1) {
-  SetNamePrefix("JsonExtractArray");
-  RunFunctionCalls(Shard(GetFunctionTestsJsonExtractArray()));
-}
-
-SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonExtractStringArray, 1) {
-  SetNamePrefix("JsonExtractStringArray");
-  RunFunctionCalls(Shard(GetFunctionTestsJsonExtractStringArray()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 1) {
@@ -1986,6 +1986,17 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestReverseFunctions, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestCodePointsFunctions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsCodePoints()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalCtor, 1) {
+  SetNamePrefix("IntervalConstructor");
+  auto interval_ctor = [](const FunctionTestCall& f) {
+    ZETASQL_CHECK(f.function_name.empty());
+    return absl::Substitute("INTERVAL @p0 $0",
+                            f.params.param(1).string_value());
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalConstructor()),
+                         interval_ctor);
 }
 
 // Wrap the proto field test cases with civil time typed values. If the type of

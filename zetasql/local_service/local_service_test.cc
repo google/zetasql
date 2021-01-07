@@ -1183,6 +1183,8 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
         uses_upper_case_sql_name: true
       })",
                                       &function2);
+  function1.mutable_options()->set_supports_clamped_between_modifier(false);
+  function2.mutable_options()->set_supports_clamped_between_modifier(false);
 
   ASSERT_TRUE(GetBuiltinFunctions(proto, &response).ok());
   EXPECT_EQ(2, response.function_size());

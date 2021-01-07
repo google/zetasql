@@ -255,6 +255,9 @@ std::vector<FunctionTestCall> GetFunctionTestsTranslate() {
       // map to the same target character).
       {"translate", {"abcde", "aba", "xyz"}, NullString(), OUT_OF_RANGE},
       {"translate", {"abcde", "aba", "xyx"}, NullString(), OUT_OF_RANGE},
+      // Non valid UTF-8 characters are not allowed
+      {"translate", {"abcde", "a\xC0", "bc"}, NullString(), OUT_OF_RANGE},
+      {"translate", {"abcde", "ab", "b\xC0"}, NullString(), OUT_OF_RANGE},
       // Source characters without a corresponding target character are removed
       // from the input.
       {"translate", {"abcde", "ad", "x"}, "xbce"},

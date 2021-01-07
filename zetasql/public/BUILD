@@ -247,7 +247,6 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:cc_wkt_protos",
@@ -348,6 +347,7 @@ cc_library(
         "//zetasql/public/functions:convert_string",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:string",
         "//zetasql/public/types",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
@@ -358,6 +358,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -610,6 +611,7 @@ cc_library(
         "//zetasql/public/functions:datetime_cc_proto",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -654,6 +656,8 @@ cc_test(
         ":interval_value_test_util",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public/functions:datetime_cc_proto",
+        "@com_google_absl//absl/hash:hash_testing",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:distributions",
     ],
@@ -986,6 +990,24 @@ java_proto_library(
 )
 
 proto_library(
+    name = "type_parameters_proto",
+    srcs = ["type_parameters.proto"],
+    deps = [
+        ":simple_value_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "type_parameters_cc_proto",
+    deps = [":type_parameters_proto"],
+)
+
+java_proto_library(
+    name = "type_parameters_java_proto",
+    deps = [":type_parameters_proto"],
+)
+
+proto_library(
     name = "error_location_proto",
     srcs = ["error_location.proto"],
 )
@@ -1056,6 +1078,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
+        "//zetasql/common/testing:proto_matchers",
         "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/strings",
@@ -1395,6 +1418,28 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "anon_function",
+    srcs = ["anon_function.cc"],
+    hdrs = ["anon_function.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":function",
+        ":function_cc_proto",
+        ":language_options",
+        "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -1911,7 +1956,7 @@ cc_library(
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_set",
-        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/hash",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
@@ -2037,6 +2082,7 @@ cc_library(
         ":type",
         ":type_cc_proto",
         ":value",
+        "//zetasql/analyzer:analyzer_impl",
         "//zetasql/analyzer:resolver",
         "//zetasql/analyzer:rewriter",  # buildcleaner:keep
         "//zetasql/base",
@@ -2353,6 +2399,7 @@ cc_test(
 proto_library(
     name = "annotation_proto",
     srcs = ["annotation.proto"],
+    deps = [":simple_value_proto"],
 )
 
 cc_proto_library(
@@ -2363,6 +2410,21 @@ cc_proto_library(
 java_proto_library(
     name = "annotation_java_proto",
     deps = [":annotation_proto"],
+)
+
+proto_library(
+    name = "simple_value_proto",
+    srcs = ["simple_value.proto"],
+)
+
+cc_proto_library(
+    name = "simple_value_cc_proto",
+    deps = [":simple_value_proto"],
+)
+
+java_proto_library(
+    name = "simple_value_java_proto",
+    deps = [":simple_value_proto"],
 )
 
 exports_files(["type_annotation.proto"])

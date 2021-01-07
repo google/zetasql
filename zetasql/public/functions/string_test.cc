@@ -1177,6 +1177,29 @@ TEST(LikeRewriteTest, GetRewriteForLikePattern) {
                                      &substring));
 }
 
+typedef testing::TestWithParam<FunctionTestCall>
+    BytesStringConversionTemplateTest;
+TEST_P(BytesStringConversionTemplateTest, Testlib) {
+  const FunctionTestCall& param = GetParam();
+  const std::string& function = param.function_name;
+  if (param.params.param(0).is_null() || param.params.param(1).is_null()) {
+    return;
+  }
+  if (function == "bytes_to_string") {
+    TestStringFunction<std::string>(&BytesToString, param.params,
+                                    param.params.param(0).bytes_value(),
+                                    param.params.param(1).string_value());
+  } else if (function == "string_to_bytes") {
+    TestBytesFunction<std::string>(&StringToBytes, param.params,
+                                   param.params.param(0).string_value(),
+                                   param.params.param(1).string_value());
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    String, BytesStringConversionTemplateTest,
+    testing::ValuesIn(GetFunctionTestsBytesStringConversion()));
+
 }  // anonymous namespace
 }  // namespace functions
 }  // namespace zetasql

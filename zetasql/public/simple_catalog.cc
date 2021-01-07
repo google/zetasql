@@ -696,6 +696,35 @@ void SimpleCatalog::SetOwnedDescriptorPool(const google::protobuf::DescriptorPoo
 }
 
 void SimpleCatalog::AddZetaSQLFunctions(
+    const std::vector<const Function*>& functions) {
+  TypeFactory* type_factory = this->type_factory();
+  absl::MutexLock l(&mutex_);
+
+  for (const auto& function : functions) {
+    const std::vector<std::string>& path = function->FunctionNamePath();
+    SimpleCatalog* catalog = this;
+    if (path.size() > 1) {
+      ZETASQL_CHECK_LE(path.size(), 2);
+      const std::string& space = path[0];
+      auto sub_entry = owned_zetasql_subcatalogs_.find(space);
+      if (sub_entry != owned_zetasql_subcatalogs_.end()) {
+        catalog = sub_entry->second.get();
+        ZETASQL_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
+      } else {
+        auto new_catalog =
+            absl::make_unique<SimpleCatalog>(space, type_factory);
+        AddCatalogLocked(space, new_catalog.get());
+        catalog = new_catalog.get();
+        ZETASQL_CHECK(
+            owned_zetasql_subcatalogs_.emplace(space, std::move(new_catalog))
+                .second);
+      }
+    }
+    catalog->AddFunctionLocked(path.back(), function);
+  }
+}
+
+void SimpleCatalog::AddZetaSQLFunctions(
     const ZetaSQLBuiltinFunctionOptions& options) {
   std::map<std::string, std::unique_ptr<Function>> function_map;
   // We have to call type_factory() while not holding mutex_.
@@ -1153,6 +1182,21 @@ SimpleTable::SimpleTable(const std::string& name, const Type* row_type,
 SimpleTable::SimpleTable(const std::string& name, const int64_t id)
     : name_(name), id_(id) {}
 
+absl::Status SimpleTable::SetAnonymizationInfo(
+    const std::string& userid_column_name) {
+  ZETASQL_ASSIGN_OR_RETURN(
+      anonymization_info_,
+      AnonymizationInfo::Create(this, absl::MakeSpan(&userid_column_name, 1)));
+  return absl::OkStatus();
+}
+
+absl::Status SimpleTable::SetAnonymizationInfo(
+    absl::Span<const std::string> userid_column_name_path) {
+  ZETASQL_ASSIGN_OR_RETURN(anonymization_info_,
+                   AnonymizationInfo::Create(this, userid_column_name_path));
+  return absl::OkStatus();
+}
+
 const Column* SimpleTable::FindColumnByName(const std::string& name) const {
   if (name.empty()) {
     return nullptr;
@@ -1268,6 +1312,15 @@ absl::Status SimpleTable::Serialize(
     ZETASQL_RETURN_IF_ERROR(static_cast<const SimpleColumn*>(column)->Serialize(
         file_descriptor_set_map, column_proto));
   }
+  const std::optional<const AnonymizationInfo> anonymization_info =
+      GetAnonymizationInfo();
+  if (anonymization_info.has_value()) {
+    for (const auto& column_name_field :
+         anonymization_info->UserIdColumnNamePath()) {
+      proto->mutable_anonymization_info()->add_userid_column_name(
+          column_name_field);
+    }
+  }
   if (primary_key_.has_value()) {
     for (int column_index : primary_key_.value()) {
       proto->add_primary_key_column_index(column_index);
@@ -1310,6 +1363,13 @@ absl::Status SimpleTable::Deserialize(
     ZETASQL_RETURN_IF_ERROR(table->SetPrimaryKey(primary_key));
   }
 
+  if (proto.has_anonymization_info()) {
+    ZETASQL_RET_CHECK(!proto.anonymization_info().userid_column_name().empty());
+    const std::vector<std::string> userid_column_name_path = {
+        proto.anonymization_info().userid_column_name().begin(),
+        proto.anonymization_info().userid_column_name().end()};
+    ZETASQL_RETURN_IF_ERROR(table->SetAnonymizationInfo(userid_column_name_path));
+  }
   *result = std::move(table);
   return absl::OkStatus();
 }

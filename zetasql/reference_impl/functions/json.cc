@@ -18,6 +18,7 @@
 
 #include "zetasql/public/functions/json.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/base/statusor.h"
 
@@ -54,6 +55,15 @@ class JsonExtractStringArrayFunction : public SimpleBuiltinScalarFunction {
   explicit JsonExtractStringArrayFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kJsonExtractStringArray,
                                     types::StringArrayType()) {}
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class JsonSubscriptFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit JsonSubscriptFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kSubscript,
+                                    types::JsonType()) {}
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
@@ -110,6 +120,47 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
     }
   }
   return Value::Null(output_type);
+}
+
+zetasql_base::StatusOr<Value> JsonSubscriptFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_DCHECK_EQ(args.size(), 2);
+  if (HasNulls(args)) {
+    return Value::Null(output_type());
+  }
+  absl::optional<JSONValueConstRef> json_value_const_ref;
+  JSONValue input_json;
+  if (args[0].is_validated_json()) {
+    json_value_const_ref = args[0].json_value();
+  } else {
+    const auto& language_options = context->GetLanguageOptions();
+    ZETASQL_ASSIGN_OR_RETURN(
+        input_json,
+        JSONValue::ParseJSONString(
+            args[0].json_value_unparsed(),
+            JSONParsingOptions{
+                .legacy_mode = language_options.LanguageFeatureEnabled(
+                    FEATURE_JSON_LEGACY_PARSE),
+                .strict_number_parsing =
+                    language_options.LanguageFeatureEnabled(
+                        FEATURE_JSON_STRICT_NUMBER_PARSING)}));
+    json_value_const_ref = input_json.GetConstRef();
+  }
+  ZETASQL_DCHECK(json_value_const_ref.has_value());
+  absl::optional<JSONValueConstRef> member_const_ref;
+  if (args[1].type_kind() == TYPE_STRING) {
+    member_const_ref =
+        json_value_const_ref->GetMemberIfExists(args[1].string_value());
+  } else {
+    int64_t index = args[1].int64_value();
+    if (json_value_const_ref->IsArray() && index >= 0 &&
+        index < json_value_const_ref->GetArraySize()) {
+      member_const_ref = json_value_const_ref->GetArrayElement(index);
+    }
+  }
+  return member_const_ref.has_value()
+             ? Value::Json(JSONValue::CopyFrom(*member_const_ref))
+             : Value::Null(output_type());
 }
 
 zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
@@ -186,14 +237,23 @@ zetasql_base::StatusOr<Value> JsonExtractStringArrayFunction::Eval(
       const std::unique_ptr<functions::JsonPathEvaluator> evaluator,
       functions::JsonPathEvaluator::Create(json_path,
                                            /*sql_standard_mode=*/false));
-  std::vector<std::string> output;
+  std::vector<absl::optional<std::string>> output;
   bool is_null = false;
   ZETASQL_RETURN_IF_ERROR(
       evaluator->ExtractStringArray(args[0].string_value(), &output, &is_null));
   if (is_null) {
     return Value::Null(types::StringArrayType());
   }
-  return values::StringArray(output);
+
+  std::vector<Value> result_array;
+  result_array.reserve(output.size());
+  for (const auto& element : output) {
+    result_array.push_back(element.has_value() ? values::String(*element)
+                                               : values::NullString());
+  }
+  // To avoid a copy, we use the unsafe version. However this is actually safe,
+  // because each element of the array is the same type (String).
+  return values::UnsafeArray(types::StringArrayType(), std::move(result_array));
 }
 
 }  // namespace
@@ -209,6 +269,11 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kJsonExtractArray},
       [](FunctionKind kind, const Type* output_type) {
         return new JsonExtractArrayFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kSubscript},
+      [](FunctionKind kind, const Type* output_type) {
+        return new JsonSubscriptFunction();
       });
 }
 

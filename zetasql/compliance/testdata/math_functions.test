@@ -1,0 +1,4 @@
+[name=math_abs_zero]
+SELECT IEEE_DIVIDE(1, -0.0), IEEE_DIVIDE(1, ABS(-0.0));
+--
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[{-inf, inf}]

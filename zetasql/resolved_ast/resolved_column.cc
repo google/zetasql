@@ -43,10 +43,7 @@ std::string ResolvedColumn::DebugString() const {
 }
 
 std::string ResolvedColumn::ShortDebugString() const {
-  return absl::StrCat(name_.ToStringView(), "#", column_id_,
-                      type_annotation_map() == nullptr
-                          ? ""
-                          : type_annotation_map()->DebugString());
+  return absl::StrCat(name_.ToStringView(), "#", column_id_);
 }
 
 absl::Status ResolvedColumn::SaveTo(

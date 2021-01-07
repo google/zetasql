@@ -16,14 +16,15 @@
 
 #include "zetasql/public/strings.h"
 
+#include <cstring>
 #include <memory>
 #include <set>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/utf_util.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/common/utf_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/macros.h"
@@ -1181,12 +1182,23 @@ TEST(StringsTest, ParseIdentifierPath) {
   });
 
   for (const ParseIdentifierPathTestCase& test : test_cases) {
+    // Also prepare an input char array without null terminator at the end.
+    // This helps address sanitizer to validate that we stay within address
+    // boudaries.
+    std::unique_ptr<char[]> input_buf(new char[test.input.size()]());
+    std::strncpy(input_buf.get(), test.input.c_str(), test.input.size());
+    absl::string_view input_no_null_term(input_buf.get(), test.input.size());
     std::vector<std::string> path;
     if (test.error.empty()) {
       // Success.
       ZETASQL_EXPECT_OK(ParseIdentifierPath(test.input, &path))
           << test.input << " ERROR: parse failure";
       EXPECT_EQ(test.output, path) << test.name << " ERROR: unexpected output";
+      // Also test that parsing works for non-null-terminated string views.
+      ZETASQL_EXPECT_OK(ParseIdentifierPath(input_no_null_term, &path))
+          << test.input << " ERROR: parse failure without null terminator";
+      EXPECT_EQ(test.output, path)
+          << test.name << " ERROR: unexpected output without null terminator";
 
       // Run each path through the parser to ensure that the vectors match.
       std::unique_ptr<ParserOutput> parser_output;
@@ -1201,6 +1213,12 @@ TEST(StringsTest, ParseIdentifierPath) {
           ParseIdentifierPath(test.input, &path),
           StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
           << test.name << " ERROR: unexpected failure status";
+      // Also test error scenarios for non-null-terminated string views.
+      EXPECT_THAT(
+          ParseIdentifierPath(input_no_null_term, &path),
+          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
+          << test.name
+          << " ERROR: unexpected failure status without null terminator";
 
       // Ensure that the output has not changed.
       EXPECT_EQ(test.output, path) << test.name << " ERROR: output modified";

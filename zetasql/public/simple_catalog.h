@@ -270,6 +270,16 @@ class SimpleCatalog : public EnumerableCatalog {
                                  ZetaSQLBuiltinFunctionOptions())
       ABSL_LOCKS_EXCLUDED(mutex_);
 
+  // Add ZetaSQL built-in function definitions into this catalog.
+  // This can add functions in both the global namespace and more specific
+  // namespaces. If any of the selected functions are in namespaces,
+  // sub-Catalogs will be created and the appropriate functions will be added in
+  // those sub-Catalogs.
+  // Also: Functions and Catalogs with the same names must not already exist.
+  // Functions are unowned, and must outlive this catalog.
+  void AddZetaSQLFunctions(const std::vector<const Function*>& functions)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
   // Set the google::protobuf::DescriptorPool to use when resolving Types.
   // All message and enum types declared in <pool> will be resolvable with
   // FindType or GetType, treating the full name as one identifier.
@@ -562,6 +572,33 @@ class SimpleTable : public Table {
   CreateEvaluatorTableIterator(
       absl::Span<const int> column_idxs) const override;
 
+  // Sets the <anonymization_info_> with the specified <userid_column_name>
+  // (overwriting any previous anonymization info).  An error is returned if
+  // the named column is ambiguous or does not exist in this table.
+  //
+  // Setting the AnonymizationInfo defines this table as supporting
+  // anonymization semantics and containing sensitive private data.
+  absl::Status SetAnonymizationInfo(const std::string& userid_column_name);
+
+  // Same as above, but with the specified <userid_column_name_path>.
+  absl::Status SetAnonymizationInfo(
+      absl::Span<const std::string> userid_column_name_path);
+
+  // Resets <anonymization_info_>, implying that the table does not support
+  // anonymization queries.
+  void ResetAnonymizationInfo() {
+    anonymization_info_.reset();
+  }
+
+  // Returns anonymization info for a table, including a column reference that
+  // indicates the userid column for anonymization purposes.
+  std::optional<const AnonymizationInfo> GetAnonymizationInfo() const override {
+    if (anonymization_info_ != nullptr) {
+      return *anonymization_info_;
+    }
+    return std::optional<const AnonymizationInfo>();
+  }
+
   // Serialize this table into protobuf. The provided map is used to store
   // serialized FileDescriptorSets, which can be deserialized into separate
   // DescriptorPools in order to reconstruct the Type. The map may be
@@ -610,6 +647,8 @@ class SimpleTable : public Table {
   absl::flat_hash_map<std::string, const Column*> columns_map_;
   absl::flat_hash_set<std::string> duplicate_column_names_;
   int64_t id_ = 0;
+  // Does not own the referenced Column* (if set).
+  std::unique_ptr<AnonymizationInfo> anonymization_info_;
   bool allow_anonymous_column_name_ = false;
   bool anonymous_column_seen_ = false;
   bool allow_duplicate_column_names_ = false;

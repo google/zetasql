@@ -28,6 +28,7 @@
 
 #include <cstdint>
 #include "absl/strings/ascii.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/logging.h"
 
@@ -284,7 +285,6 @@ inline bool safe_uint_internal(absl::string_view text, IntType* value_p,
 }
 
 static constexpr double kDoublePrecisionCheckMax = DBL_MAX / 1.000000000000001;
-static constexpr float kFloatPrecisionCheckMax = FLT_MAX / 1.000000000000001;
 static constexpr int kFastToBufferSize = 32;
 
 }  // anonymous namespace
@@ -318,27 +318,28 @@ std::string RoundTripDoubleToString(double d) {
   return buffer;
 }
 
-std::string RoundTripFloatToString(float d) {
-  static_assert(FLT_DIG < 20, "FLT_DIG is too big");
+std::string RoundTripFloatToString(float value) {
   char buffer[kFastToBufferSize];
-  bool full_precision_needed = true;
-  if (std::abs(d) <= kFloatPrecisionCheckMax) {
-    int snprintf_result =
-        snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG, d);
+  // FLT_DIG is 6 for IEEE-754 floats, which are used on almost all
+  // platforms these days.  Just in case some system exists where FLT_DIG
+  // is significantly larger -- and risks overflowing our buffer -- we have
+  // this assert.
+  static_assert(FLT_DIG < 10, "FLT_DIG is too big");
 
-    // The snprintf should never overflow because the buffer is significantly
-    // larger than the precision we asked for.
-    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+  int snprintf_result =
+      snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG, value);
 
-    full_precision_needed = strtod(buffer, nullptr) != d;
-  }
+  // The snprintf should never overflow because the buffer is significantly
+  // larger than the precision we asked for.
+  ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
 
-  if (full_precision_needed) {
-    int snprintf_result =
-        snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG + 2, d);
+  float parsed_value;
+  if (!absl::SimpleAtof(buffer, &parsed_value) || parsed_value != value) {
+    snprintf_result =
+        snprintf(buffer, kFastToBufferSize, "%.*g", FLT_DIG + 2, value);
 
     // Should never overflow; see above.
-    ZETASQL_CHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
+    ZETASQL_DCHECK(snprintf_result > 0 && snprintf_result < kFastToBufferSize);
   }
   return buffer;
 }

@@ -198,6 +198,7 @@ cc_library(
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/public:analyzer",
+        "//zetasql/public:anon_function",
         "//zetasql/public:builtin_function",
         "//zetasql/public:catalog",
         "//zetasql/public:constant",

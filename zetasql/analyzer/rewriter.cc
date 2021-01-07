@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "zetasql/analyzer/anonymization_rewriter.h"
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_output.h"
@@ -97,6 +98,19 @@ absl::Status RewriteResolvedAst(
         RewriteResolvedFlatten(
             *catalog, NodeFromAnalyzerOutput(analyzer_output), column_factory));
     ZETASQL_RETURN_IF_ERROR(output_mutator.Update(std::move(result)));
+  }
+
+  if (analyzer_output.analyzer_output_properties().has_anonymization &&
+      analyzer_options.rewrite_enabled(REWRITE_ANONYMIZATION)) {
+    rewrite_activated = true;
+    ZETASQL_ASSIGN_OR_RETURN(RewriteForAnonymizationOutput anonymized_output,
+                     RewriteForAnonymization(
+                         NodeFromAnalyzerOutput(analyzer_output), catalog,
+                         type_factory, analyzer_options, column_factory));
+    ZETASQL_RETURN_IF_ERROR(output_mutator.Update(std::move(anonymized_output.node)));
+    output_mutator.mutable_output_properties()
+        .resolved_table_scan_to_anonymized_aggregate_scan_map =
+        std::move(anonymized_output.table_scan_to_anon_aggr_scan_map);
   }
 
   if (rewrite_activated) {

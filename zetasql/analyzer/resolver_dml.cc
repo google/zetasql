@@ -95,7 +95,7 @@ absl::Status Resolver::ResolveDMLTargetTable(
 
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       target_path, *alias, has_explicit_alias, alias_location,
-      nullptr /* hints */, nullptr /* systime */, empty_name_scope_.get(),
+      /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
       resolved_table_scan, name_list));
   ZETASQL_RET_CHECK((*name_list)->HasRangeVariable(*alias));
   return absl::OkStatus();
@@ -153,7 +153,7 @@ absl::Status Resolver::ResolveDeleteStatementImpl(
     }
 
     const ResolvedColumn offset_column(AllocateColumnId(),
-                                       kArrayId /* table_name */, offset_alias,
+                                       /*table_name=*/kArrayId, offset_alias,
                                        types::Int64Type());
     resolved_array_offset_column = MakeResolvedColumnHolder(offset_column);
 
@@ -207,9 +207,9 @@ absl::Status Resolver::ResolveTruncateStatement(
                    ast_statement->GetTargetPathForNonNested());
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       name_path, GetAliasForExpression(name_path),
-      false /* has_explicit_alias */, name_path, nullptr /* hints */,
-      nullptr /* systime */, empty_name_scope_.get(), &resolved_table_scan,
-      &name_list));
+      /*has_explicit_alias=*/false, name_path, /*hints=*/nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      &resolved_table_scan, &name_list));
 
   const NameScope truncate_scope(*name_list);
   std::unique_ptr<const ResolvedExpr> resolved_where_expr;
@@ -331,7 +331,7 @@ absl::Status Resolver::ResolveInsertQuery(
   std::shared_ptr<const NameList> query_name_list;
 
   ZETASQL_RETURN_IF_ERROR(ResolveQuery(query, name_scope, kInsertId,
-                               !is_nested /* is_outer_query */, &resolved_query,
+                               /*is_outer_query=*/!is_nested , &resolved_query,
                                &query_name_list));
 
   if (correlated_columns_set != nullptr) {
@@ -354,7 +354,7 @@ absl::Status Resolver::ResolveInsertQuery(
     if (!current_type->Equals(insert_type)) {
       needs_cast = true;
       InputArgumentType input_argument_type(current_type,
-                                            false /* is_query_parameter */);
+                                            /*is_query_parameter=*/false);
       SignatureMatchResult unused;
       if (!coercer_.AssignableTo(input_argument_type, insert_type,
                                  /* is_explicit = */ false, &unused) &&
@@ -390,9 +390,9 @@ absl::Status Resolver::ResolveInsertStatement(
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       target_path, GetAliasForExpression(target_path),
-      false /* has_explicit_alias */, target_path, nullptr /* hints */,
-      nullptr /* systime */, empty_name_scope_.get(), &resolved_table_scan,
-      &name_list));
+      /*has_explicit_alias=*/false, target_path, /*hints=*/nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      &resolved_table_scan, &name_list));
 
   IdStringHashMapCase<ResolvedColumn> table_scan_columns;
   IdStringHashSetCase ambiguous_column_names;
@@ -929,7 +929,8 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
         // 'info.array_offset' is 1-based. Subtract 1 to make it 0-based.
         const std::string& subtraction_name =
             FunctionResolver::BinaryOperatorToFunctionName(
-                ASTBinaryExpression::MINUS);
+                ASTBinaryExpression::MINUS, /*is_not=*/false,
+                /*not_handled=*/nullptr);
 
         std::vector<std::unique_ptr<const ResolvedExpr>> subtraction_args;
         subtraction_args.push_back(std::move(info.array_offset));
@@ -990,6 +991,9 @@ absl::Status Resolver::VerifyUpdateTargetIsWritable(
     case RESOLVED_GET_STRUCT_FIELD:
       return VerifyUpdateTargetIsWritable(
           ast_location, target->GetAs<ResolvedGetStructField>()->expr());
+    case RESOLVED_GET_JSON_FIELD:
+      return MakeSqlErrorAt(ast_location)
+             << "UPDATE ... SET does not support modifying a JSON field";
     case RESOLVED_MAKE_STRUCT:
       return MakeSqlErrorAt(ast_location)
              << "UPDATE ... SET does not support updating the entire row";
@@ -1387,7 +1391,7 @@ absl::Status Resolver::MergeWithUpdateItem(
       std::unique_ptr<ResolvedDeleteStmt> resolved_stmt;
       ZETASQL_RETURN_IF_ERROR(ResolveDeleteStatementImpl(
           ast_input_update_item->delete_statement(), target_alias,
-          nested_dml_scope, nullptr /* table_scan */, &resolved_stmt));
+          nested_dml_scope, /*table_scan=*/nullptr, &resolved_stmt));
       resolved_update_item.add_delete_list(std::move(resolved_stmt));
     } else if (is_nested_update) {
       // Nested DML ordering is checked by ShouldMergeWithUpdateItem().
@@ -1400,7 +1404,7 @@ absl::Status Resolver::MergeWithUpdateItem(
       ZETASQL_RETURN_IF_ERROR(ResolveUpdateStatementImpl(
           ast_input_update_item->update_statement(), /*is_nested=*/true,
           target_alias, &nested_target_scope, nested_dml_scope,
-          nullptr /* table_scan */, nullptr /* from_scan */, &resolved_stmt));
+          /*table_scan=*/nullptr, /*from_scan=*/nullptr, &resolved_stmt));
       resolved_update_item.add_update_list(std::move(resolved_stmt));
     } else {
       ZETASQL_RET_CHECK(is_nested_insert);
@@ -1409,7 +1413,7 @@ absl::Status Resolver::MergeWithUpdateItem(
       insert_columns.emplace_back(
           resolved_update_item.element_column()->column());
       ZETASQL_RETURN_IF_ERROR(ResolveInsertStatementImpl(
-          ast_input_update_item->insert_statement(), nullptr /* table_scan */,
+          ast_input_update_item->insert_statement(), /*table_scan=*/nullptr,
           insert_columns, nested_dml_scope, &resolved_stmt));
       resolved_update_item.add_insert_list(std::move(resolved_stmt));
     }
@@ -1510,7 +1514,7 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
     }
 
     const ResolvedColumn offset_column(AllocateColumnId(),
-                                       kArrayId /* table_name */, offset_alias,
+                                       /*table_name=*/kArrayId, offset_alias,
                                        types::Int64Type());
     resolved_array_offset_column = MakeResolvedColumnHolder(offset_column);
 

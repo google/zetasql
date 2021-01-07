@@ -580,6 +580,92 @@ class EnumerableCatalog : public Catalog {
   }
 };
 
+
+// Captures userid information related to a table.
+class AnonymizationUserIdInfo {
+ public:
+  // Creates a AnonymizationUserIdInfo with the specified Column.  Returns an
+  // error if <column> is nullptr or its Name() is empty.
+  //
+  // This Create() method is used when the userid column of the associated
+  // Table is a Column in that Table's Column list (i.e., a Column
+  // accessible through GetColumn() and FindColumnByName()).
+  static zetasql_base::StatusOr<AnonymizationUserIdInfo> Create(const Column* column);
+
+  // Creates a AnonymizationUserIdInfo with the specified column_name, which
+  // must not be empty.
+  //
+  // This Create() method is used when the associated table is a value
+  // Table, and the userid column is actually a field from the value
+  // table's value column.
+
+  static zetasql_base::StatusOr<AnonymizationUserIdInfo> Create(
+      absl::Span<const std::string> column_name_path);
+
+  // Returns the userid column name if the name path's length is 1. Otherwise,
+  // returns an empty string, and get_column_name_path() can be used to return
+  // the userid column name path.
+  std::string get_column_name() const {
+    if (column_name_path_.size() == 1) {
+      return column_name_path_.back();
+    }
+    return "";
+  }
+
+  // Returns the userid column name path.
+  absl::Span<const std::string> get_column_name_path() const {
+    return column_name_path_;
+  }
+
+  // Returns <column_>.  Will be non-nullptr if the AnonymizationUserIdInfo was
+  // created with a Column.  Will be nullptr otherwise.
+  const Column* get_column() const {
+    return column_;
+  }
+
+ private:
+  explicit AnonymizationUserIdInfo(const Column* column);
+  explicit AnonymizationUserIdInfo(
+      absl::Span<const std::string> column_name_path);
+
+  const Column* column_ = nullptr;  // not owned
+  const std::vector<std::string> column_name_path_;
+};
+
+// Contains anonymization properties related to a Table.  Currently, includes
+// a column reference identifying the owning entity ('user') for each row of a
+// Table.  This class is only relevant for engines and tables that support
+// queries with differential privacy.  For further details, see:
+//
+// (broken link).
+//
+// TODO: Include support for other anonymization options here, such
+// as epsilon, delta, and k-threshold.
+class AnonymizationInfo {
+ public:
+  // Creates an AnonymizationInfo for the specified <table> and
+  // <userid_column_name_path>.  Returns an error if the
+  // <userid_column_name_path> does not exist in <table> or is ambiguous.
+  static zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
+      const Table* table,
+      absl::Span<const std::string> userid_column_name_path);
+
+  // Returns AnonymizationUserIdInfo related to the Table.
+  const AnonymizationUserIdInfo& GetUserIdInfo() const {
+    return userid_info_;
+  }
+
+  // Helper for extracting the userid column name path from the related
+  // AnonymizationUserIdInfo.
+  absl::Span<const std::string> UserIdColumnNamePath() const;
+
+ private:
+  explicit AnonymizationInfo(AnonymizationUserIdInfo userid_info)
+      : userid_info_(std::move(userid_info)) {}
+
+  AnonymizationUserIdInfo userid_info_;
+};
+
 // A table or table-like object visible in a ZetaSQL query.
 class Table {
  public:
@@ -644,6 +730,23 @@ class Table {
     return zetasql_base::UnimplementedErrorBuilder()
            << "Table " << FullName()
            << " does not support the API in evaluator.h";
+  }
+
+  // Returns AnonymizationInfo related to this table, if any.
+  // For further details, see:
+  //
+  // (broken link).
+  //
+  // This method only returns AnonymizationInfo for tables that contain private
+  // user data and that support anonymization queries.  Anonymization queries
+  // require at least one table with SupportsAnonymization()==true, but may
+  // also contain tables with SupportsAnonymization()==false (although those
+  // tables are assumed to not contain sensitive user data).
+  virtual std::optional<const AnonymizationInfo> GetAnonymizationInfo() const {
+    return std::optional<const AnonymizationInfo>();
+  }
+  bool SupportsAnonymization() const {
+    return GetAnonymizationInfo().has_value();
   }
 
   // Returns whether or not this Table is a specific table interface or

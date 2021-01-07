@@ -27,8 +27,12 @@
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/proto/function.pb.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/error_catalog.h"
@@ -75,7 +79,11 @@ class ResolverTest : public ::testing::Test {
     analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
     analyzer_options_.mutable_language()->EnableMaximumLanguageFeatures();
     analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_ANONYMIZATION);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_INTERVAL_TYPE);
     analyzer_options_.CreateDefaultArenasIfNotSet();
     sample_catalog_ = absl::make_unique<SampleCatalog>(
         analyzer_options_.language(), &type_factory_);
@@ -393,6 +401,37 @@ class ResolverTest : public ::testing::Test {
         "PARAM_string", type_factory_.get_string()));
     ZETASQL_ASSERT_OK(analyzer_options_.AddQueryParameter(
         "pArAm_mIxEdcaSe", type_factory_.get_string()));
+  }
+
+  void TestIntervalLiteral(const std::string& expected,
+                           const std::string& input) {
+    std::unique_ptr<ParserOutput> parser_output;
+    std::unique_ptr<const ResolvedExpr> resolved_expression;
+    ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    ASSERT_THAT(parsed_expression, NotNull());
+    EXPECT_EQ(parsed_expression->node_kind(), AST_INTERVAL_EXPR);
+    ZETASQL_EXPECT_OK(ResolveExpr(parsed_expression, &resolved_expression))
+        << "Input: " << input
+        << "\nParsed/Unparsed expression: " << Unparse(parsed_expression);
+    EXPECT_THAT(resolved_expression.get(), NotNull());
+    const ResolvedLiteral* resolved_literal =
+        resolved_expression->GetAs<ResolvedLiteral>();
+    ASSERT_THAT(resolved_literal, NotNull());
+    EXPECT_TRUE(resolved_literal->value().type()->IsInterval());
+    EXPECT_EQ(expected, resolved_literal->value().DebugString());
+  }
+
+  void TestIntervalLiteralError(const std::string& input) {
+    std::unique_ptr<ParserOutput> parser_output;
+    std::unique_ptr<const ResolvedExpr> resolved_expression;
+    ZETASQL_ASSERT_OK(ParseExpression(input, ParserOptions(), &parser_output)) << input;
+    const ASTExpression* parsed_expression = parser_output->expression();
+    ASSERT_THAT(parsed_expression, NotNull()) << input;
+    EXPECT_EQ(parsed_expression->node_kind(), AST_INTERVAL_EXPR) << input;
+    EXPECT_THAT(ResolveExpr(parsed_expression, &resolved_expression),
+                StatusIs(absl::StatusCode::kInvalidArgument))
+        << input;
   }
 
   TypeFactory type_factory_;
@@ -946,6 +985,94 @@ TEST_F(ResolverTest, TestExpectedErrorMessage) {
                            expected_error_substr);
 }
 
+TEST_F(ResolverTest, TestHasAnonymization) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_statement;
+  std::unique_ptr<const ResolvedExpr> resolved_expr;
+  std::string sql;
+
+  // Test a statement without anonymization
+  sql = "SELECT * FROM KeyValue";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_FALSE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test a statement with anonymization
+  sql = "SELECT WITH ANONYMIZATION key FROM KeyValue GROUP BY key";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  sql = "SELECT ANON_COUNT(*) FROM KeyValue";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test a statement with anonymization in a table subquery
+  sql = "SELECT * FROM (SELECT ANON_COUNT(*) FROM KeyValue)";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test a statement with anonymization in an expression subquery
+  sql = "SELECT (SELECT ANON_COUNT(*) FROM KeyValue) FROM KeyValue";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test a statement with anonymization in an expression subquery
+  sql = "SELECT * FROM KeyValue "
+        "WHERE key IN (SELECT ANON_COUNT(*) FROM KeyValue)";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                        &resolved_statement));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test a statement with anonymization, but resolution fails
+  sql = "SELECT ANON_COUNT(*) FROM KeyValue "
+        "UNION ALL "
+        "SELECT 'string_literal'";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
+  EXPECT_FALSE(resolver_->ResolveStatement(sql, parser_output->statement(),
+                                           &resolved_statement).ok());
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test an expression without anonymization
+  sql = "CONCAT('a', 'b')";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr));
+  EXPECT_FALSE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test an expression with anonymization
+  sql = "ANON_COUNT(*)";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
+                        /*aggregation_allowed=*/true));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+
+  // Test an expression with anonymization in a subquery expression
+  sql = "5 IN (SELECT ANON_COUNT(*) FROM KeyValue)";
+  ResetResolver(sample_catalog_->catalog());
+  ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
+  ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
+                        /*aggregation_allowed=*/true));
+  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+}
+
 TEST_F(ResolverTest, FlattenInCatalogButFeatureOff) {
   analyzer_options_.mutable_language()->DisableAllLanguageFeatures();
   ResetResolver(sample_catalog_->catalog());
@@ -990,6 +1117,802 @@ TEST_F(ResolverTest, TestHasFlatten) {
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
                         /*aggregation_allowed=*/true));
   EXPECT_TRUE(resolver_->analyzer_output_properties().has_flatten);
+}
+
+TEST_F(ResolverTest, TestIntervalLiteral) {
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' YEAR");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0' YEAR");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '+0' YEAR");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '000' YEAR");
+  TestIntervalLiteral("9-0 0 0:0:0", "INTERVAL '009' YEAR");
+  TestIntervalLiteral("-9-0 0 0:0:0", "INTERVAL '-009' YEAR");
+  TestIntervalLiteral("123-0 0 0:0:0", "INTERVAL '123' YEAR");
+  TestIntervalLiteral("-123-0 0 0:0:0", "INTERVAL '-123' YEAR");
+  TestIntervalLiteral("123-0 0 0:0:0", "INTERVAL '+123' YEAR");
+  TestIntervalLiteral("10000-0 0 0:0:0", "INTERVAL '10000' YEAR");
+  TestIntervalLiteral("-10000-0 0 0:0:0", "INTERVAL '-10000' YEAR");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' QUARTER");
+  TestIntervalLiteral("0-9 0 0:0:0", "INTERVAL '3' QUARTER");
+  TestIntervalLiteral("-0-9 0 0:0:0", "INTERVAL '-3' QUARTER");
+  TestIntervalLiteral("2-6 0 0:0:0", "INTERVAL '10' QUARTER");
+  TestIntervalLiteral("-2-6 0 0:0:0", "INTERVAL '-10' QUARTER");
+  TestIntervalLiteral("10000-0 0 0:0:0", "INTERVAL '40000' QUARTER");
+  TestIntervalLiteral("-10000-0 0 0:0:0", "INTERVAL '-40000' QUARTER");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' MONTH");
+  TestIntervalLiteral("0-6 0 0:0:0", "INTERVAL '6' MONTH");
+  TestIntervalLiteral("-0-6 0 0:0:0", "INTERVAL '-6' MONTH");
+  TestIntervalLiteral("40-5 0 0:0:0", "INTERVAL '485' MONTH");
+  TestIntervalLiteral("-40-5 0 0:0:0", "INTERVAL '-485' MONTH");
+  TestIntervalLiteral("10000-0 0 0:0:0", "INTERVAL '120000' MONTH");
+  TestIntervalLiteral("-10000-0 0 0:0:0", "INTERVAL '-120000' MONTH");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' WEEK");
+  TestIntervalLiteral("0-0 7 0:0:0", "INTERVAL '1' WEEK");
+  TestIntervalLiteral("0-0 -7 0:0:0", "INTERVAL '-1' WEEK");
+  TestIntervalLiteral("0-0 140 0:0:0", "INTERVAL '20' WEEK");
+  TestIntervalLiteral("0-0 -140 0:0:0", "INTERVAL '-20' WEEK");
+  TestIntervalLiteral("0-0 3659999 0:0:0", "INTERVAL '522857' WEEK");
+  TestIntervalLiteral("0-0 -3659999 0:0:0", "INTERVAL '-522857' WEEK");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' DAY");
+  TestIntervalLiteral("0-0 371 0:0:0", "INTERVAL '371' DAY");
+  TestIntervalLiteral("0-0 -371 0:0:0", "INTERVAL '-371' DAY");
+  TestIntervalLiteral("0-0 3660000 0:0:0", "INTERVAL '3660000' DAY");
+  TestIntervalLiteral("0-0 -3660000 0:0:0", "INTERVAL '-3660000' DAY");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' HOUR");
+  TestIntervalLiteral("0-0 0 25:0:0", "INTERVAL '25' HOUR");
+  TestIntervalLiteral("0-0 0 -25:0:0", "INTERVAL '-25' HOUR");
+  TestIntervalLiteral("0-0 0 87840000:0:0", "INTERVAL '87840000' HOUR");
+  TestIntervalLiteral("0-0 0 -87840000:0:0", "INTERVAL '-87840000' HOUR");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' MINUTE");
+  TestIntervalLiteral("0-0 0 0:3:0", "INTERVAL '3' MINUTE");
+  TestIntervalLiteral("0-0 0 -0:3:0", "INTERVAL '-3' MINUTE");
+  TestIntervalLiteral("0-0 0 1:12:0", "INTERVAL '72' MINUTE");
+  TestIntervalLiteral("0-0 0 -1:12:0", "INTERVAL '-72' MINUTE");
+  TestIntervalLiteral("0-0 0 87840000:0:0", "INTERVAL '5270400000' MINUTE");
+  TestIntervalLiteral("0-0 0 -87840000:0:0", "INTERVAL '-5270400000' MINUTE");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '+0' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0.0' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0.0' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '+0.0' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1", "INTERVAL '1' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1", "INTERVAL '-1' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100", "INTERVAL '0.1' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.100", "INTERVAL '-0.1' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.120", "INTERVAL '+.12' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.120", "INTERVAL '.12' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.120", "INTERVAL '-.12' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100", "INTERVAL '+0.1' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.200", "INTERVAL '1.2' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.200", "INTERVAL '-1.2' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.230", "INTERVAL '1.23' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.230", "INTERVAL '-1.23' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234", "INTERVAL '1.23400' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234", "INTERVAL '-1.23400' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234560", "INTERVAL '1.23456' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234560", "INTERVAL '-1.23456' SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.123456789", "INTERVAL '0.123456789' SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.123456789",
+                      "INTERVAL '-0.123456789' SECOND");
+  TestIntervalLiteral("0-0 0 27777777:46:39", "INTERVAL '99999999999' SECOND");
+  TestIntervalLiteral("0-0 0 -27777777:46:39",
+                      "INTERVAL '-99999999999' SECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0", "INTERVAL '316224000000' SECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0", "INTERVAL '-316224000000' SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0' YEAR TO MONTH");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0-0' YEAR TO MONTH");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '+0-0' YEAR TO MONTH");
+  TestIntervalLiteral("1-0 0 0:0:0", "INTERVAL '1-0' YEAR TO MONTH");
+  TestIntervalLiteral("1-0 0 0:0:0", "INTERVAL '+1-0' YEAR TO MONTH");
+  TestIntervalLiteral("-1-0 0 0:0:0", "INTERVAL '-1-0' YEAR TO MONTH");
+  TestIntervalLiteral("0-1 0 0:0:0", "INTERVAL '0-1' YEAR TO MONTH");
+  TestIntervalLiteral("0-1 0 0:0:0", "INTERVAL '+0-1' YEAR TO MONTH");
+  TestIntervalLiteral("-0-1 0 0:0:0", "INTERVAL '-0-1' YEAR TO MONTH");
+  TestIntervalLiteral("1-0 0 0:0:0", "INTERVAL '0-12' YEAR TO MONTH");
+  TestIntervalLiteral("-1-0 0 0:0:0", "INTERVAL '-0-12' YEAR TO MONTH");
+  TestIntervalLiteral("1-8 0 0:0:0", "INTERVAL '0-20' YEAR TO MONTH");
+  TestIntervalLiteral("-1-8 0 0:0:0", "INTERVAL '-0-20' YEAR TO MONTH");
+  TestIntervalLiteral("10000-0 0 0:0:0", "INTERVAL '9999-12' YEAR TO MONTH");
+  TestIntervalLiteral("-10000-0 0 0:0:0", "INTERVAL '-9999-12' YEAR TO MONTH");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0 0' YEAR TO DAY");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0 -0' YEAR TO DAY");
+  TestIntervalLiteral("0-0 7 0:0:0", "INTERVAL '0-0 7' YEAR TO DAY");
+  TestIntervalLiteral("0-0 -7 0:0:0", "INTERVAL '0-0 -7' YEAR TO DAY");
+  TestIntervalLiteral("0-0 7 0:0:0", "INTERVAL '-0-0 +7' YEAR TO DAY");
+  TestIntervalLiteral("11-8 30 0:0:0", "INTERVAL '10-20 30' YEAR TO DAY");
+  TestIntervalLiteral("11-8 -30 0:0:0", "INTERVAL '10-20 -30' YEAR TO DAY");
+  TestIntervalLiteral("-11-8 -30 0:0:0", "INTERVAL '-10-20 -30' YEAR TO DAY");
+  TestIntervalLiteral("0-0 3660000 0:0:0",
+                      "INTERVAL '0-0 3660000' YEAR TO DAY");
+  TestIntervalLiteral("0-0 -3660000 0:0:0",
+                      "INTERVAL '0-0 -3660000' YEAR TO DAY");
+  TestIntervalLiteral("10000-0 3660000 0:0:0",
+                      "INTERVAL '10000-0 3660000' YEAR TO DAY");
+  TestIntervalLiteral("-10000-0 -3660000 0:0:0",
+                      "INTERVAL '-10000-0 -3660000' YEAR TO DAY");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0 0 0' YEAR TO HOUR");
+  TestIntervalLiteral("0-0 0 24:0:0", "INTERVAL '0-0 0 24' YEAR TO HOUR");
+  TestIntervalLiteral("0-0 0 -24:0:0", "INTERVAL '0-0 0 -24' YEAR TO HOUR");
+  TestIntervalLiteral("0-0 0 24:0:0", "INTERVAL '0-0 0 +24' YEAR TO HOUR");
+  TestIntervalLiteral("1-2 3 4:0:0", "INTERVAL '1-2 3 4' YEAR TO HOUR");
+  TestIntervalLiteral("-1-2 -3 -4:0:0", "INTERVAL '-1-2 -3 -4' YEAR TO HOUR");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0-0 0 87840000' YEAR TO HOUR");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0-0 0 -87840000' YEAR TO HOUR");
+  TestIntervalLiteral("10000-0 3660000 87840000:0:0",
+                      "INTERVAL '10000-0 3660000 87840000' YEAR TO HOUR");
+  TestIntervalLiteral("-10000-0 -3660000 -87840000:0:0",
+                      "INTERVAL '-10000-0 -3660000 -87840000' YEAR TO HOUR");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0 0 0:0' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '0-0 0 12:34' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 -12:34:0",
+                      "INTERVAL '0-0 0 -12:34' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0",
+                      "INTERVAL '0-0 0 +12:34' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 101:40:0",
+                      "INTERVAL '0-0 0 100:100' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 -101:40:0",
+                      "INTERVAL '0-0 0 -100:100' YEAR TO MINUTE");
+  TestIntervalLiteral("10-2 30 43:21:0",
+                      "INTERVAL '10-2 30 43:21' YEAR TO MINUTE");
+  TestIntervalLiteral("10-2 30 -43:21:0",
+                      "INTERVAL '10-2 30 -43:21' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0-0 0 0:5270400000' YEAR TO MINUTE");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0-0 0 -0:5270400000' YEAR TO MINUTE");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0 0 0:0:0' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0-0 0 0:0:9' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '0-0 0 -0:0:9' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0-0 0 0:0:09' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9",
+                      "INTERVAL '0-0 0 -0:0:09' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:59", "INTERVAL '0-0 0 0:0:59' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:59",
+                      "INTERVAL '0-0 0 -0:0:59' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '0-0 0 0:0:123' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3",
+                      "INTERVAL '0-0 0 -0:0:123' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '0-0 0 1:2:3' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3", "INTERVAL '0-0 0 -1:2:3' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3",
+                      "INTERVAL '0-0 0 01:02:03' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3",
+                      "INTERVAL '0-0 0 -01:02:03' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56",
+                      "INTERVAL '0-0 0 12:34:56' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -12:34:56",
+                      "INTERVAL '0-0 0 -12:34:56' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56",
+                      "INTERVAL '0-0 0 +12:34:56' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 101:41:40",
+                      "INTERVAL '0-0 0 100:100:100' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -101:41:40",
+                      "INTERVAL '0-0 0 -100:100:100' YEAR TO SECOND");
+  TestIntervalLiteral("10-2 30 4:56:7",
+                      "INTERVAL '10-2 30 4:56:7' YEAR TO SECOND");
+  TestIntervalLiteral("10-2 30 -4:56:7",
+                      "INTERVAL '10-2 30 -4:56:7' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0-0 0 0:0:316224000000' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0-0 0 -0:0:316224000000' YEAR TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0-0 0 0:0:0.0' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0",
+                      "INTERVAL '0-0 0 -0:0:0.0000' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100",
+                      "INTERVAL '0-0 0 0:0:0.1' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.100",
+                      "INTERVAL '0-0 0 -0:0:0.1' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234500",
+                      "INTERVAL '0-0 0 0:0:1.2345' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234500",
+                      "INTERVAL '0-0 0 -0:0:1.2345' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:1:2.345678",
+                      "INTERVAL '0-0 0 0:1:2.345678' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:1:2.345678",
+                      "INTERVAL '0-0 0 -0:1:2.345678' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3.000456789",
+                      "INTERVAL '0-0 0 1:2:3.000456789' YEAR TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3.000456789",
+                      "INTERVAL '0-0 0 -1:2:3.000456789' YEAR TO SECOND");
+  TestIntervalLiteral("10-2 30 4:56:7.891234500",
+                      "INTERVAL '10-2 30 4:56:7.8912345' YEAR TO SECOND");
+  TestIntervalLiteral("10-2 30 -4:56:7.891234500",
+                      "INTERVAL '10-2 30 -4:56:7.8912345' YEAR TO SECOND");
+  TestIntervalLiteral(
+      "0-0 0 87839999:59:1.999999999",
+      "INTERVAL '0-0 0 0:0:316223999941.999999999' YEAR TO SECOND");
+  TestIntervalLiteral(
+      "0-0 0 -87839999:59:1.999999999",
+      "INTERVAL '0-0 0 -0:0:316223999941.999999999' YEAR TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0' MONTH TO DAY");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 -0' MONTH TO DAY");
+  TestIntervalLiteral("0-0 7 0:0:0", "INTERVAL '0 7' MONTH TO DAY");
+  TestIntervalLiteral("0-0 -7 0:0:0", "INTERVAL '0 -7' MONTH TO DAY");
+  TestIntervalLiteral("0-0 7 0:0:0", "INTERVAL '-0 +7' MONTH TO DAY");
+  TestIntervalLiteral("11-8 30 0:0:0", "INTERVAL '140 30' MONTH TO DAY");
+  TestIntervalLiteral("11-8 -30 0:0:0", "INTERVAL '140 -30' MONTH TO DAY");
+  TestIntervalLiteral("-11-8 -30 0:0:0", "INTERVAL '-140 -30' MONTH TO DAY");
+  TestIntervalLiteral("0-0 3660000 0:0:0", "INTERVAL '0 3660000' MONTH TO DAY");
+  TestIntervalLiteral("0-0 -3660000 0:0:0",
+                      "INTERVAL '0 -3660000' MONTH TO DAY");
+  TestIntervalLiteral("10000-0 3660000 0:0:0",
+                      "INTERVAL '120000 3660000' MONTH TO DAY");
+  TestIntervalLiteral("-10000-0 -3660000 0:0:0",
+                      "INTERVAL '-120000 -3660000' MONTH TO DAY");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0 0' MONTH TO HOUR");
+  TestIntervalLiteral("0-0 0 24:0:0", "INTERVAL '0 0 24' MONTH TO HOUR");
+  TestIntervalLiteral("0-0 0 -24:0:0", "INTERVAL '0 0 -24' MONTH TO HOUR");
+  TestIntervalLiteral("0-0 0 24:0:0", "INTERVAL '0 0 +24' MONTH TO HOUR");
+  TestIntervalLiteral("1-0 3 4:0:0", "INTERVAL '12 3 4' MONTH TO HOUR");
+  TestIntervalLiteral("-1-0 -3 -4:0:0", "INTERVAL '-12 -3 -4' MONTH TO HOUR");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0 0 87840000' MONTH TO HOUR");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0 0 -87840000' MONTH TO HOUR");
+  TestIntervalLiteral("10000-0 3660000 87840000:0:0",
+                      "INTERVAL '120000 3660000 87840000' MONTH TO HOUR");
+  TestIntervalLiteral("-10000-0 -3660000 -87840000:0:0",
+                      "INTERVAL '-120000 -3660000 -87840000' MONTH TO HOUR");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0 0:0' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '0 0 12:34' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 -12:34:0",
+                      "INTERVAL '0 0 -12:34' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '0 0 +12:34' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 101:40:0",
+                      "INTERVAL '0 0 100:100' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 -101:40:0",
+                      "INTERVAL '0 0 -100:100' MONTH TO MINUTE");
+  TestIntervalLiteral("10-2 30 43:21:0",
+                      "INTERVAL '122 30 43:21' MONTH TO MINUTE");
+  TestIntervalLiteral("10-2 30 -43:21:0",
+                      "INTERVAL '122 30 -43:21' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0 0 0:5270400000' MONTH TO MINUTE");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0 0 -0:5270400000' MONTH TO MINUTE");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0 0:0:0' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0 0 0:0:9' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '0 0 -0:0:9' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0 0 0:0:09' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '0 0 -0:0:09' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:59", "INTERVAL '0 0 0:0:59' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:59",
+                      "INTERVAL '0 0 -0:0:59' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '0 0 0:0:123' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3",
+                      "INTERVAL '0 0 -0:0:123' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '0 0 1:2:3' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3", "INTERVAL '0 0 -1:2:3' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '0 0 01:02:03' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3",
+                      "INTERVAL '0 0 -01:02:03' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56",
+                      "INTERVAL '0 0 12:34:56' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -12:34:56",
+                      "INTERVAL '0 0 -12:34:56' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56",
+                      "INTERVAL '0 0 +12:34:56' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 101:41:40",
+                      "INTERVAL '0 0 100:100:100' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -101:41:40",
+                      "INTERVAL '0 0 -100:100:100' MONTH TO SECOND");
+  TestIntervalLiteral("1-8 30 4:56:7",
+                      "INTERVAL '20 30 4:56:7' MONTH TO SECOND");
+  TestIntervalLiteral("1-8 30 -4:56:7",
+                      "INTERVAL '20 30 -4:56:7' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0 0 0:0:316224000000' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0 0 -0:0:316224000000' MONTH TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0 0:0:0.0' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0",
+                      "INTERVAL '0 0 -0:0:0.0000' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100",
+                      "INTERVAL '0 0 0:0:0.1' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.100",
+                      "INTERVAL '0 0 -0:0:0.1' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234500",
+                      "INTERVAL '0 0 0:0:1.2345' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234500",
+                      "INTERVAL '0 0 -0:0:1.2345' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 0:1:2.345678",
+                      "INTERVAL '0 0 0:1:2.345678' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:1:2.345678",
+                      "INTERVAL '0 0 -0:1:2.345678' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3.000456789",
+                      "INTERVAL '0 0 1:2:3.000456789' MONTH TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3.000456789",
+                      "INTERVAL '0 0 -1:2:3.000456789' MONTH TO SECOND");
+  TestIntervalLiteral("1-8 30 4:56:7.891234500",
+                      "INTERVAL '20 30 4:56:7.8912345' MONTH TO SECOND");
+  TestIntervalLiteral("1-8 30 -4:56:7.891234500",
+                      "INTERVAL '20 30 -4:56:7.8912345' MONTH TO SECOND");
+  TestIntervalLiteral(
+      "0-0 0 87839999:59:1.999999999",
+      "INTERVAL '0 0 0:0:316223999941.999999999' MONTH TO SECOND");
+  TestIntervalLiteral(
+      "0-0 0 -87839999:59:1.999999999",
+      "INTERVAL '0 0 -0:0:316223999941.999999999' MONTH TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0' DAY TO HOUR");
+  TestIntervalLiteral("0-0 0 24:0:0", "INTERVAL '0 24' DAY TO HOUR");
+  TestIntervalLiteral("0-0 0 -24:0:0", "INTERVAL '0 -24' DAY TO HOUR");
+  TestIntervalLiteral("0-0 0 24:0:0", "INTERVAL '0 +24' DAY TO HOUR");
+  TestIntervalLiteral("0-0 3 4:0:0", "INTERVAL '3 4' DAY TO HOUR");
+  TestIntervalLiteral("0-0 -3 -4:0:0", "INTERVAL '-3 -4' DAY TO HOUR");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0 87840000' DAY TO HOUR");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0 -87840000' DAY TO HOUR");
+  TestIntervalLiteral("0-0 3660000 87840000:0:0",
+                      "INTERVAL '3660000 87840000' DAY TO HOUR");
+  TestIntervalLiteral("0-0 -3660000 -87840000:0:0",
+                      "INTERVAL '-3660000 -87840000' DAY TO HOUR");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0:0' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '0 12:34' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 -12:34:0", "INTERVAL '0 -12:34' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '0 +12:34' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 101:40:0", "INTERVAL '0 100:100' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 -101:40:0", "INTERVAL '0 -100:100' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 30 43:21:0", "INTERVAL '30 43:21' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 30 -43:21:0", "INTERVAL '30 -43:21' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0 0:5270400000' DAY TO MINUTE");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0 -0:5270400000' DAY TO MINUTE");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0:0:0' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0 0:0:9' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '0 -0:0:9' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0 0:0:09' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '0 -0:0:09' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:59", "INTERVAL '0 0:0:59' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:59", "INTERVAL '0 -0:0:59' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '0 0:0:123' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3", "INTERVAL '0 -0:0:123' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '0 1:2:3' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3", "INTERVAL '0 -1:2:3' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '0 01:02:03' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3", "INTERVAL '0 -01:02:03' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56", "INTERVAL '0 12:34:56' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -12:34:56",
+                      "INTERVAL '0 -12:34:56' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56", "INTERVAL '0 +12:34:56' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 101:41:40",
+                      "INTERVAL '0 100:100:100' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -101:41:40",
+                      "INTERVAL '0 -100:100:100' DAY TO SECOND");
+  TestIntervalLiteral("0-0 30 4:56:7", "INTERVAL '30 4:56:7' DAY TO SECOND");
+  TestIntervalLiteral("0-0 30 -4:56:7", "INTERVAL '30 -4:56:7' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0 0:0:316224000000' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '0 -0:0:316224000000' DAY TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 0:0:0.0' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0 -0:0:0.0000' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100", "INTERVAL '0 0:0:0.1' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.100",
+                      "INTERVAL '0 -0:0:0.1' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234500",
+                      "INTERVAL '0 0:0:1.2345' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234500",
+                      "INTERVAL '0 -0:0:1.2345' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 0:1:2.345678",
+                      "INTERVAL '0 0:1:2.345678' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:1:2.345678",
+                      "INTERVAL '0 -0:1:2.345678' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3.000456789",
+                      "INTERVAL '0 1:2:3.000456789' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3.000456789",
+                      "INTERVAL '0 -1:2:3.000456789' DAY TO SECOND");
+  TestIntervalLiteral("0-0 30 4:56:7.891234500",
+                      "INTERVAL '30 4:56:7.8912345' DAY TO SECOND");
+  TestIntervalLiteral("0-0 30 -4:56:7.891234500",
+                      "INTERVAL '30 -4:56:7.8912345' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 87839999:59:1.999999999",
+                      "INTERVAL '0 0:0:316223999941.999999999' DAY TO SECOND");
+  TestIntervalLiteral("0-0 0 -87839999:59:1.999999999",
+                      "INTERVAL '0 -0:0:316223999941.999999999' DAY TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0:0' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '12:34' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 -12:34:0", "INTERVAL '-12:34' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 12:34:0", "INTERVAL '+12:34' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 101:40:0", "INTERVAL '100:100' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 -101:40:0", "INTERVAL '-100:100' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0:5270400000' HOUR TO MINUTE");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '-0:5270400000' HOUR TO MINUTE");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0:0:0' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0:0:9' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '-0:0:9' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0:0:09' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '-0:0:09' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:59", "INTERVAL '0:0:59' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:59", "INTERVAL '-0:0:59' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '0:0:123' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3", "INTERVAL '-0:0:123' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '1:2:3' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3", "INTERVAL '-1:2:3' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3", "INTERVAL '01:02:03' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3", "INTERVAL '-01:02:03' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56", "INTERVAL '12:34:56' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -12:34:56", "INTERVAL '-12:34:56' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 12:34:56", "INTERVAL '+12:34:56' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 101:41:40",
+                      "INTERVAL '100:100:100' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -101:41:40",
+                      "INTERVAL '-100:100:100' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0:0:316224000000' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '-0:0:316224000000' HOUR TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0:0:0.0' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0:0:0.0000' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100", "INTERVAL '0:0:0.1' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.100", "INTERVAL '-0:0:0.1' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234500",
+                      "INTERVAL '0:0:1.2345' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234500",
+                      "INTERVAL '-0:0:1.2345' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 0:1:2.345678",
+                      "INTERVAL '0:1:2.345678' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:1:2.345678",
+                      "INTERVAL '-0:1:2.345678' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 1:2:3.000456789",
+                      "INTERVAL '1:2:3.000456789' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -1:2:3.000456789",
+                      "INTERVAL '-1:2:3.000456789' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 87839999:59:1.999999999",
+                      "INTERVAL '0:0:316223999941.999999999' HOUR TO SECOND");
+  TestIntervalLiteral("0-0 0 -87839999:59:1.999999999",
+                      "INTERVAL '-0:0:316223999941.999999999' HOUR TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0:0' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0:9' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '-0:9' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:9", "INTERVAL '0:09' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:9", "INTERVAL '-0:09' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:59", "INTERVAL '0:59' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:59", "INTERVAL '-0:59' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '0:123' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3", "INTERVAL '-0:123' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '2:3' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3", "INTERVAL '-2:3' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:2:3", "INTERVAL '02:03' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:2:3", "INTERVAL '-02:03' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 20:34:56", "INTERVAL '1234:56' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -20:34:56",
+                      "INTERVAL '-1234:56' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 20:34:56", "INTERVAL '+1234:56' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 87840000:0:0",
+                      "INTERVAL '0:316224000000' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -87840000:0:0",
+                      "INTERVAL '-0:316224000000' MINUTE TO SECOND");
+
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '0:0.0' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0", "INTERVAL '-0:0.0000' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:0.100", "INTERVAL '0:0.1' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:0.100", "INTERVAL '-0:0.1' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:0:1.234500",
+                      "INTERVAL '0:1.2345' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:0:1.234500",
+                      "INTERVAL '-0:1.2345' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 0:1:2.345678",
+                      "INTERVAL '1:2.345678' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -0:1:2.345678",
+                      "INTERVAL '-1:2.345678' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 2:0:3.000456789",
+                      "INTERVAL '120:3.000456789' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -2:0:3.000456789",
+                      "INTERVAL '-120:3.000456789' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 87839999:59:1.999999999",
+                      "INTERVAL '0:316223999941.999999999' MINUTE TO SECOND");
+  TestIntervalLiteral("0-0 0 -87839999:59:1.999999999",
+                      "INTERVAL '-0:316223999941.999999999' MINUTE TO SECOND");
+
+  // Non-string literals
+  TestIntervalLiteralError("INTERVAL b'1' YEAR");
+
+  TestIntervalLiteralError("INTERVAL '' YEAR");
+  TestIntervalLiteralError("INTERVAL ' 1' YEAR");
+  TestIntervalLiteralError("INTERVAL '-1 ' YEAR");
+  TestIntervalLiteralError("INTERVAL '- 1' YEAR");
+  TestIntervalLiteralError("INTERVAL '\t1' YEAR");
+  TestIntervalLiteralError("INTERVAL '1\t' YEAR");
+  TestIntervalLiteralError("INTERVAL '\\n1' YEAR");
+  TestIntervalLiteralError("INTERVAL '1\\n' YEAR");
+  // invalid formatting
+  TestIntervalLiteralError("INTERVAL '--1' YEAR");
+  TestIntervalLiteralError("INTERVAL '1.0' YEAR");
+  TestIntervalLiteralError("INTERVAL '123 0' YEAR");
+  // exceeds max number of months
+  TestIntervalLiteralError("INTERVAL '10001' YEAR");
+  TestIntervalLiteralError("INTERVAL '-10001' YEAR");
+  // overflow during multiplication
+  TestIntervalLiteralError("INTERVAL '9223372036854775807' YEAR");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775808' YEAR");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' YEAR");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' YEAR");
+
+  // exceeds max number of months
+  TestIntervalLiteralError("INTERVAL '40001' QUARTER");
+  TestIntervalLiteralError("INTERVAL '-40001' QUARTER");
+  // overflow during multiplication
+  TestIntervalLiteralError("INTERVAL '9223372036854775807' QUARTER");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775808' QUARTER");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' QUARTER");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' QUARTER");
+
+  // exceeds max number of months
+  TestIntervalLiteralError("INTERVAL '120001' MONTH");
+  TestIntervalLiteralError("INTERVAL '-120001' MONTH");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' MONTH");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' MONTH");
+
+  // exceeds max number of days
+  TestIntervalLiteralError("INTERVAL '522858' WEEK");
+  TestIntervalLiteralError("INTERVAL '-522858' WEEK");
+  // overflow during multiplication
+  TestIntervalLiteralError("INTERVAL '9223372036854775807' WEEK");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775808' WEEK");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' WEEK");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' WEEK");
+
+  // exceeds max number of days
+  TestIntervalLiteralError("INTERVAL '3660001' DAY");
+  TestIntervalLiteralError("INTERVAL '-3660001' DAY");
+
+  // exceeds max number of micros
+  TestIntervalLiteralError("INTERVAL '87840001' HOUR");
+  TestIntervalLiteralError("INTERVAL '-87840001' HOUR");
+
+  // exceeds max number of micros
+  TestIntervalLiteralError("INTERVAL '5270400001' MINUTE");
+  TestIntervalLiteralError("INTERVAL '-5270400001' MINUTE");
+
+  TestIntervalLiteralError("INTERVAL '' SECOND");
+  TestIntervalLiteralError("INTERVAL ' 1' SECOND");
+  TestIntervalLiteralError("INTERVAL '1 ' SECOND");
+  TestIntervalLiteralError("INTERVAL ' 1.1' SECOND");
+  TestIntervalLiteralError("INTERVAL '1.1 ' SECOND");
+  TestIntervalLiteralError("INTERVAL '.' SECOND");
+  TestIntervalLiteralError("INTERVAL '1. 2' SECOND");
+  TestIntervalLiteralError("INTERVAL '1.' SECOND");
+  TestIntervalLiteralError("INTERVAL '-1.' SECOND");
+  TestIntervalLiteralError("INTERVAL '+1.' SECOND");
+  TestIntervalLiteralError("INTERVAL '\t1.1' SECOND");
+  TestIntervalLiteralError("INTERVAL '1.1\t' SECOND");
+  TestIntervalLiteralError("INTERVAL '\\n1.1' SECOND");
+  TestIntervalLiteralError("INTERVAL '1.1\\n' SECOND");
+  // more than 9 fractional digits
+  TestIntervalLiteralError("INTERVAL '0.1234567890' SECOND");
+  // exceeds max number of seconds
+  TestIntervalLiteralError("INTERVAL '316224000000.000001' SECOND");
+  TestIntervalLiteralError("INTERVAL '-316224000000.000001' SECOND");
+  // overflow fitting into int64_t at SimpleAtoi
+  TestIntervalLiteralError("INTERVAL '9223372036854775808' SECOND");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775809' SECOND");
+
+  // Unsupported dateparts
+  TestIntervalLiteralError("INTERVAL '0' DAYOFWEEK");
+  TestIntervalLiteralError("INTERVAL '0' DAYOFYEAR");
+  TestIntervalLiteralError("INTERVAL '0' MILLISECOND");
+  TestIntervalLiteralError("INTERVAL '0' MICROSECOND");
+  TestIntervalLiteralError("INTERVAL '0' NANOSECOND");
+  TestIntervalLiteralError("INTERVAL '0' DATE");
+  TestIntervalLiteralError("INTERVAL '0' DATETIME");
+  TestIntervalLiteralError("INTERVAL '0' TIME");
+  TestIntervalLiteralError("INTERVAL '0' ISOYEAR");
+  TestIntervalLiteralError("INTERVAL '0' ISOWEEK");
+  TestIntervalLiteralError("INTERVAL '0' WEEK_MONDAY");
+  TestIntervalLiteralError("INTERVAL '0' WEEK_TUESDAY");
+  TestIntervalLiteralError("INTERVAL '0' WEEK_WEDNESDAY");
+  TestIntervalLiteralError("INTERVAL '0' WEEK_THURSDAY");
+  TestIntervalLiteralError("INTERVAL '0' WEEK_FRIDAY");
+  TestIntervalLiteralError("INTERVAL '0' WEEK_SATURDAY");
+
+  // Not matching format
+  TestIntervalLiteralError("INTERVAL '' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0-0' YEAR TO DAY");
+  TestIntervalLiteralError("INTERVAL '0' MONTH TO DAY");
+  TestIntervalLiteralError("INTERVAL '0:0:0' HOUR TO MINUTE");
+  TestIntervalLiteralError("INTERVAL '0:0' HOUR TO SECOND");
+
+  // Whitespace padding
+  TestIntervalLiteralError("INTERVAL ' 0-0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0-0 ' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '\t0-0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0-0\t' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0- 0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '- 0-0' YEAR TO MONTH");
+
+  // Exceeds maximum allowed value
+  TestIntervalLiteralError("INTERVAL '10001-0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '-10001-0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0-120001' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '-0-120001' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '10000-1' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '-10000-1' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0 3660001' MONTH TO DAY");
+  TestIntervalLiteralError("INTERVAL '0 -3660001' MONTH TO DAY");
+  TestIntervalLiteralError("INTERVAL '0 87840001:0:0' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 -87840001:0:0' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 0:5270400001:0' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 -0:5270400001:0' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 0:0:316224000001' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 -0:0:316224000001' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 0:0:316224000000.000000001' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 -0:0:316224000000.000000001' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 87840000:0:0.000000001' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 -87840000:0:0.000000001' DAY TO SECOND");
+
+  // Numbers too large to fit into int64_t
+  TestIntervalLiteralError("INTERVAL '9223372036854775808-0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '-9223372036854775808-0' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0-9223372036854775808' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '-0-9223372036854775808' YEAR TO MONTH");
+  TestIntervalLiteralError("INTERVAL '0 9223372036854775808' MONTH TO DAY");
+  TestIntervalLiteralError("INTERVAL '0 -9223372036854775808' MONTH TO DAY");
+  TestIntervalLiteralError(
+      "INTERVAL '0 9223372036854775808:0:0' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 -9223372036854775808:0:0' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 0:9223372036854775808:0' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 -0:9223372036854775808:0' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 0:0:9223372036854775808' DAY TO SECOND");
+  TestIntervalLiteralError(
+      "INTERVAL '0 -0:0:9223372036854775808' DAY TO SECOND");
+
+  // Too many fractional digits
+  TestIntervalLiteralError("INTERVAL '0-0 0 0:0:0.0000000000' YEAR TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 0 0:0:0.0000000000' MONTH TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 0:0:0.0000000000' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0:0:0.0000000000' HOUR TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0:0.0000000000' MINUTE TO SECOND");
+
+  // Trailing dot
+  TestIntervalLiteralError("INTERVAL '0-0 0 0:0:0.' YEAR TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 0 0:0:0.' MONTH TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0 0:0:0.' DAY TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0:0:0.' HOUR TO SECOND");
+  TestIntervalLiteralError("INTERVAL '0:0.' MINUTE TO SECOND");
+
+  // Unsupported combinations of dateparts
+  TestIntervalLiteralError("INTERVAL '0' YEAR TO YEAR");
+  TestIntervalLiteralError("INTERVAL '0-0' MONTH TO YEAR");
+  TestIntervalLiteralError("INTERVAL '0:0' MINUTE TO HOUR");
+  TestIntervalLiteralError("INTERVAL '0:0:0' SECOND TO HOUR");
+}
+
+TEST(FunctionArgumentInfoTest, BasicUse) {
+  FunctionArgumentInfo info;
+  IdString name1 = IdString::MakeGlobal("name1");
+  EXPECT_FALSE(info.HasArg(name1));
+  EXPECT_EQ(info.FindTableArg(name1), nullptr);
+  EXPECT_EQ(info.FindScalarArg(name1), nullptr);
+  EXPECT_FALSE(info.contains_templated_arguments());
+  EXPECT_THAT(info.ArgumentNames(), testing::ElementsAre());
+  EXPECT_THAT(info.SignatureArguments(), testing::ElementsAre());
+
+  ZETASQL_ASSERT_OK(info.AddScalarArg(name1, ResolvedArgumentDef::SCALAR,
+                              FunctionArgumentType(types::Int64Type())));
+  EXPECT_TRUE(info.HasArg(name1));
+  EXPECT_EQ(info.FindTableArg(name1), nullptr);
+  EXPECT_NE(info.FindScalarArg(name1), nullptr);
+
+  // Test adding a concrete scalar argument and observing its details.
+  {
+    IdString name1_caps = IdString::MakeGlobal("NAME1");
+    EXPECT_TRUE(info.HasArg(name1_caps));
+    EXPECT_EQ(info.FindTableArg(name1), nullptr);
+
+    const FunctionArgumentInfo::ArgumentDetails* details1 =
+        info.FindScalarArg(name1);
+    const FunctionArgumentInfo::ArgumentDetails* details2 =
+        info.FindArg(name1_caps);
+    EXPECT_NE(details1, nullptr);
+    EXPECT_EQ(details1, details2);
+    EXPECT_EQ(details1->name.ToStringView(), "name1");
+    EXPECT_EQ(details1->arg_kind, ResolvedArgumentDef::SCALAR);
+    EXPECT_TRUE(details1->arg_type.type()->IsInt64());
+  }
+
+  // Do not accept duplicate argument names.
+  EXPECT_THAT(info.AddScalarArg(name1, ResolvedArgumentDef::SCALAR,
+                                FunctionArgumentType(types::Int64Type())),
+              zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+
+  // Test adding a concrete relation argument and observing its details.
+  {
+    IdString name2 = IdString::MakeGlobal("name2");
+    TVFRelation schema({TVFSchemaColumn("col1", types::StringType())});
+    FunctionArgumentTypeOptions options(
+        schema, /*extra_relation_input_columns_allowed=*/true);
+    ZETASQL_ASSERT_OK(info.AddRelationArg(
+        name2, FunctionArgumentType(SignatureArgumentKind::ARG_TYPE_RELATION,
+                                    options)));
+    EXPECT_TRUE(info.HasArg(name2));
+    EXPECT_EQ(info.FindScalarArg(name2), nullptr);
+    EXPECT_FALSE(info.contains_templated_arguments());
+
+    const FunctionArgumentInfo::ArgumentDetails* details1 =
+        info.FindTableArg(name2);
+    const FunctionArgumentInfo::ArgumentDetails* details2 = info.FindArg(name2);
+    EXPECT_NE(details1, nullptr);
+    EXPECT_EQ(details1, details2);
+    EXPECT_EQ(details1->name.ToStringView(), "name2");
+    EXPECT_TRUE(details1->arg_type.IsRelation());
+  }
+
+  // Test adding a sclar template argument
+  {
+    IdString name3 = IdString::MakeGlobal("name3");
+    ZETASQL_ASSERT_OK(info.AddScalarArg(
+        name3, ResolvedArgumentDef::SCALAR,
+        FunctionArgumentType(SignatureArgumentKind::ARG_TYPE_ARBITRARY,
+                             /*num_occurrences=*/1)));
+    EXPECT_TRUE(info.contains_templated_arguments());
+    EXPECT_TRUE(info.HasArg(name3));
+    EXPECT_EQ(info.FindTableArg(name3), nullptr);
+    EXPECT_NE(info.FindScalarArg(name3), nullptr);
+  }
+
+  // Testa adding a relation template argument
+  {
+    IdString name4 = IdString::MakeGlobal("name4");
+    FunctionArgumentTypeOptions empty_options;
+    ZETASQL_ASSERT_OK(info.AddRelationArg(
+        name4, FunctionArgumentType(SignatureArgumentKind::ARG_TYPE_RELATION,
+                                    empty_options,
+                                    /*num_occurrences=*/1)));
+    EXPECT_TRUE(info.HasArg(name4));
+    EXPECT_NE(info.FindTableArg(name4), nullptr);
+    EXPECT_EQ(info.FindScalarArg(name4), nullptr);
+    EXPECT_TRUE(info.contains_templated_arguments());
+  }
+
+  // Make sure the collection outputs have the right number of entries.
+  EXPECT_THAT(info.ArgumentNames(),
+              testing::ElementsAre("name1", "name2", "name3", "name4"));
+  EXPECT_EQ(info.SignatureArguments().size(), 4);
 }
 
 }  // namespace zetasql

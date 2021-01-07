@@ -19,6 +19,8 @@ syntax = "proto2";
 
 package zetasql;
 
+import "zetasql/public/simple_value.proto";
+
 option cc_enable_arenas = true;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLAnnotation";
@@ -28,15 +30,8 @@ message AnnotationProto {
   // Key for the map entry.
   optional int64 id = 1;
 
-  // Value of map entry. Exact one of the value should present.
-  oneof value {
-    int64 int64_value = 2;    // Set when AnnotationValue::type_ is TYPE_INT64.
-    string string_value = 3;  // Set when AnnotationValue::type_ is TYPE_STRING.
-
-    // User code that switches on this oneof enum must have a default case so
-    // builds won't break when new fields are added.
-    bool __AnnotationProto__switch_must_have_a_default = 255;
-  }
+  // Value of the map entry.
+  optional SimpleValueProto value = 2;
 }
 
 // This represents the serialized form of the annotation map for

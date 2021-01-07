@@ -1,0 +1,569 @@
+[default required_features=ANALYTIC_FUNCTIONS]
+[prepare_database]
+CREATE TABLE TestTable AS
+SELECT cast(1 as int64) as row_id,
+       cast(NULL as int32) as int_val UNION ALL
+  SELECT 2,  1                        UNION ALL
+  SELECT 3,  2                        UNION ALL
+  SELECT 4,  12345                    UNION ALL
+  SELECT 5,  0                        UNION ALL
+  SELECT 6,  171717                   UNION ALL
+  SELECT 7,  -322                     UNION ALL
+  SELECT 8,  -1                       UNION ALL
+  SELECT 9,  -1                       UNION ALL
+  SELECT 10, -1                       UNION ALL
+  SELECT 11, 7                        UNION ALL
+  SELECT 12, 7                        UNION ALL
+  SELECT 13, 0                        UNION ALL
+  SELECT 14, 0                        UNION ALL
+  SELECT 15, NULL                     UNION ALL
+  SELECT 16, NULL                     UNION ALL
+  SELECT 17, NULL                     UNION ALL
+  SELECT 18, 0                        UNION ALL
+  SELECT 19, -2                       UNION ALL
+  SELECT 20, -2
+--
+ARRAY<STRUCT<row_id INT64, int_val INT32>>[
+  {1, NULL},
+  {2, 1},
+  {3, 2},
+  {4, 12345},
+  {5, 0},
+  {6, 171717},
+  {7, -322},
+  {8, -1},
+  {9, -1},
+  {10, -1},
+  {11, 7},
+  {12, 7},
+  {13, 0},
+  {14, 0},
+  {15, NULL},
+  {16, NULL},
+  {17, NULL},
+  {18, 0},
+  {19, -2},
+  {20, -2}
+]
+==
+[name=count_if_unbounded]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER()
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 4},
+  {2, 4},
+  {3, 4},
+  {4, 4},
+  {5, 4},
+  {6, 4},
+  {7, 4},
+  {8, 4},
+  {9, 4},
+  {10, 4},
+  {11, 4},
+  {12, 4},
+  {13, 4},
+  {14, 4},
+  {15, 4},
+  {16, 4},
+  {17, 4},
+  {18, 4},
+  {19, 4},
+  {20, 4}
+]
+==
+[name=count_if_one_preceding_two_preceding]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 2 PRECEDING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 0},
+  {5, 0},
+  {6, 0},
+  {7, 0},
+  {8, 0},
+  {9, 0},
+  {10, 0},
+  {11, 0},
+  {12, 0},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_two_preceding_one_preceding]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 2 PRECEDING AND 1 PRECEDING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 0},
+  {5, 1},
+  {6, 1},
+  {7, 1},
+  {8, 1},
+  {9, 0},
+  {10, 0},
+  {11, 0},
+  {12, 1},
+  {13, 2},
+  {14, 1},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_two_preceding_current]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 1},
+  {5, 1},
+  {6, 2},
+  {7, 1},
+  {8, 1},
+  {9, 0},
+  {10, 0},
+  {11, 1},
+  {12, 2},
+  {13, 2},
+  {14, 1},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_one_preceding_one_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 1},
+  {4, 1},
+  {5, 2},
+  {6, 1},
+  {7, 1},
+  {8, 0},
+  {9, 0},
+  {10, 1},
+  {11, 2},
+  {12, 2},
+  {13, 1},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_one_preceding_unbounded_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND UNBOUNDED FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 4},
+  {2, 4},
+  {3, 4},
+  {4, 4},
+  {5, 4},
+  {6, 3},
+  {7, 3},
+  {8, 2},
+  {9, 2},
+  {10, 2},
+  {11, 2},
+  {12, 2},
+  {13, 1},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_current_row_unbounded_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 4},
+  {2, 4},
+  {3, 4},
+  {4, 4},
+  {5, 3},
+  {6, 3},
+  {7, 2},
+  {8, 2},
+  {9, 2},
+  {10, 2},
+  {11, 2},
+  {12, 1},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_unbounded_preceding_one_preceding]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 0},
+  {5, 1},
+  {6, 1},
+  {7, 2},
+  {8, 2},
+  {9, 2},
+  {10, 2},
+  {11, 2},
+  {12, 3},
+  {13, 4},
+  {14, 4},
+  {15, 4},
+  {16, 4},
+  {17, 4},
+  {18, 4},
+  {19, 4},
+  {20, 4}
+]
+==
+[name=count_if_unbounded_preceding_current_row]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 1},
+  {5, 1},
+  {6, 2},
+  {7, 2},
+  {8, 2},
+  {9, 2},
+  {10, 2},
+  {11, 3},
+  {12, 4},
+  {13, 4},
+  {14, 4},
+  {15, 4},
+  {16, 4},
+  {17, 4},
+  {18, 4},
+  {19, 4},
+  {20, 4}
+]
+==
+[name=count_if_unbounded_preceding_one_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 1},
+  {4, 1},
+  {5, 2},
+  {6, 2},
+  {7, 2},
+  {8, 2},
+  {9, 2},
+  {10, 3},
+  {11, 4},
+  {12, 4},
+  {13, 4},
+  {14, 4},
+  {15, 4},
+  {16, 4},
+  {17, 4},
+  {18, 4},
+  {19, 4},
+  {20, 4}
+]
+==
+[name=count_if_unbounded_preceding_unbounded_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 4},
+  {2, 4},
+  {3, 4},
+  {4, 4},
+  {5, 4},
+  {6, 4},
+  {7, 4},
+  {8, 4},
+  {9, 4},
+  {10, 4},
+  {11, 4},
+  {12, 4},
+  {13, 4},
+  {14, 4},
+  {15, 4},
+  {16, 4},
+  {17, 4},
+  {18, 4},
+  {19, 4},
+  {20, 4}
+]
+==
+[name=count_if_current_current]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN CURRENT ROW AND CURRENT ROW)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 1},
+  {5, 0},
+  {6, 1},
+  {7, 0},
+  {8, 0},
+  {9, 0},
+  {10, 0},
+  {11, 1},
+  {12, 1},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_current_one_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 1},
+  {4, 1},
+  {5, 1},
+  {6, 1},
+  {7, 0},
+  {8, 0},
+  {9, 0},
+  {10, 1},
+  {11, 2},
+  {12, 1},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_current_unbounded_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 4},
+  {2, 4},
+  {3, 4},
+  {4, 4},
+  {5, 3},
+  {6, 3},
+  {7, 2},
+  {8, 2},
+  {9, 2},
+  {10, 2},
+  {11, 2},
+  {12, 1},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_one_following_one_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 1 FOLLOWING AND 1 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 1},
+  {4, 0},
+  {5, 1},
+  {6, 0},
+  {7, 0},
+  {8, 0},
+  {9, 0},
+  {10, 1},
+  {11, 1},
+  {12, 0},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_two_following_one_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 2 FOLLOWING AND 1 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 0},
+  {3, 0},
+  {4, 0},
+  {5, 0},
+  {6, 0},
+  {7, 0},
+  {8, 0},
+  {9, 0},
+  {10, 0},
+  {11, 0},
+  {12, 0},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_one_following_two_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 0},
+  {2, 1},
+  {3, 1},
+  {4, 1},
+  {5, 1},
+  {6, 0},
+  {7, 0},
+  {8, 0},
+  {9, 1},
+  {10, 2},
+  {11, 1},
+  {12, 0},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]
+==
+[name=count_if_one_following_unbounded_following]
+SELECT t.row_id, countif(t.int_val > 5)
+OVER(ORDER BY row_id ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM TestTable t
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, INT64>>[
+  {1, 4},
+  {2, 4},
+  {3, 4},
+  {4, 3},
+  {5, 3},
+  {6, 2},
+  {7, 2},
+  {8, 2},
+  {9, 2},
+  {10, 2},
+  {11, 1},
+  {12, 0},
+  {13, 0},
+  {14, 0},
+  {15, 0},
+  {16, 0},
+  {17, 0},
+  {18, 0},
+  {19, 0},
+  {20, 0}
+]

@@ -1,0 +1,13 @@
+[default required_features=ANALYTIC_FUNCTIONS]
+[name=analytic_array_concat_agg_basic]
+SELECT ARRAY_CONCAT_AGG(x) OVER () AS array_concat_agg FROM (
+  SELECT [1,1,1] AS x
+  UNION ALL SELECT NULL
+  UNION ALL SELECT [1,1]
+);
+--
+ARRAY<STRUCT<array_concat_agg ARRAY<>>>[
+  {ARRAY<INT64>[1, 1, 1, 1, 1]},
+  {ARRAY<INT64>[1, 1, 1, 1, 1]},
+  {ARRAY<INT64>[1, 1, 1, 1, 1]}
+]

@@ -250,6 +250,10 @@ enum LanguageFeature {
   // See (broken link).
   FEATURE_ENCRYPTION = 23;
 
+  // Differentially private anonymization functions, syntax, and semantics.
+  // ((broken link)).
+  FEATURE_ANONYMIZATION = 24 [(language_feature_options).in_development = true];
+
   // Geography type support per (broken link)
   FEATURE_GEOGRAPHY = 25;
 
@@ -374,6 +378,22 @@ enum LanguageFeature {
     (language_feature_options).ideally_enabled = false,
     (language_feature_options).in_development = true
   ];
+
+  // Enables CONTAINS_SUBSTR -- an experimental function whose semantics are
+  // not yet finalized.
+  FEATURE_CONTAINS_SUBSTR = 53 [
+    (language_feature_options).ideally_enabled = false,
+    (language_feature_options).in_development = true
+  ];
+
+  // When enabled, (table) function argument names will hide column names in
+  // expression resolution and relational table function argument names will
+  // hide table names from the catalog. This changes name resolution and is
+  // a backward compatibility breaking change.
+  //
+  // Related bugs: b/118904900 (scalar arguments) b/165763119 (table arguments)
+  FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES = 55;
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -631,6 +651,13 @@ enum LanguageFeature {
   // Enables collation annotation support.
   FEATURE_V_1_3_COLLATION_SUPPORT = 13027;
 
+  // IS [NOT] DISTINCT FROM ((broken link)).
+  FEATURE_V_1_3_IS_DISTINCT = 13028;
+
+  // If true, FORMAT clause is supported in CAST().
+  FEATURE_V_1_3_FORMAT_IN_CAST = 13029
+      [(language_feature_options).in_development = true];
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.
@@ -683,6 +710,10 @@ enum ResolvedASTRewrite {
 
   // Rewrites ResolvedFlatten nodes into equivalent array scans / subqueries.
   REWRITE_FLATTEN = 1 [(rewrite_options).default_enabled = true];
+
+  // Supports rewriting ResolvedAnonymizedAggregateScan and related.
+  // See (broken link).
+  REWRITE_ANONYMIZATION = 2 [(rewrite_options).default_enabled = false];
 }
 
 // This can be used to select strict name resolution mode.

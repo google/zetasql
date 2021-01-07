@@ -1,0 +1,929 @@
+[prepare_database]
+CREATE TABLE R AS
+SELECT cast(1 as int64) as primary_key,
+       cast(1 as int64) as id, cast("a1" as string) as a UNION ALL
+  SELECT 2, 2, "a2"
+--
+ARRAY<STRUCT<primary_key INT64, id INT64, a STRING>>[
+  {1, 1, "a1"},
+  {2, 2, "a2"}
+]
+==
+[prepare_database]
+CREATE TABLE S AS
+SELECT cast(1 as int64) as primary_key,
+       cast(2 as int64) as id, cast("b21" as string) as b UNION ALL
+  SELECT 2, 2, "b22" UNION ALL
+  SELECT 3, 3, "b3"
+--
+ARRAY<STRUCT<primary_key INT64, id INT64, b STRING>>[
+  {1, 2, "b21"},
+  {2, 2, "b22"},
+  {3, 3, "b3"}
+]
+==
+[prepare_database]
+CREATE TABLE T AS
+SELECT cast(0x7FFFFFFFFFFFFFFF as int64) as primary_key,
+       cast(0x8000000000000000 as uint64) as id UNION ALL
+  SELECT 0, 0x7FFFFFFFFFFFFFFF UNION ALL
+  SELECT -1, 0
+--
+ARRAY<STRUCT<primary_key INT64, id UINT64>>[
+  {9223372036854775807, 9223372036854775808},
+  {0, 9223372036854775807},
+  {-1, 0}
+]
+==
+[prepare_database]
+CREATE TABLE FloatingPointTable AS
+SELECT "zero" as id, 0.0 as value UNION ALL
+SELECT "negative zero", -0.0 UNION ALL
+SELECT "infinity", cast("inf" as double) UNION ALL
+SELECT "-infinity", cast("-inf" as double) UNION ALL
+SELECT "NaN", cast("nan" as double) UNION ALL
+SELECT "-NaN", -cast("nan" as double) UNION ALL
+SELECT "1/4", 0.25 UNION ALL
+SELECT "-1/4", -0.25
+--
+ARRAY<STRUCT<id STRING, value DOUBLE>>[
+  {"zero", 0},
+  {"negative zero", -0},
+  {"infinity", inf},
+  {"-infinity", -inf},
+  {"NaN", nan},
+  {"-NaN", nan},
+  {"1/4", 0.25},
+  {"-1/4", -0.25}
+]
+==
+[prepare_database]
+CREATE TABLE DateTimestampTable AS
+SELECT
+  1 AS row_id,
+  DATE '2018-02-03' AS date_val,
+  TIMESTAMP '2013-02-03 04:05:06' AS timestamp_val UNION ALL
+SELECT
+  2 AS row_id,
+  DATE '2018-02-03' AS date_val,
+  TIMESTAMP '2013-02-03 04:05:06' AS timestamp_val UNION ALL
+SELECT
+  3 AS row_id,
+  DATE '2018-02-04' AS date_val,
+  TIMESTAMP '2013-02-03 04:05:07' AS timestamp_val UNION ALL
+SELECT
+  4 AS row_id,
+  NULL AS date_val,
+  NULL AS timestamp_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        date_val DATE,
+        timestamp_val TIMESTAMP
+      >>
+[{
+   1,
+   2018-02-03,
+   2013-02-03 12:05:06+00
+ },
+ {
+   2,
+   2018-02-03,
+   2013-02-03 12:05:06+00
+ },
+ {
+   3,
+   2018-02-04,
+   2013-02-03 12:05:07+00
+ },
+ {4, NULL, NULL}]
+==
+[prepare_database]
+[required_features=V_1_2_CIVIL_TIME]
+CREATE TABLE TimeDatetimeTable AS
+SELECT
+  1 AS row_id,
+  TIME '12:34:56.789' AS time_val,
+  DATETIME '2013-02-03 04:05:06' AS datetime_val UNION ALL
+SELECT
+  2 AS row_id,
+  TIME '12:34:56.789' AS time_val,
+  DATETIME '2013-02-03 04:05:06' AS datetime_val UNION ALL
+SELECT
+  3 AS row_id,
+  TIME '12:34:56.790' AS time_val,
+  DATETIME '2013-02-03 04:05:07' AS datetime_val UNION ALL
+SELECT
+  4 AS row_id,
+  NULL AS time_val,
+  NULL AS datetime_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        time_val TIME,
+        datetime_val DATETIME
+      >>
+[
+  {1, 12:34:56.789, 2013-02-03 04:05:06},
+  {2, 12:34:56.789, 2013-02-03 04:05:06},
+  {3, 12:34:56.790, 2013-02-03 04:05:07},
+  {4, NULL, NULL}
+]
+==
+[prepare_database]
+[required_features=NUMERIC_TYPE]
+CREATE TABLE NumericTable AS
+SELECT
+  1 as row_id,
+  cast(1 AS numeric) as numeric_val UNION ALL
+SELECT
+  2 as row_id,
+  cast(1.234 AS numeric) as numeric_val UNION ALL
+SELECT
+  3 as row_id,
+  cast(1.234 AS numeric) as numeric_val UNION ALL
+SELECT
+  4 as row_id,
+  cast(-345 AS numeric) as numeric_val UNION ALL
+SELECT
+  5 as row_id,
+  cast(null AS numeric) as numeric_val UNION ALL
+SELECT
+  6 as row_id,
+  cast(9999999.999999999 AS numeric) as numeric_val
+--
+ARRAY<STRUCT<row_id INT64, numeric_val NUMERIC>>[
+  {1, 1},
+  {2, 1.234},
+  {3, 1.234},
+  {4, -345},
+  {5, NULL},
+  {6, 9999999.999999999}
+]
+==
+[prepare_database]
+[required_features=BIGNUMERIC_TYPE]
+CREATE TABLE BigNumericTable AS
+SELECT
+  1 as row_id,
+  cast(1 AS bignumeric) as bignumeric_val UNION ALL
+SELECT
+  2 as row_id,
+  cast(3.141592653589793238 AS bignumeric) as bignumeric_val UNION ALL
+SELECT
+  3 as row_id,
+  cast(3.141592653589793238 AS bignumeric) as bignumeric_val UNION ALL
+SELECT
+  4 as row_id,
+  cast(-345 AS bignumeric) as bignumeric_val UNION ALL
+SELECT
+  5 as row_id,
+  cast(null AS bignumeric) as bignumeric_val UNION ALL
+SELECT
+  6 as row_id,
+  cast("578960446186580977117854925043439539266.34992332820282019728792003956564819967" AS bignumeric) as bignumeric_val
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bignumeric_val BIGNUMERIC
+      >>
+[
+  {1, 1},
+  {2, 3.141592653589793238},
+  {3, 3.141592653589793238},
+  {4, -345},
+  {5, NULL},
+  {
+    6,
+    578960446186580977117854925043439539266.34992332820282019728792003956564819967
+  }
+]
+==
+
+# TODO: add more test cases including:
+# 0 rows meet the join condition.
+# All rows meet the join condition (hence no NULL extension)
+# Only join columns selected (no NULL extension columns)
+# Non-equality join conditions, etc.
+[name=join_1]
+SELECT t1.a FROM (SELECT 1 AS a) t1 JOIN (SELECT 1 AS a) t2 ON t1.a = t2.a
+--
+ARRAY<STRUCT<a INT64>>[{1}]
+==
+[name=join_2]
+SELECT R.id, S.id, R.a, S.b FROM R LEFT JOIN S ON R.id = S.id
+--
+ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
+  {2, 2, "a2", "b22"},
+  {2, 2, "a2", "b21"},
+  {1, NULL, "a1", NULL}
+]
+==
+[name=join_3]
+SELECT R.id, S.id, R.a, S.b FROM R RIGHT JOIN S ON R.id = S.id
+--
+ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
+  {2, 2, "a2", "b22"},
+  {2, 2, "a2", "b21"},
+  {NULL, 3, NULL, "b3"}
+]
+==
+[name=join_4]
+SELECT R.id, S.id, R.a, S.b FROM R FULL JOIN S ON R.id = S.id
+--
+ARRAY<STRUCT<id INT64, id INT64, a STRING, b STRING>>[
+  {2, 2, "a2", "b22"},
+  {2, 2, "a2", "b21"},
+  {1, NULL, "a1", NULL},
+  {NULL, 3, NULL, "b3"}
+]
+==
+[name=join_5]
+SELECT id, a, b FROM R FULL JOIN S USING (id)
+--
+ARRAY<STRUCT<id INT64, a STRING, b STRING>>[
+  {2, "a2", "b21"},
+  {3, NULL, "b3"},
+  {2, "a2", "b22"},
+  {1, "a1", NULL}
+]
+==
+[name=join_6]
+SELECT t1.id, t2.id
+FROM (SELECT 1 as id) t1 FULL JOIN (SELECT id FROM R WHERE FALSE) t2
+ON t1.id = t2.id
+--
+ARRAY<STRUCT<id INT64, id INT64>>[{1, NULL}]
+==
+[name=join_7]
+SELECT t1.id, t2.id
+FROM (SELECT id FROM R WHERE FALSE) t1 FULL JOIN (SELECT 1 as id) t2
+ON t1.id = t2.id
+--
+ARRAY<STRUCT<id INT64, id INT64>>[{NULL, 1}]
+==
+[name=join_8]
+SELECT * FROM R JOIN (S JOIN DateTimestampTable d ON S.id = d.row_id) ON R.id = S.id
+--
+ARRAY<STRUCT<
+        primary_key INT64,
+        id INT64,
+        a STRING,
+        primary_key INT64,
+        id INT64,
+        b STRING,
+        row_id INT64,
+        date_val DATE,
+        timestamp_val TIMESTAMP
+      >>
+[{
+   2,
+   2,
+   "a2",
+   1,
+   2,
+   "b21",
+   2,
+   2018-02-03,
+   2013-02-03 12:05:06+00
+ },
+ {
+   2,
+   2,
+   "a2",
+   2,
+   2,
+   "b22",
+   2,
+   2018-02-03,
+   2013-02-03 12:05:06+00
+ }]
+==
+# With the consecutive feature on, this query will be equivalent to the case
+# join_8.
+[test_features1=V_1_3_ALLOW_CONSECUTIVE_ON]
+[name=join_9]
+SELECT * FROM R JOIN S JOIN DateTimestampTable d ON S.id = d.row_id ON R.id = S.id
+--
+WITH FEATURES: V_1_3_ALLOW_CONSECUTIVE_ON
+ARRAY<STRUCT<
+        primary_key INT64,
+        id INT64,
+        a STRING,
+        primary_key INT64,
+        id INT64,
+        b STRING,
+        row_id INT64,
+        date_val DATE,
+        timestamp_val TIMESTAMP
+      >>
+[{
+   2,
+   2,
+   "a2",
+   1,
+   2,
+   "b21",
+   2,
+   2018-02-03,
+   2013-02-03 12:05:06+00
+ },
+ {
+   2,
+   2,
+   "a2",
+   2,
+   2,
+   "b22",
+   2,
+   2018-02-03,
+   2013-02-03 12:05:06+00
+ }]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Syntax error: Expected end of input but got keyword ON [at 1:69]
+...JOIN S JOIN DateTimestampTable d ON S.id = d.row_id ON R.id = S.id
+                                                       ^
+==
+[name=empty_inner_join]
+SELECT t1.id, t2.id
+FROM (SELECT id FROM R WHERE FALSE) t1 JOIN (SELECT id FROM R WHERE FALSE) t2
+ON t1.id = t2.id
+--
+ARRAY<STRUCT<id INT64, id INT64>>[]
+==
+[name=full_join_duplicate_column_1]
+SELECT 1 FROM (SELECT x, x FROM (SELECT 2 x)) FULL JOIN (SELECT 3) ON true
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=full_join_duplicate_column_2]
+SELECT r.y, s.y FROM
+(SELECT x, x, y FROM (SELECT 2 x, 4 y)) r FULL JOIN (SELECT 3 y) s ON true
+--
+ARRAY<STRUCT<y INT64, y INT64>>[{4, 3}]
+==
+[name=full_join_duplicate_column_3]
+SELECT r.*, s.* FROM
+(SELECT x, x FROM (SELECT 2 x)) r FULL JOIN (SELECT 3) s ON false
+--
+ARRAY<STRUCT<x INT64, x INT64, INT64>>[{2, 2, NULL}, {NULL, NULL, 3}]
+==
+[name=select_star_using]
+SELECT * FROM R JOIN S USING(id)
+--
+ARRAY<STRUCT<id INT64, primary_key INT64, a STRING, primary_key INT64, b STRING>>[
+  {2, 2, "a2", 2, "b22"},
+  {2, 2, "a2", 1, "b21"}
+]
+==
+[name=select_star_on]
+SELECT * FROM R JOIN S ON R.id = S.id
+--
+ARRAY<STRUCT<primary_key INT64,
+             id INT64,
+             a STRING,
+             primary_key INT64,
+             id INT64,
+             b STRING>>
+[
+  {2, 2, "a2", 2, 2, "b22"},
+  {2, 2, "a2", 1, 2, "b21"}
+]
+==
+[name=select_table_stars]
+SELECT R.*, S.* FROM R JOIN S USING(id)
+--
+ARRAY<STRUCT<primary_key INT64,
+             id INT64,
+             a STRING,
+             primary_key INT64,
+             id INT64,
+             b STRING>>
+[
+  {2, 2, "a2", 2, 2, "b22"},
+  {2, 2, "a2", 1, 2, "b21"}
+]
+==
+[name=predicate_match_inner]
+SELECT R.id, R.a, S.id, S.b FROM R INNER JOIN S ON R.id = S.id AND R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"}
+]
+==
+[name=predicate_nomatch_inner]
+SELECT R.id, R.a, S.id, S.b FROM R INNER JOIN S ON R.id = S.id AND R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[]
+==
+[name=predicate_only_match_inner]
+SELECT R.id, R.a, S.id, S.b FROM R INNER JOIN S ON R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {1, "a1", 3, "b3"}
+]
+==
+[name=predicate_only_nomatch_inner]
+SELECT R.id, R.a, S.id, S.b FROM R INNER JOIN S ON R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[]
+==
+[name=predicate_match_left]
+SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {1, "a1", NULL, NULL}
+]
+==
+[name=predicate_nomatch_left]
+SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", NULL, NULL},
+  {1, "a1", NULL, NULL}
+]
+==
+[name=predicate_only_match_left]
+SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {1, "a1", 3, "b3"}
+]
+==
+[name=predicate_only_nomatch_left]
+SELECT R.id, R.a, S.id, S.b FROM R LEFT OUTER JOIN S ON R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", NULL, NULL},
+  {1, "a1", NULL, NULL}
+]
+==
+[name=predicate_match_right]
+SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {NULL, NULL, 3, "b3"}
+]
+==
+[name=predicate_nomatch_right]
+SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id = S.id AND R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {NULL, NULL, 2, "b22"},
+  {NULL, NULL, 2, "b21"},
+  {NULL, NULL, 3, "b3"}
+]
+==
+[name=predicate_only_match_right]
+SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {1, "a1", 3, "b3"}
+]
+==
+[name=predicate_only_nomatch_right]
+SELECT R.id, R.a, S.id, S.b FROM R RIGHT OUTER JOIN S ON R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {NULL, NULL, 2, "b22"},
+  {NULL, NULL, 2, "b21"},
+  {NULL, NULL, 3, "b3"}
+]
+==
+[name=predicate_match_full]
+SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id = S.id AND R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {1, "a1", NULL, NULL},
+  {NULL, NULL, 3, "b3"}
+]
+==
+[name=predicate_nomatch_full]
+SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id = S.id AND R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", NULL, NULL},
+  {1, "a1", NULL, NULL},
+  {NULL, NULL, 2, "b22"},
+  {NULL, NULL, 2, "b21"},
+  {NULL, NULL, 3, "b3"}
+]
+==
+[name=predicate_only_match_full]
+SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id + S.id = 4
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", 2, "b22"},
+  {2, "a2", 2, "b21"},
+  {1, "a1", 3, "b3"}
+]
+==
+[name=predicate_only_nomatch_full]
+SELECT R.id, R.a, S.id, S.b FROM R FULL OUTER JOIN S ON R.id + S.id = 6
+--
+ARRAY<STRUCT<id INT64, a STRING, id INT64, b STRING>>[
+  {2, "a2", NULL, NULL},
+  {1, "a1", NULL, NULL},
+  {NULL, NULL, 2, "b22"},
+  {NULL, NULL, 2, "b21"},
+  {NULL, NULL, 3, "b3"}
+]
+==
+[name=int64_uint64_equality_full]
+SELECT T1.primary_key, T2.id FROM T AS T1 FULL OUTER JOIN T AS T2 ON T1.primary_key = T2.id
+--
+ARRAY<STRUCT<primary_key INT64, id UINT64>>[
+  {0, 0},
+  {9223372036854775807, 9223372036854775807},
+  {-1, NULL},
+  {NULL, 9223372036854775808}
+]
+==
+[name=uint64_int64_equality_full]
+SELECT T1.id, T2.primary_key FROM T AS T1 FULL OUTER JOIN T AS T2 ON T1.id = T2.primary_key
+--
+ARRAY<STRUCT<id UINT64, primary_key INT64>>[
+  {9223372036854775807, 9223372036854775807},
+  {9223372036854775808, NULL},
+  {0, 0},
+  {NULL, -1}
+]
+==
+[name=int64_uint64_with_predicate_full]
+SELECT T1.primary_key, T2.id FROM T AS T1 FULL OUTER JOIN (SELECT IF(id < 0, NULL, id) AS id FROM T) AS T2 ON T1.primary_key = T2.id - 1
+--
+ARRAY<STRUCT<primary_key INT64, id UINT64>>[
+  {0, NULL},
+  {9223372036854775807, 9223372036854775808},
+  {-1, 0},
+  {NULL, 9223372036854775807}
+]
+==
+[name=int64_uint64_withbitwise_equality]
+SELECT COUNT (*) FROM
+  (SELECT CAST (10000000000 AS UINT64) AS key
+      UNION ALL SELECT 0XFFFFFFFFFFFFD8F0 ) a
+  JOIN
+  (SELECT CAST (10000000000 AS INT64) AS key
+      UNION ALL SELECT -10000) b
+  ON a.key = b.key;
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=int64_uint64_withbitwise_equality_2]
+SELECT key
+FROM
+  (SELECT CAST(10000000000 AS UINT64) AS key) a
+  JOIN
+  (SELECT CAST(10000000000 AS INT64) AS key) b
+  USING (key)
+--
+ARRAY<STRUCT<key UINT64>>[{10000000000}]
+==
+[name=int64_uint64_withbitwise_equality_3]
+SELECT key
+FROM
+  (SELECT BIT_CAST_TO_UINT64(-10000000000) AS key) a
+  JOIN
+  (SELECT BIT_CAST_TO_INT64(-10000000000) AS key) b
+  USING (key)
+--
+ARRAY<STRUCT<key UINT64>>[]
+==
+[name=double_key_inner_join]
+SELECT t1.value, t1.id, t2.value, t2.id FROM
+(SELECT value, id FROM FloatingPointTable) AS t1
+INNER JOIN
+(SELECT value, id FROM FloatingPointTable) AS t2
+USING (value)
+ORDER BY t1.id, t2.id
+--
+ARRAY<STRUCT<value DOUBLE, id STRING, value DOUBLE, id STRING>>[
+  {-0.25, "-1/4", -0.25, "-1/4"},
+  {-inf, "-infinity", -inf, "-infinity"},
+  {0.25, "1/4", 0.25, "1/4"},
+  {inf, "infinity", inf, "infinity"},
+  {-0, "negative zero", -0, "negative zero"},
+  {-0, "negative zero", 0, "zero"},
+  {0, "zero", -0, "negative zero"},
+  {0, "zero", 0, "zero"}
+]
+==
+[name=double_key_left_join]
+SELECT t1.value, t1.id, t2.value, t2.id FROM
+(SELECT value, id FROM FloatingPointTable) AS t1
+LEFT JOIN
+(SELECT value, id FROM FloatingPointTable) AS t2
+USING (value)
+ORDER BY t1.id, t2.id
+--
+ARRAY<STRUCT<value DOUBLE, id STRING, value DOUBLE, id STRING>>[
+  {-0.25, "-1/4", -0.25, "-1/4"},
+  {nan, "-NaN", NULL, NULL},
+  {-inf, "-infinity", -inf, "-infinity"},
+  {0.25, "1/4", 0.25, "1/4"},
+  {nan, "NaN", NULL, NULL},
+  {inf, "infinity", inf, "infinity"},
+  {-0, "negative zero", -0, "negative zero"},
+  {-0, "negative zero", 0, "zero"},
+  {0, "zero", -0, "negative zero"},
+  {0, "zero", 0, "zero"}
+]
+==
+[name=date_key_inner_join]
+SELECT t1.date_val, t1.row_id, t2.date_val, t2.row_id FROM
+(SELECT row_id, date_val FROM DateTimestampTable) AS t1
+INNER JOIN
+(SELECT row_id, date_val FROM DateTimestampTable) AS t2
+USING (date_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<date_val DATE, row_id INT64, date_val DATE, row_id INT64>>[
+  {2018-02-03, 1, 2018-02-03, 1},
+  {2018-02-03, 1, 2018-02-03, 2},
+  {2018-02-03, 2, 2018-02-03, 1},
+  {2018-02-03, 2, 2018-02-03, 2},
+  {2018-02-04, 3, 2018-02-04, 3}
+]
+==
+[name=date_key_left_join]
+SELECT t1.date_val, t1.row_id, t2.date_val, t2.row_id FROM
+(SELECT row_id, date_val FROM DateTimestampTable) AS t1
+LEFT JOIN
+(SELECT row_id, date_val FROM DateTimestampTable) AS t2
+USING (date_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<date_val DATE, row_id INT64, date_val DATE, row_id INT64>>[
+  {2018-02-03, 1, 2018-02-03, 1},
+  {2018-02-03, 1, 2018-02-03, 2},
+  {2018-02-03, 2, 2018-02-03, 1},
+  {2018-02-03, 2, 2018-02-03, 2},
+  {2018-02-04, 3, 2018-02-04, 3},
+  {NULL, 4, NULL, NULL}
+]
+==
+[name=timestamp_key_inner_join]
+SELECT t1.timestamp_val, t1.row_id, t2.timestamp_val, t2.row_id FROM
+(SELECT row_id, timestamp_val FROM DateTimestampTable) AS t1
+INNER JOIN
+(SELECT row_id, timestamp_val FROM DateTimestampTable) AS t2
+USING (timestamp_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<
+        timestamp_val TIMESTAMP,
+        row_id INT64,
+        timestamp_val TIMESTAMP,
+        row_id INT64
+      >>
+[{
+   2013-02-03 12:05:06+00,
+   1,
+   2013-02-03 12:05:06+00,
+   1
+ },
+ {
+   2013-02-03 12:05:06+00,
+   1,
+   2013-02-03 12:05:06+00,
+   2
+ },
+ {
+   2013-02-03 12:05:06+00,
+   2,
+   2013-02-03 12:05:06+00,
+   1
+ },
+ {
+   2013-02-03 12:05:06+00,
+   2,
+   2013-02-03 12:05:06+00,
+   2
+ },
+ {
+   2013-02-03 12:05:07+00,
+   3,
+   2013-02-03 12:05:07+00,
+   3
+ }]
+==
+[name=timestamp_key_left_join]
+SELECT t1.timestamp_val, t1.row_id, t2.timestamp_val, t2.row_id FROM
+(SELECT row_id, timestamp_val FROM DateTimestampTable) AS t1
+LEFT JOIN
+(SELECT row_id, timestamp_val FROM DateTimestampTable) AS t2
+USING (timestamp_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<
+        timestamp_val TIMESTAMP,
+        row_id INT64,
+        timestamp_val TIMESTAMP,
+        row_id INT64
+      >>
+[{
+   2013-02-03 12:05:06+00,
+   1,
+   2013-02-03 12:05:06+00,
+   1
+ },
+ {
+   2013-02-03 12:05:06+00,
+   1,
+   2013-02-03 12:05:06+00,
+   2
+ },
+ {
+   2013-02-03 12:05:06+00,
+   2,
+   2013-02-03 12:05:06+00,
+   1
+ },
+ {
+   2013-02-03 12:05:06+00,
+   2,
+   2013-02-03 12:05:06+00,
+   2
+ },
+ {
+   2013-02-03 12:05:07+00,
+   3,
+   2013-02-03 12:05:07+00,
+   3
+ },
+ {NULL, 4, NULL, NULL}]
+==
+[name=time_key_inner_join]
+[required_features=V_1_2_CIVIL_TIME]
+SELECT t1.time_val, t1.row_id, t2.time_val, t2.row_id FROM
+(SELECT row_id, time_val FROM TimeDatetimeTable) AS t1
+INNER JOIN
+(SELECT row_id, time_val FROM TimeDatetimeTable) AS t2
+USING (time_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[
+  {12:34:56.789, 1, 12:34:56.789, 1},
+  {12:34:56.789, 1, 12:34:56.789, 2},
+  {12:34:56.789, 2, 12:34:56.789, 1},
+  {12:34:56.789, 2, 12:34:56.789, 2},
+  {12:34:56.790, 3, 12:34:56.790, 3}
+]
+==
+[name=time_key_left_join]
+[required_features=V_1_2_CIVIL_TIME]
+SELECT t1.time_val, t1.row_id, t2.time_val, t2.row_id FROM
+(SELECT row_id, time_val FROM TimeDatetimeTable) AS t1
+LEFT JOIN
+(SELECT row_id, time_val FROM TimeDatetimeTable) AS t2
+USING (time_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<time_val TIME, row_id INT64, time_val TIME, row_id INT64>>[
+  {12:34:56.789, 1, 12:34:56.789, 1},
+  {12:34:56.789, 1, 12:34:56.789, 2},
+  {12:34:56.789, 2, 12:34:56.789, 1},
+  {12:34:56.789, 2, 12:34:56.789, 2},
+  {12:34:56.790, 3, 12:34:56.790, 3},
+  {NULL, 4, NULL, NULL}
+]
+==
+[name=datetime_key_inner_join]
+[required_features=V_1_2_CIVIL_TIME]
+SELECT t1.datetime_val, t1.row_id, t2.datetime_val, t2.row_id FROM
+(SELECT row_id, datetime_val FROM TimeDatetimeTable) AS t1
+INNER JOIN
+(SELECT row_id, datetime_val FROM TimeDatetimeTable) AS t2
+USING (datetime_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<
+        datetime_val DATETIME,
+        row_id INT64,
+        datetime_val DATETIME,
+        row_id INT64
+      >>
+[
+  {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 1},
+  {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 2},
+  {2013-02-03 04:05:06, 2, 2013-02-03 04:05:06, 1},
+  {2013-02-03 04:05:06, 2, 2013-02-03 04:05:06, 2},
+  {2013-02-03 04:05:07, 3, 2013-02-03 04:05:07, 3}
+]
+==
+[name=datetime_key_left_join]
+[required_features=V_1_2_CIVIL_TIME]
+SELECT t1.datetime_val, t1.row_id, t2.datetime_val, t2.row_id FROM
+(SELECT row_id, datetime_val FROM TimeDatetimeTable) AS t1
+LEFT JOIN
+(SELECT row_id, datetime_val FROM TimeDatetimeTable) AS t2
+USING (datetime_val)
+ORDER BY t1.row_id, t2.row_id
+--
+ARRAY<STRUCT<
+        datetime_val DATETIME,
+        row_id INT64,
+        datetime_val DATETIME,
+        row_id INT64
+      >>
+[
+  {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 1},
+  {2013-02-03 04:05:06, 1, 2013-02-03 04:05:06, 2},
+  {2013-02-03 04:05:06, 2, 2013-02-03 04:05:06, 1},
+  {2013-02-03 04:05:06, 2, 2013-02-03 04:05:06, 2},
+  {2013-02-03 04:05:07, 3, 2013-02-03 04:05:07, 3},
+  {NULL, 4, NULL, NULL}
+]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_key_join]
+SELECT t1.numeric_val, t1.row_id, t2.numeric_val, t2.row_id
+FROM (
+  SELECT numeric_val, row_id FROM NumericTable WHERE MOD(row_id, 2) = 0
+) AS t1
+JOIN (
+  SELECT numeric_val, row_id FROM NumericTable WHERE MOD(row_id, 2) = 1
+) AS t2
+USING (numeric_val)
+--
+ARRAY<STRUCT<numeric_val NUMERIC, row_id INT64, numeric_val NUMERIC, row_id INT64>>[
+  {1.234, 2, 1.234, 3}
+]
+==
+[required_features=NUMERIC_TYPE]
+[name=numeric_key_left_join]
+SELECT t1.numeric_val, t1.row_id, t2.numeric_val, t2.row_id
+FROM (
+  SELECT numeric_val, row_id FROM NumericTable WHERE MOD(row_id, 2) = 0
+) AS t1
+LEFT JOIN (
+  SELECT numeric_val, row_id FROM NumericTable WHERE MOD(row_id, 2) = 1
+) AS t2
+USING (numeric_val)
+--
+ARRAY<STRUCT<numeric_val NUMERIC, row_id INT64, numeric_val NUMERIC, row_id INT64>>[
+  {-345, 4, NULL, NULL},
+  {1.234, 2, 1.234, 3},
+  {9999999.999999999, 6, NULL, NULL}
+]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_key_join]
+SELECT t1.bignumeric_val, t1.row_id, t2.bignumeric_val, t2.row_id
+FROM (
+  SELECT bignumeric_val, row_id FROM BigNumericTable WHERE MOD(row_id, 2) = 0
+) AS t1
+JOIN (
+  SELECT bignumeric_val, row_id FROM BigNumericTable WHERE MOD(row_id, 2) = 1
+) AS t2
+USING (bignumeric_val)
+--
+ARRAY<STRUCT<
+        bignumeric_val BIGNUMERIC,
+        row_id INT64,
+        bignumeric_val BIGNUMERIC,
+        row_id INT64
+      >>[{3.141592653589793238, 2, 3.141592653589793238, 3}]
+==
+[required_features=BIGNUMERIC_TYPE]
+[name=bignumeric_key_left_join]
+SELECT t1.bignumeric_val, t1.row_id, t2.bignumeric_val, t2.row_id
+FROM (
+  SELECT bignumeric_val, row_id FROM BigNumericTable WHERE MOD(row_id, 2) = 0
+) AS t1
+LEFT JOIN (
+  SELECT bignumeric_val, row_id FROM BigNumericTable WHERE MOD(row_id, 2) = 1
+) AS t2
+USING (bignumeric_val)
+--
+ARRAY<STRUCT<
+        bignumeric_val BIGNUMERIC,
+        row_id INT64,
+        bignumeric_val BIGNUMERIC,
+        row_id INT64
+      >>
+[
+  {-345, 4, NULL, NULL},
+  {3.141592653589793238, 2, 3.141592653589793238, 3},
+  {
+    578960446186580977117854925043439539266.34992332820282019728792003956564819967,
+    6,
+    NULL,
+    NULL
+  }
+]

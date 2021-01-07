@@ -1,0 +1,1277 @@
+# Note that the default time zone for compliance tests is 'America/Los_Angeles'.
+# Note that converting timestamp to string without a specific time zone
+# uses '+00'.
+#
+# The "timestamp_type_and_functions" label applies to all queries in this
+# file related to the ZetaSQL V1 TIMESTAMP type.
+[default global_labels=timestamp_type_and_functions]
+
+[load_proto_files=zetasql/testdata/test_schema.proto]
+[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_enum_names=zetasql_test.TestEnum]
+
+[prepare_database]
+CREATE TABLE Table1 AS
+SELECT timestamp '2014-12-01' as timestamp_val
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 08:00:00+00}]
+==
+
+[prepare_database]
+CREATE TABLE EpochTable AS
+SELECT timestamp '1970-01-01 00:00:00+00' as timestamp_column,
+       '1970-01-01 00:00:00+00' as string_with_timezone_column,
+       '1970-01-01 00:00:00' as string_without_timezone_column
+--
+ARRAY<STRUCT<
+        timestamp_column TIMESTAMP,
+        string_with_timezone_column STRING,
+        string_without_timezone_column STRING
+      >>
+[{
+   1970-01-01 00:00:00+00,
+   "1970-01-01 00:00:00+00",
+   "1970-01-01 00:00:00"
+ }]
+==
+
+[prepare_database]
+CREATE TABLE Table2 AS
+SELECT timestamp '1970-01-01 00:00:00.000000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.000001+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.000010+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.000100+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.001000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.010000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:00.100000+00' as timestamp_val
+union all
+SELECT timestamp '1970-01-01 00:00:01.000000+00' as timestamp_val
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[
+  {1970-01-01 00:00:00+00},
+  {1970-01-01 00:00:00.000001+00},
+  {1970-01-01 00:00:00.000010+00},
+  {1970-01-01 00:00:00.000100+00},
+  {1970-01-01 00:00:00.001+00},
+  {1970-01-01 00:00:00.010+00},
+  {1970-01-01 00:00:00.100+00},
+  {1970-01-01 00:00:01+00}
+]
+==
+
+# The timestamp is interpreted in the default time zone, and the result
+# value is rendered in +00 so it is 8 hours later.
+[name=timestamp_type_1]
+SELECT timestamp '2014-12-01'
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 08:00:00+00}]
+==
+
+[name=timestamp_type_2]
+SELECT timestamp_val
+FROM Table1
+--
+ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 08:00:00+00}]
+==
+
+[name=timestamp_diff_1]
+SELECT timestamp_diff(timestamp1, timestamp2, HOUR)
+from (select timestamp '2014-12-25' as timestamp1,
+             timestamp '2014-12-25' as timestamp2)
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+
+[name=timestamp_diff_2]
+SELECT timestamp_diff(timestamp "2014-12-26", timestamp1, HOUR)
+from (select timestamp '2014-12-25' as timestamp1)
+--
+ARRAY<STRUCT<INT64>>[{24}]
+==
+
+[name=timestamp_to_string_1]
+select [cast(timestamp "2015-01-28" as string),
+        cast(timestamp "2015-01-28 00:00:00" as string),
+        cast(timestamp "2015-01-28 00:00:00.0" as string),
+        cast(timestamp "2015-01-28 00:00:00.00" as string),
+        cast(timestamp "2015-01-28 00:00:00.000" as string),
+        cast(timestamp "2015-01-28 00:00:00.0000" as string),
+        cast(timestamp "2015-01-28 00:00:00.00000" as string),
+        cast(timestamp "2015-01-28 00:00:00.000000" as string)]
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00-08"
+   ]}
+]
+==
+
+[name=timestamp_to_string_2]
+select [cast(timestamp "2015-01-28 00:00:00" as string),
+        cast(timestamp "2015-01-28 00:00:00.1" as string),
+        cast(timestamp "2015-01-28 00:00:00.01" as string),
+        cast(timestamp "2015-01-28 00:00:00.001" as string),
+        cast(timestamp "2015-01-28 00:00:00.0001" as string),
+        cast(timestamp "2015-01-28 00:00:00.00001" as string),
+        cast(timestamp "2015-01-28 00:00:00.000001" as string)]
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>[
+     "2015-01-28 00:00:00-08",
+     "2015-01-28 00:00:00.100-08",
+     "2015-01-28 00:00:00.010-08",
+     "2015-01-28 00:00:00.001-08",
+     "2015-01-28 00:00:00.000100-08",
+     "2015-01-28 00:00:00.000010-08",
+     "2015-01-28 00:00:00.000001-08"
+   ]}
+]
+==
+
+[name=timestamp_to_string_3]
+select cast(timestamp_val as string)
+from Table2
+--
+ARRAY<STRUCT<STRING>>[
+  {"1969-12-31 16:00:00.000001-08"},
+  {"1969-12-31 16:00:00.000100-08"},
+  {"1969-12-31 16:00:00.010-08"},
+  {"1969-12-31 16:00:01-08"},
+  {"1969-12-31 16:00:00-08"},
+  {"1969-12-31 16:00:00.000010-08"},
+  {"1969-12-31 16:00:00.001-08"},
+  {"1969-12-31 16:00:00.100-08"}
+]
+==
+
+[name=literal_string_without_timezone_to_timestamp_1]
+select cast("2014-12-01 12:34:56" as timestamp)
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 20:34:56+00}]
+==
+
+[name=literal_string_with_timezone_to_timestamp_1]
+select cast("2014-12-01 12:34:56+07:30" as timestamp)
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56+00}]
+==
+
+[name=literal_string_with_utc_offset_timezone_to_timestamp_1]
+select cast("2014-12-01 12:34:56 UTC+07:30" as timestamp)
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56+00}]
+==
+
+[name=literal_timestamp_without_timezone]
+select timestamp "2014-12-01 12:34:56"
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 20:34:56+00}]
+==
+
+[name=literal_timestamp_with_timezone_to_timestamp]
+select timestamp "2014-12-01 12:34:56+07:30"
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56+00}]
+==
+
+[name=literal_timestamp_with_utc_offset_timezone]
+select timestamp "2014-12-01 12:34:56 UTC+07:30"
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56+00}]
+==
+
+[name=literal_timestamp_with_utc_offset_timezone2]
+select timestamp "2014-12-01 12:34:56 UTC+0730"
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56+00}]
+==
+
+[name=epoch_casts_between_string_and_timestamp]
+select timestamp_column, cast(timestamp_column as string),
+       string_with_timezone_column,
+       cast(string_with_timezone_column as timestamp),
+       string_without_timezone_column,
+       cast(string_without_timezone_column as timestamp)
+from EpochTable
+--
+ARRAY<STRUCT<
+        timestamp_column TIMESTAMP,
+        STRING,
+        string_with_timezone_column STRING,
+        TIMESTAMP,
+        string_without_timezone_column STRING,
+        TIMESTAMP
+      >>
+[{
+   1970-01-01 00:00:00+00,
+   "1969-12-31 16:00:00-08",
+   "1970-01-01 00:00:00+00",
+   1970-01-01 00:00:00+00,
+   "1970-01-01 00:00:00",
+   1970-01-01 08:00:00+00
+ }]
+==
+
+[name=current_timestamp_1]
+select current_timestamp() >= timestamp '2015-03-17',
+       current_timestamp() <= timestamp '9999-12-31'
+UNION ALL
+select current_timestamp() >= '2015-03-17',
+       current_timestamp() <= '9999-12-31'
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}, {true, true}]
+==
+
+[name=current_timestamp_2]
+select current_timestamp() = current_timestamp
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=current_timestamp_3]
+select count(distinct ts)
+from (
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+  union all
+  select current_timestamp() as ts
+)
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=cast_to_date]
+select [cast(timestamp_trunc('2015-06-15 11:12:48.946599', second) as date),
+        cast(timestamp_trunc(NULL, second) as date)]
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DATE>[2015-06-15, NULL]}]
+==
+
+[name=cast_from_date]
+select [cast(date_add(date '2015-06-10', interval 5 day) as timestamp),
+        cast(date_add(NULL, interval 5 day) as timestamp)]
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<TIMESTAMP>[
+     2015-06-15 07:00:00+00,
+     NULL
+   ]}
+]
+==
+
+[name=string_literal_interval_valid]
+select date_add(date '2007-01-01', interval '365' day)
+--
+ARRAY<STRUCT<DATE>>[{2008-01-01}]
+==
+
+[name=interval_int64_expression]
+select date_sub(d, interval unix_date(d) day)
+from (select date '1234-12-12' as d);
+--
+ARRAY<STRUCT<DATE>>[{1970-01-01}]
+==
+
+[name=interval_string_expression_invalid]
+select timestamp_sub(current_timestamp, interval concat('1', '2') day)
+--
+ERROR: generic::invalid_argument: Interval value must be coercible to INT64 type [at 1:50]
+select timestamp_sub(current_timestamp, interval concat('1', '2') day)
+                                                 ^
+==
+
+[name=interval_null]
+select date_add('2000-01-01', interval null year)
+--
+ARRAY<STRUCT<DATE>>[{NULL}]
+==
+
+[name=interval_int64_null]
+select date_add('2000-01-01', interval cast(null as int64) year)
+--
+ARRAY<STRUCT<DATE>>[{NULL}]
+==
+
+[name=interval_string_null]
+select date_add('2000-01-01', interval cast(null as string) year)
+--
+ARRAY<STRUCT<DATE>>[{NULL}]
+==
+
+[name=string_literal_interval_invalid]
+select date_add(date '2007-01-01', interval '365X' day)
+--
+ERROR: generic::invalid_argument: Could not cast literal "365X" to type INT64 [at 1:45]
+select date_add(date '2007-01-01', interval '365X' day)
+                                            ^
+==
+
+[name=string_parameter_interval_valid]
+[parameters='30' as num_days]
+select date_add(date '1975-04-15', interval @num_days day)
+--
+ARRAY<STRUCT<DATE>>[{1975-05-15}]
+==
+
+[name=string_parameter_interval_invalid]
+[parameters='ABC' as num_days]
+select date_add(date '1975-04-15', interval @num_days day)
+--
+ERROR: generic::out_of_range: Bad int64 value: ABC
+==
+
+[name=string_from_timestamp_simple]
+select string(timestamp '2010-02-03 04:05:06'),
+       string(timestamp '2010-02-03 04:05:06', 'UTC')
+--
+ARRAY<STRUCT<STRING, STRING>>[
+  {
+    "2010-02-03 04:05:06-08",
+    "2010-02-03 12:05:06+00"
+  }
+]
+==
+
+[name=string_from_timestamp_simple_micros]
+[test_features1=TIMESTAMP_NANOS]
+select string(timestamp '2010-02-03 04:05:06.123456'),
+       string(timestamp '2010-02-03 04:05:06.123456', 'UTC')
+--
+WITH FEATURES: <none>
+WITH FEATURES: TIMESTAMP_NANOS
+ARRAY<STRUCT<STRING, STRING>>[
+  {
+    "2010-02-03 04:05:06.123456-08",
+    "2010-02-03 12:05:06.123456+00"
+  }
+]
+==
+
+[name=string_from_timestamp_simple_nanos]
+[test_features1=TIMESTAMP_NANOS]
+select string(timestamp '2010-02-03 04:05:06.123456789'),
+       string(timestamp '2010-02-03 04:05:06.123456789', 'UTC')
+--
+WITH FEATURES: TIMESTAMP_NANOS
+ARRAY<STRUCT<STRING, STRING>>[
+  {
+    "2010-02-03 04:05:06.123456789-08",
+    "2010-02-03 12:05:06.123456789+00"
+  }
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Invalid TIMESTAMP literal [at 1:15]
+select string(timestamp '2010-02-03 04:05:06.123456789'),
+              ^
+==
+
+[name=string_from_timestamp_nulls]
+select string(NULL),
+       string(NULL, 'Americas/Los_Angeles'),
+       string(timestamp '2010-02-03 04:05:06', NULL),
+       string(NULL, NULL)
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[{NULL, NULL, NULL, NULL}]
+==
+
+[name=string_from_timestamp_bad_timezone]
+select string(timestamp '2000-01-01 01:01:01', 'FooTimezone')
+--
+ERROR: generic::out_of_range: Invalid time zone: FooTimezone
+==
+
+[name=timestamp_conversion_default_timezone]
+select timestamp("1985-03-28 17:32:41.492")
+--
+ARRAY<STRUCT<TIMESTAMP>>[{1985-03-29 01:32:41.492+00}]
+==
+
+[name=timestamp_conversion_constant_timezone]
+select timestamp("1999-11-01 03:00:28", "+04")
+--
+ARRAY<STRUCT<TIMESTAMP>>[{1999-10-31 23:00:28+00}]
+==
+
+[name=timestamp_conversion_string_with_timezone]
+select timestamp("2003-05-06 03:55:12+06")
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2003-05-05 21:55:12+00}]
+==
+
+[name=timestamp_conversion_string_timezone_conflict]
+select timestamp("2003-05-06 09:55:12+06", "+02")
+--
+ERROR: generic::out_of_range: Timezone is not allowed in "2003-05-06 09:55:12+06"
+==
+
+[name=timestamp_conversion_bad_timezone]
+select timestamp("2000-01-01", "Redmond, WA")
+--
+ERROR: generic::out_of_range: Invalid time zone: Redmond, WA
+==
+
+[name=timestamp_conversion_multiple_timezones]
+select timestamp("2011-02-03", tz) from unnest(["+02", NULL, "America/Los_Angeles"]) tz with offset order by offset;
+--
+ARRAY<STRUCT<TIMESTAMP>>[
+  {2011-02-02 22:00:00+00},
+  {NULL},
+  {2011-02-03 08:00:00+00}
+]
+==
+
+[name=timestamp_conversion_multiple_timezones_conflict_timezone]
+select timestamp("2011-02-03 10:20:30+05", tz) from (select tz from unnest(["+02", NULL, "America/Los_Angeles"]) tz);
+--
+ERROR: generic::out_of_range: Timezone is not allowed in "2011-02-03 10:20:30+05"
+==
+
+[name=timestamp_conversion_multiple_timezones_bad_timezone]
+select timestamp("2011-02-03", tz) from (select tz from unnest(["+02", "foo"]) tz);
+--
+ERROR: generic::out_of_range: Invalid time zone: foo
+==
+
+[name=extract_from_timestamp_with_bad_timezone_1]
+select EXTRACT(date from timestamp '2015-09-03 12:34:56+00'
+               AT TIME ZONE 'FooTimezone')
+--
+ERROR: generic::out_of_range: Invalid time zone: FooTimezone
+==
+
+[name=extract_from_timestamp_with_bad_timezone_2]
+[parameters='FooTimezone' as tz]
+select EXTRACT(year from timestamp '2015-09-03 12:34:56+00' AT TIME ZONE @tz)
+--
+ERROR: generic::out_of_range: Invalid time zone: FooTimezone
+==
+
+[name=extract_from_timestamp_with_bad_timezone_3]
+select EXTRACT(second from timestamp '2015-09-03 12:34:56+00' AT TIME ZONE tz)
+from (select 'FooTimezone' as tz)
+--
+ERROR: generic::out_of_range: Invalid time zone: FooTimezone
+==
+
+[test_features1=V_1_2_CIVIL_TIME]
+[name=extract_time_from_timestamp]
+[parameters='America/Los_Angeles' as tz]
+SELECT EXTRACT(time from timestamp '2016-01-20 12:34:56'),
+       EXTRACT(time from timestamp '2016-01-20 12:34:56+00'),
+       EXTRACT(time from timestamp '2016-01-20 12:34:56+00' AT TIME ZONE 'America/Los_Angeles'),
+       EXTRACT(time from timestamp '2016-01-20 12:34:56+00' AT TIME ZONE @tz),
+       EXTRACT(time from timestamp '2016-01-20 12:34:56+00' AT TIME ZONE tz)
+FROM (SELECT 'America/Los_Angeles' as tz)
+--
+WITH FEATURES: V_1_2_CIVIL_TIME
+ARRAY<STRUCT<TIME, TIME, TIME, TIME, TIME>>[
+  {12:34:56, 04:34:56, 04:34:56, 04:34:56, 04:34:56}
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Unknown date part 'TIME' [at 1:16]
+SELECT EXTRACT(time from timestamp '2016-01-20 12:34:56'),
+               ^
+==
+
+[test_features1=V_1_2_CIVIL_TIME]
+[name=extract_datetime_from_timestamp]
+[parameters='America/Los_Angeles' as tz]
+SELECT EXTRACT(datetime from timestamp '2016-01-20 12:34:56'),
+       EXTRACT(datetime from timestamp '2016-01-20 12:34:56+00'),
+       EXTRACT(datetime from timestamp '2016-01-20 12:34:56+00' AT TIME ZONE 'America/Los_Angeles'),
+       EXTRACT(datetime from timestamp '2016-01-20 12:34:56+00' AT TIME ZONE @tz),
+       EXTRACT(datetime from timestamp '2016-01-20 12:34:56+00' AT TIME ZONE tz)
+FROM (SELECT 'America/Los_Angeles' as tz)
+--
+WITH FEATURES: V_1_2_CIVIL_TIME
+ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, DATETIME>>[
+  {2016-01-20 12:34:56,
+   2016-01-20 04:34:56,
+   2016-01-20 04:34:56,
+   2016-01-20 04:34:56,
+   2016-01-20 04:34:56}
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Unknown date part 'DATETIME' [at 1:16]
+SELECT EXTRACT(datetime from timestamp '2016-01-20 12:34:56'),
+               ^
+==
+
+# Daylight savings time (DST) tests.
+#
+# DST starts at 2016-03-13 02:00:00 America/Los_Angeles, which
+# switches the offset from -08 to -07.  Since this is 'spring
+# forward', 2:30AM does not actually exist in America/Los_Angeles.
+# When converting "2016-03-13 02:30:00 America/Los_Angeles" to
+# timestamp, the result is equivalent to using time zone '-08',
+# which is the time zone offset *before* the daylight savings
+# change.
+[name=timestamp_literal_with_nonexistent_dst_time]
+select timestamp "2016-03-13 01:30:00 America/Los_Angeles",
+       timestamp "2016-03-13 01:30:00-08",
+       timestamp "2016-03-13 02:30:00 America/Los_Angeles" as non_existent,
+       timestamp "2016-03-13 02:30:00-08" as equivalent,
+       timestamp "2016-03-13 02:30:00-07" as not_equivalent;
+--
+ARRAY<STRUCT<
+        TIMESTAMP,
+        TIMESTAMP,
+        non_existent TIMESTAMP,
+        equivalent TIMESTAMP,
+        not_equivalent TIMESTAMP
+      >>
+[{
+   2016-03-13 09:30:00+00,
+   2016-03-13 09:30:00+00,
+   2016-03-13 10:30:00+00,
+   2016-03-13 10:30:00+00,
+   2016-03-13 09:30:00+00
+ }]
+==
+
+# Same test as previous, but with CAST.
+[name=timestamp_cast_with_nonexistent_dst_time]
+select cast("2016-03-13 01:30:00 America/Los_Angeles" as TIMESTAMP),
+       cast("2016-03-13 01:30:00-08" as TIMESTAMP),
+       cast("2016-03-13 02:30:00 America/Los_Angeles" as TIMESTAMP),
+       cast("2016-03-13 02:30:00-08" as TIMESTAMP) as equivalent,
+       cast("2016-03-13 02:30:00-07" as TIMESTAMP) as not_equivalent;
+--
+ARRAY<STRUCT<
+        TIMESTAMP,
+        TIMESTAMP,
+        TIMESTAMP,
+        equivalent TIMESTAMP,
+        not_equivalent TIMESTAMP
+      >>
+[{
+   2016-03-13 09:30:00+00,
+   2016-03-13 09:30:00+00,
+   2016-03-13 10:30:00+00,
+   2016-03-13 10:30:00+00,
+   2016-03-13 09:30:00+00
+ }]
+==
+
+# Same basic test as previous, but expressions that are not folded by
+# the resolver and are evaluated by the engine.
+[name=timestamp_cast_with_nonexistent_dst_time_2]
+select ts, cast(ts as TIMESTAMP)
+from UNNEST(["2016-03-13 01:30:00 America/Los_Angeles",
+             "2016-03-13 01:30:00-08",
+             "2016-03-13 02:30:00 America/Los_Angeles",
+             "2016-03-13 02:30:00-08",
+             "2016-03-13 02:30:00-07"]) as ts with offset
+order by offset;
+--
+ARRAY<STRUCT<ts STRING, TIMESTAMP>>[
+  {
+    "2016-03-13 01:30:00 America/Los_Angeles",
+    2016-03-13 09:30:00+00
+  },
+  {
+    "2016-03-13 01:30:00-08",
+    2016-03-13 09:30:00+00
+  },
+  {
+    "2016-03-13 02:30:00 America/Los_Angeles",
+    2016-03-13 10:30:00+00
+  },
+  {
+    "2016-03-13 02:30:00-08",
+    2016-03-13 10:30:00+00
+  },
+  {
+    "2016-03-13 02:30:00-07",
+    2016-03-13 09:30:00+00
+  }
+]
+==
+
+# DST ends at 2016-11-06 02:00:00 America/Los_Angeles.  This is
+# 'fall back', so 1:30AM occurs twice in America/Los_Angeles.
+# When casting/converting "2016-11-06 01:30:00 America/Los_Angeles"
+# to timestamp, the result is equivalent to using time zone '-07',
+# which is the offset *before* the daylight saving change.
+[name=timestamp_literal_with_duplicate_dst_time]
+select timestamp "2016-11-06 00:30:00 America/Los_Angeles",
+       timestamp "2016-11-06 00:30:00-07",
+       timestamp "2016-11-06 01:30:00 America/Los_Angeles" as ambiguous,
+       timestamp "2016-11-06 01:30:00-07" as equivalent,
+       timestamp "2016-11-06 01:30:00-08" as not_equivalent;
+--
+ARRAY<STRUCT<
+        TIMESTAMP,
+        TIMESTAMP,
+        ambiguous TIMESTAMP,
+        equivalent TIMESTAMP,
+        not_equivalent TIMESTAMP
+      >>
+[{
+   2016-11-06 07:30:00+00,
+   2016-11-06 07:30:00+00,
+   2016-11-06 08:30:00+00,
+   2016-11-06 08:30:00+00,
+   2016-11-06 09:30:00+00
+ }]
+==
+
+# Same test as previous, but with CAST.
+[name=timestamp_cast_with_duplicate_dst_time]
+select cast("2016-11-06 00:30:00 America/Los_Angeles" as TIMESTAMP),
+       cast("2016-11-06 00:30:00-07" as TIMESTAMP),
+       cast("2016-11-06 01:30:00 America/Los_Angeles" as TIMESTAMP),
+       cast("2016-11-06 01:30:00-07" as TIMESTAMP) as equivalent,
+       cast("2016-11-06 01:30:00-08" as TIMESTAMP) as not_equivalent;
+--
+ARRAY<STRUCT<
+        TIMESTAMP,
+        TIMESTAMP,
+        TIMESTAMP,
+        equivalent TIMESTAMP,
+        not_equivalent TIMESTAMP
+      >>
+[{
+   2016-11-06 07:30:00+00,
+   2016-11-06 07:30:00+00,
+   2016-11-06 08:30:00+00,
+   2016-11-06 08:30:00+00,
+   2016-11-06 09:30:00+00
+ }]
+==
+
+# Same basic test as previous, but expressions that are not folded by
+# the resolver and are evaluated by the engine.
+[name=timestamp_cast_with_duplicate_dst_time_2]
+select ts, cast(ts as TIMESTAMP)
+from UNNEST(["2016-11-06 00:30:00 America/Los_Angeles",
+             "2016-11-06 00:30:00-07",
+             "2016-11-06 01:30:00 America/Los_Angeles",
+             "2016-11-06 01:30:00-07",
+             "2016-11-06 01:30:00-08"]) as ts WITH OFFSET ORDER BY OFFSET;
+--
+ARRAY<STRUCT<ts STRING, TIMESTAMP>>[
+  {
+    "2016-11-06 00:30:00 America/Los_Angeles",
+    2016-11-06 07:30:00+00
+  },
+  {
+    "2016-11-06 00:30:00-07",
+    2016-11-06 07:30:00+00
+  },
+  {
+    "2016-11-06 01:30:00 America/Los_Angeles",
+    2016-11-06 08:30:00+00
+  },
+  {
+    "2016-11-06 01:30:00-07",
+    2016-11-06 08:30:00+00
+  },
+  {
+    "2016-11-06 01:30:00-08",
+    2016-11-06 09:30:00+00
+  }
+]
+
+==
+
+[name=timestamp_with_t_separator_and_z_timezone]
+select ts, cast(ts as TIMESTAMP)
+from UNNEST(["2016-11-06T00:30:00",
+             "2016-11-06T00:30:00Z",
+             "2016-11-06 00:30:00Z",
+             "2016-11-06t00:30:00Z",
+             "2016-11-06T00:30:41.123456Z",
+             "2016-11-06T00:30:41.123456+08",
+             "2016-11-06t00:30:41.123456z"]) as ts WITH OFFSET
+ORDER BY OFFSET;
+--
+ARRAY<STRUCT<ts STRING, TIMESTAMP>>[
+  {
+    "2016-11-06T00:30:00",
+    2016-11-06 07:30:00+00
+  },
+  {
+    "2016-11-06T00:30:00Z",
+    2016-11-06 00:30:00+00
+  },
+  {
+    "2016-11-06 00:30:00Z",
+    2016-11-06 00:30:00+00
+  },
+  {
+    "2016-11-06t00:30:00Z",
+    2016-11-06 00:30:00+00
+  },
+  {
+    "2016-11-06T00:30:41.123456Z",
+    2016-11-06 00:30:41.123456+00
+  },
+  {
+    "2016-11-06T00:30:41.123456+08",
+    2016-11-05 16:30:41.123456+00
+  },
+  {
+    "2016-11-06t00:30:41.123456z",
+    2016-11-06 00:30:41.123456+00
+  }
+]
+
+==
+
+[name=timestamp_cast_with_trailing_t]
+select ts, cast(ts as TIMESTAMP)
+from UNNEST(["2016-11-06",
+             "2016-11-06T"]) as ts;
+--
+ERROR: generic::out_of_range: Invalid timestamp: '2016-11-06T'
+
+==
+
+[name=timestamp_literal_with_trailing_t]
+select TIMESTAMP "2016-11-06T";
+--
+ERROR: generic::invalid_argument: Invalid TIMESTAMP literal [at 1:8]
+select TIMESTAMP "2016-11-06T";
+       ^
+==
+[name=timestamp_extract_isoyear_isoweek_week]
+SELECT
+  EXTRACT(YEAR FROM timestamp),
+  EXTRACT(WEEK FROM timestamp),
+  FORMAT_TIMESTAMP('%Y-W%U', timestamp),
+  EXTRACT(YEAR FROM timestamp AT TIME ZONE '-8'),
+  EXTRACT(WEEK FROM timestamp AT TIME ZONE '-8'),
+  FORMAT_TIMESTAMP('%Y-W%U', timestamp, '-8'),
+  EXTRACT(ISOYEAR FROM timestamp),
+  EXTRACT(ISOWEEK FROM timestamp),
+  EXTRACT(ISOYEAR FROM TIMESTAMP_TRUNC(timestamp, ISOYEAR)),
+  EXTRACT(ISOWEEK FROM TIMESTAMP_TRUNC(timestamp, ISOWEEK)),
+  FORMAT_TIMESTAMP('%G-W%V', timestamp),
+  EXTRACT(ISOYEAR FROM timestamp AT TIME ZONE '-8'),
+  EXTRACT(ISOWEEK FROM timestamp AT TIME ZONE '-8'),
+  EXTRACT(ISOYEAR FROM TIMESTAMP_TRUNC(timestamp, ISOYEAR, '-8')),
+  EXTRACT(ISOWEEK FROM TIMESTAMP_TRUNC(timestamp, ISOWEEK, '-8')),
+  FORMAT_TIMESTAMP('%G-W%V', timestamp, '-8')
+FROM UNNEST([
+  TIMESTAMP '0001-01-02',
+  TIMESTAMP '0799-12-29 12:34:56',
+  TIMESTAMP '2000-01-01',
+  TIMESTAMP '2017-06-03']) AS timestamp WITH OFFSET
+ORDER BY OFFSET;
+--
+ARRAY<STRUCT<INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             STRING>>
+[{1, 0, "1-W00", 1, 0, "1-W00", 1, 1, 1, 1, "1-W01", 1, 1, 1, 1, "1-W01"},
+ {799,
+  52,
+  "799-W52",
+  799,
+  52,
+  "799-W52",
+  799,
+  52,
+  799,
+  52,
+  "799-W52",
+  799,
+  52,
+  799,
+  52,
+  "799-W52"},
+ {2000,
+  0,
+  "2000-W00",
+  2000,
+  0,
+  "2000-W00",
+  1999,
+  52,
+  1999,
+  52,
+  "1999-W52",
+  1999,
+  52,
+  1999,
+  52,
+  "1999-W52"},
+ {2017,
+  22,
+  "2017-W22",
+  2017,
+  22,
+  "2017-W22",
+  2017,
+  22,
+  2017,
+  22,
+  "2017-W22",
+  2017,
+  22,
+  2017,
+  22,
+  "2017-W22"}]
+==
+[name=timestamp_extract_boundary_cases]
+SELECT
+  EXTRACT(YEAR FROM timestamp),
+  EXTRACT(WEEK FROM timestamp),
+  FORMAT_TIMESTAMP('%Y-W%U', timestamp),
+  EXTRACT(YEAR FROM timestamp AT TIME ZONE '-14'),
+  EXTRACT(WEEK FROM timestamp AT TIME ZONE '-14'),
+  FORMAT_TIMESTAMP('%Y-W%U', timestamp, '-14'),
+  EXTRACT(YEAR FROM timestamp AT TIME ZONE '+14'),
+  EXTRACT(WEEK FROM timestamp AT TIME ZONE '+14'),
+  FORMAT_TIMESTAMP('%Y-W%U', timestamp, '+14'),
+  EXTRACT(ISOYEAR FROM timestamp),
+  EXTRACT(ISOWEEK FROM timestamp),
+  FORMAT_TIMESTAMP('%G-W%V', timestamp),
+  EXTRACT(ISOYEAR FROM timestamp AT TIME ZONE '-14'),
+  EXTRACT(ISOWEEK FROM timestamp AT TIME ZONE '-14'),
+  FORMAT_TIMESTAMP('%G-W%V', timestamp, '-14'),
+  EXTRACT(ISOYEAR FROM timestamp AT TIME ZONE '+14'),
+  EXTRACT(ISOWEEK FROM timestamp AT TIME ZONE '+14'),
+  FORMAT_TIMESTAMP('%G-W%V', timestamp, '+14')
+FROM UNNEST([
+  TIMESTAMP '0001-01-01 00:00:00Z',
+  TIMESTAMP '0001-01-01 08:00:00Z',
+  TIMESTAMP '9999-12-31 16:00:00Z',
+  TIMESTAMP '9999-12-31 23:59:59.999999Z'
+]) AS timestamp WITH OFFSET
+ORDER BY OFFSET;
+--
+ARRAY<STRUCT<INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             STRING,
+             INT64,
+             INT64,
+             STRING>>
+[{0,
+  53,
+  "0-W53",
+  0,
+  53,
+  "0-W53",
+  1,
+  0,
+  "1-W00",
+  0,
+  52,
+  "0-W52",
+  0,
+  52,
+  "0-W52",
+  1,
+  1,
+  "1-W01"},
+ {1,
+  0,
+  "1-W00",
+  0,
+  53,
+  "0-W53",
+  1,
+  0,
+  "1-W00",
+  1,
+  1,
+  "1-W01",
+  0,
+  52,
+  "0-W52",
+  1,
+  1,
+  "1-W01"},
+ {9999,
+  52,
+  "9999-W52",
+  9999,
+  52,
+  "9999-W52",
+  10000,
+  0,
+  "10000-W00",
+  9999,
+  52,
+  "9999-W52",
+  9999,
+  52,
+  "9999-W52",
+  9999,
+  52,
+  "9999-W52"},
+ {9999,
+  52,
+  "9999-W52",
+  9999,
+  52,
+  "9999-W52",
+  10000,
+  0,
+  "10000-W00",
+  9999,
+  52,
+  "9999-W52",
+  9999,
+  52,
+  "9999-W52",
+  9999,
+  52,
+  "9999-W52"}]
+==
+
+[name=format_timestamp_with_invalid_time_zone]
+select format_timestamp("%Y-%m-%d", timestamp "2017-01-01",
+                        "invalid_time_zone");
+--
+ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
+==
+
+[name=format_timestamp_with_invalid_empty_time_zone]
+select format_timestamp("%Y-%m-%d", timestamp "2017-01-01", "");
+--
+ERROR: generic::out_of_range: Invalid empty time zone
+==
+
+[name=parse_timestamp_with_invalid_time_zone]
+select parse_timestamp("%Y-%m-%d", "2017-01-01", "invalid_time_zone");
+--
+ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
+==
+
+[name=parse_timestamp_with_invalid_empty_time_zone]
+select parse_timestamp("%Y-%m-%d", "2017-01-01", "");
+--
+ERROR: generic::out_of_range: Invalid empty time zone
+==
+
+[name=extract_from_timestamp_with_invalid_time_zone]
+select extract(YEAR FROM timestamp '2017-01-01'
+               AT TIME ZONE "invalid_time_zone");
+--
+ERROR: generic::out_of_range: Invalid time zone: invalid_time_zone
+==
+
+[name=extract_from_timestamp_with_invalid_empty_time_zone]
+select extract(YEAR FROM timestamp '2017-01-01'
+               AT TIME ZONE "");
+--
+ERROR: generic::out_of_range: Invalid empty time zone
+==
+
+[name=timestamp_trunc]
+select
+  timestamp_trunc('2000-02-03 04:05:06.789', SECOND),
+  timestamp_trunc('2000-02-03 04:05:06.789', MINUTE),
+  timestamp_trunc('2000-02-03 04:05:06.789', HOUR),
+  timestamp_trunc('2000-02-03 04:05:06.789', DAY),
+  timestamp_trunc('2000-02-03 04:05:06.789', MONTH),
+  timestamp_trunc('2000-02-03 04:05:06.789', YEAR)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2000-02-03 12:05:06+00,
+    2000-02-03 12:05:00+00,
+    2000-02-03 12:00:00+00,
+    2000-02-03 08:00:00+00,
+    2000-02-01 08:00:00+00,
+    2000-01-01 08:00:00+00
+  }
+]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_WEEK_WITH_WEEKDAY,V_1_2_CIVIL_TIME]
+[name=last_day_date]
+select
+  last_day(date '2020-07-10', YEAR),
+  last_day(date '2020-06-10', MONTH),
+  last_day(date '2020-06-10'),
+  last_day(date '2020-07-10', QUARTER),
+  last_day(date '2020-07-24', WEEK),
+  last_day(date '2020-07-24', WEEK(MONDAY)),
+  last_day(date '0001-01-01', ISOYEAR)
+--
+ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE, DATE, DATE>>[
+  {2020-12-31,
+   2020-06-30,
+   2020-06-30,
+   2020-09-30,
+   2020-07-25,
+   2020-07-26,
+   0001-12-30}
+]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_WEEK_WITH_WEEKDAY,V_1_2_CIVIL_TIME]
+[name=last_day_datetime]
+select
+  last_day(datetime '2020-07-10 12:34:56', YEAR),
+  last_day(datetime '2020-06-10 12:34:56', MONTH),
+  last_day(datetime '2020-06-10 12:34:56'),
+  last_day(datetime '2020-07-10 12:34:56', QUARTER),
+  last_day(datetime '2020-07-24 12:34:56', WEEK),
+  last_day(datetime '2020-07-24 12:34:56', WEEK(MONDAY)),
+  last_day(datetime '0001-01-01 12:34:56', ISOYEAR)
+--
+ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE, DATE, DATE>>[
+  {2020-12-31,
+   2020-06-30,
+   2020-06-30,
+   2020-09-30,
+   2020-07-25,
+   2020-07-26,
+   0001-12-30}
+]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS,V_1_2_WEEK_WITH_WEEKDAY,V_1_2_CIVIL_TIME]
+[name=last_day_date_error]
+select
+  last_day(date '2020-07-10', SECOND)
+--
+ERROR: generic::invalid_argument: LAST_DAY does not support the SECOND date part [at 2:3]
+  last_day(date '2020-07-10', SECOND)
+  ^
+==
+
+[required_features=V_1_3_DATE_TIME_CONSTRUCTORS]
+[name=timestamp_constructor]
+select timestamp(timestamp_val) from Table1
+--
+ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 08:00:00+00}]
+==
+
+[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=date_in_timestamp_add_sub]
+select
+  timestamp_add(d, interval 1 year),        timestamp_sub(d, interval 1 year),
+  timestamp_add(d, interval 1 month),       timestamp_sub(d, interval 1 month),
+  timestamp_add(d, interval 1 week),        timestamp_sub(d, interval 1 week),
+  timestamp_add(d, interval 1 day),         timestamp_sub(d, interval 1 day),
+from (select date '2000-01-01' d)
+--
+ARRAY<STRUCT<DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME>>
+[{2001-01-01 00:00:00,
+  1999-01-01 00:00:00,
+  2000-02-01 00:00:00,
+  1999-12-01 00:00:00,
+  2000-01-08 00:00:00,
+  1999-12-25 00:00:00,
+  2000-01-02 00:00:00,
+  1999-12-31 00:00:00}]
+==
+
+[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=datetime_in_timestamp_add_sub]
+select
+  timestamp_add(dt, interval 1 year),        timestamp_sub(dt, interval 1 year),
+  timestamp_add(dt, interval 1 month),       timestamp_sub(dt, interval 1 month),
+  timestamp_add(dt, interval 1 week),        timestamp_sub(dt, interval 1 week),
+  timestamp_add(dt, interval 1 day),         timestamp_sub(dt, interval 1 day),
+  timestamp_add(dt, interval 1 hour),        timestamp_sub(dt, interval 1 hour),
+  timestamp_add(dt, interval 1 minute),      timestamp_sub(dt, interval 1 minute),
+  timestamp_add(dt, interval 1 second),      timestamp_sub(dt, interval 1 second),
+  timestamp_add(dt, interval 1 microsecond), timestamp_sub(dt, interval 1 microsecond),
+from (select datetime '2000-01-01 00:00:00.000000' dt)
+--
+ARRAY<STRUCT<DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME>>
+[{
+   2001-01-01 00:00:00,
+   1999-01-01 00:00:00,
+   2000-02-01 00:00:00,
+   1999-12-01 00:00:00,
+   2000-01-08 00:00:00,
+   1999-12-25 00:00:00,
+   2000-01-02 00:00:00,
+   1999-12-31 00:00:00,
+   2000-01-01 01:00:00,
+   1999-12-31 23:00:00,
+   2000-01-01 00:01:00,
+   1999-12-31 23:59:00,
+   2000-01-01 00:00:01,
+   1999-12-31 23:59:59,
+   2000-01-01 00:00:00.000001,
+   1999-12-31 23:59:59.999999
+ }]
+==
+
+[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=date_datetime_in_timestamp_diff]
+select
+  timestamp_diff(dt, d, year),         timestamp_diff(d, dt, year),
+  timestamp_diff(dt, d, quarter),      timestamp_diff(d, dt, quarter),
+  timestamp_diff(dt, d, month),        timestamp_diff(d, dt, month),
+  timestamp_diff(dt, d, week),         timestamp_diff(d, dt, week),
+  timestamp_diff(dt, d, day),          timestamp_diff(d, dt, day),
+  timestamp_diff(dt, d, hour),         timestamp_diff(d, dt, hour),
+  timestamp_diff(dt, d, minute),       timestamp_diff(d, dt, minute),
+  timestamp_diff(dt, d, second),       timestamp_diff(d, dt, second),
+  timestamp_diff(dt, d, microsecond),  timestamp_diff(d, dt, microsecond),
+from (select date '2000-01-01' d, datetime '2001-02-03 04:05:06.789' dt)
+--
+ARRAY<STRUCT<INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64,
+             INT64>>
+[{1,
+  -1,
+  4,
+  -4,
+  13,
+  -13,
+  57,
+  -57,
+  399,
+  -399,
+  9580,
+  -9580,
+  574805,
+  -574805,
+  34488306,
+  -34488306,
+  34488306789000,
+  -34488306789000}]
+==
+
+[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=datetime_in_timestamp_trunc]
+select
+  timestamp_trunc(dt, year),
+  timestamp_trunc(dt, quarter),
+  timestamp_trunc(dt, month),
+  timestamp_trunc(dt, week),
+  timestamp_trunc(dt, day),
+  timestamp_trunc(dt, hour),
+  timestamp_trunc(dt, minute),
+  timestamp_trunc(dt, second),
+  timestamp_trunc(dt, microsecond),
+from (select datetime '2001-02-03 04:05:06.789' dt)
+--
+ARRAY<STRUCT<DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME,
+             DATETIME>>
+[{
+   2001-01-01 00:00:00,
+   2001-01-01 00:00:00,
+   2001-02-01 00:00:00,
+   2001-01-28 00:00:00,
+   2001-02-03 00:00:00,
+   2001-02-03 04:00:00,
+   2001-02-03 04:05:00,
+   2001-02-03 04:05:06,
+   2001-02-03 04:05:06.789
+ }]
+==
+
+[required_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=datetime_in_format_timestamp]
+select
+  format_timestamp("%c", dt),
+  format_timestamp("%b-%d-%Y", d)
+from (select date '1987-05-25' d, datetime '2001-02-03 04:05:06.789' dt)
+--
+ARRAY<STRUCT<STRING, STRING>>[
+  {
+    "Sat Feb  3 04:05:06 2001",
+    "May-25-1987"
+  }
+]

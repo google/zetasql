@@ -1353,6 +1353,9 @@ class ASTSelect final : public ASTQueryExpression {
   std::string SingleNodeDebugString() const override;
 
   const ASTHint* hint() const { return hint_; }
+  const ASTOptionsList* anonymization_options() const {
+    return anonymization_options_;
+  }
   bool distinct() const { return distinct_; }
   const ASTSelectAs* select_as() const { return select_as_; }
   const ASTSelectList* select_list() const { return select_list_; }
@@ -1368,6 +1371,7 @@ class ASTSelect final : public ASTQueryExpression {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddOptional(&hint_, AST_HINT);
+    fl.AddOptional(&anonymization_options_, AST_OPTIONS_LIST);
     fl.AddOptional(&select_as_, AST_SELECT_AS);
     fl.AddRequired(&select_list_);
     fl.AddOptional(&from_clause_, AST_FROM_CLAUSE);
@@ -1378,6 +1382,7 @@ class ASTSelect final : public ASTQueryExpression {
   }
 
   const ASTHint* hint_ = nullptr;
+  const ASTOptionsList* anonymization_options_ = nullptr;
   bool distinct_ = false;
   const ASTSelectAs* select_as_ = nullptr;
   const ASTSelectList* select_list_ = nullptr;
@@ -1489,6 +1494,7 @@ class ASTAlias final : public ASTNode {
 
   // Get the unquoted and unescaped string value of this alias.
   std::string GetAsString() const;
+  absl::string_view GetAsStringView() const;
   IdString GetAsIdString() const;
 
  private:
@@ -1513,6 +1519,7 @@ class ASTIntoAlias final : public ASTNode {
 
   // Get the unquoted and unescaped string value of this alias.
   std::string GetAsString() const;
+  absl::string_view GetAsStringView() const;
   IdString GetAsIdString() const;
 
  private:
@@ -2344,6 +2351,29 @@ class ASTHavingModifier final : public ASTNode {
   ModifierKind modifier_kind_ = ModifierKind::MAX;
 };
 
+class ASTClampedBetweenModifier final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CLAMPED_BETWEEN_MODIFIER;
+
+  ASTClampedBetweenModifier() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* low() const { return low_; }
+  const ASTExpression* high() const { return high_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&low_);
+    fl.AddRequired(&high_);
+  }
+
+  const ASTExpression* low_ = nullptr;
+  const ASTExpression* high_ = nullptr;
+};
+
 class ASTExpression : public ASTNode {
  public:
   explicit ASTExpression(ASTNodeKind kind) : ASTNode(kind) {}
@@ -2476,6 +2506,7 @@ class ASTBinaryExpression final : public ASTExpression {
     MULTIPLY,     // "*"
     DIVIDE,       // "/"
     CONCAT_OP,    // "||"
+    DISTINCT,     // "IS DISTINCT FROM"
   };
 
   void set_op(Op op) { op_ = op; }
@@ -2711,14 +2742,17 @@ class ASTFormatClause final : public ASTNode {
       NonRecursiveParseTreeVisitor* visitor) const override;
 
   const ASTExpression* format() const { return format_; }
+  const ASTExpression* time_zone_expr() const { return time_zone_expr_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&format_);
+    fl.AddOptionalExpression(&time_zone_expr_);
   }
 
   const ASTExpression* format_ = nullptr;
+  const ASTExpression *time_zone_expr_ = nullptr;
 };
 
 class ASTCastExpression final : public ASTExpression {
@@ -3093,6 +3127,11 @@ class ASTFunctionCall final : public ASTExpression {
 
   const ASTHavingModifier* having_modifier() const { return having_modifier_; }
 
+  // If present, applies to the inputs of anonimized aggregate functions.
+  const ASTClampedBetweenModifier* clamped_between_modifier() const {
+    return clamped_between_modifier_;
+  }
+
   // If present, applies to the inputs of aggregate functions.
   const ASTOrderBy* order_by() const { return order_by_; }
 
@@ -3105,7 +3144,7 @@ class ASTFunctionCall final : public ASTExpression {
   bool HasModifiers() const {
     return distinct_ || null_handling_modifier_ != DEFAULT_NULL_HANDLING ||
            having_modifier_ != nullptr ||
-           order_by_ != nullptr ||
+           clamped_between_modifier_ != nullptr || order_by_ != nullptr ||
            limit_offset_ != nullptr;
   }
 
@@ -3124,6 +3163,7 @@ class ASTFunctionCall final : public ASTExpression {
     fl.AddRequired(&function_);
     fl.AddRepeatedWhileIsExpression(&arguments_);
     fl.AddOptional(&having_modifier_, AST_HAVING_MODIFIER);
+    fl.AddOptional(&clamped_between_modifier_, AST_CLAMPED_BETWEEN_MODIFIER);
     fl.AddOptional(&order_by_, AST_ORDER_BY);
     fl.AddOptional(&limit_offset_, AST_LIMIT_OFFSET);
     fl.AddOptional(&hint_, AST_HINT);
@@ -3137,6 +3177,9 @@ class ASTFunctionCall final : public ASTExpression {
   NullHandlingModifier null_handling_modifier_ = DEFAULT_NULL_HANDLING;
   // Set if the function was called with FUNC(args HAVING {MAX|MIN} expr).
   const ASTHavingModifier* having_modifier_ = nullptr;
+  // Set if the function was called with
+  // FUNC(args CLAMPED BETWEEN low AND high).
+  const ASTClampedBetweenModifier* clamped_between_modifier_ = nullptr;
   // Set if the function was called with FUNC(args ORDER BY cols).
   const ASTOrderBy* order_by_ = nullptr;
   // Set if the function was called with FUNC(args LIMIT N).
@@ -3729,6 +3772,9 @@ class ASTIdentifier final : public ASTExpression {
   // Get the unquoted and unescaped string value of this identifier.
   IdString GetAsIdString() const { return id_string_; }
   std::string GetAsString() const { return id_string_.ToString(); }
+  absl::string_view GetAsStringView() const {
+    return id_string_.ToStringView();
+  }
 
  private:
   void InitFields() final {

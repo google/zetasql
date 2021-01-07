@@ -57,6 +57,7 @@
 #include "absl/memory/memory.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -121,12 +122,19 @@ static const std::string* const kLikeFnName = new std::string("$like");
 static const std::string* const kMultiplyFnName = new std::string("$multiply");
 static const std::string* const kNotEqualFnName = new std::string("$not_equal");
 static const std::string* const kSubtractFnName = new std::string("$subtract");
+static const std::string* const kDistinctOpFnName =
+    new std::string("$is_distinct_from");
+static const std::string* const kNotDistinctOpFnName =
+    new std::string("$is_not_distinct_from");
 
 static std::string* kInvalidBinaryOperatorStr =
     new std::string("$invalid_binary_operator");
 
 const std::string& FunctionResolver::BinaryOperatorToFunctionName(
-    ASTBinaryExpression::Op op) {
+    ASTBinaryExpression::Op op, bool is_not, bool* not_handled) {
+  if (not_handled != nullptr) {
+    *not_handled = false;
+  }
   switch (op) {
     case ASTBinaryExpression::DIVIDE:
       return *kDivideFnName;
@@ -162,6 +170,14 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
       return *kInvalidBinaryOperatorStr;
     case ASTBinaryExpression::CONCAT_OP:
       return *kConcatOpFnName;
+    case ASTBinaryExpression::DISTINCT:
+      if (is_not) {
+        ZETASQL_CHECK(not_handled != nullptr);
+        *not_handled = true;
+        return *kNotDistinctOpFnName;
+      } else {
+        return *kDistinctOpFnName;
+      }
   }
 }
 
@@ -466,7 +482,7 @@ absl::Status FunctionResolver::ProcessNamedArguments(
           if (return_error_if_named_arguments_do_not_match_signature) {
             return MakeSqlErrorAt(ast_location)
                    << "Call to table valued function " << function_name
-                   << "does not specify a value for table argument "
+                   << " does not specify a value for table argument "
                    << signature_arg_name;
           }
           return absl::OkStatus();
@@ -662,7 +678,7 @@ static void ConvertMakeStructToLiteralIfAllExplicitLiteralFields(
   *argument = MakeResolvedLiteral(
       (*argument)->type(),
       Value::Struct((*argument)->type()->AsStruct(), field_values),
-      true /* has_explicit_type */);
+      /*has_explicit_type=*/true);
 }
 
 absl::Status ExtractStructFieldLocations(
@@ -715,6 +731,7 @@ absl::Status ExtractStructFieldLocations(
 // differences in has_explicit_type.  This could probably be simplified.
 absl::Status FunctionResolver::AddCastOrConvertLiteral(
     const ASTNode* ast_location, const Type* target_type,
+    std::unique_ptr<const ResolvedExpr> format,
     const ResolvedScan* scan, bool set_has_explicit_type,
     bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* argument) const {
@@ -755,7 +772,7 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
               field_arg_locations[i],
               field_exprs[i]->GetAs<ResolvedLiteral>()->value().type(),
               field_exprs[i]->GetAs<ResolvedLiteral>()->value(),
-              true /* has_explicit_type */);
+              /*has_explicit_type=*/true);
         }
       }
 
@@ -779,7 +796,7 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     return absl::OkStatus();
   } else if ((*argument)->node_kind() == RESOLVED_FUNCTION_CALL &&
              (*argument)->GetAs<ResolvedFunctionCall>()->function()->FullName(
-                 true /* include_group */) == "ZetaSQL:error") {
+                 /*include_group=*/true) == "ZetaSQL:error") {
     // This is an ERROR(message) function call.  We special case this to
     // make the output argument coercible to anything so expressions like
     //   IF(<condition>, <value>, ERROR("message"))
@@ -822,7 +839,7 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     }
   }
 
-  if (argument_literal != nullptr) {
+  if (argument_literal != nullptr && format == nullptr) {
     std::unique_ptr<const ResolvedLiteral> converted_literal;
     ZETASQL_RETURN_IF_ERROR(ConvertLiteralToType(
         ast_location, argument_literal, target_type, scan,
@@ -839,7 +856,19 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
   }
 
   return resolver_->ResolveCastWithResolvedArgument(
-      ast_location, target_type, return_null_on_error, argument);
+      ast_location, target_type, std::move(format), return_null_on_error,
+      argument);
+}
+
+absl::Status FunctionResolver::AddCastOrConvertLiteral(
+    const ASTNode* ast_location, const Type* target_type,
+    const ResolvedScan* scan, bool set_has_explicit_type,
+    bool return_null_on_error,
+    std::unique_ptr<const ResolvedExpr>* argument) const {
+  return AddCastOrConvertLiteral(ast_location, target_type,
+                                 /*format=*/nullptr, scan,
+                                 set_has_explicit_type, return_null_on_error,
+                                 argument);
 }
 
 namespace {
@@ -1059,7 +1088,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   if (is_analytic && !function->SupportsOverClause()) {
     return MakeSqlErrorAt(ast_location)
-           << function->QualifiedSQLName(true /* capitalize_qualifier */)
+           << function->QualifiedSQLName(/*capitalize_qualifier=*/true)
            << " does not support an OVER clause";
   }
 
@@ -1149,8 +1178,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       // Check whether function call was using named argument or positional
       // argument, and if it was named - use the name in the error message.
       for (const auto& named_arg : named_arguments) {
-        if (zetasql_base::CaseEqual(named_arg.first->name()->GetAsString(),
-                      argument.argument_name())) {
+        if (absl::EqualsIgnoreCase(named_arg.first->name()->GetAsString(),
+                                   argument.argument_name())) {
           return absl::StrCat("Argument '", argument.argument_name(), "' to ",
                               function->SQLName());
         }

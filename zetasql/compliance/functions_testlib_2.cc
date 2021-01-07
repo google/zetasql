@@ -2889,4 +2889,209 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay() {
   return test_cases;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion() {
+  const std::map<std::string, std::vector<std::pair<Value, Value>>>
+      format_bytes_string = {
+          {"hex",
+           {
+               {Bytes("abcABC"), String("616263414243")},
+               {Bytes("abcABCжщфЖЩФ"),
+                String("616263414243d0b6d189d184d096d0a9d0a4")},
+               {Bytes("\0\0a\ff\xee"), String("0000610c66ee")},
+               {Bytes("\x01\x23\x45\x67\x89\xAB\xCD\xEF\x55\xAA"),
+                String("0123456789abcdef55aa")},
+               {Bytes("\xFE\xDC\xBA\x98\x76\x54\x32\x10\xAA\x55"),
+                String("fedcba9876543210aa55")},
+           }},
+          {"base64",
+           {
+               {Bytes(" "), String("IA==")},
+               {Bytes("abcABC"), String("YWJjQUJD")},
+               {Bytes("abcABCжщфЖЩФ"), String("YWJjQUJD0LbRidGE0JbQqdCk")},
+               {Bytes("Ḋ"), String("4biK")},
+               {Bytes("abca\0b\0c\0"), String("YWJjYQBiAGMA")},
+               {Bytes("\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b"
+                      "\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a"
+                      "\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a"
+                      "\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b"
+                      "\x5a\x5a\x1b\x5a"),
+                String("WhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWht"
+                       "aWhtaWhtaWhtaWhtaWhtaWhta")},
+           }},
+          {"base64m",
+           {
+               {Bytes(" "), String("IA==")},
+               {Bytes("abcABC"), String("YWJjQUJD")},
+               {Bytes("abcABCжщфЖЩФ"), String("YWJjQUJD0LbRidGE0JbQqdCk")},
+               {Bytes("Ḋ"), String("4biK")},
+               {Bytes("abca\0b\0c\0"), String("YWJjYQBiAGMA")},
+               {Bytes("\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b"
+                      "\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a"
+                      "\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a"
+                      "\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b\x5a\x5a\x1b"
+                      "\x5a\x5a\x1b\x5a"),
+                String("WhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWhtaWht"
+                       "aWhtaWhtaWhtaWhtaWhta\nWhta")},
+           }},
+          {"base2",
+           {
+               {Bytes("\x6A"), String("01101010")},
+               {Bytes("\x17\x6A"), String("0001011101101010")},
+           }},
+          {"base8",
+           {
+               {Bytes("\x3F"), String("077")},
+               {Bytes("\x11\x3B"), String("010473")},
+               {Bytes("\x02\x11\x3B"), String("00410473")},
+               {Bytes("\x2C\x26\x02\x11\x3B"), String("02604600410473")},
+           }},
+          {"base32",
+           {
+               {Bytes("1"), String("GE======")},
+               {Bytes("1a"), String("GFQQ====")},
+               {Bytes("12345"), String("GEZDGNBV")},
+               {Bytes("123456"), String("GEZDGNBVGY======")},
+               {Bytes("1234567890123456"),
+                String("GEZDGNBVGY3TQOJQGEZDGNBVGY======")},
+           }},
+          {"ascii",
+           {
+               {Bytes("\x61"), String("a")},
+               {Bytes("\x61\x62\x63"), String("abc")},
+           }},
+          {"utf8",
+           {
+               {Bytes("\x24"), String("$")},
+               {Bytes("\xC2\xA3"), String("£")},
+               {Bytes("\xE2\x82\xAC"), String("€")},
+               {Bytes("\xE2\x82\xAC\xC2\xA3"), String("€£")},
+           }},
+      };
+
+  const std::vector<std::pair<Value, Value>> common_string_bytes = {
+      {NullBytes(), NullString()},
+      {Bytes(""), String("")},
+  };
+
+  std::vector<FunctionTestCall> tests;
+  const std::vector<std::string> supported_formats = {
+      "base2",  "base8",   "base16", "hex",
+      "base64", "base64m", "ascii",  "utf-8", "utf8"};
+  for (const std::string& supported_format : supported_formats) {
+    std::string format_key = supported_format;
+    if (format_key == "base16")
+      format_key = "hex";
+    else if (format_key == "utf-8")
+      format_key = "utf8";
+
+    for (const auto& entry : common_string_bytes) {
+      tests.push_back(
+          {"bytes_to_string", {entry.first, supported_format}, entry.second});
+      tests.push_back(
+          {"string_to_bytes", {entry.second, supported_format}, entry.first});
+    }
+    for (const auto& entry : format_bytes_string.at(format_key)) {
+      tests.push_back(
+          {"bytes_to_string", {entry.first, supported_format}, entry.second});
+      tests.push_back(
+          {"string_to_bytes", {entry.second, supported_format}, entry.first});
+    }
+  }
+
+  // Null or unsupported format
+  tests.push_back(
+      {"bytes_to_string", {Bytes("\x17\x6A"), NullString()}, NullString()});
+  tests.push_back({"bytes_to_string",
+                   {Bytes("\x17\x6A"), "base37"},
+                   NullString(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("0001011101101010"), NullString()},
+                   NullBytes()});
+  tests.push_back({"string_to_bytes",
+                   {String("0001011101101010"), "base37"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+
+  // Not encodable input bytes for specific encodings
+  tests.push_back({"bytes_to_string",
+                   {Bytes("\xff"), "ascii"},
+                   NullString(),
+                   OUT_OF_RANGE});
+  tests.push_back({"bytes_to_string",
+                   {Bytes("\x61\x61\xff\x61"), "ascii"},
+                   NullString(),
+                   OUT_OF_RANGE});
+  tests.push_back({"bytes_to_string",
+                   {Bytes("\xff"), "utf-8"},
+                   NullString(),
+                   OUT_OF_RANGE});
+  tests.push_back({"bytes_to_string",
+                   {Bytes("\xe2\x82\xac\xff"), "utf-8"},
+                   NullString(),
+                   OUT_OF_RANGE});
+
+  // irregular number of digits to unescape
+  tests.push_back(
+      {"string_to_bytes", {String("1101010"), "base2"}, Bytes("\x6A")});
+  tests.push_back({"string_to_bytes",
+                   {String("1011101101010"), "base2"},
+                   Bytes("\x17\x6A")});
+  tests.push_back({"string_to_bytes",
+                   {String("01011101101010"), "base2"},
+                   Bytes("\x17\x6A")});
+  tests.push_back({"string_to_bytes",
+                   {String("001011101101010"), "base2"},
+                   Bytes("\x17\x6A")});
+
+  tests.push_back({"string_to_bytes", {String("77"), "base8"}, Bytes("\x3F")});
+  tests.push_back(
+      {"string_to_bytes", {String("10473"), "base8"}, Bytes("\x11\x3B")});
+  tests.push_back(
+      {"string_to_bytes", {String("0410473"), "base8"}, Bytes("\x02\x11\x3B")});
+  tests.push_back({"string_to_bytes",
+                   {String("2604600410473"), "base8"},
+                   Bytes("\x2C\x26\x02\x11\x3B")});
+
+  // Not decodable input string for specific encodings
+  tests.push_back(
+      {"string_to_bytes", {String("012"), "base2"}, NullBytes(), OUT_OF_RANGE});
+  tests.push_back(
+      {"string_to_bytes", {String("099"), "base8"}, NullBytes(), OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("123g321"), "base16"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("123g321"), "hex"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("3!2+7w=="), "base64"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("3!2+7w=="), "base64m"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("sd£sd"), "ascii"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("sd\xffsd"), "ascii"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("£\xff£"), "utf8"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+  tests.push_back({"string_to_bytes",
+                   {String("£\xff£"), "utf-8"},
+                   NullBytes(),
+                   OUT_OF_RANGE});
+
+  return tests;
+}
+
 }  // namespace zetasql

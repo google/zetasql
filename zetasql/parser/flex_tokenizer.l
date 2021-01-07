@@ -358,6 +358,7 @@ and {
   }
   return BisonParserImpl::token::KW_AND;
 }
+anonymization { return BisonParserImpl::token::KW_ANONYMIZATION; }
 any { return BisonParserImpl::token::KW_ANY; }
 array { return BisonParserImpl::token::KW_ARRAY; }
 as { return BisonParserImpl::token::KW_AS; }
@@ -383,6 +384,7 @@ cascade { return BisonParserImpl::token::KW_CASCADE; }
 case { return BisonParserImpl::token::KW_CASE; }
 cast { return BisonParserImpl::token::KW_CAST; }
 check { return BisonParserImpl::token::KW_CHECK; }
+clamped { return BisonParserImpl::token::KW_CLAMPED; }
 cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
 column { return BisonParserImpl::token::KW_COLUMN; }
@@ -513,18 +515,18 @@ no { return BisonParserImpl::token::KW_NO; }
 not { return BisonParserImpl::token::KW_NOT; }
  /* This returns a different token because returning KW_NOT would confuse the
     operator precedence parsing. Boolean NOT has a different precedence than
-    NOT BETWEEN/IN/LIKE. The final character at the end is intended to avoid
-    cases like "NOT Info.foo" being interpreted as having a NOT for IN. This
-    unfortunately doesn't match at EOF, so "NOT IN" at the very end of the file
-    will cause bad error messages. There is no situation where that is valid
-    syntax, so there will never be any rejections as a result.
+    NOT BETWEEN/IN/LIKE/DISTINCT. The final character at the end is intended to
+    avoid cases like "NOT Info.foo" being interpreted as having a NOT for IN.
+    This unfortunately doesn't match at EOF, so "NOT IN" at the very end of the
+    file will cause bad error messages. There is no situation where that is
+    valid syntax, so there will never be any rejections as a result.
  */
-not{whitespace}(between|in|like)[^A-Z_0-9] {
+not{whitespace}(between|in|like|distinct)[^A-Z_0-9] {
   SET_RETURN_PREFIX_LENGTH(3);
   if (mode_ == BisonParserMode::kTokenizer) {
     return BisonParserImpl::token::KW_NOT;
   }
-  return BisonParserImpl::token::KW_NOT_FOR_BETWEEN_IN_LIKE;
+  return BisonParserImpl::token::KW_NOT_SPECIAL;
 }
 null { return BisonParserImpl::token::KW_NULL; }
 nulls { return BisonParserImpl::token::KW_NULLS; }

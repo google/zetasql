@@ -39,6 +39,7 @@
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
@@ -55,6 +56,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
+#include "zetasql/base/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
@@ -67,6 +69,7 @@
 
 namespace zetasql {
 
+class FunctionArgumentInfo;
 class FunctionResolver;
 class QueryResolutionInfo;
 struct ColumnReplacements;
@@ -113,6 +116,9 @@ class Resolver {
   // function call. Unlike ResolveExpr, this method accepts maps from the
   // argument names to their types for arguments in <function_arguments>.
   // <expr_resolution_info> is used for resolving the function call.
+  //
+  // TODO: Provide an overload that takes a FunctionArgumentInfo
+  //     directly and deprecate this one.
   absl::Status ResolveExprWithFunctionArguments(
       absl::string_view sql, const ASTExpression* ast_expr,
       IdStringHashMapCase<std::unique_ptr<ResolvedArgumentRef>>*
@@ -127,6 +133,9 @@ class Resolver {
   // is present, calls the CheckSQLBodyReturnTypesAndCoerceIfNeeded method to
   // enforce that the schema returned by the function body matches the expected
   // schema, adding a coercion or returning an error if necessary.
+  //
+  // TODO: Provide an overload that takes a FunctionArgumentInfo
+  //     directly and deprecate this one.
   absl::Status ResolveQueryStatementWithFunctionArguments(
       absl::string_view sql, const ASTQueryStatement* query_stmt,
       const absl::optional<TVFRelation>& specified_output_schema,
@@ -471,15 +480,13 @@ class Resolver {
   std::map<ResolvedColumn, ResolvedStatement::ObjectAccess>
       referenced_column_access_;
 
-  // Contains function arguments for CREATE FUNCTION statements. These are
-  // stored while resolving the function's argument list, and used while
-  // resolving the function body for SQL functions.
-  IdStringHashMapCase<std::unique_ptr<ResolvedArgumentRef>> function_arguments_;
-
-  // Contains table-valued arguments for CREATE TABLE FUNCTION statements.
-  // These are stored while resolving the function's argument list, and used
-  // while resolving the function body for SQL functions.
-  IdStringHashMapCase<TVFRelation> function_table_arguments_;
+  // Contains metadata reguarding any function arguments that are in scope and
+  // can be referenced. This pointer is only set when analyzing the SQL body of
+  // a function or table function.
+  //
+  // TODO: Maybe allow argument names in scope for the sake of
+  //   the TYPEOF() operator. 'RETURNS TYPEOF(arg)' maybe a valid thing to do.
+  const FunctionArgumentInfo* function_argument_info_ = nullptr;
 
   // Contains undeclared parameters whose type has been inferred from context.
   QueryParametersMap undeclared_parameters_;
@@ -606,13 +613,7 @@ class Resolver {
   bool TypeSupportsGrouping(const Type* type,
                             std::string* no_grouping_type) const;
 
-  // Return an error if <expr> does not have STRING type.
-  // If <expr> is an untyped undeclared parameter or untyped NULL, assigns it a
-  // STRING type. <clause_name> is used in the error message.
-  absl::Status CheckIsStringExpr(const ASTNode* location,
-                                 const char* clause_name,
-                                 std::unique_ptr<const ResolvedExpr>* expr);
-
+  // Resolve an ASTQueryStatement.
   absl::Status ResolveQueryStatement(
       const ASTQueryStatement* query_stmt,
       std::unique_ptr<ResolvedStatement>* output_stmt,
@@ -973,21 +974,20 @@ class Resolver {
   absl::Status ResolveFunctionDeclaration(
       const ASTFunctionDeclaration* function_declaration,
       ResolveFunctionDeclarationType function_type,
-      std::vector<std::string>* function_name,
-      std::vector<std::string>* argument_names,
-      FunctionArgumentTypeList* signature_arguments,
-      bool* contains_templated_arguments);
+      std::vector<std::string>* function_name, FunctionArgumentInfo* arg_info);
 
-  // Resolve function parameter list, output function argument names to
-  // <argument_names> and argument signature to <signature_arguments>.
-  // <contains_templated_arguments> is set to true if any argument is of type
-  // "ANY TYPE" or "ANY TABLE".
+  // Resolves function parameter list and populates <arg_info>.
   absl::Status ResolveFunctionParameters(
       const ASTFunctionParameters* ast_function_parameters,
       ResolveFunctionDeclarationType function_type,
-      std::vector<std::string>* argument_names,
-      FunctionArgumentTypeList* signature_arguments,
-      bool* contains_templated_arguments);
+      FunctionArgumentInfo* arg_info);
+
+  // Sets the Resolver::function_argument_info_ variable that signals what
+  // argument names are in scope for expression and table name resolution.
+  // Returns a cleanup object that resets the Resolver::function_argument_info_
+  // variable when it goes out of scope.
+  zetasql_base::Cleanup<std::function<void()>> SetArgumentInfo(
+      const FunctionArgumentInfo* arg_info);
 
   absl::Status ResolveCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* ast_statement,
@@ -1564,6 +1564,14 @@ class Resolver {
       const ASTSelect* select,
       bool is_for_select_distinct,
       QueryResolutionInfo* query_resolution_info,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
+  // Add a ResolvedAnonymizedAggregateScan wrapping <current_scan> and producing
+  // the anonymization function call / expression columns.  Must only be called
+  // if FEATURE_ANONYMIZATION is enabled and the column list contains
+  // anonymization function calls and/or group by columns.
+  absl::Status AddAnonymizedAggregateScan(
+      const ASTSelect* select, QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedScan>* current_scan);
 
   // Add a ResolvedAnalyticScan wrapping <current_scan> and producing the
@@ -2237,9 +2245,7 @@ class Resolver {
       const ASTTVFArgument* ast_tvf_arg, const NameScope* external_scope,
       const NameScope* local_scope,
       const FunctionArgumentType* function_argument,
-      const TableValuedFunction* tvf_catalog_entry,
-      std::vector<std::pair<const ASTNamedArgument*, int>>* named_arguments,
-      int arg_num,
+      const TableValuedFunction* tvf_catalog_entry, int arg_num,
       std::unordered_map<int, std::unique_ptr<const NameScope>>*
           tvf_table_scope_map);
 
@@ -2440,6 +2446,15 @@ class Resolver {
       const ASTPathExpression* path_expr,
       ExprResolutionInfo* expr_resolution_info) const;
 
+  // If there is an in-scope function or table function argument with a name
+  // matching the first part of <path_expr>, populates <resolved_expr_out> with
+  // a reference to that argument and increments <num_parts_consumed>.
+  // Otherwise, does not modify <resolved_expr_out> or <num_parts_consumed>.
+  absl::Status MaybeResolvePathExpressionAsFunctionArgumentRef(
+      const ASTPathExpression* path_expr,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+      int* num_parts_consumed);
+
   absl::Status ResolvePathExpressionAsExpression(
       const ASTPathExpression* path_expr,
       ExprResolutionInfo* expr_resolution_info,
@@ -2541,6 +2556,13 @@ class Resolver {
   // On success, <resolved_lhs> will be reset.
   absl::Status MaybeResolveStructFieldAccess(
       const ASTIdentifier* identifier, bool error_if_not_found,
+      std::unique_ptr<const ResolvedExpr> resolved_lhs,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  // Resolves JSON field access.  <resolved_lhs> must have JSON type.
+  // On success, <resolved_lhs> will be reset.
+  absl::Status ResolveJsonFieldAccess(
+      const ASTIdentifier* identifier,
       std::unique_ptr<const ResolvedExpr> resolved_lhs,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -2697,6 +2719,14 @@ class Resolver {
       bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* resolved_argument);
 
+  // Same as the previous method, but includes <format>. If <format> is
+  // specified, it is used as the format string for the cast.
+  absl::Status ResolveCastWithResolvedArgument(
+      const ASTNode* ast_location, const Type* to_type,
+      std::unique_ptr<const ResolvedExpr> format,
+      bool return_null_on_error,
+      std::unique_ptr<const ResolvedExpr>* resolved_argument);
+
   absl::Status ResolveArrayElement(
       const ASTArrayElement* array_element,
       ExprResolutionInfo* expr_resolution_info,
@@ -2709,6 +2739,7 @@ class Resolver {
   static const char kSafeArrayAtOffset[];
   static const char kSafeArrayAtOrdinal[];
   static const char kSafeProtoMapAtKey[];
+  static const char kSubscript[];
 
   // Verifies that <resolved_array> is an array and that <ast_position> is an
   // appropriate array element function call (e.g., to OFFSET) and populates
@@ -2859,6 +2890,18 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_arguments_out,
       std::vector<const ASTExpression*>* ast_arguments_out);
+
+  // Resolves interval expressions:
+  // Literal:     INTERVAL '<literal>' <date_part> [ TO <date_part2>]
+  // Constructor: INTERVAL <int64_expr> <date_part>
+  absl::Status ResolveIntervalExpr(
+      const ASTIntervalExpr* interval_expr,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  // Resolves AST identifier as DateTimestampPart
+  zetasql_base::StatusOr<functions::DateTimestampPart> ResolveDateTimestampPart(
+      const ASTIdentifier* date_part_identifier);
 
   absl::Status ResolveInsertValuesRow(
       const ASTInsertValuesRow* ast_insert_values_row, const NameScope* scope,
@@ -3155,6 +3198,8 @@ class Resolver {
 
   // Returns the function name, arguments and options. It handles the special
   // cases for COUNT(*) and DATE functions.
+  // If the function is an anonymized aggregate function, then updates
+  // <query_resolution_info> to indicate the presence of anonymization.
   absl::Status GetFunctionNameAndArguments(
       const ASTFunctionCall* function_call,
       std::vector<std::string>* function_name_path,
@@ -3191,6 +3236,14 @@ class Resolver {
       const ASTOptionsList* options_list,
       std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options);
 
+  // Resolve <options_list> and add the options onto <resolved_options>.
+  // Requires valid anonymization option names and types - delta, epsilon,
+  // kappa, k_threshold.  Validates option expression types and coerces
+  // them to target types if necessary.
+  absl::Status ResolveAnonymizationOptionsList(
+      const ASTOptionsList* options_list,
+      std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options);
+
   // Verify that the expression is an integer parameter or literal, returning
   // error status if not.
   absl::Status ValidateIntegerParameterOrLiteral(
@@ -3206,7 +3259,7 @@ class Resolver {
       std::unique_ptr<const ResolvedExpr>* expr) const;
 
   absl::Status ResolveAddConstraintAction(
-      const Table* referencing_table,
+      const Table* referencing_table, const ASTAlterStatementBase* alter_stmt,
       const ASTAddConstraintAction* alter_action,
       std::unique_ptr<const ResolvedAddConstraintAction>*
           resolved_alter_action);
@@ -3410,8 +3463,7 @@ class Resolver {
 
   absl::Status ResolvePivotExpressions(
       const ASTPivotExpressionList* ast_pivot_expr_list, const NameScope* scope,
-      std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-          pivot_expr_columns);
+      std::vector<std::unique_ptr<const ResolvedExpr>>* pivot_expr_columns);
 
   absl::Status ResolveForExprInPivotClause(
       const ASTExpression* for_expr, const NameScope* scope,
@@ -3441,6 +3493,68 @@ class Resolver {
   friend class FunctionResolver;
   friend class FunctionResolverTest;
   friend class ResolverTest;
+};
+
+// Encapsulates metadata about function arguments when resolving a
+// `CREATE ... FUNCTION` statement or when resolving the body of an invoked
+// function template.
+class FunctionArgumentInfo {
+ public:
+  // Details about a specific argument.
+  struct ArgumentDetails {
+    IdString name;
+    FunctionArgumentType arg_type;
+    // <arg_kind> is used only for scalar arguments.
+    std::optional<ResolvedArgumentDef::ArgumentKind> arg_kind;
+  };
+
+  // Returns true if there is an arg <name>.
+  bool HasArg(const IdString& name) const;
+
+  // Returns a pointer to the argument details if a relational argument <name>
+  // is found in this metadata. Otherwise, returns nullptr.
+  const ArgumentDetails* FindTableArg(IdString name) const;
+
+  // Returns a pointer to the argument details if a scalar argument <name> is
+  // found in this metadata. Otherwise, returns nullptr.
+  const ArgumentDetails* FindScalarArg(IdString name) const;
+
+  // Returns a pointer to the argument details if an argument <name> is found in
+  // this metadata. Otherwise, returns nullptr.
+  const ArgumentDetails* FindArg(IdString name) const;
+
+  // Returns true if any of the arguments contained is a template argument.
+  bool contains_templated_arguments() const {
+    return contains_templated_arguments_;
+  }
+
+  // Returns a list of argument names as strings in the order they were added.
+  std::vector<std::string> ArgumentNames() const;
+
+  // Returns a list of argument types in the order they were added. This is used
+  // when constructing a FunctionSignature.
+  FunctionArgumentTypeList SignatureArguments() const;
+
+  // Add details of a scalar argument.
+  absl::Status AddScalarArg(IdString name,
+                            ResolvedArgumentDef::ArgumentKind arg_kind,
+                            FunctionArgumentType arg_type);
+
+  // Add details for a relation argument.
+  absl::Status AddRelationArg(IdString name, FunctionArgumentType arg_type);
+
+ private:
+  // std::unique_ptr is used to ensure stability of any pointers to details
+  // returned even when more arguments are added to the details_ list.
+  // details_ is stored in argument order to enable constructing function
+  // signature and name lists.
+  std::vector<std::unique_ptr<ArgumentDetails>> details_;
+  // This map functions as an index of details to make lookup-by-name cheap and
+  // idiomatic.
+  IdStringHashMapCase<int64_t> details_index_by_name_;
+  bool contains_templated_arguments_ = false;
+
+  absl::Status AddArgCommon(ArgumentDetails details);
 };
 
 }  // namespace zetasql

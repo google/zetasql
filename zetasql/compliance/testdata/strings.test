@@ -1,0 +1,1289 @@
+[name=strings_basic]
+SELECT "abc"
+--
+ARRAY<STRUCT<STRING>>[{"abc"}]
+==
+# Test all the accepted escaped characters.
+[name=strings_accepted_escaped_characters]
+SELECT "a\ab", "a\bb", "a\fb", "a\nb", "a\rb", "a\tb", "a\vb", "a\\b", "a\?b", "a\'b", "a\`b"
+--
+ARRAY<STRUCT<STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING,
+             STRING>>
+[{"a\x07\x62",
+  "a\x08\x62",
+  "a\x0c\x62",
+  "a\nb",
+  "a\rb",
+  "a\tb",
+  "a\x0b\x62",
+  "a\\b",
+  "a?b",
+  "a'b",
+  "a`b"}]
+==
+
+#Test that unaccepted escaped characters error out.
+[name=strings_unaccepted_escaped_characters_1]
+SELECT "a\qc"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \q [at 1:10]
+SELECT "a\qc"
+         ^
+==
+
+[name=strings_unaccepted_escaped_characters_2]
+SELECT "a\~b"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \~ [at 1:10]
+SELECT "a\~b"
+         ^
+==
+
+[name=strings_unaccepted_escaped_characters_3]
+SELECT "a\+b"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \+ [at 1:10]
+SELECT "a\+b"
+         ^
+==
+
+[name=strings_unaccepted_escaped_characters_4]
+SELECT "a\/b"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \/ [at 1:10]
+SELECT "a\/b"
+         ^
+==
+
+[name=strings_triple_single_quotes_1]
+SELECT '''abc''', '''abc\n'''
+--
+ARRAY<STRUCT<STRING, STRING>>[{"abc", "abc\n"}]
+==
+
+[name=strings_triple_single_quotes_embedded_new_line]
+SELECT '''abc
+def'''
+--
+ARRAY<STRUCT<STRING>>[{"abc\ndef"}]
+==
+
+[name=strings_triple_double_quotes_embedded_new_line]
+SELECT """abc
+def"""
+--
+ARRAY<STRUCT<STRING>>[{"abc\ndef"}]
+==
+
+[name=strings_triple_single_quotes_2]
+SELECT '''abc\'''
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+SELECT '''abc\'''
+       ^
+==
+
+
+# Test using the other two quote types.
+[name=strings_unescaped_quote_types_1]
+SELECT "a'b'''"
+--
+ARRAY<STRUCT<STRING>>[{"a'b'''"}]
+==
+
+[name=strings_unescaped_quote_types_2]
+SELECT 'a"b''''
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed triple-quoted string literal [at 1:13]
+SELECT 'a"b''''
+            ^
+==
+
+[name=strings_unescaped_quote_types_3]
+SELECT '''a'b"'''
+--
+ARRAY<STRUCT<STRING>>[{"a'b\""}]
+==
+
+[name=strings_unescaped_quote_types_4]
+SELECT "a"b"
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed bytes literal [at 1:11]
+SELECT "a"b"
+          ^
+==
+
+[name=strings_unescaped_quote_types_5]
+SELECT "a""b"
+--
+ERROR: generic::invalid_argument: Syntax error: Expected end of input but got string literal "b" [at 1:11]
+SELECT "a""b"
+          ^
+==
+
+[name=strings_unescaped_quote_types_6]
+SELECT 'a'b'
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed bytes literal [at 1:11]
+SELECT 'a'b'
+          ^
+==
+
+[name=strings_unescaped_quote_types_7]
+SELECT 'a''b'
+--
+ERROR: generic::invalid_argument: Syntax error: Expected end of input but got string literal 'b' [at 1:11]
+SELECT 'a''b'
+          ^
+==
+
+[name=strings_unescaped_quote_types_8]
+SELECT '''a'''b'''
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed triple-quoted bytes literal [at 1:15]
+SELECT '''a'''b'''
+              ^
+==
+
+[name=strings_unescaped_quote_types_9]
+SELECT '''a''''''b'''
+--
+ERROR: generic::invalid_argument: Syntax error: Expected end of input but got string literal '''b''' [at 1:15]
+SELECT '''a''''''b'''
+              ^
+==
+
+[name=strings_unescaped_quote_types_10]
+SELECT 'a`b'
+--
+ARRAY<STRUCT<STRING>>[{"a`b"}]
+==
+
+# Test octals.
+[name=strings_octal_1]
+SELECT "\123"
+--
+ARRAY<STRUCT<STRING>>[{"S"}]
+==
+
+[name=strings_octal_2]
+SELECT "\12"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \12 [at 1:9]
+SELECT "\12"
+        ^
+==
+
+[name=strings_octal_3]
+SELECT "\1234"
+--
+ARRAY<STRUCT<STRING>>[{"S4"}]
+==
+
+# Test hex
+[name=strings_hex_1]
+SELECT "\x41"
+--
+ARRAY<STRUCT<STRING>>[{"A"}]
+==
+
+[name=strings_hex_2]
+SELECT "\x41B"
+--
+ARRAY<STRUCT<STRING>>[{"AB"}]
+==
+
+[name=strings_hex_3]
+SELECT "\x4"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x4 [at 1:9]
+SELECT "\x4"
+        ^
+==
+
+[name=strings_hex_4]
+SELECT "\x4167"
+--
+ARRAY<STRUCT<STRING>>[{"A67"}]
+==
+
+[name=strings_hex_5]
+SELECT "\X41"
+--
+ARRAY<STRUCT<STRING>>[{"A"}]
+==
+
+[name=strings_hex_6]
+SELECT "\X41B"
+--
+ARRAY<STRUCT<STRING>>[{"AB"}]
+==
+
+[name=strings_hex_7]
+SELECT "\X4"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \X4 [at 1:9]
+SELECT "\X4"
+        ^
+==
+
+[name=strings_hex_8]
+SELECT "\X4167"
+--
+ARRAY<STRUCT<STRING>>[{"A67"}]
+==
+
+
+# UTF-8 tests
+[name=strings_utf8_1]
+SELECT "\uE282"
+--
+ARRAY<STRUCT<STRING>>[{""}]
+==
+
+[name=strings_utf8_2]
+SELECT "\uE282X"
+--
+ARRAY<STRUCT<STRING>>[{"X"}]
+==
+
+[name=strings_utf8_3]
+SELECT "\uE!82"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \uE!82 [at 1:9]
+SELECT "\uE!82"
+        ^
+==
+
+[name=strings_utf8_5]
+SELECT "\U0000E282"
+--
+ARRAY<STRUCT<STRING>>[{""}]
+==
+
+[name=strings_utf8_6]
+SELECT "\U0000E282X"
+--
+ARRAY<STRUCT<STRING>>[{"X"}]
+==
+
+[name=strings_utf8_7]
+SELECT "\UE282E282"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: Value of \UE282E282 exceeds Unicode limit (0x0010FFFF) [at 1:9]
+SELECT "\UE282E282"
+        ^
+==
+
+[name=strings_utf8_8]
+SELECT "\U0!00E282"
+--
+ERROR: generic::invalid_argument: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U0!00E282 [at 1:9]
+SELECT "\U0!00E282"
+        ^
+==
+
+# Unicode can be unescaped in strings.
+[name=strings_utf8_9]
+SELECT "€"
+--
+ARRAY<STRUCT<STRING>>[{"€"}]
+==
+
+# Test that STRING -> BYTES casting might not preserve the byte length.
+[name=diff_strings_and_bytes_11]
+SELECT b"", ""
+--
+ARRAY<STRUCT<BYTES, STRING>>[{b"", ""}]
+==
+
+[name=diff_strings_and_bytes_0]
+SELECT "\u20AC" = "€", CAST(b"\xE2\x82\xAC" AS STRING) = "€"
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+
+[name=diff_strings_and_bytes_1]
+SELECT LENGTH("\xEE"), LENGTH(b"\xEE"), LENGTH(CAST("\xEE" AS BYTES))
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{1, 1, 2}]
+==
+
+[name=diff_strings_and_bytes_2]
+SELECT LENGTH("€"), LENGTH("\xE2\x82\xAC"), LENGTH(b"\xE2\x82\xAC")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{1, 3, 3}]
+==
+
+[name=diff_strings_and_bytes_3]
+SELECT LENGTH("\u20AC"), LENGTH("€"), LENGTH(CAST("\u20AC" AS BYTES)), LENGTH(CAST(CAST("\u20AC" AS BYTES) AS STRING))
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{1, 1, 3, 1}]
+==
+
+[name=diff_strings_and_bytes_12]
+SELECT LENGTH("€"), LENGTH(b"€")
+--
+ARRAY<STRUCT<INT64, INT64>>[{1, 3}]
+==
+
+[name=diff_strings_and_bytes_4]
+SELECT SUBSTR("€", 1, 1) = "€", SUBSTR(b"€", 1, 1) = b"\xe2", SUBSTR(CAST("€" AS BYTES), 1, 1) = b"\xe2", SUBSTR(CAST(CAST("€" AS BYTES) AS STRING), 1, 1) = "€"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, true, true, true}]
+==
+
+[name=diff_strings_and_bytes_5]
+SELECT SUBSTR("\xE2\x82\xAC", 1, 1) = "\xE2", SUBSTR(b"\xE2\x82\xAC", 1, 1) = b"\xE2", CAST("\xE2\x82\xAC" AS BYTES), SUBSTR(CAST("\xE2\x82\xAC" AS BYTES), 1, 1)
+--
+ARRAY<STRUCT<BOOL, BOOL, BYTES, BYTES>>[
+  {
+    true,
+    true,
+    b"\xc3\xa2\xc2\x82\xc2\xac",
+    b"\xc3"
+  }
+]
+==
+
+[name=diff_strings_and_bytes_6]
+SELECT SUBSTR("\u20AC", 1, 1) = "€", SUBSTR(b"€", 1, 1) =  b"\xe2", SUBSTR(CAST("€" AS BYTES), 1, 1) = b"\xe2"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+
+[name=diff_strings_and_bytes_7]
+SELECT CHAR_LENGTH("€"), CHAR_LENGTH("\xE2\x82\xAC")
+--
+ARRAY<STRUCT<INT64, INT64>>[{1, 3}]
+==
+
+[name=diff_strings_and_bytes_8]
+SELECT BYTE_LENGTH("€"), BYTE_LENGTH("\xE2\x82\xAC"), BYTE_LENGTH(b"\xE2\x82\xAC"), BYTE_LENGTH(CAST("\xE2\x82\xAC" AS BYTES))
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{3, 6, 3, 6}]
+==
+
+[name=diff_strings_and_bytes_9]
+SELECT STRPOS("€", "€") = 1, STRPOS("\xE2\x82\xAC", "€") = 0, STRPOS("\xE2\x82\xAC", "\x82") = 2
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+
+[name=diff_strings_and_bytes_10]
+SELECT STRPOS(b"€", b"€") = 1, STRPOS(b"\xE2\x82\xAC", CAST("€" AS BYTES)) = 1, STRPOS(b"\xE2\x82\xAC", b"\x82") = 2
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=substring]
+SELECT SUBSTRING("abc", 1), SUBSTRING("abc", 1, 1), SUBSTRING("\xE2\x82\xAC", 2, 1), SUBSTRING("abc", 0, 1), SUBSTRING("abc", -3, 5)
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING>>[
+  {"abc", "a", "", "a", "abc"}
+]
+==
+
+[name=octet_length]
+SELECT OCTET_LENGTH("€"), OCTET_LENGTH("\xE2\x82\xAC"), OCTET_LENGTH(b"\xE2\x82\xAC"), OCTET_LENGTH(CAST("\xE2\x82\xAC" AS BYTES))
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{3, 6, 3, 6}]
+==
+
+[name=strings_no_embedded_new_line]
+SELECT "a
+c"
+--
+ERROR: generic::invalid_argument: Syntax error: Unclosed string literal [at 1:8]
+SELECT "a
+       ^
+==
+
+[name=strings_comparison_case_sensitivity_1]
+SELECT "CaSe_SenSITive" = "case_sensitive", "case_sensitive" = "case_sensitive"
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{false, true}]
+==
+
+[name=strings_comparison_case_sensitivity_2]
+SELECT "ab" <= "Ab", "ab" < "Ab", "ab" >= "Ab", "ab" > "Ab", "ab" = "Ab", "ab" != "Ab"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, true, true, false, true}
+]
+==
+
+[name=strings_comparison_case_sensitivity_3]
+SELECT "ab" <= "aB", "ab" < "aB", "ab" >= "aB", "ab" > "aB", "ab" = "aB", "ab" != "aB"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, true, true, false, true}
+]
+==
+
+[name=strings_comparison_case_sensitivity_4]
+SELECT "abc" <= "aBc", "abc" < "aBc", "abc" >= "aBc", "abc" > "aBc", "abc" = "aBc", "abc" != "aBc"
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, false, true, true, false, true}
+]
+==
+
+[name=strings_comparison_1]
+SELECT "" = "", "" != "",  "" < "", "" <= "", "" > "", "" >= ""
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, false, false, true, false, true}
+]
+==
+
+[name=strings_comparison_3]
+SELECT "" IS NULL, "" IS NOT NULL, "abc" IS NULL, "abc" IS NOT NULL
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
+==
+
+[name=strings_function_concat]
+SELECT CONCAT("a", "b", "c")
+--
+ARRAY<STRUCT<STRING>>[{"abc"}]
+==
+
+[name=strings_concat_operator]
+SELECT "a" || "b" || "c"
+--
+ARRAY<STRUCT<STRING>>[{"abc"}]
+==
+[name=strings_function_concat_1]
+SELECT CONCAT()
+--
+ERROR: generic::invalid_argument: No matching signature for function CONCAT with no arguments. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
+SELECT CONCAT()
+       ^
+==
+
+[name=strings_function_strpos]
+SELECT STRPOS("abc", "b")
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=strings_function_instr]
+SELECT INSTR("abc", "b"), INSTR("abbba", "bb"), INSTR("abbba", "bb", 2, 2), INSTR("abbba", "bb", -2)
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{2, 2, 3, 3}]
+==
+
+[name=strings_function_lower]
+SELECT LOWER("AbCdE")
+--
+ARRAY<STRUCT<STRING>>[{"abcde"}]
+==
+
+[name=strings_function_upper]
+SELECT UPPER("aBcDe")
+--
+ARRAY<STRUCT<STRING>>[{"ABCDE"}]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=strings_function_initcap]
+SELECT INITCAP("abcd e", " c")
+--
+ARRAY<STRUCT<STRING>>[{"AbcD E"}]
+==
+
+[name=strings_function_length]
+SELECT LENGTH("AbCdE"), LENGTH("\xE2\x82\xAC"), LENGTH("\u20AC")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{5, 3, 1}]
+==
+
+[name=strings_function_char_length]
+SELECT CHAR_LENGTH("AbCdE"), CHAR_LENGTH("\xE2\x82\xAC"), CHAR_LENGTH("\u20AC")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{5, 3, 1}]
+==
+
+[name=strings_function_ascii]
+SELECT ASCII(""), ASCII("a"), ASCII("\x41")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 97, 65}]
+==
+
+[name=strings_function_unicode]
+SELECT UNICODE(""), UNICODE("a"), UNICODE("\uE000")
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{0, 97, 57344}]
+==
+
+[name=strings_function_chr]
+SELECT CHR(0), CHR(97), CHR(1076), CHR(1078)
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[{"\x00", "a", "д", "ж"}]
+==
+
+[name=strings_function_starts_with]
+SELECT STARTS_WITH("abc", "a")
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=strings_function_ends_with]
+SELECT ENDS_WITH("abc", "c")
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=strings_function_substr_error]
+SELECT SUBSTR("abc", 1, -3)
+--
+ERROR: generic::out_of_range: Third argument in SUBSTR() cannot be negative
+==
+
+[name=strings_function_substr]
+SELECT SUBSTR("abc", 1), SUBSTR("abc", 1, 1)
+--
+ARRAY<STRUCT<STRING, STRING>>[{"abc", "a"}]
+==
+
+[name=strings_function_trim]
+SELECT TRIM(" a b "), TRIM(" a b ", " ")
+--
+ARRAY<STRUCT<STRING, STRING>>[{"a b", "a b"}]
+==
+
+[name=strings_function_ltrim]
+SELECT LTRIM(" a b "), LTRIM(" a b ", " ")
+--
+ARRAY<STRUCT<STRING, STRING>>[{"a b ", "a b "}]
+==
+
+[name=strings_function_rtrim]
+SELECT RTRIM(" a b "), RTRIM(" a b ", " ")
+--
+ARRAY<STRUCT<STRING, STRING>>[{" a b", " a b"}]
+==
+
+[name=strings_function_lpad_nulls]
+SELECT LPAD(null, 10, "ab"), LPAD("ab", null, "cd"), LPAD("ab", 10, null)
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{NULL, NULL, NULL}]
+==
+
+[name=strings_function_lpad_default]
+SELECT LPAD("abc", 10)
+--
+ARRAY<STRUCT<STRING>>[{"       abc"}]
+==
+
+[name=strings_function_lpad_default_bytes]
+SELECT LPAD(b"abc", 10)
+--
+ARRAY<STRUCT<BYTES>>[{b"       abc"}]
+==
+
+[name=strings_function_lpad_char]
+SELECT LPAD("abc", 10, "*")
+--
+ARRAY<STRUCT<STRING>>[{"*******abc"}]
+==
+
+[name=strings_function_lpad_char_bytes]
+SELECT LPAD(b"abc", 10, b"*")
+--
+ARRAY<STRUCT<BYTES>>[{b"*******abc"}]
+==
+
+[name=strings_function_lpad_multi_char]
+SELECT LPAD("abc", 10, "-*=")
+--
+ARRAY<STRUCT<STRING>>[{"-*=-*=-abc"}]
+==
+
+[name=strings_function_lpad_multi_char_utf8]
+SELECT LPAD("¼¼¼a", 10, "智者")
+--
+ARRAY<STRUCT<STRING>>[{"智者智者智者¼¼¼a"}]
+==
+
+[name=strings_function_lpad_default_expr]
+SELECT LPAD(LTRIM(" goog goog"), LENGTH(" goog goog"))
+--
+ARRAY<STRUCT<STRING>>[{" goog goog"}]
+==
+
+[name=strings_function_lpad_error]
+SELECT LPAD("abc", -15)
+--
+ERROR: generic::out_of_range: Second argument (output size) for LPAD/RPAD cannot be negative
+==
+
+[name=strings_function_lpad_mem_error]
+SELECT LPAD("abc", 1000000000)
+--
+ERROR: generic::out_of_range: Output of LPAD/RPAD exceeds max allowed output size of 1MB
+==
+
+[name=strings_function_rpad_nulls]
+SELECT RPAD(null, 10, "ab"), RPAD("ab", null, "cd"), RPAD("ab", 10, null)
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{NULL, NULL, NULL}]
+==
+
+[name=strings_function_rpad_default]
+SELECT RPAD("abc", 10)
+--
+ARRAY<STRUCT<STRING>>[{"abc       "}]
+==
+
+[name=strings_function_rpad_default_bytes]
+SELECT RPAD(b"abc", 10)
+--
+ARRAY<STRUCT<BYTES>>[{b"abc       "}]
+==
+
+[name=strings_function_rpad_char]
+SELECT RPAD("abc", 10, "*")
+--
+ARRAY<STRUCT<STRING>>[{"abc*******"}]
+==
+
+[name=strings_function_rpad_char_bytes]
+SELECT RPAD(b"abc", 10, b"*")
+--
+ARRAY<STRUCT<BYTES>>[{b"abc*******"}]
+==
+
+[name=strings_function_rpad_multi_char]
+SELECT RPAD("abc", 10, "-*=")
+--
+ARRAY<STRUCT<STRING>>[{"abc-*=-*=-"}]
+==
+
+[name=strings_function_rpad_multi_char_bytes]
+SELECT RPAD(b"abc", 10, b"-*=")
+--
+ARRAY<STRUCT<BYTES>>[{b"abc-*=-*=-"}]
+==
+
+[name=strings_function_rpad_multi_char_utf8]
+SELECT RPAD("¼¼¼a", 10, "智者")
+--
+ARRAY<STRUCT<STRING>>[{"¼¼¼a智者智者智者"}]
+==
+
+[name=strings_function_rpad_default_expr]
+SELECT RPAD(RTRIM("goog goog "), LENGTH(" goog goog"))
+--
+ARRAY<STRUCT<STRING>>[{"goog goog "}]
+==
+
+[name=strings_function_rpad_error]
+SELECT RPAD("abc", -15)
+--
+ERROR: generic::out_of_range: Second argument (output size) for LPAD/RPAD cannot be negative
+==
+
+[name=strings_function_rpad_mem_error]
+SELECT RPAD("abc", 1000000000)
+--
+ERROR: generic::out_of_range: Output of LPAD/RPAD exceeds max allowed output size of 1MB
+==
+
+[name=strings_function_left_error]
+SELECT LEFT("abc", -2)
+--
+ERROR: generic::out_of_range: Second argument in LEFT() cannot be negative
+==
+
+[name=strings_function_left]
+SELECT LEFT("abc", 0), LEFT("abc", 2), LEFT("abc", 5)
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{"", "ab", "abc"}]
+==
+
+[name=strings_function_right_error]
+SELECT RIGHT("abc", -2)
+--
+ERROR: generic::out_of_range: Second argument in RIGHT() cannot be negative
+==
+
+[name=strings_function_right]
+SELECT RIGHT("abc", 0), RIGHT("abc", 2), RIGHT("abc", 5)
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{"", "bc", "abc"}]
+==
+
+[name=strings_function_repeat_nulls]
+SELECT REPEAT(null, 10), REPEAT("ab", null), REPEAT(null, null)
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{NULL, NULL, NULL}]
+==
+
+[name=strings_function_repeat]
+SELECT REPEAT("goog", 3)
+--
+ARRAY<STRUCT<STRING>>[{"googgooggoog"}]
+==
+
+[name=strings_function_repeat_bytes]
+SELECT REPEAT(b"goog", 3)
+--
+ARRAY<STRUCT<BYTES>>[{b"googgooggoog"}]
+==
+
+[name=strings_function_repeat_degenerate]
+SELECT REPEAT("goog", 0), REPEAT("goog", 1)
+--
+ARRAY<STRUCT<STRING, STRING>>[{"", "goog"}]
+==
+
+[name=strings_function_repeat_expr]
+SELECT REPEAT("goog", LENGTH("goo"))
+--
+ARRAY<STRUCT<STRING>>[{"googgooggoog"}]
+==
+
+[name=strings_function_repeat_error]
+SELECT REPEAT("abc", -15)
+--
+ERROR: generic::out_of_range: Second argument (repeat count) for REPEAT cannot be negative
+==
+
+[name=strings_function_repeat_mem_error]
+SELECT REPEAT("abc", 1000000000)
+--
+ERROR: generic::out_of_range: Output of REPEAT exceeds max allowed output size of 1MB
+==
+
+[name=strings_function_replace]
+SELECT REPLACE("abcabc", "a", "z")
+--
+ARRAY<STRUCT<STRING>>[{"zbczbc"}]
+==
+
+[name=strings_function_regexp_match]
+SELECT REGEXP_MATCH("abc", "a|db?")
+--
+ARRAY<STRUCT<BOOL>>[{false}]
+==
+
+[name=strings_function_regexp_instr]
+SELECT REGEXP_INSTR("abcabc", "a(b)c", 2, 1, 1),
+       REGEXP_INSTR("щцфщфф", "щ(.).", 1, 2),
+       REGEXP_INSTR("-2020-jack-class1", "", 2),
+       REGEXP_INSTR("abcdef", "ac.*e.")
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{6, 5, 0, 0}]
+==
+
+[name=strings_function_regexp_extract]
+SELECT REGEXP_EXTRACT("abcabc", "[a|d]b?")
+--
+ARRAY<STRUCT<STRING>>[{"ab"}]
+==
+
+[name=strings_function_regexp_extract_all]
+SELECT REGEXP_EXTRACT_ALL("abc dbc ac", "[a|d]b?")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["ab", "db", "a"]}]
+==
+
+[name=strings_function_regex_replace]
+SELECT REGEXP_REPLACE("abcabc", "[a|d]b?", "xyz")
+--
+ARRAY<STRUCT<STRING>>[{"xyzcxyzc"}]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=strings_function_soundex]
+SELECT SOUNDEX(""), SOUNDEX(" I LOVE YOU TOO"), SOUNDEX("Ashcraft")
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{"", "I413", "A261"}]
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=strings_function_translate]
+SELECT TRANSLATE("abc", "abd", "xy"), TRANSLATE("abcabc", "ab", "\tд")
+--
+ARRAY<STRUCT<STRING, STRING>>[{"xyc", "\tдc\tдc"}]
+==
+
+[name=format_with_non_const_arg]
+select x, y, z, format(x, y, z)
+from (
+  select '%d %d' x, 15 y, -23 z union all
+  select '%*i', 4+2, 13  union all
+  select '%0.*d', 4, 12 union all
+  select '%*d', null, 12 union all
+  select '%*d', 4, null union all
+  select null, 4, 12)
+--
+ARRAY<STRUCT<x STRING, y INT64, z INT64, STRING>>[
+  {"%*i", 6, 13, "    13"},
+  {"%*d", NULL, 12, NULL},
+  {NULL, 4, 12, NULL},
+  {"%d %d", 15, -23, "15 -23"},
+  {"%0.*d", 4, 12, "0012"},
+  {"%*d", 4, NULL, NULL}
+]
+==
+
+[name=format_with_non_const_arg2]
+select x, format(x, cast(150 as uint64))
+from unnest(['%d', '%4d', '%04d', '%#x', '%T', '%4.2t']) x with offset
+order by offset
+--
+ARRAY<STRUCT<x STRING, STRING>>[
+  {"%d", "150"},
+  {"%4d", " 150"},
+  {"%04d", "0150"},
+  {"%#x", "0x96"},
+  {"%T", "150"},
+  {"%4.2t", "  15"}
+]
+==
+
+# Tests for b/134086474#comment5
+[name=format_with_utf8]
+with t as (select b"\347\264\257\350\250\210100\344\270\207DL\343\202\222\347\252\201\347\240\264\343\201\227\343\201\237\343\203\200\343\202\244\343\202\250\343\203\203\343\203\210\343\202\242\343\203\227\343\203\252(\347\204\241\346\226\231)\343\201\256\343\200\216\343\202\202\343\201\220\343\201\237\343\202\223\343\200\217\357\274\201\n\343\201\212\343\201\213\343\201\222\343\201\225\343\201\276\343\201\247\343\200\201\343\203\230\343\203\253\343\202\271\343\202\261\343\202\242/\343\203\225\343\202\243\343\203\203\343\203\210\343\203\215\343\202\271 \347\204\241\346\226\231\343\202\253\343\203\206\343\202\264\343\203\252\343\201\247\357\274\221\344\275\215\347\215\262\345\276\227\357\274\201\n\n\342\227\206\343\201\213\343\202\223\343\201\237\343\202\223\343\202\271\343\202\277\343\203\263\343\203\227\345\205\245\345\212\233 \n\346\226\207\345\255\227\343\201\247\346\233\270\343\201\213\343\201\252\343\201\217\343\201\246\343\202\202\351\243\237\343\201\271\347\211\251\343\202\271\343\202\277\343\203\263\343\203\227\343\201\247\347\260\241\345\215\230\343\201\253\350\250\230\351\214\262\345\207\272\346\235\245\343\201\241\343\202\203\343\201\206\357\274\201\n\n\342\227\206\343\200\216\343\202\202\343\201\220\343\201\237\343\202\223\343\200\217\343\201\214\343\201\277\343\202\223\343\201\252\343\202\222\345\277\234\346\217\264\n\345\205\245\345\212\233\343\201\231\343\202\213\345\272\246\343\201\253\343\202\202\343\201\220\343\201\237\343\202\223\343\201\214\343\202\206\343\202\213\343\201\217\343\201\246\345\217\257\346\204\233\343\201\204\343\202\263\343\203\241\343\203\263\343\203\210\343\202\222\343\201\217\343\202\214\343\202\213\343\202\210\357\274\201\n\346\257\216\346\227\245\344\275\223\351\207\215\343\202\222\345\205\245\345\212\233\343\201\227\343\201\246\343\200\216\343\202\202\343\201\220\343\201\237\343\202\223\343\200\217\343\201\256\343\200\214\343\201\215\343\201\233\343\201\213\343\201\210\343\200\215\343\202\222GET\343\201\227\343\202\210\343\201\206\357\274\201\n\n\342\227\206\343\203\200\343\202\244\343\202\250\343\203\203\343\203\210\343\201\256\346\210\220\346\236\234\343\201\257\343\202\260\343\203\251\343\203\225\343\201\247\343\203\201\343\202\247\343\203\203\343\202\257\n\344\275\223\351\207\215\343\202\222\345\205\245\345\212\233\343\201\231\343\202\213\343\201\250\343\202\260\343\203\251\343\203\225\343\201\253\345\217\215\346\230\240\343\201\225\343\202\214\343\202\213\343\201\213\343\202\211\345\244\211\345\214\226\343\201\214\343\201\276\343\202\213\343\202\217\343\201\213\343\202\212\357\274\201\n\346\221\202\345\217\226\343\202\253\343\203\255\343\203\252\343\203\274\343\201\256\346\216\250\347\247\273\343\202\202\343\202\260\343\203\251\343\203\225\343\201\247\343\203\201\343\202\247\343\203\203\343\202\257\345\207\272\346\235\245\343\201\241\343\202\203\343\201\206\357\274\201\n\n\342\227\206\344\275\223\351\207\215\343\201\250\344\270\200\347\267\222\343\201\253\351\201\213\345\213\225\343\202\271\343\202\277\343\203\263\343\203\227\343\202\222\345\205\245\345\212\233\n\351\201\213\345\213\225\343\202\202\343\202\271\343\202\277\343\203\263\343\203\227\343\201\247\343\201\213\343\202\223\343\201\237\343\202\223\345\205\245\345\212\233\357\274\201\n\346\257\216\346\227\245\343\201\251\343\201\256\343\201\217\343\202\211\343\201\204\343\203\200\343\202\244\343\202\250\343\203\203\343\203\210\343\201\227\343\201\237\343\201\213\343\201\214\343\201\262\343\201\250\347\233\256\343\201\247\343\202\217\343\201\213\343\202\213\343\202\210\357\274\201\n\n\342\227\206 \350\207\252\345\213\225\343\202\253\343\203\255\343\203\252\343\203\274\350\250\210\347\256\227\346\251\237\350\203\275\n\343\203\227\343\203\255\343\203\225\343\202\243\343\203\274\343\203\253\343\202\222\345\205\245\345\212\233\343\201\231\343\202\213\343\201\250\343\200\201\343\201\202\343\201\252\343\201\237\343\201\253\345\220\210\343\201\243\343\201\237\346\221\202\345\217\226\343\202\253\343\203\255\343\203\252\343\203\274\343\201\256\347\233\256\345\256\211\343\201\214\343\202\217\343\201\213\343\202\213\343\202\210\357\274\201\n\nhttps://itunes.apple.com/jp/app/daietto-ji-lumogutan-ke-aiisutanpude/id882365789" as description_bytes)
+select cast(description_bytes as string),
+       format('%T', cast(description_bytes as string)) as formatted_description
+from t;
+--
+ARRAY<STRUCT<
+        STRING,
+        formatted_description STRING
+      >>
+[
+  {
+    "累計100万DLを突破したダイエットアプリ(無料)の『もぐたん』！\nおかげさまで、ヘルスケア/フィットネス 無料カテゴリで１位獲得！\n\n◆かんたんスタンプ入力 \n文字で書かなくても食べ物スタンプで簡単に記録出来ちゃう！\n\n◆『もぐたん』がみんなを応援\n入力する度にもぐたんがゆるくて可愛いコメントをくれるよ！\n毎日体重を入力して『もぐたん』の「きせかえ」をGETしよう！\n\n◆ダイエットの成果はグラフでチェック\n体重を入力するとグラフに反映されるから変化がまるわかり！\n摂取カロリーの推移もグラフでチェック出来ちゃう！\n\n◆体重と一緒に運動スタンプを入力\n運動もスタンプでかんたん入力！\n毎日どのくらいダイエットしたかがひと目でわかるよ！\n\n◆ 自動カロリー計算機能\nプロフィールを入力すると、あなたに合った摂取カロリーの目安がわかるよ！\n\nhttps://itunes.apple.com/jp/app/daietto-ji-lumogutan-ke-aiisutanpude/id882365789",
+    '"累計100万DLを突破したダイエットアプリ(無料)の『もぐたん』！\\nおかげさまで、ヘルスケア/フィットネス 無料カテゴリで１位獲得！\\n\\n◆かんたんスタンプ入力 \\n文字で書かなくても食べ物スタンプで簡単に記録出来ちゃう！\\n\\n◆『もぐたん』がみんなを応援\\n入力する度にもぐたんがゆるくて可愛いコメントをくれるよ！\\n毎日体重を入力して『もぐたん』の「きせかえ」をGETしよう！\\n\\n◆ダイエットの成果はグラフでチェック\\n体重を入力するとグラフに反映されるから変化がまるわかり！\\n摂取カロリーの推移もグラフでチェック出来ちゃう！\\n\\n◆体重と一緒に運動スタンプを入力\\n運動もスタンプでかんたん入力！\\n毎日どのくらいダイエットしたかがひと目でわかるよ！\\n\\n◆ 自動カロリー計算機能\\nプロフィールを入力すると、あなたに合った摂取カロリーの目安がわかるよ！\\n\\nhttps://itunes.apple.com/jp/app/daietto-ji-lumogutan-ke-aiisutanpude/id882365789"'
+  }
+]
+==
+
+# Tests for b/134086474
+[name=format_utf8]
+select cast(description_bytes as string),
+       format('%T', cast(description_bytes as string)) as formatted_description
+from (select b"\347\264\257\350\250\210100\344\270\207DL\343\202\222\347\252\201\347\240\264\343\201\227\343\201\237\343\203\200\343\202\244\343\202\250\343\203\203\343\203\210\343\202\242\343\203\227\343\203\252(\347\204\241\346\226\231)\343\201\256\343\200\216\343\202\202\343\201\220\343\201\237\343\202\223\343\200\217\357\274\201\n\343\201\212\343\201\213\343\201\222\343\201\225\343\201\276\343\201\247\343\200\201\343\203\230\343\203\253\343\202\271\343\202\261\343\202\242/\343\203\225\343\202\243\343\203\203\343\203\210\343\203\215\343\202\271 \347\204\241\346\226\231\343\202\253\343\203\206\343\202\264\343\203\252\343\201\247\357\274\221\344\275\215\347\215\262\345\276\227\357\274\201\n\n\342\227\206\343\201\213\343\202\223\343\201\237\343\202\223\343\202\271\343\202\277\343\203\263\343\203\227\345\205\245\345\212\233 \n\346\226\207\345\255\227\343\201\247\346\233\270\343\201\213\343\201\252\343\201\217\343\201\246\343\202\202\351\243\237\343\201\271\347\211\251\343\202\271\343\202\277\343\203\263\343\203\227\343\201\247\347\260\241\345\215\230\343\201\253\350\250\230\351\214\262\345\207\272\346\235\245\343\201\241\343\202\203\343\201\206\357\274\201\n\n\342\227\206\343\200\216\343\202\202\343\201\220\343\201\237\343\202\223\343\200\217\343\201\214\343\201\277\343\202\223\343\201\252\343\202\222\345\277\234\346\217\264\n\345\205\245\345\212\233\343\201\231\343\202\213\345\272\246\343\201\253\343\202\202\343\201\220\343\201\237\343\202\223\343\201\214\343\202\206\343\202\213\343\201\217\343\201\246\345\217\257\346\204\233\343\201\204\343\202\263\343\203\241\343\203\263\343\203\210\343\202\222\343\201\217\343\202\214\343\202\213\343\202\210\357\274\201\n\346\257\216\346\227\245\344\275\223\351\207\215\343\202\222\345\205\245\345\212\233\343\201\227\343\201\246\343\200\216\343\202\202\343\201\220\343\201\237\343\202\223\343\200\217\343\201\256\343\200\214\343\201\215\343\201\233\343\201\213\343\201\210\343\200\215\343\202\222GET\343\201\227\343\202\210\343\201\206\357\274\201\n\n\342\227\206\343\203\200\343\202\244\343\202\250\343\203\203\343\203\210\343\201\256\346\210\220\346\236\234\343\201\257\343\202\260\343\203\251\343\203\225\343\201\247\343\203\201\343\202\247\343\203\203\343\202\257\n\344\275\223\351\207\215\343\202\222\345\205\245\345\212\233\343\201\231\343\202\213\343\201\250\343\202\260\343\203\251\343\203\225\343\201\253\345\217\215\346\230\240\343\201\225\343\202\214\343\202\213\343\201\213\343\202\211\345\244\211\345\214\226\343\201\214\343\201\276\343\202\213\343\202\217\343\201\213\343\202\212\357\274\201\n\346\221\202\345\217\226\343\202\253\343\203\255\343\203\252\343\203\274\343\201\256\346\216\250\347\247\273\343\202\202\343\202\260\343\203\251\343\203\225\343\201\247\343\203\201\343\202\247\343\203\203\343\202\257\345\207\272\346\235\245\343\201\241\343\202\203\343\201\206\357\274\201\n\n\342\227\206\344\275\223\351\207\215\343\201\250\344\270\200\347\267\222\343\201\253\351\201\213\345\213\225\343\202\271\343\202\277\343\203\263\343\203\227\343\202\222\345\205\245\345\212\233\n\351\201\213\345\213\225\343\202\202\343\202\271\343\202\277\343\203\263\343\203\227\343\201\247\343\201\213\343\202\223\343\201\237\343\202\223\345\205\245\345\212\233\357\274\201\n\346\257\216\346\227\245\343\201\251\343\201\256\343\201\217\343\202\211\343\201\204\343\203\200\343\202\244\343\202\250\343\203\203\343\203\210\343\201\227\343\201\237\343\201\213\343\201\214\343\201\262\343\201\250\347\233\256\343\201\247\343\202\217\343\201\213\343\202\213\343\202\210\357\274\201\n\n\342\227\206 \350\207\252\345\213\225\343\202\253\343\203\255\343\203\252\343\203\274\350\250\210\347\256\227\346\251\237\350\203\275\n\343\203\227\343\203\255\343\203\225\343\202\243\343\203\274\343\203\253\343\202\222\345\205\245\345\212\233\343\201\231\343\202\213\343\201\250\343\200\201\343\201\202\343\201\252\343\201\237\343\201\253\345\220\210\343\201\243\343\201\237\346\221\202\345\217\226\343\202\253\343\203\255\343\203\252\343\203\274\343\201\256\347\233\256\345\256\211\343\201\214\343\202\217\343\201\213\343\202\213\343\202\210\357\274\201\n\nhttps://itunes.apple.com/jp/app/daietto-ji-lumogutan-ke-aiisutanpude/id882365789"
+      as description_bytes);
+--
+ARRAY<STRUCT<
+        STRING,
+        formatted_description STRING
+      >>
+[
+  {
+    "累計100万DLを突破したダイエットアプリ(無料)の『もぐたん』！\nおかげさまで、ヘルスケア/フィットネス 無料カテゴリで１位獲得！\n\n◆かんたんスタンプ入力 \n文字で書かなくても食べ物スタンプで簡単に記録出来ちゃう！\n\n◆『もぐたん』がみんなを応援\n入力する度にもぐたんがゆるくて可愛いコメントをくれるよ！\n毎日体重を入力して『もぐたん』の「きせかえ」をGETしよう！\n\n◆ダイエットの成果はグラフでチェック\n体重を入力するとグラフに反映されるから変化がまるわかり！\n摂取カロリーの推移もグラフでチェック出来ちゃう！\n\n◆体重と一緒に運動スタンプを入力\n運動もスタンプでかんたん入力！\n毎日どのくらいダイエットしたかがひと目でわかるよ！\n\n◆ 自動カロリー計算機能\nプロフィールを入力すると、あなたに合った摂取カロリーの目安がわかるよ！\n\nhttps://itunes.apple.com/jp/app/daietto-ji-lumogutan-ke-aiisutanpude/id882365789",
+    '"累計100万DLを突破したダイエットアプリ(無料)の『もぐたん』！\\nおかげさまで、ヘルスケア/フィットネス 無料カテゴリで１位獲得！\\n\\n◆かんたんスタンプ入力 \\n文字で書かなくても食べ物スタンプで簡単に記録出来ちゃう！\\n\\n◆『もぐたん』がみんなを応援\\n入力する度にもぐたんがゆるくて可愛いコメントをくれるよ！\\n毎日体重を入力して『もぐたん』の「きせかえ」をGETしよう！\\n\\n◆ダイエットの成果はグラフでチェック\\n体重を入力するとグラフに反映されるから変化がまるわかり！\\n摂取カロリーの推移もグラフでチェック出来ちゃう！\\n\\n◆体重と一緒に運動スタンプを入力\\n運動もスタンプでかんたん入力！\\n毎日どのくらいダイエットしたかがひと目でわかるよ！\\n\\n◆ 自動カロリー計算機能\\nプロフィールを入力すると、あなたに合った摂取カロリーの目安がわかるよ！\\n\\nhttps://itunes.apple.com/jp/app/daietto-ji-lumogutan-ke-aiisutanpude/id882365789"'
+  }
+]
+==
+[name=format_invalid_true1]
+select format(x, y)
+from (select '%d' x, 'abc' y)
+where true
+--
+ERROR: generic::out_of_range: Invalid type for argument 2 to FORMAT; Expected integer; Got STRING
+==
+
+[name=format_invalid_true2]
+select format(x, y, z)
+from (select '%d' x, 17 y, 'abc' z)
+where true
+--
+ERROR: generic::out_of_range: Too many arguments to FORMAT for pattern "%d"; Expected 2; Got 3
+==
+
+[name=split_nulls]
+select split(null), split(null, ","), split("x", null), split(null, null)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {ARRAY<STRING>(NULL),
+   ARRAY<STRING>(NULL),
+   ARRAY<STRING>(NULL),
+   ARRAY<STRING>(NULL)}
+]
+==
+
+[name=split_default_delimiter]
+select split("foo, bar, ,,"), split(""), split(" no commas "), split(",")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>["foo", " bar", " ", "", ""],
+    ARRAY<STRING>[""],
+    ARRAY<STRING>[" no commas "],
+    ARRAY<STRING>["", ""]
+  }
+]
+==
+
+[name=split_custom_delimiter]
+select split("192.0.0.1", "."), split(" hello, world! ", " ")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>["192", "0", "0", "1"],
+    ARRAY<STRING>["", "hello,", "world!", ""]
+  }
+]
+==
+
+[name=split_empty_delimiter]
+select split("", ""), split("abcd", "")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>[""],
+    ARRAY<STRING>["a", "b", "c", "d"]
+  }
+]
+==
+
+[name=split_empty_input]
+select split("", "foo")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>[""]}]
+==
+
+[name=split_utf8_empty_delimiter]
+select split("beyoncé", "") as en_us,
+       split("विभिन", "") as hi_in,
+       split("สมถะ", "") as th_th,
+       split("안녕하세요", "") as ko_kr;
+--
+ARRAY<STRUCT<en_us ARRAY<>, hi_in ARRAY<>, th_th ARRAY<>, ko_kr ARRAY<>>>[
+  {
+    ARRAY<STRING>["b", "e", "y", "o", "n", "c", "é"],
+    ARRAY<STRING>["व", "ि", "भ", "ि", "न"],
+    ARRAY<STRING>["ส", "ม", "ถ", "ะ"],
+    ARRAY<STRING>["안", "녕", "하", "세", "요"]
+  }
+]
+==
+
+# Hindi vowel following consonant is called "matra" and it looks like a single
+# character, but in reality it is still 2 UTF8 characters. Therefore the below
+# input string is not 3 characters, but 5 UTF8 characters (2 matras at the
+# beginning). The test shows that split works both by vowels, consonants and
+# matras.
+[name=split_utf8_hindi_matras]
+select split("विभिन", "व"),
+       split("विभिन", "ि"),
+       split("विभिन", "वि"),
+       split("विभिन", "भि")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>["", "िभिन"],
+    ARRAY<STRING>["व", "भ", "न"],
+    ARRAY<STRING>["", "भिन"],
+    ARRAY<STRING>["वि", "न"]
+  }
+]
+==
+[name=split_multichar_delimiter]
+select split("aaaaa", "aa"), split("ab", "abc"), split("a123bb123ccc123dddd", "123")
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>["", "", "a"],
+    ARRAY<STRING>["ab"],
+    ARRAY<STRING>["a", "bb", "ccc", "dddd"]
+  }
+]
+==
+[name=json_extract_literal_path]
+select
+  json_extract('{"a": "foo"}', '$.a'),
+  json_extract_scalar('{"a": "foo"}', '$.a')
+--
+ARRAY<STRUCT<STRING, STRING>>[{'"foo"', "foo"}]
+==
+[name=json_extract_duplicate_elements]
+select
+  json_extract('{"a": "foo1", "a": "foo2", "a": "foo3"}', '$.a'),
+  json_extract_scalar('{"a": "foo1", "a": "foo2", "a": "foo3"}', '$.a')
+--
+ARRAY<STRUCT<STRING, STRING>>[{'"foo1"', "foo1"}]
+==
+[name=json_value_duplicate_elements]
+select
+  json_query('{"a": "foo1", "a": "foo2", "a": "foo3"}', '$.a'),
+  json_value('{"a": "foo1", "a": "foo2", "a": "foo3"}', '$.a')
+--
+ARRAY<STRUCT<STRING, STRING>>[{'"foo1"', "foo1"}]
+==
+[name=json_extract_multiple_inputs]
+select
+  json_extract(s, '$.a'),
+  json_extract_scalar(s, '$.a.b')
+from unnest(['{"a" : { "b" : 4 } }', '{"a" : 3}', '{"a" : { "b" : "bar" } }']) s
+--
+ARRAY<STRUCT<STRING, STRING>>[
+  {"3", NULL},
+  {'{"b":4}', "4"},
+  {'{"b":"bar"}', "bar"}
+]
+==
+[name=json_extract_scalar_raw_string]
+select
+  json_extract_scalar(r'{"x": "\" \\ \b \f \n \r \t \u238b"}', '$.x')
+--
+ARRAY<STRUCT<STRING>>[{'" \\ \x08 \x0c \n \r \t ⎋'}]
+==
+[name=json_extract_parameter_path]
+[parameters='$.a' as path]
+select
+  json_extract('{"a": "foo"}', @path),
+  json_extract_scalar('{"a": "foo"}', @path)
+--
+ARRAY<STRUCT<STRING, STRING>>[{'"foo"', "foo"}]
+==
+[name=json_extract_non_literal_path]
+select
+  json_extract('{"a": "foo"}', path),
+  json_extract_scalar('{"a": "foo"}', path)
+from (select '$.a' as path union all select '$.b')
+--
+ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+  json_extract('{"a": "foo"}', path),
+  ^
+==
+[name=json_extract_subquery_path]
+select
+  json_extract('{"a": "foo"}', (select '$.a')),
+  json_extract_scalar('{"a": "foo"}', (select '$.a'))
+--
+ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+  json_extract('{"a": "foo"}', (select '$.a')),
+  ^
+==
+[name=json_extract_no_arguments]
+select
+  json_extract(),
+  json_extract_scalar()
+--
+ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT with no arguments. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
+  json_extract(),
+  ^
+==
+[name=json_extract_one_argument]
+select
+  json_extract('{"a": "foo"}'),
+  json_extract_scalar('{"a": "foo"}')
+--
+ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT for argument types: STRING. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
+  json_extract('{"a": "foo"}'),
+  ^
+====
+[name=json_extract_array_literal_path]
+select
+  json_extract_array('{"a": ["foo"]}', '$.a')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['"foo"']}]
+==
+[name=json_extract_array_multiple_inputs]
+select
+  json_extract_array(s, '$.a')
+from unnest(['{"a" : ["foo"]}', '{"a" : ["bar", "baz"]}', '{"a" : { "b" : "bar" } }']) as s
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>['"bar"', '"baz"']},
+  {ARRAY<STRING>['"foo"']},
+  {ARRAY<STRING>(NULL)}
+]
+==
+[name=json_extract_array_parameter_path]
+[parameters='$.a' as path]
+select
+  json_extract_array('{"a": ["foo"]}', @path)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['"foo"']}]
+==
+[name=json_extract_array_non_literal_path]
+select
+  json_extract_array('{"a": ["foo"]}', path)
+from (select '$.a' as path)
+--
+ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+  json_extract_array('{"a": ["foo"]}', path)
+  ^
+==
+[name=json_extract_array_literal_null_path]
+select
+  json_extract_array('{"a": ["foo"]}', NULL)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
+==
+[name=json_extract_array_subquery_path]
+select
+  json_extract_array('{"a": ["foo"]}', (select '$.a'))
+--
+ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+  json_extract_array('{"a": ["foo"]}', (select '$.a'))
+  ^
+==
+[name=json_extract_array_no_arguments]
+select
+  json_extract_array()
+--
+ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT_ARRAY with no arguments. Supported signature: JSON_EXTRACT_ARRAY(STRING, [STRING]) [at 2:3]
+  json_extract_array()
+  ^
+==
+[name=json_extract_array_one_argument_valid]
+select
+  json_extract_array('["foo","bar","baz"]')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['"foo"', '"bar"', '"baz"']}]
+==
+[name=json_extract_array_one_argument_invalid]
+select
+  json_extract_array('{"foo":"bar"}')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
+==
+[name=json_extract_string_array_literal_path]
+select
+  json_extract_string_array('{"a": ["foo"]}', '$.a')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['foo']}]
+==
+[name=json_extract_string_array_multiple_inputs]
+select
+  json_extract_string_array(s, '$.a')
+from unnest([
+  '{"a" : ["foo"]}',
+  '{"a" : ["bar", "baz"]}',
+  '{"a" : { "b" : "bar" }}'
+]) as s
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRING>['bar', 'baz']},
+  {ARRAY<STRING>['foo']},
+  {ARRAY<STRING>(NULL)}
+]
+==
+[name=json_extract_string_array_parameter_path]
+[parameters='$.a' as path]
+select
+  json_extract_string_array('{"a": ["foo"]}', @path)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['foo']}]
+==
+[name=json_extract_string_array_non_literal_path]
+select
+  json_extract_string_array('{"a": ["foo"]}', path)
+from (select '$.a' as path)
+--
+ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+  json_extract_string_array('{"a": ["foo"]}', path)
+  ^
+==
+[name=json_extract_string_array_literal_null_path]
+select
+  json_extract_string_array('{"a": ["foo"]}', NULL)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
+==
+[name=json_extract_string_array_subquery_path]
+select
+  json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
+--
+ERROR: generic::invalid_argument: JSONPath must be a string literal or query parameter [at 2:3]
+  json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
+  ^
+==
+[name=json_extract_string_array_no_arguments]
+select
+  json_extract_string_array()
+--
+ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT_STRING_ARRAY with no arguments. Supported signature: JSON_EXTRACT_STRING_ARRAY(STRING, [STRING]) [at 2:3]
+  json_extract_string_array()
+  ^
+==
+[name=json_extract_string_array_one_argument_valid]
+select
+  json_extract_string_array('["foo","bar","baz"]')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['foo', 'bar', 'baz']}]
+==
+[name=json_extract_string_array_one_argument_invalid]
+select
+  json_extract_string_array('{"foo":"bar"}')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
+==
+[name=code_points_to_string_bytes_null_element]
+select
+  code_points_to_string([68, 69, NULL, 70]),
+  code_points_to_bytes([68, 69, NULL, 70])
+--
+ARRAY<STRUCT<STRING, BYTES>>[{NULL, NULL}]
+==
+
+# Code-based test names are auto-generated from input/output types and can't
+# include certain characters in struct field names, so this has to go here
+# instead.
+[name=to_json_string_with_escaped_field_names]
+SELECT
+  TO_JSON_STRING(
+    STRUCT<`a\"in\"between\\slashes\\\\` INT64,
+           `abca\x00\x01\x1A\x1F` STRING>(1, 'foo'))
+--
+ARRAY<STRUCT<STRING>>[
+  {
+    '{"a\\"in\\"between\\\\slashes\\\\\\\\":1,"abca\\u0000\\u0001\\u001a\\u001f":"foo"}'
+  }
+]
+==
+
+# Verify that JSON_EXTRACT/JSON_EXTRACT_SCALAR can operate on the output of
+# TO_JSON_STRING.
+[name=to_json_string_with_json_extract]
+SELECT
+  TO_JSON_STRING(t),
+  TO_JSON_STRING(t, true),
+  JSON_EXTRACT(TO_JSON_STRING(t), '$.a'),
+  JSON_EXTRACT(TO_JSON_STRING(t, true), '$.a'),
+  JSON_EXTRACT_SCALAR(TO_JSON_STRING(t), '$.a.b.c[1]'),
+  JSON_EXTRACT_SCALAR(TO_JSON_STRING(t, true), '$.a.b.c[1]')
+FROM (
+  SELECT STRUCT(STRUCT([1, 2, 3] AS c, true AS d) AS b) AS a, 2 AS x UNION ALL
+  SELECT STRUCT(STRUCT(ARRAY<INT64>[] AS c, true AS d) AS b) AS a, 3 AS x
+) AS t
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
+  {
+    '{"a":{"b":{"c":[],"d":true}},"x":3}',
+    '{\n  "a": {\n    "b": {\n      "c": [],\n      "d": true\n    }\n  },\n  "x": 3\n}',
+    '{"b":{"c":[],"d":true}}',
+    '{"b":{"c":[],"d":true}}',
+    NULL,
+    NULL
+  },
+  {
+    '{"a":{"b":{"c":[1,2,3],"d":true}},"x":2}',
+    '{\n  "a": {\n    "b": {\n      "c": [\n        1,\n        2,\n        3\n      ],\n      "d": true\n    }\n  },\n  "x": 2\n}',
+    '{"b":{"c":[1,2,3],"d":true}}',
+    '{"b":{"c":[1,2,3],"d":true}}',
+    "2",
+    "2"
+  }
+]

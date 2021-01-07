@@ -623,14 +623,11 @@ bool ProtoType::ValueContentEquals(
       !y_msg->ParsePartialFromString(std::string(y_value))) {
     return false;
   }
-  // This does exact comparison of doubles.  It is possible to customize it
-  // using set_float_comparison(MessageDifferencer::APPROXIMATE), which
-  // makes it use zetasql_base::MathUtil::AlmostEqual, or to set up default
-  // FieldComparators for even more control of comparisons.
-  // TODO We could use one of those options if
-  // !float_margin.IsExactEquality().
-  // HashCode would need to be updated.
   google::protobuf::util::MessageDifferencer differencer;
+  if (!options.float_margin.IsExactEquality()) {
+    differencer.set_float_comparison(
+        google::protobuf::util::MessageDifferencer::APPROXIMATE);
+  }
   std::string differencer_reason;
   if (options.reason != nullptr) {
     differencer.ReportDifferencesToString(&differencer_reason);

@@ -34,6 +34,7 @@
 #include "zetasql/public/functions/convert_string.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
@@ -197,6 +198,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     TIMESTAMP,  EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     TIME,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     DATETIME,   EXPLICIT_OR_LITERAL_OR_PARAMETER);
+  ADD_TO_MAP(STRING,     INTERVAL,   EXPLICIT);
   ADD_TO_MAP(STRING,     ENUM,       EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     PROTO,      EXPLICIT_OR_LITERAL_OR_PARAMETER);
   ADD_TO_MAP(STRING,     BOOL,       EXPLICIT);
@@ -231,6 +233,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(DATETIME,   TIMESTAMP,  EXPLICIT);
 
   ADD_TO_MAP(INTERVAL,   INTERVAL,   IMPLICIT);
+  ADD_TO_MAP(INTERVAL,   STRING,     EXPLICIT);
 
   ADD_TO_MAP(GEOGRAPHY,  GEOGRAPHY,  IMPLICIT);
 
@@ -455,8 +458,11 @@ class CastContext {
   CastContext(const CastContext&) = delete;
   CastContext& operator=(const CastContext&) = delete;
 
-  zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
-                                  const Type* to_type) const;
+  zetasql_base::StatusOr<Value> CastValue(
+      const Value& from_value,
+      const Type* to_type,
+      const absl::optional<std::string>& format = absl::nullopt)
+      const;
 
  protected:
   const absl::TimeZone& default_timezone() const { return default_timezone_; }
@@ -476,8 +482,26 @@ class CastContext {
   const LanguageOptions& language_options_;
 };
 
-zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
-                                             const Type* to_type) const {
+static absl::Status StringToBytes(const std::string& input,
+                                  const std::string& format,
+                                  std::string* output) {
+  absl::Status status;
+  functions::StringToBytes(input, format, output, &status);
+  return status;
+}
+
+static absl::Status BytesToString(const std::string& input,
+                                  const std::string& format,
+                                  std::string* output) {
+  absl::Status status;
+  functions::BytesToString(input, format, output, &status);
+  return status;
+}
+
+zetasql_base::StatusOr<Value> CastContext::CastValue(
+    const Value& from_value,
+    const Type* to_type,
+    const absl::optional<std::string>& format) const {
   ZETASQL_RET_CHECK(from_value.is_valid());
   // Use a shorter name inside the body of this method.
   const Value& v = from_value;
@@ -719,6 +743,13 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
       return Value::Date(date);
     }
     case FCT(TYPE_STRING, TYPE_BYTES):
+      if (format.has_value()) {
+        std::string output;
+        ZETASQL_RETURN_IF_ERROR(
+            StringToBytes(v.string_value(), format.value(), &output));
+        return Value::Bytes(output);
+      }
+
       return Value::Bytes(v.string_value());
 
     case FCT(TYPE_STRING, TYPE_PROTO): {
@@ -760,6 +791,13 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
     }
 
     case FCT(TYPE_BYTES, TYPE_STRING): {
+      if (format.has_value()) {
+        std::string output;
+        ZETASQL_RETURN_IF_ERROR(
+            BytesToString(v.bytes_value(), format.value(), &output));
+        return Value::String(output);
+      }
+
       const std::string& utf8 = v.bytes_value();
       // No escaping is needed since the bytes value is already unescaped.
       if (!IsWellFormedUTF8(utf8)) {
@@ -866,6 +904,15 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
       ZETASQL_RETURN_IF_ERROR(
           functions::ExtractTimeFromDatetime(v.datetime_value(), &time));
       return Value::Time(time);
+    }
+
+    case FCT(TYPE_INTERVAL, TYPE_STRING): {
+      return Value::String(v.interval_value().ToString());
+    }
+    case FCT(TYPE_STRING, TYPE_INTERVAL): {
+      ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval,
+                       IntervalValue::ParseFromString(v.string_value()));
+      return Value::Interval(interval);
     }
 
     case FCT(TYPE_STRUCT, TYPE_STRUCT): {
@@ -981,7 +1028,6 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(const Value& from_value,
       return Value::String(v.json_string());
     }
 
-    // TODO: implement missing casts.
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()
              << "Unimplemented cast from " << v.type()->DebugString() << " to "
@@ -1069,8 +1115,18 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
                                 const Type* to_type, Catalog* catalog) {
+  return CastValue(from_value, default_timezone, language_options, to_type,
+                   /*format=*/absl::nullopt, catalog);
+}
+
+zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
+                                absl::TimeZone default_timezone,
+                                const LanguageOptions& language_options,
+                                const Type* to_type,
+                                const absl::optional<std::string>& format,
+                                Catalog* catalog) {
   return CastContextWithValidation(default_timezone, language_options, catalog)
-      .CastValue(from_value, to_type);
+      .CastValue(from_value, to_type, format);
 }
 
 namespace internal {
@@ -1078,15 +1134,29 @@ namespace internal {
 zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
+    const absl::optional<std::string>& format,
     const ExtendedCompositeCastEvaluator* extended_cast_evaluator) {
   return CastContextWithoutValidation(default_timezone, language_options,
                                       extended_cast_evaluator)
-      .CastValue(from_value, to_type);
+      .CastValue(from_value, to_type, format);
 }
 
 const CastHashMap& GetZetaSQLCasts() {
   static const CastHashMap* cast_hash_map = InitializeZetaSQLCasts();
   return *cast_hash_map;
+}
+
+const CastFormatMap& GetCastFormatMap() {
+  static const CastFormatMap* cast_format_map = nullptr;
+  if (cast_format_map == nullptr) {
+    CastFormatMap* map = new CastFormatMap();
+    map->insert(
+        {{TYPE_STRING, TYPE_BYTES}, functions::ValidateFormat});
+    map->insert(
+        {{TYPE_BYTES, TYPE_STRING}, functions::ValidateFormat});
+    cast_format_map = map;
+  }
+  return *cast_format_map;
 }
 
 }  // namespace internal

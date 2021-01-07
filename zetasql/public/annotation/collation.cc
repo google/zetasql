@@ -29,7 +29,7 @@ namespace {
 absl::Status CopyAnnotationRecursively(int id,
                                        const AnnotationMap& from_annotated_map,
                                        AnnotationMap* to_annotated_map) {
-  const AnnotationValue* from_value = from_annotated_map.GetAnnotation(id);
+  const SimpleValue* from_value = from_annotated_map.GetAnnotation(id);
   if (from_value != nullptr) {
     to_annotated_map->SetAnnotation(id, *from_value);
   }

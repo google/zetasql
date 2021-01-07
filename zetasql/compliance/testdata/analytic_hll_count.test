@@ -1,0 +1,508 @@
+[default required_features=ANALYTIC_FUNCTIONS]
+[name=analytic_hll_count_init_basic]
+SELECT HLL_COUNT.INIT(x) OVER () AS hll_count_init
+FROM UNNEST([NULL]) x;
+--
+ARRAY<STRUCT<hll_count_init BYTES>>[{NULL}]
+==
+
+[name=analytic_hll_count_merge_basic]
+SELECT HLL_COUNT.MERGE(x) OVER () AS hll_count_merge
+FROM UNNEST([CAST(NULL AS BYTES)]) x;
+--
+ARRAY<STRUCT<hll_count_merge INT64>>[{0}]
+==
+
+[name=analytic_hll_count_merge_partial_basic]
+SELECT HLL_COUNT.MERGE_PARTIAL(x) OVER () AS hll_count_merge_partial
+FROM (SELECT cast(NULL as BYTES) as x);
+--
+ARRAY<STRUCT<hll_count_merge_partial BYTES>>[{NULL}]
+==
+
+# Test the error message when the sketch is invalid. In this case, b"\010p" is
+# the invalid sketch.
+[name=analytic_hll_count_merge_partial_over_unbounded_non_safe]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER ()
+FROM (
+  SELECT cast(1 as int64)    as row_id,
+         cast(NULL as BYTES) as sketch UNION ALL
+  SELECT 2,
+     b"\010p"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ERROR: generic::out_of_range: Invalid or incompatible sketch in HLL_COUNT.MERGE_PARTIAL
+==
+
+[name=analytic_hll_count_merge_partial_over_unbounded_safe]
+SELECT row_id, safe.HLL_COUNT.MERGE_PARTIAL(sketch) OVER ()
+FROM (
+  SELECT cast(1 as int64)    as row_id,
+         cast(NULL as BYTES) as sketch UNION ALL
+  SELECT 2,
+     b"\010p"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:16]
+SELECT row_id, safe.HLL_COUNT.MERGE_PARTIAL(sketch) OVER ()
+               ^
+==
+
+[name=analytic_hll_count_merge_partial_over_unbounded_window_1]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER ()
+FROM (
+  SELECT cast(1 as int64)    as row_id,
+         cast(NULL as BYTES) as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_unbounded_window_2]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER ()
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2, cast(NULL as BYTES) UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_unbounded_window_3]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER ()
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+      UNION ALL
+  SELECT 3, cast(NULL as BYTES))
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_cumulative_row_window_1]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (
+  SELECT cast(1 as int64)    as row_id,
+         cast(NULL as BYTES) as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {1, NULL},
+  {
+    2,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_cumulative_row_window_2]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2, cast(NULL as BYTES) UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_cumulative_row_window_3]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+      UNION ALL
+  SELECT 3, cast(NULL as BYTES))
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_range_unbounded_and_current]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x1e\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_range_unbounded_and_proceding]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {1, NULL},
+  {
+    2,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_range_unbounded_and_following]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id RANGE BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x1e\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x1e\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_preceding_and_current]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_preceding_and_following]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x1e\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_current_and_current]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN CURRENT ROW AND CURRENT ROW)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_current_and_following]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_current_and_unbounded]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x1e\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    3,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  }
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_following_and_following]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {3, NULL}
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_rows_following_and_unbounded]
+SELECT row_id, HLL_COUNT.MERGE_PARTIAL(sketch) OVER (ORDER BY row_id ROWS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING)
+FROM (
+  SELECT cast(1 as int64) as row_id,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       as sketch UNION ALL
+  SELECT 2,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002"
+       UNION ALL
+  SELECT 3,
+     b"\010p\020\n\030\002\202\007-\020\n\030\017 \0312#\352\310\251\001\260\260T\363\303\037\366\315\201\006\302\335\n\313\267\332\001\273\343\246\001\206\342\035\320\260\232\002\325\305\0328\002")
+ORDER BY row_id
+--
+ARRAY<STRUCT<row_id INT64, BYTES>>[
+  {
+    1,
+    b"\x08p\x10\x14\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {
+    2,
+    b"\x08p\x10\x0a\x18\x02 \x08\x82\x07+\x10\x0a\x18\x0f \x192#\xea\xc8\xa9\x01\xb0\xb0T\xf3\xc3\x1f\xf6\xcd\x81\x06\xc2\xdd\x0a\xcb\xb7\xda\x01\xbb\xe3\xa6\x01\x86\xe2\x1d\xd0\xb0\x9a\x02\xd5\xc5\x1a"
+  },
+  {3, NULL}
+]
+==
+
+[name=analytic_hll_count_merge_partial_over_unbounded_window_with_empty_sketch]
+SELECT HLL_COUNT.MERGE_PARTIAL(respondents_hll) over ()
+FROM
+(SELECT
+  HLL_COUNT.INIT(respondent) AS respondents_hll
+FROM UNNEST([]) respondent)
+--
+ARRAY<STRUCT<BYTES>>[{NULL}]

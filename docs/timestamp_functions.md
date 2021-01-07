@@ -273,7 +273,7 @@ SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
 -- Results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
-| timestamp_str                               |
+| timestamp_datetime                          |
 +---------------------------------------------+
 | 2008-12-25 15:30:00.000 America/Los_Angeles |
 +---------------------------------------------+
@@ -284,7 +284,7 @@ SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 -- Results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
-| timestamp_str                               |
+| timestamp_date                              |
 +---------------------------------------------+
 | 2008-12-25 00:00:00.000 America/Los_Angeles |
 +---------------------------------------------+

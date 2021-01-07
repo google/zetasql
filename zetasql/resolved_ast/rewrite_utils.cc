@@ -16,6 +16,7 @@
 
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 
@@ -25,10 +26,51 @@ namespace {
 // A visitor that changes ResolvedColumnRef nodes to be correlated.
 class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
  private:
+  std::unique_ptr<ResolvedColumnRef> CorrelatedColumnRef(
+      const ResolvedColumnRef& ref) {
+    return MakeResolvedColumnRef(ref.type(), ref.column(), true);
+  }
+
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
-    PushNodeToStack(MakeResolvedColumnRef(node->type(), node->column(), true));
+    if (in_subquery_) {
+      return ResolvedASTDeepCopyVisitor::VisitResolvedColumnRef(node);
+    }
+    PushNodeToStack(CorrelatedColumnRef(*node));
     return absl::OkStatus();
   }
+
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override {
+    ++in_subquery_;
+    absl::Status s =
+        ResolvedASTDeepCopyVisitor::VisitResolvedSubqueryExpr(node);
+    --in_subquery_;
+
+    // If this is the first subquery encountered, we need to correlate the
+    // column references in the parameter list and for the in expression.
+    if (!in_subquery_) {
+      std::unique_ptr<ResolvedSubqueryExpr> expr =
+          ConsumeTopOfStack<ResolvedSubqueryExpr>();
+      for (auto& column_ref : expr->parameter_list()) {
+        if (!column_ref->is_correlated()) {
+          const_cast<ResolvedColumnRef*>(column_ref.get())
+              ->set_is_correlated(true);
+        }
+      }
+      if (expr->in_expr() != nullptr) {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> in_expr,
+                         ProcessNode(expr->in_expr()));
+        expr->set_in_expr(std::move(in_expr));
+      }
+      PushNodeToStack(std::move(expr));
+    }
+    return s;
+  }
+
+  // Tracks if we're inside a subquery. We stop correlating when we're inside a
+  // subquery as column references are either already correlated or don't need
+  // to be.
+  int in_subquery_ = 0;
 };
 
 // A visitor which collects the ResolvedColumnRef that are referenced.
@@ -42,8 +84,21 @@ class ColumnRefCollector : public ResolvedASTVisitor {
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
     column_refs_->push_back(MakeResolvedColumnRef(node->type(), node->column(),
                                                   node->is_correlated()));
-    return ResolvedASTVisitor::VisitResolvedColumnRef(node);
+    return absl::OkStatus();
   }
+
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override {
+    for (const auto& column : node->parameter_list()) {
+      ZETASQL_RETURN_IF_ERROR(VisitResolvedColumnRef(column.get()));
+    }
+    if (node->in_expr() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(node->in_expr()->Accept(this));
+    }
+    // Cut off traversal once we hit a subquery.
+    return absl::OkStatus();
+  }
+
   std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs_;
 };
 

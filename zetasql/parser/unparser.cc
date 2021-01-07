@@ -29,6 +29,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -1103,14 +1104,21 @@ void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
+  if (node->anonymization_options() != nullptr) {
+    print("WITH ANONYMIZATION OPTIONS");
+    node->anonymization_options()->Accept(this, data);
+  }
   if (node->distinct()) {
     print("DISTINCT");
   }
 
+  // Visit all children except hint() and anonymization_options, which we
+  // processed above.  We can't just use visitASTChildren(node, data) because
+  // we need to insert the DISTINCT modifier after the hint and anonymization
+  // nodes and before everything else.
   for (int i = 0; i < node->num_children(); ++i) {
     const ASTNode* child = node->child(i);
-    if (child != node->hint()
-        ) {
+    if (child != node->hint() && child != node->anonymization_options()) {
       child->Accept(this, data);
     }
   }
@@ -1356,6 +1364,13 @@ void Unparser::visitASTHavingModifier(const ASTHavingModifier* node,
     print("MIN");
   }
   node->expr()->Accept(this, data);
+}
+
+void Unparser::visitASTClampedBetweenModifier(
+    const ASTClampedBetweenModifier* node, void* data) {
+  println();
+  print("CLAMPED BETWEEN");
+  UnparseChildrenWithSeparator(node, data, 0, node->num_children(), "AND");
 }
 
 void Unparser::visitASTIdentifier(const ASTIdentifier* node, void* data) {
@@ -1607,6 +1622,10 @@ void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
 void Unparser::visitASTFormatClause(const ASTFormatClause *node, void *data) {
   print("FORMAT");
   node->format()->Accept(this, data);
+  if (node->time_zone_expr() != nullptr) {
+    print("AT TIME ZONE");
+    node->time_zone_expr()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTCastExpression(const ASTCastExpression* node,
@@ -1761,6 +1780,9 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
     if (node->having_modifier() != nullptr) {
       node->having_modifier()->Accept(this, data);
     }
+    if (node->clamped_between_modifier() != nullptr) {
+      node->clamped_between_modifier()->Accept(this, data);
+    }
     if (node->order_by() != nullptr) {
       node->order_by()->Accept(this, data);
     }
@@ -1854,7 +1876,7 @@ void Unparser::visitASTSimpleType(const ASTSimpleType* node, void* data) {
   // want to print it without backticks.
   if (type_name->num_names() == 1 &&
       zetasql_base::StringCaseEqual(type_name->first_name()->GetAsString(), "interval")) {
-    print(type_name->first_name()->GetAsString());
+    print(type_name->first_name()->GetAsStringView());
   } else {
     visitASTChildren(node, data);
   }
@@ -2074,8 +2096,7 @@ void Unparser::visitASTReturningClause(const ASTReturningClause* node,
   print("THEN RETURN");
   if (node->action_alias() != nullptr) {
     print("WITH ACTION");
-    std::string action_alias = node->action_alias()->GetAsString();
-    print(absl::StrCat("AS ", action_alias));
+    print(absl::StrCat("AS ", node->action_alias()->GetAsStringView()));
   }
   node->select_list()->Accept(this, data);
 }

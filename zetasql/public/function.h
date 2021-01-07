@@ -324,6 +324,10 @@ struct FunctionOptions {
     supports_having_modifier = value;
     return *this;
   }
+  FunctionOptions& set_supports_clamped_between_modifier(bool value) {
+    supports_clamped_between_modifier = value;
+    return *this;
+  }
   FunctionOptions& set_uses_upper_case_sql_name(bool value) {
     uses_upper_case_sql_name = value;
     return *this;
@@ -455,6 +459,11 @@ struct FunctionOptions {
   // Indicates whether this function supports HAVING in arguments
   // (affects aggregate functions only).
   bool supports_having_modifier = true;
+
+  // Indicates whether this function supports CLAMPED BETWEEN in arguments
+  // (affects aggregate functions only).
+  // Must only be true for differential privacy functions.
+  bool supports_clamped_between_modifier = false;
 
   // Indicates whether to use upper case name in SQLName() and GetSQL(), which
   // are used in (but not limited to) error messages such as
@@ -729,6 +738,10 @@ class Function {
 
   // Returns true if DISTINCT is allowed in the function arguments.
   bool SupportsDistinctModifier() const;
+
+  // Returns true if CLAMPED BETWEEN is allowed in the function arguments.
+  // Must only be true for differential privacy functions.
+  bool SupportsClampedBetweenModifier() const;
 
   bool IsDeprecated() const {
     return function_options_.is_deprecated;

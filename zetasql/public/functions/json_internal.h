@@ -502,6 +502,7 @@ class JSONPathArrayExtractor final : public JSONPathExtractor {
 // matching the JSONPath. If it is not an array, returns null. Otherwise it
 // will iterate over all the elements of the array and append them to
 // 'result_array_' as strings and finally return the array.
+// An absl::nullopt value in 'result_array_' represents the SQL NULL value.
 class JSONPathStringArrayExtractor final : public JSONPathExtractor {
  public:
   // `iter` and the object underlying `json` must outlive this object.
@@ -509,7 +510,8 @@ class JSONPathStringArrayExtractor final : public JSONPathExtractor {
                                ValidJSONPathIterator* iter)
       : JSONPathExtractor(json, iter) {}
 
-  bool ExtractStringArray(std::vector<std::string>* result, bool* is_null) {
+  bool ExtractStringArray(std::vector<absl::optional<std::string>>* result,
+                          bool* is_null) {
     bool parse_success = zetasql::JSONParser::Parse() || stop_on_first_match_;
 
     // Parse-failed OR no-match-found OR null-Value OR not-an-array
@@ -553,7 +555,12 @@ class JSONPathStringArrayExtractor final : public JSONPathExtractor {
       stack_.top()++;
     }
     if (accept_array_elements_) {
-      result_array_.push_back(result_json_);
+      if (result_json_.empty()) {
+        // This means the array element is the JSON null.
+        result_array_.push_back(absl::nullopt);
+      } else {
+        result_array_.push_back(result_json_);
+      }
     } else if (accept_ && !last) {
       absl::StrAppend(&result_json_, ",");
     }
@@ -567,9 +574,16 @@ class JSONPathStringArrayExtractor final : public JSONPathExtractor {
     return !stop_on_first_match_;
   }
 
+  bool ParsedNull() override {
+    if (AcceptableLeaf()) {
+      parsed_null_result_ = stop_on_first_match_;
+    }
+    return !stop_on_first_match_;
+  }
+
   // Whether the JSONPath points to an array with scalar elements.
   bool scalar_array_accepted_ = false;
-  std::vector<std::string> result_array_;
+  std::vector<absl::optional<std::string>> result_array_;
 };
 
 }  // namespace json_internal

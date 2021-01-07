@@ -61,6 +61,7 @@ void QueryExpression::ClearAllClauses() {
   order_by_hints_.clear();
   limit_.clear();
   offset_.clear();
+  anonymization_options_.clear();
   with_recursive_ = false;
 }
 
@@ -77,6 +78,9 @@ std::string QueryExpression::GetSQLQuery() const {
     ZETASQL_DCHECK(set_op_type_.empty() && set_op_modifier_.empty() &&
            set_op_scan_list_.empty());
     absl::StrAppend(&sql, "SELECT ",
+                    anonymization_options_.empty()
+                        ? ""
+                        : absl::StrCat(anonymization_options_, " "),
                     query_hints_.empty() ? "" : absl::StrCat(query_hints_, " "),
                     select_as_modifier_.empty()
                         ? ""
@@ -271,6 +275,15 @@ bool QueryExpression::TrySetOffsetClause(const std::string& offset) {
   return true;
 }
 
+bool QueryExpression::TrySetWithAnonymizationClause(
+    const std::string& anonymization_options) {
+  if (!CanSetWithAnonymizationClause()) {
+    return false;
+  }
+  anonymization_options_ = anonymization_options;
+  return true;
+}
+
 bool QueryExpression::CanSetWithClause() const {
   return !HasWithClause();
 }
@@ -307,6 +320,9 @@ QueryExpression::SelectList() const {
   }
 
   return select_list_;
+}
+bool QueryExpression::CanSetWithAnonymizationClause() const {
+  return !HasWithAnonymizationClause();
 }
 
 void QueryExpression::SetAliasForSelectColumn(int select_column_pos,

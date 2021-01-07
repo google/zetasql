@@ -1,0 +1,9 @@
+[name=regexp_functions_1]
+SELECT 'SeattleKirkland' LIKE 'Seattle%'
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=regexp_functions_2]
+SELECT 'SeattleKirkland' LIKE 'Seattle_'
+--
+ARRAY<STRUCT<BOOL>>[{false}]

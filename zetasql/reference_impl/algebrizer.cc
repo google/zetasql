@@ -32,10 +32,12 @@
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/functions/json.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/function.h"
@@ -144,6 +146,10 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
     const ResolvedCast* cast) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
                    AlgebrizeExpression(cast->expr()));
+  std::unique_ptr<ValueExpr> format;
+  if (cast->format() != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(format, AlgebrizeExpression(cast->format()));
+  }
 
   // For extended conversions extended_cast will contain a conversion function
   // that implements a conversion. Extended conversions in reference
@@ -153,6 +159,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call,
                    BuiltinScalarFunction::CreateCast(
                        language_options_, cast->type(), std::move(arg),
+                       std::move(format),
                        cast->return_null_on_error(),
                        ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
                        std::move(extended_evaluator)));
@@ -668,6 +675,27 @@ Algebrizer::AlgebrizeGetStructField(
                                 std::move(value));
 }
 
+// Convert the GetJsonField into a JSON_QUERY function call.
+zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
+Algebrizer::AlgebrizeGetJsonField(const ResolvedGetJsonField* get_json_field) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> input,
+                   AlgebrizeExpression(get_json_field->expr()));
+  std::string json_path =
+      absl::StrCat("$.", functions::ConvertJSONPathTokenToSqlStandardMode(
+                             get_json_field->field_name()));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ConstExpr> json_path_expr,
+                   ConstExpr::Create(zetasql::values::String(json_path)));
+
+  std::vector<std::unique_ptr<ValueExpr>> arguments;
+  arguments.push_back(std::move(input));
+  arguments.push_back(std::move(json_path_expr));
+
+  return BuiltinScalarFunction::CreateCall(
+      FunctionKind::kJsonQuery, language_options_, zetasql::types::JsonType(),
+      std::move(arguments));
+}
+
 static ProtoFieldAccessInfo CreateProtoFieldAccessInfo(
     const ResolvedGetProtoField& get_proto_field) {
   ProtoFieldAccessInfo info;
@@ -1162,6 +1190,11 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpressi
     case RESOLVED_GET_STRUCT_FIELD: {
       ZETASQL_ASSIGN_OR_RETURN(val_op, AlgebrizeGetStructField(
                                    expr->GetAs<ResolvedGetStructField>()));
+      break;
+    }
+    case RESOLVED_GET_JSON_FIELD: {
+      ZETASQL_ASSIGN_OR_RETURN(
+          val_op, AlgebrizeGetJsonField(expr->GetAs<ResolvedGetJsonField>()));
       break;
     }
     case RESOLVED_MAKE_PROTO: {
@@ -3005,6 +3038,26 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
       break;
     case FN_NTH_VALUE:
       function = absl::make_unique<NthValueFunction>(
+          analytic_function_call->type(),
+          analytic_function_call->null_handling_modifier());
+      ZETASQL_RET_CHECK_EQ(2, arguments.size());
+      non_const_arguments.push_back(std::move(arguments[0]));
+      const_arguments.push_back(std::move(arguments[1]));
+      break;
+    case FN_PERCENTILE_CONT:
+    case FN_PERCENTILE_CONT_NUMERIC:
+    case FN_PERCENTILE_CONT_BIGNUMERIC:
+      function = absl::make_unique<PercentileContFunction>(
+          analytic_function_call->type(),
+          analytic_function_call->null_handling_modifier());
+      ZETASQL_RET_CHECK_EQ(2, arguments.size());
+      non_const_arguments.push_back(std::move(arguments[0]));
+      const_arguments.push_back(std::move(arguments[1]));
+      break;
+    case FN_PERCENTILE_DISC:
+    case FN_PERCENTILE_DISC_NUMERIC:
+    case FN_PERCENTILE_DISC_BIGNUMERIC:
+      function = absl::make_unique<PercentileDiscFunction>(
           analytic_function_call->type(),
           analytic_function_call->null_handling_modifier());
       ZETASQL_RET_CHECK_EQ(2, arguments.size());

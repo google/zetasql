@@ -92,6 +92,9 @@ class IntervalValue final {
   static const int64_t kMaxYears = 10000;
   static const int64_t kMaxMonths = 12 * kMaxYears;
   static const int64_t kMaxDays = 366 * kMaxYears;
+  static const int64_t kMaxHours = kMaxDays * kHoursInDay;
+  static const int64_t kMaxMinutes = kMaxHours * kMinutesInHour;
+  static const int64_t kMaxSeconds = kMaxMinutes * kSecondsInMinute;
   static const int64_t kMaxMicros = kMicrosInDay * kMaxDays;
   static const __int128 kMaxNanos = kNanosInMicro128 * kMaxMicros;
 
@@ -100,6 +103,12 @@ class IntervalValue final {
   static const int64_t kMinDays = -kMaxDays;
   static const int64_t kMinMicros = -kMaxMicros;
   static const __int128 kMinNanos = -kMaxNanos;
+
+  // Builds interval value from [Y]ears, [M]onths, [D]ays, [H]ours, [M]inutes
+  // and [S]econds.
+  static zetasql_base::StatusOr<IntervalValue> FromYMDHMS(int64_t years, int64_t months,
+                                                  int64_t days, int64_t hours,
+                                                  int64_t minutes, int64_t seconds);
 
   static zetasql_base::StatusOr<IntervalValue> FromMonthsDaysMicros(int64_t months,
                                                             int64_t days,
@@ -139,7 +148,8 @@ class IntervalValue final {
     return IntervalValue(0, 0, nanos);
   }
 
-  IntervalValue() {}
+  // Default constructor, constructs a zero value.
+  constexpr IntervalValue() {}
 
   // Convert interval value to micros. Note, that the resulting number of
   // micros can be bigger (up to 3 times) than the maximum number of micros
@@ -215,6 +225,12 @@ class IntervalValue final {
             get_nano_fractions() >= v.get_nano_fractions());
   }
 
+  // Returns hash code for the value.
+  size_t HashCode() const;
+
+  template <typename H>
+  friend H AbslHashValue(H h, const IntervalValue& v);
+
   // Serialization and deserialization methods for interval values.
   void SerializeAndAppendToBytes(std::string* bytes) const;
   std::string SerializeAsBytes() const {
@@ -228,9 +244,21 @@ class IntervalValue final {
   // Builds fully expanded string representation of interval.
   std::string ToString() const;
 
+  // Parses interval from string, automatically detects datetime fields.
+  static zetasql_base::StatusOr<IntervalValue> ParseFromString(absl::string_view input);
+
   // Parses interval from string for single datetime field.
   static zetasql_base::StatusOr<IntervalValue> ParseFromString(
       absl::string_view input, functions::DateTimestampPart part);
+
+  // Parses interval from string for two datetime fields.
+  static zetasql_base::StatusOr<IntervalValue> ParseFromString(
+      absl::string_view input, functions::DateTimestampPart from,
+      functions::DateTimestampPart to);
+
+  // Interval constructor from integer for given datetime part field.
+  static zetasql_base::StatusOr<IntervalValue> FromInteger(
+      int64_t value, functions::DateTimestampPart part);
 
  private:
   IntervalValue(int64_t months, int64_t days, int64_t micros = 0) {
@@ -292,6 +320,11 @@ class IntervalValue final {
 };
 
 static_assert(sizeof(IntervalValue) == 16, "IntervalValue must be 16 bytes");
+
+template <typename H>
+inline H AbslHashValue(H h, const IntervalValue& v) {
+  return H::combine(std::move(h), v.GetAsMicros(), v.get_nano_fractions());
+}
 
 }  // namespace zetasql
 

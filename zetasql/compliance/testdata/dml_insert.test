@@ -1,0 +1,1073 @@
+[prepare_database]
+CREATE TABLE Table1 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as value
+UNION ALL
+SELECT 2, 20
+--
+ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+==
+
+[prepare_database]
+CREATE TABLE Table2 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as int64_value,
+       cast(100 as int64) as other_int64_value
+UNION ALL
+SELECT 2, 20, 200
+--
+ARRAY<STRUCT<
+        primary_key INT64,
+        int64_value INT64,
+        other_int64_value INT64
+      >>
+[{1, 10, 100}, {2, 20, 200}]
+==
+
+[prepare_database]
+CREATE TABLE Table3 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int32) as int32_value,
+       cast(100 as int64) as int64_value
+UNION ALL
+SELECT 2, 20, 200
+--
+ARRAY<STRUCT<primary_key INT64, int32_value INT32, int64_value INT64>>[
+  {1, 10, 100},
+  {2, 20, 200}
+]
+==
+
+[prepare_database]
+CREATE TABLE Table4 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as uint32) as uint32_value,
+       cast(100 as int64) as int64_value
+UNION ALL
+SELECT 2, 20, 200
+--
+ARRAY<STRUCT<primary_key INT64, uint32_value UINT32, int64_value INT64>>[
+  {1, 10, 100},
+  {2, 20, 200}
+]
+==
+
+[prepare_database]
+CREATE TABLE TableDistincts AS
+SELECT
+  1 as distinct_1,
+  1 as distinct_2,
+  1 as distinct_3,
+  1 as distinct_4;
+--
+ARRAY<STRUCT<distinct_1 INT64, distinct_2 INT64, distinct_3 INT64, distinct_4 INT64>>[
+  {1, 1, 1, 1}
+]
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=insert_null_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT Table1 (primary_key, value) VALUES (NULL, 1)
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 1}]
+}
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=insert_null_primary_key_query]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT Table1 (primary_key, value) SELECT NULL, 1
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 1}]
+}
+==
+
+[name=insert_null]
+INSERT Table1 (primary_key, value) VALUES (30, NULL)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, NULL}]
+}
+==
+
+[name=insert_null_query]
+INSERT Table1 (primary_key, value) SELECT 30, NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, NULL}]
+}
+==
+
+# Inserting a DEFAULT value is the same as inserting NULL for a test table.
+[name=insert_default]
+INSERT Table1 (primary_key, value) VALUES (30, DEFAULT)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, NULL}]
+}
+==
+
+[name=insert_all_columns]
+INSERT Table1 (primary_key, value) VALUES (30, 31)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, 31}]
+}
+==
+
+[name=insert_all_columns_query]
+INSERT Table1 (primary_key, value) SELECT 30, 31
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, 31}]
+}
+==
+
+[name=insert_all_columns_query_duplicate]
+INSERT Table1 (primary_key, value)
+  SELECT x, x
+  FROM (SELECT 100 x
+        UNION ALL
+        SELECT 200)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+    {1, 10},
+    {2, 20},
+    {100, 100},
+    {200, 200}
+  ]}
+==
+
+[name=insert_all_columns_query_duplicate_with_aliases]
+INSERT Table1 (primary_key, value)
+  SELECT x as primary_key, x as value
+  FROM (SELECT 100 x
+        UNION ALL
+  SELECT 200)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+    {1, 10},
+    {2, 20},
+    {100, 100},
+    {200, 200}
+  ]}
+==
+
+# An insertion involving multiple rows. The query should run before the insert.
+[name=insert_all_columns_query_multiple_rows]
+INSERT Table1 (primary_key, value)
+  (SELECT primary_key * 10, value * 10 FROM Table1)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+    {1, 10},
+    {2, 20},
+    {20, 200},
+    {10, 100}
+  ]}
+==
+
+# An insertion that explicitly requires INT64 -> INT32 assignment coercion.
+[name=insert_with_assignment_coercion_to_int32]
+INSERT Table3 (primary_key, int32_value) VALUES (3, CAST(30 AS INT64))
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, int32_value INT32, int64_value INT64>>[
+    {1, 10, 100},
+    {2, 20, 200},
+    {3, 30, NULL}
+  ]}
+==
+
+# An insertion that explicitly requires UINT64 -> UINT32 assignment coercion.
+[name=insert_with_assignment_coercion_to_uint32]
+INSERT Table4 (primary_key, uint32_value) VALUES (3, CAST(30 AS UINT64))
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, uint32_value UINT32, int64_value INT64>>[
+    {1, 10, 100},
+    {2, 20, 200},
+    {3, 30, NULL}
+  ]}
+==
+
+# An insertion that passes the analyzer due to assignment coercion, but the cast
+# fails at runtime.
+[name=insert_with_failed_assignment_coercion_to_int32]
+INSERT Table3 (primary_key, int32_value) VALUES (3, CAST(1 AS INT64) << 60)
+--
+ERROR: generic::out_of_range: int32 out of range: 1152921504606846976
+==
+
+# Same as above, but from UINT64 -> UINT32
+[name=insert_with_failed_assignment_coercion_to_uint32]
+INSERT Table4 (primary_key, uint32_value) VALUES (3, CAST(1 AS UINT64) << 60)
+--
+ERROR: generic::out_of_range: uint32 out of range: 1152921504606846976
+==
+
+# It is an error to use a non-default insert mode on a table with no primary
+# key. Engines that require primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=insert_ignore_no_primary_key]
+[primary_key_mode=no_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (30, 31)
+--
+ERROR: generic::out_of_range: INSERT OR IGNORE is not allowed because the table does not have a primary key
+==
+
+[name=insert_replace_no_primary_key]
+[primary_key_mode=no_primary_key]
+INSERT REPLACE Table1 (primary_key, value) VALUES (30, 31)
+--
+ERROR: generic::out_of_range: INSERT OR REPLACE is not allowed because the table does not have a primary key
+==
+
+[name=insert_update_no_primary_key]
+[primary_key_mode=no_primary_key]
+INSERT UPDATE Table1 (primary_key, value) VALUES (30, 31)
+--
+ERROR: generic::out_of_range: INSERT OR UPDATE is not allowed because the table does not have a primary key
+==
+
+# The insert mode has no effect unless we are trying to insert a duplicate row.
+# We just have one test that shows this, primarily to catch the case where an
+# engine calls ResolvedInsertStmt::CheckFieldsAccessed() without first making a
+# dummy access to the insert_mode field.
+#
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=insert_ignore_one_row_with_non_default_insert_mode]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (30, 31)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {30, 31}]
+}
+==
+
+[name=insert_all_columns_out_of_order]
+INSERT Table1 (value, primary_key) VALUES (30, 3)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
+}
+==
+
+[name=insert_all_columns_out_of_order_query]
+INSERT Table1 (value, primary_key) SELECT 30, 3
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
+}
+==
+
+[name=insert_just_primary_key]
+INSERT Table1 (primary_key) VALUES (3)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, NULL}]
+}
+==
+
+[name=insert_just_primary_key_query]
+INSERT Table1 (primary_key) SELECT 3
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, NULL}]
+}
+==
+
+# Some engines allow inserting a NULL primary key. Others can just mark this as
+# a known error. Engines that do not support primary keys should still run this
+# test, which is why it uses the default primary key mode.
+[name=insert_without_primary_key]
+INSERT Table1 (value) VALUES (31)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 31}]
+}
+==
+
+# Some engines allow inserting a NULL primary key. Others can just mark this as
+# a known error. Engines that do not support primary keys should still run this
+# test, which is why it uses the default primary key mode.
+[name=insert_without_primary_key_query]
+INSERT Table1 (value) SELECT 31
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 31}]
+}
+==
+
+[name=assert_rows_modified_null]
+[parameters=NULL param]
+INSERT Table1 (primary_key, value) VALUES (3, 30)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+# A negative value for ASSERT_ROWS_MODIFIED will always result in a runtime
+# error.
+[name=negative_assert_rows_modified]
+[parameters=-1 param]
+INSERT Table1 (primary_key, value) VALUES (3, 30)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 1
+==
+
+[name=assert_rows_modified]
+INSERT Table1 (primary_key, value) VALUES (3, 30)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
+}
+==
+
+[name=assert_rows_modified_failure]
+INSERT Table1 (primary_key, value) VALUES (3, 30)
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+[name=assert_rows_modified_query]
+INSERT Table1 (primary_key, value) SELECT 3, 30
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
+}
+==
+
+[name=assert_rows_modified_query_failure]
+INSERT Table1 (primary_key, value) SELECT 3, 30
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+# There is no such thing as a duplicate row for a table that has no primary key.
+# (This also means that that the insert mode has no effect for such tables, but
+# that is captured by an earlier test.)
+#
+# Engines that require primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=insert_existing_row_twice_no_primary_key]
+[primary_key_mode=no_primary_key]
+INSERT Table1 (primary_key, value) VALUES (1, 10), (1, 10)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+    {1, 10},
+    {2, 20},
+    {1, 10},
+    {1, 10}
+  ]}
+==
+
+# Engines that do not support primary keys can skip this test by overriding
+# TestDriver::SkipTestsWithPrimaryKeyMode().
+[name=insert_duplicate_row_error]
+[primary_key_mode=first_column_is_primary_key]
+INSERT Table1 (primary_key, value) VALUES (1, 100)
+--
+ERROR: generic::out_of_range: Failed to insert row with primary key (1) due to previously existing row
+==
+
+[name=insert_duplicate_new_row_error]
+[primary_key_mode=first_column_is_primary_key]
+INSERT Table1 (primary_key, value) VALUES (3, 100), (3, 200)
+--
+ERROR: generic::out_of_range: Failed to insert row with primary key (3) due to previously inserted row
+==
+
+# Some engines allow inserting a NULL primary key. Others can just mark this as
+# a known error.
+[name=insert_duplicate_new_null_row_error]
+[primary_key_mode=first_column_is_primary_key]
+INSERT Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+ERROR: generic::out_of_range: Failed to insert row with primary key (NULL) due to previously inserted row
+==
+
+[name=insert_two_new_rows_with_same_new_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+INSERT Table1 (primary_key, value) VALUES (3, 30), (3, 40)
+--
+ERROR: generic::out_of_range: Failed to insert row with primary key (3) due to previously inserted row
+==
+
+[name=insert_two_new_rows]
+INSERT Table1 (primary_key, value) VALUES (3, 30), (4, 40)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[
+    {1, 10},
+    {2, 20},
+    {3, 30},
+    {4, 40}
+  ]}
+==
+
+[name=insert_ignore_assert_rows_modified_null]
+[primary_key_mode=first_column_is_primary_key]
+[parameters=NULL param]
+INSERT IGNORE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+[name=insert_ignore_assert_rows_modified_negative]
+[primary_key_mode=first_column_is_primary_key]
+[parameters=-1 param]
+INSERT IGNORE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 0
+==
+
+[name=insert_ignore_assert_rows_modified]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED 0
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+}
+==
+
+[name=insert_ignore_assert_rows_modified_failure]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 0
+==
+
+[name=insert_ignore_assert_rows_modified_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) SELECT 1, 100
+ASSERT_ROWS_MODIFIED 0
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+}
+==
+
+[name=insert_ignore_assert_rows_modified_query_failure]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) SELECT 1, 100
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 0
+==
+
+[name=insert_ignore_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  0,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
+}
+==
+
+[name=insert_ignore_one_new_row_one_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (3, 30), (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
+}
+==
+
+# Note that the second row is completely ignored, including from
+# num_rows_modified.
+[name=insert_ignore_two_new_rows_with_same_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value) VALUES (3, 100), (3, 200)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 100}]
+}
+==
+
+[name=insert_ignore_two_new_rows_with_null_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT IGNORE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 100}]
+}
+==
+
+# Test that INSERT IGNORE honors the query's ORDER BY when dealing with
+# duplicate keys.
+#
+# The query is designed so that first insert corresponds to the middle row from
+# a table with three (determistically ordered) rows. An engine that ignores the
+# ORDER BY is unlikely to accidentally insert that row first.
+[name=insert_ignore_with_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value)
+  (SELECT 3 primary_key, value
+   FROM UNNEST([100, 30, 200]) AS value
+   ORDER BY value)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 30}]
+}
+==
+
+# Note that the second row is completely ignored, including from
+# num_rows_modified.
+[name=insert_ignore_two_new_rows_with_same_primary_key_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT IGNORE Table1 (primary_key, value)
+  (SELECT 3 primary_key, value
+   FROM UNNEST([100, 200]) AS value
+   ORDER BY value)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 100}]
+}
+==
+
+[name=insert_replace_assert_rows_modified_null]
+[primary_key_mode=first_column_is_primary_key]
+[parameters=NULL param]
+INSERT REPLACE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+[name=insert_replace_assert_rows_modified_negative]
+[primary_key_mode=first_column_is_primary_key]
+[parameters=-1 param]
+INSERT REPLACE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 1
+==
+
+[name=insert_replace_assert_rows_modified]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+}
+==
+
+[name=insert_replace_assert_rows_modified_failure]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+[name=insert_replace_assert_rows_modified_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) SELECT 1, 100
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+}
+==
+
+[name=insert_replace_assert_rows_modified_query_failure]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) SELECT 1, 100
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+[name=insert_replace_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) VALUES (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+}
+==
+
+# We insert a duplicate row and leave one of the value columns out of the
+# INSERT, so its default value (NULL) overrides the value in the existing row,
+# in contrast to INSERT UPDATE.
+[name=insert_replace_entire_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table2 (primary_key, int64_value) VALUES (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<
+          primary_key INT64,
+          int64_value INT64,
+          other_int64_value INT64
+        >>
+  [{1, 100, NULL}, {2, 20, 200}]}
+==
+
+[name=insert_replace_one_new_row_one_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) VALUES (3, 30), (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}, {3, 30}]
+}
+==
+
+# Note that inserting the same row twice counts as 1 row modification.
+[name=insert_replace_two_new_rows_with_same_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value) VALUES (3, 100), (3, 200)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
+}
+==
+
+[name=insert_replace_two_new_rows_with_null_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT REPLACE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 200}]
+}
+==
+
+# Test that INSERT REPLACE honors the query's ORDER BY when dealing with
+# duplicate keys.
+#
+# The query is designed so that the last insert corresponds to the middle row
+# from a table with three (determistically ordered) rows. An engine that ignores
+# the ORDER BY is unlikely to accidentally insert that row last.
+[name=insert_replace_with_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value)
+  (SELECT 3 primary_key, value
+   FROM UNNEST([100, 200, 50]) AS value
+   ORDER BY value)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
+}
+==
+
+# Note that inserting the same row twice counts as 1 row modification.
+[name=insert_replace_two_new_rows_with_same_primary_key_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT REPLACE Table1 (primary_key, value)
+  (SELECT 3 primary_key, value
+   FROM UNNEST([100, 200]) AS value
+   ORDER BY value)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
+}
+==
+
+[name=insert_update_assert_rows_modified_null]
+[primary_key_mode=first_column_is_primary_key]
+[parameters=NULL param]
+INSERT UPDATE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED must have a non-NULL argument
+==
+
+[name=insert_update_assert_rows_modified_negative]
+[primary_key_mode=first_column_is_primary_key]
+[parameters=-1 param]
+INSERT UPDATE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED @param
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected -1 rows modified, but found 1
+==
+
+[name=insert_update_assert_rows_modified]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+}
+==
+
+[name=insert_update_assert_rows_modified_failure]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) VALUES (1, 100)
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+[name=insert_update_assert_rows_modified_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) SELECT 1, 100
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+}
+==
+
+[name=insert_update_assert_rows_modified_query_failure]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) SELECT 1, 100
+ASSERT_ROWS_MODIFIED 100
+--
+ERROR: generic::out_of_range: ASSERT_ROWS_MODIFIED expected 100 rows modified, but found 1
+==
+
+[name=insert_update_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) VALUES (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}]
+}
+==
+
+# We insert a duplicate row and leave one of the value columns out of the
+# INSERT, so its default value (NULL) does not override the value in the
+# existing row, in contrast to INSERT REPLACE.
+[name=insert_update_part_of_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table2 (primary_key, int64_value) VALUES (1, 500)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<
+          primary_key INT64,
+          int64_value INT64,
+          other_int64_value INT64
+        >>
+  [{1, 500, 100}, {2, 20, 200}]}
+==
+
+# Same as above, but the insert column list is not a prefix of the columns in
+# the table.
+[name=insert_update_non_prefix_part_of_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table2 (primary_key, other_int64_value) VALUES (1, 500)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<
+          primary_key INT64,
+          int64_value INT64,
+          other_int64_value INT64
+        >>
+  [{1, 10, 500}, {2, 20, 200}]}
+==
+
+[name=insert_update_one_new_row_one_duplicate_row]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) VALUES (3, 30), (1, 100)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 100}, {2, 20}, {3, 30}]
+}
+==
+
+# Note that updating the same row twice counts as 1 row modification.
+[name=insert_update_two_new_rows_with_same_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value) VALUES (3, 100), (3, 200)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
+}
+==
+
+[name=insert_update_two_new_rows_with_null_primary_key]
+[primary_key_mode=first_column_is_primary_key]
+[test_features1=DISALLOW_NULL_PRIMARY_KEYS]
+INSERT UPDATE Table1 (primary_key, value) VALUES (NULL, 100), (NULL, 200)
+--
+WITH FEATURES: DISALLOW_NULL_PRIMARY_KEYS
+ERROR: generic::out_of_range: Cannot INSERT a NULL value into a primary key column
+--
+WITH FEATURES: <none>
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {NULL, 200}]
+}
+==
+
+# Test that INSERT UPDATE honors the query's ORDER BY when dealing with
+# duplicate keys.
+#
+# The query is designed so that the last insert corresponds to the middle row
+# from a table with three (determistically ordered) rows. An engine that ignores
+# the ORDER BY is unlikely to accidentally insert that row last.
+[name=insert_update_with_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value)
+  (SELECT 3 primary_key, value
+   FROM UNNEST([100, 200, 50]) AS value
+   ORDER BY value)
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
+}
+==
+
+# Note that updating the same row twice counts as 1 row modification.
+[name=insert_update_two_new_rows_with_same_primary_key_query]
+[primary_key_mode=first_column_is_primary_key]
+INSERT UPDATE Table1 (primary_key, value)
+  (SELECT 3 primary_key, value
+   FROM UNNEST([100, 200]) AS value
+   ORDER BY value)
+ASSERT_ROWS_MODIFIED 1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}, {3, 200}]
+}
+==
+
+# Insert using SELECT DISTINCT (b/117789638)
+[name=insert_using_select_distinct]
+INSERT TableDistincts (distinct_1, distinct_2, distinct_3, distinct_4)
+  SELECT x, y, y, x FROM (SELECT 35 AS x, 36 AS y);
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{
+  1,
+  ARRAY<STRUCT<distinct_1 INT64, distinct_2 INT64, distinct_3 INT64, distinct_4 INT64>>[
+    {1, 1, 1, 1},
+    {35, 36, 36, 35}
+  ]
+}

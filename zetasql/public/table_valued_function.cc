@@ -239,11 +239,7 @@ std::string TVFRelation::DebugString() const {
   std::vector<std::string> strings;
   strings.reserve(columns().size());
   for (const Column& column : columns()) {
-    strings.push_back(column.type->DebugString());
-    // Prevent concatenating value column name.
-    if (!is_value_table() || column.is_pseudo_column) {
-      strings.back() = absl::StrCat(column.name, " ", strings.back());
-    }
+    strings.push_back(column.DebugString(is_value_table()));
   }
   return absl::StrCat("TABLE<", absl::StrJoin(strings, ", "), ">");
 }
@@ -278,6 +274,24 @@ zetasql_base::StatusOr<TVFRelation> TVFRelation::Deserialize(
   } else {
     return TVFRelation(cols);
   }
+}
+
+bool operator==(const TVFSchemaColumn& a, const TVFSchemaColumn& b) {
+  return a.name == b.name && a.is_pseudo_column == b.is_pseudo_column &&
+         (a.type == b.type ||
+          (a.type != nullptr && b.type != nullptr && a.type->Equals(b.type)));
+}
+
+std::ostream& operator<<(std::ostream& out,
+                         const TVFSchemaColumn& column) {
+  out << column.DebugString(column.name.empty());
+  return out;
+}
+
+bool operator == (const TVFRelation& a, const TVFRelation& b) {
+  return a.is_value_table() == b.is_value_table() &&
+         std::equal(a.columns().begin(), a.columns().end(),
+                    b.columns().begin(), b.columns().end());
 }
 
 std::string TVFModelArgument::GetSQLDeclaration(

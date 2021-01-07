@@ -87,6 +87,12 @@ std::string DateAddOrSubFunctionSQL(const std::string& display_name,
 
 std::string CountStarFunctionSQL(const std::vector<std::string>& inputs);
 
+std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs);
+
+std::string SupportedSignaturesForAnonCountStarFunction(
+    const std::string& unused_function_name,
+    const LanguageOptions& language_options, const Function& function);
+
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string InListFunctionSQL(const std::vector<std::string>& inputs);
@@ -103,6 +109,8 @@ std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs);
+
+std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs);
@@ -291,6 +299,11 @@ absl::Status CheckArgumentsSupportEquality(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
+absl::Status CheckArgumentsSupportGrouping(
+    const std::string& comparison_name, const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
 absl::Status CheckArgumentsSupportComparison(
     const std::string& comparison_name,
     const FunctionSignature& /*signature*/,
@@ -326,6 +339,9 @@ absl::Status CheckInArrayArguments(
 absl::Status CheckRangeBucketArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
+
+std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
+                                                int idx);
 
 // Returns true if an arithmetic operation has a floating point type as its
 // input.
@@ -442,6 +458,10 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
                           const ZetaSQLBuiltinFunctionOptions& options,
                           NameToFunctionMap* functions);
 
+void GetIntervalFunctions(TypeFactory* type_factory,
+                          const ZetaSQLBuiltinFunctionOptions& options,
+                          NameToFunctionMap* functions);
+
 void GetArithmeticFunctions(TypeFactory* type_factory,
                             const ZetaSQLBuiltinFunctionOptions& options,
                             NameToFunctionMap* functions);
@@ -489,6 +509,10 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
 
+void GetJSONFunctions(TypeFactory* type_factory,
+                      const ZetaSQLBuiltinFunctionOptions& options,
+                      NameToFunctionMap* functions);
+
 void GetNumericFunctions(TypeFactory* type_factory,
                          const ZetaSQLBuiltinFunctionOptions& options,
                          NameToFunctionMap* functions);
@@ -525,6 +549,13 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            NameToFunctionMap* functions);
 
+void GetAnonFunctions(TypeFactory* type_factory,
+                      const ZetaSQLBuiltinFunctionOptions& options,
+                      NameToFunctionMap* functions);
+
+void GetContainsSubstrFunction(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions);
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_BUILTIN_FUNCTION_INTERNAL_H_

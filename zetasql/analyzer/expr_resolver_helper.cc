@@ -102,6 +102,10 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
       return IsConstantExpression(
           expr->GetAs<ResolvedGetProtoField>()->expr());
 
+    case RESOLVED_GET_JSON_FIELD:
+      return IsConstantExpression(
+          expr->GetAs<ResolvedGetJsonField>()->expr());
+
     case RESOLVED_FLATTEN:
       for (const auto& arg : expr->GetAs<ResolvedFlatten>()->get_field_list()) {
         if (!IsConstantExpression(arg.get())) return false;

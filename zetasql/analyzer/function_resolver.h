@@ -158,11 +158,29 @@ class FunctionResolver {
       bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* argument) const;
 
+  // Same as the previous method, but includes <format>, which is the format
+  // string used for the conversion. It can be null.
+  absl::Status AddCastOrConvertLiteral(
+      const ASTNode* ast_location, const Type* target_type,
+      std::unique_ptr<const ResolvedExpr> format,
+      const ResolvedScan* scan,  // May be null
+      bool set_has_explicit_type, bool return_null_on_error,
+      std::unique_ptr<const ResolvedExpr>* argument) const;
+
   // Map an operator id from the parse tree to a ZetaSQL function name.
   static const std::string& UnaryOperatorToFunctionName(
       ASTUnaryExpression::Op op);
+
+  // Map a binary operator id from the parse tree to a ZetaSQL function name.
+  // <is_not> indicates whether IS NOT is used in the operator.
+  // Sets <*not_handled> to true if <is_not> is true and the returned function
+  // name already takes the "not" into account, avoiding the need to wrap the
+  // function call with an additional unary NOT operator.
+  //
+  // <not_handled> may be nullptr in code paths where <is_not> is known to
+  // be false.
   static const std::string& BinaryOperatorToFunctionName(
-      ASTBinaryExpression::Op op);
+      ASTBinaryExpression::Op op, bool is_not, bool* not_handled);
 
   // Returns the Coercer from <resolver_>.
   const Coercer& coercer() const;

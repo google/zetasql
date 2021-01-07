@@ -24,8 +24,11 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/hash/hash.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -170,6 +173,28 @@ class LanguageOptions {
     return zetasql_base::ContainsKey(supported_generic_entity_types_, type);
   }
 
+  bool operator==(const LanguageOptions& rhs) const {
+    return enabled_language_features_ == rhs.enabled_language_features_ &&
+           supported_statement_kinds_ == rhs.supported_statement_kinds_ &&
+           name_resolution_mode_ == rhs.name_resolution_mode_ &&
+           product_mode_ == rhs.product_mode_ &&
+           error_on_deprecated_syntax_ == rhs.error_on_deprecated_syntax_ &&
+           supported_generic_entity_types_ ==
+               rhs.supported_generic_entity_types_;
+  }
+  template <typename H>
+  friend H AbslHashValue(H h, const LanguageOptions& value) {
+    return H::combine(std::move(h), value.enabled_language_features_,
+                      value.supported_statement_kinds_,
+                      value.name_resolution_mode_, value.product_mode_,
+                      value.error_on_deprecated_syntax_,
+                      /* we just hash on the size, because this uses
+                         a case insensitive comparator, which makes it awkward
+                         to get into the hash value */
+                      value.supported_generic_entity_types_.size());
+  }
+  bool operator!=(const LanguageOptions& rhs) const { return !(*this == rhs); }
+
  private:
   // Enable all optional features that are enabled in the idealized ZetaSQL.
   // If 'for_development' is false, features that are still under development
@@ -215,7 +240,7 @@ class LanguageOptions {
   };
   struct CaseEq {
     size_t operator()(absl::string_view s1, absl::string_view s2) const {
-      return zetasql_base::CaseEqual(s1, s2);
+      return absl::EqualsIgnoreCase(s1, s2);
     }
   };
   // For generic DDLs CREATE/DROP/ALTER <entity_type>, parser will report

@@ -798,6 +798,57 @@ cc_test(
 )
 
 cc_library(
+    name = "net",
+    srcs = ["net.cc"],
+    hdrs = ["net.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":util",
+        "//zetasql/base:status",
+        "//zetasql/base/net:idn",
+        "//zetasql/base/net:ipaddress",
+        "//zetasql/base/net:public_suffix",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "net_test",
+    size = "small",
+    srcs = ["net_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":net",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/compliance:functions_testlib",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/testing:test_function",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+cc_library(
     name = "string",
     srcs = ["string.cc"],
     hdrs = ["string.h"],
@@ -815,7 +866,9 @@ cc_library(
         ":util",
         "//zetasql/base",
         "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/base:statusor",
         "//zetasql/base:stl_util",
         "//zetasql/base:string_numbers",
         "//zetasql/common:utf_util",
@@ -823,9 +876,10 @@ cc_library(
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@icu//:common",
+        "@com_google_absl//absl/types:span",
     ],
 )
 
@@ -1064,6 +1118,7 @@ cc_test(
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/compliance:functions_testlib",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/testing:test_function",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

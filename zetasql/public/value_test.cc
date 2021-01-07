@@ -32,7 +32,6 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/internal_value.h"
@@ -70,12 +69,12 @@ using ::testing::HasSubstr;
 using ::testing::Not;
 using ::zetasql_base::testing::StatusIs;
 
-using interval_testing::Months;
 using interval_testing::Days;
 using interval_testing::Micros;
-using interval_testing::Nanos;
+using interval_testing::Months;
 using interval_testing::MonthsDaysMicros;
 using interval_testing::MonthsDaysNanos;
+using interval_testing::Nanos;
 
 static void TestHashEqual(const Value& a, const Value& b) {
   EXPECT_EQ(a.HashCode(), b.HashCode()) << "\na: " << a << "\n"
@@ -110,8 +109,9 @@ static Value TestGetSQL(const Value& value) {
       FEATURE_NUMERIC_TYPE);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_BIGNUMERIC_TYPE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(FEATURE_JSON_TYPE);
   analyzer_options.mutable_language()->EnableLanguageFeature(
-      FEATURE_JSON_TYPE);
+      FEATURE_INTERVAL_TYPE);
 
   const bool testable_type = !value.type()->IsProto();
   // Test round tripping GetSQL for non-legacy types.
@@ -133,8 +133,7 @@ static Value TestGetSQL(const Value& value) {
       if (result.ok()) {
         const Value& new_value = result.value();
         EXPECT_TRUE(value.Equals(new_value))
-            << "Value: " << value.FullDebugString()
-            << "\nSQL: " << sql
+            << "Value: " << value.FullDebugString() << "\nSQL: " << sql
             << "\nRe-parsed: " << new_value.FullDebugString();
         EXPECT_EQ(value.DebugString(), new_value.DebugString());
       }
@@ -221,8 +220,7 @@ static Value TestGetSQL(const Value& value) {
           const Value& new_value = result.value();
           EXPECT_TRUE(value.Equals(new_value))
               << "Value: " << value.FullDebugString()
-              << "\nSQL literal: " << sql
-              << "\nCAST expr: " << cast_expr
+              << "\nSQL literal: " << sql << "\nCAST expr: " << cast_expr
               << "\nRe-parsed: " << new_value.FullDebugString();
           EXPECT_EQ(value.DebugString(), new_value.DebugString());
         }
@@ -336,25 +334,12 @@ TEST_F(ValueTest, DoubleFloatToString) {
   // Test that DebugString and GetSQL for doubles and floats returns values
   // that are clearly floating point, not integers (e.g. they have dots).
   const Value values[] = {
-      Value::Double(0.0),
-      Value::Double(1.0),
-      Value::Double(-1.0),
-      Value::Double(1.5),
-      Value::Double(-1.5),
-      Value::Double(.5),
-      Value::Double(-.5),
-      Value::Double(1e20),
-      Value::Double(-1e20),
-      Value::Float(0.0),
-      Value::Float(1.0),
-      Value::Float(-1.0),
-      Value::Float(1.5),
-      Value::Float(-1.5),
-      Value::Float(.5),
-      Value::Float(-.5),
-      Value::Float(1e20),
-      Value::Float(-1e20)
-  };
+      Value::Double(0.0), Value::Double(1.0),  Value::Double(-1.0),
+      Value::Double(1.5), Value::Double(-1.5), Value::Double(.5),
+      Value::Double(-.5), Value::Double(1e20), Value::Double(-1e20),
+      Value::Float(0.0),  Value::Float(1.0),   Value::Float(-1.0),
+      Value::Float(1.5),  Value::Float(-1.5),  Value::Float(.5),
+      Value::Float(-.5),  Value::Float(1e20),  Value::Float(-1e20)};
   for (const Value& value : values) {
     TestGetSQL(value);
 
@@ -456,8 +441,7 @@ TEST_F(ValueTest, SimpleRoundTrip) {
             Value::Bytes("honorificabilitudinitatibus").bytes_value());
   EXPECT_EQ(123, Value::Date(123).date_value());
   int64_t min_micros = zetasql::types::kTimestampMin;
-  EXPECT_EQ(min_micros,
-            TimestampFromUnixMicros(min_micros).ToUnixMicros());
+  EXPECT_EQ(min_micros, TimestampFromUnixMicros(min_micros).ToUnixMicros());
 }
 
 TEST_F(ValueTest, BaseTime) {
@@ -470,8 +454,7 @@ TEST_F(ValueTest, BaseTime) {
       absl::FromCivil(absl::CivilSecond(10000, 01, 01, 00, 00, 00), utc) -
       absl::Nanoseconds(1);
   EXPECT_EQ("TIMESTAMP", Value::Timestamp(tmin).type()->DebugString());
-  EXPECT_EQ("0001-01-01 00:00:00+00",
-            Value::Timestamp(tmin).DebugString());
+  EXPECT_EQ("0001-01-01 00:00:00+00", Value::Timestamp(tmin).DebugString());
   EXPECT_EQ("9999-12-31 23:59:59.999999999+00",
             Value::Timestamp(tmax).DebugString());
   EXPECT_EQ(zetasql::types::kTimestampMin,
@@ -583,14 +566,17 @@ TEST_F(ValueTest, Interval) {
     EXPECT_FALSE(Value::Interval(Nanos(-1)) == Value::Interval(Nanos(1)));
   }
 
-  /* TODO: Enable this test when GetSQL() is implemented for INTERVAL.
   {
-    Value value = TestGetSQL(Value::Interval(interval));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        interval, IntervalValue::FromMonthsDaysMicros(14, 30, 3723456789));
+    Value value(Value::Interval(interval));
+    EXPECT_EQ("1-2 30 1:2:3.456789", value.DebugString());
+    value = TestGetSQL(value);
     EXPECT_EQ("INTERVAL", value.type()->DebugString());
+    EXPECT_EQ("1-2 30 1:2:3.456789", value.DebugString());
     EXPECT_FALSE(value.is_null());
     EXPECT_EQ(IntervalValue(interval), value.interval_value());
   }
-  */
 }
 
 TEST_F(ValueTest, Geography) {
@@ -759,7 +745,6 @@ TEST_F(ValueTest, JSON) {
   }
 }
 
-
 TEST_F(ValueTest, GenericAccessors) {
   // Return types.
   static Value v;
@@ -843,28 +828,22 @@ TEST_F(ValueTest, HashCode) {
       Value::NullDouble(), Value::NullBytes(), Value::NullString(),
       Value::NullDate(), Value::NullTimestamp(), Value::NullTime(),
       Value::NullDatetime(), Value::NullGeography(), Value::NullNumeric(),
-      Value::NullBigNumeric(),
-      Value::NullJson(),
-      Value::Null(enum_type), Value::Null(other_enum_type),
-      Value::Null(proto_type), Value::Null(other_proto_type),
-      Value::Null(types::Int32ArrayType()),
-      Value::Null(types::Int64ArrayType()),
-      Value::Null(array_enum_type), Value::Null(array_other_enum_type),
-      Value::Null(array_proto_type), Value::Null(array_other_proto_type),
+      Value::NullBigNumeric(), Value::NullJson(), Value::Null(enum_type),
+      Value::Null(other_enum_type), Value::Null(proto_type),
+      Value::Null(other_proto_type), Value::Null(types::Int32ArrayType()),
+      Value::Null(types::Int64ArrayType()), Value::Null(array_enum_type),
+      Value::Null(array_other_enum_type), Value::Null(array_proto_type),
+      Value::Null(array_other_proto_type),
       // Simple scalar types.
-      Value::Int32(1001), Value::Int32(1002),
-      Value::Int64(1001), Value::Int64(1002),
-      Value::Uint32(1001), Value::Uint32(1002),
-      Value::Uint64(1001), Value::Uint64(1002),
-      Value::Bool(false), Value::Bool(true),
-      Value::Float(1.3f), Value::Float(1.4f),
-      Value::Double(1.3f), Value::Double(1.4f),
-      Value::String("a"), Value::String("b"),
-      Value::StringValue(std::string("a")),
-      Value::StringValue(std::string("b")),
-      Value::Bytes("a"), Value::Bytes("b"),
-      Value::Bytes(std::string("a")), Value::Bytes(std::string("b")),
-      Value::Date(1001), Value::Date(1002),
+      Value::Int32(1001), Value::Int32(1002), Value::Int64(1001),
+      Value::Int64(1002), Value::Uint32(1001), Value::Uint32(1002),
+      Value::Uint64(1001), Value::Uint64(1002), Value::Bool(false),
+      Value::Bool(true), Value::Float(1.3f), Value::Float(1.4f),
+      Value::Double(1.3f), Value::Double(1.4f), Value::String("a"),
+      Value::String("b"), Value::StringValue(std::string("a")),
+      Value::StringValue(std::string("b")), Value::Bytes("a"),
+      Value::Bytes("b"), Value::Bytes(std::string("a")),
+      Value::Bytes(std::string("b")), Value::Date(1001), Value::Date(1002),
       Value::Timestamp(
           absl::FromCivil(absl::CivilSecond(2018, 2, 14, 16, 36, 11), utc) +
           absl::Nanoseconds(1)),
@@ -881,45 +860,43 @@ TEST_F(ValueTest, HashCode) {
       Value::Numeric(NumericValue(int64_t{1002})),
       Value::BigNumeric(BigNumericValue(int64_t{1001})),
       Value::BigNumeric(BigNumericValue(int64_t{1002})),
-      Value::Json(JSONValue(int64_t{1})),
-      Value::UnvalidatedJsonString("value"),
+      Value::Json(JSONValue(int64_t{1})), Value::UnvalidatedJsonString("value"),
       // Enums of two different types.
       values::Enum(enum_type, 0), values::Enum(enum_type, 1),
       values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1),
       // Protos of two different types.
       Value::Proto(proto_type, {}), Value::Proto(other_proto_type, {}),
       // Arrays of various types.
-      values::Int32Array({}),
-      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
-      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
-      values::Int64Array({}),
+      values::Int32Array({}), values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
+      values::Int32Array({0, 1, 1, 2, 3, 5, 8, 13, -1}), values::Int64Array({}),
       values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, 21}),
       values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
 
+      values::JsonArray({}),
+      values::JsonArray({JSONValue(int64_t{1}), JSONValue(std::string("\"foo\"")),
+                         JSONValue::ParseJSONString("{\"a\": 10}").value()}),
+      values::UnvalidatedJsonStringArray({}),
+      values::UnvalidatedJsonStringArray({"1", "{\"a:}", "foo"}),
+
       values::EmptyArray(array_enum_type),
       values::Array(array_enum_type, {values::Enum(enum_type, 0)}),
-      values::Array(
-          array_enum_type,
-          {values::Enum(enum_type, 0), values::Enum(enum_type, 1)}),
+      values::Array(array_enum_type,
+                    {values::Enum(enum_type, 0), values::Enum(enum_type, 1)}),
       values::EmptyArray(array_other_enum_type),
       values::Array(array_other_enum_type, {values::Enum(other_enum_type, 0)}),
-      values::Array(
-          array_other_enum_type,
-          {values::Enum(other_enum_type, 0), values::Enum(other_enum_type, 1)}),
+      values::Array(array_other_enum_type, {values::Enum(other_enum_type, 0),
+                                            values::Enum(other_enum_type, 1)}),
 
       values::EmptyArray(array_proto_type),
       values::Array(array_proto_type, {Value::Proto(proto_type, {})}),
-      values::Array(
-          array_proto_type,
-          {Value::Proto(proto_type, {}), Value::Proto(proto_type, {})}),
+      values::Array(array_proto_type, {Value::Proto(proto_type, {}),
+                                       Value::Proto(proto_type, {})}),
       values::EmptyArray(array_other_proto_type),
-      values::Array(
-          array_other_proto_type,
-          {Value::Proto(other_proto_type, {})}),
-      values::Array(
-          array_other_proto_type,
-          {Value::Proto(other_proto_type, {}),
-           Value::Proto(other_proto_type, {})}),
+      values::Array(array_other_proto_type,
+                    {Value::Proto(other_proto_type, {})}),
+      values::Array(array_other_proto_type,
+                    {Value::Proto(other_proto_type, {}),
+                     Value::Proto(other_proto_type, {})}),
   }));
 }
 
@@ -1032,7 +1009,7 @@ TEST_F(ValueTest, CopyConstructor) {
   EXPECT_EQ(1e20, v7d.double_value());
   EXPECT_EQ(1e20, v7d.ToDouble());
   EXPECT_EQ("1e+20", v7d.DebugString());
-  EXPECT_EQ("1e+20", v7d.GetSQL());  // No extra ".0" added.
+  EXPECT_EQ("1e+20", v7d.GetSQL());         // No extra ".0" added.
   EXPECT_EQ("1e+20", v7d.GetSQLLiteral());  // No extra ".0" added.
 
   Value v7e = TestGetSQL(Value::Double(1e-20));
@@ -1097,26 +1074,13 @@ TEST_F(ValueTest, NullDeath) {
 
 TEST_F(ValueTest, DistinctValues) {
   std::vector<Value> values = {
-      Value::NullInt64(),
-      Value::NullInt32(),
-      Value::NullUint64(),
-      Value::NullUint32(),
-      Value::NullBool(),
-      Value::NullFloat(),
-      Value::NullDouble(),
-      Value::NullString(),
-      Value::NullBytes(),
+      Value::NullInt64(), Value::NullInt32(), Value::NullUint64(),
+      Value::NullUint32(), Value::NullBool(), Value::NullFloat(),
+      Value::NullDouble(), Value::NullString(), Value::NullBytes(),
       Value::NullDate(),
-      Value::Int32(0),
-      Value::Int64(0),
-      Value::Uint32(0),
-      Value::Uint64(0),
-      Value::Bool(false),
-      Value::Float(0),
-      Value::Double(0),
-      Value::String(""),
-      Value::Bytes(""),
-      Value::Date(0),
+      Value::Int32(0), Value::Int64(0), Value::Uint32(0), Value::Uint64(0),
+      Value::Bool(false), Value::Float(0), Value::Double(0), Value::String(""),
+      Value::Bytes(""), Value::Date(0),
   };
   for (int i = 0; i < values.size(); i++) {
     TestGetSQL(values[i]);
@@ -1169,17 +1133,18 @@ TEST_F(ValueTest, AlmostEquals) {
   EXPECT_THAT(Array({y, y_near}), AlmostEqualsValue(Array({y_near, y})));
   EXPECT_THAT(Array({y, y}), Not(AlmostEqualsValue(Array({y_far, y}))));
   // Unordered array<double>
-  EXPECT_THAT(Array({x, x_near}), AlmostEqualsValue(
-      Array({x_near, x}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(
+      Array({x, x_near}),
+      AlmostEqualsValue(Array({x_near, x}, InternalValue::kIgnoresOrder)));
   // Unordered array<float>
-  EXPECT_THAT(Array({y, y_near}), AlmostEqualsValue(
-      Array({y_near, y}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(
+      Array({y, y_near}),
+      AlmostEqualsValue(Array({y_near, y}, InternalValue::kIgnoresOrder)));
 
   // x and x_far differ by 5 ULP bits.
   int bits = 0;
-  while (bits < 10 &&
-         !FloatMargin::UlpMargin(bits)
-              .Equal(x.double_value(), x_far.double_value())) {
+  while (bits < 10 && !FloatMargin::UlpMargin(bits).Equal(
+                          x.double_value(), x_far.double_value())) {
     bits++;
   }
   EXPECT_EQ(5, bits);
@@ -1190,6 +1155,31 @@ TEST_F(ValueTest, AlmostEquals) {
   double tiny2 = 1e-150;
   EXPECT_THAT(Value::Double(tiny1), AlmostEqualsValue(Value::Double(tiny2)))
       << kDefaultFloatMargin.PrintError(tiny1, tiny2);
+}
+
+absl::Cord BuildDoubleValueProto(double value) {
+  google::protobuf::DoubleValue m;
+  m.set_value(value);
+  return SerializeToCord(m);
+}
+
+TEST_F(ValueTest, AlmostEqualsMessageWithFloatingPointField) {
+  TypeFactory factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(google::protobuf::DoubleValue::descriptor(),
+                                  &proto_type));
+  auto x = Value::Proto(proto_type, BuildDoubleValueProto(3.0));
+  auto x_near =
+      Value::Proto(proto_type, BuildDoubleValueProto(NextAlmostEqual(3.0)));
+  auto x_far = Value::Proto(proto_type, BuildDoubleValueProto(7.0));
+  // AlmostEquals
+  EXPECT_THAT(x, AlmostEqualsValue(x));
+  EXPECT_THAT(x, AlmostEqualsValue(x_near));
+  EXPECT_THAT(x, Not(AlmostEqualsValue(x_far)));
+  // Equals
+  EXPECT_THAT(x, EqualsValue(x));
+  EXPECT_THAT(x, Not(EqualsValue(x_near)));
+  EXPECT_THAT(x, Not(AlmostEqualsValue(x_far)));
 }
 
 TEST_F(ValueTest, AlmostEqualsStructArray) {
@@ -1212,8 +1202,8 @@ TEST_F(ValueTest, AlmostEqualsStructArray) {
   auto r2 = Struct({"x", "y"}, {x_near, y_far});
   auto s1 = Struct({"x", "y"}, {x_near, y});
   auto s2 = Struct({"x", "y"}, {x, y_far});
-  EXPECT_THAT(Array({r1, r2}), AlmostEqualsValue(
-      Array({s2, s1}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(Array({r1, r2}),
+              AlmostEqualsValue(Array({s2, s1}, InternalValue::kIgnoresOrder)));
 
   // Moreover, we can't fix the sort-based algorithm by first comparing
   // y-members then x-members. To prevent that, we add the symmetric structs:
@@ -1223,12 +1213,13 @@ TEST_F(ValueTest, AlmostEqualsStructArray) {
   auto r4 = Struct({"x", "y"}, {x_far, y_near});
   auto s3 = Struct({"x", "y"}, {x, y_near});
   auto s4 = Struct({"x", "y"}, {x_far, y});
-  EXPECT_THAT(Array({r3, r4}), AlmostEqualsValue(
-      Array({s4, s3}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(Array({r3, r4}),
+              AlmostEqualsValue(Array({s4, s3}, InternalValue::kIgnoresOrder)));
 
   // And now we combine the multisets with x-distinct and y-distinct structs.
-  EXPECT_THAT(Array({r1, r2, r3, r4}), AlmostEqualsValue(
-      Array({s2, s1, s4, s3}, InternalValue::kIgnoresOrder)));
+  EXPECT_THAT(
+      Array({r1, r2, r3, r4}),
+      AlmostEqualsValue(Array({s2, s1, s4, s3}, InternalValue::kIgnoresOrder)));
 }
 
 TEST_F(ValueTest, StructNotNull) {
@@ -1366,8 +1357,10 @@ TEST_F(ValueTest, FloatArray) {
   Value v1 = TestGetSQL(
       FloatArray({1.5, 2.5, std::numeric_limits<double>::quiet_NaN()}));
   EXPECT_EQ("[1.5, 2.5, nan]", v1.DebugString());
-  EXPECT_EQ("ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
-            "CAST(\"nan\" AS FLOAT)]", v1.GetSQL());
+  EXPECT_EQ(
+      "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
+      "CAST(\"nan\" AS FLOAT)]",
+      v1.GetSQL());
   EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]", v1.GetSQLLiteral());
 }
 
@@ -1389,95 +1382,13 @@ TEST_F(ValueTest, DoubleArray) {
             v2.GetSQLLiteral(PRODUCT_INTERNAL));
 }
 
-// Map entry arrays are similar to the order-ignoring bag arrays, however they
-// don't properly ignore order. When there are duplicated keys, the last key
-// controls equality.
-TEST_F(ValueTest, ArrayMap) {
-  const google::protobuf::FieldDescriptor* int32_int32_map_descriptor =
-      zetasql_test::MessageWithMapField::descriptor()->FindFieldByName(
-          "int32_int32_map");
-  const ProtoType* entry_type;
-  ZETASQL_ASSERT_OK(test_values::static_type_factory()->MakeProtoType(
-      int32_int32_map_descriptor->message_type(), &entry_type));
-
-  google::protobuf::DynamicMessageFactory factory;
-  const google::protobuf::Message* prototype =
-      factory.GetPrototype(int32_int32_map_descriptor->message_type());
-
-  std::unique_ptr<google::protobuf::Message> entry_default(prototype->New());
-  std::unique_ptr<google::protobuf::Message> entry1(prototype->New());
-  ASSERT_TRUE(
-      google::protobuf::TextFormat::ParseFromString("key: 1 value: 111", entry1.get()));
-  std::unique_ptr<google::protobuf::Message> entry2(prototype->New());
-  ASSERT_TRUE(
-      google::protobuf::TextFormat::ParseFromString("key: 2 value: 222", entry2.get()));
-  // An entry with the same key as entry1 but a different value.
-  std::unique_ptr<google::protobuf::Message> entry1_obsolete(prototype->New());
-  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString("key: 1 value: 112",
-                                                  entry1_obsolete.get()));
-
-  const ArrayType* array_type;
-  ZETASQL_ASSERT_OK(test_values::static_type_factory()->MakeArrayType(entry_type,
-                                                              &array_type));
-
-  const Value array_empty = Value::Array(array_type, {});
-  const Value array_null = Value::Array(array_type, {values::Null(entry_type)});
-  const Value array_null_null = Value::Array(
-      array_type, {values::Null(entry_type), values::Null(entry_type)});
-  const Value array_default =
-      Value::Array(array_type, {values::Proto(entry_type, *entry_default)});
-  const Value array_1 =
-      Value::Array(array_type, {values::Proto(entry_type, *entry1)});
-  const Value array_1_null = Value::Array(
-      array_type,
-      {values::Proto(entry_type, *entry1), values::Null(entry_type)});
-  const Value array_2 =
-      Value::Array(array_type, {values::Proto(entry_type, *entry2)});
-  const Value array_2_2 = Value::Array(
-      array_type,
-      {values::Proto(entry_type, *entry2), values::Proto(entry_type, *entry2)});
-  const Value array_1_2 = Value::Array(
-      array_type,
-      {values::Proto(entry_type, *entry1), values::Proto(entry_type, *entry2)});
-  const Value array_2_1 = Value::Array(
-      array_type,
-      {values::Proto(entry_type, *entry2), values::Proto(entry_type, *entry1)});
-  const Value array_1obsolete_1_2 =
-      Value::Array(array_type, {values::Proto(entry_type, *entry1_obsolete),
-                                values::Proto(entry_type, *entry1),
-                                values::Proto(entry_type, *entry2)});
-
-  // Values in each of the following equivalence classes should compare equal
-  // to other values in the same class, and unequal to values in other classes.
-  std::vector<std::vector<Value>> equivalence_classes = {
-      {array_empty},
-      {array_null, array_null_null},
-      {array_default},
-      {array_1_null},
-      {array_1},
-      {array_2, array_2_2},
-      {array_1_2, array_2_1, array_1obsolete_1_2},
-  };
-
-  for (int i = 0; i < equivalence_classes.size(); ++i) {
-    for (int j = 0; j < equivalence_classes.size(); ++j) {
-      for (const Value& ientry : equivalence_classes[i]) {
-        for (const Value& jentry : equivalence_classes[j]) {
-          if (i == j) {
-            EXPECT_TRUE(InternalValue::Equals(ientry, jentry))
-                << "Expected equivalence of these values:\n"
-                << ientry.DebugString() << "\n"
-                << jentry.DebugString();
-          } else {
-            EXPECT_FALSE(InternalValue::Equals(ientry, jentry))
-                << "Expected non-equivalence of these values:\n"
-                << ientry.DebugString() << "\n"
-                << jentry.DebugString();
-          }
-        }
-      }
-    }
-  }
+TEST_F(ValueTest, JsonArray) {
+  Value v1 = TestGetSQL(JsonArray(
+      {JSONValue(int64_t{10}), JSONValue(std::string(R"("foo")")),
+       JSONValue::ParseJSONString(R"({"a": [1, true, null]})").value()}));
+  EXPECT_EQ(R"(Array[Json(10), Json("\"foo\""), Json({"a":[1,true,null]})])",
+            v1.FullDebugString());
+  EXPECT_EQ(R"([10, "\"foo\"", {"a":[1,true,null]}])", v1.ShortDebugString());
 }
 
 TEST_F(ValueTest, ArrayBag) {
@@ -1506,89 +1417,6 @@ TEST_F(ValueTest, ArrayBag) {
   EXPECT_TRUE(InternalValue::Equals(array_struct, bag_struct));
 }
 
-// If map entries are unordered, we can't treat them as a map. We need to
-// treat them as a set, because the semantics of a map are only valid if the
-// order of the entries are stable. This test case is copied verbatim from
-// a failure we saw when running the spandex RQG.
-TEST_F(ValueTest, NestedArrayStructBagContainingUnorderedMapEntries) {
-  TypeFactory& types = *test_values::static_type_factory();
-  const ProtoType* proto_type;
-  const google::protobuf::Descriptor* entry_descriptor =
-      zetasql_test::MessageWithMapField::descriptor()
-          ->FindFieldByName("bool_int32_map")
-          ->message_type();
-  ZETASQL_ASSERT_OK(types.MakeProtoType(entry_descriptor, &proto_type));
-  const ArrayType* map_entry_array;
-  ZETASQL_ASSERT_OK(types.MakeArrayType(proto_type, &map_entry_array));
-  const StructType* struct_type;
-  ZETASQL_ASSERT_OK(types.MakeStructType({{"col29", map_entry_array}}, &struct_type));
-  const ArrayType* array_of_struct_type;
-  ZETASQL_ASSERT_OK(types.MakeArrayType(struct_type, &array_of_struct_type));
-
-  google::protobuf::DynamicMessageFactory factory;
-  std::unique_ptr<google::protobuf::Message> entry_message(
-      factory.GetPrototype(entry_descriptor)->New());
-
-  auto Entry = [&](bool key, int32_t value) -> Value {
-    const google::protobuf::Reflection& reflection = *entry_message->GetReflection();
-    reflection.SetBool(entry_message.get(), entry_descriptor->field(0), key);
-    reflection.SetInt32(entry_message.get(), entry_descriptor->field(1), value);
-    return Value::Proto(proto_type,
-                        absl::Cord(entry_message->SerializeAsString()));
-  };
-
-  // Makes a test array of the given type. order_preservation constrols the
-  // ordering of the inner array.
-  auto TestArray = [&](absl::Span<const std::pair<bool, int32_t>> input,
-                       OrderPreservationKind order_preservation =
-                           kIgnoresOrder) {
-    std::vector<Value> input_array;
-    for (const auto& entry : input) {
-      input_array.push_back(Entry(entry.first, entry.second));
-    }
-
-    return test_values::Array(
-        {test_values::Struct(
-            {"col29"},
-            {{test_values::Array(ValueConstructor::FromValues(input_array),
-                                 order_preservation)}})},
-        kIgnoresOrder);
-  };
-
-  EXPECT_TRUE(InternalValue::Equals(TestArray({{true, 0}, {true, 1234}}),
-                                    TestArray({{true, 1234}, {true, 0}})));
-  EXPECT_FALSE(InternalValue::Equals(TestArray({{true, 0}, {true, 1234}}),
-                                     TestArray({{true, 1234}, {false, 0}})));
-  EXPECT_TRUE(InternalValue::Equals(TestArray({{true, 0},
-                                               {true, 0},
-                                               {true, -526943},
-                                               {true, -526943},
-                                               {true, 0},
-                                               {true, 0},
-                                               {true, -526943},
-                                               {true, -526943}}),
-                                    TestArray({{true, -526943},
-                                               {true, -526943},
-                                               {true, -526943},
-                                               {true, -526943},
-                                               {true, 0},
-                                               {true, 0},
-                                               {true, 0},
-                                               {true, 0}})));
-  EXPECT_FALSE(
-      InternalValue::Equals(TestArray({{true, 0}, {true, 0}, {true, 1234}}),
-                            TestArray({{true, 1234}, {true, 0}})));
-  EXPECT_TRUE(InternalValue::Equals(
-      TestArray({{true, 0}, {true, 1234}, {true, 0}}, kPreservesOrder),
-      TestArray({{true, 1234}, {true, 0}}, kPreservesOrder)));
-  EXPECT_TRUE(
-      InternalValue::Equals(TestArray({{true, 0}, {true, 0}, {true, 1234}}),
-                            TestArray({{true, 1234}, {true, 0}, {true, 0}})));
-  EXPECT_FALSE(InternalValue::Equals(
-      TestArray({{true, 0}, {true, 1234}}, kPreservesOrder),
-      TestArray({{true, 1234}, {true, 0}}, kPreservesOrder)));
-}
-
 TEST_F(ValueTest, NestedArrayBag) {
   std::vector<std::string> table_columns = {"bool_val", "double_val",
                                             "int64_val", "str_val"};
@@ -1614,12 +1442,12 @@ TEST_F(ValueTest, NestedArrayBag) {
                   InternalValue::kIgnoresOrder);
   auto array_x =
       StructArray({"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
-  auto array_xx = StructArray(
-      {"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
-  auto array_y = StructArray(
-      {"col"}, {{nested_y}}, InternalValue::kIgnoresOrder);
-  auto array_z = StructArray(
-      {"col"}, {{nested_z}}, InternalValue::kIgnoresOrder);
+  auto array_xx =
+      StructArray({"col"}, {{nested_x}}, InternalValue::kIgnoresOrder);
+  auto array_y =
+      StructArray({"col"}, {{nested_y}}, InternalValue::kIgnoresOrder);
+  auto array_z =
+      StructArray({"col"}, {{nested_z}}, InternalValue::kIgnoresOrder);
   // Hash code is order-insensitive.
   TestHashEqual(array_x, array_y);
   TestHashEqual(array_x.element(0), array_y.element(0));
@@ -1721,8 +1549,9 @@ TEST_F(ValueTest, NaN) {
 TEST_F(ValueTest, Enum) {
   const EnumType* enum_type = GetTestEnumType();
   EXPECT_TRUE(Value::Enum(enum_type, 0).type()->Equals(enum_type));
-  EXPECT_TRUE(TestGetSQL(Value::Null(enum_type)).type()->Equals(
-      Value::Enum(enum_type, 0).type()));
+  EXPECT_TRUE(TestGetSQL(Value::Null(enum_type))
+                  .type()
+                  ->Equals(Value::Enum(enum_type, 0).type()));
   EXPECT_EQ(0, TestGetSQL(Value::Enum(enum_type, 0)).enum_value());
   EXPECT_EQ(1, TestGetSQL(Value::Enum(enum_type, 1)).enum_value());
   EXPECT_EQ(2, TestGetSQL(Value::Enum(enum_type, 2)).enum_value());
@@ -1912,42 +1741,30 @@ TEST_F(ValueTest, StructLessThanNullSimple) {
 }
 
 TEST_F(ValueTest, StructLessThanNested) {
-  const Value nested_f4 =
-      Struct({"a", "b"},
-             {1, Struct({"c", "d"},
-                        {2, Struct(
-                            {"e", "f"}, {3, 4})})});
-  const Value nested_f5 =
-      Struct({"a", "b"},
-             {1, Struct({"c", "d"},
-                        {2, Struct(
-                            {"e", "f"}, {3, 5})})});
+  const Value nested_f4 = Struct(
+      {"a", "b"}, {1, Struct({"c", "d"}, {2, Struct({"e", "f"}, {3, 4})})});
+  const Value nested_f5 = Struct(
+      {"a", "b"}, {1, Struct({"c", "d"}, {2, Struct({"e", "f"}, {3, 5})})});
   EXPECT_TRUE(nested_f4.LessThan(nested_f5));
   EXPECT_FALSE(nested_f5.LessThan(nested_f4));
 
   // Compare nested struct containing nulls.
   const Value nested_anull =
-      Struct({"a", "b"},
-             {Value::NullInt32(), Struct({"c", "d"},
-                        {2, Struct(
-                            {"e", "f"}, {3, 5})})});
-  const Value nested_bnull = Struct({"a", "b"}, {
-    1, Value::Null(MakeStructType(
-        {{"c", Int32Type()},
-         {"d", MakeStructType(
-             {{"e", Int32Type()},
-              {"f", Int32Type()}})}
-        }))});
-  const Value nested_cnull =
-      Struct({"a", "b"},
-             {1, Struct({"c", "d"},
-                        {Value::NullInt32(), Struct(
-                            {"e", "f"}, {3, Value::NullInt32()})})});
-  const Value nested_fnull =
-      Struct({"a", "b"},
-             {1, Struct({"c", "d"},
-                        {2, Struct(
-                            {"e", "f"}, {3, Value::NullInt32()})})});
+      Struct({"a", "b"}, {Value::NullInt32(),
+                          Struct({"c", "d"}, {2, Struct({"e", "f"}, {3, 5})})});
+  const Value nested_bnull = Struct(
+      {"a", "b"}, {1, Value::Null(MakeStructType(
+                          {{"c", Int32Type()},
+                           {"d", MakeStructType({{"e", Int32Type()},
+                                                 {"f", Int32Type()}})}}))});
+  const Value nested_cnull = Struct(
+      {"a", "b"},
+      {1, Struct({"c", "d"}, {Value::NullInt32(),
+                              Struct({"e", "f"}, {3, Value::NullInt32()})})});
+  const Value nested_fnull = Struct(
+      {"a", "b"},
+      {1,
+       Struct({"c", "d"}, {2, Struct({"e", "f"}, {3, Value::NullInt32()})})});
 
   EXPECT_TRUE(nested_anull.LessThan(nested_bnull));
   EXPECT_TRUE(nested_anull.LessThan(nested_cnull));
@@ -2079,8 +1896,8 @@ TEST_F(ValueTest, Proto) {
   {
     google::protobuf::io::StringOutputStream cord_stream(&str_bytes);
     google::protobuf::io::CodedOutputStream out(&cord_stream);
-    out.WriteVarint32(WireFormatLite::MakeTag(
-        150775, WireFormatLite::WIRETYPE_VARINT));
+    out.WriteVarint32(
+        WireFormatLite::MakeTag(150775, WireFormatLite::WIRETYPE_VARINT));
     out.WriteVarint32(57);
   }
   bytes = absl::Cord(str_bytes);
@@ -2092,8 +1909,8 @@ TEST_F(ValueTest, Proto) {
   {
     google::protobuf::io::StringOutputStream cord_stream(&str_bytes);
     google::protobuf::io::CodedOutputStream out(&cord_stream);
-    out.WriteVarint32(WireFormatLite::MakeTag(
-        150776, WireFormatLite::WIRETYPE_END_GROUP));
+    out.WriteVarint32(
+        WireFormatLite::MakeTag(150776, WireFormatLite::WIRETYPE_END_GROUP));
   }
   bytes = absl::Cord(str_bytes);
   EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>{<unparseable>}",
@@ -2101,7 +1918,9 @@ TEST_F(ValueTest, Proto) {
   google::protobuf::DynamicMessageFactory message_factory;
   std::unique_ptr<google::protobuf::Message> message(
       Proto(proto_type, bytes).ToMessage(&message_factory));
-  EXPECT_EQ("150775: 57\n", message->DebugString());
+  std::string text_format;
+  google::protobuf::TextFormat::PrintToString(*message, &text_format);
+  EXPECT_EQ("150775: 57\n", text_format);
 
   // Protos with the same tags in different order.
   k.Clear();
@@ -2119,9 +1938,10 @@ TEST_F(ValueTest, Proto) {
   Value proto_2_1 = TestGetSQL(Proto(proto_type, tag_2_1_bytes));
   EXPECT_EQ(proto_1_2, proto_2_1);
   TestHashEqual(proto_1_2, proto_2_1);
-  EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>{int32_val: 5\n"
-            "string_val: \"abc\"\n}",
-            proto_2_1.FullDebugString());
+  EXPECT_EQ(
+      "Proto<zetasql_test.KitchenSinkPB>{int32_val: 5\n"
+      "string_val: \"abc\"\n}",
+      proto_2_1.FullDebugString());
   EXPECT_EQ(proto_1_2.FullDebugString(), proto_2_1.FullDebugString());
   EXPECT_NE(proto_1_2.ToCord(), proto_2_1.ToCord());
 
@@ -2279,8 +2099,8 @@ TEST_F(ValueTest, ValueConstructor) {
   EXPECT_EQ(String("a"), string_val2.get());
   EXPECT_EQ(String("a"), string_val3.get());
 
-  std::vector<Value> l = ValueConstructor::ToValues({
-      1, 1u, int64_t{1}, 1ull, True(), 4.0F, 3.5, "a"});
+  std::vector<Value> l = ValueConstructor::ToValues(
+      {1, 1u, int64_t{1}, 1ull, True(), 4.0F, 3.5, "a"});
   EXPECT_EQ(Int32(1), l[0]);
   EXPECT_EQ(Uint32(1), l[1]);
   EXPECT_EQ(Int64(1), l[2]);
@@ -2304,7 +2124,8 @@ TEST_F(ValueTest, FormatTestArrayWrapping) {
 ])");
   // Array that triggers wrap because its long.
   EXPECT_EQ(Array({"h", "i", "j", "k", "l", "m", "n", "p", "p", "q", "r", "s",
-                   "t", "u", "v", "w", "x", "y", "z"}).Format(),
+                   "t", "u", "v", "w", "x", "y", "z"})
+                .Format(),
             R"(ARRAY<STRING>["h",
               "i",
               "j",
@@ -2517,11 +2338,10 @@ TEST_F(ValueTest, EquivalentProtos) {
   // Do the same test with a proto enum type.
   const EnumType* enum_type;
   const EnumType* alt_enum_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeEnumType(zetasql_test::TestEnum_descriptor(),
+                                      &enum_type));
   ZETASQL_ASSERT_OK(type_factory.MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
-  ZETASQL_ASSERT_OK(type_factory.MakeEnumType(
-      alt_pool.FindEnumTypeByName("zetasql_test.TestEnum"),
-      &alt_enum_type));
+      alt_pool.FindEnumTypeByName("zetasql_test.TestEnum"), &alt_enum_type));
 
   EXPECT_FALSE(enum_type->Equals(alt_enum_type));
   EXPECT_TRUE(enum_type->Equivalent(alt_enum_type));
@@ -2611,8 +2431,7 @@ TEST_F(ValueTest, ParseInteger) {
             TestParseInteger("-0x7FFFFFFFFFFFFFFF"));
   EXPECT_EQ("ERROR", TestParseInteger("-9223372036854775809"));
   // Too many hex digits.
-  EXPECT_EQ("ERROR",
-            TestParseInteger("0xFFFFFFFFFFFFFFFABCD"));
+  EXPECT_EQ("ERROR", TestParseInteger("0xFFFFFFFFFFFFFFFABCD"));
 
   // Near std::numeric_limits<uint64_t>::max().
   EXPECT_EQ("Uint64(18446744073709551615)",
@@ -2620,8 +2439,7 @@ TEST_F(ValueTest, ParseInteger) {
   EXPECT_EQ("ERROR", TestParseInteger("18446744073709551616"));
   EXPECT_EQ("Uint64(18446744073709551615)",
             TestParseInteger("0xFFFFFFFFFFFFFFFF"));
-  EXPECT_EQ("ERROR",
-            TestParseInteger("0x10000000000000000"));
+  EXPECT_EQ("ERROR", TestParseInteger("0x10000000000000000"));
 }
 
 void ValueTest::TestParameterizedValueAfterReleaseOfTypeFactory(
@@ -2855,45 +2673,40 @@ TEST_F(ValueTest, Serialize) {
 
   SerializeDeserialize(Null(FloatArrayType()));
   SerializeDeserialize(EmptyArray(FloatArrayType()));
-  SerializeDeserialize(Array({
-    Float(std::numeric_limits<float>::min()),
-    Float(std::numeric_limits<float>::max()),
-    Float(std::numeric_limits<float>::lowest()),
-    Float(std::numeric_limits<float>::round_error()),
-    Float(std::numeric_limits<float>::epsilon()),
-    Float(std::numeric_limits<float>::infinity()),
-    Float(-std::numeric_limits<float>::infinity()),
-    Float(std::numeric_limits<float>::denorm_min()),
-    NullFloat()}));
-
+  SerializeDeserialize(
+      Array({Float(std::numeric_limits<float>::min()),
+             Float(std::numeric_limits<float>::max()),
+             Float(std::numeric_limits<float>::lowest()),
+             Float(std::numeric_limits<float>::round_error()),
+             Float(std::numeric_limits<float>::epsilon()),
+             Float(std::numeric_limits<float>::infinity()),
+             Float(-std::numeric_limits<float>::infinity()),
+             Float(std::numeric_limits<float>::denorm_min()), NullFloat()}));
 
   SerializeDeserialize(NullDouble());
   SerializeDeserialize(Double(2.71));
 
   SerializeDeserialize(Null(DoubleArrayType()));
   SerializeDeserialize(EmptyArray(DoubleArrayType()));
-  SerializeDeserialize(Array({
-    Double(std::numeric_limits<double>::min()),
-    Double(std::numeric_limits<double>::max()),
-    Double(std::numeric_limits<double>::lowest()),
-    Double(std::numeric_limits<double>::round_error()),
-    Double(std::numeric_limits<double>::epsilon()),
-    Double(std::numeric_limits<double>::infinity()),
-    Double(-std::numeric_limits<double>::infinity()),
-    Double(std::numeric_limits<double>::denorm_min()),
-    NullDouble()}));
+  SerializeDeserialize(
+      Array({Double(std::numeric_limits<double>::min()),
+             Double(std::numeric_limits<double>::max()),
+             Double(std::numeric_limits<double>::lowest()),
+             Double(std::numeric_limits<double>::round_error()),
+             Double(std::numeric_limits<double>::epsilon()),
+             Double(std::numeric_limits<double>::infinity()),
+             Double(-std::numeric_limits<double>::infinity()),
+             Double(std::numeric_limits<double>::denorm_min()), NullDouble()}));
 
   SerializeDeserialize(Value::NullNumeric());
   SerializeDeserialize(Value::Numeric(NumericValue(int64_t{1})));
 
   SerializeDeserialize(EmptyArray(types::NumericArrayType()));
-  SerializeDeserialize(Array({
-    Value::Numeric(NumericValue()),
-    Value::Numeric(NumericValue(int64_t{-1})),
-    Value::Numeric(NumericValue(int64_t{1})),
-    Value::Numeric(NumericValue::MinValue()),
-    Value::Numeric(NumericValue::MaxValue()),
-    Value::NullNumeric()}));
+  SerializeDeserialize(Array(
+      {Value::Numeric(NumericValue()), Value::Numeric(NumericValue(int64_t{-1})),
+       Value::Numeric(NumericValue(int64_t{1})),
+       Value::Numeric(NumericValue::MinValue()),
+       Value::Numeric(NumericValue::MaxValue()), Value::NullNumeric()}));
 
   SerializeDeserialize(Value::NullBigNumeric());
   SerializeDeserialize(Value::BigNumeric(BigNumericValue()));
@@ -2903,13 +2716,12 @@ TEST_F(ValueTest, Serialize) {
   SerializeDeserialize(Value::BigNumeric(BigNumericValue::MaxValue()));
 
   SerializeDeserialize(EmptyArray(types::BigNumericArrayType()));
-  SerializeDeserialize(Array({
-    Value::BigNumeric(BigNumericValue()),
-    Value::BigNumeric(BigNumericValue(int64_t{-1})),
-    Value::BigNumeric(BigNumericValue(int64_t{1})),
-    Value::BigNumeric(BigNumericValue::MinValue()),
-    Value::BigNumeric(BigNumericValue::MaxValue()),
-    Value::NullBigNumeric()}));
+  SerializeDeserialize(Array({Value::BigNumeric(BigNumericValue()),
+                              Value::BigNumeric(BigNumericValue(int64_t{-1})),
+                              Value::BigNumeric(BigNumericValue(int64_t{1})),
+                              Value::BigNumeric(BigNumericValue::MinValue()),
+                              Value::BigNumeric(BigNumericValue::MaxValue()),
+                              Value::NullBigNumeric()}));
 
   SerializeDeserialize(Value::NullJson());
   SerializeDeserialize(Value::Json(JSONValue()));
@@ -2918,11 +2730,10 @@ TEST_F(ValueTest, Serialize) {
   SerializeDeserialize(Value::UnvalidatedJsonString("value"));
 
   SerializeDeserialize(EmptyArray(types::JsonArrayType()));
-  SerializeDeserialize(Array({
-    Value::NullJson(),
-    Value::Json(JSONValue(int64_t{-1})),
-    Value::Json(JSONValue(int64_t{1})),
-    Value::UnvalidatedJsonString("value")}));
+  SerializeDeserialize(
+      Array({Value::NullJson(), Value::Json(JSONValue(int64_t{-1})),
+             Value::Json(JSONValue(int64_t{1})),
+             Value::UnvalidatedJsonString("value")}));
 
   SerializeDeserialize(NullString());
   SerializeDeserialize(String("Hello, world!"));
@@ -2943,8 +2754,7 @@ TEST_F(ValueTest, Serialize) {
 
   SerializeDeserialize(Null(types::DateArrayType()));
   SerializeDeserialize(EmptyArray(types::DateArrayType()));
-  SerializeDeserialize(Array({NullDate(),
-                              Date(zetasql::types::kDateMax),
+  SerializeDeserialize(Array({NullDate(), Date(zetasql::types::kDateMax),
                               Date(zetasql::types::kDateMin)}));
 
   SerializeDeserialize(NullTimestamp());
@@ -2958,17 +2768,16 @@ TEST_F(ValueTest, Serialize) {
              TimestampFromUnixMicros(zetasql::types::kTimestampMax)}));
 
   SerializeDeserialize(NullDatetime());
-  SerializeDeserialize(Datetime(DatetimeValue::FromYMDHMSAndMicros(
-      2010, 8, 7, 15, 26, 31, 712)));
-  SerializeDeserialize(Datetime(DatetimeValue::FromYMDHMSAndNanos(
-      1871, 11, 21, 9, 5, 4, 192837)));
+  SerializeDeserialize(Datetime(
+      DatetimeValue::FromYMDHMSAndMicros(2010, 8, 7, 15, 26, 31, 712)));
+  SerializeDeserialize(Datetime(
+      DatetimeValue::FromYMDHMSAndNanos(1871, 11, 21, 9, 5, 4, 192837)));
 
   SerializeDeserialize(Null(types::DatetimeArrayType()));
   SerializeDeserialize(EmptyArray(types::DatetimeArrayType()));
   SerializeDeserialize(
-      Array({NullDatetime(),
-             Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(
-                 1, 2, 3, 4, 5, 6, 7))}));
+      Array({NullDatetime(), Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(
+                                 1, 2, 3, 4, 5, 6, 7))}));
 
   SerializeDeserialize(NullTime());
   SerializeDeserialize(Time(TimeValue::FromHMSAndMicros(9, 18, 23, 501)));
@@ -2977,9 +2786,8 @@ TEST_F(ValueTest, Serialize) {
   SerializeDeserialize(Null(types::DatetimeArrayType()));
   SerializeDeserialize(EmptyArray(types::DatetimeArrayType()));
   SerializeDeserialize(
-      Array({NullDatetime(),
-             Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(
-                 1, 2, 3, 4, 5, 6, 7))}));
+      Array({NullDatetime(), Value::Datetime(DatetimeValue::FromYMDHMSAndNanos(
+                                 1, 2, 3, 4, 5, 6, 7))}));
 
   // Interval
   ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval_min,
@@ -3025,7 +2833,8 @@ TEST_F(ValueTest, Serialize) {
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(R"(
       int64_key_1: 1
       int64_key_2: 2
-      )", &ks));
+      )",
+                                             &ks));
 
   absl::Cord ks_serialized = SerializePartialToCord(ks);
 
@@ -3042,16 +2851,14 @@ TEST_F(ValueTest, Serialize) {
 
   // Structs
   const StructType* simple_struct_type =
-      MakeStructType({{"a", Int64ArrayType()},
-                      {"t", TimestampType()}});
+      MakeStructType({{"a", Int64ArrayType()}, {"t", TimestampType()}});
 
-  const StructType* struct_type =
-      MakeStructType({{"a", Int32ArrayType()},
-                      {"b", BytesType()},
-                      {"d", DateType()},
-                      {"e", EmptyStructType()},
-                      {"p", GetTestProtoType()},
-                      {"s", simple_struct_type}});
+  const StructType* struct_type = MakeStructType({{"a", Int32ArrayType()},
+                                                  {"b", BytesType()},
+                                                  {"d", DateType()},
+                                                  {"e", EmptyStructType()},
+                                                  {"p", GetTestProtoType()},
+                                                  {"s", simple_struct_type}});
 
   SerializeDeserialize(Null(struct_type));
   SerializeDeserialize(Struct({{"a", Null(Int32ArrayType())},
@@ -3083,7 +2890,8 @@ TEST_F(ValueTest, Deserialize) {
       element: <int32_value: -1>
       element: <>
       element: <int32_value: 1>>
-    )", Int32ArrayType());
+    )",
+                       Int32ArrayType());
 
   // Empty struct.
   DeserializeSerialize("", EmptyStructType());
@@ -3100,20 +2908,19 @@ TEST_F(ValueTest, Deserialize) {
     array_value: <
       element: <struct_value: <>>
       element: <struct_value: <>>>
-    )", array_empty_struct_type);
+    )",
+                       array_empty_struct_type);
 
   // Structs.
   const StructType* simple_struct_type =
-      MakeStructType({{"a", Int64ArrayType()},
-                      {"t", TimestampType()}});
+      MakeStructType({{"a", Int64ArrayType()}, {"t", TimestampType()}});
 
-  const StructType* struct_type =
-      MakeStructType({{"a", Int32ArrayType()},
-                      {"b", BytesType()},
-                      {"d", DateType()},
-                      {"e", EmptyStructType()},
-                      {"p", GetTestProtoType()},
-                      {"s", simple_struct_type}});
+  const StructType* struct_type = MakeStructType({{"a", Int32ArrayType()},
+                                                  {"b", BytesType()},
+                                                  {"d", DateType()},
+                                                  {"e", EmptyStructType()},
+                                                  {"p", GetTestProtoType()},
+                                                  {"s", simple_struct_type}});
 
   DeserializeSerialize("", struct_type);
   DeserializeSerialize(R"(
@@ -3125,7 +2932,8 @@ TEST_F(ValueTest, Deserialize) {
       field: <>  # p
       field: <>  # s
     >
-    )", struct_type);
+    )",
+                       struct_type);
 
   DeserializeSerialize(R"(
     struct_value: <
@@ -3148,7 +2956,8 @@ TEST_F(ValueTest, Deserialize) {
         >
       >
     >
-    )", struct_type);
+    )",
+                       struct_type);
 
   ValueProto value_proto;
   zetasql_base::StatusOr<Value> status_or_value;
@@ -3190,13 +2999,11 @@ TEST_F(ValueTest, Deserialize) {
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
 
   // Invalid ENUM value.
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
-      "enum_value: -10", &value_proto));
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString("enum_value: -10", &value_proto));
   status_or_value = Value::Deserialize(value_proto, GetTestEnumType());
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
 
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
-      "enum_value: 100", &value_proto));
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString("enum_value: 100", &value_proto));
   status_or_value = Value::Deserialize(value_proto, GetTestEnumType());
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
 
@@ -3213,7 +3020,8 @@ TEST_F(ValueTest, Deserialize) {
     array_value: <
       element: <uint32_value: 1>
       element: <int32_value: 1>>  # wrong type!
-    )", &value_proto));
+    )",
+                                             &value_proto));
   status_or_value = Value::Deserialize(value_proto, Uint64ArrayType());
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kInternal));
 
@@ -3223,7 +3031,8 @@ TEST_F(ValueTest, Deserialize) {
       field: <array_value: <element: <int32_value: 1>>>  # wrong type!
       field: <timestamp_value: <seconds: 935573798>>
     >
-    )", &value_proto));
+    )",
+                                             &value_proto));
   status_or_value = Value::Deserialize(value_proto, simple_struct_type);
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kInternal));
 
@@ -3232,7 +3041,8 @@ TEST_F(ValueTest, Deserialize) {
       field: <array_value: <element: <int64_value: 1>>>
       field: <int64_value: 935573798000000>  # wrong type!
     >
-    )", &value_proto));
+    )",
+                                             &value_proto));
   status_or_value = Value::Deserialize(value_proto, simple_struct_type);
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kInternal));
 
@@ -3241,113 +3051,114 @@ TEST_F(ValueTest, Deserialize) {
     struct_value: <
       field: <timestamp_value: <seconds: 935573798>>
     >
-    )", &value_proto));
+    )",
+                                             &value_proto));
   status_or_value = Value::Deserialize(value_proto, simple_struct_type);
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kInternal));
 }
 
 namespace {
 
-  template <typename T> bool IsNaN(const Value& value) {
-    return value.type()->IsFloatingPoint() &&
-           !value.is_null() &&
-           std::isnan(value.Get<T>());
+template <typename T>
+bool IsNaN(const Value& value) {
+  return value.type()->IsFloatingPoint() && !value.is_null() &&
+         std::isnan(value.Get<T>());
+}
+
+template <>
+bool IsNaN<NumericValue>(const Value& value) {
+  return false;
+}
+
+template <>
+bool IsNaN<BigNumericValue>(const Value& value) {
+  return false;
+}
+
+template <typename T>
+void MakeSortedVector(std::vector<zetasql::Value>* values) {
+  // In ZetaSQL the ordering of values is ((broken link)):
+  // NULL, NaN(s), negative infinity, finite negative numbers, zero,
+  // finite positive numbers, positive infinity.
+
+  // NULL
+  values->push_back(zetasql::Value::MakeNull<T>());
+
+  // NaN(s) - quiet and signaling, negative and positive
+  if (std::numeric_limits<T>::has_quiet_NaN) {
+    values->push_back(
+        zetasql::Value::Make(std::numeric_limits<T>::quiet_NaN()));
+    values->push_back(
+        zetasql::Value::Make(-std::numeric_limits<T>::quiet_NaN()));
+  }
+  if (std::numeric_limits<T>::has_signaling_NaN) {
+    values->push_back(
+        zetasql::Value::Make(std::numeric_limits<T>::signaling_NaN()));
+    values->push_back(
+        zetasql::Value::Make(-std::numeric_limits<T>::signaling_NaN()));
   }
 
-  template <> bool IsNaN<NumericValue>(const Value& value) {
-    return false;
-  }
-
-  template <> bool IsNaN<BigNumericValue>(const Value& value) {
-    return false;
-  }
-
-  template <typename T>
-  void MakeSortedVector(std::vector<zetasql::Value>* values) {
-    // In ZetaSQL the ordering of values is ((broken link)):
-    // NULL, NaN(s), negative infinity, finite negative numbers, zero,
-    // finite positive numbers, positive infinity.
-
-    // NULL
-    values->push_back(zetasql::Value::MakeNull<T>());
-
-    // NaN(s) - quiet and signaling, negative and positive
-    if (std::numeric_limits<T>::has_quiet_NaN) {
-      values->push_back(zetasql::Value::Make(
-          std::numeric_limits<T>::quiet_NaN()));
-      values->push_back(zetasql::Value::Make(
-          -std::numeric_limits<T>::quiet_NaN()));
-    }
-    if (std::numeric_limits<T>::has_signaling_NaN) {
-      values->push_back(zetasql::Value::Make(
-          std::numeric_limits<T>::signaling_NaN()));
-      values->push_back(zetasql::Value::Make(
-          -std::numeric_limits<T>::signaling_NaN()));
-    }
-
-    // For signed numbers
-    if (std::numeric_limits<T>::is_signed) {
-      // Negative infinity
-      if (std::numeric_limits<T>::has_infinity) {
-        values->push_back(zetasql::Value::Make(
-            -std::numeric_limits<T>::infinity()));
-      }
-      // Lowest finite number (will be negative)
-      values->push_back(zetasql::Value::Make(
-          std::numeric_limits<T>::lowest()));
-
-      // Some finite negative number
-      values->push_back(zetasql::Value::Make(static_cast<T>(-5)));
-    }
-    // Zero
-    values->push_back(zetasql::Value::Make(static_cast<T>(0)));
-    // Some finite positive number
-    values->push_back(zetasql::Value::Make(static_cast<T>(239)));
-    // Highest finite positive number
-    values->push_back(zetasql::Value::Make(std::numeric_limits<T>::max()));
-    // Positive infinity
+  // For signed numbers
+  if (std::numeric_limits<T>::is_signed) {
+    // Negative infinity
     if (std::numeric_limits<T>::has_infinity) {
-      values->push_back(zetasql::Value::Make(
-          std::numeric_limits<T>::infinity()));
+      values->push_back(
+          zetasql::Value::Make(-std::numeric_limits<T>::infinity()));
     }
-  }
-
-  template <>
-  void MakeSortedVector<NumericValue>(std::vector<zetasql::Value>* values) {
-    // NULL
-    values->push_back(NullNumeric());
     // Lowest finite number (will be negative)
-    values->push_back(Value::Numeric(NumericValue::MinValue()));
+    values->push_back(zetasql::Value::Make(std::numeric_limits<T>::lowest()));
 
     // Some finite negative number
-    values->push_back(Value::Numeric(NumericValue(-5)));
-    // Zero
-    values->push_back(Value::Numeric(NumericValue(0)));
-    // Some finite positive number
-    values->push_back(
-        Value::Numeric(NumericValue::FromStringStrict("123.4").value()));
-    // Highest finite positive number
-    values->push_back(Value::Numeric(NumericValue::MaxValue()));
+    values->push_back(zetasql::Value::Make(static_cast<T>(-5)));
   }
-
-  template <>
-  void MakeSortedVector<BigNumericValue>(
-      std::vector<zetasql::Value>* values) {
-    // NULL
-    values->push_back(NullBigNumeric());
-    // Lowest finite number (will be negative)
-    values->push_back(Value::BigNumeric(BigNumericValue::MinValue()));
-
-    // Some finite negative number
-    values->push_back(Value::BigNumeric(BigNumericValue(-5)));
-    // Zero
-    values->push_back(Value::BigNumeric(BigNumericValue(0)));
-    // Some finite positive number
+  // Zero
+  values->push_back(zetasql::Value::Make(static_cast<T>(0)));
+  // Some finite positive number
+  values->push_back(zetasql::Value::Make(static_cast<T>(239)));
+  // Highest finite positive number
+  values->push_back(zetasql::Value::Make(std::numeric_limits<T>::max()));
+  // Positive infinity
+  if (std::numeric_limits<T>::has_infinity) {
     values->push_back(
-        Value::BigNumeric(BigNumericValue::FromStringStrict("123.4").value()));
-    // Highest finite positive number
-    values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
+        zetasql::Value::Make(std::numeric_limits<T>::infinity()));
   }
+}
+
+template <>
+void MakeSortedVector<NumericValue>(std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(NullNumeric());
+  // Lowest finite number (will be negative)
+  values->push_back(Value::Numeric(NumericValue::MinValue()));
+
+  // Some finite negative number
+  values->push_back(Value::Numeric(NumericValue(-5)));
+  // Zero
+  values->push_back(Value::Numeric(NumericValue(0)));
+  // Some finite positive number
+  values->push_back(
+      Value::Numeric(NumericValue::FromStringStrict("123.4").value()));
+  // Highest finite positive number
+  values->push_back(Value::Numeric(NumericValue::MaxValue()));
+}
+
+template <>
+void MakeSortedVector<BigNumericValue>(std::vector<zetasql::Value>* values) {
+  // NULL
+  values->push_back(NullBigNumeric());
+  // Lowest finite number (will be negative)
+  values->push_back(Value::BigNumeric(BigNumericValue::MinValue()));
+
+  // Some finite negative number
+  values->push_back(Value::BigNumeric(BigNumericValue(-5)));
+  // Zero
+  values->push_back(Value::BigNumeric(BigNumericValue(0)));
+  // Some finite positive number
+  values->push_back(
+      Value::BigNumeric(BigNumericValue::FromStringStrict("123.4").value()));
+  // Highest finite positive number
+  values->push_back(Value::BigNumeric(BigNumericValue::MaxValue()));
+}
 }  // namespace
 
 class ValueCompareTest : public ::testing::Test {
@@ -3357,7 +3168,8 @@ class ValueCompareTest : public ::testing::Test {
   ValueCompareTest& operator=(const ValueCompareTest&) = delete;
   ~ValueCompareTest() override {}
 
-  template <typename T> void TestSortOrder() {
+  template <typename T>
+  void TestSortOrder() {
     // In ZetaSQL the ordering of values is ((broken link)):
     // NULL, NaN(s), negative infinity, finite negative numbers, zero,
     // finite positive numbers, positive infinity.

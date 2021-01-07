@@ -542,8 +542,8 @@ const AnnotationMap* TypeFactory::TakeOwnershipInternal(
     const AnnotationMap* annotation_map) {
   absl::MutexLock lock(&store_->mutex_);
   store_->owned_annotation_maps_.push_back(annotation_map);
-  // TODO: update estimated_memory_used_by_types_ and add
-  // GetExternallyAllocatedMemoryEstimate on owned_annotation_maps_.
+  estimated_memory_used_by_types_ +=
+      annotation_map->GetEstimatedOwnedMemoryBytesSize();
   return annotation_map;
 }
 

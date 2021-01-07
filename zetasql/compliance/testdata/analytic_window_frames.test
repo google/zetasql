@@ -1,0 +1,3804 @@
+# Table with special values including null, nan, inf, min and max values.
+[prepare_database]
+CREATE TABLE AnalyticTableWithSpecialValues AS
+SELECT CAST(1 AS INT64) as row_id,
+       CAST(null AS int64) as int64_val, CAST(null as uint64) as uint64_val,
+       CAST(null AS int32) as int32_val, CAST(null as uint32) as uint32_val,
+       CAST(null AS double) as double_val UNION ALL
+  SELECT 2, null, null, null, null, null UNION ALL
+  SELECT 3, -9223372036854775807, 0, -2147483648, 0, IEEE_DIVIDE(0, 0) UNION ALL
+  SELECT 4, -9223372036854775807, 0, -2147483648, 0, IEEE_DIVIDE(0, 0) UNION ALL
+  SELECT 5, -9223372036854775806, 1, -2147483647, 1, IEEE_DIVIDE(-1, 0) UNION ALL
+  SELECT 6, -9223372036854775804, 3, -2147483645, 3, IEEE_DIVIDE(-1, 0) UNION ALL
+  SELECT 7,  10, 10, 10, 10, 10.5 UNION ALL
+  SELECT 8,  11, 11, 11, 11, 10.5 UNION ALL
+  SELECT 9,  11, 11, 11, 11, 10.5 UNION ALL
+  SELECT 10, 12, 12, 12, 12, 12.5 UNION ALL
+  SELECT 11, 13, 13, 13, 13, 12.5 UNION ALL
+  SELECT 12, 13, 13, 13, 13, 13.5 UNION ALL
+  SELECT 13, 9223372036854775804, 18446744073709551613, 2147483644, 4294967292, 14 UNION ALL
+  SELECT 14, 9223372036854775806, 18446744073709551614, 2147483646, 4294967294, 15 UNION ALL
+  SELECT 15, 9223372036854775807, 18446744073709551615, 2147483647, 4294967295, IEEE_DIVIDE(1, 0) UNION ALL
+  SELECT 16, 9223372036854775807, 18446744073709551615, 2147483647, 4294967295, IEEE_DIVIDE(1, 0)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             uint64_val UINT64,
+             int32_val INT32,
+             uint32_val UINT32,
+             double_val DOUBLE>>
+[
+  {1, NULL, NULL, NULL, NULL, NULL},
+  {2, NULL, NULL, NULL, NULL, NULL},
+  {3, -9223372036854775807, 0, -2147483648, 0, nan},
+  {4, -9223372036854775807, 0, -2147483648, 0, nan},
+  {5, -9223372036854775806, 1, -2147483647, 1, -inf},
+  {6, -9223372036854775804, 3, -2147483645, 3, -inf},
+  {7, 10, 10, 10, 10, 10.5},
+  {8, 11, 11, 11, 11, 10.5},
+  {9, 11, 11, 11, 11, 10.5},
+  {10, 12, 12, 12, 12, 12.5},
+  {11, 13, 13, 13, 13, 12.5},
+  {12, 13, 13, 13, 13, 13.5},
+  {13, 9223372036854775804, 18446744073709551613, 2147483644, 4294967292, 14},
+  {14, 9223372036854775806, 18446744073709551614, 2147483646, 4294967294, 15},
+  {15, 9223372036854775807, 18446744073709551615, 2147483647, 4294967295, inf},
+  {16, 9223372036854775807, 18446744073709551615, 2147483647, 4294967295, inf}
+]
+==
+
+# Table without special values.
+[prepare_database]
+CREATE TABLE AnalyticTableWithoutSpecialValues AS
+SELECT CAST(1 AS INT64) as row_id, CAST(10 AS int64) as int64_val,
+       CAST(10.5 AS double) as double_val UNION ALL
+  SELECT 2, 11, 10.5 UNION ALL
+  SELECT 3, 11, 11.5 UNION ALL
+  SELECT 4, 12, 12.5 UNION ALL
+  SELECT 5, 13, 12.5 UNION ALL
+  SELECT 6, 13, 13.5
+--
+ARRAY<STRUCT<row_id INT64, int64_val INT64, double_val DOUBLE>>[
+  {1, 10, 10.5},
+  {2, 11, 10.5},
+  {3, 11, 11.5},
+  {4, 12, 12.5},
+  {5, 13, 12.5},
+  {6, 13, 13.5}
+]
+==
+
+# We use MIN(row_id) and MAX(row_id) to get the window boundaries in following
+# test queries.
+
+# ---------------------------------------------------------------------------
+# ROWS windows
+# ---------------------------------------------------------------------------
+[default required_features=ANALYTIC_FUNCTIONS]
+[name=rows_window_1]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, NULL, NULL},
+  {2, NULL, NULL},
+  {3, 1, 1},
+  {4, 1, 2},
+  {5, 1, 3},
+  {6, 1, 4},
+  {7, 1, 5},
+  {8, 1, 6},
+  {9, 1, 7},
+  {10, 1, 8},
+  {11, 1, 9},
+  {12, 1, 10},
+  {13, 1, 11},
+  {14, 1, 12},
+  {15, 1, 13},
+  {16, 1, 14}
+]
+==
+
+[name=rows_window_2]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 1},
+  {2, 1, 2},
+  {3, 1, 3},
+  {4, 1, 4},
+  {5, 1, 5},
+  {6, 1, 6},
+  {7, 1, 7},
+  {8, 1, 8},
+  {9, 1, 9},
+  {10, 1, 10},
+  {11, 1, 11},
+  {12, 1, 12},
+  {13, 1, 13},
+  {14, 1, 14},
+  {15, 1, 15},
+  {16, 1, 16}
+]
+==
+
+[name=rows_window_3]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 3},
+  {2, 1, 4},
+  {3, 1, 5},
+  {4, 1, 6},
+  {5, 1, 7},
+  {6, 1, 8},
+  {7, 1, 9},
+  {8, 1, 10},
+  {9, 1, 11},
+  {10, 1, 12},
+  {11, 1, 13},
+  {12, 1, 14},
+  {13, 1, 15},
+  {14, 1, 16},
+  {15, 1, 16},
+  {16, 1, 16}
+]
+==
+
+[name=rows_window_4]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING and
+                                          UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 16},
+  {2, 1, 16},
+  {3, 1, 16},
+  {4, 1, 16},
+  {5, 1, 16},
+  {6, 1, 16},
+  {7, 1, 16},
+  {8, 1, 16},
+  {9, 1, 16},
+  {10, 1, 16},
+  {11, 1, 16},
+  {12, 1, 16},
+  {13, 1, 16},
+  {14, 1, 16},
+  {15, 1, 16},
+  {16, 1, 16}
+]
+==
+
+[name=rows_window_5]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, NULL, NULL},
+  {2, 1, 1},
+  {3, 1, 2},
+  {4, 2, 3},
+  {5, 3, 4},
+  {6, 4, 5},
+  {7, 5, 6},
+  {8, 6, 7},
+  {9, 7, 8},
+  {10, 8, 9},
+  {11, 9, 10},
+  {12, 10, 11},
+  {13, 11, 12},
+  {14, 12, 13},
+  {15, 13, 14},
+  {16, 14, 15}
+]
+==
+
+[name=rows_window_6]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, NULL, NULL},
+  {2, NULL, NULL},
+  {3, NULL, NULL},
+  {4, NULL, NULL},
+  {5, NULL, NULL},
+  {6, NULL, NULL},
+  {7, NULL, NULL},
+  {8, NULL, NULL},
+  {9, NULL, NULL},
+  {10, NULL, NULL},
+  {11, NULL, NULL},
+  {12, NULL, NULL},
+  {13, NULL, NULL},
+  {14, NULL, NULL},
+  {15, NULL, NULL},
+  {16, NULL, NULL}
+]
+==
+
+[name=rows_window_7]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 1},
+  {2, 1, 2},
+  {3, 1, 3},
+  {4, 2, 4},
+  {5, 3, 5},
+  {6, 4, 6},
+  {7, 5, 7},
+  {8, 6, 8},
+  {9, 7, 9},
+  {10, 8, 10},
+  {11, 9, 11},
+  {12, 10, 12},
+  {13, 11, 13},
+  {14, 12, 14},
+  {15, 13, 15},
+  {16, 14, 16}
+]
+==
+
+[name=rows_window_8]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 PRECEDING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 2},
+  {2, 1, 3},
+  {3, 1, 4},
+  {4, 2, 5},
+  {5, 3, 6},
+  {6, 4, 7},
+  {7, 5, 8},
+  {8, 6, 9},
+  {9, 7, 10},
+  {10, 8, 11},
+  {11, 9, 12},
+  {12, 10, 13},
+  {13, 11, 14},
+  {14, 12, 15},
+  {15, 13, 16},
+  {16, 14, 16}
+]
+==
+
+[name=rows_window_9]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN CURRENT ROW and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 1},
+  {2, 2, 2},
+  {3, 3, 3},
+  {4, 4, 4},
+  {5, 5, 5},
+  {6, 6, 6},
+  {7, 7, 7},
+  {8, 8, 8},
+  {9, 9, 9},
+  {10, 10, 10},
+  {11, 11, 11},
+  {12, 12, 12},
+  {13, 13, 13},
+  {14, 14, 14},
+  {15, 15, 15},
+  {16, 16, 16}
+]
+==
+
+[name=rows_window_10]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN CURRENT ROW and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 1, 3},
+  {2, 2, 4},
+  {3, 3, 5},
+  {4, 4, 6},
+  {5, 5, 7},
+  {6, 6, 8},
+  {7, 7, 9},
+  {8, 8, 10},
+  {9, 9, 11},
+  {10, 10, 12},
+  {11, 11, 13},
+  {12, 12, 14},
+  {13, 13, 15},
+  {14, 14, 16},
+  {15, 15, 16},
+  {16, 16, 16}
+]
+==
+
+[name=rows_window_11]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, 2, 3},
+  {2, 3, 4},
+  {3, 4, 5},
+  {4, 5, 6},
+  {5, 6, 7},
+  {6, 7, 8},
+  {7, 8, 9},
+  {8, 9, 10},
+  {9, 10, 11},
+  {10, 11, 12},
+  {11, 12, 13},
+  {12, 13, 14},
+  {13, 14, 15},
+  {14, 15, 16},
+  {15, 16, 16},
+  {16, NULL, NULL}
+]
+==
+
+[name=rows_window_12]
+SELECT row_id,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY row_id ROWS BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64, start_boundary INT64, end_boundary INT64>>[
+  {1, NULL, NULL},
+  {2, NULL, NULL},
+  {3, NULL, NULL},
+  {4, NULL, NULL},
+  {5, NULL, NULL},
+  {6, NULL, NULL},
+  {7, NULL, NULL},
+  {8, NULL, NULL},
+  {9, NULL, NULL},
+  {10, NULL, NULL},
+  {11, NULL, NULL},
+  {12, NULL, NULL},
+  {13, NULL, NULL},
+  {14, NULL, NULL},
+  {15, NULL, NULL},
+  {16, NULL, NULL}
+]
+==
+
+# ---------------------------------------------------------------------------
+# RANGE windows on AnalyticTableWithSpecialValues
+# ---------------------------------------------------------------------------
+
+[name=range_window_asc_with_special_values_1]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 1, 2},
+  {4, -9223372036854775807, 1, 2},
+  {5, -9223372036854775806, 1, 2},
+  {6, -9223372036854775804, 1, 5},
+  {7, 10, 1, 6},
+  {9, 11, 1, 6},
+  {8, 11, 1, 6},
+  {10, 12, 1, 7},
+  {11, 13, 1, 9},
+  {12, 13, 1, 9},
+  {13, 9223372036854775804, 1, 12},
+  {14, 9223372036854775806, 1, 13},
+  {15, 9223372036854775807, 1, 13},
+  {16, 9223372036854775807, 1, 13}
+]
+==
+
+[name=range_window_asc_uint64_with_special_values_1]
+SELECT row_id, uint64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, 1, 2},
+  {4, 0, 1, 2},
+  {5, 1, 1, 2},
+  {6, 3, 1, 5},
+  {7, 10, 1, 6},
+  {9, 11, 1, 6},
+  {8, 11, 1, 6},
+  {10, 12, 1, 7},
+  {11, 13, 1, 9},
+  {12, 13, 1, 9},
+  {13, 18446744073709551613, 1, 12},
+  {14, 18446744073709551614, 1, 12},
+  {15, 18446744073709551615, 1, 13},
+  {16, 18446744073709551615, 1, 13}
+]
+==
+
+[name=range_window_asc_int32_with_special_values_1]
+SELECT row_id, int32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -2147483648, 1, 2},
+  {4, -2147483648, 1, 2},
+  {5, -2147483647, 1, 2},
+  {6, -2147483645, 1, 5},
+  {7, 10, 1, 6},
+  {9, 11, 1, 6},
+  {8, 11, 1, 6},
+  {10, 12, 1, 7},
+  {11, 13, 1, 9},
+  {12, 13, 1, 9},
+  {13, 2147483644, 1, 12},
+  {14, 2147483646, 1, 13},
+  {15, 2147483647, 1, 13},
+  {16, 2147483647, 1, 13}
+]
+==
+
+[name=range_window_asc_uint32_with_special_values_1]
+SELECT row_id, uint32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, 1, 2},
+  {4, 0, 1, 2},
+  {5, 1, 1, 2},
+  {6, 3, 1, 5},
+  {7, 10, 1, 6},
+  {9, 11, 1, 6},
+  {8, 11, 1, 6},
+  {10, 12, 1, 7},
+  {11, 13, 1, 9},
+  {12, 13, 1, 9},
+  {13, 4294967292, 1, 12},
+  {14, 4294967294, 1, 13},
+  {15, 4294967295, 1, 13},
+  {16, 4294967295, 1, 13}
+]
+==
+[name=range_window_asc_with_special_values_underflow]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM (SELECT * FROM AnalyticTableWithSpecialValues WHERE int64_val IS NOT NULL)
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {4, -9223372036854775807, NULL, NULL},
+  {3, -9223372036854775807, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {6, -9223372036854775804, 3, 5},
+  {7, 10, 3, 6},
+  {9, 11, 3, 6},
+  {8, 11, 3, 6},
+  {10, 12, 3, 7},
+  {12, 13, 3, 9},
+  {11, 13, 3, 9},
+  {13, 9223372036854775804, 3, 12},
+  {14, 9223372036854775806, 3, 13},
+  {16, 9223372036854775807, 3, 13},
+  {15, 9223372036854775807, 3, 13}
+]
+==
+
+[name=range_window_asc_uint64_with_special_values_underflow]
+SELECT row_id, uint64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM (SELECT * FROM AnalyticTableWithSpecialValues WHERE uint64_val IS NOT NULL)
+WINDOW w AS (ORDER BY uint64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {4, 0, NULL, NULL},
+  {3, 0, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {6, 3, 3, 5},
+  {7, 10, 3, 6},
+  {9, 11, 3, 6},
+  {8, 11, 3, 6},
+  {10, 12, 3, 7},
+  {12, 13, 3, 9},
+  {11, 13, 3, 9},
+  {13, 18446744073709551613, 3, 12},
+  {14, 18446744073709551614, 3, 12},
+  {16, 18446744073709551615, 3, 13},
+  {15, 18446744073709551615, 3, 13}
+]
+==
+
+[name=range_window_asc_int32_with_special_values_underflow]
+SELECT row_id, int32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM (SELECT * FROM AnalyticTableWithSpecialValues WHERE int32_val IS NOT NULL)
+WINDOW w AS (ORDER BY int32_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {4, -2147483648, NULL, NULL},
+  {3, -2147483648, NULL, NULL},
+  {5, -2147483647, NULL, NULL},
+  {6, -2147483645, 3, 5},
+  {7, 10, 3, 6},
+  {9, 11, 3, 6},
+  {8, 11, 3, 6},
+  {10, 12, 3, 7},
+  {12, 13, 3, 9},
+  {11, 13, 3, 9},
+  {13, 2147483644, 3, 12},
+  {14, 2147483646, 3, 13},
+  {16, 2147483647, 3, 13},
+  {15, 2147483647, 3, 13}
+]
+==
+
+[name=range_window_asc_uint32_with_special_values_underflow]
+SELECT row_id, uint32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM (SELECT * FROM AnalyticTableWithSpecialValues WHERE uint32_val IS NOT NULL)
+WINDOW w AS (ORDER BY uint32_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {4, 0, NULL, NULL},
+  {3, 0, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {6, 3, 3, 5},
+  {7, 10, 3, 6},
+  {9, 11, 3, 6},
+  {8, 11, 3, 6},
+  {10, 12, 3, 7},
+  {12, 13, 3, 9},
+  {11, 13, 3, 9},
+  {13, 4294967292, 3, 12},
+  {14, 4294967294, 3, 13},
+  {16, 4294967295, 3, 13},
+  {15, 4294967295, 3, 13}
+]
+==
+
+[name=range_window_asc_with_special_values_2]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 1, 4},
+  {4, -9223372036854775807, 1, 4},
+  {5, -9223372036854775806, 1, 5},
+  {6, -9223372036854775804, 1, 6},
+  {7, 10, 1, 7},
+  {9, 11, 1, 9},
+  {8, 11, 1, 9},
+  {10, 12, 1, 10},
+  {11, 13, 1, 12},
+  {12, 13, 1, 12},
+  {13, 9223372036854775804, 1, 13},
+  {14, 9223372036854775806, 1, 14},
+  {15, 9223372036854775807, 1, 16},
+  {16, 9223372036854775807, 1, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_3]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 1, 5},
+  {4, -9223372036854775807, 1, 5},
+  {5, -9223372036854775806, 1, 6},
+  {6, -9223372036854775804, 1, 6},
+  {7, 10, 1, 10},
+  {9, 11, 1, 12},
+  {8, 11, 1, 12},
+  {10, 12, 1, 12},
+  {11, 13, 1, 12},
+  {12, 13, 1, 12},
+  {13, 9223372036854775804, 1, 14},
+  {14, 9223372036854775806, 1, 16},
+  {15, 9223372036854775807, 1, 16},
+  {16, 9223372036854775807, 1, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_4]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {5, -9223372036854775806, 3, 4},
+  {6, -9223372036854775804, 5, 5},
+  {7, 10, NULL, NULL},
+  {9, 11, 7, 7},
+  {8, 11, 7, 7},
+  {10, 12, 7, 9},
+  {11, 13, 8, 10},
+  {12, 13, 8, 10},
+  {13, 9223372036854775804, NULL, NULL},
+  {14, 9223372036854775806, 13, 13},
+  {15, 9223372036854775807, 14, 14},
+  {16, 9223372036854775807, 14, 14}
+]
+==
+
+[name=range_window_asc_with_special_values_5]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL}
+]
+==
+
+[name=range_window_asc_with_special_values_6]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 3, 4},
+  {4, -9223372036854775807, 3, 4},
+  {5, -9223372036854775806, 3, 5},
+  {6, -9223372036854775804, 5, 6},
+  {7, 10, 7, 7},
+  {9, 11, 7, 9},
+  {8, 11, 7, 9},
+  {10, 12, 7, 10},
+  {11, 13, 8, 12},
+  {12, 13, 8, 12},
+  {13, 9223372036854775804, 13, 13},
+  {14, 9223372036854775806, 13, 14},
+  {15, 9223372036854775807, 14, 16},
+  {16, 9223372036854775807, 14, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_7]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 3, 5},
+  {4, -9223372036854775807, 3, 5},
+  {5, -9223372036854775806, 3, 6},
+  {6, -9223372036854775804, 5, 6},
+  {7, 10, 7, 10},
+  {9, 11, 7, 12},
+  {8, 11, 7, 12},
+  {10, 12, 7, 12},
+  {11, 13, 8, 12},
+  {12, 13, 8, 12},
+  {13, 9223372036854775804, 13, 14},
+  {14, 9223372036854775806, 13, 16},
+  {15, 9223372036854775807, 14, 16},
+  {16, 9223372036854775807, 14, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_8]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 16},
+  {2, NULL, 1, 16},
+  {3, -9223372036854775807, 3, 16},
+  {4, -9223372036854775807, 3, 16},
+  {5, -9223372036854775806, 3, 16},
+  {6, -9223372036854775804, 5, 16},
+  {7, 10, 7, 16},
+  {9, 11, 7, 16},
+  {8, 11, 7, 16},
+  {10, 12, 7, 16},
+  {11, 13, 8, 16},
+  {12, 13, 8, 16},
+  {13, 9223372036854775804, 13, 16},
+  {14, 9223372036854775806, 13, 16},
+  {15, 9223372036854775807, 14, 16},
+  {16, 9223372036854775807, 14, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_9]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN CURRENT ROW and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 3, 4},
+  {4, -9223372036854775807, 3, 4},
+  {5, -9223372036854775806, 5, 5},
+  {6, -9223372036854775804, 6, 6},
+  {7, 10, 7, 7},
+  {9, 11, 8, 9},
+  {8, 11, 8, 9},
+  {10, 12, 10, 10},
+  {11, 13, 11, 12},
+  {12, 13, 11, 12},
+  {13, 9223372036854775804, 13, 13},
+  {14, 9223372036854775806, 14, 14},
+  {15, 9223372036854775807, 15, 16},
+  {16, 9223372036854775807, 15, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_10]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN CURRENT ROW and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 3, 5},
+  {4, -9223372036854775807, 3, 5},
+  {5, -9223372036854775806, 5, 6},
+  {6, -9223372036854775804, 6, 6},
+  {7, 10, 7, 10},
+  {9, 11, 8, 12},
+  {8, 11, 8, 12},
+  {10, 12, 10, 12},
+  {11, 13, 11, 12},
+  {12, 13, 11, 12},
+  {13, 9223372036854775804, 13, 14},
+  {14, 9223372036854775806, 14, 16},
+  {15, 9223372036854775807, 15, 16},
+  {16, 9223372036854775807, 15, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_11]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN CURRENT ROW and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 16},
+  {2, NULL, 1, 16},
+  {3, -9223372036854775807, 3, 16},
+  {4, -9223372036854775807, 3, 16},
+  {5, -9223372036854775806, 5, 16},
+  {6, -9223372036854775804, 6, 16},
+  {7, 10, 7, 16},
+  {9, 11, 8, 16},
+  {8, 11, 8, 16},
+  {10, 12, 10, 16},
+  {11, 13, 11, 16},
+  {12, 13, 11, 16},
+  {13, 9223372036854775804, 13, 16},
+  {14, 9223372036854775806, 14, 16},
+  {15, 9223372036854775807, 15, 16},
+  {16, 9223372036854775807, 15, 16}
+]
+==
+
+[name=range_window_asc_with_special_values_12]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 5, 5},
+  {4, -9223372036854775807, 5, 5},
+  {5, -9223372036854775806, 6, 6},
+  {6, -9223372036854775804, NULL, NULL},
+  {7, 10, 8, 10},
+  {9, 11, 10, 12},
+  {8, 11, 10, 12},
+  {10, 12, 11, 12},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 9223372036854775804, 14, 14},
+  {14, 9223372036854775806, 15, 16},
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint64_with_special_values_12]
+SELECT row_id, uint64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val ASC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, 5, 5},
+  {4, 0, 5, 5},
+  {5, 1, 6, 6},
+  {6, 3, NULL, NULL},
+  {7, 10, 8, 10},
+  {9, 11, 10, 12},
+  {8, 11, 10, 12},
+  {10, 12, 11, 12},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 18446744073709551613, 14, 16},
+  {14, 18446744073709551614, 15, 16},
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL}
+]
+==
+
+[name=range_window_asc_int32_with_special_values_12]
+SELECT row_id, int32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val ASC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -2147483648, 5, 5},
+  {4, -2147483648, 5, 5},
+  {5, -2147483647, 6, 6},
+  {6, -2147483645, NULL, NULL},
+  {7, 10, 8, 10},
+  {9, 11, 10, 12},
+  {8, 11, 10, 12},
+  {10, 12, 11, 12},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 2147483644, 14, 14},
+  {14, 2147483646, 15, 16},
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint32_with_special_values_12]
+SELECT row_id, uint32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val ASC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, 5, 5},
+  {4, 0, 5, 5},
+  {5, 1, 6, 6},
+  {6, 3, NULL, NULL},
+  {7, 10, 8, 10},
+  {9, 11, 10, 12},
+  {8, 11, 10, 12},
+  {10, 12, 11, 12},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 4294967292, 14, 14},
+  {14, 4294967294, 15, 16},
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL}
+]
+==
+
+[name=range_window_asc_with_special_values_13]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint64_with_special_values_13]
+SELECT row_id, uint64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val ASC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 18446744073709551613, NULL, NULL},
+  {14, 18446744073709551614, NULL, NULL},
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL}
+]
+==
+
+[name=range_window_asc_int32_with_special_values_13]
+SELECT row_id, int32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val ASC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -2147483648, NULL, NULL},
+  {4, -2147483648, NULL, NULL},
+  {5, -2147483647, NULL, NULL},
+  {6, -2147483645, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 2147483644, NULL, NULL},
+  {14, 2147483646, NULL, NULL},
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint32_with_special_values_13]
+SELECT row_id, uint32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val ASC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 4294967292, NULL, NULL},
+  {14, 4294967294, NULL, NULL},
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL}
+]
+==
+
+[name=range_window_asc_with_special_values_14]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 16},
+  {2, NULL, 1, 16},
+  {3, -9223372036854775807, 6, 16},
+  {4, -9223372036854775807, 6, 16},
+  {5, -9223372036854775806, 6, 16},
+  {6, -9223372036854775804, 7, 16},
+  {7, 10, 10, 16},
+  {9, 11, 11, 16},
+  {8, 11, 11, 16},
+  {10, 12, 13, 16},
+  {11, 13, 13, 16},
+  {12, 13, 13, 16},
+  {13, 9223372036854775804, 14, 16},
+  {14, 9223372036854775806, NULL, NULL},
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint64_with_special_values_14]
+SELECT row_id, uint64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val ASC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 16},
+  {2, NULL, 1, 16},
+  {3, 0, 6, 16},
+  {4, 0, 6, 16},
+  {5, 1, 6, 16},
+  {6, 3, 7, 16},
+  {7, 10, 10, 16},
+  {9, 11, 11, 16},
+  {8, 11, 11, 16},
+  {10, 12, 13, 16},
+  {11, 13, 13, 16},
+  {12, 13, 13, 16},
+  {13, 18446744073709551613, 15, 16},
+  {14, 18446744073709551614, NULL, NULL},
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL}
+]
+==
+
+[name=range_window_asc_int32_with_special_values_14]
+SELECT row_id, int32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val ASC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 16},
+  {2, NULL, 1, 16},
+  {3, -2147483648, 6, 16},
+  {4, -2147483648, 6, 16},
+  {5, -2147483647, 6, 16},
+  {6, -2147483645, 7, 16},
+  {7, 10, 10, 16},
+  {9, 11, 11, 16},
+  {8, 11, 11, 16},
+  {10, 12, 13, 16},
+  {11, 13, 13, 16},
+  {12, 13, 13, 16},
+  {13, 2147483644, 14, 16},
+  {14, 2147483646, NULL, NULL},
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint32_with_special_values_14]
+SELECT row_id, uint32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val ASC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 16},
+  {2, NULL, 1, 16},
+  {3, 0, 6, 16},
+  {4, 0, 6, 16},
+  {5, 1, 6, 16},
+  {6, 3, 7, 16},
+  {7, 10, 10, 16},
+  {9, 11, 11, 16},
+  {8, 11, 11, 16},
+  {10, 12, 13, 16},
+  {11, 13, 13, 16},
+  {12, 13, 13, 16},
+  {13, 4294967292, 14, 16},
+  {14, 4294967294, NULL, NULL},
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL}
+]
+==
+
+[name=range_window_asc_with_special_values_15]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint64_with_special_values_15]
+SELECT row_id, uint64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val ASC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 18446744073709551613, NULL, NULL},
+  {14, 18446744073709551614, NULL, NULL},
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL}
+]
+==
+
+[name=range_window_asc_int32_with_special_values_15]
+SELECT row_id, int32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val ASC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -2147483648, NULL, NULL},
+  {4, -2147483648, NULL, NULL},
+  {5, -2147483647, NULL, NULL},
+  {6, -2147483645, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 2147483644, NULL, NULL},
+  {14, 2147483646, NULL, NULL},
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL}
+]
+==
+
+[name=range_window_asc_uint32_with_special_values_15]
+SELECT row_id, uint32_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val ASC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 4294967292, NULL, NULL},
+  {14, 4294967294, NULL, NULL},
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL}
+]
+==
+
+[name=range_window_asc_with_special_values_16]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL}
+]
+==
+
+[name=range_window_asc_with_special_values_17]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 9223372036854775807 PRECEDING and
+                           9223372036854775807 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, -9223372036854775807, 3, 6},
+  {4, -9223372036854775807, 3, 6},
+  {5, -9223372036854775806, 3, 6},
+  {6, -9223372036854775804, 3, 6},
+  {7, 10, 7, 16},
+  {9, 11, 7, 16},
+  {8, 11, 7, 16},
+  {10, 12, 7, 16},
+  {11, 13, 7, 16},
+  {12, 13, 7, 16},
+  {13, 9223372036854775804, 7, 16},
+  {14, 9223372036854775806, 7, 16},
+  {15, 9223372036854775807, 7, 16},
+  {16, 9223372036854775807, 7, 16}
+]
+==
+
+[name=range_window_desc_with_special_values_1]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {13, 9223372036854775804, 16, 14},
+  {11, 13, 16, 13},
+  {12, 13, 16, 13},
+  {10, 12, 16, 13},
+  {9, 11, 16, 11},
+  {8, 11, 16, 11},
+  {7, 10, 16, 10},
+  {6, -9223372036854775804, 16, 7},
+  {5, -9223372036854775806, 16, 6},
+  {3, -9223372036854775807, 16, 6},
+  {4, -9223372036854775807, 16, 6},
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1}
+]
+==
+
+[name=range_window_desc_uint64_with_special_values_1]
+SELECT row_id, uint64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL},
+  {14, 18446744073709551614, NULL, NULL},
+  {13, 18446744073709551613, 16, 15},
+  {11, 13, 16, 13},
+  {12, 13, 16, 13},
+  {10, 12, 16, 13},
+  {9, 11, 16, 11},
+  {8, 11, 16, 11},
+  {7, 10, 16, 10},
+  {6, 3, 16, 7},
+  {5, 1, 16, 6},
+  {3, 0, 16, 6},
+  {4, 0, 16, 6},
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1}
+]
+==
+
+[name=range_window_desc_int32_with_special_values_1]
+SELECT row_id, int32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL},
+  {14, 2147483646, NULL, NULL},
+  {13, 2147483644, 16, 14},
+  {11, 13, 16, 13},
+  {12, 13, 16, 13},
+  {10, 12, 16, 13},
+  {9, 11, 16, 11},
+  {8, 11, 16, 11},
+  {7, 10, 16, 10},
+  {6, -2147483645, 16, 7},
+  {5, -2147483647, 16, 6},
+  {3, -2147483648, 16, 6},
+  {4, -2147483648, 16, 6},
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1}
+]
+==
+
+[name=range_window_desc_uint32_with_special_values_1]
+SELECT row_id, uint32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL},
+  {14, 4294967294, NULL, NULL},
+  {13, 4294967292, 16, 14},
+  {11, 13, 16, 13},
+  {12, 13, 16, 13},
+  {10, 12, 16, 13},
+  {9, 11, 16, 11},
+  {8, 11, 16, 11},
+  {7, 10, 16, 10},
+  {6, 3, 16, 7},
+  {5, 1, 16, 6},
+  {3, 0, 16, 6},
+  {4, 0, 16, 6},
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_2]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 15},
+  {16, 9223372036854775807, 16, 15},
+  {14, 9223372036854775806, 16, 14},
+  {13, 9223372036854775804, 16, 13},
+  {11, 13, 16, 11},
+  {12, 13, 16, 11},
+  {10, 12, 16, 10},
+  {9, 11, 16, 8},
+  {8, 11, 16, 8},
+  {7, 10, 16, 7},
+  {6, -9223372036854775804, 16, 6},
+  {5, -9223372036854775806, 16, 5},
+  {3, -9223372036854775807, 16, 3},
+  {4, -9223372036854775807, 16, 3},
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_3]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 14},
+  {16, 9223372036854775807, 16, 14},
+  {14, 9223372036854775806, 16, 13},
+  {13, 9223372036854775804, 16, 13},
+  {11, 13, 16, 8},
+  {12, 13, 16, 8},
+  {10, 12, 16, 7},
+  {9, 11, 16, 7},
+  {8, 11, 16, 7},
+  {7, 10, 16, 7},
+  {6, -9223372036854775804, 16, 5},
+  {5, -9223372036854775806, 16, 3},
+  {3, -9223372036854775807, 16, 3},
+  {4, -9223372036854775807, 16, 3},
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_4]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL},
+  {14, 9223372036854775806, 16, 15},
+  {13, 9223372036854775804, 14, 14},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, 12, 11},
+  {9, 11, 12, 10},
+  {8, 11, 12, 10},
+  {7, 10, 10, 8},
+  {6, -9223372036854775804, NULL, NULL},
+  {5, -9223372036854775806, 6, 6},
+  {3, -9223372036854775807, 5, 5},
+  {4, -9223372036854775807, 5, 5},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_uint64_with_special_values_4]
+SELECT row_id, uint64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val DESC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL},
+  {14, 18446744073709551614, 16, 15},
+  {13, 18446744073709551613, 16, 14},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, 12, 11},
+  {9, 11, 12, 10},
+  {8, 11, 12, 10},
+  {7, 10, 10, 8},
+  {6, 3, NULL, NULL},
+  {5, 1, 6, 6},
+  {3, 0, 5, 5},
+  {4, 0, 5, 5},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_int32_with_special_values_4]
+SELECT row_id, int32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val DESC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL},
+  {14, 2147483646, 16, 15},
+  {13, 2147483644, 14, 14},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, 12, 11},
+  {9, 11, 12, 10},
+  {8, 11, 12, 10},
+  {7, 10, 10, 8},
+  {6, -2147483645, NULL, NULL},
+  {5, -2147483647, 6, 6},
+  {3, -2147483648, 5, 5},
+  {4, -2147483648, 5, 5},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_uint32_with_special_values_4]
+SELECT row_id, uint32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val DESC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL},
+  {14, 4294967294, 16, 15},
+  {13, 4294967292, 14, 14},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, 12, 11},
+  {9, 11, 12, 10},
+  {8, 11, 12, 10},
+  {7, 10, 10, 8},
+  {6, 3, NULL, NULL},
+  {5, 1, 6, 6},
+  {3, 0, 5, 5},
+  {4, 0, 5, 5},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_5]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_uint64_with_special_values_5]
+SELECT row_id, uint64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val DESC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL},
+  {14, 18446744073709551614, NULL, NULL},
+  {13, 18446744073709551613, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_int32_with_special_values_5]
+SELECT row_id, int32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val DESC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL},
+  {14, 2147483646, NULL, NULL},
+  {13, 2147483644, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, -2147483645, NULL, NULL},
+  {5, -2147483647, NULL, NULL},
+  {3, -2147483648, NULL, NULL},
+  {4, -2147483648, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_uint32_with_special_values_5]
+SELECT row_id, uint32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val DESC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL},
+  {14, 4294967294, NULL, NULL},
+  {13, 4294967292, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_6]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 15},
+  {16, 9223372036854775807, 16, 15},
+  {14, 9223372036854775806, 16, 14},
+  {13, 9223372036854775804, 14, 13},
+  {11, 13, 12, 11},
+  {12, 13, 12, 11},
+  {10, 12, 12, 10},
+  {9, 11, 12, 8},
+  {8, 11, 12, 8},
+  {7, 10, 10, 7},
+  {6, -9223372036854775804, 6, 6},
+  {5, -9223372036854775806, 6, 5},
+  {3, -9223372036854775807, 5, 3},
+  {4, -9223372036854775807, 5, 3},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_7]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 14},
+  {16, 9223372036854775807, 16, 14},
+  {14, 9223372036854775806, 16, 13},
+  {13, 9223372036854775804, 14, 13},
+  {11, 13, 12, 8},
+  {12, 13, 12, 8},
+  {10, 12, 12, 7},
+  {9, 11, 12, 7},
+  {8, 11, 12, 7},
+  {7, 10, 10, 7},
+  {6, -9223372036854775804, 6, 5},
+  {5, -9223372036854775806, 6, 3},
+  {3, -9223372036854775807, 5, 3},
+  {4, -9223372036854775807, 5, 3},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_8]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 1},
+  {16, 9223372036854775807, 16, 1},
+  {14, 9223372036854775806, 16, 1},
+  {13, 9223372036854775804, 14, 1},
+  {11, 13, 12, 1},
+  {12, 13, 12, 1},
+  {10, 12, 12, 1},
+  {9, 11, 12, 1},
+  {8, 11, 12, 1},
+  {7, 10, 10, 1},
+  {6, -9223372036854775804, 6, 1},
+  {5, -9223372036854775806, 6, 1},
+  {3, -9223372036854775807, 5, 1},
+  {4, -9223372036854775807, 5, 1},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_9]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN CURRENT ROW and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 15},
+  {16, 9223372036854775807, 16, 15},
+  {14, 9223372036854775806, 14, 14},
+  {13, 9223372036854775804, 13, 13},
+  {11, 13, 12, 11},
+  {12, 13, 12, 11},
+  {10, 12, 10, 10},
+  {9, 11, 9, 8},
+  {8, 11, 9, 8},
+  {7, 10, 7, 7},
+  {6, -9223372036854775804, 6, 6},
+  {5, -9223372036854775806, 5, 5},
+  {3, -9223372036854775807, 4, 3},
+  {4, -9223372036854775807, 4, 3},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_10]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN CURRENT ROW and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 14},
+  {16, 9223372036854775807, 16, 14},
+  {14, 9223372036854775806, 14, 13},
+  {13, 9223372036854775804, 13, 13},
+  {11, 13, 12, 8},
+  {12, 13, 12, 8},
+  {10, 12, 10, 7},
+  {9, 11, 9, 7},
+  {8, 11, 9, 7},
+  {7, 10, 7, 7},
+  {6, -9223372036854775804, 6, 5},
+  {5, -9223372036854775806, 5, 3},
+  {3, -9223372036854775807, 4, 3},
+  {4, -9223372036854775807, 4, 3},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_11]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN CURRENT ROW and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 1},
+  {16, 9223372036854775807, 16, 1},
+  {14, 9223372036854775806, 14, 1},
+  {13, 9223372036854775804, 13, 1},
+  {11, 13, 12, 1},
+  {12, 13, 12, 1},
+  {10, 12, 10, 1},
+  {9, 11, 9, 1},
+  {8, 11, 9, 1},
+  {7, 10, 7, 1},
+  {6, -9223372036854775804, 6, 1},
+  {5, -9223372036854775806, 5, 1},
+  {3, -9223372036854775807, 4, 1},
+  {4, -9223372036854775807, 4, 1},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_12]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 14, 14},
+  {16, 9223372036854775807, 14, 14},
+  {14, 9223372036854775806, 13, 13},
+  {13, 9223372036854775804, NULL, NULL},
+  {11, 13, 10, 8},
+  {12, 13, 10, 8},
+  {10, 12, 9, 7},
+  {9, 11, 7, 7},
+  {8, 11, 7, 7},
+  {7, 10, NULL, NULL},
+  {6, -9223372036854775804, 5, 5},
+  {5, -9223372036854775806, 4, 3},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_13]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_14]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 13, 1},
+  {16, 9223372036854775807, 13, 1},
+  {14, 9223372036854775806, 13, 1},
+  {13, 9223372036854775804, 12, 1},
+  {11, 13, 9, 1},
+  {12, 13, 9, 1},
+  {10, 12, 7, 1},
+  {9, 11, 6, 1},
+  {8, 11, 6, 1},
+  {7, 10, 6, 1},
+  {6, -9223372036854775804, 5, 1},
+  {5, -9223372036854775806, 2, 1},
+  {3, -9223372036854775807, 2, 1},
+  {4, -9223372036854775807, 2, 1},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_15]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_16]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, NULL, NULL},
+  {16, 9223372036854775807, NULL, NULL},
+  {14, 9223372036854775806, NULL, NULL},
+  {13, 9223372036854775804, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, -9223372036854775804, NULL, NULL},
+  {5, -9223372036854775806, NULL, NULL},
+  {3, -9223372036854775807, NULL, NULL},
+  {4, -9223372036854775807, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_uint64_with_special_values_16]
+SELECT row_id, uint64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint64_val DESC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint64_val UINT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 18446744073709551615, NULL, NULL},
+  {16, 18446744073709551615, NULL, NULL},
+  {14, 18446744073709551614, NULL, NULL},
+  {13, 18446744073709551613, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_int32_with_special_values_16]
+SELECT row_id, int32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int32_val DESC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 2147483647, NULL, NULL},
+  {16, 2147483647, NULL, NULL},
+  {14, 2147483646, NULL, NULL},
+  {13, 2147483644, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, -2147483645, NULL, NULL},
+  {5, -2147483647, NULL, NULL},
+  {3, -2147483648, NULL, NULL},
+  {4, -2147483648, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_uint32_with_special_values_16]
+SELECT row_id, uint32_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY uint32_val DESC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             uint32_val UINT32,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 4294967295, NULL, NULL},
+  {16, 4294967295, NULL, NULL},
+  {14, 4294967294, NULL, NULL},
+  {13, 4294967292, NULL, NULL},
+  {11, 13, NULL, NULL},
+  {12, 13, NULL, NULL},
+  {10, 12, NULL, NULL},
+  {9, 11, NULL, NULL},
+  {8, 11, NULL, NULL},
+  {7, 10, NULL, NULL},
+  {6, 3, NULL, NULL},
+  {5, 1, NULL, NULL},
+  {3, 0, NULL, NULL},
+  {4, 0, NULL, NULL},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_desc_with_special_values_17]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 9223372036854775807 PRECEDING and
+                           9223372036854775807 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, 16, 7},
+  {16, 9223372036854775807, 16, 7},
+  {14, 9223372036854775806, 16, 7},
+  {13, 9223372036854775804, 16, 7},
+  {11, 13, 16, 7},
+  {12, 13, 16, 7},
+  {10, 12, 16, 7},
+  {9, 11, 16, 7},
+  {8, 11, 16, 7},
+  {7, 10, 16, 7},
+  {6, -9223372036854775804, 6, 3},
+  {5, -9223372036854775806, 6, 3},
+  {3, -9223372036854775807, 6, 3},
+  {4, -9223372036854775807, 6, 3},
+  {1, NULL, 2, 1},
+  {2, NULL, 2, 1}
+]
+==
+
+[name=range_window_unbound_with_special_values]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 16, 1},
+  {2, NULL, 16, 1},
+  {3, -9223372036854775807, 16, 1},
+  {4, -9223372036854775807, 16, 1},
+  {5, -9223372036854775806, 16, 1},
+  {6, -9223372036854775804, 16, 1},
+  {7, 10, 16, 1},
+  {9, 11, 16, 1},
+  {8, 11, 16, 1},
+  {10, 12, 16, 1},
+  {11, 13, 16, 1},
+  {12, 13, 16, 1},
+  {13, 9223372036854775804, 16, 1},
+  {14, 9223372036854775806, 16, 1},
+  {15, 9223372036854775807, 16, 1},
+  {16, 9223372036854775807, 16, 1}
+]
+==
+
+# ORDER BY double_val with inf and nan values.
+[name=range_window_inf_nan_keys_1]
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {1, NULL, 1, 2},
+  {2, NULL, 1, 2},
+  {3, nan, 3, 4},
+  {4, nan, 3, 4},
+  {5, -inf, 5, 6},
+  {6, -inf, 5, 6},
+  {7, 10.5, NULL, NULL},
+  {8, 10.5, NULL, NULL},
+  {9, 10.5, NULL, NULL},
+  {11, 12.5, 7, 9},
+  {10, 12.5, 7, 9},
+  {12, 13.5, 10, 11},
+  {13, 14, 10, 11},
+  {14, 15, 12, 13},
+  {15, inf, 15, 16},
+  {16, inf, 15, 16}
+]
+==
+
+[name=range_window_inf_nan_keys_2]
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, NULL, 1, 2},
+ {2, NULL, 1, 2},
+ {3, nan, 3, 4},
+ {4, nan, 3, 4},
+ {5, -inf, 5, 6},
+ {6, -inf, 5, 6},
+ {7, 10.5, 7, 11},
+ {8, 10.5, 7, 11},
+ {9, 10.5, 7, 11},
+ {11, 12.5, 7, 13},
+ {10, 12.5, 7, 13},
+ {12, 13.5, 10, 14},
+ {13, 14, 10, 14},
+ {14, 15, 12, 14},
+ {15, inf, 15, 16},
+ {16, inf, 15, 16}]
+==
+
+[name=range_window_inf_nan_keys_3]
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 1 FOLLOWING AND 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, NULL, 1, 2},
+ {2, NULL, 1, 2},
+ {3, nan, 3, 4},
+ {4, nan, 3, 4},
+ {5, -inf, 5, 6},
+ {6, -inf, 5, 6},
+ {7, 10.5, 10, 11},
+ {8, 10.5, 10, 11},
+ {9, 10.5, 10, 11},
+ {11, 12.5, 12, 13},
+ {10, 12.5, 12, 13},
+ {12, 13.5, 14, 14},
+ {13, 14, 14, 14},
+ {14, 15, NULL, NULL},
+ {15, inf, 15, 16},
+ {16, inf, 15, 16}]
+==
+
+# INF offset with positive infinity order keys.
+[name=range_window_inf_offset_1]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN @offset_val PRECEDING AND
+                                               CURRENT ROW)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a positive infinity order key for an offset PRECEDING on an ascending partition
+==
+
+[name=range_window_inf_offset_2]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 PRECEDING AND
+                                               @offset_val PRECEDING)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a positive infinity order key for an offset PRECEDING on an ascending partition
+==
+
+[name=range_window_inf_offset_3]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN @offset_val FOLLOWING AND
+                                               2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {3, nan, 3, 4},
+  {4, nan, 3, 4},
+  {7, 10.5, NULL, NULL},
+  {8, 10.5, NULL, NULL},
+  {9, 10.5, NULL, NULL},
+  {10, 12.5, NULL, NULL},
+  {11, 12.5, NULL, NULL},
+  {12, 13.5, NULL, NULL},
+  {13, 14, NULL, NULL},
+  {14, 15, NULL, NULL},
+  {15, inf, 15, 16},
+  {16, inf, 15, 16}
+]
+==
+
+[name=range_window_inf_offset_4]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 FOLLOWING AND
+                                               @offset_val FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{3, nan, 3, 4},
+ {4, nan, 3, 4},
+ {7, 10.5, 10, 16},
+ {8, 10.5, 10, 16},
+ {9, 10.5, 10, 16},
+ {10, 12.5, 14, 16},
+ {11, 12.5, 14, 16},
+ {12, 13.5, 15, 16},
+ {13, 14, 15, 16},
+ {14, 15, 15, 16},
+ {15, inf, 15, 16},
+ {16, inf, 15, 16}]
+==
+
+[name=range_window_inf_offset_5]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN @offset_val PRECEDING AND
+                                                    CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{15, inf, 16, 15},
+ {16, inf, 16, 15},
+ {14, 15, 16, 14},
+ {13, 14, 16, 13},
+ {12, 13.5, 16, 12},
+ {10, 12.5, 16, 10},
+ {11, 12.5, 16, 10},
+ {7, 10.5, 16, 7},
+ {8, 10.5, 16, 7},
+ {9, 10.5, 16, 7},
+ {3, nan, 4, 3},
+ {4, nan, 4, 3}]
+==
+
+[name=range_window_inf_offset_6]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN 2 PRECEDING AND
+                                                    @offset_val PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, inf, 16, 15},
+  {16, inf, 16, 15},
+  {14, 15, NULL, NULL},
+  {13, 14, NULL, NULL},
+  {12, 13.5, NULL, NULL},
+  {10, 12.5, NULL, NULL},
+  {11, 12.5, NULL, NULL},
+  {7, 10.5, NULL, NULL},
+  {8, 10.5, NULL, NULL},
+  {9, 10.5, NULL, NULL},
+  {3, nan, 4, 3},
+  {4, nan, 4, 3}
+]
+==
+
+[name=range_window_inf_offset_7]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN @offset_val FOLLOWING AND
+                                                    2 FOLLOWING)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a positive infinity order key for an offset FOLLOWING on a descending partition
+==
+
+[name=range_window_inf_offset_8]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithPosInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(-1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithPosInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN 2 FOLLOWING AND
+                                                    @offset_val FOLLOWING)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a positive infinity order key for an offset FOLLOWING on a descending partition
+==
+
+# INF offset with negative infinity order keys.
+[name=range_window_inf_offset_9]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN @offset_val PRECEDING AND
+                                               CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{3, nan, 3, 4},
+ {4, nan, 3, 4},
+ {5, -inf, 5, 6},
+ {6, -inf, 5, 6},
+ {8, 10.5, 5, 9},
+ {9, 10.5, 5, 9},
+ {7, 10.5, 5, 9},
+ {11, 12.5, 5, 11},
+ {10, 12.5, 5, 11},
+ {12, 13.5, 5, 12},
+ {13, 14, 5, 13},
+ {14, 15, 5, 14}]
+==
+
+[name=range_window_inf_offset_10]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 PRECEDING AND
+                                               @offset_val PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {3, nan, 3, 4},
+  {4, nan, 3, 4},
+  {5, -inf, 5, 6},
+  {6, -inf, 5, 6},
+  {8, 10.5, NULL, NULL},
+  {9, 10.5, NULL, NULL},
+  {7, 10.5, NULL, NULL},
+  {11, 12.5, NULL, NULL},
+  {10, 12.5, NULL, NULL},
+  {12, 13.5, NULL, NULL},
+  {13, 14, NULL, NULL},
+  {14, 15, NULL, NULL}
+]
+==
+
+[name=range_window_inf_offset_11]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN @offset_val FOLLOWING AND
+                                               2 FOLLOWING)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a negative infinity order key for an offset FOLLOWING on an ascending partition
+==
+
+[name=range_window_inf_offset_12]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 FOLLOWING AND
+                                               @offset_val FOLLOWING)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a negative infinity order key for an offset FOLLOWING on an ascending partition
+==
+
+[name=range_window_inf_offset_13]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN @offset_val PRECEDING AND
+                                                    CURRENT ROW)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a negative infinity order key for an offset PRECEDING on a descending partition
+==
+
+[name=range_window_inf_offset_14]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN 2 PRECEDING AND
+                                                    @offset_val PRECEDING)
+--
+ERROR: generic::out_of_range: Offset value cannot be positive infinity when there exists a negative infinity order key for an offset PRECEDING on a descending partition
+==
+
+[name=range_window_inf_offset_15]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN @offset_val FOLLOWING AND
+                                                    2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {14, 15, NULL, NULL},
+  {13, 14, NULL, NULL},
+  {12, 13.5, NULL, NULL},
+  {11, 12.5, NULL, NULL},
+  {10, 12.5, NULL, NULL},
+  {8, 10.5, NULL, NULL},
+  {9, 10.5, NULL, NULL},
+  {7, 10.5, NULL, NULL},
+  {5, -inf, 6, 5},
+  {6, -inf, 6, 5},
+  {3, nan, 4, 3},
+  {4, nan, 4, 3}
+]
+==
+
+[name=range_window_inf_offset_16]
+[parameters=IEEE_DIVIDE(1, 0) as offset_val]
+WITH AnalyticTableWithNegInf AS (
+  SELECT * FROM AnalyticTableWithSpecialValues
+  WHERE double_val != IEEE_DIVIDE(1, 0)
+)
+SELECT row_id, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithNegInf
+WINDOW w AS (ORDER BY double_val DESC RANGE BETWEEN 2 FOLLOWING AND
+                                                    @offset_val FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{14, 15, 11, 5},
+ {13, 14, 9, 5},
+ {12, 13.5, 9, 5},
+ {11, 12.5, 9, 5},
+ {10, 12.5, 9, 5},
+ {8, 10.5, 6, 5},
+ {9, 10.5, 6, 5},
+ {7, 10.5, 6, 5},
+ {5, -inf, 6, 5},
+ {6, -inf, 6, 5},
+ {3, nan, 4, 3},
+ {4, nan, 4, 3}]
+==
+
+# Multiple order keys.
+[name=range_window_multi_order_keys_1]
+SELECT row_id, int64_val, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC, double_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, inf, 16, 15},
+  {16, 9223372036854775807, inf, 16, 15},
+  {14, 9223372036854775806, 15, 16, 14},
+  {13, 9223372036854775804, 14, 16, 13},
+  {11, 13, 12.5, 16, 11},
+  {12, 13, 13.5, 16, 11},
+  {10, 12, 12.5, 16, 10},
+  {9, 11, 10.5, 16, 8},
+  {8, 11, 10.5, 16, 8},
+  {7, 10, 10.5, 16, 7},
+  {6, -9223372036854775804, -inf, 16, 6},
+  {5, -9223372036854775806, -inf, 16, 5},
+  {3, -9223372036854775807, nan, 16, 3},
+  {4, -9223372036854775807, nan, 16, 3},
+  {1, NULL, NULL, 16, 1},
+  {2, NULL, NULL, 16, 1}
+]
+==
+
+[name=range_window_multi_order_keys_2]
+SELECT row_id, int64_val, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC, double_val ASC
+             RANGE BETWEEN CURRENT ROW AND CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, inf, 16, 15},
+  {16, 9223372036854775807, inf, 16, 15},
+  {14, 9223372036854775806, 15, 14, 14},
+  {13, 9223372036854775804, 14, 13, 13},
+  {11, 13, 12.5, 11, 11},
+  {12, 13, 13.5, 12, 12},
+  {10, 12, 12.5, 10, 10},
+  {9, 11, 10.5, 9, 8},
+  {8, 11, 10.5, 9, 8},
+  {7, 10, 10.5, 7, 7},
+  {6, -9223372036854775804, -inf, 6, 6},
+  {5, -9223372036854775806, -inf, 5, 5},
+  {3, -9223372036854775807, nan, 4, 3},
+  {4, -9223372036854775807, nan, 4, 3},
+  {1, NULL, NULL, 2, 1},
+  {2, NULL, NULL, 2, 1}
+]
+==
+
+[name=range_window_multi_order_keys_3]
+SELECT row_id, int64_val, double_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC, double_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             double_val DOUBLE,
+             start_boundary INT64,
+             end_boundary INT64>>
+[
+  {15, 9223372036854775807, inf, 16, 1},
+  {16, 9223372036854775807, inf, 16, 1},
+  {14, 9223372036854775806, 15, 16, 1},
+  {13, 9223372036854775804, 14, 16, 1},
+  {11, 13, 12.5, 16, 1},
+  {12, 13, 13.5, 16, 1},
+  {10, 12, 12.5, 16, 1},
+  {9, 11, 10.5, 16, 1},
+  {8, 11, 10.5, 16, 1},
+  {7, 10, 10.5, 16, 1},
+  {6, -9223372036854775804, -inf, 16, 1},
+  {5, -9223372036854775806, -inf, 16, 1},
+  {3, -9223372036854775807, nan, 16, 1},
+  {4, -9223372036854775807, nan, 16, 1},
+  {1, NULL, NULL, 16, 1},
+  {2, NULL, NULL, 16, 1}
+]
+==
+
+# ---------------------------------------------------------------------------
+# RANGE windows on AnalyticTableWithoutSpecialValues
+#
+# The queries are the same as the above for range windows, except that
+# the table is replaced with AnalyticTableWithoutSpecialValues and that
+# the tests with double_val as an ORDER BY column are not included.
+# ---------------------------------------------------------------------------
+
+[name=range_window_asc_without_special_values_1]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {4, 12, 1, 1},
+ {5, 13, 1, 3},
+ {6, 13, 1, 3}]
+==
+
+[name=range_window_asc_without_special_values_2]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 1},
+ {3, 11, 1, 3},
+ {2, 11, 1, 3},
+ {4, 12, 1, 4},
+ {5, 13, 1, 6},
+ {6, 13, 1, 6}]
+==
+
+[name=range_window_asc_without_special_values_3]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 4},
+ {3, 11, 1, 6},
+ {2, 11, 1, 6},
+ {4, 12, 1, 6},
+ {5, 13, 1, 6},
+ {6, 13, 1, 6}]
+==
+
+[name=range_window_asc_without_special_values_4]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 6},
+ {3, 11, 1, 6},
+ {2, 11, 1, 6},
+ {4, 12, 1, 6},
+ {5, 13, 1, 6},
+ {6, 13, 1, 6}]
+==
+
+[name=range_window_asc_without_special_values_5]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, NULL, NULL},
+ {3, 11, 1, 1},
+ {2, 11, 1, 1},
+ {4, 12, 1, 3},
+ {5, 13, 2, 4},
+ {6, 13, 2, 4}]
+==
+
+[name=range_window_asc_without_special_values_6]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {5, 13, NULL, NULL},
+ {6, 13, NULL, NULL}]
+==
+
+[name=range_window_asc_without_special_values_7]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 1},
+ {3, 11, 1, 3},
+ {2, 11, 1, 3},
+ {4, 12, 1, 4},
+ {5, 13, 2, 6},
+ {6, 13, 2, 6}]
+==
+
+[name=range_window_asc_without_special_values_8]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 4},
+ {3, 11, 1, 6},
+ {2, 11, 1, 6},
+ {4, 12, 1, 6},
+ {5, 13, 2, 6},
+ {6, 13, 2, 6}]
+==
+
+[name=range_window_asc_without_special_values_9]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 6},
+ {3, 11, 1, 6},
+ {2, 11, 1, 6},
+ {4, 12, 1, 6},
+ {5, 13, 2, 6},
+ {6, 13, 2, 6}]
+==
+
+[name=range_window_asc_without_special_values_10]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN CURRENT ROW and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 1},
+ {3, 11, 2, 3},
+ {2, 11, 2, 3},
+ {4, 12, 4, 4},
+ {5, 13, 5, 6},
+ {6, 13, 5, 6}]
+==
+
+[name=range_window_asc_without_special_values_11]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN CURRENT ROW and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 4},
+ {3, 11, 2, 6},
+ {2, 11, 2, 6},
+ {4, 12, 4, 6},
+ {5, 13, 5, 6},
+ {6, 13, 5, 6}]
+==
+
+[name=range_window_asc_without_special_values_12]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN CURRENT ROW and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 6},
+ {3, 11, 2, 6},
+ {2, 11, 2, 6},
+ {4, 12, 4, 6},
+ {5, 13, 5, 6},
+ {6, 13, 5, 6}]
+==
+
+[name=range_window_asc_without_special_values_13]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 2, 4},
+ {3, 11, 4, 6},
+ {2, 11, 4, 6},
+ {4, 12, 5, 6},
+ {5, 13, NULL, NULL},
+ {6, 13, NULL, NULL}]
+==
+
+[name=range_window_asc_without_special_values_14]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {5, 13, NULL, NULL},
+ {6, 13, NULL, NULL}]
+==
+
+[name=range_window_asc_without_special_values_15]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 4, 6},
+ {3, 11, 5, 6},
+ {2, 11, 5, 6},
+ {4, 12, NULL, NULL},
+ {5, 13, NULL, NULL},
+ {6, 13, NULL, NULL}]
+==
+
+[name=range_window_asc_without_special_values_16]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {5, 13, NULL, NULL},
+ {6, 13, NULL, NULL}]
+==
+
+[name=range_window_asc_without_special_values_17]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {5, 13, NULL, NULL},
+ {6, 13, NULL, NULL}]
+==
+
+[name=range_window_asc_without_special_values_18]
+SELECT row_id, int64_val,
+       MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val ASC
+             RANGE BETWEEN 9223372036854775807 PRECEDING and
+                           9223372036854775807 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{1, 10, 1, 6},
+ {3, 11, 1, 6},
+ {2, 11, 1, 6},
+ {4, 12, 1, 6},
+ {5, 13, 1, 6},
+ {6, 13, 1, 6}]
+==
+
+[name=range_window_desc_without_special_values_1]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, NULL, NULL},
+ {6, 13, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {3, 11, 6, 5},
+ {2, 11, 6, 5},
+ {1, 10, 6, 4}]
+==
+
+[name=range_window_desc_without_special_values_2]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 5},
+ {6, 13, 6, 5},
+ {4, 12, 6, 4},
+ {3, 11, 6, 2},
+ {2, 11, 6, 2},
+ {1, 10, 6, 1}]
+==
+
+[name=range_window_desc_without_special_values_3]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 2},
+ {6, 13, 6, 2},
+ {4, 12, 6, 1},
+ {3, 11, 6, 1},
+ {2, 11, 6, 1},
+ {1, 10, 6, 1}]
+==
+
+[name=range_window_desc_without_special_values_4]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 1},
+ {6, 13, 6, 1},
+ {4, 12, 6, 1},
+ {3, 11, 6, 1},
+ {2, 11, 6, 1},
+ {1, 10, 6, 1}]
+==
+
+[name=range_window_desc_without_special_values_5]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and 1 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, NULL, NULL},
+ {6, 13, NULL, NULL},
+ {4, 12, 6, 5},
+ {3, 11, 6, 4},
+ {2, 11, 6, 4},
+ {1, 10, 4, 2}]
+==
+
+[name=range_window_desc_without_special_values_6]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 1 PRECEDING and 2 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, NULL, NULL},
+ {6, 13, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {1, 10, NULL, NULL}]
+==
+
+[name=range_window_desc_without_special_values_7]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 5},
+ {6, 13, 6, 5},
+ {4, 12, 6, 4},
+ {3, 11, 6, 2},
+ {2, 11, 6, 2},
+ {1, 10, 4, 1}]
+==
+
+[name=range_window_desc_without_special_values_8]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 2},
+ {6, 13, 6, 2},
+ {4, 12, 6, 1},
+ {3, 11, 6, 1},
+ {2, 11, 6, 1},
+ {1, 10, 4, 1}]
+==
+
+[name=range_window_desc_without_special_values_9]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 PRECEDING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 1},
+ {6, 13, 6, 1},
+ {4, 12, 6, 1},
+ {3, 11, 6, 1},
+ {2, 11, 6, 1},
+ {1, 10, 4, 1}]
+==
+
+[name=range_window_desc_without_special_values_10]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN CURRENT ROW and CURRENT ROW)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 5},
+ {6, 13, 6, 5},
+ {4, 12, 4, 4},
+ {3, 11, 3, 2},
+ {2, 11, 3, 2},
+ {1, 10, 1, 1}]
+==
+
+[name=range_window_desc_without_special_values_11]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN CURRENT ROW and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 2},
+ {6, 13, 6, 2},
+ {4, 12, 4, 1},
+ {3, 11, 3, 1},
+ {2, 11, 3, 1},
+ {1, 10, 1, 1}]
+==
+
+[name=range_window_desc_without_special_values_12]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN CURRENT ROW and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 1},
+ {6, 13, 6, 1},
+ {4, 12, 4, 1},
+ {3, 11, 3, 1},
+ {2, 11, 3, 1},
+ {1, 10, 1, 1}]
+==
+
+[name=range_window_desc_without_special_values_13]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 1 FOLLOWING and 2 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 4, 2},
+ {6, 13, 4, 2},
+ {4, 12, 3, 1},
+ {3, 11, 1, 1},
+ {2, 11, 1, 1},
+ {1, 10, NULL, NULL}]
+==
+
+[name=range_window_desc_without_special_values_14]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 FOLLOWING and 1 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, NULL, NULL},
+ {6, 13, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {1, 10, NULL, NULL}]
+==
+
+[name=range_window_desc_without_special_values_15]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2 FOLLOWING and UNBOUNDED FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 3, 1},
+ {6, 13, 3, 1},
+ {4, 12, 1, 1},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {1, 10, NULL, NULL}]
+==
+
+[name=range_window_desc_without_special_values_16]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 1000 FOLLOWING and 2000 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, NULL, NULL},
+ {6, 13, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {1, 10, NULL, NULL}]
+==
+
+[name=range_window_desc_without_special_values_17]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 2000 PRECEDING and 1000 PRECEDING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, NULL, NULL},
+ {6, 13, NULL, NULL},
+ {4, 12, NULL, NULL},
+ {3, 11, NULL, NULL},
+ {2, 11, NULL, NULL},
+ {1, 10, NULL, NULL}]
+==
+
+[name=range_window_desc_without_special_values_18]
+SELECT row_id, int64_val,
+       MAX(row_id) OVER w start_boundary, MIN(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val DESC
+             RANGE BETWEEN 9223372036854775807 PRECEDING and
+                           9223372036854775807 FOLLOWING)
+--
+ARRAY<STRUCT<row_id INT64,
+             int64_val INT64,
+             start_boundary INT64,
+             end_boundary INT64>>
+[{5, 13, 6, 1},
+ {6, 13, 6, 1},
+ {4, 12, 6, 1},
+ {3, 11, 6, 1},
+ {2, 11, 6, 1},
+ {1, 10, 6, 1}]
+==
+
+# -----------------------------------------------------------------------------
+# Invalid offset values.
+# -----------------------------------------------------------------------------
+
+[name=range_window_null_offset_1]
+[parameters=cast(null as int64) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN @offset_val PRECEDING AND
+                                              CURRENT ROW)
+--
+ERROR: generic::out_of_range: The boundary offset value cannot be null
+==
+
+[name=range_window_null_offset_2]
+[parameters=cast(null as int64) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN 2 PRECEDING AND
+                                              @offset_val PRECEDING)
+--
+ERROR: generic::out_of_range: The boundary offset value cannot be null
+==
+
+[name=range_window_null_offset_3]
+[parameters=cast(null as int64) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN @offset_val FOLLOWING AND
+                                              2 FOLLOWING)
+--
+ERROR: generic::out_of_range: The boundary offset value cannot be null
+==
+
+[name=range_window_null_offset_4]
+[parameters=cast(null as int64) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN 2 FOLLOWING AND
+                                              @offset_val FOLLOWING)
+--
+ERROR: generic::out_of_range: The boundary offset value cannot be null
+==
+
+# Negative offset
+[name=range_window_negative_offset_1]
+[parameters=-1 as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN @offset_val PRECEDING AND
+                                              CURRENT ROW)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was -1
+==
+
+[name=range_window_negative_offset_2]
+[parameters=-1 as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN 2 PRECEDING AND
+                                              @offset_val PRECEDING)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was -1
+==
+
+[name=range_window_negative_offset_3]
+[parameters=-1 as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN @offset_val FOLLOWING AND
+                                              2 FOLLOWING)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was -1
+==
+
+[name=range_window_negative_offset_4]
+[parameters=-1 as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY int64_val RANGE BETWEEN 2 FOLLOWING AND
+                                              @offset_val FOLLOWING)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was -1
+==
+
+[name=range_window_nan_offset_1]
+[parameters=IEEE_DIVIDE(0, 0) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN @offset_val PRECEDING AND
+                                               CURRENT ROW)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was nan
+==
+
+[name=range_window_nan_offset_2]
+[parameters=IEEE_DIVIDE(0, 0) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 PRECEDING AND
+                                               @offset_val PRECEDING)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was nan
+==
+
+[name=range_window_nan_offset_3]
+[parameters=IEEE_DIVIDE(0, 0) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN @offset_val FOLLOWING AND
+                                               2 FOLLOWING)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was nan
+==
+
+[name=range_window_nan_offset_4]
+[parameters=IEEE_DIVIDE(0, 0) as offset_val]
+SELECT MIN(row_id) OVER w start_boundary, MAX(row_id) OVER w end_boundary
+FROM AnalyticTableWithoutSpecialValues
+WINDOW w AS (ORDER BY double_val RANGE BETWEEN 2 FOLLOWING AND
+                                               @offset_val FOLLOWING)
+--
+ERROR: generic::out_of_range: Window frame offset for PRECEDING or FOLLOWING must be non-negative, but was nan

@@ -25,6 +25,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/anon_function.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
@@ -144,6 +145,23 @@ std::string CountStarFunctionSQL(const std::vector<std::string>& inputs) {
   }
 }
 
+std::string AnonCountStarFunctionSQL(const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.empty() || inputs.size() == 2);
+  return absl::StrCat(
+      "ANON_COUNT(*",
+      inputs.size() == 2
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[0], " AND ", inputs[1])
+          : "",
+      ")");
+}
+
+std::string SupportedSignaturesForAnonCountStarFunction(
+    const std::string& unused_function_name,
+    const LanguageOptions& language_options, const Function& function) {
+  return "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])";
+}
+
+
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs) {
   ZETASQL_DCHECK_EQ(inputs.size(), 3);
   return absl::StrCat("(", inputs[0], ") BETWEEN (", inputs[1], ") AND (",
@@ -213,6 +231,10 @@ std::string ArrayAtOrdinalFunctionSQL(const std::vector<std::string>& inputs) {
 std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs) {
   return ArrayAtFunctionSQL("SAFE_OFFSET", inputs);
+}
+std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK_EQ(inputs.size(), 2);
+  return absl::StrCat(inputs[0], "[", inputs[1], "]");
 }
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs) {
@@ -1126,6 +1148,21 @@ absl::Status CheckArgumentsSupportEquality(
   return absl::OkStatus();
 }
 
+absl::Status CheckArgumentsSupportGrouping(
+    const std::string& comparison_name, const FunctionSignature& signature,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+  for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (!arguments[idx].type()->SupportsGrouping(language_options)) {
+      return MakeSqlError()
+             << comparison_name << " is not defined for arguments of type "
+             << arguments[idx].DebugString();
+    }
+  }
+  return absl::OkStatus();
+}
+
 zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle,
     const FunctionSignature& /*signature*/,
@@ -1349,6 +1386,18 @@ absl::Status CheckRangeBucketArguments(
   }
 
   return absl::OkStatus();
+}
+
+std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
+                                                int idx) {
+  switch (idx) {
+    case 0:
+      return "Lower bound on CLAMPED BETWEEN";
+    case 1:
+      return "Upper bound on CLAMPED BETWEEN";
+    default:
+      return absl::StrCat("Argument ", idx, " to ANON_COUNT(*)");
+  }
 }
 
 bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {

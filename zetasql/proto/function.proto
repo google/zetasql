@@ -135,6 +135,7 @@ message FunctionOptionsProto {
   optional bool supports_null_handling_modifier = 13 [default = false];
   optional bool supports_safe_error_mode = 14 [default = true];
   optional bool supports_having_modifier = 15 [default = true];
+  optional bool supports_clamped_between_modifier = 16 [default = false];
   optional bool uses_upper_case_sql_name = 17 [default = true];
 }
 

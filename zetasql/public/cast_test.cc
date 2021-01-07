@@ -328,6 +328,9 @@ INSTANTIATE_TEST_SUITE_P(
 INSTANTIATE_TEST_SUITE_P(CastDateTime, CastTemplateTest,
                          testing::ValuesIn(GetFunctionTestsCastDateTime()));
 
+INSTANTIATE_TEST_SUITE_P(CastInterval, CastTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsCastInterval()));
+
 INSTANTIATE_TEST_SUITE_P(CastNumeric, CastTemplateTest,
                          testing::ValuesIn(GetFunctionTestsCastNumeric()));
 

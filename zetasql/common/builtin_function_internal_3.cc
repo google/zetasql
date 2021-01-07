@@ -30,6 +30,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/public/anon_function.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
@@ -555,7 +556,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   const Type* double_array_type = types::DoubleArrayType();
   const Type* date_array_type = types::DateArrayType();
   const Type* timestamp_array_type = types::TimestampArrayType();
-  const Type* json_type = types::JsonType();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -904,60 +904,6 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "generate_uuid", SCALAR,
                  {{string_type, {}, FN_GENERATE_UUID}}, function_is_volatile);
 
-  std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
-      {string_type, {string_type, string_type}, FN_JSON_EXTRACT}};
-  std::vector<FunctionSignatureOnHeap> json_query_signatures = {
-      {string_type, {string_type, string_type}, FN_JSON_QUERY}};
-  std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
-      {string_type, {string_type, string_type}, FN_JSON_EXTRACT_SCALAR}};
-  std::vector<FunctionSignatureOnHeap> json_value_signatures = {
-      {string_type, {string_type, string_type}, FN_JSON_VALUE}};
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
-    json_extract_signatures.push_back(
-        {json_type, {json_type, string_type}, FN_JSON_EXTRACT_JSON});
-    json_query_signatures.push_back(
-        {json_type, {json_type, string_type}, FN_JSON_QUERY_JSON});
-    json_extract_scalar_signatures.push_back(
-        {string_type, {json_type, string_type}, FN_JSON_EXTRACT_SCALAR_JSON});
-    json_value_signatures.push_back(
-        {string_type, {json_type, string_type}, FN_JSON_VALUE_JSON});
-  }
-
-  InsertFunction(functions, options, "json_extract", SCALAR,
-                 json_extract_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-  InsertFunction(functions, options, "json_query", SCALAR,
-                 json_query_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-  InsertFunction(functions, options, "json_extract_scalar", SCALAR,
-                 json_extract_scalar_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-  InsertFunction(functions, options, "json_value", SCALAR,
-                 json_value_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-
-  InsertFunction(functions, options, "json_extract_array", SCALAR,
-                 {{array_string_type,
-                   {string_type, {string_type, OPTIONAL}},
-                   FN_JSON_EXTRACT_ARRAY}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-  InsertFunction(functions, options, "json_extract_string_array", SCALAR,
-                 {{array_string_type,
-                   {string_type, {string_type, OPTIONAL}},
-                   FN_JSON_EXTRACT_STRING_ARRAY}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-
-  InsertFunction(functions, options, "to_json_string", SCALAR,
-                 {{string_type,
-                   {ARG_TYPE_ANY_1, {bool_type, OPTIONAL}},
-                   FN_TO_JSON_STRING}});
-
   // The signature is declared as
   //   ERROR(string) -> int64_t
   // but this is special-cased in the resolver so that the result can be
@@ -1004,6 +950,84 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                    FunctionOptions().set_compute_result_type_callback(
                        &GetOrMakeEnumValueDescriptorType));
   }
+}
+
+void GetJSONFunctions(TypeFactory* type_factory,
+                      const ZetaSQLBuiltinFunctionOptions& options,
+                      NameToFunctionMap* functions) {
+  const Type* bool_type = type_factory->get_bool();
+  const Type* string_type = type_factory->get_string();
+  const Type* int64_type = type_factory->get_int64();
+  const Type* json_type = types::JsonType();
+  const ArrayType* array_string_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(string_type, &array_string_type));
+
+  const Function::Mode SCALAR = Function::SCALAR;
+
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
+
+  std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_EXTRACT}};
+  std::vector<FunctionSignatureOnHeap> json_query_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_QUERY}};
+  std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_EXTRACT_SCALAR}};
+  std::vector<FunctionSignatureOnHeap> json_value_signatures = {
+      {string_type, {string_type, string_type}, FN_JSON_VALUE}};
+
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    json_extract_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_EXTRACT_JSON});
+    json_query_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_QUERY_JSON});
+    json_extract_scalar_signatures.push_back(
+        {string_type, {json_type, string_type}, FN_JSON_EXTRACT_SCALAR_JSON});
+    json_value_signatures.push_back(
+        {string_type, {json_type, string_type}, FN_JSON_VALUE_JSON});
+    InsertFunction(
+        functions, options, "$subscript", SCALAR,
+        {{json_type, {json_type, int64_type}, FN_JSON_SUBSCRIPT_INT64},
+         {json_type, {json_type, string_type}, FN_JSON_SUBSCRIPT_STRING}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_get_sql_callback(&SubscriptFunctionSQL));
+  }
+
+  InsertFunction(functions, options, "json_extract", SCALAR,
+                 json_extract_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_query", SCALAR,
+                 json_query_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_extract_scalar", SCALAR,
+                 json_extract_scalar_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_value", SCALAR,
+                 json_value_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+
+  InsertFunction(functions, options, "json_extract_array", SCALAR,
+                 {{array_string_type,
+                   {string_type, {string_type, OPTIONAL}},
+                   FN_JSON_EXTRACT_ARRAY}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_extract_string_array", SCALAR,
+                 {{array_string_type,
+                   {string_type, {string_type, OPTIONAL}},
+                   FN_JSON_EXTRACT_STRING_ARRAY}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+
+  InsertFunction(functions, options, "to_json_string", SCALAR,
+                 {{string_type,
+                   {ARG_TYPE_ANY_1, {bool_type, OPTIONAL}},
+                   FN_TO_JSON_STRING}});
 }
 
 void GetNumericFunctions(TypeFactory* type_factory,
@@ -2056,6 +2080,132 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                     {int64_type, dbscan_arg_options}},
                    FN_ST_CLUSTERDBSCAN}},
                  geography_required_analytic);
+}
+
+void GetAnonFunctions(TypeFactory* type_factory,
+                      const ZetaSQLBuiltinFunctionOptions& options,
+                      NameToFunctionMap* functions) {
+  const Type* int64_type = type_factory->get_int64();
+  const Type* uint64_type = type_factory->get_uint64();
+  const Type* double_type = type_factory->get_double();
+  const Type* numeric_type = type_factory->get_numeric();
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
+
+  FunctionSignatureOptions has_numeric_type_argument;
+  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+
+  const FunctionOptions anon_options =
+      FunctionOptions()
+          .set_supports_over_clause(false)
+          .set_supports_distinct_modifier(false)
+          .set_supports_having_modifier(false)
+          .set_supports_clamped_between_modifier(true);
+
+  const FunctionArgumentTypeOptions optional_const_arg_options =
+      FunctionArgumentTypeOptions()
+          .set_must_be_constant()
+          .set_must_be_non_null()
+          .set_cardinality(OPTIONAL);
+
+  // TODO: Fix this HACK - the CLAMPED BETWEEN lower and upper bounds
+  // are optional, as are the privacy_budget weight and uid.  However,
+  // the syntax and spec allows privacy_budget_weight (and uid) to be specified
+  // but upper/lower bound to be unspecified, but that is not possible to
+  // represent in a ZetaSQL FunctionSignature.  In the short term, the
+  // resolver will guarantee that the privacy_budget_weight and uid are not
+  // specified if the CLAMP are not, but longer term we must remove the
+  // privacy_budget_weight and uid arguments as per the updated ZetaSQL
+  // privacy language spec.
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          "anon_count", Function::kZetaSQLFunctionGroupName,
+          {{int64_type,
+            {/*expr=*/ARG_TYPE_ANY_2,
+             /*lower_bound=*/{int64_type, optional_const_arg_options},
+             /*upper_bound=*/{int64_type, optional_const_arg_options}},
+            FN_ANON_COUNT}},
+          anon_options, "count"));
+
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          "anon_sum", Function::kZetaSQLFunctionGroupName,
+          {{int64_type,
+            {/*expr=*/int64_type,
+             /*lower_bound=*/{int64_type, optional_const_arg_options},
+             /*upper_bound=*/{int64_type, optional_const_arg_options}},
+            FN_ANON_SUM_INT64},
+           {uint64_type,
+            {/*expr=*/uint64_type,
+             /*lower_bound=*/{uint64_type, optional_const_arg_options},
+             /*upper_bound=*/{uint64_type, optional_const_arg_options}},
+            FN_ANON_SUM_UINT64},
+           {double_type,
+            {/*expr=*/double_type,
+             /*lower_bound=*/{double_type, optional_const_arg_options},
+             /*upper_bound=*/{double_type, optional_const_arg_options}},
+            FN_ANON_SUM_DOUBLE},
+           {numeric_type,
+            {/*expr=*/numeric_type,
+             /*lower_bound=*/{numeric_type, optional_const_arg_options},
+             /*upper_bound=*/{numeric_type, optional_const_arg_options}},
+            FN_ANON_SUM_NUMERIC,
+            has_numeric_type_argument}},
+          anon_options, "sum"));
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          "anon_avg", Function::kZetaSQLFunctionGroupName,
+          {{double_type,
+            {/*expr=*/double_type,
+             /*lower_bound=*/{double_type, optional_const_arg_options},
+             /*upper_bound=*/{double_type, optional_const_arg_options}},
+            FN_ANON_AVG_DOUBLE},
+           {numeric_type,
+            {/*expr=*/numeric_type,
+             /*lower_bound=*/{numeric_type, optional_const_arg_options},
+             /*upper_bound=*/{numeric_type, optional_const_arg_options}},
+            FN_ANON_AVG_NUMERIC,
+            has_numeric_type_argument}},
+          anon_options, "avg"));
+
+  InsertCreatedFunction(
+      functions, options,
+      new AnonFunction(
+          "$anon_count_star", Function::kZetaSQLFunctionGroupName,
+          {{int64_type,
+            {/*lower_bound=*/{int64_type, optional_const_arg_options},
+             /*upper_bound=*/{int64_type, optional_const_arg_options}},
+            FN_ANON_COUNT_STAR}},
+          anon_options.Copy()
+              .set_sql_name("anon_count(*)")
+              .set_get_sql_callback(&AnonCountStarFunctionSQL)
+              .set_supported_signatures_callback(
+                  bind_front(&SupportedSignaturesForAnonCountStarFunction,
+                             /*unused_function_name=*/""))
+              .set_bad_argument_error_prefix_callback(
+                  &AnonCountStarBadArgumentErrorPrefix),
+          // TODO: internal function names shouldn't be resolvable,
+          // an alternative way to look up COUNT(*) will be needed to fix the
+          // linked bug.
+          "$count_star"));
+}
+
+void GetContainsSubstrFunction(TypeFactory* type_factory,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               NameToFunctionMap* functions) {
+  const Type* string_type = type_factory->get_string();
+  const Type* bool_type = type_factory->get_bool();
+  const FunctionOptions contains_substr_required =
+      FunctionOptions().add_required_language_feature(
+          zetasql::FEATURE_CONTAINS_SUBSTR);
+
+  InsertFunction(
+      functions, options, "contains_substr", Function::SCALAR,
+      {{bool_type, {ARG_TYPE_ARBITRARY, string_type}, FN_CONTAINS_SUBSTR}},
+      contains_substr_required);
 }
 
 }  // namespace zetasql

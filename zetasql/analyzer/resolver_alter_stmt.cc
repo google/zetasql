@@ -69,11 +69,14 @@ absl::Status Resolver::ResolveAlterActions(
             MakeResolvedSetOptionsAction(std::move(resolved_options)));
       } break;
       case AST_ADD_CONSTRAINT_ACTION: {
+        if (!ast_statement->is_if_exists()) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
         const auto* constraint = action->GetAsOrDie<ASTAddConstraintAction>();
         std::unique_ptr<const ResolvedAddConstraintAction>
             resolved_alter_action;
-        ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(altered_table, constraint,
-                                                   &resolved_alter_action));
+        ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(
+            altered_table, ast_statement, constraint, &resolved_alter_action));
         alter_actions->push_back(std::move(resolved_alter_action));
       } break;
       case AST_DROP_CONSTRAINT_ACTION: {
@@ -130,9 +133,6 @@ absl::Status Resolver::ResolveAlterActions(
           return MakeSqlErrorAt(action)
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
-        }
-        if (!ast_statement->is_if_exists()) {
-          ZETASQL_RETURN_IF_ERROR(table_status);
         }
         if (existing_rename_to_action) {
           return MakeSqlErrorAt(action)
@@ -354,7 +354,8 @@ absl::Status Resolver::ResolveAlterEntityStatement(
 }
 
 absl::Status Resolver::ResolveAddConstraintAction(
-    const Table* referencing_table, const ASTAddConstraintAction* alter_action,
+    const Table* referencing_table, const ASTAlterStatementBase* alter_stmt,
+    const ASTAddConstraintAction* alter_action,
     std::unique_ptr<const ResolvedAddConstraintAction>* resolved_alter_action) {
   auto constraint_kind = alter_action->constraint()->node_kind();
   if (constraint_kind == AST_CHECK_CONSTRAINT &&
@@ -365,17 +366,54 @@ absl::Status Resolver::ResolveAddConstraintAction(
       return MakeSqlErrorAt(alter_action) << "FOREIGN KEY is not supported";
     }
 
-    ColumnIndexMap column_indexes;
-    std::vector<const Type*> column_types;
-    for (int i = 0; i < referencing_table->NumColumns(); i++) {
-      const Column* column = referencing_table->GetColumn(i);
-      ZETASQL_RET_CHECK(column != nullptr);
-      column_indexes[id_string_pool_->Make(column->Name())] = i;
-      column_types.push_back(column->GetType());
-    }
+    // <referencing_table> may be null if the target table does not exist. In
+    // that case, we return an error for ALTER TABLE and optimistically assume
+    // schemas match for ALTER TABLE IF EXISTS.
+
+    // The caller should have already verified this for us.
+    ZETASQL_RET_CHECK(referencing_table != nullptr || alter_stmt->is_if_exists());
 
     const ASTForeignKey* foreign_key =
         alter_action->constraint()->GetAsOrDie<ASTForeignKey>();
+
+    ColumnIndexMap column_indexes;
+    std::vector<const Type*> column_types;
+    if (referencing_table != nullptr) {
+      for (int i = 0; i < referencing_table->NumColumns(); i++) {
+        const Column* column = referencing_table->GetColumn(i);
+        ZETASQL_RET_CHECK(column != nullptr);
+        column_indexes[id_string_pool_->Make(column->Name())] = i;
+        column_types.push_back(column->GetType());
+      }
+    } else {
+      // If the referencing table does not exist, then we use the referenced
+      // columns' types. We also include the referencing columns' names in the
+      // resolved node so that SQL builders can reconstruct the original SQL.
+      const Table* referenced_table;
+      ZETASQL_RETURN_IF_ERROR(
+          FindTable(foreign_key->reference()->table_name(), &referenced_table));
+      for (const ASTIdentifier* column_name :
+           foreign_key->reference()->column_list()->identifiers()) {
+        const Column* column =
+            referenced_table->FindColumnByName(column_name->GetAsString());
+        if (column == nullptr) {
+          return MakeSqlErrorAt(column_name)
+                 << "Column " << column_name->GetAsString()
+                 << " not found in table " << referenced_table->Name();
+        }
+        column_types.push_back(column->GetType());
+      }
+
+      // Column indexes for referencing columns are fake and assigned based on
+      // their appearance in the constraint DDL.
+      for (int i = 0; i < foreign_key->column_list()->identifiers().size();
+           i++) {
+        const ASTIdentifier* referencing_column =
+            foreign_key->column_list()->identifiers().at(i);
+        column_indexes.insert({referencing_column->GetAsIdString(), i});
+      }
+    }
+
     std::vector<std::unique_ptr<ResolvedForeignKey>> foreign_keys;
     ZETASQL_RETURN_IF_ERROR(ResolveForeignKeyTableConstraint(
         column_indexes, column_types, foreign_key, &foreign_keys));

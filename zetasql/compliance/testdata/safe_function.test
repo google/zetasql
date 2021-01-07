@@ -1,0 +1,285 @@
+# This file has tests for SAFE function calls, with one of each call type.
+# This tests the mechanism of SAFE function calls.  Error-handling for
+# individual functions are tested separately, mostly in code-based tests.
+
+[default test_features1=V_1_2_SAFE_FUNCTION_CALL]
+
+[prepare_database]
+CREATE TABLE input AS
+\-- Summing `value` will overflow if we add three of them together.
+select offset, key, cast(pow(2,63)/2.5 as int64) as value
+from unnest([1,1,2,2,2,3,3,3,3,4]) key with offset
+--
+ARRAY<STRUCT<offset INT64, key INT64, value INT64>>[
+  {1, 1, 3689348814741910528},
+  {3, 2, 3689348814741910528},
+  {5, 3, 3689348814741910528},
+  {7, 3, 3689348814741910528},
+  {9, 4, 3689348814741910528},
+  {0, 1, 3689348814741910528},
+  {2, 2, 3689348814741910528},
+  {4, 2, 3689348814741910528},
+  {6, 3, 3689348814741910528},
+  {8, 3, 3689348814741910528}
+]
+==
+
+[name=safe_scalar_func]
+select value, safe.parse_date("%Y-%m-%d", value),
+              safe.parse_date("%Y-%m-%d", value) IS NULL
+from unnest(["2003-02-04", "", "xxx", "2004-05-06"]) value
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<value STRING, DATE, BOOL>>[
+  {"", NULL, true},
+  {"2004-05-06", 2004-05-06, false},
+  {"2003-02-04", 2003-02-04, false},
+  {"xxx", NULL, true}
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:15]
+select value, safe.parse_date("%Y-%m-%d", value),
+              ^
+==
+
+[name=safe_agg_func_group_by]
+select key, count(*), safe.sum(value)
+from input
+group by key
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<key INT64, INT64, INT64>>[
+  {1, 2, 7378697629483821056},
+  {2, 3, NULL},
+  {3, 4, NULL},
+  {4, 1, 3689348814741910528}
+]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:23]
+select key, count(*), safe.sum(value)
+                      ^
+==
+
+[name=safe_agg_func_no_group_by]
+select safe.sum(value)
+from input
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<INT64>>[{NULL}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.sum(value)
+       ^
+==
+
+[name=safe_analytic_agg_func]
+[required_features=ANALYTIC_FUNCTIONS]
+select key, offset,
+       safe.sum(value) over (partition by key order by offset),
+       safe.sum(value) over (partition by key order by offset) IS NULL
+from input
+order by key, offset
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<key INT64, offset INT64, INT64, BOOL>>[
+  {1, 0, 3689348814741910528, false},
+  {1, 1, 7378697629483821056, false},
+  {2, 2, 3689348814741910528, false},
+  {2, 3, 7378697629483821056, false},
+  {2, 4, NULL, true},
+  {3, 5, 3689348814741910528, false},
+  {3, 6, 7378697629483821056, false},
+  {3, 7, NULL, true},
+  {3, 8, NULL, true},
+  {4, 9, 3689348814741910528, false}
+]
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 2:8]
+       safe.sum(value) over (partition by key order by offset),
+       ^
+==
+
+# We don't actually have any non-aggregate analytic functions that can return
+# runtime errors (other than case like the one below for NTILE where we
+# validate a constant argument).
+# We'll still test that SAFE makes it through without failing.
+[name=safe_analytic_non_agg_func]
+[required_features=ANALYTIC_FUNCTIONS]
+select key, offset, safe.rank() over (partition by key order by offset)
+from input
+order by key, offset
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<key INT64, offset INT64, INT64>>[
+  {1, 0, 1},
+  {1, 1, 2},
+  {2, 2, 1},
+  {2, 3, 2},
+  {2, 4, 3},
+  {3, 5, 1},
+  {3, 6, 2},
+  {3, 7, 3},
+  {3, 8, 4},
+  {4, 9, 1}
+]
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:21]
+select key, offset, safe.rank() over (partition by key order by offset)
+                    ^
+==
+
+# This shows the case of an error in the constant argument for NTILE, which
+# can happen at execution time for parameters only.  We aren't converting the
+# error for these cases.
+[name=safe_analytic_non_agg_func_ntile]
+[required_features=ANALYTIC_FUNCTIONS]
+[parameters=-1 as minus1]
+select key, offset,
+       safe.ntile(@minus1) over (partition by key order by offset)
+from input
+order by key, offset
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 2:8]
+       safe.ntile(@minus1) over (partition by key order by offset)
+       ^
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL
+ERROR: generic::out_of_range: The N value (number of buckets) for the NTILE function must be positive
+==
+
+[name=safe_analytic_non_agg_func_ntile2]
+[required_features=ANALYTIC_FUNCTIONS]
+[parameters=null as null_param]
+select key, offset,
+       safe.ntile(@null_param) over (partition by key order by offset)
+from input
+order by key, offset
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 2:8]
+       safe.ntile(@null_param) over (partition by key order by offset)
+       ^
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL
+ERROR: generic::out_of_range: The N value (number of buckets) for the NTILE function must not be NULL
+==
+
+[name=safe_scalar_arg_error]
+select safe.concat(cast(1 / (offset - offset) as string))
+from input
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.concat(cast(1 / (offset - offset) as string))
+       ^
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+
+[name=safe_agg_arg_error]
+select safe.sum(1 / (offset - offset))
+from input
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.sum(1 / (offset - offset))
+       ^
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+
+[name=safe_ascii]
+select safe.ascii("\xFF");
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<INT64>>[{NULL}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.ascii("\xFF");
+       ^
+==
+
+[name=safe_regexp_instr]
+select safe.regexp_instr("abc", "(a)(b)");
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<INT64>>[{NULL}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.regexp_instr("abc", "(a)(b)");
+       ^
+==
+
+[name=safe_left]
+select safe.left("apple", -1);
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<STRING>>[{NULL}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.left("apple", -1);
+       ^
+==
+
+[name=safe_right]
+select safe.right("apple", -1);
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL
+ARRAY<STRUCT<STRING>>[{NULL}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.right("apple", -1);
+       ^
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=safe_translate]
+select safe.translate("apple", "aa", "bc");
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL,V_1_3_ADDITIONAL_STRING_FUNCTIONS
+ARRAY<STRUCT<STRING>>[{NULL}]
+--
+WITH FEATURES: V_1_3_ADDITIONAL_STRING_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.translate("apple", "aa", "bc");
+       ^
+==
+
+[required_features=V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+[name=safe_instr]
+select safe.instr("apple", "pl", 0, 1);
+--
+WITH FEATURES: V_1_2_SAFE_FUNCTION_CALL,V_1_3_ADDITIONAL_STRING_FUNCTIONS
+ARRAY<STRUCT<INT64>>[{NULL}]
+--
+WITH FEATURES: V_1_3_ADDITIONAL_STRING_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
+select safe.instr("apple", "pl", 0, 1);
+       ^
+==
+
+[name=safe_analytic_arg_error]
+[required_features=ANALYTIC_FUNCTIONS]
+select
+     safe.sum(value / (offset-offset)) over (partition by key order by offset)
+from input
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS
+ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 2:6]
+     safe.sum(value / (offset-offset)) over (partition by key order by offset)
+     ^
+--
+WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL
+ERROR: generic::out_of_range: division by zero: 3.68935e+18 / 0

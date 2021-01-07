@@ -676,15 +676,6 @@ class Value {
                               std::vector<Value>&& values);
 #endif
 
-  // x and y are proto maps (arrays of proto map entries). Reports whether the
-  // two maps are equivalent. Maps with duplicate keys only consider the value
-  // of the final element with the given key. This function does to work
-  // correctly on non-order preserving arrays, and calling it this way is a
-  // fatal error in debug mode.
-  static bool EqualElementMap(const Value& x, const Value& y,
-                              DeepOrderKindSpec* deep_order_spec,
-                              FloatMargin float_margin, std::string* reason);
-
   // Compares arrays as multisets ignoring the order of the elements. Upon
   // inequality, 'reason' may be set to detailed explanation if 'reason' !=
   // nullptr. Called from EqualsInternal().
@@ -962,6 +953,9 @@ Value BytesArray(absl::Span<const std::string> values);
 Value BytesArray(absl::Span<const absl::Cord* const> values);
 Value NumericArray(absl::Span<const NumericValue> values);
 Value BigNumericArray(absl::Span<const BigNumericValue> values);
+Value JsonArray(absl::Span<const JSONValue> values);
+// 'values' are JSON values (e.g. '{"a": 10}') and not literal strings values.
+Value UnvalidatedJsonStringArray(absl::Span<const std::string> values);
 
 }  // namespace values
 }  // namespace zetasql

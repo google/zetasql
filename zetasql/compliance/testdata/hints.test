@@ -1,0 +1,94 @@
+[prepare_database]
+CREATE TABLE t AS
+SELECT 123 as i
+--
+ARRAY<STRUCT<i INT64>>[{123}]
+==
+
+# This file tests the behavior in the expected default mode, where hints for
+# other engines are ignored, and hints for the default engine are rejected if
+# they aren't known.  We don't have any tests here with "valid" hints.
+[name=ignore_hints_for_other_engines_1]
+@{ some_other_engine.hint=5 } select i from t
+--
+ARRAY<STRUCT<i INT64>>[{123}]
+==
+
+[name=ignore_hints_for_other_engines_2]
+select i from t @{ some_other_engine.hint=5 }
+--
+ARRAY<STRUCT<i INT64>>[{123}]
+==
+
+# This checks that ignored hints with expressions don't cause problems.
+# We can't actually check that non-ignored hints with expressions work.
+[name=ignore_hints_for_other_engines_with_expressions]
+select i from t @{ some_other_engine.hint1=1+2,
+                   some_other_engine.hint2=concat('abc','def') }
+--
+ARRAY<STRUCT<i INT64>>[{123}]
+==
+
+# Test that we reject invalid hints in all possible locations where a hint
+# can attach.
+[name=reject_unknown_hints_statement]
+@{ invalid_hint=5 } select i from t
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_select]
+select @{ invalid_hint=5 } i from t
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_table]
+select i from t @{ invalid_hint=5 }
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_group_by]
+select i from t group @{ invalid_hint=5 } by 1
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_order_by]
+select i from t order @{ invalid_hint=5 } by 1
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_join]
+select t1.i from t t1 join @{ invalid_hint=5 } t t2 on true
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_in]
+select i from t where i in @{ invalid_hint=5 } (select 1)
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+[name=reject_unknown_hints_exists]
+select i from t where exists @{ invalid_hint=5 } (select 1, 2)
+--
+ERROR: generic::invalid_argument: Unsupported hint: invalid_hint
+==
+
+# num_shards, if supported, should be an integer, not a string.
+# This should give an error either because the hint is unsupported or
+# because it is invalid.
+[name=reject_invalid_hints]
+select i from t group @{ num_shards='abc' } by 1
+--
+ERROR: generic::invalid_argument: Unsupported hint: num_shards
+==
+
+[name=ignore_invalid_hints_for_other_engines]
+select i from t group @{ some_other_engine.num_shards='abc' } by 1
+--
+ARRAY<STRUCT<i INT64>>[{123}]
