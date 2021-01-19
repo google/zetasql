@@ -328,6 +328,8 @@ class Unparser : public ParseTreeVisitor {
                                  void* data) override;
   void visitASTPathExpression(const ASTPathExpression* node,
                               void* data) override;
+  void visitASTPathExpressionList(const ASTPathExpressionList* node,
+                                  void* data) override;
   void visitASTParameterExpr(const ASTParameterExpr* node, void* data) override;
   void visitASTSystemVariableExpr(const ASTSystemVariableExpr* node,
                                   void* data) override;
@@ -490,6 +492,10 @@ class Unparser : public ParseTreeVisitor {
   void visitASTPivotValueList(const ASTPivotValueList* node,
                               void* data) override;
   void visitASTPivotClause(const ASTPivotClause* node, void* data) override;
+  void visitASTUnpivotInItem(const ASTUnpivotInItem* node, void* data) override;
+  void visitASTUnpivotInItemList(const ASTUnpivotInItemList* node,
+                                 void* data) override;
+  void visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) override;
   void visitASTAlterMaterializedViewStatement(
       const ASTAlterMaterializedViewStatement* node, void* data) override;
   void visitASTAlterDatabaseStatement(const ASTAlterDatabaseStatement* node,

@@ -165,6 +165,12 @@ absl::Status Validator::ValidateResolvedCast(
   if (resolved_cast->format() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          resolved_cast->format()));
+    ZETASQL_RET_CHECK(resolved_cast->format()->type()->IsString());
+  }
+  if (resolved_cast->time_zone() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                         resolved_cast->time_zone()));
+    ZETASQL_RET_CHECK(resolved_cast->time_zone()->type()->IsString());
   }
   resolved_cast->return_null_on_error();  // Mark field as visited.
   return absl::OkStatus();
@@ -1887,6 +1893,39 @@ absl::Status Validator::ValidateResolvedWithScan(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedReturningClause(
+    const ResolvedReturningClause* returning,
+    std::set<ResolvedColumn>& visible_columns) {
+
+  for (const auto& computed_column : returning->expr_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns,
+                                         /*visible_parameters=*/{},
+                                         computed_column->expr()));
+  }
+  ZETASQL_RETURN_IF_ERROR(AddColumnsFromComputedColumnList(returning->expr_list(),
+                                                   &visible_columns));
+  int output_size = returning->output_column_list_size();
+  if (returning->action_column() != nullptr) {
+    ZETASQL_RET_CHECK_GE(output_size, 1);
+
+    const ResolvedOutputColumn* action_column =
+        returning->output_column_list().at(output_size - 1).get();
+    ZETASQL_RET_CHECK(action_column->column().type()->IsString());
+    bool is_internal_name =
+        IsInternalAlias(action_column->column().table_name());
+    ZETASQL_RET_CHECK_EQ(is_internal_name, true);
+    output_size -= 1;
+  }
+
+  // Checks output columns other than the generated action column
+  for (int i = 0; i < output_size; i++) {
+    const auto& resolved_output_column = returning->output_column_list().at(i);
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedOutputColumn(visible_columns,
+                                                 resolved_output_column.get()));
+  }
+  return absl::OkStatus();
+}
+
 void Validator::Reset() {
   nested_recursive_context_count_ = 0;
   nested_recursive_scans_.clear();
@@ -3217,6 +3256,13 @@ absl::Status Validator::ValidateResolvedInsertStmt(
     }
   }
 
+  if (stmt->returning() != nullptr) {
+    // Returning clause is only valid on top-level UPDATE.
+    ZETASQL_RET_CHECK_EQ(array_element_column, nullptr);
+    ZETASQL_RETURN_IF_ERROR(
+        ValidateResolvedReturningClause(stmt->returning(), visible_columns));
+  }
+
   return absl::OkStatus();
 }
 
@@ -3250,6 +3296,12 @@ absl::Status Validator::ValidateResolvedDeleteStmt(
   ZETASQL_RET_CHECK(stmt->where_expr()->type()->IsBool())
       << "DeleteStmt has WHERE expression with non-BOOL type: "
       << stmt->where_expr()->type()->DebugString();
+  if (stmt->returning() != nullptr) {
+    // Returning clause is only valid on top-level DELETE.
+    ZETASQL_RET_CHECK_EQ(array_element_column, nullptr);
+    ZETASQL_RETURN_IF_ERROR(
+        ValidateResolvedReturningClause(stmt->returning(), visible_columns));
+  }
   return absl::OkStatus();
 }
 
@@ -3323,6 +3375,12 @@ absl::Status Validator::ValidateResolvedUpdateStmt(
       << "UpdateStmt has WHERE expression with non-BOOL type: "
       << stmt->where_expr()->type()->DebugString();
 
+  if (stmt->returning() != nullptr) {
+    // Returning clause is only valid on top-level UPDATE.
+    ZETASQL_RET_CHECK_EQ(array_element_column, nullptr);
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedReturningClause(stmt->returning(),
+                                                    target_visible_columns));
+  }
   return absl::OkStatus();
 }
 
@@ -3898,6 +3956,12 @@ absl::Status Validator::ValidateResolvedAlterAction(
     } break;
     case RESOLVED_DROP_CONSTRAINT_ACTION:
       ZETASQL_RET_CHECK(!action->GetAs<ResolvedDropConstraintAction>()->name().empty());
+      break;
+    case RESOLVED_ALTER_COLUMN_OPTIONS_ACTION:
+      ZETASQL_RET_CHECK(
+          !action->GetAs<ResolvedAlterColumnOptionsAction>()->column().empty());
+      ZETASQL_RETURN_IF_ERROR(ValidateHintList(
+          action->GetAs<ResolvedAlterColumnOptionsAction>()->option_list()));
       break;
     default:
       return ::zetasql_base::InternalErrorBuilder()

@@ -568,4 +568,8 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::FromInteger(
   }
 }
 
+std::ostream& operator<<(std::ostream& out, IntervalValue value) {
+  return out << value.ToString();
+}
+
 }  // namespace zetasql

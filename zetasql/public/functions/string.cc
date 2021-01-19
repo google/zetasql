@@ -2267,23 +2267,10 @@ bool UTF8CheckAndCopy(absl::string_view str, std::string* out,
   return true;
 }
 
-bool BytesToString(absl::string_view str, absl::string_view format,
-                   std::string* out, absl::Status* error) {
-  const std::string lower_format = absl::AsciiStrToLower(format);
-  if (lower_format == "base2") {
-    return ToBase2(str, out, error);
-  }
-  if (lower_format == "base8") {
-    return ToBase8(str, out, error);
-  }
-  if (lower_format == "base16" || lower_format == "hex") {
-    return ToHex(str, out, error);
-  }
-  if (lower_format == "base64") {
-    return ToBase64(str, out, error);
-  }
-  if (lower_format == "base64m") {
-    bool result = ToBase64(str, out, error);
+
+bool ToBase64m(absl::string_view str,
+               std::string* out, absl::Status* error){
+  bool result = ToBase64(str, out, error);
     if (result && !out->empty() && out->size() > kMaxLineLengthBase64M) {
       size_t newline_cnt = (out->size() - 1) / kMaxLineLengthBase64M;
       size_t newline_pos = 0;
@@ -2294,58 +2281,57 @@ bool BytesToString(absl::string_view str, absl::string_view format,
       }
     }
     return result;
-  }
-  if (lower_format == "ascii") {
-    return ASCIICheckAndCopy(str, out, error);
-  }
-  if (lower_format == "utf8" || lower_format == "utf-8") {
-    return UTF8CheckAndCopy(str, out, error);
-  }
-  return internal::UpdateError(
-      error, absl::Substitute(kInvalidFormat, format));
 }
 
-bool StringToBytes(absl::string_view str, absl::string_view format,
-                   std::string* out, absl::Status* error) {
+const ConversionFuncMap& GetConversionFuncMap() {
+  static const ConversionFuncMap* func_map = nullptr;
+  if (func_map == nullptr) {
+    auto* m = new ConversionFuncMap();
+    m->insert({{"base2", {ToBase2, FromBase2}},
+               {"base8", {ToBase8, FromBase8}},
+               {"base16", {ToHex, FromHex}},
+               {"hex", {ToHex, FromHex}},
+               {"base64", {ToBase64, FromBase64}},
+               {"base64m", {ToBase64m, FromBase64}},
+               {"ascii", {ASCIICheckAndCopy, ASCIICheckAndCopy}},
+               {"utf8", {UTF8CheckAndCopy, UTF8CheckAndCopy}},
+               {"utf-8", {UTF8CheckAndCopy, UTF8CheckAndCopy}}
+      });
+
+    func_map = m;
+  }
+  return *func_map;
+}
+
+absl::Status BytesToString(absl::string_view str, absl::string_view format,
+                           std::string* out) {
+  absl::Status status;
   const std::string lower_format = absl::AsciiStrToLower(format);
-  if (lower_format == "base2") {
-    return FromBase2(str, out, error);
+  auto result = GetConversionFuncMap().find(lower_format);
+  if (result != GetConversionFuncMap().end()) {
+    (result->second.first)(str, out, &status);
+    return status;
   }
-  if (lower_format == "base8") {
-    return FromBase8(str, out, error);
-  }
-  if (lower_format == "base16" || lower_format == "hex") {
-    return FromHex(str, out, error);
-  }
-  if (lower_format == "base64" || lower_format == "base64m") {
-    return FromBase64(str, out, error);
-  }
-  if (lower_format == "ascii") {
-    return ASCIICheckAndCopy(str, out, error);
-  }
-  if (lower_format == "utf8" || lower_format == "utf-8") {
-    return UTF8CheckAndCopy(str, out, error);
-  }
-  return internal::UpdateError(
-      error, absl::Substitute(kInvalidFormat, format));
+  internal::UpdateError(&status, absl::Substitute(kInvalidFormat, format));
+  return status;
 }
 
-// Gets the set of all formats supported by StringToBytes() and BytesToString().
-static const absl::flat_hash_set<std::string>& GetFormatSet() {
-  static const absl::flat_hash_set<std::string>* format_set = nullptr;
-  if (format_set == nullptr) {
-    auto* set = new absl::flat_hash_set<std::string>();
-    set->insert({"base2", "base8", "base16", "hex",
-                 "base64", "base64m", "ascii", "utf8", "utf-8"});
-
-    format_set = set;
+absl::Status StringToBytes(absl::string_view str, absl::string_view format,
+                           std::string* out) {
+  absl::Status status;
+  const std::string lower_format = absl::AsciiStrToLower(format);
+  auto result = GetConversionFuncMap().find(lower_format);
+  if (result != GetConversionFuncMap().end()) {
+    (result->second.second)(str, out, &status);
+    return status;
   }
-  return *format_set;
+  internal::UpdateError(&status, absl::Substitute(kInvalidFormat, format));
+  return status;
 }
 
 absl::Status ValidateFormat(absl::string_view format) {
   const std::string lower_format = absl::AsciiStrToLower(format);
-  if (!GetFormatSet().contains(lower_format)) {
+  if (!GetConversionFuncMap().contains(lower_format)) {
     return absl::Status(absl::StatusCode::kOutOfRange,
                         absl::Substitute(kInvalidFormat, format));
   }

@@ -39,7 +39,7 @@ def main(argv):
   delim = b'simple_embedder'
   input_contents = open(input_file, 'rb').read()
   if input_contents.find(delim) != -1:
-    raise f'input contains forbidden sequence {delim}'
+    raise 'input contains forbidden sequence %s' % delim
 
   with open(output_file, 'wb') as output:
     output.write(b'#include "absl/strings/string_view.h"\n')

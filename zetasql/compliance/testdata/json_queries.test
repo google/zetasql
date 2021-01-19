@@ -66,6 +66,26 @@ SELECT JSON_VALUE(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"[0]")
 --
 ARRAY<STRUCT<STRING>>[{"10"}]
 ==
+[name=json_extract_array]
+SELECT JSON_EXTRACT_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$['a.b']")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
+==
+[name=json_extract_string_array]
+SELECT JSON_EXTRACT_STRING_ARRAY(JSON '{"a.b": [1, "foo", null]}', "$['a.b']")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
+==
+[name=json_query_array]
+SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$.\"a.b\"")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
+==
+[name=json_value_array]
+SELECT JSON_VALUE_ARRAY(JSON '{"a.b": [1, "foo", null]}', "$.\"a.b\"")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
+==
 [name=json_dot_notation]
 SELECT (JSON '{"a": "foo"}').a
 --

@@ -512,10 +512,14 @@ class Value {
   // The type of each value must be the same as array_type->element_type().
   static Value Array(const ArrayType* array_type,
                      absl::Span<const Value> values);
-// Creates an array of the given 'array_type' initialized by moving 'values'.
-// The type of each value must be the same as array_type->element_type(), but
-// this is only ZETASQL_CHECK'd in debug mode.
 #ifndef SWIG
+  // Creates an array of the given 'array_type' with the given 'values'.
+  // The type of each value must be the same as array_type->element_type().
+  static Value ArraySafe(const ArrayType* array_type,
+                         std::vector<Value>&& values);
+  // Creates an array of the given 'array_type' initialized by moving 'values'.
+  // The type of each value must be the same as array_type->element_type(), but
+  // this is only ZETASQL_CHECK'd in debug mode.
   static Value UnsafeArray(const ArrayType* array_type,
                            std::vector<Value>&& values);
 #endif

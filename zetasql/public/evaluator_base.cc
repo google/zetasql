@@ -709,7 +709,7 @@ absl::Status Evaluator::Execute(
         }
       }
       for (const auto& p : options.columns.value()) {
-        // If we a column with an empty name, we'll treat it as an
+        // If we find a column with an empty name, we'll treat it as an
         // anonymous in-scope expression column.
         if (p.first.empty()) {
           ZETASQL_RETURN_IF_ERROR(analyzer_options_.SetInScopeExpressionColumn(
@@ -903,7 +903,7 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
   for (const auto& algebrizer_sysvar : algebrizer_system_variables_) {
     params.push_back(system_variables.at(algebrizer_sysvar.first));
   }
-  const TupleData params_data = CreateTupleDataFromValues(params);
+  const TupleData params_data = CreateTupleDataFromValues(std::move(params));
 
   if (compiled_relational_op_ != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(

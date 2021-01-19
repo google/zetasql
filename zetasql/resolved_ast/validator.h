@@ -254,6 +254,10 @@ class Validator {
       const ResolvedWithScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedReturningClause(
+      const ResolvedReturningClause* returning,
+      std::set<ResolvedColumn>& visible_columns);
+
   absl::Status ValidateResolvedAggregateComputedColumn(
       const ResolvedComputedColumn* computed_column,
       const std::set<ResolvedColumn>& input_scan_visible_columns,

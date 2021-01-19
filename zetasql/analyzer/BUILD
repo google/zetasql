@@ -260,6 +260,29 @@ cc_library(
     ],
 )
 
+# This library is a dependency of the public analyzer to register all of the
+# internal ZetaSQL rewriters. The internal analyzer does not depend on
+# it directly. This allows rewriters to depend on :substitute without creating
+# a circular dependency. Since all binaries that use analyzer depend on
+# public:analyzer, all the internal rewriters will be linked and registered
+# in such binaries.
+cc_library(
+    name = "all_rewriters",
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":anonymization_rewriter",  # buildcleaner:keep
+        "//zetasql/analyzer/rewriters:flatten_rewriter",
+    ],
+)
+
 cc_library(
     name = "analyzer_impl",
     srcs = ["analyzer_impl.cc"],
@@ -275,7 +298,6 @@ cc_library(
     ],
     deps = [
         ":resolver",
-        ":rewriter",  # buildcleaner:keep
         "//zetasql/base:status",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -304,13 +326,17 @@ cc_library(
     ],
     deps = [
         ":resolver",
+        "//zetasql/analyzer/rewriters:registration",
+        "//zetasql/base",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/parser",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
         "//zetasql/public:anon_function",
         "//zetasql/public:catalog",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:strings",
         "//zetasql/public:type",
@@ -339,7 +365,8 @@ cc_library(
     ],
     deps = [
         ":anonymization_rewriter",
-        "//zetasql/analyzer/rewriters:flatten_rewriter",
+        "//zetasql/analyzer/rewriters:registration",
+        "//zetasql/common:errors",
         "//zetasql/parser",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:options_cc_proto",

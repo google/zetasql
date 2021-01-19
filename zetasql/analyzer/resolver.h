@@ -302,6 +302,7 @@ class Resolver {
   static const IdString& kWeightAlias;
   static const IdString& kArrayOffsetId;
   static const IdString& kLambdaArgId;
+  static const IdString& kWithActionId;
 
   // Input SQL query text. Set before resolving a statement, expression or
   // type.
@@ -1050,6 +1051,7 @@ class Resolver {
   // scope of <scope>.
   absl::Status ResolveDeleteStatementImpl(
       const ASTDeleteStatement* ast_statement, IdString target_alias,
+      const std::shared_ptr<const NameList>& target_name_list,
       const NameScope* scope,
       std::unique_ptr<const ResolvedTableScan> table_scan,
       std::unique_ptr<ResolvedDeleteStmt>* output);
@@ -1083,7 +1085,8 @@ class Resolver {
       const ASTInsertStatement* ast_statement,
       std::unique_ptr<ResolvedInsertStmt>* output);
   absl::Status ResolveInsertStatementImpl(
-      const ASTInsertStatement* ast_statement,
+      const ASTInsertStatement* ast_statement, IdString target_alias,
+      const std::shared_ptr<const NameList>& target_name_list,
       std::unique_ptr<const ResolvedTableScan> table_scan,
       const ResolvedColumnList& insert_columns,
       const NameScope* nested_scope,  // NULL for non-nested INSERTs.
@@ -1102,6 +1105,7 @@ class Resolver {
   absl::Status ResolveUpdateStatementImpl(
       const ASTUpdateStatement* ast_statement, bool is_nested,
       IdString target_alias, const NameScope* target_scope,
+      const std::shared_ptr<const NameList>& target_name_list,
       const NameScope* update_scope,
       std::unique_ptr<const ResolvedTableScan> table_scan,
       std::unique_ptr<const ResolvedScan> from_scan,
@@ -1174,6 +1178,11 @@ class Resolver {
       const ASTDropColumnAction* action, IdStringSetCase* new_columns,
       IdStringSetCase* columns_to_drop,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  absl::Status ResolveAlterColumnOptionsAction(
+    IdString table_name_id_string, const Table* table,
+    const ASTAlterColumnOptionsAction* action, bool is_if_exists,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   absl::Status ResolveAlterDatabaseStatement(
       const ASTAlterDatabaseStatement* ast_statement,
@@ -1378,8 +1387,8 @@ class Resolver {
   // <query_resolution_info>, and also records information about referenced
   // and resolved aggregation and analytic functions.
   absl::Status ResolveSelectListExprsFirstPass(
-      const ASTSelect* select,
-      const NameScope* from_scan_scope,
+      const ASTSelectList* select_list, const NameScope* from_scan_scope,
+      bool has_from_clause,
       const std::shared_ptr<const NameList>& from_clause_name_list,
       QueryResolutionInfo* query_resolution_info);
 
@@ -2708,6 +2717,31 @@ class Resolver {
       const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  // Resolves the format clause used in a CAST expression. On success,
+  // <resolved_format> contains the resolved format expression, and
+  // <resolved_time_zone> contains the resolved time zone expression.
+  // If <resolve_cast_to_null> is true, it means that the CAST expression should
+  // be resolved to a null expression. For example, this happens when the cast
+  // is a safe cast, and the format string is invalid.
+  absl::Status ResolveFormatClause(
+      const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
+      const std::unique_ptr<const ResolvedExpr>& resolved_argument,
+      const Type* resolved_cast_type,
+      std::unique_ptr<const ResolvedExpr>* resolved_format,
+      std::unique_ptr<const ResolvedExpr>* resolved_time_zone,
+      bool* resolve_cast_to_null);
+
+  // Resolves the format or the time zone expression in the format clause in a
+  // CAST expression. On success, <resolved_expr> contains the resolved
+  // expression. The type of the expression is checked, and if it is not a
+  // string, returns an error. <clause_name> is used for formatting error
+  // messages.
+  absl::Status ResolveFormatOrTimeZoneExpr(
+      const ASTExpression* expr,
+      ExprResolutionInfo* expr_resolution_info,
+      const char* clause_name,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr);
+
   // Resolves a cast from <resolved_argument> to <to_type>.  If the
   // argument is a NULL literal, then converts it to the target type and
   // updates <resolved_argument> with a NULL ResolvedLiteral of the target
@@ -2719,11 +2753,12 @@ class Resolver {
       bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* resolved_argument);
 
-  // Same as the previous method, but includes <format>. If <format> is
-  // specified, it is used as the format string for the cast.
+  // Same as the previous method, but includes <format> and <time_zone>.
+  // If <format> is specified, it is used as the format string for the cast.
   absl::Status ResolveCastWithResolvedArgument(
       const ASTNode* ast_location, const Type* to_type,
       std::unique_ptr<const ResolvedExpr> format,
+      std::unique_ptr<const ResolvedExpr> time_zone,
       bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* resolved_argument);
 
@@ -2767,6 +2802,12 @@ class Resolver {
   absl::Status ResolveAssertRowsModified(
       const ASTAssertRowsModified* ast_node,
       std::unique_ptr<const ResolvedAssertRowsModified>* output);
+
+  absl::Status ResolveReturningClause(
+      const ASTReturningClause* ast_node, IdString target_alias,
+      const std::shared_ptr<const NameList>& from_clause_name_list,
+      const NameScope* from_scan_scope,
+      std::unique_ptr<const ResolvedReturningClause>* output);
 
   absl::Status FinishResolvingAggregateFunction(
       const ASTFunctionCall* ast_function_call,
@@ -3486,6 +3527,24 @@ class Resolver {
       std::shared_ptr<const NameList> input_name_list,
       const NameScope* previous_scope, bool input_is_subquery,
       const ASTPivotClause* ast_pivot_clause,
+      std::unique_ptr<const ResolvedScan>* output,
+      std::shared_ptr<const NameList>* output_name_list);
+
+  // Resolves an UNPIVOT clause.
+  //  - <input_scan> represents the input to unpivot. On success, ownership is
+  //      transferred to 'output'.
+  //  - <input_name_list> represents a name list for columns in the input scan.
+  //      This defines the list of valid columns when resolving unpivot
+  //      expressions and FOR expressions.
+  //  - <ast_unpivot_clause> represents the parse tree of the entire unpivot
+  //  clause.
+  //  - On output, '*output' contains a scan representing the result of the
+  //      UNPIVOT clause and '*output_name_list' contains a name list which can
+  //      be used by external clauses to refer to columns in the UNPIVOT output.
+  absl::Status ResolveUnpivotClause(
+      std::unique_ptr<const ResolvedScan> input_scan,
+      const NameList* input_name_list,
+      const ASTUnpivotClause* ast_unpivot_clause,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 

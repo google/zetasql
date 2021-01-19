@@ -961,6 +961,8 @@ void GetJSONFunctions(TypeFactory* type_factory,
   const Type* json_type = types::JsonType();
   const ArrayType* array_string_type;
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(string_type, &array_string_type));
+  const ArrayType* array_json_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(json_type, &array_json_type));
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -976,6 +978,23 @@ void GetJSONFunctions(TypeFactory* type_factory,
   std::vector<FunctionSignatureOnHeap> json_value_signatures = {
       {string_type, {string_type, string_type}, FN_JSON_VALUE}};
 
+  std::vector<FunctionSignatureOnHeap> json_extract_array_signatures = {
+      {array_string_type,
+       {string_type, {string_type, OPTIONAL}},
+       FN_JSON_EXTRACT_ARRAY}};
+  std::vector<FunctionSignatureOnHeap> json_extract_string_array_signatures = {
+      {array_string_type,
+       {string_type, {string_type, OPTIONAL}},
+       FN_JSON_EXTRACT_STRING_ARRAY}};
+  std::vector<FunctionSignatureOnHeap> json_query_array_signatures = {
+      {array_string_type,
+       {string_type, {string_type, OPTIONAL}},
+       FN_JSON_QUERY_ARRAY}};
+  std::vector<FunctionSignatureOnHeap> json_value_array_signatures = {
+      {array_string_type,
+       {string_type, {string_type, OPTIONAL}},
+       FN_JSON_VALUE_ARRAY}};
+
   if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
     json_extract_signatures.push_back(
         {json_type, {json_type, string_type}, FN_JSON_EXTRACT_JSON});
@@ -985,6 +1004,20 @@ void GetJSONFunctions(TypeFactory* type_factory,
         {string_type, {json_type, string_type}, FN_JSON_EXTRACT_SCALAR_JSON});
     json_value_signatures.push_back(
         {string_type, {json_type, string_type}, FN_JSON_VALUE_JSON});
+    json_extract_array_signatures.push_back(
+        {array_json_type,
+         {json_type, {string_type, OPTIONAL}},
+         FN_JSON_EXTRACT_ARRAY_JSON});
+    json_extract_string_array_signatures.push_back(
+        {array_string_type,
+         {json_type, {string_type, OPTIONAL}},
+         FN_JSON_EXTRACT_STRING_ARRAY_JSON});
+    json_query_array_signatures.push_back({array_json_type,
+                                           {json_type, {string_type, OPTIONAL}},
+                                           FN_JSON_QUERY_ARRAY_JSON});
+    json_value_array_signatures.push_back({array_string_type,
+                                           {json_type, {string_type, OPTIONAL}},
+                                           FN_JSON_VALUE_ARRAY_JSON});
     InsertFunction(
         functions, options, "$subscript", SCALAR,
         {{json_type, {json_type, int64_type}, FN_JSON_SUBSCRIPT_INT64},
@@ -1012,15 +1045,19 @@ void GetJSONFunctions(TypeFactory* type_factory,
                      &CheckJsonArguments));
 
   InsertFunction(functions, options, "json_extract_array", SCALAR,
-                 {{array_string_type,
-                   {string_type, {string_type, OPTIONAL}},
-                   FN_JSON_EXTRACT_ARRAY}},
+                 json_extract_array_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
   InsertFunction(functions, options, "json_extract_string_array", SCALAR,
-                 {{array_string_type,
-                   {string_type, {string_type, OPTIONAL}},
-                   FN_JSON_EXTRACT_STRING_ARRAY}},
+                 json_extract_string_array_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_query_array", SCALAR,
+                 json_query_array_signatures,
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     &CheckJsonArguments));
+  InsertFunction(functions, options, "json_value_array", SCALAR,
+                 json_value_array_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
 
@@ -2039,7 +2076,11 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                    extended_parser_signatures}},
                  geography_required);
   InsertFunction(functions, options, "st_geogfromwkb", SCALAR,
-                 {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_WKB}},
+                 {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_WKB},
+                  {geography_type,
+                   {string_type},
+                   FN_ST_GEOG_FROM_WKB_HEX,
+                   extended_parser_signatures}},
                  geography_required);
 
   // Aggregate

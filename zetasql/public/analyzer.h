@@ -456,21 +456,9 @@ zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymiz
 // *WARNING* On error, 'analyzer_output' may be in an inconsistent state with
 // some rewrites applied (or even partially applied).
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
-                                Catalog* catalog, TypeFactory* type_factory,
+                                absl::string_view sql, Catalog* catalog,
+                                TypeFactory* type_factory,
                                 AnalyzerOutput& analyzer_output);
-
-// Same as above function, except caller provides the sql text, which will
-// eventually be used for error messages.
-//
-// Note: Soon, the above function will be deprecated and this will be the only
-// overload of RewriteResolvedAst().
-inline absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
-                                       absl::string_view sql, Catalog* catalog,
-                                       TypeFactory* type_factory,
-                                       AnalyzerOutput& analyzer_output) {
-  return RewriteResolvedAst(analyzer_options, catalog, type_factory,
-                            analyzer_output);
-}
 
 }  // namespace zetasql
 

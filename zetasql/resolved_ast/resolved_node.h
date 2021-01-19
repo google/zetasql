@@ -327,8 +327,10 @@ class ResolvedNode {
   // Print the tree recursively.
   // prefix1 is the indentation to attach to child nodes.
   // prefix2 is the indentation to attach to the root of this tree.
-  void DebugStringImpl(const std::string& prefix1, const std::string& prefix2,
-                       std::string* output) const;
+  static void DebugStringImpl(const ResolvedNode* node,
+                              const std::string& prefix1,
+                              const std::string& prefix2,
+                              std::string* output);
 
   // DebugString on these call protected methods.
   friend class ResolvedComputedColumn;

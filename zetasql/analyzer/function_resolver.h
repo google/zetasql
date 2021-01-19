@@ -167,6 +167,17 @@ class FunctionResolver {
       bool set_has_explicit_type, bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* argument) const;
 
+  // Same as the previous method, but includes <time_zone>, which is used
+  // together with the format string when casting from/to timestamp type. It can
+  // be null.
+  absl::Status AddCastOrConvertLiteral(
+      const ASTNode* ast_location, const Type* target_type,
+      std::unique_ptr<const ResolvedExpr> format,
+      std::unique_ptr<const ResolvedExpr> time_zone,
+      const ResolvedScan* scan,  // May be null
+      bool set_has_explicit_type, bool return_null_on_error,
+      std::unique_ptr<const ResolvedExpr>* argument) const;
+
   // Map an operator id from the parse tree to a ZetaSQL function name.
   static const std::string& UnaryOperatorToFunctionName(
       ASTUnaryExpression::Op op);
@@ -222,10 +233,10 @@ class FunctionResolver {
   // <return_error_if_named_arguments_do_not_match_signature> is true, this
   // method will return a descriptive error message.
   //
-  // The <arg_locations>, <expr_args>, <input_arg_types>, and <tvf_arg_types>
-  // are all optional and will be ignored if NULL; any combination is
-  // acceptable. In practice, (<expr_args>, <input_arg_types>) and
-  // <tvf_arg_types> are generally mutually exclusive. If we are resolving a
+  // The <arg_locations> is required, while the <expr_args>, <input_arg_types>,
+  // and <tvf_arg_types> are all optional and will be ignored if NULL; any
+  // combination is acceptable. In practice, (<expr_args>, <input_arg_types>)
+  // and <tvf_arg_types> are generally mutually exclusive. If we are resolving a
   // scalar function call, <expr_args> and/or <input_arg_types> are provided.
   // Otherwise, if we are resolving a TVF call, <tvf_arg_types> are provided.
   //

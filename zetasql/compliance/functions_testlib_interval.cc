@@ -52,6 +52,17 @@ Value Minutes(int64_t value) {
 Value Seconds(int64_t value) {
   return Value::Interval(interval_testing::Seconds(value));
 }
+Value Micros(int64_t value) {
+  return Value::Interval(interval_testing::Micros(value));
+}
+Value Nanos(int64_t value) {
+  return Value::Interval(interval_testing::Nanos(value));
+}
+Value YMDHMS(int64_t year, int64_t month, int64_t day, int64_t hour, int64_t minute,
+             int64_t second) {
+  return Value::Interval(
+      interval_testing::YMDHMS(year, month, day, hour, minute, second));
+}
 
 }  // namespace
 
@@ -104,6 +115,85 @@ std::vector<FunctionTestCall> GetFunctionTestsIntervalConstructor() {
       {"", {Int64(0), "TIME"}, NullInterval(), OUT_OF_RANGE},
       {"", {Int64(0), "ISOYEAR"}, NullInterval(), OUT_OF_RANGE},
       {"", {Int64(0), "ISOWEEK"}, NullInterval(), OUT_OF_RANGE},
+  };
+  return WrapFeatureIntervalType(tests);
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons() {
+  // We only add tests for "=" and "<", because the test driver automatically
+  // generates all comparison functions for every test case.
+  std::vector<FunctionTestCall> tests = {
+      {"=", {NullInterval(), Years(0)}, NullBool()},
+      {"=", {Years(0), NullInterval()}, NullBool()},
+      {"=", {NullInterval(), NullInterval()}, NullBool()},
+
+      {"<", {NullInterval(), Years(0)}, NullBool()},
+      {"<", {Years(0), NullInterval()}, NullBool()},
+      {"<", {NullInterval(), NullInterval()}, NullBool()},
+
+      {"=", {Years(0), Years(0)}, Bool(true)},
+      {"=", {Months(0), Days(0)}, Bool(true)},
+      {"=", {Months(0), Micros(0)}, Bool(true)},
+      {"=", {Months(0), Nanos(0)}, Bool(true)},
+
+      {"=", {Months(10), Months(10)}, Bool(true)},
+      {"=", {Days(-3), Days(-3)}, Bool(true)},
+      {"=", {Micros(12345), Micros(12345)}, Bool(true)},
+      {"=", {Nanos(-9876), Nanos(-9876)}, Bool(true)},
+
+      {"<", {Nanos(999), Micros(1)}, Bool(true)},
+      {"<", {Micros(999999), Seconds(1)}, Bool(true)},
+      {"<", {Seconds(59), Minutes(1)}, Bool(true)},
+      {"<", {Minutes(59), Hours(1)}, Bool(true)},
+      {"<", {Hours(23), Days(1)}, Bool(true)},
+      {"<", {Days(29), Months(1)}, Bool(true)},
+      {"<", {Months(11), Years(1)}, Bool(true)},
+      {"<", {Years(1), YMDHMS(1, 0, 0, 0, 0, 1)}, Bool(true)},
+
+      {"<", {Months(-1), Days(0)}, Bool(true)},
+      {"<", {Days(1), Months(1)}, Bool(true)},
+      {"<", {Days(-1), Micros(1)}, Bool(true)},
+
+      {"=", {Days(30), Months(1)}, Bool(true)},
+      {"=", {Months(-2), Days(-60)}, Bool(true)},
+      {"=", {Days(360), Months(12)}, Bool(true)},
+      {"<", {Days(1), Months(1)}, Bool(true)},
+      {"<", {Days(29), Months(1)}, Bool(true)},
+      {"<", {Days(-31), Months(-1)}, Bool(true)},
+      {"<", {Months(1), Days(31)}, Bool(true)},
+      {"<", {Months(-1), Days(25)}, Bool(true)},
+      {"<", {Months(12), Days(365)}, Bool(true)},
+
+      {"=", {Micros(IntervalValue::kMicrosInDay), Days(1)}, Bool(true)},
+      {"<", {Micros(IntervalValue::kMicrosInDay - 1), Days(1)}, Bool(true)},
+      {"<", {Days(1), Micros(IntervalValue::kMicrosInDay + 1)}, Bool(true)},
+      {"=", {Nanos(-IntervalValue::kNanosInDay), Days(-1)}, Bool(true)},
+      {"<", {Nanos(-IntervalValue::kNanosInDay - 1), Days(-1)}, Bool(true)},
+      {"=", {Micros(IntervalValue::kMicrosInMonth), Months(1)}, Bool(true)},
+      {"=", {Nanos(-IntervalValue::kNanosInMonth), Months(-1)}, Bool(true)},
+
+      {"=", {Micros(-1), Nanos(-1000)}, Bool(true)},
+      {"=", {Micros(7), Nanos(7000)}, Bool(true)},
+      {"<", {Micros(1), Nanos(1001)}, Bool(true)},
+      {"<", {Micros(-1), Nanos(900)}, Bool(true)},
+      {"<", {Nanos(999), Micros(1)}, Bool(true)},
+      {"<", {Nanos(-1001), Micros(-1)}, Bool(true)},
+      {"<", {Nanos(1), Micros(1)}, Bool(true)},
+      {"<", {Micros(-1), Nanos(1)}, Bool(true)},
+      {"<", {Nanos(1), Micros(1)}, Bool(true)},
+
+      {"=", {YMDHMS(1, 0, 1, 0, 0, 0), Days(361)}, Bool(true)},
+      {"=", {YMDHMS(-1, 0, 360, 0, 2, 0), Minutes(2)}, Bool(true)},
+      {"=", {YMDHMS(0, 1, 1, 0, 0, 0), Days(31)}, Bool(true)},
+      {"=", {YMDHMS(0, 1, -1, 0, 0, 0), Days(29)}, Bool(true)},
+      {"=", {YMDHMS(0, -1, 1, 0, 0, 0), Days(-29)}, Bool(true)},
+      {"=", {YMDHMS(0, -1, -1, 0, 0, 0), Days(-31)}, Bool(true)},
+      {"=", {YMDHMS(0, 2, -61, 0, 0, 0), Hours(-24)}, Bool(true)},
+      {"=", {YMDHMS(0, -1, 30, 0, 0, 1), Seconds(1)}, Bool(true)},
+
+      {"<", {YMDHMS(0, 1, 1, -1, 0, 0), Days(31)}, Bool(true)},
+      {"<", {YMDHMS(0, 0, 0, 23, 59, 59), Days(1)}, Bool(true)},
+      {"<", {YMDHMS(0, -1, 30, 0, 0, 1), Seconds(2)}, Bool(true)},
   };
   return WrapFeatureIntervalType(tests);
 }

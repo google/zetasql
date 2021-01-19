@@ -143,18 +143,17 @@ class SimpleCatalog : public EnumerableCatalog {
   // available.
 
   // Tables
-  void AddTable(const std::string& name, const Table* table)
+  void AddTable(absl::string_view name, const Table* table)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddTable(const Table* table) ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedTable(const std::string& name,
-                     std::unique_ptr<const Table> table)
+  void AddOwnedTable(absl::string_view name, std::unique_ptr<const Table> table)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  bool AddOwnedTableIfNotPresent(const std::string& name,
+  bool AddOwnedTableIfNotPresent(absl::string_view name,
                                  std::unique_ptr<const Table> table)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddOwnedTable(std::unique_ptr<const Table> table)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  void AddOwnedTable(const std::string& name, const Table* table);
+  void AddOwnedTable(absl::string_view name, const Table* table);
   void AddOwnedTable(const Table* table) ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Models
@@ -295,7 +294,11 @@ class SimpleCatalog : public EnumerableCatalog {
   //
   void SetDescriptorPool(const google::protobuf::DescriptorPool* pool)
       ABSL_LOCKS_EXCLUDED(mutex_);
+  ABSL_DEPRECATED("Use std::unique_ptr version")
   void SetOwnedDescriptorPool(const google::protobuf::DescriptorPool* pool)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+  void SetOwnedDescriptorPool(
+      std::unique_ptr<const google::protobuf::DescriptorPool> pool)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Clear the set of functions stored in this Catalog and any subcatalogs
@@ -470,14 +473,13 @@ class SimpleTable : public Table {
   // by calls to GetSerializationId(); it should be unique across all tables in
   // the same catalog.
   typedef std::pair<std::string, const Type*> NameAndType;
-  SimpleTable(const std::string& name, const std::vector<NameAndType>& columns,
+  SimpleTable(absl::string_view name, const std::vector<NameAndType>& columns,
               const int64_t serialization_id = 0);
 
   // Make a table with the given Columns.
   // Crashes if there are duplicate column names.
   // Takes ownership of elements of <columns> if <take_ownership> is true.
-  SimpleTable(const std::string& name,
-              const std::vector<const Column*>& columns,
+  SimpleTable(absl::string_view name, const std::vector<const Column*>& columns,
               bool take_ownership = false, const int64_t serialization_id = 0);
 
   // Make a value table with row type <row_type>.
@@ -489,11 +491,10 @@ class SimpleTable : public Table {
   // only be able to find the column with name "value", not the top level table
   // columns of this SimpleTable (and the top level table columns of this
   // SimpleTable do not have an associated Column).
-  SimpleTable(const std::string& name, const Type* row_type,
-              const int64_t id = 0);
+  SimpleTable(absl::string_view, const Type* row_type, const int64_t id = 0);
 
   // Make a table with no Columns.  (Other constructors are ambiguous for this.)
-  explicit SimpleTable(const std::string& name, const int64_t id = 0);
+  explicit SimpleTable(absl::string_view, const int64_t id = 0);
 
   SimpleTable(const SimpleTable&) = delete;
   SimpleTable& operator=(const SimpleTable&) = delete;

@@ -326,6 +326,9 @@ inline H AbslHashValue(H h, const IntervalValue& v) {
   return H::combine(std::move(h), v.GetAsMicros(), v.get_nano_fractions());
 }
 
+// Allow INTERVAL values to be logged.
+std::ostream& operator<<(std::ostream& out, IntervalValue value);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_INTERVAL_VALUE_H_

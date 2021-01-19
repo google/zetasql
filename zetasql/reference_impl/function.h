@@ -179,6 +179,8 @@ enum class FunctionKind {
   kJsonExtractScalar,
   kJsonExtractArray,
   kJsonExtractStringArray,
+  kJsonQueryArray,
+  kJsonValueArray,
   kJsonQuery,
   kJsonValue,
   // Proto functions
@@ -383,6 +385,7 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
       const LanguageOptions& language_options, const Type* output_type,
       std::unique_ptr<ValueExpr> argument,
       std::unique_ptr<ValueExpr> format,
+       std::unique_ptr<ValueExpr> time_zone,
       bool return_null_on_error,
       ResolvedFunctionCallBase::ErrorMode error_mode,
       std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator);

@@ -1787,6 +1787,87 @@ class ASTPivotClause final : public ASTNode {
   const ASTAlias* output_alias_ = nullptr;
 };
 
+class ASTUnpivotInItem final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_UNPIVOT_IN_ITEM;
+
+  ASTUnpivotInItem() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpressionList* unpivot_columns() const {
+    return unpivot_columns_;
+  }
+  const ASTStringLiteral* alias() const { return alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&unpivot_columns_);
+    fl.AddOptional(&alias_, AST_STRING_LITERAL);
+  }
+  const ASTPathExpressionList* unpivot_columns_;
+  const ASTStringLiteral* alias_ = nullptr;
+};
+
+class ASTUnpivotInItemList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_UNPIVOT_IN_ITEM_LIST;
+
+  ASTUnpivotInItemList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  absl::Span<const ASTUnpivotInItem* const> in_items() const {
+    return in_items_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&in_items_);
+  }
+
+  absl::Span<const ASTUnpivotInItem* const> in_items_;
+};
+
+class ASTUnpivotClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_UNPIVOT_CLAUSE;
+
+  ASTUnpivotClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpressionList* unpivot_output_value_columns() const {
+    return unpivot_output_value_columns_;
+  }
+  const ASTPathExpression* unpivot_output_name_column() const {
+    return unpivot_output_name_column_;
+  }
+  const ASTUnpivotInItemList* unpivot_in_items() const {
+    return unpivot_in_items_;
+  }
+  const ASTAlias* output_alias() const { return output_alias_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&unpivot_output_value_columns_);
+    fl.AddRequired(&unpivot_output_name_column_);
+    fl.AddRequired(&unpivot_in_items_);
+    fl.AddOptional(&output_alias_, AST_ALIAS);
+  }
+
+  const ASTPathExpressionList* unpivot_output_value_columns_ = nullptr;
+  const ASTPathExpression* unpivot_output_name_column_ = nullptr;
+  const ASTUnpivotInItemList* unpivot_in_items_ = nullptr;
+  const ASTAlias* output_alias_ = nullptr;
+};
+
 // TablePathExpression are the TableExpressions that introduce a single scan,
 // referenced by a path expression or UNNEST, and can optionally have
 // aliases, hints, and WITH OFFSET.
@@ -1812,6 +1893,7 @@ class ASTTablePathExpression final : public ASTTableExpression {
   const ASTWithOffset* with_offset() const { return with_offset_; }
 
   const ASTPivotClause* pivot_clause() const { return pivot_clause_; }
+  const ASTUnpivotClause* unpivot_clause() const { return unpivot_clause_; }
   const ASTSampleClause* sample_clause() const { return sample_clause_; }
 
  private:
@@ -1823,6 +1905,7 @@ class ASTTablePathExpression final : public ASTTableExpression {
     fl.AddOptional(&alias_, AST_ALIAS);
     fl.AddOptional(&with_offset_, AST_WITH_OFFSET);
     fl.AddOptional(&pivot_clause_, AST_PIVOT_CLAUSE);
+    fl.AddOptional(&unpivot_clause_, AST_UNPIVOT_CLAUSE);
     fl.AddOptional(&for_system_time_, AST_FOR_SYSTEM_TIME);
     fl.AddOptional(&sample_clause_, AST_SAMPLE_CLAUSE);
   }
@@ -1835,8 +1918,11 @@ class ASTTablePathExpression final : public ASTTableExpression {
   const ASTForSystemTime* for_system_time_ = nullptr;  // Optional
   const ASTAlias* alias_ = nullptr;  // Optional.
   const ASTWithOffset* with_offset_ = nullptr;  // Optional.
-  const ASTPivotClause* pivot_clause_ = nullptr;    // Optional.
   const ASTSampleClause* sample_clause_ = nullptr;  // Optional.
+
+  // One of these two can be present but not both.
+  const ASTPivotClause* pivot_clause_ = nullptr;      // Optional.
+  const ASTUnpivotClause* unpivot_clause_ = nullptr;  // Optional.
 };
 
 class ASTTableSubquery final : public ASTTableExpression {
@@ -1851,6 +1937,7 @@ class ASTTableSubquery final : public ASTTableExpression {
   const ASTQuery* subquery() const { return subquery_; }
   const ASTAlias* alias() const override { return alias_; }
   const ASTPivotClause* pivot_clause() const { return pivot_clause_; }
+  const ASTUnpivotClause* unpivot_clause() const { return unpivot_clause_; }
   const ASTSampleClause* sample_clause() const { return sample_clause_; }
 
  private:
@@ -1859,13 +1946,16 @@ class ASTTableSubquery final : public ASTTableExpression {
     fl.AddRequired(&subquery_);
     fl.AddOptional(&alias_, AST_ALIAS);
     fl.AddOptional(&pivot_clause_, AST_PIVOT_CLAUSE);
+    fl.AddOptional(&unpivot_clause_, AST_UNPIVOT_CLAUSE);
     fl.AddOptional(&sample_clause_, AST_SAMPLE_CLAUSE);
   }
 
   const ASTQuery* subquery_ = nullptr;              // Required.
   const ASTAlias* alias_ = nullptr;                 // Optional.
   const ASTSampleClause* sample_clause_ = nullptr;  // Optional.
+  // One of these two can be present but not both.
   const ASTPivotClause* pivot_clause_ = nullptr;    // Optional
+  const ASTUnpivotClause* unpivot_clause_ = nullptr;  // Optional
 };
 
 // Joins could introduce multiple scans and cannot have aliases.
@@ -2896,6 +2986,28 @@ class ASTPathExpression final : public ASTGeneralizedPathExpression {
     fl.AddRestAsRepeated(&names_);
   }
   absl::Span<const ASTIdentifier* const> names_;
+};
+
+class ASTPathExpressionList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_PATH_EXPRESSION_LIST;
+
+  ASTPathExpressionList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // Guaranteed by the parser to never be empty.
+  absl::Span<const ASTPathExpression* const> path_expression_list() const {
+    return path_expression_list_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&path_expression_list_);
+  }
+  absl::Span<const ASTPathExpression* const> path_expression_list_;
 };
 
 // Represents a DROP ROW ACCESS POLICY statement.
@@ -4441,6 +4553,7 @@ class ASTTVF final : public ASTTableExpression {
   const ASTHint* hint() const { return hint_; }
   const ASTAlias* alias() const override { return alias_; }
   const ASTPivotClause* pivot_clause() const { return pivot_; }
+  const ASTUnpivotClause* unpivot_clause() const { return unpivot_; }
   const ASTSampleClause* sample() const { return sample_; }
 
  private:
@@ -4451,6 +4564,7 @@ class ASTTVF final : public ASTTableExpression {
     fl.AddOptional(&hint_, AST_HINT);
     fl.AddOptional(&alias_, AST_ALIAS);
     fl.AddOptional(&pivot_, AST_PIVOT_CLAUSE);
+    fl.AddOptional(&unpivot_, AST_UNPIVOT_CLAUSE);
     fl.AddOptional(&sample_, AST_SAMPLE_CLAUSE);
   }
 
@@ -4459,6 +4573,7 @@ class ASTTVF final : public ASTTableExpression {
   const ASTHint* hint_ = nullptr;
   const ASTAlias* alias_ = nullptr;
   const ASTPivotClause* pivot_ = nullptr;
+  const ASTUnpivotClause* unpivot_ = nullptr;
   const ASTSampleClause* sample_ = nullptr;
 };
 

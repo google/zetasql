@@ -694,6 +694,7 @@ static bool TypesSupportSqlEquals(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
+    case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
@@ -743,6 +744,7 @@ Value Value::SqlEquals(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
+    case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
@@ -954,6 +956,7 @@ static bool TypesSupportSqlLessThan(const Type* type1, const Type* type2) {
     case TYPE_KIND_PAIR(TYPE_TIMESTAMP, TYPE_TIMESTAMP):
     case TYPE_KIND_PAIR(TYPE_TIME, TYPE_TIME):
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
+    case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
@@ -991,6 +994,7 @@ Value Value::SqlLessThan(const Value& that) const {
     case TYPE_KIND_PAIR(TYPE_DATETIME, TYPE_DATETIME):
     case TYPE_KIND_PAIR(TYPE_ENUM, TYPE_ENUM):
     case TYPE_KIND_PAIR(TYPE_NUMERIC, TYPE_NUMERIC):
+    case TYPE_KIND_PAIR(TYPE_INTERVAL, TYPE_INTERVAL):
       return Value::Bool(LessThan(that));
     case TYPE_KIND_PAIR(TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
       return Value::Bool(LessThan(that));
@@ -1826,13 +1830,14 @@ zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
         return type->TypeMismatchError(value_proto);
       }
       std::vector<Value> elements;
+      elements.reserve(value_proto.array_value().element().size());
       for (const auto& element : value_proto.array_value().element()) {
         auto status_or_value =
             Deserialize(element, type->AsArray()->element_type());
         ZETASQL_RETURN_IF_ERROR(status_or_value.status());
         elements.push_back(status_or_value.value());
       }
-      return Array(type->AsArray(), elements);
+      return ArraySafe(type->AsArray(), std::move(elements));
     }
     case TYPE_STRUCT: {
       if (!value_proto.has_struct_value()) {

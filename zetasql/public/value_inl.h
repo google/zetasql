@@ -201,9 +201,14 @@ inline Value Value::UnsafeStruct(const StructType* type,
 
 inline Value Value::Array(const ArrayType* array_type,
                           absl::Span<const Value> values) {
-  std::vector<Value> value_copies(values.begin(), values.end());
+  return ArraySafe(array_type,
+                   std::vector<Value>(values.begin(), values.end()));
+}
+
+inline Value Value::ArraySafe(const ArrayType* array_type,
+                              std::vector<Value>&& values) {
   return ArrayInternal(/*safe=*/true, array_type, kPreservesOrder,
-                       std::move(value_copies));
+                       std::move(values));
 }
 
 inline Value Value::UnsafeArray(const ArrayType* array_type,
@@ -213,7 +218,7 @@ inline Value Value::UnsafeArray(const ArrayType* array_type,
 }
 
 inline Value Value::EmptyArray(const ArrayType* array_type) {
-  return Array(array_type, {});
+  return ArraySafe(array_type, std::vector<Value>());
 }
 
 inline Value Value::Int32(int32_t v) { return Value(v); }

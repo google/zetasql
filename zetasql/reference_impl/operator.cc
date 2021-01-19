@@ -23,12 +23,10 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/type.h"
+#include "absl/base/attributes.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/stl_util.h"
-
-using zetasql::types::EmptyStructType;
-using zetasql::types::Int64Type;
 
 namespace zetasql {
 
@@ -203,14 +201,14 @@ std::string AlgebraNode::DebugString(bool verbose) const {
 
 std::string AlgebraNode::ArgDebugString(absl::Span<const std::string> arg_names,
                                         absl::Span<const ArgPrintMode> arg_mode,
-                                        const std::string& indent,
-                                        bool verbose) const {
+                                        const std::string& indent, bool verbose,
+                                        bool more_children) const {
   ZETASQL_CHECK_EQ(arg_names.size(), arg_mode.size());
   std::string result;
   std::string separator;
   for (int kind = 0; kind < arg_names.size(); kind++) {
     std::string indent_child = indent;
-    if (kind < arg_names.size() - 1) {
+    if (more_children || kind < arg_names.size() - 1) {
       absl::StrAppend(&indent_child, kIndentBar);
     } else {
       // No tree line is required beside the last child.
@@ -218,6 +216,11 @@ std::string AlgebraNode::ArgDebugString(absl::Span<const std::string> arg_names,
     }
     absl::Span<const AlgebraArg* const> args = GetArgs<AlgebraArg>(kind);
     switch (arg_mode[kind]) {
+      case kNOpt:
+        if (args.empty()) {
+          break;
+        }
+        ABSL_FALLTHROUGH_INTENDED;
       case kN: {
         std::vector<std::string> str;
         for (auto ch : args) {
@@ -229,6 +232,11 @@ std::string AlgebraNode::ArgDebugString(absl::Span<const std::string> arg_names,
         separator = ",";
         break;
       }
+      case kOpt:
+        if (args.empty()) {
+          break;
+        }
+        ABSL_FALLTHROUGH_INTENDED;
       case k1:
         ZETASQL_CHECK_EQ(1, args.size());
         if (args[0] != nullptr) {

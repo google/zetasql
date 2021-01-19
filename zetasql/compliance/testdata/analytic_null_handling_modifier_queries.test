@@ -355,4 +355,3 @@ ARRAY<STRUCT<row_id INT64,
   {9, false, 3, true, 6, 1, 2, NULL, NULL},
   {10, true, 1, NULL, 6, 1, 3, NULL, NULL}
 ]
-==

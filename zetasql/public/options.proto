@@ -655,7 +655,14 @@ enum LanguageFeature {
   FEATURE_V_1_3_IS_DISTINCT = 13028;
 
   // If true, FORMAT clause is supported in CAST().
-  FEATURE_V_1_3_FORMAT_IN_CAST = 13029
+  FEATURE_V_1_3_FORMAT_IN_CAST = 13029;
+
+  // UNPIVOT clause ((broken link)).
+  FEATURE_V_1_3_UNPIVOT = 13030
+      [(language_feature_options).in_development = true];
+
+  // If true, dml returning is supported ((broken link))
+  FEATURE_V_1_3_DML_RETURNING = 13031
       [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES

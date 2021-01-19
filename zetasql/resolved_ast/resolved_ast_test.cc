@@ -124,6 +124,33 @@ TEST(ResolvedAST, Misc) {
   EXPECT_EQ(select_column, project->column_list(1));
 }
 
+TEST(ResolvedAST, DebugStringWithNullInTree) {
+  // Even though trees with nullptr AST nodes in them are not valid, we still
+  // want to be able to get a debug string without crashing that indicates the
+  // location of the null ast node within the tree.
+  TypeFactory type_factory;
+  const Type* int64_type = type_factory.get_int64();
+  Function function("test", "test_group", Function::SCALAR);
+  FunctionArgumentTypeList function_arg_types = {
+      FunctionArgumentType(int64_type), FunctionArgumentType(int64_type)};
+  FunctionSignature sig(FunctionArgumentType(int64_type), function_arg_types,
+                        static_cast<int64_t>(1234));
+
+  std::vector<std::unique_ptr<ResolvedExpr>> args;
+  args.push_back(MakeResolvedLiteral(Value::Int64(1)));
+  args.push_back(nullptr);
+
+  std::unique_ptr<ResolvedFunctionCall> call = MakeResolvedFunctionCall(
+      type_factory.get_int64(), &function, sig, std::move(args),
+      ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  EXPECT_EQ(R"(
+FunctionCall(test_group:test(INT64, INT64) -> INT64)
++-Literal(type=INT64, value=1)
++-<nullptr AST node>
+)",
+            absl::StrCat("\n", call->DebugString()));
+}
+
 TEST(ResolvedAST, ReleaseAndSet) {
   TypeFactory type_factory;
   const FunctionSignature signature(

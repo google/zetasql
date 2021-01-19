@@ -410,7 +410,7 @@ class VirtualTupleSlot {
   // Move 'value' into this object. If we should be storing SharedProtoState for
   // 'value', initializes it.
   void SetValue(Value&& value) {
-    *value_ = value;
+    *value_ = std::move(value);
     MaybeResetSharedProtoState();
   }
 
@@ -457,7 +457,7 @@ inline void TupleSlot::SetValue(const Value& value) {
 
 inline void TupleSlot::SetValue(Value&& value) {
   VirtualTupleSlot slot(this);
-  slot.SetValue(value);
+  slot.SetValue(std::move(value));
 }
 
 inline void TupleSlot::CopyFromSlot(const TupleSlot& other) {
@@ -561,11 +561,11 @@ struct Tuple {
 
 // Returns a TupleData corresponding to 'values' with no extra information in
 // its slots.
-inline TupleData CreateTupleDataFromValues(const std::vector<Value>& values) {
+inline TupleData CreateTupleDataFromValues(std::vector<Value> values) {
   TupleData data(values.size());
   for (int i = 0; i < values.size(); ++i) {
     VirtualTupleSlot virtual_slot(data.mutable_slot(i));
-    virtual_slot.SetValue(values[i]);
+    virtual_slot.SetValue(std::move(values[i]));
   }
   return data;
 }

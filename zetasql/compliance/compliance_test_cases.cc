@@ -1051,8 +1051,17 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 3) {
   // TODO: This needs to be sensitive to ProductMode, or
   // maybe just switched to PRODUCT_EXTERNAL.
   auto format_fct = [](const QueryParamsWithResult& p) {
+    std::string optional_format_param = "";
+    if (p.num_params() == 2) {
+      optional_format_param = absl::StrCat(
+          " FORMAT ",
+          p.param(1).is_null()
+              ? "NULL"
+              : absl::StrCat("\'", p.param(1).string_value(), "\'"));
+    }
     return absl::StrCat("CAST(@p0 AS ",
-                        p.GetResultType()->TypeName(PRODUCT_INTERNAL), ")");
+                        p.GetResultType()->TypeName(PRODUCT_INTERNAL),
+                        optional_format_param, ")");
   };
   SetNamePrefix("CastTo", true /* Need Result Type */);
   RunStatementTestsCustom(Shard(GetFunctionTestsCast()), format_fct);
@@ -1060,8 +1069,17 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 3) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeCastFunction, 4) {
   auto format_fct = [](const QueryParamsWithResult& p) {
+    std::string optional_format_param = "";
+    if (p.num_params() == 2) {
+      optional_format_param = absl::StrCat(
+          " FORMAT ",
+          p.param(1).is_null()
+              ? "NULL"
+              : absl::StrCat("\'", p.param(1).string_value(), "\'"));
+    }
     return absl::StrCat("SAFE_CAST(@p0 AS ",
-                        p.GetResultType()->TypeName(PRODUCT_INTERNAL), ")");
+                        p.GetResultType()->TypeName(PRODUCT_INTERNAL),
+                        optional_format_param, ")");
   };
   SetNamePrefix("SafeCastTo", true /* Need Result Type */);
   RunStatementTestsCustom(Shard(GetFunctionTestsSafeCast()), format_fct);
@@ -1193,9 +1211,19 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractScalar, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractScalar()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonQueryArray, 1) {
+  SetNamePrefix("StringJsonQueryArray");
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonQueryArray()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
   SetNamePrefix("StringJsonExtractArray");
   RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractArray()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonValueArray, 1) {
+  SetNamePrefix("StringJsonValueArray");
+  RunFunctionCalls(Shard(GetFunctionTestsStringJsonValueArray()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractStringArray, 1) {
@@ -1238,6 +1266,30 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractScalar, 1) {
   SetNamePrefix("NativeJsonExtractScalar");
   RunFunctionCalls(Shard(
       EnableJsonFeatureForTest(GetFunctionTestsNativeJsonExtractScalar())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonQueryArray, 1) {
+  SetNamePrefix("NativeJsonQueryArray");
+  RunFunctionCalls(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsNativeJsonQueryArray())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractArray, 1) {
+  SetNamePrefix("NativeJsonExtractArray");
+  RunFunctionCalls(Shard(
+      EnableJsonFeatureForTest(GetFunctionTestsNativeJsonExtractArray())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonValueArray, 1) {
+  SetNamePrefix("NativeJsonValueArray");
+  RunFunctionCalls(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsNativeJsonValueArray())));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractStringArray, 1) {
+  SetNamePrefix("NativeJsonExtractStringArray");
+  RunFunctionCalls(Shard(EnableJsonFeatureForTest(
+      GetFunctionTestsNativeJsonExtractStringArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 1) {
@@ -1997,6 +2049,24 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalCtor, 1) {
   };
   RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalConstructor()),
                          interval_ctor);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalComparisons, 1) {
+  SetNamePrefix("IntervalComparisons");
+  auto cmp = [](const FunctionTestCall& f) {
+    // Test cases only use "=" and "<", but we test all comparison operators
+    // for given pair of values.
+    if (f.function_name == "=") {
+      return "@p0 = @p1 AND @p1 = @p0 AND @p0 <= @p1 AND @p0 >= @p1 AND "
+             "NOT(@p0 != @p1) AND NOT(@p0 < @p1) AND NOT(@p0 > @p1)";
+    } else if (f.function_name == "<") {
+      return "@p0 < @p1 AND @p1 > @p0 AND @p0 <= @p1 AND @p0 != @p1 AND "
+             "NOT(@p0 > @p1) AND NOT(@p0 >= @p1) AND NOT(@p0 = @p1)";
+    } else {
+      ZETASQL_LOG(FATAL) << f.function_name;
+    }
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalComparisons()), cmp);
 }
 
 // Wrap the proto field test cases with civil time typed values. If the type of

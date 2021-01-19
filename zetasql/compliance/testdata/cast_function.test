@@ -767,9 +767,10 @@ ERROR: generic::out_of_range: Failed to decode invalid ASCII string
 # Test when the format string is null.
 [required_features=V_1_3_FORMAT_IN_CAST]
 [name=cast_string_to_bytes_format_is_null]
-SELECT CAST('abc' as bytes FORMAT CAST(NULL as STRING))
+SELECT CAST('abc' as bytes FORMAT CAST(NULL as STRING)),
+       CAST('abc' as bytes FORMAT NULL)
 --
-ARRAY<STRUCT<BYTES>>[{NULL}]
+ARRAY<STRUCT<BYTES, BYTES>>[{NULL, NULL}]
 ==
 
 # Test when the input string is null.
@@ -854,3 +855,39 @@ ARRAY<STRUCT<BYTES, format_string STRING>>[
 SELECT CAST('30261143' as bytes FORMAT @f)
 --
 ARRAY<STRUCT<BYTES>>[{b"abc"}]
+==
+
+# null is returned if the format string is null.
+[required_features=V_1_3_FORMAT_IN_CAST]
+[name=cast_string_to_timestamp_format_is_null]
+SELECT CAST('1234' as timestamp FORMAT CAST(NULL as STRING)),
+       CAST('1234' as timestamp FORMAT NULL)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[{NULL, NULL}]
+==
+
+# null is returned if the time zone expression is null.
+[required_features=V_1_3_FORMAT_IN_CAST]
+[name=cast_string_to_timestamp_time_zone_is_null]
+SELECT CAST('1234' as timestamp FORMAT 'yyyy' AT TIME ZONE CAST(NULL as STRING)),
+       CAST('1234' as timestamp FORMAT 'yyyy' AT TIME ZONE NULL)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[{NULL, NULL}]
+==
+
+# Test that errror is returned when given an invalid time zone. Note that the
+# time zone is an expression, not a literal. If it is a literal, the error
+# would have been caught at the analysis time.
+[required_features=V_1_3_FORMAT_IN_CAST]
+[name=cast_string_to_timestamp_invalid_time_zone]
+SELECT CAST('1234' as timestamp FORMAT 'yyyy' at time zone 'a' || 'b' || 'c')
+--
+ERROR: generic::out_of_range: Invalid time zone: abc
+==
+
+# Test that the fake implementation is invoked
+[required_features=V_1_3_FORMAT_IN_CAST]
+[name=cast_string_to_timestamp_fake]
+SELECT CAST('1234' as timestamp FORMAT 'yyyy' at time zone 'UTC')
+--
+ERROR: generic::invalid_argument: ConvertStringToTimestampWithFormat not implemented. Timezone is UTC

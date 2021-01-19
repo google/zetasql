@@ -266,6 +266,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedComputedColumn* node) override;
   absl::Status VisitResolvedAssertRowsModified(
       const ResolvedAssertRowsModified* node) override;
+  absl::Status VisitResolvedReturningClause(
+      const ResolvedReturningClause* node) override;
   absl::Status VisitResolvedDMLDefault(const ResolvedDMLDefault* node) override;
   absl::Status VisitResolvedDMLValue(const ResolvedDMLValue* node) override;
   absl::Status VisitResolvedInsertRow(const ResolvedInsertRow* node) override;

@@ -386,24 +386,42 @@ and array subqueries (see [Subqueries][subquery-concepts]) are normally not
 allowed to return multiple columns, but can return a single column with
 STRUCT type.
 
-Anonymous columns and duplicate columns
-are allowed.
+Anonymous columns are allowed.
 
 Example:
 
 ```sql
-SELECT AS STRUCT 1 x, 2, 3 x
+SELECT AS STRUCT 1 x, 2, 3
 ```
 
 The query above produces STRUCT values of type
-`STRUCT<int64 x, int64, int64 x>.` The first and third fields have the same name
-`x`, and the second field is anonymous.
+`STRUCT<int64 x, int64, int64>.` The first field has the name `x` while the
+second and third fields are anonymous.
+
+The example above produces the same result as this `SELECT AS VALUE` query using
+a struct constructor:
+
+```sql
+SELECT AS VALUE STRUCT(1 AS x, 2, 3)
+```
+
+Duplicate columns are allowed.
+
+Example:
+
+```sql
+SELECT AS STRUCT 1 x, 2 y, 3 x
+```
+
+The query above produces STRUCT values of type
+`STRUCT<int64 x, int64 y, int64 x>.` The first and third fields have the same
+name `x` while the second field has the name `y`.
 
 The example above produces the same result as this `SELECT AS VALUE` query
 using a struct constructor:
 
 ```sql
-SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
+SELECT AS VALUE STRUCT(1 AS x, 2 AS y, 3 AS x)
 ```
 
 #### SELECT AS VALUE
@@ -2855,6 +2873,7 @@ Results:
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
 [produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties

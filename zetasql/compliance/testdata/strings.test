@@ -1091,7 +1091,7 @@ select
 ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT for argument types: STRING. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
   json_extract('{"a": "foo"}'),
   ^
-====
+==
 [name=json_extract_array_literal_path]
 select
   json_extract_array('{"a": ["foo"]}', '$.a')
@@ -1163,7 +1163,7 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 select
   json_extract_string_array('{"a": ["foo"]}', '$.a')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['foo']}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo"]}]
 ==
 [name=json_extract_string_array_multiple_inputs]
 select
@@ -1175,8 +1175,8 @@ from unnest([
 ]) as s
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<STRING>['bar', 'baz']},
-  {ARRAY<STRING>['foo']},
+  {ARRAY<STRING>["bar", "baz"]},
+  {ARRAY<STRING>["foo"]},
   {ARRAY<STRING>(NULL)}
 ]
 ==
@@ -1185,7 +1185,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 select
   json_extract_string_array('{"a": ["foo"]}', @path)
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['foo']}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo"]}]
 ==
 [name=json_extract_string_array_non_literal_path]
 select
@@ -1222,13 +1222,23 @@ ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRAC
 select
   json_extract_string_array('["foo","bar","baz"]')
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>['foo', 'bar', 'baz']}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo", "bar", "baz"]}]
 ==
 [name=json_extract_string_array_one_argument_invalid]
 select
   json_extract_string_array('{"foo":"bar"}')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
+==
+[name=json_query_array]
+select json_query_array('{"a.b": [1, "foo", null, {"c": 2}]}', '$."a.b"')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", '"foo"', "null", '{"c":2}']}]
+==
+[name=json_value_array]
+select json_value_array('{"a.b": [1, "foo", null]}', '$."a.b"')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
 ==
 [name=code_points_to_string_bytes_null_element]
 select

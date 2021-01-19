@@ -146,6 +146,20 @@ absl::Status Resolver::ResolveAlterActions(
         alter_actions->push_back(std::move(resolved_action));
         break;
       }
+      case AST_ALTER_COLUMN_OPTIONS_ACTION: {
+        if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
+          // Views, models, etc don't support ALTER COLUMN ... SET OPTIONS ...
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        std::unique_ptr<const ResolvedAlterAction> resolved_action;
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnOptionsAction(
+            table_name_id_string, altered_table,
+            action->GetAsOrDie<ASTAlterColumnOptionsAction>(),
+            ast_statement->is_if_exists(), &resolved_action));
+        alter_actions->push_back(std::move(resolved_action));
+      } break;
       default:
         return MakeSqlErrorAt(action)
                << "ALTER " << alter_statement_kind << " doesn't support "
@@ -334,6 +348,39 @@ absl::Status Resolver::ResolveDropColumnAction(
   *alter_action = MakeResolvedDropColumnAction(action->is_if_exists(),
                                                column_name.ToString(),
                                                std::move(column_reference));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterColumnOptionsAction(
+    IdString table_name_id_string, const Table* table,
+    const ASTAlterColumnOptionsAction* action, bool is_if_exists,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action) {
+  ZETASQL_RET_CHECK(*alter_action == nullptr);
+  const IdString column_name = action->column_name()->GetAsIdString();
+  std::unique_ptr<ResolvedColumnRef> column_reference;
+  if (table != nullptr) {
+    const Column* column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr && !is_if_exists) {
+      return MakeSqlErrorAt(action) << "Column not found: " << column_name;
+    }
+    if (column != nullptr && column->IsPseudoColumn()) {
+      return MakeSqlErrorAt(action) << "ALTER COLUMN SET OPTIONS not supported "
+                                    << "for pseudo-column " << column_name;
+    }
+    if (column != nullptr) {
+      const ResolvedColumn resolved_column(AllocateColumnId(),
+                                           table_name_id_string, column_name,
+                                           column->GetType());
+      column_reference =
+          MakeResolvedColumnRef(resolved_column.type(), resolved_column, false);
+    }
+  }
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveOptionsList(action->options_list(), &resolved_options));
+  *alter_action = MakeResolvedAlterColumnOptionsAction(
+      column_name.ToString(), std::move(resolved_options),
+      std::move(column_reference));
   return absl::OkStatus();
 }
 

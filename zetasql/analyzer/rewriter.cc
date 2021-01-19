@@ -17,7 +17,8 @@
 #include <memory>
 
 #include "zetasql/analyzer/anonymization_rewriter.h"
-#include "zetasql/analyzer/rewriters/flatten_rewriter.h"
+#include "zetasql/analyzer/rewriters/registration.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/options.pb.h"
@@ -33,11 +34,40 @@ namespace {
 
 // Returns a ResolvedNode from AnalyzerOutput. This function assumes one of
 // resolved_statement() and resolved_expr() is non-null and returns that.
-const ResolvedNode& NodeFromAnalyzerOutput(const AnalyzerOutput& output) {
+const ResolvedNode* NodeFromAnalyzerOutput(const AnalyzerOutput& output) {
   if (output.resolved_statement() != nullptr) {
-    return *output.resolved_statement();
+    return output.resolved_statement();
   }
-  return *output.resolved_expr();
+  return output.resolved_expr();
+}
+
+// Returns an AnalyzerOptions suitable for passing to rewriters. This is the
+// same as <analyzer_options>, but with the following changes:
+// - Arenas are set to match those in <analyzer_output>, overriding any arenas
+//     previously used by the AnalyzerOptions.
+// - If <analyzer_options> does not have a column_id_sequence_number(), sets
+//     the sequence number to <fallback_sequence_number>. Also,
+//     <fallback_sequence_number> is advanced until it is greater than
+//     <analyzer_output.max_column_id()>. In this case, the
+//     <fallback_sequence_number> must outlive the returned options.
+AnalyzerOptions AnalyzerOptionsForRewrite(
+    const AnalyzerOptions& analyzer_options,
+    const AnalyzerOutput& analyzer_output,
+    zetasql_base::SequenceNumber& fallback_sequence_number) {
+  AnalyzerOptions options_for_rewrite = analyzer_options;
+  options_for_rewrite.set_arena(analyzer_output.arena());
+  options_for_rewrite.set_id_string_pool(analyzer_output.id_string_pool());
+
+  if (analyzer_options.column_id_sequence_number() == nullptr) {
+    // Advance the sequence number so that the column ids generated are unique
+    // with respect to the AnalyzerOutput so far.
+    while (fallback_sequence_number.GetNext() <
+           analyzer_output.max_column_id()) {
+    }
+    options_for_rewrite.set_column_id_sequence_number(
+        &fallback_sequence_number);
+  }
+  return options_for_rewrite;
 }
 
 }  // namespace
@@ -46,14 +76,12 @@ const ResolvedNode& NodeFromAnalyzerOutput(const AnalyzerOutput& output) {
 class AnalyzerOutputMutator {
  public:
   // 'column_factory' and 'output' must outlive AnalyzerOutputMutator.
-  AnalyzerOutputMutator(const ColumnFactory* column_factory,
-                        AnalyzerOutput* output)
-      : column_factory_(*column_factory),
-        output_(*output) {}
+  explicit AnalyzerOutputMutator(AnalyzerOutput* output) : output_(*output) {}
 
   // Updates the output with the new ResolvedNode (and new max column id).
-  absl::Status Update(std::unique_ptr<const ResolvedNode> node) {
-    output_.max_column_id_ = column_factory_.max_column_id();
+  absl::Status Update(std::unique_ptr<const ResolvedNode> node,
+                      zetasql_base::SequenceNumber& column_id_seq_num) {
+    output_.max_column_id_ = static_cast<int>(column_id_seq_num.GetNext() - 1);
     if (output_.statement_ != nullptr) {
       ZETASQL_RET_CHECK(node->IsStatement());
       output_.statement_.reset(node.release()->GetAs<ResolvedStatement>());
@@ -69,51 +97,39 @@ class AnalyzerOutputMutator {
   }
 
  private:
-  const ColumnFactory& column_factory_;
   AnalyzerOutput& output_;
 };
 
-// For now each rewrite that activates requires copying the AST. As we add more
-// we'll likely want to improve the rewrite capactiy of the resolved AST so we
-// can do this efficiently without needing unnecessary copies / allocations.
-absl::Status RewriteResolvedAst(
+static absl::Status RewriteResolvedAstInternal(
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
-    TypeFactory* type_factory,
-    AnalyzerOutput& analyzer_output) {
-  if (analyzer_output.resolved_statement() == nullptr &&
-      analyzer_output.resolved_expr() == nullptr) {
-    return absl::OkStatus();
-  }
-
-  ColumnFactory column_factory(analyzer_output.max_column_id(),
-                               analyzer_options.column_id_sequence_number());
+    TypeFactory* type_factory, AnalyzerOutput& analyzer_output) {
+  zetasql_base::SequenceNumber fallback_sequence_number;
+  AnalyzerOptions options_for_rewrite = AnalyzerOptionsForRewrite(
+      analyzer_options, analyzer_output, fallback_sequence_number);
   bool rewrite_activated = false;
-  AnalyzerOutputMutator output_mutator(&column_factory, &analyzer_output);
+  AnalyzerOutputMutator output_mutator(&analyzer_output);
 
-  if (analyzer_output.analyzer_output_properties().has_flatten &&
-      analyzer_options.rewrite_enabled(REWRITE_FLATTEN)) {
-    rewrite_activated = true;
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ResolvedNode> result,
-        RewriteResolvedFlatten(
-            *catalog, NodeFromAnalyzerOutput(analyzer_output), column_factory));
-    ZETASQL_RETURN_IF_ERROR(output_mutator.Update(std::move(result)));
-  }
+  std::unique_ptr<const ResolvedNode> last_rewrite_result;
+  const ResolvedNode* rewrite_input = NodeFromAnalyzerOutput(analyzer_output);
 
-  if (analyzer_output.analyzer_output_properties().has_anonymization &&
-      analyzer_options.rewrite_enabled(REWRITE_ANONYMIZATION)) {
-    rewrite_activated = true;
-    ZETASQL_ASSIGN_OR_RETURN(RewriteForAnonymizationOutput anonymized_output,
-                     RewriteForAnonymization(
-                         NodeFromAnalyzerOutput(analyzer_output), catalog,
-                         type_factory, analyzer_options, column_factory));
-    ZETASQL_RETURN_IF_ERROR(output_mutator.Update(std::move(anonymized_output.node)));
-    output_mutator.mutable_output_properties()
-        .resolved_table_scan_to_anonymized_aggregate_scan_map =
-        std::move(anonymized_output.table_scan_to_anon_aggr_scan_map);
+  for (const Rewriter* rewriter :
+       RewriteRegistry::global_instance().GetRewriters()) {
+    if (rewriter->ShouldRewrite(analyzer_options, analyzer_output)) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          last_rewrite_result,
+          rewriter->Rewrite(options_for_rewrite, *rewrite_input, *catalog,
+                            *type_factory,
+                            output_mutator.mutable_output_properties()));
+      rewrite_input = last_rewrite_result.get();
+      rewrite_activated = true;
+    }
   }
 
   if (rewrite_activated) {
+    ZETASQL_RETURN_IF_ERROR(output_mutator.Update(
+        std::move(last_rewrite_result),
+        *options_for_rewrite.column_id_sequence_number()));
+
     // Make sure the generated ResolvedAST is valid.
     Validator validator;
     if (analyzer_output.resolved_statement() != nullptr) {
@@ -126,6 +142,23 @@ absl::Status RewriteResolvedAst(
     }
   }
   return absl::OkStatus();
+}
+
+// For now each rewrite that activates requires copying the AST. As we add more
+// we'll likely want to improve the rewrite capactiy of the resolved AST so we
+// can do this efficiently without needing unnecessary copies / allocations.
+absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
+                                absl::string_view sql, Catalog* catalog,
+                                TypeFactory* type_factory,
+                                AnalyzerOutput& analyzer_output) {
+  if (analyzer_output.resolved_statement() == nullptr &&
+      analyzer_output.resolved_expr() == nullptr) {
+    return absl::OkStatus();
+  }
+  return ConvertInternalErrorLocationAndAdjustErrorString(
+      analyzer_options.error_message_mode(), sql,
+      RewriteResolvedAstInternal(analyzer_options, catalog, type_factory,
+                                 analyzer_output));
 }
 
 }  // namespace zetasql

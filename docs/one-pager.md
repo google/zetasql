@@ -1681,284 +1681,300 @@ lowest precedence, i.e. the order in which they will be evaluated within a
 statement.
 
 <table>
-<thead>
-<tr>
-<th>Order of Precedence</th>
-<th>Operator</th>
-<th>Input Data Types</th>
-<th>Name</th>
-<th>Operator Arity</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>.</td>
-<td><span> PROTO<span><br><span> STRUCT<span><br></td>
-<td>Member field access operator</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[ ]</td>
-<td>ARRAY</td>
-<td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+  <thead>
+    <tr>
+      <th>Order of Precedence</th>
+      <th>Operator</th>
+      <th>Input Data Types</th>
+      <th>Name</th>
+      <th>Operator Arity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>.</td>
+      <td><span> PROTO</span><br><span> STRUCT</span><br></td>
+      <td>Member field access operator</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[ ]</td>
+      <td>ARRAY</td>
+      <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+      
 
 <a href="#array_functions">
 
 Array Functions
 </a>
 .</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>2</td>
-<td>-</td>
-<td>All numeric types</td>
-<td>Unary minus</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>~</td>
-<td>Integer or BYTES</td>
-<td>Bitwise not</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>3</td>
-<td>*</td>
-<td>All numeric types</td>
-<td>Multiplication</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>/</td>
-<td>All numeric types</td>
-<td>Division</td>
-<td>Binary</td>
-</tr>
-
-<tr>
-<td>&nbsp;</td>
-<td>||</td>
-<td>STRING, BYTES, or ARRAY&#60;T&#62;</td>
-<td>Concatenation operator</td>
-<td>Binary</td>
-</tr>
-
-<tr>
-<td>4</td>
-<td>+</td>
-<td>All numeric types<br>DATE and INT64</td>
-<td>Addition</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>-</td>
-<td>All numeric types<br>DATE and INT64</td>
-<td>Subtraction</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>5</td>
-<td>&lt;&lt;</td>
-<td>Integer or BYTES</td>
-<td>Bitwise left-shift</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&gt;&gt;</td>
-<td>Integer or BYTES</td>
-<td>Bitwise right-shift</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>6</td>
-<td>&amp;</td>
-<td>Integer or BYTES</td>
-<td>Bitwise and</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>7</td>
-<td>^</td>
-<td>Integer or BYTES</td>
-<td>Bitwise xor</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>8</td>
-<td>|</td>
-<td>Integer or BYTES</td>
-<td>Bitwise or</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>9 (Comparison Operators)</td>
-<td>=</td>
-<td>Any comparable type. See
-
-<a href="#data_types">
-
-Data Types
-</a>
-
-for a complete list.</td>
-<td>Equal</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&lt;</td>
-<td>Any comparable type. See
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>+</td>
+      <td>All numeric types</td>
+      <td>Unary plus</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-</td>
+      <td>All numeric types</td>
+      <td>Unary minus</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>~</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise not</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>*</td>
+      <td>All numeric types</td>
+      <td>Multiplication</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>/</td>
+      <td>All numeric types</td>
+      <td>Division</td>
+      <td>Binary</td>
+    </tr>
+    
+    <tr>
+      <td>&nbsp;</td>
+      <td>||</td>
+      <td>STRING, BYTES, or ARRAY&#60;T&#62;</td>
+      <td>Concatenation operator</td>
+      <td>Binary</td>
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>+</td>
+      <td>All numeric types<br>DATE and INT64</td>
+      <td>Addition</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-</td>
+      <td>All numeric types<br>DATE and INT64</td>
+      <td>Subtraction</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>&lt;&lt;</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise left-shift</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&gt;&gt;</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise right-shift</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>&amp;</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise and</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>^</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise xor</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>|</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise or</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>9 (Comparison Operators)</td>
+      <td>=</td>
+      <td>Any comparable type. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Less than</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&gt;</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Equal</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&lt;</td>
+      <td>Any comparable type. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Greater than</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&lt;=</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Less than</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&gt;</td>
+      <td>Any comparable type. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Less than or equal to</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&gt;=</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Greater than</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&lt;=</td>
+      <td>Any comparable type. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Greater than or equal to</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>!=, &lt;&gt;</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Less than or equal to</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&gt;=</td>
+      <td>Any comparable type. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Not equal</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[NOT] LIKE</td>
-<td>STRING and byte</td>
-<td>Value does [not] match the pattern specified</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[NOT] BETWEEN</td>
-<td>Any comparable types. See
+      for a complete list.</td>
+      <td>Greater than or equal to</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>!=, &lt;&gt;</td>
+      <td>Any comparable type. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Value is [not] within the range specified</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[NOT] IN</td>
-<td>Any comparable types. See
+      for a complete list.</td>
+      <td>Not equal</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[NOT] LIKE</td>
+      <td>STRING and byte</td>
+      <td>Value does [not] match the pattern specified</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[NOT] BETWEEN</td>
+      <td>Any comparable types. See
+      
 
 <a href="#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Value is [not] in the set of values specified</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>IS [NOT] <code>NULL</code></td>
-<td>All</td>
-<td>Value is [not] <code>NULL</code></td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>IS [NOT] TRUE</td>
-<td>BOOL</td>
-<td>Value is [not] TRUE.</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>IS [NOT] FALSE</td>
-<td>BOOL</td>
-<td>Value is [not] FALSE.</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>10</td>
-<td>NOT</td>
-<td>BOOL</td>
-<td>Logical NOT</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>11</td>
-<td>AND</td>
-<td>BOOL</td>
-<td>Logical AND</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>12</td>
-<td>OR</td>
-<td>BOOL</td>
-<td>Logical OR</td>
-<td>Binary</td>
-</tr>
-</tbody>
+      for a complete list.</td>
+      <td>Value is [not] within the range specified</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[NOT] IN</td>
+      <td>Any comparable types. See
+      
+
+<a href="#data_types">
+
+Data Types
+</a>
+
+      for a complete list.</td>
+      <td>Value is [not] in the set of values specified</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>IS [NOT] <code>NULL</code></td>
+      <td>All</td>
+      <td>Value is [not] <code>NULL</code></td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>IS [NOT] TRUE</td>
+      <td>BOOL</td>
+      <td>Value is [not] TRUE.</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>IS [NOT] FALSE</td>
+      <td>BOOL</td>
+      <td>Value is [not] FALSE.</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>NOT</td>
+      <td>BOOL</td>
+      <td>Logical NOT</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>AND</td>
+      <td>BOOL</td>
+      <td>Logical AND</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>OR</td>
+      <td>BOOL</td>
+      <td>Logical OR</td>
+      <td>Binary</td>
+    </tr>
+  </tbody>
 </table>
 
 Operators with the same precedence are left associative. This means that those
@@ -2033,34 +2049,38 @@ All arithmetic operators accept input of numeric type T, and the result type
 has type T unless otherwise indicated in the description below:
 
 <table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Syntax</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Addition</td>
-<td>X + Y</td>
-</tr>
-<tr>
-<td>Subtraction</td>
-<td>X - Y</td>
-</tr>
-<tr>
-<td>Multiplication</td>
-<td>X * Y</td>
-</tr>
-<tr>
-<td>Division</td>
-<td>X / Y</td>
-</tr>
-<tr>
-<td>Unary Minus</td>
-<td>- X</td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+    <th>Name</th>
+    <th>Syntax</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Addition</td>
+      <td>X + Y</td>
+    </tr>
+    <tr>
+      <td>Subtraction</td>
+      <td>X - Y</td>
+    </tr>
+    <tr>
+      <td>Multiplication</td>
+      <td>X * Y</td>
+    </tr>
+    <tr>
+      <td>Division</td>
+      <td>X / Y</td>
+    </tr>
+    <tr>
+      <td>Unary Plus</td>
+      <td>+ X</td>
+    </tr>
+    <tr>
+      <td>Unary Minus</td>
+      <td>- X</td>
+    </tr>
+  </tbody>
 </table>
 
 NOTE: Divide by zero operations return an error. To return a different result,
@@ -2132,7 +2152,7 @@ Result types for Division:
 
 </table>
 
-Result types for Unary Minus:
+Result types for Unary Plus and Unary Minus:
 
 <table>
 
@@ -3490,6 +3510,12 @@ done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
 </tbody>
 </table>
 
+Boolean values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  1. `FALSE`
+  1. `TRUE`
+
 ### String type
 
 <table>
@@ -4620,24 +4646,42 @@ and array subqueries (see [Subqueries][subquery-concepts]) are normally not
 allowed to return multiple columns, but can return a single column with
 STRUCT type.
 
-Anonymous columns and duplicate columns
-are allowed.
+Anonymous columns are allowed.
 
 Example:
 
 ```sql
-SELECT AS STRUCT 1 x, 2, 3 x
+SELECT AS STRUCT 1 x, 2, 3
 ```
 
 The query above produces STRUCT values of type
-`STRUCT<int64 x, int64, int64 x>.` The first and third fields have the same name
-`x`, and the second field is anonymous.
+`STRUCT<int64 x, int64, int64>.` The first field has the name `x` while the
+second and third fields are anonymous.
+
+The example above produces the same result as this `SELECT AS VALUE` query using
+a struct constructor:
+
+```sql
+SELECT AS VALUE STRUCT(1 AS x, 2, 3)
+```
+
+Duplicate columns are allowed.
+
+Example:
+
+```sql
+SELECT AS STRUCT 1 x, 2 y, 3 x
+```
+
+The query above produces STRUCT values of type
+`STRUCT<int64 x, int64 y, int64 x>.` The first and third fields have the same
+name `x` while the second field has the name `y`.
 
 The example above produces the same result as this `SELECT AS VALUE` query
 using a struct constructor:
 
 ```sql
-SELECT AS VALUE STRUCT(1 AS x, 2, 3 AS x)
+SELECT AS VALUE STRUCT(1 AS x, 2 AS y, 3 AS x)
 ```
 
 ##### SELECT AS VALUE
@@ -7089,6 +7133,7 @@ Results:
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
 [produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
@@ -7102,6 +7147,7 @@ Results:
 [named-window-example]: #def_use_named_window
 [produce-table]: #produce-table
 [tvf-concepts]: #tvfs
+
 [flattening-arrays]: #flattening-arrays
 [in-operator]: #in-operators
 [query-value-tables]: #value-tables
@@ -18553,8 +18599,8 @@ The `STRING` is formatted as follows:
   </tr>
   <tr>
     <td><code>NULL</code> of any type</td>
-    <td><code>NULL</code></td>
-    <td><code>NULL</code></td>
+    <td>NULL</td>
+    <td>NULL</td>
   </tr>
   <tr>
     <td><span> INT32</span><br><span> INT64</span><br><span> UINT32</span><br><span> UINT64</span><br></td>
@@ -20336,13 +20382,13 @@ FROM items;
 #### STRPOS
 
 ```sql
-STRPOS(string, substring)
+STRPOS(value1, value2)
 ```
 
 **Description**
 
-Returns the 1-based index of the first occurrence of `substring` inside
-`string`. Returns `0` if `substring` is not found.
+Takes two `STRING` or `BYTES` values. Returns the 1-based index of the first
+occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 
 **Return type**
 
@@ -27338,7 +27384,7 @@ the generated column holds the first and last name of an author.
 CREATE TABLE authors(
   firstName STRING HIDDEN,
   lastName STRING HIDDEN,
-  fullName STRING CONCAT(firstName, " ", lastName)
+  fullName STRING AS CONCAT(firstName, " ", lastName)
 );
 ```
 

@@ -178,11 +178,12 @@ std::string GetNodePrefixToken(absl::string_view sql,
 inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
     const Type* type, std::unique_ptr<const ResolvedExpr> expr,
     std::unique_ptr<const ResolvedExpr> format,
+    std::unique_ptr<const ResolvedExpr> time_zone,
     bool return_null_on_error,
     const ExtendedCompositeCastEvaluator& extended_conversion_evaluator) {
   auto result = MakeResolvedCast(type, std::move(expr), return_null_on_error,
                                  /*extended_cast=*/nullptr,
-                                 std::move(format));
+                                 std::move(format), std::move(time_zone));
 
   if (extended_conversion_evaluator.is_valid()) {
     std::vector<std::unique_ptr<const ResolvedExtendedCastElement>>
@@ -1867,7 +1868,7 @@ absl::Status Resolver::ResolveFieldAccess(
            << " on a value with type "
            << lhs_type->ShortTypeName(product_mode()) << ". "
            << "You may need an explicit call to FLATTEN, and the flattened "
-           << "argument many only contain 'dot' after the first array";
+           << "argument may only contain 'dot' after the first array";
   } else {
     return MakeSqlErrorAt(identifier)
            << "Cannot access field " << identifier->GetAsIdString()
@@ -3985,6 +3986,115 @@ static absl::Status CastResolutionError(const ASTNode* ast_location,
                                       << " to " << to_type->ShortTypeName(mode);
 }
 
+absl::Status Resolver::ResolveFormatOrTimeZoneExpr(
+    const ASTExpression* expr,
+    ExprResolutionInfo* expr_resolution_info,
+    const char* clause_name,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr)
+{
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(expr, expr_resolution_info, resolved_expr));
+
+  auto expr_type = GetInputArgumentTypeForExpr(resolved_expr->get());
+  if (!expr_type.type()->IsString()) {
+    auto status = CoerceExprToType(expr, type_factory_->get_string(),
+                                   /*assignment_semantics=*/false, clause_name,
+                                   resolved_expr);
+    if (!status.ok()) {
+      return MakeSqlErrorAt(expr) << status.message();
+    }
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveFormatClause(
+    const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
+    const std::unique_ptr<const ResolvedExpr>& resolved_argument,
+    const Type* resolved_cast_type,
+    std::unique_ptr<const ResolvedExpr>* resolved_format,
+    std::unique_ptr<const ResolvedExpr>* resolved_time_zone,
+    bool* resolve_cast_to_null) {
+  if (cast->format() == nullptr) {
+    return absl::OkStatus();
+  }
+
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_FORMAT_IN_CAST)) {
+    return MakeSqlErrorAt(cast->format())
+        << "CAST with FORMAT is not supported";
+  }
+
+  *resolve_cast_to_null = false;
+  auto iter = internal::GetCastFormatMap().find(
+      {resolved_argument->type()->kind(), resolved_cast_type->kind()});
+  if (iter == internal::GetCastFormatMap().end()) {
+    return MakeSqlErrorAt(cast->format())
+        << "FORMAT is not allowed for cast from "
+        << resolved_argument->type()->ShortTypeName(product_mode())
+        << " to " << resolved_cast_type->ShortTypeName(product_mode());
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ResolveFormatOrTimeZoneExpr(
+      cast->format()->format(), expr_resolution_info,
+      "FORMAT expression", resolved_format));
+
+  if (cast->format()->time_zone_expr() != nullptr) {
+    // time zone is allowed only for cast from/to timestamps.
+    if (resolved_argument->type()->kind() != TYPE_TIMESTAMP &&
+        resolved_cast_type->kind() != TYPE_TIMESTAMP) {
+      return MakeSqlErrorAt(cast->format()->time_zone_expr())
+          << "AT TIME ZONE is not allowed for cast from "
+          << resolved_argument->type()->ShortTypeName(product_mode())
+          << " to " << resolved_cast_type->ShortTypeName(product_mode());
+    }
+
+    ZETASQL_RETURN_IF_ERROR(ResolveFormatOrTimeZoneExpr(
+        cast->format()->time_zone_expr(), expr_resolution_info,
+        "AT TIME ZONE expression", resolved_time_zone));
+  }
+
+  const bool return_null_on_error = cast->is_safe_cast();
+  if ((*resolved_format)->node_kind() == RESOLVED_LITERAL) {
+    const Value& v = (*resolved_format)->GetAs<ResolvedLiteral>()->value();
+
+    // If format is literal and not null, validate it.
+    if (!v.is_null())  {
+      FormatValidationFunc func = iter->second;
+      auto status = func(v.string_value());
+      if (!status.ok()) {
+        if (return_null_on_error) {
+          *resolve_cast_to_null = true;
+          return absl::OkStatus();
+        }
+
+        return MakeSqlErrorAt(cast->format()->format()) << status.message();
+      }
+    }
+  }
+
+  if (*resolved_time_zone != nullptr &&
+      (*resolved_time_zone)->node_kind() == RESOLVED_LITERAL) {
+    const Value& v = (*resolved_time_zone)->GetAs<ResolvedLiteral>()->value();
+
+    // If time_zone is literal and not null, validate it.
+    if (!v.is_null())  {
+      absl::TimeZone timezone;
+      auto status = functions::MakeTimeZone(v.string_value(), &timezone);
+      if (!status.ok()) {
+        if (return_null_on_error) {
+          *resolve_cast_to_null = true;
+          return absl::OkStatus();
+        }
+
+        return MakeSqlErrorAt(cast->format()->time_zone_expr())
+            << status.message();
+      }
+    }
+  }
+
+  return absl::OkStatus();
+}
+
+
 absl::Status Resolver::ResolveExplicitCast(
     const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3996,48 +4106,18 @@ absl::Status Resolver::ResolveExplicitCast(
   const bool return_null_on_error = cast->is_safe_cast();
 
   std::unique_ptr<const ResolvedExpr> resolved_format;
-  if (cast->format() != nullptr) {
-    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_FORMAT_IN_CAST)) {
-      return MakeSqlErrorAt(cast->format())
-           << "CAST with FORMAT is not supported";
-    }
+  std::unique_ptr<const ResolvedExpr> resolved_time_zone;
+  bool resolve_cast_to_null = false;
+  ZETASQL_RETURN_IF_ERROR(ResolveFormatClause(
+      cast, expr_resolution_info, resolved_argument,
+      resolved_cast_type,
+      &resolved_format, &resolved_time_zone, &resolve_cast_to_null));
 
-    auto iter = internal::GetCastFormatMap().find(
-        {resolved_argument->type()->kind(), resolved_cast_type->kind()});
-    if (iter == internal::GetCastFormatMap().end()) {
-      return MakeSqlErrorAt(cast->format())
-             << "FORMAT is not allowed for cast from "
-             << resolved_argument->type()->ShortTypeName(product_mode())
-             << " to " << resolved_cast_type->ShortTypeName(product_mode());
-    }
-
-    ZETASQL_RETURN_IF_ERROR(ResolveExpr(cast->format()->format(), expr_resolution_info,
-                                &resolved_format));
-    auto format_expr_type = GetInputArgumentTypeForExpr(resolved_format.get());
-    if (!format_expr_type.type()->IsString()) {
-      return MakeSqlErrorAt(cast->format()->format())
-             << "FORMAT expression is not a string";
-    }
-
-    if (resolved_format->node_kind() == RESOLVED_LITERAL) {
-      const Value& v = resolved_format->GetAs<ResolvedLiteral>()->value();
-
-      // If format is not null, validate it.
-      if (!v.is_null())  {
-        FormatValidationFunc func = iter->second;
-        auto status = func(v.string_value());
-        if (!status.ok()) {
-          if (return_null_on_error) {
-            *resolved_expr_out = MakeResolvedLiteral(
-                cast, resolved_cast_type, Value::Null(resolved_cast_type),
-                /*has_explicit_type=*/true);
-            return absl::OkStatus();
-          }
-
-          return MakeSqlErrorAt(cast->format()->format()) << status.message();
-        }
-      }
-    }
+  if (resolve_cast_to_null) {
+    *resolved_expr_out = MakeResolvedLiteral(
+        cast, resolved_cast_type, Value::Null(resolved_cast_type),
+        /*has_explicit_type=*/true);
+    return absl::OkStatus();
   }
 
   // Handles casting literals that do not have an explicit type:
@@ -4098,6 +4178,7 @@ absl::Status Resolver::ResolveExplicitCast(
     // to the target type and mark it as already cast.
     ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
         cast->expr(), resolved_cast_type, std::move(resolved_format),
+        std::move(resolved_time_zone),
         /*scan=*/nullptr, /*set_has_explicit_type=*/true,
         return_null_on_error, &resolved_argument));
 
@@ -4126,14 +4207,15 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
     const ASTNode* ast_location, const Type* to_type, bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* resolved_argument) {
   return ResolveCastWithResolvedArgument(
-      ast_location, to_type, /*format=*/nullptr, return_null_on_error,
-      resolved_argument);
+      ast_location, to_type, /*format=*/nullptr, /*time_zone=*/nullptr,
+      return_null_on_error, resolved_argument);
 }
 
 absl::Status Resolver::ResolveCastWithResolvedArgument(
     const ASTNode* ast_location,
     const Type* to_type,
     std::unique_ptr<const ResolvedExpr> format,
+    std::unique_ptr<const ResolvedExpr> time_zone,
     bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* resolved_argument) {
 
@@ -4152,9 +4234,10 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
   }
 
   // Add EXPLICIT cast.
-  *resolved_argument = MakeResolvedCast(to_type, std::move(*resolved_argument),
-                                        std::move(format), return_null_on_error,
-                                        extended_conversion_evaluator);
+  *resolved_argument =
+      MakeResolvedCast(to_type, std::move(*resolved_argument),
+                       std::move(format), std::move(time_zone),
+                       return_null_on_error, extended_conversion_evaluator);
   return absl::OkStatus();
 }
 

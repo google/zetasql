@@ -290,7 +290,7 @@ std::string SimpleCatalog::SuggestConstant(
   return "";
 }
 
-void SimpleCatalog::AddTable(const std::string& name, const Table* table) {
+void SimpleCatalog::AddTable(absl::string_view name, const Table* table) {
   absl::MutexLock l(&mutex_);
   zetasql_base::InsertOrDie(&tables_, absl::AsciiStrToLower(name), table);
 }
@@ -370,7 +370,7 @@ void SimpleCatalog::AddConstantLocked(const std::string& name,
   zetasql_base::InsertOrDie(&constants_, absl::AsciiStrToLower(name), constant);
 }
 
-void SimpleCatalog::AddOwnedTable(const std::string& name,
+void SimpleCatalog::AddOwnedTable(absl::string_view name,
                                   std::unique_ptr<const Table> table) {
   AddTable(name, table.get());
   absl::MutexLock l(&mutex_);
@@ -378,7 +378,7 @@ void SimpleCatalog::AddOwnedTable(const std::string& name,
 }
 
 bool SimpleCatalog::AddOwnedTableIfNotPresent(
-    const std::string& name, std::unique_ptr<const Table> table) {
+    absl::string_view name, std::unique_ptr<const Table> table) {
   absl::MutexLock l(&mutex_);
   if (!zetasql_base::InsertIfNotPresent(&tables_, absl::AsciiStrToLower(name),
                                table.get())) {
@@ -388,7 +388,7 @@ bool SimpleCatalog::AddOwnedTableIfNotPresent(
   return true;
 }
 
-void SimpleCatalog::AddOwnedTable(const std::string& name, const Table* table) {
+void SimpleCatalog::AddOwnedTable(absl::string_view name, const Table* table) {
   AddOwnedTable(name, absl::WrapUnique(table));
 }
 
@@ -688,11 +688,16 @@ void SimpleCatalog::SetDescriptorPool(const google::protobuf::DescriptorPool* po
 }
 
 void SimpleCatalog::SetOwnedDescriptorPool(const google::protobuf::DescriptorPool* pool) {
+  SetOwnedDescriptorPool(absl::WrapUnique(pool));
+}
+
+void SimpleCatalog::SetOwnedDescriptorPool(
+    std::unique_ptr<const google::protobuf::DescriptorPool> pool) {
   absl::MutexLock l(&mutex_);
   ZETASQL_CHECK(descriptor_pool_ == nullptr)
       << "SimpleCatalog::SetDescriptorPool can only be called once";
-  owned_descriptor_pool_.reset(pool);
-  descriptor_pool_ = pool;
+  owned_descriptor_pool_ = std::move(pool);
+  descriptor_pool_ = owned_descriptor_pool_.get();
 }
 
 void SimpleCatalog::AddZetaSQLFunctions(
@@ -1148,18 +1153,18 @@ std::vector<const Constant*> SimpleCatalog::constants() const {
   return constants;
 }
 
-SimpleTable::SimpleTable(const std::string& name,
+SimpleTable::SimpleTable(absl::string_view name,
                          const std::vector<NameAndType>& columns,
                          const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
   for (const NameAndType& name_and_type : columns) {
     std::unique_ptr<SimpleColumn> column(
-        new SimpleColumn(name, name_and_type.first, name_and_type.second));
+        new SimpleColumn(name_, name_and_type.first, name_and_type.second));
     ZETASQL_CHECK_OK(AddColumn(column.release(), true /* is_owned */));
   }
 }
 
-SimpleTable::SimpleTable(const std::string& name,
+SimpleTable::SimpleTable(absl::string_view name,
                          const std::vector<const Column*>& columns,
                          bool take_ownership, const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
@@ -1173,13 +1178,13 @@ SimpleTable::SimpleTable(const std::string& name,
 // this to "value".  Generally this should not be user-facing, but there
 // are some cases where this appears in error messages and a reference
 // to something named 'value' is confusing there.
-SimpleTable::SimpleTable(const std::string& name, const Type* row_type,
+SimpleTable::SimpleTable(absl::string_view name, const Type* row_type,
                          const int64_t id)
     : SimpleTable(name, {{"value", row_type}}, id) {
   is_value_table_ = true;
 }
 
-SimpleTable::SimpleTable(const std::string& name, const int64_t id)
+SimpleTable::SimpleTable(absl::string_view name, const int64_t id)
     : name_(name), id_(id) {}
 
 absl::Status SimpleTable::SetAnonymizationInfo(

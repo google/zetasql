@@ -1177,6 +1177,18 @@ TEST(LikeRewriteTest, GetRewriteForLikePattern) {
                                      &substring));
 }
 
+bool BytesToStringWrapper(absl::string_view str, absl::string_view format,
+                          std::string* out, absl::Status* error) {
+  *error = BytesToString(str, format, out);
+  return error->ok();
+}
+
+bool StringToBytesWrapper(absl::string_view str, absl::string_view format,
+                          std::string* out, absl::Status* error) {
+  *error = StringToBytes(str, format, out);
+  return error->ok();
+}
+
 typedef testing::TestWithParam<FunctionTestCall>
     BytesStringConversionTemplateTest;
 TEST_P(BytesStringConversionTemplateTest, Testlib) {
@@ -1186,11 +1198,11 @@ TEST_P(BytesStringConversionTemplateTest, Testlib) {
     return;
   }
   if (function == "bytes_to_string") {
-    TestStringFunction<std::string>(&BytesToString, param.params,
+    TestStringFunction<std::string>(&BytesToStringWrapper, param.params,
                                     param.params.param(0).bytes_value(),
                                     param.params.param(1).string_value());
   } else if (function == "string_to_bytes") {
-    TestBytesFunction<std::string>(&StringToBytes, param.params,
+    TestBytesFunction<std::string>(&StringToBytesWrapper, param.params,
                                    param.params.param(0).string_value(),
                                    param.params.param(1).string_value());
   }

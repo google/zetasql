@@ -298,6 +298,8 @@ absl::Status FunctionResolver::ProcessNamedArguments(
     return MakeSqlErrorAt(named_arguments[0].first)
            << "Named arguments are not supported";
   }
+  ZETASQL_RET_CHECK(arg_locations != nullptr);
+
   // Build a set of all argument names in the function signature argument
   // options.
   std::set<std::string, zetasql_base::StringCaseLess> argument_names_from_signature_options;
@@ -383,9 +385,8 @@ absl::Status FunctionResolver::ProcessNamedArguments(
     // For positional arguments that appear before any named arguments appear,
     // simply retain their locations and argument types.
     if ((named_arguments.empty() || i < named_arguments[0].second) &&
-        (arg_locations == nullptr || i < arg_locations->size() ||
-         signature_arg_name.empty())) {
-      if (arg_locations != nullptr && i < arg_locations->size()) {
+        (i < arg_locations->size() || signature_arg_name.empty())) {
+      if (i < arg_locations->size()) {
         new_arg_locations.push_back(arg_locations->at(i));
       }
       if (expr_args != nullptr && i < expr_args->size()) {
@@ -444,12 +445,10 @@ absl::Status FunctionResolver::ProcessNamedArguments(
         << "Call to function " << function_name << " includes named "
         << "argument " << signature_arg_name << " referring to a repeated "
         << "argument type, which is not supported";
-    if (arg_locations != nullptr) {
-      if (index != nullptr) {
-        new_arg_locations.push_back(arg_locations->at(*index));
-      } else {
-        new_arg_locations.push_back(ast_location);
-      }
+    if (index != nullptr) {
+      new_arg_locations.push_back(arg_locations->at(*index));
+    } else {
+      new_arg_locations.push_back(ast_location);
     }
     if (expr_args != nullptr) {
       if (index != nullptr) {
@@ -505,13 +504,12 @@ absl::Status FunctionResolver::ProcessNamedArguments(
   // Note that the former step is required in the presence of repeated arguments
   // in the function signature, even though these must be specified
   // positionally.
-  if (arg_locations != nullptr) {
-    for (size_t i = signature.arguments().size(); i < arg_locations->size();
-         ++i) {
-      new_arg_locations.push_back(arg_locations->at(i));
-    }
-    *arg_locations = std::move(new_arg_locations);
+  for (size_t i = signature.arguments().size(); i < arg_locations->size();
+       ++i) {
+    new_arg_locations.push_back(arg_locations->at(i));
   }
+  *arg_locations = std::move(new_arg_locations);
+
   if (expr_args != nullptr) {
     for (size_t i = signature.arguments().size(); i < expr_args->size(); ++i) {
       new_expr_args.push_back(std::move(expr_args->at(i)));
@@ -732,6 +730,7 @@ absl::Status ExtractStructFieldLocations(
 absl::Status FunctionResolver::AddCastOrConvertLiteral(
     const ASTNode* ast_location, const Type* target_type,
     std::unique_ptr<const ResolvedExpr> format,
+    std::unique_ptr<const ResolvedExpr> time_zone,
     const ResolvedScan* scan, bool set_has_explicit_type,
     bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* argument) const {
@@ -856,8 +855,8 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
   }
 
   return resolver_->ResolveCastWithResolvedArgument(
-      ast_location, target_type, std::move(format), return_null_on_error,
-      argument);
+      ast_location, target_type, std::move(format), std::move(time_zone),
+      return_null_on_error, argument);
 }
 
 absl::Status FunctionResolver::AddCastOrConvertLiteral(
@@ -871,6 +870,17 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
                                  argument);
 }
 
+absl::Status FunctionResolver::AddCastOrConvertLiteral(
+    const ASTNode* ast_location, const Type* target_type,
+    std::unique_ptr<const ResolvedExpr> format,
+    const ResolvedScan* scan, bool set_has_explicit_type,
+    bool return_null_on_error,
+    std::unique_ptr<const ResolvedExpr>* argument) const {
+  return AddCastOrConvertLiteral(ast_location, target_type,
+                                 std::move(format), /*time_zone=*/nullptr,
+                                 scan, set_has_explicit_type,
+                                 return_null_on_error, argument);
+}
 namespace {
 bool GetFloatImage(
     const absl::flat_hash_map<int, std::string>& float_literal_images,

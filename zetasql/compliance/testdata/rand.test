@@ -61,4 +61,3 @@ FROM (
 )
 --
 ARRAY<STRUCT<BOOL>>[{true}]
-==

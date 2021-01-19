@@ -16,8 +16,10 @@
 
 #include <memory>
 
+#include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/types/type_factory.h"
@@ -320,12 +322,29 @@ FlattenRewriterVisitor::FlattenToScan(
 
 }  // namespace
 
-zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteResolvedFlatten(
-    Catalog& catalog, const ResolvedNode& node,
-    ColumnFactory& column_factory) {
-  FlattenRewriterVisitor rewriter(&catalog, &column_factory);
-  ZETASQL_RETURN_IF_ERROR(node.Accept(&rewriter));
-  return rewriter.ConsumeRootNode<ResolvedNode>();
-}
+class FlattenRewriter : public Rewriter {
+ public:
+  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
+                     const AnalyzerOutput& analyzer_output) const override {
+    return analyzer_options.rewrite_enabled(REWRITE_FLATTEN) &&
+           analyzer_output.analyzer_output_properties().has_flatten;
+  }
+
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+      const AnalyzerOptions& options, const ResolvedNode& input,
+      Catalog& catalog, TypeFactory& type_factory,
+      AnalyzerOutputProperties& output_properties) const override {
+    ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
+    ColumnFactory column_factory(0, options.column_id_sequence_number());
+    FlattenRewriterVisitor rewriter(&catalog, &column_factory);
+    ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
+                     rewriter.ConsumeRootNode<ResolvedNode>());
+    output_properties.has_flatten = false;
+    return result;
+  }
+};
+
+REGISTER_ZETASQL_REWRITER(FlattenRewriter);
 
 }  // namespace zetasql

@@ -67,21 +67,24 @@
 ABSL_FLAG(std::vector<std::string>, known_error_files, {},
           "Comma-separated list of known error filenames");
 ABSL_FLAG(bool, report_all_errors, false,
-            "(mostly) Ignore the known_error_files; run all statements except "
-            "CRASHES_DO_NOT_RUN");
+          "(mostly) Ignore the known_error_files; run all statements except "
+          "CRASHES_DO_NOT_RUN");
 
 ABSL_FLAG(bool, ignore_wrong_results, false,
-            "The test will accept any OK status regardless of the produced "
-            "value. This is useful when testing compliance of a component but "
-            "not a full evaluation engine. For instance, it can be used to "
-            "write a test to determine which compliance queries successfully "
-            "generate a logical query plan.");
+          "The test will accept any OK status regardless of the produced "
+          "value. This is useful when testing compliance of a component but "
+          "not a full evaluation engine. For instance, it can be used to write "
+          "a test to determine which compliance queries successfully generate "
+          "a logical query plan.");
+ABSL_FLAG(bool, ignore_wrong_error_codes, false,
+          "The test will accept any status regardless of the error code. This "
+          "is useful for engines that cannot plumb through the original error "
+          "during failure tests.");
 // Ideally we would rename this to --statement_name_pattern, but that might
 // break some command line somewhere.
 ABSL_FLAG(std::string, query_name_pattern, "",
-              "Only test statements with names matching this pattern. This "
-              "filter works only for statements in .test files. No effect if "
-              "left empty.");
+          "Only test statements with names matching this pattern. This filter "
+          "works only for statements in .test files. No effect if left empty.");
 ABSL_FLAG(bool, auto_generate_test_names, false,
           "When true, test cases in file don't have to have [name] tag, the "
           "names will be automatically generated when name is missing.");
@@ -112,7 +115,7 @@ MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
   } else if (expected.ok()) {
     passed = InternalValue::Equals(expected.value(), arg.value(), float_margin,
                                    &reason);
-  } else {
+  } else if (!absl::GetFlag(FLAGS_ignore_wrong_error_codes)) {
     // Any whitelisted error code would be OK.
     passed = SQLTestBase::legal_runtime_errors()->Matches(arg.status());
   }
@@ -306,8 +309,7 @@ std::string SQLTestBase::GenerateFailureReport(const std::string& expected,
 
 // static
 absl::Status SQLTestBase::ValidateFirstColumnPrimaryKey(
-    const TestDatabase& test_db,
-    const LanguageOptions& language_options) {
+    const TestDatabase& test_db, const LanguageOptions& language_options) {
   for (const auto& pair : test_db.tables) {
     const std::string& table_name = pair.first;
     const TestTable& test_table = pair.second;
@@ -646,7 +648,7 @@ void SQLTestBase::Stats::LogGoogletestProperties() const {
   RecordProperty(
       "Compliance",
       absl::StrCat((((num_executed_ - failures_.size()) * 1000 /
-                         std::max(1, num_executed_ + num_known_errors_)) /
+                     std::max(1, num_executed_ + num_known_errors_)) /
                     10.0),
                    "%"));
 }
@@ -764,7 +766,7 @@ void SQLTestBase::InitStatementState(
 }
 
 static absl::Status ParsePrimaryKeyMode(absl::string_view mode_string,
-                                          PrimaryKeyMode* primary_key_mode) {
+                                        PrimaryKeyMode* primary_key_mode) {
   const std::string lower_mode_string = absl::AsciiStrToLower(mode_string);
 
   const std::array<PrimaryKeyMode, 3> modes = {
@@ -1460,7 +1462,7 @@ void SQLTestBase::GenerateCodeBasedStatementName(
     param_strs.emplace_back(absl::StrCat(
         absl::StrReplaceAll(pair.second.type()->TypeName(product_mode()),
                             {{".", "_"}}),
-                     ValueToSafeString(pair.second)));
+        ValueToSafeString(pair.second)));
   }
 
   full_name_ = absl::StrReplaceAll(GetNamePrefix(), {{".", "_"}});
@@ -1469,8 +1471,8 @@ void SQLTestBase::GenerateCodeBasedStatementName(
   }
   driver()->SetTestName(full_name_);
   // If the name is not safe then we cannot create known error entries.
-  ZETASQL_CHECK(RE2::FullMatch(full_name_, full_name_)) << "Name is not RE2 safe "
-                                                << full_name_;
+  ZETASQL_CHECK(RE2::FullMatch(full_name_, full_name_))
+      << "Name is not RE2 safe " << full_name_;
 }
 
 std::string SQLTestBase::ToString(const zetasql_base::StatusOr<Value>& status) {
@@ -1529,8 +1531,8 @@ absl::Status SQLTestBase::LoadKnownErrorFile(absl::string_view filename) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "ERROR: Known Error file " << filename << " does not exist";
     } else {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "ERROR: Unable to get known error contents from " << filename
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "ERROR: Unable to get known error contents from " << filename
              << ": " << internal::StatusToString(status);
     }
   }
@@ -1581,7 +1583,7 @@ KnownErrorMode SQLTestBase::IsKnownError(
   // In --report_all_errors mode, ignore entries unless they are
   // CRASHES_DO_NOT_RUN mode.
   if ((  //
-       absl::GetFlag(FLAGS_report_all_errors)) &&
+          absl::GetFlag(FLAGS_report_all_errors)) &&
       mode != KnownErrorMode::CRASHES_DO_NOT_RUN) {
     mode = KnownErrorMode::NONE;
     by_set->clear();
@@ -1659,10 +1661,8 @@ bool TableContainsColumn(const Value& table, const std::string& column) {
 absl::Status SQLTestBase::PrepareTable(
     const std::string& table_name, const std::string& sql_without_options,
     const std::map<std::string, Value>& parameters,
-    const std::set<LanguageFeature>& required_features
-    ,
-    const std::string& userid_column
-) {
+    const std::set<LanguageFeature>& required_features,
+    const std::string& userid_column) {
   bool is_deterministic_output;
   bool uses_unsupported_type = false;  // unused
   const zetasql_base::StatusOr<Value> ref_result =

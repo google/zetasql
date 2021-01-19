@@ -553,16 +553,29 @@ bool TranslateBytes(absl::string_view str, absl::string_view source_bytes,
 
 // Converts from bytes to a encoded string with specific encoding format
 // (Proposal doc (broken link)).
-bool BytesToString(absl::string_view str, absl::string_view format,
-                   std::string* out, absl::Status* error);
+absl::Status BytesToString(absl::string_view str, absl::string_view format,
+                           std::string* out);
 
 // Converts from a encoded string with specific encoding format to bytes
 // (Proposal doc (broken link)).
-bool StringToBytes(absl::string_view str, absl::string_view format,
-                   std::string* out, absl::Status* error);
+absl::Status StringToBytes(absl::string_view str, absl::string_view format,
+                           std::string* out);
 
 // Validates the format string used by BytesToString() and StringToBytes().
 absl::Status ValidateFormat(absl::string_view format);
+
+typedef bool (*ConversionFunc)(absl::string_view str, std::string* out,
+                               absl::Status* error);
+
+// A map that maps the format string to conversion functions between bytes and
+// string for that format. The first element of the value is the
+// bytes to string conversion function, while the second element of the value is
+// the string to bytes conversion function.
+typedef absl::flat_hash_map<std::string,
+                            std::pair<ConversionFunc, ConversionFunc>>
+    ConversionFuncMap;
+
+const ConversionFuncMap& GetConversionFuncMap();
 
 }  // namespace functions
 }  // namespace zetasql

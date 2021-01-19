@@ -938,7 +938,6 @@ absl::Status ExpandPercentZQ(absl::string_view format_string,
                              absl::Time base_time, absl::TimeZone timezone,
                              bool expand_quarter,
                              std::string* expanded_format_string);
-
 }  // namespace internal_functions
 }  // namespace functions
 }  // namespace zetasql

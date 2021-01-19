@@ -220,7 +220,7 @@ the generated column holds the first and last name of an author.
 CREATE TABLE authors(
   firstName STRING HIDDEN,
   lastName STRING HIDDEN,
-  fullName STRING CONCAT(firstName, " ", lastName)
+  fullName STRING AS CONCAT(firstName, " ", lastName)
 );
 ```
 

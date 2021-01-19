@@ -1,46 +1,46 @@
-[default required_features=TABLESAMPLE]
+[default required_features=TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
 
 [name=bernoulli_none]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(0 PERCENT)
 --
 ARRAY<STRUCT<INT64>>[{0}]
-===
+==
 
 [name=bernoulli_all]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(100 PERCENT)
 --
 ARRAY<STRUCT<INT64>>[{50}]
-===
+==
 
 [name=reservoir_none]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(0 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{0}]
-===
+==
 
 [name=reservoir_full]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(5 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{5}]
-===
+==
 
 [name=reservoir_exact]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(50 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{50}]
-===
+==
 
 [name=reservoir_not_enough_rows_in_input]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(1000 ROWS)
 --
 ARRAY<STRUCT<INT64>>[{50}]
-===
+==
 
 [name=bernoulli_filtered]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
@@ -48,7 +48,7 @@ TABLESAMPLE BERNOULLI(100 PERCENT)
 WHERE FALSE
 --
 ARRAY<STRUCT<INT64>>[{0}]
-===
+==
 
 [name=reservoir_filtered]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
@@ -56,14 +56,14 @@ TABLESAMPLE RESERVOIR(100 ROWS)
 WHERE FALSE
 --
 ARRAY<STRUCT<INT64>>[{0}]
-===
+==
 
 [name=bernoulli_likely]
 SELECT COUNT(*) > 0 FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(95.5 PERCENT)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
-===
+==
 
 [name=error_bernoulli_sample_size_null]
 [parameters=NULL as P]
@@ -71,7 +71,7 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(@P PERCENT)
 --
 ERROR: generic::out_of_range: SampleScan requires non-null size
-===
+==
 
 [name=error_bernoulli_sample_size_negative]
 [parameters=-10 as P]
@@ -79,7 +79,7 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(@P PERCENT)
 --
 ERROR: generic::out_of_range: PERCENT value must be in the range [0, 100]
-===
+==
 
 [name=error_bernoulli_sample_size_above_100]
 [parameters=100.1 as P]
@@ -87,7 +87,7 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE BERNOULLI(@P PERCENT)
 --
 ERROR: generic::out_of_range: PERCENT value must be in the range [0, 100]
-===
+==
 
 [name=error_reservoir_sample_size_null]
 [parameters=NULL as P]
@@ -95,7 +95,7 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(@P ROWS)
 --
 ERROR: generic::out_of_range: SampleScan requires non-null size
-===
+==
 
 [name=error_reservoir_sample_size_negative]
 [parameters=-10 as P]
@@ -103,7 +103,7 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(@P ROWS)
 --
 ERROR: generic::out_of_range: SampleScan requires non-negative size
-===
+==
 
 [name=error_repeatable_null]
 [parameters=NULL as P]
@@ -111,7 +111,7 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(5 ROWS) REPEATABLE(@P)
 --
 ERROR: generic::out_of_range: REPEATABLE must not be null
-===
+==
 
 [name=error_repeatable_negative]
 [parameters=-10 as P]
@@ -119,4 +119,250 @@ SELECT * FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
 TABLESAMPLE RESERVOIR(5 ROWS) REPEATABLE(@P)
 --
 ERROR: generic::out_of_range: REPEATABLE must not be negative
-===
+==
+
+[name=bernoulli_100_with_weight]
+SELECT *
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 10)))
+   TABLESAMPLE BERNOULLI(100 PERCENT) WITH WEIGHT
+--
+ARRAY<STRUCT<INT64, weight DOUBLE>>[
+  {2, 1},
+  {4, 1},
+  {6, 1},
+  {8, 1},
+  {10, 1},
+  {1, 1},
+  {3, 1},
+  {5, 1},
+  {7, 1},
+  {9, 1}
+]
+==
+
+# Each row represents 20 rows of the input.
+[name=bernoulli_distinct_weights_noalias]
+SELECT DISTINCT weight
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE BERNOULLI(5 PERCENT) WITH WEIGHT
+--
+ARRAY<STRUCT<weight DOUBLE>>[{20}]
+==
+
+# Each row represents 2 rows of the input.
+[name=bernoulli_distinct_weights_alias]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE BERNOULLI(50 PERCENT) WITH WEIGHT AS w
+--
+ARRAY<STRUCT<w DOUBLE>>[{2}]
+==
+
+# Each row represents 1 row of the input.
+[name=bernoulli_distinct_weights_full_input]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE BERNOULLI(100 PERCENT) WITH WEIGHT AS w
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}]
+==
+
+# Each row represents just a tiny bit more than 3 rows of the input.
+[name=bernoulli_distinct_fractional_weight]
+SELECT DISTINCT TRUNC(w, 6)
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE BERNOULLI(33.3333 PERCENT) WITH WEIGHT w
+--
+ARRAY<STRUCT<DOUBLE>>[{3.000003}]
+==
+
+[name=bernoulli_0_with_weight]
+SELECT *
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 10)))
+   TABLESAMPLE BERNOULLI(0 PERCENT) WITH WEIGHT
+--
+ARRAY<STRUCT<INT64, weight DOUBLE>>[]
+==
+
+# Each row represents 20 rows of the input.
+[name=reservoir_distinct_weights_noalias]
+SELECT DISTINCT weight
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE RESERVOIR(50 ROWS) WITH WEIGHT
+--
+ARRAY<STRUCT<weight DOUBLE>>[{20}]
+==
+
+# Each row represents 2 rows of the input.
+[name=reservoir_distinct_weights_alias]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE RESERVOIR(500 ROWS) WITH WEIGHT AS w
+--
+ARRAY<STRUCT<w DOUBLE>>[{2}]
+==
+
+# Each row represents 1 row of the input.
+[name=reservoir_distinct_weights_full_input]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE RESERVOIR(1000 ROWS) WITH WEIGHT AS w
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}]
+==
+
+# Each row represents 1 row of the input.
+[name=reservoir_distinct_weights_more_than_full_input]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE RESERVOIR(2500 ROWS) WITH WEIGHT AS w
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}]
+==
+
+# Each row represents just a tiny bit more than 3 rows of the input.
+[name=reservoir_distinct_fractional_weight]
+SELECT DISTINCT TRUNC(w, 6)
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)))
+   TABLESAMPLE RESERVOIR(333 ROWS) WITH WEIGHT w
+--
+ARRAY<STRUCT<DOUBLE>>[{3.003003}]
+==
+
+[name=reservoir_0_with_weight]
+SELECT *
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 10)))
+   TABLESAMPLE RESERVOIR(0 ROWS) WITH WEIGHT
+--
+ARRAY<STRUCT<INT64, weight DOUBLE>>[]
+==
+
+[name=stratified_reservoir]
+SELECT COUNT(*)
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(0, 1000)) e)
+   TABLESAMPLE RESERVOIR(1 ROWS
+                         PARTITION BY CASE
+                           WHEN e <= 10 THEN 1
+                           WHEN e <= 100 THEN 2
+                           WHEN e <= 1000 THEN 3
+                           ELSE 4
+                         END);
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+
+# Partitioning, like grouping, treats null as a value.
+[name=stratified_reservoir_partition_by_null]
+[parameters=CAST(NULL AS int64) as p]
+SELECT e
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(0, 4)) e)
+   TABLESAMPLE RESERVOIR(5 ROWS PARTITION BY @p * e)
+ORDER BY e;
+--
+ARRAY<STRUCT<e INT64>>[{0}, {1}, {2}, {3}, {4}]
+==
+
+[name=stratified_reservoir_case]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)) e)
+   TABLESAMPLE RESERVOIR(1 ROWS
+                         PARTITION BY CASE
+                           WHEN e < 10 THEN 1  -- each row represents 9 rows
+                           WHEN e < 100 THEN 2 -- each row represents 90 rows
+                           WHEN e < 105 THEN 3 -- each row represents 5 rows
+                           WHEN e < 11 THEN 4  -- this partition is empty
+                           WHEN e < 106 THEN 5 -- each row represents 1 rows
+                           ELSE 6              -- each row represents 895 rows
+                         END) WITH WEIGHT w;
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}, {5}, {9}, {90}, {895}]
+==
+
+[name=stratified_reservoir_parameter]
+[parameters=[10, 100, 105, 11, 106, 6] as p_arr]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)) e)
+   TABLESAMPLE RESERVOIR(1 ROWS
+                         PARTITION BY (SELECT MIN(offset)
+                                       FROM UNNEST(@p_arr) AS p WITH OFFSET
+                                       WHERE e < p)) WITH WEIGHT w;
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}, {5}, {9}, {90}, {895}]
+==
+
+[name=stratified_reservoir_correlated_ref]
+[parameters=[3] as p_arr]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 9)) e)
+   TABLESAMPLE RESERVOIR(3 ROWS PARTITION BY e <= 3) WITH WEIGHT w;
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}, {2}]
+==
+
+[name=stratified_reservoir_with_empty_groups]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 1000)) e)
+   TABLESAMPLE RESERVOIR(0 ROWS
+                         PARTITION BY CASE
+                           WHEN e < 10 THEN 1  -- each row represents no rows
+                           ELSE 2              -- each row represents no rows
+                         END) WITH WEIGHT w;
+--
+ARRAY<STRUCT<w DOUBLE>>[]
+==
+
+[name=stratified_reservoir_with_large_groups]
+SELECT DISTINCT w
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(0, 1000)) e)
+   TABLESAMPLE RESERVOIR(1000 ROWS
+                         PARTITION BY CASE
+                           WHEN e <= 10 THEN 1  -- each row represents 1 rows
+                           ELSE 2               -- each row represents 1 rows
+                         END) WITH WEIGHT w;
+--
+ARRAY<STRUCT<w DOUBLE>>[{1}]
+
+==
+
+[name=stratified_reservoir_fractional weights]
+SELECT w, COUNT(*)
+FROM
+   (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 23)) e)
+   TABLESAMPLE RESERVOIR(3 ROWS
+                         PARTITION BY CASE
+                           WHEN e < 2 THEN 1   -- each row represents 1 rows
+                           WHEN e < 6 THEN 2   -- each row represents 4/3 rows
+                           WHEN e < 11 THEN 3  -- each row represents 5/3 rows
+                           WHEN e < 17 THEN 4  -- each row represents 2 rows
+                           ELSE 5              -- each row represents 7/3 rows
+                         END) WITH WEIGHT w
+GROUP BY w;
+--
+ARRAY<STRUCT<w DOUBLE, INT64>>[
+  {1, 1},
+  {1.3333333333333333, 3},
+  {1.6666666666666667, 3},
+  {2, 3},
+  {2.3333333333333335, 3}
+]
+==
+

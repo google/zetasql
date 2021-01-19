@@ -593,6 +593,7 @@ system_time { return BisonParserImpl::token::KW_SYSTEM_TIME; }
 table { return BisonParserImpl::token::KW_TABLE; }
 tablesample { return BisonParserImpl::token::KW_TABLESAMPLE; }
 pivot { return BisonParserImpl::token::KW_PIVOT; }
+unpivot { return BisonParserImpl::token::KW_UNPIVOT; }
 target { return BisonParserImpl::token::KW_TARGET; }
 temp { return BisonParserImpl::token::KW_TEMP; }
 temporary { return BisonParserImpl::token::KW_TEMPORARY; }

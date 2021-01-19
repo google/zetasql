@@ -625,7 +625,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 169.
+          Next tag_id: 171.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1550,7 +1550,18 @@ def main(argv):
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True,
               comment="""
-              The format string specified by the FORMAT clause.
+              The format string specified by the optional FORMAT clause. It is
+              nullptr when the clause does not exist.
+                      """),
+          Field(
+              'time_zone',
+              'ResolvedExpr',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              The time zone expression by the optional AT TIME ZONE clause. It
+              is nullptr when the clause does not exist.
                       """)
       ])
 
@@ -4437,6 +4448,12 @@ right.
       <query_parameter_list> is set for nested INSERTs where <query> is set and
       references non-target values (columns or field values) from the table. It
       is only set when FEATURE_V_1_2_CORRELATED_REFS_IN_NESTED_DML is enabled.
+
+      If <returning> is present, the INSERT statement will return newly inserted
+      rows. <returning> can only occur on top-level statements.
+
+      The returning clause has a <output_column_list> to represent the data
+      sent back to clients. It can only acccess columns from the <table_scan>.
               """,
       fields=[
           Field(
@@ -4457,6 +4474,11 @@ right.
               'assert_rows_modified',
               'ResolvedAssertRowsModified',
               tag_id=4,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'returning',
+              'ResolvedReturningClause',
+              tag_id=10,
               ignorable=IGNORABLE_DEFAULT),
           Field(
               'insert_column_list',
@@ -4513,6 +4535,12 @@ right.
             offset of the array element being modified.
 
       <where_expr> is required.
+
+      If <returning> is present, the DELETE statement will return deleted rows
+      back. It can only occur on top-level statements.
+
+      This returning clause has a <output_column_list> to represent the data
+      sent back to clients. It can only acccess columns from the <table_scan>.
               """,
       fields=[
           Field(
@@ -4524,6 +4552,11 @@ right.
               'assert_rows_modified',
               'ResolvedAssertRowsModified',
               tag_id=3,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'returning',
+              'ResolvedReturningClause',
+              tag_id=6,
               ignorable=IGNORABLE_DEFAULT),
           Field(
               'array_offset_column',
@@ -4800,6 +4833,14 @@ right.
       they will be combined into one ResolvedUpdateItem.
 
       See (broken link) for more detail on nested DML.
+
+      If <returning> is present, the UPDATE statement will return updated rows.
+      <returning> can only occur on top-level statements.
+
+      This returning clause has a <output_column_list> to represent the data
+      sent back to clients. It can only access columns from the <table_scan>.
+      The columns in <from_scan> are not allowed.
+      TODO: allow columns in <from_scan> to be referenced.
               """,
       fields=[
           Field(
@@ -4819,6 +4860,11 @@ right.
               'assert_rows_modified',
               'ResolvedAssertRowsModified',
               tag_id=3,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'returning',
+              'ResolvedReturningClause',
+              tag_id=9,
               ignorable=IGNORABLE_DEFAULT),
           Field(
               'array_offset_column',
@@ -5195,6 +5241,23 @@ right.
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name', SCALAR_STRING, tag_id=3),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterColumnOptionsAction',
+      tag_id=169,
+      parent='ResolvedAlterAction',
+      comment="""
+      ALTER COLUMN SET OPTIONS action for ALTER TABLE statement
+              """,
+      fields=[
+          Field('column', SCALAR_STRING, tag_id=2),
+          Field('option_list', 'ResolvedOption', tag_id=3, vector=True),
+          Field(
+              'column_reference',
+              'ResolvedColumnRef',
+              tag_id=4,
+              ignorable=IGNORABLE),
       ])
 
   gen.AddNode(
@@ -6532,6 +6595,49 @@ ResolvedArgumentRef(y)
               Each is computed using one of pivot_expr_list and one of
               pivot_value_list.
               """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedReturningClause',
+      tag_id=170,
+      parent='ResolvedArgument',
+      comment="""
+              Represents the returning clause on a DML statement.
+              """,
+      fields=[
+          Field(
+              'output_column_list',
+              'ResolvedOutputColumn',
+              tag_id=2,
+              vector=True,
+              comment="""
+              Specifies the columns in the returned output row with column
+              names. It can reference columns from the target table scan
+              <table_scan> from INSERT/DELETE/UPDATE statements. Also this list
+              can have columns computed in the <expr_list> or an <action_column>
+              as the last column.
+                      """),
+          Field(
+              'action_column',
+              'ResolvedColumnHolder',
+              tag_id=3,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+              Represents the WITH ACTION column in <output_column_list> as a
+              string type column. There are four valid values for this action
+              column: "INSERT", "REPLACE", "UPDATE", and "DELETE".
+                      """),
+          Field(
+              'expr_list',
+              'ResolvedComputedColumn',
+              tag_id=4,
+              vector=True,
+              ignorable=NOT_IGNORABLE,
+              comment="""
+              Represents the computed expressions so they can be referenced in
+              <output_column_list>. Worth noting, it can't see <action_column>
+              and can only access columns from the DML statement target table.
+                      """)
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

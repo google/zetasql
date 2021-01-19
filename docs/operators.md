@@ -20,284 +20,300 @@ lowest precedence, i.e. the order in which they will be evaluated within a
 statement.
 
 <table>
-<thead>
-<tr>
-<th>Order of Precedence</th>
-<th>Operator</th>
-<th>Input Data Types</th>
-<th>Name</th>
-<th>Operator Arity</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>.</td>
-<td><span> PROTO<span><br><span> STRUCT<span><br></td>
-<td>Member field access operator</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[ ]</td>
-<td>ARRAY</td>
-<td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+  <thead>
+    <tr>
+      <th>Order of Precedence</th>
+      <th>Operator</th>
+      <th>Input Data Types</th>
+      <th>Name</th>
+      <th>Operator Arity</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>.</td>
+      <td><span> PROTO</span><br><span> STRUCT</span><br></td>
+      <td>Member field access operator</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[ ]</td>
+      <td>ARRAY</td>
+      <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/array_functions#array_functions">
 
 Array Functions
 </a>
 .</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>2</td>
-<td>-</td>
-<td>All numeric types</td>
-<td>Unary minus</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>~</td>
-<td>Integer or BYTES</td>
-<td>Bitwise not</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>3</td>
-<td>*</td>
-<td>All numeric types</td>
-<td>Multiplication</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>/</td>
-<td>All numeric types</td>
-<td>Division</td>
-<td>Binary</td>
-</tr>
-
-<tr>
-<td>&nbsp;</td>
-<td>||</td>
-<td>STRING, BYTES, or ARRAY&#60;T&#62;</td>
-<td>Concatenation operator</td>
-<td>Binary</td>
-</tr>
-
-<tr>
-<td>4</td>
-<td>+</td>
-<td>All numeric types<br>DATE and INT64</td>
-<td>Addition</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>-</td>
-<td>All numeric types<br>DATE and INT64</td>
-<td>Subtraction</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>5</td>
-<td>&lt;&lt;</td>
-<td>Integer or BYTES</td>
-<td>Bitwise left-shift</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&gt;&gt;</td>
-<td>Integer or BYTES</td>
-<td>Bitwise right-shift</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>6</td>
-<td>&amp;</td>
-<td>Integer or BYTES</td>
-<td>Bitwise and</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>7</td>
-<td>^</td>
-<td>Integer or BYTES</td>
-<td>Bitwise xor</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>8</td>
-<td>|</td>
-<td>Integer or BYTES</td>
-<td>Bitwise or</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>9 (Comparison Operators)</td>
-<td>=</td>
-<td>Any comparable type. See
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
-
-Data Types
-</a>
-
-for a complete list.</td>
-<td>Equal</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&lt;</td>
-<td>Any comparable type. See
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>+</td>
+      <td>All numeric types</td>
+      <td>Unary plus</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-</td>
+      <td>All numeric types</td>
+      <td>Unary minus</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>~</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise not</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>*</td>
+      <td>All numeric types</td>
+      <td>Multiplication</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>/</td>
+      <td>All numeric types</td>
+      <td>Division</td>
+      <td>Binary</td>
+    </tr>
+    
+    <tr>
+      <td>&nbsp;</td>
+      <td>||</td>
+      <td>STRING, BYTES, or ARRAY&#60;T&#62;</td>
+      <td>Concatenation operator</td>
+      <td>Binary</td>
+    </tr>
+    
+    <tr>
+      <td>4</td>
+      <td>+</td>
+      <td>All numeric types<br>DATE and INT64</td>
+      <td>Addition</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>-</td>
+      <td>All numeric types<br>DATE and INT64</td>
+      <td>Subtraction</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>&lt;&lt;</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise left-shift</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&gt;&gt;</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise right-shift</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>&amp;</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise and</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>^</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise xor</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>|</td>
+      <td>Integer or BYTES</td>
+      <td>Bitwise or</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>9 (Comparison Operators)</td>
+      <td>=</td>
+      <td>Any comparable type. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Less than</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&gt;</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Equal</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&lt;</td>
+      <td>Any comparable type. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Greater than</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&lt;=</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Less than</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&gt;</td>
+      <td>Any comparable type. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Less than or equal to</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>&gt;=</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Greater than</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&lt;=</td>
+      <td>Any comparable type. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Greater than or equal to</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>!=, &lt;&gt;</td>
-<td>Any comparable type. See
+      for a complete list.</td>
+      <td>Less than or equal to</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>&gt;=</td>
+      <td>Any comparable type. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Not equal</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[NOT] LIKE</td>
-<td>STRING and byte</td>
-<td>Value does [not] match the pattern specified</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[NOT] BETWEEN</td>
-<td>Any comparable types. See
+      for a complete list.</td>
+      <td>Greater than or equal to</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>!=, &lt;&gt;</td>
+      <td>Any comparable type. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Value is [not] within the range specified</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>[NOT] IN</td>
-<td>Any comparable types. See
+      for a complete list.</td>
+      <td>Not equal</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[NOT] LIKE</td>
+      <td>STRING and byte</td>
+      <td>Value does [not] match the pattern specified</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[NOT] BETWEEN</td>
+      <td>Any comparable types. See
+      
 
 <a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
 
 Data Types
 </a>
 
-for a complete list.</td>
-<td>Value is [not] in the set of values specified</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>IS [NOT] <code>NULL</code></td>
-<td>All</td>
-<td>Value is [not] <code>NULL</code></td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>IS [NOT] TRUE</td>
-<td>BOOL</td>
-<td>Value is [not] TRUE.</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>&nbsp;</td>
-<td>IS [NOT] FALSE</td>
-<td>BOOL</td>
-<td>Value is [not] FALSE.</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>10</td>
-<td>NOT</td>
-<td>BOOL</td>
-<td>Logical NOT</td>
-<td>Unary</td>
-</tr>
-<tr>
-<td>11</td>
-<td>AND</td>
-<td>BOOL</td>
-<td>Logical AND</td>
-<td>Binary</td>
-</tr>
-<tr>
-<td>12</td>
-<td>OR</td>
-<td>BOOL</td>
-<td>Logical OR</td>
-<td>Binary</td>
-</tr>
-</tbody>
+      for a complete list.</td>
+      <td>Value is [not] within the range specified</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>[NOT] IN</td>
+      <td>Any comparable types. See
+      
+
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+
+Data Types
+</a>
+
+      for a complete list.</td>
+      <td>Value is [not] in the set of values specified</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>IS [NOT] <code>NULL</code></td>
+      <td>All</td>
+      <td>Value is [not] <code>NULL</code></td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>IS [NOT] TRUE</td>
+      <td>BOOL</td>
+      <td>Value is [not] TRUE.</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>IS [NOT] FALSE</td>
+      <td>BOOL</td>
+      <td>Value is [not] FALSE.</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>NOT</td>
+      <td>BOOL</td>
+      <td>Logical NOT</td>
+      <td>Unary</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>AND</td>
+      <td>BOOL</td>
+      <td>Logical AND</td>
+      <td>Binary</td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>OR</td>
+      <td>BOOL</td>
+      <td>Logical OR</td>
+      <td>Binary</td>
+    </tr>
+  </tbody>
 </table>
 
 Operators with the same precedence are left associative. This means that those
@@ -372,34 +388,38 @@ All arithmetic operators accept input of numeric type T, and the result type
 has type T unless otherwise indicated in the description below:
 
 <table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Syntax</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Addition</td>
-<td>X + Y</td>
-</tr>
-<tr>
-<td>Subtraction</td>
-<td>X - Y</td>
-</tr>
-<tr>
-<td>Multiplication</td>
-<td>X * Y</td>
-</tr>
-<tr>
-<td>Division</td>
-<td>X / Y</td>
-</tr>
-<tr>
-<td>Unary Minus</td>
-<td>- X</td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+    <th>Name</th>
+    <th>Syntax</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Addition</td>
+      <td>X + Y</td>
+    </tr>
+    <tr>
+      <td>Subtraction</td>
+      <td>X - Y</td>
+    </tr>
+    <tr>
+      <td>Multiplication</td>
+      <td>X * Y</td>
+    </tr>
+    <tr>
+      <td>Division</td>
+      <td>X / Y</td>
+    </tr>
+    <tr>
+      <td>Unary Plus</td>
+      <td>+ X</td>
+    </tr>
+    <tr>
+      <td>Unary Minus</td>
+      <td>- X</td>
+    </tr>
+  </tbody>
 </table>
 
 NOTE: Divide by zero operations return an error. To return a different result,
@@ -471,7 +491,7 @@ Result types for Division:
 
 </table>
 
-Result types for Unary Minus:
+Result types for Unary Plus and Unary Minus:
 
 <table>
 

@@ -23,7 +23,6 @@ package(
 cc_library(
     name = "flatten_rewriter",
     srcs = ["flatten_rewriter.cc"],
-    hdrs = ["flatten_rewriter.h"],
     copts = [
         "-Wno-char-subscripts",
         "-Wno-return-type",
@@ -34,8 +33,10 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":registration",
         "//zetasql/parser",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:function",
         "//zetasql/public/types",
@@ -44,6 +45,7 @@ cc_library(
         "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/status",
     ],
+    alwayslink = 1,
 )
 
 cc_library(

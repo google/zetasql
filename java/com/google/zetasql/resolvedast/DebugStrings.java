@@ -368,6 +368,9 @@ class DebugStrings {
    if (node.getFormat() != null) {
      fields.add(new DebugStringField("format", node.getFormat()));
    }
+   if (node.getTimeZone() != null) {
+      fields.add(new DebugStringField("time_zone", node.getTimeZone()));
+   }
   }
 
   static String getNameForDebugString(ResolvedCast node) {

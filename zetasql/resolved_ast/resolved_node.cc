@@ -58,15 +58,22 @@ void ResolvedNode::ClearParseLocationRange() { parse_location_range_.reset(); }
 
 std::string ResolvedNode::DebugString() const {
   std::string output;
-  DebugStringImpl("" /* prefix1 */, "" /* prefix2 */, &output);
+  DebugStringImpl(this, "" /* prefix1 */, "" /* prefix2 */, &output);
   return output;
 }
 
-void ResolvedNode::DebugStringImpl(const std::string& prefix1,
-                                   const std::string& prefix2,
-                                   std::string* output) const {
+void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
+                            const std::string& prefix1,
+                            const std::string& prefix2,
+                            std::string* output) {
   std::vector<DebugStringField> fields;
-  CollectDebugStringFields(&fields);
+
+  // Trees containing nullptr AST nodes are not valid; however we still want
+  // them to display a debug string indicating where the null node is in the
+  // tree, as this makes debugging easier.
+  if (node != nullptr) {
+    node->CollectDebugStringFields(&fields);
+  }
 
   // Use multiline DebugString format if any of the fields are ResolvedNodes.
   bool multiline = false;
@@ -77,7 +84,11 @@ void ResolvedNode::DebugStringImpl(const std::string& prefix1,
     }
   }
 
-  absl::StrAppend(output, prefix2, GetNameForDebugString());
+  if (node != nullptr) {
+    absl::StrAppend(output, prefix2, node->GetNameForDebugString());
+  } else {
+    absl::StrAppend(output, prefix2, "<nullptr AST node>");
+  }
   if (fields.empty()) {
     *output += "\n";
   } else if (multiline) {
@@ -98,13 +109,12 @@ void ResolvedNode::DebugStringImpl(const std::string& prefix1,
 
       if (!print_one_line) {
         for (const ResolvedNode* node : field.nodes) {
-          ZETASQL_DCHECK(node != nullptr);
           const std::string field_name_indent =
               print_field_name ? (&field != &fields.back() ? "| " : "  ") : "";
           const std::string field_value_indent =
               (node != field.nodes.back() ? "| " : "  ");
 
-          node->DebugStringImpl(
+          DebugStringImpl(node,
               absl::StrCat(prefix1, field_name_indent, field_value_indent),
               absl::StrCat(prefix1, field_name_indent, "+-"), output);
         }
@@ -395,6 +405,9 @@ void ResolvedCast::CollectDebugStringFields(
   }
   if (format_ != nullptr) {
     fields->emplace_back("format", format_.get());
+  }
+  if (time_zone_ != nullptr) {
+    fields->emplace_back("time_zone", time_zone_.get());
   }
 }
 

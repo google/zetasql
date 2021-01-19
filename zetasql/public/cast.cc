@@ -482,20 +482,40 @@ class CastContext {
   const LanguageOptions& language_options_;
 };
 
-static absl::Status StringToBytes(const std::string& input,
-                                  const std::string& format,
-                                  std::string* output) {
-  absl::Status status;
-  functions::StringToBytes(input, format, output, &status);
-  return status;
+// Validates the format string used by cast from string to timestamp.
+// Note that this is a fake implementation for now. The only format it
+// recoginzes is "YYYY".
+// TODO: replace it with the real implementation.
+static absl::Status ValidateFormatStringToTimestamp(absl::string_view format) {
+  if (!zetasql_base::CaseEqual(format, "yyyy")) {
+    return MakeSqlError() << "Invalid format '" << format << "'";
+  }
+
+  return absl::OkStatus();
 }
 
-static absl::Status BytesToString(const std::string& input,
-                                  const std::string& format,
-                                  std::string* output) {
-  absl::Status status;
-  functions::BytesToString(input, format, output, &status);
-  return status;
+// Converts a string to a timestamp using the format string.
+// Note that this is not implemented yet.
+// TODO: replace it with the real implementation.
+static absl::Status ConvertStringToTimestampWithFormat(absl::string_view str,
+                                                       absl::string_view format,
+                                                       absl::TimeZone timezone,
+                                                       absl::Time* output) {
+  return MakeSqlError()
+         << "ConvertStringToTimestampWithFormat not implemented. Timezone is "
+         << timezone.name();
+}
+
+// Converts a string to a timestamp using the format string.
+// Note that this is not implemented yet.
+// TODO: replace it with the real implementation.
+static absl::Status ConvertStringToTimestampWithFormat(absl::string_view str,
+                                                       absl::string_view format,
+                                                       absl::TimeZone timezone,
+                                                       int64_t* output) {
+  return MakeSqlError()
+         << "ConvertStringToTimestampWithFormat not implemented. Timezone is "
+         << timezone.name();
 }
 
 zetasql_base::StatusOr<Value> CastContext::CastValue(
@@ -685,15 +705,28 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       // an error should be provided.
       if (language_options().LanguageFeatureEnabled(FEATURE_TIMESTAMP_NANOS)) {
         absl::Time timestamp;
-        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-            v.string_value(), default_timezone(), functions::kNanoseconds,
-            true /* allow_tz_in_str */, &timestamp));
+
+        if (format.has_value()) {
+          ZETASQL_RETURN_IF_ERROR(ConvertStringToTimestampWithFormat(
+              v.string_value(), format.value(), default_timezone(),
+              &timestamp));
+        } else {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
+              v.string_value(), default_timezone(), functions::kNanoseconds,
+              /*allow_tz_in_str=*/true, &timestamp));
+        }
         return Value::Timestamp(timestamp);
       } else {
         int64_t timestamp;
-        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
-            v.string_value(), default_timezone(), functions::kMicroseconds,
-            &timestamp));
+        if (format.has_value()) {
+          ZETASQL_RETURN_IF_ERROR(ConvertStringToTimestampWithFormat(
+              v.string_value(), format.value(), default_timezone(),
+              &timestamp));
+        } else {
+          ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
+              v.string_value(), default_timezone(), functions::kMicroseconds,
+              &timestamp));
+        }
         return Value::TimestampFromUnixMicros(timestamp);
       }
     }
@@ -745,8 +778,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_STRING, TYPE_BYTES):
       if (format.has_value()) {
         std::string output;
-        ZETASQL_RETURN_IF_ERROR(
-            StringToBytes(v.string_value(), format.value(), &output));
+        ZETASQL_RETURN_IF_ERROR(functions::StringToBytes(v.string_value(),
+                                                 format.value(), &output));
         return Value::Bytes(output);
       }
 
@@ -794,7 +827,7 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       if (format.has_value()) {
         std::string output;
         ZETASQL_RETURN_IF_ERROR(
-            BytesToString(v.bytes_value(), format.value(), &output));
+            functions::BytesToString(v.bytes_value(), format.value(), &output));
         return Value::String(output);
       }
 
@@ -1135,8 +1168,14 @@ zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
     const absl::optional<std::string>& format,
+    const absl::optional<std::string>& explicit_time_zone,
     const ExtendedCompositeCastEvaluator* extended_cast_evaluator) {
-  return CastContextWithoutValidation(default_timezone, language_options,
+  absl::TimeZone timezone = default_timezone;
+  if (explicit_time_zone.has_value()) {
+    ZETASQL_RETURN_IF_ERROR(
+        functions::MakeTimeZone(explicit_time_zone.value(), &timezone));
+  }
+  return CastContextWithoutValidation(timezone, language_options,
                                       extended_cast_evaluator)
       .CastValue(from_value, to_type, format);
 }
@@ -1154,6 +1193,9 @@ const CastFormatMap& GetCastFormatMap() {
         {{TYPE_STRING, TYPE_BYTES}, functions::ValidateFormat});
     map->insert(
         {{TYPE_BYTES, TYPE_STRING}, functions::ValidateFormat});
+
+    map->insert(
+        {{TYPE_STRING, TYPE_TIMESTAMP}, ValidateFormatStringToTimestamp});
     cast_format_map = map;
   }
   return *cast_format_map;

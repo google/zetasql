@@ -34,27 +34,20 @@ class JsonFunction : public SimpleBuiltinScalarFunction {
  public:
   JsonFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {
-    ZETASQL_DCHECK(output_type == types::JsonType() ||
-           output_type == types::StringType());
+    ZETASQL_DCHECK(output_type->Equals(types::JsonType()) ||
+           output_type->Equals(types::StringType()));
   }
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
-class JsonExtractArrayFunction : public SimpleBuiltinScalarFunction {
+class JsonArrayFunction : public SimpleBuiltinScalarFunction {
  public:
-  explicit JsonExtractArrayFunction()
-      : SimpleBuiltinScalarFunction(FunctionKind::kJsonExtractArray,
-                                    types::StringArrayType()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class JsonExtractStringArrayFunction : public SimpleBuiltinScalarFunction {
- public:
-  explicit JsonExtractStringArrayFunction()
-      : SimpleBuiltinScalarFunction(FunctionKind::kJsonExtractStringArray,
-                                    types::StringArrayType()) {}
+  JsonArrayFunction(FunctionKind kind, const Type* output_type)
+      : SimpleBuiltinScalarFunction(kind, output_type) {
+    ZETASQL_DCHECK(output_type->Equals(types::JsonArrayType()) ||
+           output_type->Equals(types::StringArrayType()));
+  }
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
@@ -196,64 +189,139 @@ zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
   }
 }
 
-zetasql_base::StatusOr<Value> JsonExtractArrayFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
-  ZETASQL_DCHECK_GE(args.size(), 1);
-  ZETASQL_DCHECK_LE(args.size(), 2);
-  if (HasNulls(args)) {
-    return Value::Null(types::StringArrayType());
-  }
-  std::string json_path = args.size() == 2 ? args[1].string_value() : "$";
+// Helper function for the string version of JSON_VALUE_ARRAY and
+// JSON_EXTRACT_STRING_ARRAY.
+zetasql_base::StatusOr<Value> JsonExtractStringArrayString(
+    const functions::JsonPathEvaluator& evaluator, absl::string_view json) {
+  std::vector<absl::optional<std::string>> output;
+  bool is_null;
 
-  // sql_standard_mode is set to false for all JSON_EXTRACT functions to keep
-  // the JSONPath syntax the same.
-  ZETASQL_ASSIGN_OR_RETURN(
-      const std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-      functions::JsonPathEvaluator::Create(json_path,
-                                           /*sql_standard_mode=*/false));
-  evaluator->enable_special_character_escaping();
-  std::vector<std::string> output;
-  bool is_null = false;
-  ZETASQL_RETURN_IF_ERROR(
-      evaluator->ExtractArray(args[0].string_value(), &output, &is_null));
-  if (is_null) {
-    return Value::Null(types::StringArrayType());
+  ZETASQL_RETURN_IF_ERROR(evaluator.ExtractStringArray(json, &output, &is_null));
+  if (!is_null) {
+    std::vector<Value> result_array;
+    result_array.reserve(output.size());
+    for (auto& element : output) {
+      result_array.push_back(element.has_value()
+                                 ? values::String(std::move(*element))
+                                 : values::NullString());
+    }
+    // To avoid a copy, we use the unsafe version. However this is actually
+    // safe, because each element of the array is the same type (String).
+    return values::UnsafeArray(types::StringArrayType(),
+                               std::move(result_array));
   }
-  return values::StringArray(output);
+  return Value::Null(types::StringArrayType());
 }
 
-zetasql_base::StatusOr<Value> JsonExtractStringArrayFunction::Eval(
+// Helper function for the string version of JSON_QUERY_ARRAY and
+// JSON_EXTRACT_ARRAY.
+zetasql_base::StatusOr<Value> JsonExtractArrayString(
+    const functions::JsonPathEvaluator& evaluator, absl::string_view json) {
+  std::vector<std::string> output;
+  bool is_null;
+
+  ZETASQL_RETURN_IF_ERROR(evaluator.ExtractArray(json, &output, &is_null));
+  if (!is_null) {
+    return values::StringArray(output);
+  }
+  return Value::Null(types::StringArrayType());
+}
+
+// Helper function for the JSON version of JSON_VALUE_ARRAY and
+// JSON_EXTRACT_STRING_ARRAY.
+zetasql_base::StatusOr<Value> JsonExtractStringArrayJson(
+    const functions::JsonPathEvaluator& evaluator, const Value& json,
+    JSONParsingOptions parsing_options) {
+  absl::optional<std::vector<absl::optional<std::string>>> output;
+  if (json.is_validated_json()) {
+    output = evaluator.ExtractStringArray(json.json_value());
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
+                     JSONValue::ParseJSONString(json.json_value_unparsed(),
+                                                parsing_options));
+    output = evaluator.ExtractStringArray(input_json.GetConstRef());
+  }
+  if (output.has_value()) {
+    std::vector<Value> result_array;
+    result_array.reserve(output->size());
+    for (auto& element : *output) {
+      result_array.push_back(element.has_value()
+                                 ? values::String(std::move(*element))
+                                 : values::NullString());
+    }
+    // To avoid a copy, we use the unsafe version. However this is actually
+    // safe, because each element of the array is the same type (String).
+    return values::UnsafeArray(types::StringArrayType(),
+                               std::move(result_array));
+  }
+  return Value::Null(types::StringArrayType());
+}
+
+// Helper function for the JSON version of JSON_QUERY_ARRAY and
+// JSON_EXTRACT_ARRAY.
+zetasql_base::StatusOr<Value> JsonExtractArrayJson(
+    const functions::JsonPathEvaluator& evaluator, const Value& json,
+    JSONParsingOptions parsing_options) {
+  absl::optional<std::vector<JSONValueConstRef>> output;
+  if (json.is_validated_json()) {
+    output = evaluator.ExtractArray(json.json_value());
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
+                     JSONValue::ParseJSONString(json.json_value_unparsed(),
+                                                parsing_options));
+    output = evaluator.ExtractArray(input_json.GetConstRef());
+  }
+  if (output.has_value()) {
+    std::vector<Value> json_value_array;
+    json_value_array.reserve(output->size());
+    for (const auto& json_element : *output) {
+      json_value_array.push_back(
+          Value::Json(JSONValue::CopyFrom(json_element)));
+    }
+    // To avoid a copy, we use the unsafe version. However this is actually
+    // safe, because each element of the array is the same type (Json).
+    return Value::UnsafeArray(types::JsonArrayType(),
+                              std::move(json_value_array));
+  }
+  return Value::Null(types::JsonArrayType());
+}
+
+zetasql_base::StatusOr<Value> JsonArrayFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_DCHECK_GE(args.size(), 1);
   ZETASQL_DCHECK_LE(args.size(), 2);
   if (HasNulls(args)) {
-    return Value::Null(types::StringArrayType());
+    return Value::Null(output_type());
   }
+  // Note that since the second argument, json_path, is always a constant, it
+  // would be better performance-wise just to create the JsonPathEvaluator once.
+  bool sql_standard_mode = (kind() == FunctionKind::kJsonQueryArray ||
+                            kind() == FunctionKind::kJsonValueArray);
+
   std::string json_path = args.size() == 2 ? args[1].string_value() : "$";
 
-  // sql_standard_mode is set to false for all JSON_EXTRACT functions to keep
-  // the JSONPath syntax the same.
   ZETASQL_ASSIGN_OR_RETURN(
-      const std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-      functions::JsonPathEvaluator::Create(json_path,
-                                           /*sql_standard_mode=*/false));
-  std::vector<absl::optional<std::string>> output;
-  bool is_null = false;
-  ZETASQL_RETURN_IF_ERROR(
-      evaluator->ExtractStringArray(args[0].string_value(), &output, &is_null));
-  if (is_null) {
-    return Value::Null(types::StringArrayType());
-  }
+      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+      functions::JsonPathEvaluator::Create(json_path, sql_standard_mode));
+  evaluator->enable_special_character_escaping();
+  bool scalar = kind() == FunctionKind::kJsonValueArray ||
+                kind() == FunctionKind::kJsonExtractStringArray;
+  if (args[0].type_kind() == TYPE_STRING) {
+    return scalar ? JsonExtractStringArrayString(*evaluator,
+                                                 args[0].string_value())
+                  : JsonExtractArrayString(*evaluator, args[0].string_value());
+  } else {
+    const auto& language_options = context->GetLanguageOptions();
+    JSONParsingOptions parsing_options{
+        .legacy_mode =
+            language_options.LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+        .strict_number_parsing = language_options.LanguageFeatureEnabled(
+            FEATURE_JSON_STRICT_NUMBER_PARSING)};
 
-  std::vector<Value> result_array;
-  result_array.reserve(output.size());
-  for (const auto& element : output) {
-    result_array.push_back(element.has_value() ? values::String(*element)
-                                               : values::NullString());
+    return scalar ? JsonExtractStringArrayJson(*evaluator, args[0],
+                                               parsing_options)
+                  : JsonExtractArrayJson(*evaluator, args[0], parsing_options);
   }
-  // To avoid a copy, we use the unsafe version. However this is actually safe,
-  // because each element of the array is the same type (String).
-  return values::UnsafeArray(types::StringArrayType(), std::move(result_array));
 }
 
 }  // namespace
@@ -266,9 +334,10 @@ void RegisterBuiltinJsonFunctions() {
         return new JsonFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
-      {FunctionKind::kJsonExtractArray},
+      {FunctionKind::kJsonExtractArray, FunctionKind::kJsonExtractStringArray,
+       FunctionKind::kJsonQueryArray, FunctionKind::kJsonValueArray},
       [](FunctionKind kind, const Type* output_type) {
-        return new JsonExtractArrayFunction();
+        return new JsonArrayFunction(kind, output_type);
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kSubscript},

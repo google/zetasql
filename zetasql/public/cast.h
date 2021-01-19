@@ -157,6 +157,7 @@ zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type,
     const absl::optional<std::string>& format,
+    const absl::optional<std::string>& time_zone,
     const ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
 
 // Returns a hash map with TypeKindPair as key, and CastFunctionProperty as

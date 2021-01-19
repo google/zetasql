@@ -916,8 +916,8 @@ The `STRING` is formatted as follows:
   </tr>
   <tr>
     <td><code>NULL</code> of any type</td>
-    <td><code>NULL</code></td>
-    <td><code>NULL</code></td>
+    <td>NULL</td>
+    <td>NULL</td>
   </tr>
   <tr>
     <td><span> INT32</span><br><span> INT64</span><br><span> UINT32</span><br><span> UINT64</span><br></td>
@@ -2699,13 +2699,13 @@ FROM items;
 ### STRPOS
 
 ```sql
-STRPOS(string, substring)
+STRPOS(value1, value2)
 ```
 
 **Description**
 
-Returns the 1-based index of the first occurrence of `substring` inside
-`string`. Returns `0` if `substring` is not found.
+Takes two `STRING` or `BYTES` values. Returns the 1-based index of the first
+occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 
 **Return type**
 

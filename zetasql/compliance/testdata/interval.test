@@ -1,4 +1,35 @@
 [required_features=INTERVAL_TYPE]
+[prepare_database]
+CREATE TABLE Intervals AS
+SELECT 1 id, CAST(NULL AS INTERVAL) value UNION ALL
+SELECT 2, interval 0 year UNION ALL
+SELECT 3, interval '0.000001' second UNION ALL
+SELECT 4, interval -1 second UNION ALL
+SELECT 5, interval 1 month UNION ALL
+SELECT 6, interval 30 day UNION ALL
+SELECT 7, interval 720 hour UNION ALL
+SELECT 8, interval 10000 year UNION ALL
+SELECT 9, interval '1-2 3 4:5:6.789' year to second UNION ALL
+SELECT 10, interval 2 hour UNION ALL
+SELECT 11, interval '1:59:59.999999' hour to second UNION ALL
+SELECT 12, interval '1:00:00.000001' hour to second
+--
+ARRAY<STRUCT<id INT64, value INTERVAL>>[
+  {1, NULL},
+  {2, 0-0 0 0:0:0},
+  {3, 0-0 0 0:0:0.000001},
+  {4, 0-0 0 -0:0:1},
+  {5, 0-1 0 0:0:0},
+  {6, 0-0 30 0:0:0},
+  {7, 0-0 0 720:0:0},
+  {8, 10000-0 0 0:0:0},
+  {9, 1-2 3 4:5:6.789},
+  {10, 0-0 0 2:0:0},
+  {11, 0-0 0 1:59:59.999999},
+  {12, 0-0 0 1:0:0.000001}
+]
+==
+[required_features=INTERVAL_TYPE]
 [name=literal]
 SELECT INTERVAL '1' YEAR, INTERVAL '-20 30' MONTH TO DAY, INTERVAL '-10000' MINUTE, INTERVAL '10:20:30.456789' HOUR TO SECOND
 --
@@ -36,4 +67,50 @@ ARRAY<STRUCT<INTERVAL, INTERVAL>>[{-2-6 0 0:0:0, NULL}]
 SELECT CAST(NULL AS INTERVAL)
 --
 ARRAY<STRUCT<INTERVAL>>[{NULL}]
+==
+[required_features=INTERVAL_TYPE]
+[name=cmp_scalar]
+SELECT
+  CAST(NULL AS INTERVAL) <= INTERVAL 1 DAY,
+  CAST(NULL AS INTERVAL) = CAST(NULL AS INTERVAL),
+  INTERVAL 1 YEAR > INTERVAL 360 DAY
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, NULL, false}]
+==
+[required_features=INTERVAL_TYPE,V_1_1_ARRAY_EQUALITY]
+[name=cmp_array]
+SELECT
+  [INTERVAL 1 DAY, INTERVAL -2 MINUTE] = [INTERVAL 24 HOUR, INTERVAL -120 SECOND],
+  [INTERVAL -1 DAY, NULL] = [INTERVAL -1 DAY, NULL],
+  [INTERVAL 1 SECOND, INTERVAL 1 HOUR] = [INTERVAL 1 SECOND, INTERVAL -1 HOUR]
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, NULL, false}]
+==
+[required_features=INTERVAL_TYPE]
+[name=cmp_struct]
+SELECT
+  STRUCT(1, INTERVAL '1 2:0:0' DAY TO SECOND) = STRUCT(1, INTERVAL 26 HOUR),
+  STRUCT(1, INTERVAL 1 HOUR) = STRUCT(1, NULL),
+  STRUCT(1, INTERVAL '1 23:59:59.999999' DAY TO SECOND) = STRUCT(1, INTERVAL 2 DAY),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, NULL, false}]
+==
+[required_features=INTERVAL_TYPE]
+[name=orderby]
+SELECT id, value FROM Intervals ORDER BY value DESC, id ASC
+--
+ARRAY<STRUCT<id INT64, value INTERVAL>>[
+  {8, 10000-0 0 0:0:0},
+  {9, 1-2 3 4:5:6.789},
+  {5, 0-1 0 0:0:0},
+  {6, 0-0 30 0:0:0},
+  {7, 0-0 0 720:0:0},
+  {10, 0-0 0 2:0:0},
+  {11, 0-0 0 1:59:59.999999},
+  {12, 0-0 0 1:0:0.000001},
+  {3, 0-0 0 0:0:0.000001},
+  {2, 0-0 0 0:0:0},
+  {4, 0-0 0 -0:0:1},
+  {1, NULL}
+]
 ==

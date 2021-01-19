@@ -16,6 +16,7 @@
 
 #include "zetasql/public/proto_util.h"
 
+#include <iterator>
 #include <memory>
 #include <string>
 #include <utility>
@@ -702,7 +703,7 @@ static zetasql_base::StatusOr<Value> TranslateWireValue(
     case TYPE_ENUM: {
       const int32_t* const value = absl::get_if<int32_t>(&wire_value);
       ZETASQL_RET_CHECK_NE(value, nullptr);
-      const Value enum_value = Value::Enum(type->AsEnum(), *value);
+      Value enum_value = Value::Enum(type->AsEnum(), *value);
       if (ABSL_PREDICT_FALSE(!enum_value.is_valid())) {
         return zetasql_base::OutOfRangeErrorBuilder()
                << MakeReadValueErrorReason(field_descriptor, format, *value);
@@ -841,7 +842,10 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
   ZETASQL_RET_CHECK_EQ(field_info.type->IsArray(),
                field_info.descriptor->is_repeated());
   if (field_info.type->IsArray()) {
-    return Value::Array(field_info.type->AsArray(), elements);
+    return Value::ArraySafe(
+        field_info.type->AsArray(),
+        std::vector<Value>(std::make_move_iterator(elements.begin()),
+                           std::make_move_iterator(elements.end())));
   }
   if (elements.empty()) {
     if (ABSL_PREDICT_FALSE(field_info.descriptor->is_required())) {
@@ -978,6 +982,7 @@ absl::Status ReadProtoFields(
       ZETASQL_RET_CHECK_EQ(info->type->IsArray(), info->descriptor->is_repeated());
       if (info->type->IsArray()) {
         std::vector<Value> element_values;
+        element_values.reserve(values.size());
         bool success = true;
         for (zetasql_base::StatusOr<Value>& value : values) {
           if (ABSL_PREDICT_FALSE(!value.ok())) {
@@ -985,11 +990,12 @@ absl::Status ReadProtoFields(
             new_value = value.status();
             break;
           }
-          element_values.push_back(value.value());
+          element_values.push_back(std::move(value).value());
         }
 
         if (success) {
-          new_value = Value::Array(info->type->AsArray(), element_values);
+          new_value = Value::ArraySafe(info->type->AsArray(),
+                                       std::move(element_values));
         }
       } else if (values.empty()) {
         if (ABSL_PREDICT_FALSE(info->descriptor->is_required())) {

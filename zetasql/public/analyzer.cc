@@ -77,49 +77,6 @@ void EnsureResolutionTimeInfoForEveryTable(
 
 }  // namespace
 
-AnalyzerOutput::AnalyzerOutput(
-    std::shared_ptr<IdStringPool> id_string_pool,
-    std::shared_ptr<zetasql_base::UnsafeArena> arena,
-    std::unique_ptr<const ResolvedStatement> statement,
-    const AnalyzerOutputProperties& analyzer_output_properties,
-    std::unique_ptr<ParserOutput> parser_output,
-    const std::vector<absl::Status>& deprecation_warnings,
-    const QueryParametersMap& undeclared_parameters,
-    const std::vector<const Type*>& undeclared_positional_parameters,
-    int max_column_id)
-    : id_string_pool_(std::move(id_string_pool)),
-      arena_(std::move(arena)),
-      statement_(std::move(statement)),
-      analyzer_output_properties_(analyzer_output_properties),
-      parser_output_(std::move(parser_output)),
-      deprecation_warnings_(deprecation_warnings),
-      undeclared_parameters_(undeclared_parameters),
-      undeclared_positional_parameters_(undeclared_positional_parameters),
-      max_column_id_(max_column_id) {}
-
-AnalyzerOutput::AnalyzerOutput(
-    std::shared_ptr<IdStringPool> id_string_pool,
-    std::shared_ptr<zetasql_base::UnsafeArena> arena,
-    std::unique_ptr<const ResolvedExpr> expr,
-    const AnalyzerOutputProperties& analyzer_output_properties,
-    std::unique_ptr<ParserOutput> parser_output,
-    const std::vector<absl::Status>& deprecation_warnings,
-    const QueryParametersMap& undeclared_parameters,
-    const std::vector<const Type*>& undeclared_positional_parameters,
-    int max_column_id)
-    : id_string_pool_(std::move(id_string_pool)),
-      arena_(std::move(arena)),
-      expr_(std::move(expr)),
-      analyzer_output_properties_(analyzer_output_properties),
-      parser_output_(std::move(parser_output)),
-      deprecation_warnings_(deprecation_warnings),
-      undeclared_parameters_(undeclared_parameters),
-      undeclared_positional_parameters_(undeclared_positional_parameters),
-      max_column_id_(max_column_id) {}
-
-AnalyzerOutput::~AnalyzerOutput() {
-}
-
 // Common post-parsing work for AnalyzeStatement() series.
 static absl::Status FinishAnalyzeStatementImpl(
     absl::string_view sql, const ASTStatement& ast_statement,
@@ -282,8 +239,8 @@ static absl::Status AnalyzeStatementHelper(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
       resolver.undeclared_positional_parameters(), resolver.max_column_id());
-  ZETASQL_RETURN_IF_ERROR(
-      RewriteResolvedAst(options, catalog, type_factory, *original_output));
+  ZETASQL_RETURN_IF_ERROR(RewriteResolvedAst(options, sql, catalog, type_factory,
+                                     *original_output));
   *output = std::move(original_output);
   return absl::OkStatus();
 }

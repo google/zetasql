@@ -161,4 +161,3 @@ ARRAY<STRUCT<row_id INT64, BOOL>>[
   {19, true},
   {20, true}
 ]
-==

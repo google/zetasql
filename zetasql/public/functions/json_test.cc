@@ -424,7 +424,9 @@ TEST(JsonTest, NativeJsonCompliance) {
 
 TEST(JsonTest, NativeJsonArrayCompliance) {
   const std::vector<std::vector<FunctionTestCall>> all_tests = {
+      GetFunctionTestsNativeJsonQueryArray(),
       GetFunctionTestsNativeJsonExtractArray(),
+      GetFunctionTestsNativeJsonValueArray(),
       GetFunctionTestsNativeJsonExtractStringArray()};
 
   for (const std::vector<FunctionTestCall>& tests : all_tests) {
@@ -1984,8 +1986,8 @@ void ExtractArrayOrStringArray(JSONPathStringArrayExtractor* parser,
 }
 
 template <class ParserClass>
-void ComplianceJSONExtractArrayTest(
-    const std::vector<FunctionTestCall>& tests) {
+void ComplianceJSONExtractArrayTest(const std::vector<FunctionTestCall>& tests,
+                                    bool sql_standard_mode) {
   for (const FunctionTestCall& test : tests) {
     if (test.params.params()[0].is_null() ||
         test.params.params()[1].is_null()) {
@@ -2000,7 +2002,7 @@ void ComplianceJSONExtractArrayTest(
     absl::Status status;
     bool is_null = true;
     auto evaluator_status =
-        ValidJSONPathIterator::Create(json_path, /*sql_standard_mode=*/false);
+        ValidJSONPathIterator::Create(json_path, sql_standard_mode);
     if (evaluator_status.ok()) {
       const std::unique_ptr<ValidJSONPathIterator>& path_itr =
           evaluator_status.value();
@@ -2027,18 +2029,36 @@ void ComplianceJSONExtractArrayTest(
   }
 }
 
+// Compliance Tests on JSON_QUERY_ARRAY
+TEST(JSONPathExtractor, ComplianceJSONQueryArray) {
+  const std::vector<FunctionTestCall> tests =
+      GetFunctionTestsStringJsonQueryArray();
+  ComplianceJSONExtractArrayTest<JSONPathArrayExtractor>(
+      tests, /*sql_standard_mode=*/true);
+}
+
 // Compliance Tests on JSON_EXTRACT_ARRAY
 TEST(JSONPathExtractor, ComplianceJSONExtractArray) {
   const std::vector<FunctionTestCall> tests =
       GetFunctionTestsStringJsonExtractArray();
-  ComplianceJSONExtractArrayTest<JSONPathArrayExtractor>(tests);
+  ComplianceJSONExtractArrayTest<JSONPathArrayExtractor>(
+      tests, /*sql_standard_mode=*/false);
+}
+
+// Compliance Tests on JSON_VALUE_ARRAY
+TEST(JSONPathExtractor, ComplianceJSONValueArray) {
+  const std::vector<FunctionTestCall> tests =
+      GetFunctionTestsStringJsonValueArray();
+  ComplianceJSONExtractArrayTest<JSONPathStringArrayExtractor>(
+      tests, /*sql_standard_mode=*/true);
 }
 
 // Compliance Tests on JSON_EXTRACT_STRING_ARRAY
 TEST(JSONPathExtractor, ComplianceJSONExtractStringArray) {
   const std::vector<FunctionTestCall> tests =
       GetFunctionTestsStringJsonExtractStringArray();
-  ComplianceJSONExtractArrayTest<JSONPathStringArrayExtractor>(tests);
+  ComplianceJSONExtractArrayTest<JSONPathStringArrayExtractor>(
+      tests, /*sql_standard_mode=*/false);
 }
 
 TEST(JsonPathEvaluatorTest, ExtractingArrayCloseToLimitSucceeds) {

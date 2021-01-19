@@ -28,6 +28,7 @@
 #include "google/protobuf/unknown_field_set.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/numeric_value.h"
@@ -206,6 +207,20 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastString() {
       {{String("+nan")}, float_nan},
       {{String("-nan")}, float_nan},
   };
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsCastBytesStringWithFormat() {
+  std::vector<FunctionTestCall> function_calls =
+      GetFunctionTestsBytesStringConversion();
+  std::vector<QueryParamsWithResult> tests;
+
+  tests.reserve(function_calls.size());
+  for (auto& function_call : function_calls) {
+    tests.push_back(QueryParamsWithResult(function_call.params)
+                        .WrapWithFeature(FEATURE_V_1_3_FORMAT_IN_CAST));
+  }
+
+  return tests;
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastNumericString() {
@@ -2382,13 +2397,15 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
       GetFunctionTestsCastNumeric(),
       GetFunctionTestsCastString(),
       GetFunctionTestsCastNumericString(),
+      GetFunctionTestsCastBytesStringWithFormat(),
   });
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast() {
   std::vector<QueryParamsWithResult> tests;
   for (const QueryParamsWithResult& test : GetFunctionTestsCast()) {
-    ZETASQL_CHECK_EQ(1, test.params().size()) << test;
+    ZETASQL_CHECK_GE(test.params().size(), 1) << test;
+    ZETASQL_CHECK_LE(test.params().size(), 2) << test;
 
     using FeatureSet = QueryParamsWithResult::FeatureSet;
     using Result = QueryParamsWithResult::Result;
@@ -2428,6 +2445,10 @@ std::vector<QueryParamsWithResult>
 GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
   std::vector<QueryParamsWithResult> tests;
   for (const QueryParamsWithResult& test : GetFunctionTestsCast()) {
+    // Currently FORMAT parameter is not allowed for array casting
+    if (test.params().size() > 1) {
+      continue;
+    }
     ZETASQL_CHECK_EQ(1, test.params().size()) << test;
 
     for (const auto& test_result : test.results()) {

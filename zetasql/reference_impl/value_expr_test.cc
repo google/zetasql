@@ -952,7 +952,7 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
   row_list.push_back(MakeResolvedInsertRow(std::move(row_values)));
   std::unique_ptr<ResolvedInsertStmt> stmt = MakeResolvedInsertStmt(
       std::move(table_scan), ResolvedInsertStmt::OR_ERROR,
-      /*assert_rows_modified=*/nullptr,
+      /*assert_rows_modified=*/nullptr, /*returning=*/nullptr,
       {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
        ResolvedColumn{2, "test_table", "str_val", StringType()}},
       /*query_parameter_list=*/{}, /*query=*/nullptr,
@@ -1057,7 +1057,7 @@ TEST_F(DMLValueExprEvalTest,
   row_list.push_back(MakeResolvedInsertRow(std::move(row_values)));
   std::unique_ptr<ResolvedInsertStmt> stmt = MakeResolvedInsertStmt(
       std::move(table_scan), ResolvedInsertStmt::OR_ERROR,
-      /*assert_rows_modified=*/nullptr,
+      /*assert_rows_modified=*/nullptr, /*returning=*/nullptr,
       {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
        ResolvedColumn{2, "test_table", "str_val", StringType()}},
       /*query_parameter_list=*/{}, /*query=*/nullptr,
@@ -1159,6 +1159,7 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
       /*is_correlated=*/false));
   std::unique_ptr<ResolvedDeleteStmt> stmt = MakeResolvedDeleteStmt(
       std::move(table_scan), /*assert_rows_modified=*/nullptr,
+      /*returning=*/nullptr,
       /*array_offset_column=*/nullptr, /*where_expr=*/
       MakeResolvedFunctionCall(BoolType(), function("$is_null"),
                                *function("$is_null")->GetSignature(0),
@@ -1295,7 +1296,7 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
       /*is_correlated=*/false));
   std::unique_ptr<ResolvedUpdateStmt> stmt = MakeResolvedUpdateStmt(
       std::move(table_scan), /*assert_rows_modified=*/nullptr,
-      /*array_offset_column=*/nullptr,
+      /*returning=*/nullptr, /*array_offset_column=*/nullptr,
       /*where_expr=*/
       MakeResolvedFunctionCall(BoolType(), function("$is_null"),
                                *function("$is_null")->GetSignature(0),
@@ -1459,7 +1460,7 @@ TEST_F(DMLValueExprEvalTest,
       /*is_correlated=*/false));
   std::unique_ptr<ResolvedUpdateStmt> stmt = MakeResolvedUpdateStmt(
       std::move(table_scan), /*assert_rows_modified=*/nullptr,
-      /*array_offset_column=*/nullptr,
+      /*returning=*/nullptr, /*array_offset_column=*/nullptr,
       /*where_expr=*/
       MakeResolvedFunctionCall(BoolType(), function("$is_null"),
                                *function("$is_null")->GetSignature(0),
@@ -1621,7 +1622,7 @@ TEST_F(DMLValueExprEvalTest,
       /*is_correlated=*/false));
   std::unique_ptr<ResolvedUpdateStmt> stmt = MakeResolvedUpdateStmt(
       std::move(table_scan), /*assert_rows_modified=*/nullptr,
-      /*array_offset_column=*/nullptr,
+      /*returning=*/nullptr, /*array_offset_column=*/nullptr,
       /*where_expr=*/
       MakeResolvedFunctionCall(BoolType(), function("$is_null"),
                                *function("$is_null")->GetSignature(0),

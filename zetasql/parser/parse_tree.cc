@@ -226,11 +226,15 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_PARENTHESIZED_JOIN] = "ParenthesizedJoin";
   map[AST_PARTITION_BY] = "PartitionBy";
   map[AST_PATH_EXPRESSION] = "PathExpression";
+  map[AST_PATH_EXPRESSION_LIST] = "PathExpressionList";
   map[AST_PIVOT_CLAUSE] = "PivotClause";
   map[AST_PIVOT_EXPRESSION] = "PivotExpression";
   map[AST_PIVOT_EXPRESSION_LIST] = "PivotExpressionList";
   map[AST_PIVOT_VALUE] = "PivotValue";
   map[AST_PIVOT_VALUE_LIST] = "PivotValueList";
+  map[AST_UNPIVOT_CLAUSE] = "UnpivotClause";
+  map[AST_UNPIVOT_IN_ITEM] = "UnpivotInItem";
+  map[AST_UNPIVOT_IN_ITEM_LIST] = "UnpivotInItemList";
   map[AST_PRIMARY_KEY] = "PrimaryKey";
   map[AST_PRIMARY_KEY_COLUMN_ATTRIBUTE] = "PrimaryKeyColumnAttribute";
   map[AST_PRIVILEGES] = "Privileges";

@@ -2028,6 +2028,7 @@ cc_library(
 
 cc_library(
     name = "analyzer_output",
+    srcs = ["analyzer_output.cc"],
     hdrs = ["analyzer_output.h"],
     copts = [
         "-Wno-char-subscripts",
@@ -2042,7 +2043,6 @@ cc_library(
         ":analyzer_options",
         ":analyzer_output_properties",
         ":id_string",
-        "//zetasql/base",
         "//zetasql/parser",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
@@ -2082,6 +2082,7 @@ cc_library(
         ":type",
         ":type_cc_proto",
         ":value",
+        "//zetasql/analyzer:all_rewriters",
         "//zetasql/analyzer:analyzer_impl",
         "//zetasql/analyzer:resolver",
         "//zetasql/analyzer:rewriter",  # buildcleaner:keep

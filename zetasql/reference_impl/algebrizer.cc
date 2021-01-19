@@ -150,6 +150,10 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
   if (cast->format() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(format, AlgebrizeExpression(cast->format()));
   }
+  std::unique_ptr<ValueExpr> time_zone;
+  if (cast->time_zone()) {
+    ZETASQL_ASSIGN_OR_RETURN(time_zone, AlgebrizeExpression(cast->time_zone()));
+  }
 
   // For extended conversions extended_cast will contain a conversion function
   // that implements a conversion. Extended conversions in reference
@@ -160,6 +164,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
                    BuiltinScalarFunction::CreateCast(
                        language_options_, cast->type(), std::move(arg),
                        std::move(format),
+                       std::move(time_zone),
                        cast->return_null_on_error(),
                        ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
                        std::move(extended_evaluator)));
@@ -2566,8 +2571,21 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeSampl
                      AlgebrizeExpression(sample_scan->repeatable_argument()));
   }
 
+  VariableId sample_weight;
+  if (sample_scan->weight_column() != nullptr) {
+    sample_weight = column_to_variable_->AssignNewVariableToColumn(
+        &sample_scan->weight_column()->column());
+  }
+
+  std::vector<std::unique_ptr<ValueExpr>> partition_key;
+  for (const auto& key_part : sample_scan->partition_by_list()) {
+    ZETASQL_ASSIGN_OR_RETURN(auto key_part_expr, AlgebrizeExpression(key_part.get()));
+    partition_key.emplace_back(std::move(key_part_expr));
+  }
+
   return SampleScanOp::Create(method, std::move(size), std::move(repeatable),
-                              std::move(input));
+                              std::move(input), std::move(partition_key),
+                              sample_weight);
 }
 
 zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(

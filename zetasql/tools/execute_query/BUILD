@@ -42,17 +42,99 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "execute_query_tool_test",
+    srcs = ["execute_query_tool_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    data = [
+        "testdata/test.csv",
+    ],
+    deps = [
+        ":execute_query_tool",
+        "//zetasql/base:path",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:catalog",
+        "//zetasql/public/types",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
 #
 ###############################################
 # Basic
 ###############################################
 #   bazel run //zetasql/tools/execute_query:execute_query -- "SELECT 1"
 #
+###############################################
+# CSV
+###############################################
+# First generate some data in csv format:
+#   printf '"a","b","c"\n5, 1.2, "r1"\n6, 1.5, "r2"\n7, 3.3, "r3"' > sample.csv
+# Then query that data (note, all columns are STRING type)
+#   bazel run //zetasql/tools/execute_query:execute_query --\
+#       --table_spec="data=csv:$(pwd)/sample.csv" "select * from data"
+# Output:
+#  +---+------+-----+
+#  | a | b    | c   |
+#  +---+------+-----+
+#  | 5 |  1.2 |  r1 |
+#  | 6 |  1.5 |  r2 |
+#  | 7 |  3.3 |  r3 |
+#  +---+------+-----+
+#
+
 cc_binary(
     name = "execute_query",
     srcs = [
         "execute_query.cc",
     ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":execute_query_tool",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:catalog",
+        "//zetasql/public:language_options",
+        "//zetasql/public:simple_catalog",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "execute_query_tool",
+    srcs = [
+        "execute_query_internal_csv.cc",
+        "execute_query_tool.cc",
+    ],
+    hdrs = ["execute_query_tool.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    visibility = ["//visibility:public"],
     deps = [
         ":output_query_result",
         "//zetasql/base",
@@ -62,6 +144,7 @@ cc_binary(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_options",
         "//zetasql/public:catalog",
         "//zetasql/public:evaluator",
         "//zetasql/public:evaluator_table_iterator",
@@ -81,5 +164,7 @@ cc_binary(
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
+        "@com_google_riegeli//riegeli/bytes:fd_reader",
+        "@com_google_riegeli//riegeli/csv:csv_reader",
     ],
 )

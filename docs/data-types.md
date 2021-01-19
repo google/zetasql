@@ -372,6 +372,12 @@ done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
 </tbody>
 </table>
 
+Boolean values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  1. `FALSE`
+  1. `TRUE`
+
 ## String type
 
 <table>

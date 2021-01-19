@@ -495,6 +495,10 @@ FunctionMap::FunctionMap() {
                      "json_extract_string_array", "JsonExtractStringArray");
     RegisterFunction(FunctionKind::kJsonQuery, "json_query", "JsonQuery");
     RegisterFunction(FunctionKind::kJsonValue, "json_value", "JsonValue");
+    RegisterFunction(FunctionKind::kJsonQueryArray, "json_query_array",
+                     "JsonQueryArray");
+    RegisterFunction(FunctionKind::kJsonValueArray, "json_value_array",
+                     "JsonValueArray");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -1219,6 +1223,7 @@ BuiltinScalarFunction::CreateCast(
     const LanguageOptions& language_options, const Type* output_type,
     std::unique_ptr<ValueExpr> argument,
     std::unique_ptr<ValueExpr> format,
+    std::unique_ptr<ValueExpr> time_zone,
     bool return_null_on_error,
     ResolvedFunctionCallBase::ErrorMode error_mode,
     std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator) {
@@ -1233,6 +1238,9 @@ BuiltinScalarFunction::CreateCast(
   args.push_back(std::move(null_on_error_exp));
   if (format != nullptr) {
     args.push_back(std::move(format));
+  }
+  if (time_zone != nullptr) {
+    args.push_back(std::move(time_zone));
   }
 
   return ScalarFunctionCallExpr::Create(
@@ -1441,6 +1449,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kJsonExtractStringArray:
     case FunctionKind::kJsonQuery:
     case FunctionKind::kJsonValue:
+    case FunctionKind::kJsonQueryArray:
+    case FunctionKind::kJsonValueArray:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
@@ -2320,6 +2330,7 @@ bool ComparisonFunction::Eval(absl::Span<const Value> args,
     case FCT2(FunctionKind::kLessOrEqual, TYPE_TIMESTAMP, TYPE_TIMESTAMP):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_TIME, TYPE_TIME):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_DATETIME, TYPE_DATETIME):
+    case FCT2(FunctionKind::kLessOrEqual, TYPE_INTERVAL, TYPE_INTERVAL):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_ENUM, TYPE_ENUM):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_NUMERIC, TYPE_NUMERIC):
     case FCT2(FunctionKind::kLessOrEqual, TYPE_BIGNUMERIC, TYPE_BIGNUMERIC):
@@ -2629,9 +2640,19 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
     format = args[2].string_value();
   }
 
+  absl::optional<std::string> time_zone;
+  if (args.size() >= 4) {
+    // Returns NULL if time_zone is null.
+    if (args[3].is_null()) {
+      return zetasql_base::StatusOr<Value>(Value::Null(output_type()));
+    }
+
+    time_zone = args[3].string_value();
+  }
+
   zetasql_base::StatusOr<Value> status_or = internal::CastValueWithoutTypeValidation(
       v, context->GetDefaultTimeZone(), context->GetLanguageOptions(),
-      output_type(), format, extended_cast_evaluator_.get());
+      output_type(), format, time_zone, extended_cast_evaluator_.get());
   if (!status_or.ok() && return_null_on_error) {
     // TODO: check that failure is not due to absence of
     // extended_type_function. In this case we still probably wants to fail the

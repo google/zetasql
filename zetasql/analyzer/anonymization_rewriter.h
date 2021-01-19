@@ -63,6 +63,7 @@ struct RewriteForAnonymizationOutput {
 // the ResolvedStatement to avoid reusing column ids.
 //
 // Does not take ownership of 'query', 'catalog', or, 'type_factory'.
+ABSL_DEPRECATED("Use RewriteResolvedAst() instead")
 zetasql_base::StatusOr<RewriteForAnonymizationOutput>
 RewriteForAnonymization(const ResolvedNode& query, Catalog* catalog,
                         TypeFactory* type_factory,

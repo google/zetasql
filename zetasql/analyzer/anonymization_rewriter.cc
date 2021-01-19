@@ -18,11 +18,15 @@
 
 #include <memory>
 
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/anon_function.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
@@ -1237,39 +1241,74 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   return absl::OkStatus();
 }
 
+zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
+    const ResolvedNode& tree, AnalyzerOptions options,
+    ColumnFactory& column_factory, Catalog& catalog, TypeFactory& type_factory,
+    RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
+        table_scan_to_anon_aggr_scan_map) {
+  options.CreateDefaultArenasIfNotSet();
+
+  Resolver resolver(&catalog, &type_factory, &options);
+  // The fresh resolver needs to be reset to initialize internal state before
+  // use. We can use an empty SQL string because we aren't resolving a query,
+  // we are just using the resolver to help resolve function calls from the
+  // catalog.
+  // Normally if errors are encountered during the function resolving process
+  // the resolver also returns error locations based on the query string. We
+  // don't have this issue because the calling code ensures that the resolve
+  // calls do not return errors during normal use. We construct bogus
+  // locations when resolving functions so that the resolver doesn't segfault
+  // if an error is encountered, the bogus location information is ok because
+  // these errors should only be raised during development in this file.
+  resolver.Reset("");
+
+  RewriterVisitor rewriter(&column_factory, &type_factory, &resolver,
+                           table_scan_to_anon_aggr_scan_map);
+  ZETASQL_RETURN_IF_ERROR(tree.Accept(&rewriter));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> node,
+                   rewriter.ConsumeRootNode<ResolvedNode>());
+  return node;
+}
+
 }  // namespace
+
+class AnonymizationRewriter : public Rewriter {
+ public:
+  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
+                     const AnalyzerOutput& analyzer_output) const override {
+    return analyzer_options.rewrite_enabled(REWRITE_ANONYMIZATION) &&
+           analyzer_output.analyzer_output_properties().has_anonymization;
+  }
+
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+      const AnalyzerOptions& options, const ResolvedNode& input,
+      Catalog& catalog, TypeFactory& type_factory,
+      AnalyzerOutputProperties& output_properties) const override {
+    ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
+    ColumnFactory column_factory(0, options.column_id_sequence_number());
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedNode> node,
+        RewriteInternal(
+            input, options, column_factory, catalog, type_factory,
+            output_properties
+                .resolved_table_scan_to_anonymized_aggregate_scan_map));
+    output_properties.has_anonymization = false;
+    return node;
+  }
+};
 
 zetasql_base::StatusOr<RewriteForAnonymizationOutput>
 RewriteForAnonymization(const ResolvedNode& query, Catalog* catalog,
                         TypeFactory* type_factory,
                         const AnalyzerOptions& analyzer_options,
                         ColumnFactory& column_factory) {
-  // Create our own copy of analyzer options so we can set new arenas.
-  AnalyzerOptions options(analyzer_options.language());
-  options.CreateDefaultArenasIfNotSet();
-  Resolver resolver(catalog, type_factory, &options);
-  // The fresh resolver needs to be reset to initialize internal state before
-  // use. We can use an empty SQL string because we aren't resolving a query, we
-  // are just using the resolver to help resolve function calls from the
-  // catalog.
-  // Normally if errors are encountered during the function resolving process
-  // the resolver also returns error locations based on the query string. We
-  // don't have this issue because the calling code ensures that the resolve
-  // calls do not return errors during normal use. We construct bogus locations
-  // when resolving functions so that the resolver doesn't segfault if an error
-  // is encountered, the bogus location information is ok because these errors
-  // should only be raised during development in this file.
-  resolver.Reset("");
-  RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap
-      table_scan_to_anon_aggr_scan_map;
-  RewriterVisitor rewriter(&column_factory, type_factory, &resolver,
-                           table_scan_to_anon_aggr_scan_map);
-  ZETASQL_RETURN_IF_ERROR(query.Accept(&rewriter));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> node,
-                   rewriter.ConsumeRootNode<ResolvedNode>());
-  RewriteForAnonymizationOutput result = {std::move(node),
-                                          table_scan_to_anon_aggr_scan_map};
+  RewriteForAnonymizationOutput result;
+  ZETASQL_ASSIGN_OR_RETURN(
+      result.node,
+      RewriteInternal(query, analyzer_options, column_factory, *catalog,
+                      *type_factory, result.table_scan_to_anon_aggr_scan_map));
   return result;
 }
 
+REGISTER_ZETASQL_REWRITER(AnonymizationRewriter);
 }  // namespace zetasql

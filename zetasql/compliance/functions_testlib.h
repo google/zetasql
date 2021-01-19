@@ -170,6 +170,7 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToTime();
 std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime();
 
 std::vector<FunctionTestCall> GetFunctionTestsIntervalConstructor();
+std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons();
 
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();

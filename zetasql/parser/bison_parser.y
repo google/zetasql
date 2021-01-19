@@ -447,10 +447,12 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTStatementList* statement_list;
   DashedIdentifierTmpNode* dashed_identifier;
   zetasql::ASTPivotClause* pivot_clause;
+  zetasql::ASTUnpivotClause* unpivot_clause;
   struct {
     zetasql::ASTPivotClause* pivot_clause;
+    zetasql::ASTUnpivotClause* unpivot_clause;
     zetasql::ASTAlias* alias;
-  } pivot_clause_and_alias;
+  } pivot_or_unpivot_clause_and_alias;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -876,6 +878,7 @@ using zetasql::ASTDropStatement;
 %token KW_TRUNCATE "TRUNCATE"
 %token KW_TYPE "TYPE"
 %token KW_UNIQUE "UNIQUE"
+%token KW_UNPIVOT "UNPIVOT"
 %token KW_UPDATE "UPDATE"
 %token KW_VALUE "VALUE"
 %token KW_VALUES "VALUES"
@@ -1025,6 +1028,8 @@ using zetasql::ASTDropStatement;
 %type <node> variable_declaration
 %type <node> opt_default_expression
 %type <node> identifier_list
+%type <node> path_expression_list
+%type <node> path_expression_list_with_opt_parens
 %type <node> set_statement
 %type <node> index_order_by
 %type <node> index_order_by_prefix
@@ -1067,6 +1072,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_as_alias
 %type <node> opt_as_alias_with_required_as
 %type <node> opt_as_or_into_alias
+%type <node> opt_as_string
 %type <node> opt_as_query
 %type <node> opt_as_query_or_string
 %type <node> opt_as_sql_function_body_or_string
@@ -1116,8 +1122,12 @@ using zetasql::ASTDropStatement;
 %type <sql_security> sql_security_clause_kind
 %type <node> opt_over_clause
 %type <node> pivot_value
+%type <node> unpivot_in_item
 %type <node> pivot_value_list
+%type <node> unpivot_in_item_list
+%type <node> unpivot_in_item_list_prefix
 %type <pivot_clause> pivot_clause
+%type <unpivot_clause> unpivot_clause
 %type <node> pivot_expression
 %type <node> pivot_expression_list
 %type <node> opt_sample_clause
@@ -1351,7 +1361,7 @@ using zetasql::ASTDropStatement;
 %type <node> descriptor_argument
 %type <node> with_partition_columns_clause
 %type <node> opt_with_partition_columns_clause
-%type <pivot_clause_and_alias> opt_pivot_clause_and_alias
+%type <pivot_or_unpivot_clause_and_alias> opt_pivot_or_unpivot_clause_and_alias
 %type <expression> is_distinct_from_expression
 
 %start start_mode
@@ -3941,8 +3951,7 @@ pivot_expression_list:
 pivot_value:
   expression opt_as_alias {
     $$ = MAKE_NODE(ASTPivotValue, @$, {$1, $2});
-  }
-  ;
+  };
 
 pivot_value_list:
   pivot_value {
@@ -3950,8 +3959,7 @@ pivot_value_list:
   }
   | pivot_value_list "," pivot_value {
     $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
-  }
-  ;
+  };
 
 pivot_clause:
     "PIVOT" "(" pivot_expression_list
@@ -3961,11 +3969,61 @@ pivot_clause:
         "PIVOT clause requires at least one pivot expression");
       }
       $$ = MAKE_NODE(ASTPivotClause, @$, {$3, $5, $8});
-  }
-  ;
+  };
 
-// Ideally, we would have an 'opt_pivot_clause' rule that covers just PIVOT and
-// use 'op_as_alias' to cover the alias.
+opt_as_string:
+  opt_as string_literal{
+    $$ = $2;
+  }
+  | /* Nothing */ { $$ = nullptr; };
+
+path_expression_list:
+    path_expression
+    {
+      $$ = MAKE_NODE(ASTPathExpressionList, @$, {$1});
+    }
+    | path_expression_list "," path_expression
+    {
+      $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+    };
+
+path_expression_list_with_opt_parens:
+ "(" path_expression_list ")" {
+   $$ = $2;
+ }
+ |
+ path_expression {
+   $$ = MAKE_NODE(ASTPathExpressionList, @$, {$1});
+ };
+
+unpivot_in_item:
+  path_expression_list_with_opt_parens opt_as_string {
+    $$ = MAKE_NODE(ASTUnpivotInItem, @$, {$1, $2});
+  };
+
+unpivot_in_item_list_prefix:
+  "(" unpivot_in_item {
+    $$ = MAKE_NODE(ASTUnpivotInItemList, @$, {$2});
+  }
+  | unpivot_in_item_list_prefix "," unpivot_in_item {
+    $$ = WithExtraChildren($1, {$3});
+  };
+
+unpivot_in_item_list:
+  unpivot_in_item_list_prefix ")" {
+    $$ = WithEndLocation($1, @$);
+  } ;
+
+// TODO: add optional null handling modifier.
+unpivot_clause:
+   "UNPIVOT" "("
+   path_expression_list_with_opt_parens
+   "FOR" path_expression "IN" unpivot_in_item_list ")" {
+    $$ = MAKE_NODE(ASTUnpivotClause, @$, {$3, $5, $7});
+   } ;
+
+// Ideally, we would have an 'opt_pivot_or_unpivot_clause' rule that covers
+// just PIVOT and UNPIVOT and use 'op_as_alias' to cover the alias.
 //
 // Unfortunately, that doesn't work because it would cause ambiguities in the
 // grammar. The ambiguities arise because bison only supports a single token
@@ -3976,46 +4034,72 @@ pivot_clause:
 // and table aliases into one grammar rule and list out all the possible
 // combinations explicitly.
 //
-opt_pivot_clause_and_alias:
+opt_pivot_or_unpivot_clause_and_alias:
   "AS" identifier {
     $$.alias = MAKE_NODE(ASTAlias, @$, {$2});
     $$.pivot_clause = nullptr;
+    $$.unpivot_clause = nullptr;
   }
   | identifier {
     $$.alias = MAKE_NODE(ASTAlias, @$, {$1});
     $$.pivot_clause = nullptr;
+    $$.unpivot_clause = nullptr;
   }
   | "AS" identifier pivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
     $$.alias = WithEndLocation($$.alias, @2);
     $$.pivot_clause = WithExtraChildren($3,
         {static_cast<zetasql::ASTAlias*>($4)});
+    $$.unpivot_clause = nullptr;
+  }
+  | "AS" identifier unpivot_clause opt_as_alias {
+    $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
+    $$.alias = WithEndLocation($$.alias, @2);
+    $$.unpivot_clause = WithExtraChildren($3,
+        {static_cast<zetasql::ASTAlias*>($4)});
+    $$.pivot_clause = nullptr;
   }
   | identifier pivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
     $$.pivot_clause = WithExtraChildren($2,
         {static_cast<zetasql::ASTAlias*>($3)});
+    $$.unpivot_clause = nullptr;
+  }
+  | identifier unpivot_clause opt_as_alias {
+    $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
+    $$.unpivot_clause = WithExtraChildren($2,
+        {static_cast<zetasql::ASTAlias*>($3)});
+    $$.pivot_clause = nullptr;
   }
   | pivot_clause opt_as_alias {
     $$.alias = nullptr;
     $$.pivot_clause = WithExtraChildren($1,
         {static_cast<zetasql::ASTAlias*>($2)});
+    $$.unpivot_clause = nullptr;
+  }
+  | unpivot_clause opt_as_alias {
+    $$.alias = nullptr;
+    $$.unpivot_clause = WithExtraChildren($1,
+        {static_cast<zetasql::ASTAlias*>($2)});
+    $$.pivot_clause = nullptr;
   }
   | /* Nothing */ {
     $$.alias = nullptr;
     $$.pivot_clause = nullptr;
+    $$.unpivot_clause = nullptr;
   };
   ;
 
 table_subquery:
-    "(" query ")" opt_pivot_clause_and_alias opt_sample_clause
+    "(" query ")" opt_pivot_or_unpivot_clause_and_alias opt_sample_clause
       {
         zetasql::ASTQuery* query = $2;
         query->set_is_nested(true);
         $$ = MAKE_NODE(ASTTableSubquery, @$, {
-            $2, $4.alias, $4.pivot_clause, $5});
+            $2, $4.alias, $4.pivot_clause, $4.unpivot_clause, $5});
       }
     ;
+
 
 table_clause:
     "TABLE" tvf
@@ -4169,15 +4253,17 @@ tvf_prefix:
     ;
 
 tvf:
-    tvf_prefix_no_args ")" opt_hint opt_pivot_clause_and_alias opt_sample_clause
+    tvf_prefix_no_args ")" opt_hint opt_pivot_or_unpivot_clause_and_alias
+    opt_sample_clause
       {
         $$ = WithExtraChildren(WithEndLocation($1, @$), {
-            $3, $4.alias, $5, $4.pivot_clause});
+            $3, $4.alias, $5, $4.pivot_clause, $4.unpivot_clause});
       }
-    | tvf_prefix ")" opt_hint opt_pivot_clause_and_alias opt_sample_clause
+    | tvf_prefix ")" opt_hint opt_pivot_or_unpivot_clause_and_alias
+    opt_sample_clause
       {
         $$ = WithExtraChildren(WithEndLocation($1, @$), {
-            $3, $4.alias, $4.pivot_clause, $5});
+            $3, $4.alias, $4.pivot_clause, $4.unpivot_clause, $5});
       }
     ;
 
@@ -4215,33 +4301,49 @@ table_path_expression_base:
     ;
 
 table_path_expression:
-    table_path_expression_base opt_hint opt_pivot_clause_and_alias
+    table_path_expression_base opt_hint
+    opt_pivot_or_unpivot_clause_and_alias
     opt_with_offset_and_alias opt_at_system_time opt_sample_clause
       {
-        if ($3.pivot_clause != nullptr && $4 != nullptr) {
-          // We do not support combining PIVOT with WITH OFFSET. If we did,
-          // we would want the WITH OFFSET clause to appear in the grammar before
-          // PIVOT so that it operates on the pivot input. However, putting it
-          // there results in reduce/reduce conflicts and, even if there were a
-          // way to avoid such conflicts, the resultant tree would be thrown
-          // out in the resolver later anyway, since we don't support value-tables
-          // as PIVOT input.
+        if ( $4 != nullptr) {
+          // We do not support combining PIVOT or UNPIVOT with WITH OFFSET.
+          // If we did, we would want the WITH OFFSET clause to appear in the
+          // grammar before PIVOT so that it operates on the pivot input.
+          // However, putting it there results in reduce/reduce conflicts and,
+          // even if there were a way to avoid such conflicts, the resultant
+          // tree would be thrown out in the resolver later anyway, since we
+          // don't support value-tables as PIVOT input.
           //
           // So, the simplest solution to avoid dealing with the above is to
           // put opt_with_offset_and_alias after PIVOT (so the right action
           // happens if we have a WITH OFFSET without PIVOT) and give an explicit
           // error if both clauses are present.
-          YYERROR_AND_ABORT_AT(@4, "PIVOT and WITH OFFSET cannot be combined");
+          if ($3.pivot_clause != nullptr) {
+            YYERROR_AND_ABORT_AT(@4,
+              "PIVOT and WITH OFFSET cannot be combined");
+          }
+          if ($3.unpivot_clause != nullptr) {
+            YYERROR_AND_ABORT_AT(@4,
+              "UNPIVOT and WITH OFFSET cannot be combined");
+          }
         }
 
-        if ($3.pivot_clause != nullptr && $5 != nullptr) {
-          YYERROR_AND_ABORT_AT(
-              @5,
-              "Syntax error: PIVOT and FOR SYSTEM TIME AS OF may not be "
-              "combined");
+        if ($5 != nullptr) {
+          if ($3.pivot_clause != nullptr) {
+            YYERROR_AND_ABORT_AT(
+                @5,
+                "Syntax error: PIVOT and FOR SYSTEM TIME AS OF "
+                "may not be combined");
+          }
+          if ($3.unpivot_clause != nullptr) {
+            YYERROR_AND_ABORT_AT(
+                @5,
+                "Syntax error: UNPIVOT and FOR SYSTEM TIME AS OF "
+                "may not be combined");
+          }
         }
         $$ = MAKE_NODE(ASTTablePathExpression, @$, {$1, $2, $3.alias,
-            $3.pivot_clause, $4, $5, $6});
+            $3.pivot_clause, $3.unpivot_clause, $4, $5, $6});
       };
 
 table_primary:
@@ -6847,6 +6949,7 @@ keyword_as_identifier:
     | "TRUNCATE"
     | "TYPE"
     | "UNIQUE"
+    | "UNPIVOT"
     | "UPDATE"
     | "VALUE"
     | "VALUES"

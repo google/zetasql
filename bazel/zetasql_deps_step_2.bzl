@@ -141,6 +141,35 @@ cc_proto_library(
             strip_prefix = "abseil-py-bd4d245ac1e36439cb44e7ac46cd1b3e48d8edfa",
         )
 
+    # Riegeli
+    if not native.existing_rule("com_google_riegeli"):
+        # How to update:
+        # Abseil generally just does daily (or even subdaily) releases. None are
+        # special, so just periodically update as necessary.
+        #
+        #  https://github.com/abseil/abseil-cpp/commits/master
+        #  pick a recent release.
+        #  Hit the 'clipboard with a left arrow' icon to copy the commit hex
+        #    COMMIT=<paste commit hex>
+        #    PREFIX=abseil-cpp-
+        #    REPO=https://github.com/abseil/abseil-cpp/archive
+        #    URL=${REPO}/${COMMIT}.tar.gz
+        #    wget $URL
+        #    SHA256=$(sha256sum ${COMMIT}.tar.gz | cut -f1 -d' ')
+        #    rm ${COMMIT}.tar.gz
+        #    echo \# Commit from $(date --iso-8601=date)
+        #    echo url = \"$URL\",
+        #    echo sha256 = \"$SHA256\",
+        #    echo strip_prefix = \"${PREFIX}${COMMIT}\",
+        #
+        http_archive(
+            name = "com_google_riegeli",
+            # Commit from 2021-06-01
+            url = "https://github.com/google/riegeli/archive/baf6376f694d401932cf1b9d34e79a0fae50e7c4.tar.gz",
+            sha256 = "15b6da71683520b8c2eadf11eb8180eed567568740562c88ead69a560b8cd219",
+            strip_prefix = "riegeli-baf6376f694d401932cf1b9d34e79a0fae50e7c4",
+        )
+
     # Boringssl
     if not native.existing_rule("boringssl"):
         http_archive(

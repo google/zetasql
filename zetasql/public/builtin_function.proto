@@ -45,7 +45,7 @@ enum FunctionSignatureId {
   // 1300-1399 Math functions                (Fully used)
   // 1400-1499 Aggregate functions           (NextId: 1489)
   // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1691)
+  // 1600-1699 Misc functions                (NextId: 1697)
   // 1700-1799 Net functions                 (NextId: 1716)
   // 1800-1899 More time functions           (NextId: 1845)
   // 1900-1999 Hashing/encryption functions  (NextId: 1924)
@@ -665,9 +665,21 @@ enum FunctionSignatureId {
   FN_JSON_EXTRACT_SCALAR_JSON =
       1685;  // json_extract_scalar(json, string) -> string
   FN_JSON_EXTRACT_ARRAY =
-      1681;  // json_extract_array(string[, string]) -> array
+      1681;  // json_extract_array(string[, string]) -> array(string)
+  FN_JSON_EXTRACT_ARRAY_JSON =
+      1691;  // json_extract_array(json[, string]) -> array(json)
   FN_JSON_EXTRACT_STRING_ARRAY =
-      1688;  // json_extract_string_array(string[, string]) -> array
+      1688;  // json_extract_string_array(string[, string]) -> array(string)
+  FN_JSON_EXTRACT_STRING_ARRAY_JSON =
+      1692;  // json_extract_string_array(json[, string]) -> array(string)
+  FN_JSON_QUERY_ARRAY =
+      1693;  // json_query_array(string[, string]) -> array(string)
+  FN_JSON_QUERY_ARRAY_JSON =
+      1694;  // json_query_array(json[, string]) -> array(json)
+  FN_JSON_VALUE_ARRAY =
+      1695;  // json_value_array(string[, string]) -> array(string)
+  FN_JSON_VALUE_ARRAY_JSON =
+      1696;  // json_value_array(json[, string]) -> array(string)
   FN_JSON_SUBSCRIPT_INT64 = 1689;   // $subscript(json,int64)-> json
   FN_JSON_SUBSCRIPT_STRING = 1690;  // $subscript(json,string)-> json
   FN_TO_JSON_STRING = 1622;         // to_json_string(any[, bool]) -> string
@@ -870,6 +882,7 @@ enum FunctionSignatureId {
   FN_ST_GEOG_FROM_GEO_JSON = 2052;
   FN_ST_GEOG_FROM_GEO_JSON_EXT = 2068;
   FN_ST_GEOG_FROM_WKB = 2056;
+  FN_ST_GEOG_FROM_WKB_HEX = 2072;
   FN_ST_AS_TEXT = 2053;
   FN_ST_AS_KML = 2054;
   FN_ST_AS_GEO_JSON = 2055;

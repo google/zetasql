@@ -403,7 +403,8 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
     }
   }
   const TupleSchema params_schema(param_variables);
-  const TupleData params_data = CreateTupleDataFromValues(param_values);
+  const TupleData params_data =
+      CreateTupleDataFromValues(std::move(param_values));
   ZETASQL_RETURN_IF_ERROR(algebrized_tree->SetSchemasForEvaluation({&params_schema}));
 
   TupleSlot result;

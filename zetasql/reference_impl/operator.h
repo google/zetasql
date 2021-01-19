@@ -245,12 +245,16 @@ class KeyArg : public ExprArg {
  public:
   enum SortOrder { kNotApplicable, kAscending, kDescending };
   enum NullOrder { kDefaultNullOrder, kNullsFirst, kNullsLast };
-  explicit KeyArg(const VariableId& variable, std::unique_ptr<ValueExpr> key,
-                  SortOrder order = kNotApplicable,
-                  NullOrder null_order = kDefaultNullOrder)
+  KeyArg(const VariableId& variable, std::unique_ptr<ValueExpr> key,
+         SortOrder order = kNotApplicable,
+         NullOrder null_order = kDefaultNullOrder)
       : ExprArg(variable, std::move(key)),
         order_(order),
         null_order_(null_order) {}
+  explicit KeyArg(std::unique_ptr<ValueExpr> key,
+                  SortOrder order = kNotApplicable,
+                  NullOrder null_order = kDefaultNullOrder)
+      : ExprArg(std::move(key)), order_(order), null_order_(null_order) {}
 
   KeyArg(const KeyArg&) = delete;
   KeyArg& operator=(const KeyArg&) = delete;
@@ -1010,9 +1014,11 @@ class AlgebraNode {
  public:
   // Printing mode of an operator argument used in ArgDebugString.
   enum ArgPrintMode {
-    k0,  // Don't print, always empty.
-    k1,  // Print as a single argument.
-    kN   // Print as a repeated argument.
+    k0,     // Don't print, always empty.
+    k1,     // Print as a single argument.
+    kN,     // Print as a repeated argument.
+    kOpt,   // Print as a single argument if present, otherwise skip.
+    kNOpt,  // Print as a repeated argument if present, otherwise skip.
   };
 
   // For printing tree lines.
@@ -1084,10 +1090,12 @@ class AlgebraNode {
   // Returns a debug string representation of 'node', which must have
   // 'arg_names.size()' arguments. Each argument is printed with corresponding
   // entry of 'arg_mode' (which must have the same number of elements as
-  // 'arg_names').
+  // 'arg_names'). If 'more_children' is true the last argument will get tree
+  // lines to connect to subsequently printed children.
   std::string ArgDebugString(absl::Span<const std::string> arg_names,
                              absl::Span<const ArgPrintMode> arg_mode,
-                             const std::string& indent, bool verbose) const;
+                             const std::string& indent, bool verbose,
+                             bool more_children = false) const;
 
  protected:
   // Set methods are to be called in the constructor. Argument 'kind' of an
@@ -2082,7 +2090,9 @@ class SampleScanOp : public RelationalOp {
   static zetasql_base::StatusOr<std::unique_ptr<SampleScanOp>> Create(
       Method method, std::unique_ptr<ValueExpr> size,
       std::unique_ptr<ValueExpr> repeatable,
-      std::unique_ptr<RelationalOp> input);
+      std::unique_ptr<RelationalOp> input,
+      std::vector<std::unique_ptr<ValueExpr>> partition_key,
+      const VariableId& sample_weight);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -2104,11 +2114,15 @@ class SampleScanOp : public RelationalOp {
     kInput,
     kSize,
     kRepeatable,
+    kPartitionKey,
+    kWeight,
   };
 
   SampleScanOp(std::unique_ptr<ValueExpr> size,
                std::unique_ptr<ValueExpr> repeatable,
-               std::unique_ptr<RelationalOp> input, Method method);
+               std::unique_ptr<RelationalOp> input, Method method,
+               std::vector<std::unique_ptr<ValueExpr>> partition_key,
+               const VariableId& sample_weight);
 
   const RelationalOp* input() const;
   RelationalOp* mutable_input();
@@ -2121,6 +2135,12 @@ class SampleScanOp : public RelationalOp {
   bool has_repeatable() const;
   const ValueExpr* repeatable() const;
   ValueExpr* mutable_repeatable();
+
+  absl::Span<const KeyArg* const> partition_key() const;
+  absl::Span<KeyArg* const> mutable_partition_key();
+
+  bool has_weight() const;
+  const VariableId& weight() const;
 
   const Method method_;
 };

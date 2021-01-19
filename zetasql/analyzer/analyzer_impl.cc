@@ -45,7 +45,8 @@ namespace zetasql {
 // *WARNING* On error, 'analyzer_output' may be in an inconsistent state with
 // some rewrites applied (or even partially applied).
 absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
-                                Catalog* catalog, TypeFactory* type_factory,
+                                absl::string_view sql, Catalog* catalog,
+                                TypeFactory* type_factory,
                                 AnalyzerOutput& analyzer_output);
 
 const AnalyzerOptions& GetOptionsWithArenas(
@@ -148,8 +149,8 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
       resolver.undeclared_positional_parameters(), resolver.max_column_id());
-  ZETASQL_RETURN_IF_ERROR(
-      RewriteResolvedAst(options, catalog, type_factory, *original_output));
+  ZETASQL_RETURN_IF_ERROR(RewriteResolvedAst(options, sql, catalog, type_factory,
+                                     *original_output));
   *output = std::move(original_output);
   return absl::OkStatus();
 }

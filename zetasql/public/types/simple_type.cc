@@ -516,6 +516,8 @@ bool SimpleType::ValueContentLess(const ValueContent& x, const ValueContent& y,
              (ContentEquals<DateTimeValueContentType>(x, y) &&
               x.simple_type_extended_content_ <
                   y.simple_type_extended_content_);
+    case TYPE_INTERVAL:
+      return ReferencedValueLess<internal::IntervalRef>(x, y);
     case TYPE_NUMERIC:
       return ReferencedValueLess<internal::NumericRef>(x, y);
     case TYPE_BIGNUMERIC:

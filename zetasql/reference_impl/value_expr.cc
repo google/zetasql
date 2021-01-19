@@ -2520,7 +2520,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedDelete(
           new_values_for_where.push_back(array_offset_value);
         }
         const TupleData extra_data_for_where =
-            CreateTupleDataFromValues(new_values_for_where);
+            CreateTupleDataFromValues(std::move(new_values_for_where));
 
         ZETASQL_ASSIGN_OR_RETURN(
             const Value where_value,
@@ -2582,7 +2582,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
       values_for_element.push_back(array_offset_value);
     }
     const TupleData data_for_element =
-        CreateTupleDataFromValues(values_for_element);
+        CreateTupleDataFromValues(std::move(values_for_element));
     const std::vector<const TupleData*> tuples_with_element =
         ConcatSpans(tuples_for_row, {&data_for_element});
 

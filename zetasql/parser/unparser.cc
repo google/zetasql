@@ -342,6 +342,9 @@ void Unparser::visitASTTVF(const ASTTVF* node, void* data) {
   if (node->pivot_clause() != nullptr) {
     node->pivot_clause()->Accept(this, data);
   }
+  if (node->unpivot_clause() != nullptr) {
+    node->unpivot_clause()->Accept(this, data);
+  }
   if (node->alias() != nullptr) {
     node->alias()->Accept(this, data);
   }
@@ -1195,6 +1198,11 @@ void Unparser::visitASTUnnestExpressionWithOptAliasAndOffset(
 void Unparser::visitASTTablePathExpression(
     const ASTTablePathExpression* node, void* data) {
   visitASTChildren(node, data);
+}
+
+void Unparser::visitASTPathExpressionList(const ASTPathExpressionList* node,
+                                          void* data) {
+  UnparseVectorWithSeparator(node->path_expression_list(), data, ", ");
 }
 
 void Unparser::visitASTForSystemTime(const ASTForSystemTime* node, void* data) {
@@ -2499,6 +2507,43 @@ void Unparser::visitASTPivotClause(const ASTPivotClause* node, void* data) {
   print("IN (");
   node->pivot_values()->Accept(this, data);
   print("))");
+
+  if (node->output_alias() != nullptr) {
+    node->output_alias()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTUnpivotInItem(const ASTUnpivotInItem* node, void* data) {
+  print("(");
+  node->unpivot_columns()->Accept(this, data);
+  print(")");
+  if (node->alias() != nullptr) {
+    print("AS");
+    node->alias()->Accept(this, data);
+  }
+}
+void Unparser::visitASTUnpivotInItemList(const ASTUnpivotInItemList* node,
+                                         void* data) {
+  print("(");
+  UnparseChildrenWithSeparator(node, data, ", ");
+  print(")");
+}
+
+void Unparser::visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) {
+  print("UNPIVOT");
+  print("(");
+  if (node->unpivot_output_value_columns()->path_expression_list().size() > 1) {
+    print("(");
+  }
+  node->unpivot_output_value_columns()->Accept(this, data);
+  if (node->unpivot_output_value_columns()->path_expression_list().size() > 1) {
+    print(")");
+  }
+  print("FOR");
+  node->unpivot_output_name_column()->Accept(this, data);
+  print("IN ");
+  node->unpivot_in_items()->Accept(this, data);
+  print(")");
 
   if (node->output_alias() != nullptr) {
     node->output_alias()->Accept(this, data);
