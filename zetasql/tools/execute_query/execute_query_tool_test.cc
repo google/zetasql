@@ -46,6 +46,19 @@ TEST(SetToolModeFromFlags, ToolMode) {
   CheckFlag("execute", ToolMode::kExecute);
 }
 
+TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
+  {
+    absl::SetFlag(&FLAGS_descriptor_pool, "none");
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetDescriptorPoolFromFlags(config));
+
+    const Type* type = nullptr;
+    ZETASQL_EXPECT_OK(config.mutable_catalog().GetType("zetasql_test.KitchenSinkPB",
+                                               &type));
+    EXPECT_EQ(type, nullptr);
+  }
+}
+
 TEST(SetToolModeFromFlags, BadToolMode) {
   absl::SetFlag(&FLAGS_mode, "bad-mode");
   ExecuteQueryConfig config;

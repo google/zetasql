@@ -100,6 +100,9 @@ enum class FunctionKind {
   kSum,
   kVarPop,
   kVarSamp,
+  // Anonymization functions (broken link)
+  kAnonSum,
+  kAnonAvg,
   // Exists function
   kExists,
   // IsNull function

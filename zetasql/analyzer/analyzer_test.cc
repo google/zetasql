@@ -1551,6 +1551,40 @@ TEST(SQLBuilderTest, WithScanWithFilterScan) {
       formatted_sql);
 }
 
+// Test that SqlBuilder prefer ResolvedTableScan.column_index_list over column
+// and table names in ResolvedTableScan, which should have no semantic meaning.
+// See the class comment on `ResolvedTableScan`.
+TEST(SQLBuilderTest, TableScanPrefersColumnIndexList) {
+  const std::string table_name = "T1";
+  const std::string col_name = "C";
+  const std::string unused_name = "UNUSED_NAME";
+  const int column_id = 9;
+
+  TypeFactory type_factory;
+  auto table = absl::make_unique<SimpleTable>(table_name);
+  ZETASQL_ASSERT_OK(table->AddColumn(
+      new SimpleColumn(table_name, col_name, type_factory.get_int32()),
+      /*is_owned=*/true));
+  const ResolvedColumn scan_column(column_id, unused_name, unused_name,
+                                   type_factory.get_int32());
+  auto table_scan = MakeResolvedTableScan({scan_column}, table.get(),
+                                          /*for_system_time_expr=*/nullptr);
+  table_scan->set_column_index_list({0});
+  const ResolvedColumn query_column(column_id, unused_name, unused_name,
+                                    type_factory.get_int32());
+  auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},
+                                       std::move(table_scan));
+
+  SQLBuilder sql_builder;
+  ZETASQL_ASSERT_OK(sql_builder.Process(*query));
+  std::string formatted_sql;
+  ZETASQL_ASSERT_OK(FormatSql(sql_builder.sql(), &formatted_sql));
+  EXPECT_EQ(
+      "SELECT\n  t1_2.a_1 AS a_1\nFROM\n  (\n"
+      "    SELECT\n      T1.C AS a_1\n    FROM\n      T1\n  ) AS t1_2;",
+      formatted_sql);
+}
+
 // Adding specific unit test to input provided by Random Query Generator tree.
 // From a SQL String (like in golden file sql_builder.test), we get a different
 // tree (JoinScan is under other ResolvedScans and this scenario isn't tested.

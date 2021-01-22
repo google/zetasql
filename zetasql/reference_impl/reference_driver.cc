@@ -222,6 +222,9 @@ void ReferenceDriver::AddTable(const std::string& table_name,
     simple_table = new SimpleTable(table_name, {{"value", element_type}});
     simple_table->set_is_value_table(true);
   }
+  if (!table.options.userid_column().empty()) {
+    ZETASQL_CHECK_OK(simple_table->SetAnonymizationInfo(table.options.userid_column()));
+  }
   catalog_->AddOwnedTable(simple_table);
 
   TableInfo table_info;
@@ -312,6 +315,11 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
   std::unique_ptr<const AnalyzerOutput> analyzed;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, analyzer_options, catalog_.get(),
                                    type_factory, &analyzed));
+  if (analyzed->analyzer_output_properties().has_anonymization) {
+    ZETASQL_ASSIGN_OR_RETURN(analyzed,
+                     RewriteForAnonymization(analyzed, analyzer_options,
+                                             catalog_.get(), type_factory));
+  }
 
   // Don't proceed if any columns referenced within the query have types not
   // supported by the language options.

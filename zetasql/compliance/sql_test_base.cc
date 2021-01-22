@@ -54,7 +54,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/time/time.h"
-#include "file_based_test_driver.h"
+#include "file_based_test_driver/file_based_test_driver.h"
 #include "zetasql/base/file_util.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"

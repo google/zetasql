@@ -137,6 +137,9 @@ int64_t AnnotationMap::GetEstimatedOwnedMemoryBytesSize() const {
 }
 
 bool AnnotationMap::Equals(const AnnotationMap& that) const {
+  if (annotations_ != that.annotations_) {
+    return false;
+  }
   if (IsStructMap()) {
     if (!that.IsStructMap() ||
         AsStructMap()->num_fields() != that.AsStructMap()->num_fields()) {

@@ -1106,6 +1106,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_index_unnest_expression_list
 %type <node> opt_language
 %type <node> opt_like_string_literal
+%type <node> opt_like_path_expression
 %type <node> opt_limit_offset_clause
 %type <node> opt_on_or_using_clause_list
 %type <node> on_or_using_clause_list
@@ -2378,12 +2379,12 @@ create_table_function_statement:
 // "FUNCTION" keyword conflict.
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
-    maybe_dashed_path_expression opt_table_element_list
+    maybe_dashed_path_expression opt_table_element_list opt_like_path_expression
     opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
     opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11});
+            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($5);
@@ -3314,6 +3315,14 @@ show_target:
 
 opt_like_string_literal:
     "LIKE" string_literal
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_like_path_expression:
+    "LIKE" maybe_dashed_path_expression
       {
         $$ = $2;
       }
@@ -8232,8 +8241,9 @@ next_statement_kind_without_hint:
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list
-      opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
-      opt_options_list next_statement_kind_create_table_opt_as_or_semicolon
+      opt_like_path_expression opt_partition_by_clause_no_hint
+      opt_cluster_by_clause_no_hint opt_options_list
+      next_statement_kind_create_table_opt_as_or_semicolon
       {
         $$ = zetasql::ASTCreateTableStatement::kConcreteNodeKind;
       }

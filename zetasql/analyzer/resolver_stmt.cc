@@ -2168,6 +2168,11 @@ absl::Status Resolver::ResolveCreateTableStatement(
       query == nullptr || language().LanguageFeatureEnabled(
                               FEATURE_CREATE_TABLE_AS_SELECT_COLUMN_LIST)};
 
+  if (ast_statement->like_table_name() != nullptr) {
+    return MakeSqlErrorAt(ast_statement->like_table_name())
+           << "CREATE TABLE LIKE is unsupported";
+  }
+
   if (ast_statement->partition_by() != nullptr &&
       !language().LanguageFeatureEnabled(FEATURE_CREATE_TABLE_PARTITION_BY)) {
     return MakeSqlErrorAt(ast_statement->partition_by())

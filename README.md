@@ -22,7 +22,7 @@ This codebase is being open sourced in multiple phases:
 2. Reference Implementation **In Progress**
    - Base capability **Complete**
    - Function library **In Progress**
-3. Compliance Tests **In Progress**
+3. Compliance Tests **Complete**
    - includes framework for validating compliance of arbitrary engines
 4. Misc tooling
    - Improved Formatter **In Progress**
@@ -67,6 +67,11 @@ reference implementation:
 
 The reference implementation is not yet completely released and currently
 supports only a subset of functions and types.
+
+## Differential Privacy
+For questions, documentation and examples of ZetaSQLs implementation of
+Differential Privacy, please check out
+(https://github.com/google/differential-privacy).
 
 ## Versions
 

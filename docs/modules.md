@@ -35,14 +35,12 @@ Modules support the following statements:
 
 + `MODULE`
 + `IMPORT MODULE`
-+ `CREATE ( PUBLIC | PRIVATE ) [ TABLE ] FUNCTION`
++ `CREATE ( PUBLIC | PRIVATE ) [ ( TABLE | AGGREGATE ) ] FUNCTION`
 + `CREATE ( PUBLIC | PRIVATE ) CONSTANT`
 
-Modules do not support statements that return results or have side effects.  For
-example, the following statements are not supported inside of modules:
-
-+ `SELECT` statements
-+ `UPDATE` statements
+Modules do not support statements that return results or have side effects.
+Modules only support defining an object once and do not support modifying an
+object after it is defined.
 
 ### Declaring a module
 

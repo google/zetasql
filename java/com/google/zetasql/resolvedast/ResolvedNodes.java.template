@@ -451,7 +451,7 @@ public final class ResolvedNodes {
       protected void validate() {
         super.validate();
         {% for field in (node.fields) %}
-        {% if field.is_constructor_arg and not field.is_optional_constructor_arg %}
+        {% if field.is_constructor_arg and not field.is_optional_constructor_arg and field.is_not_ignorable %}
         Preconditions.checkArgument(
             {{field.name|lower_camel_case}} != null, "{{field.name|lower_camel_case}} must be set");
         {% endif %}

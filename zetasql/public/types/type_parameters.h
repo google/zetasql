@@ -80,8 +80,12 @@ class TypeParameters {
   // sub-fields if need to access sub-field type parameters.
   bool MatchType(const Type* type) const;
 
-  bool IsEmptyTypeParameters() const {
-    return absl::holds_alternative<absl::monostate>(type_parameters_holder_);
+  // Returns true if type parameter is empty and has no children. Empty type
+  // parameter is used as placeholder for type without parameters. E.g. in
+  // STRUCT<INT64, STRING(10)>, the type parameter for INT64 is empty.
+  bool IsEmpty() const {
+    return absl::holds_alternative<absl::monostate>(type_parameters_holder_) &&
+           child_list().empty();
   }
   bool IsStringTypeParameters() const {
     return absl::holds_alternative<StringTypeParametersProto>(
@@ -95,6 +99,10 @@ class TypeParameters {
     return absl::holds_alternative<ExtendedTypeParameters>(
         type_parameters_holder_);
   }
+  // Returns true if this contains parameters for child types of a complex type
+  // (STRUCT or ARRAY).
+  bool IsTypeParametersInStructOrArray() const { return !child_list().empty(); }
+
   const StringTypeParametersProto& string_type_parameters() const {
     ZETASQL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
     return absl::get<StringTypeParametersProto>(type_parameters_holder_);

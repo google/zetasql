@@ -170,6 +170,26 @@ cc_proto_library(
             strip_prefix = "riegeli-baf6376f694d401932cf1b9d34e79a0fae50e7c4",
         )
 
+    # Differential Privacy
+    if not native.existing_rule("com_google_differential_privacy"):
+        http_archive(
+            name = "com_google_differential_privacy",
+            # Commit from 2021-01-21
+            url = "https://github.com/google/differential-privacy/archive/de8460c9791de4c89a9dbb906b11a8f62e045f7b.tar.gz",
+            sha256 = "e9f01b00e760724909a7ff7acf26855a802417a23bde54d6baec9168cfbe1dc4",
+            strip_prefix = "differential-privacy-de8460c9791de4c89a9dbb906b11a8f62e045f7b",
+        )
+
+    # Differential Privacy - cc
+    if not native.existing_rule("com_google_cc_differential_privacy"):
+        http_archive(
+            name = "com_google_cc_differential_privacy",
+            # Commit from 2021-01-21
+            url = "https://github.com/google/differential-privacy/archive/de8460c9791de4c89a9dbb906b11a8f62e045f7b.tar.gz",
+            sha256 = "e9f01b00e760724909a7ff7acf26855a802417a23bde54d6baec9168cfbe1dc4",
+            strip_prefix = "differential-privacy-de8460c9791de4c89a9dbb906b11a8f62e045f7b/cc",
+        )
+
     # Boringssl
     if not native.existing_rule("boringssl"):
         http_archive(
@@ -238,10 +258,10 @@ cc_proto_library(
     if not native.existing_rule("com_google_file_based_test_driver"):
         http_archive(
             name = "com_google_file_based_test_driver",
-            # Commit from 2020-09-28
-            url = "https://github.com/google/file-based-test-driver/archive/d0561d4d24117c2f3893e6fa947f1bde8c0719af.tar.gz",
-            sha256 = "3249acb0b74e4facb37001daab5db320153d090905cd38bb970a79d83bf0ad41",
-            strip_prefix = "file-based-test-driver-d0561d4d24117c2f3893e6fa947f1bde8c0719af",
+            # Commit from 2020-11-24
+            url = "https://github.com/google/file-based-test-driver/archive/5074f48f03c6a892edafab55410addc43f4a0546.tar.gz",
+            sha256 = "955cdee45433dd608bfde47d4d1dd6f47decf739a4c54cf4eecc11896dcbb374",
+            strip_prefix = "file-based-test-driver-5074f48f03c6a892edafab55410addc43f4a0546",
         )
 
     # gRPC

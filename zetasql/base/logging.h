@@ -70,7 +70,7 @@
 // nothing is logged.
 // Example:
 //
-// LOG_IF(INFO, num_cookies > 10) << "Got lots of cookies";
+// ZETASQL_LOG_IF(INFO, num_cookies > 10) << "Got lots of cookies";
 //
 // severity: the severity of the log message, one of LogSeverity. The
 //           FATAL severity will terminate the program after the log is emitted.
@@ -344,7 +344,7 @@ class LogMessage {
 };
 
 // This class is used just to take an ostream type and make it a void type to
-// satisfy the ternary operator in LOG_IF.
+// satisfy the ternary operator in ZETASQL_LOG_IF.
 // operator& is used because it has precedence lower than << but higher than :?
 class LogMessageVoidify {
  public:

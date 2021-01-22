@@ -28,6 +28,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/compliance/type_helpers.h"
+#include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
@@ -524,6 +525,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
 
 zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
     const VariableId& variable,
+    absl::optional<AnonymizationOptions> anonymization_options,
     const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL ||
             expr->node_kind() == RESOLVED_ANALYTIC_FUNCTION_CALL)
@@ -537,6 +539,31 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggre
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> argument,
                      AlgebrizeExpression(argument_expr));
     arguments.push_back(std::move(argument));
+  }
+  if (anonymization_options.has_value()) {
+    // Append 'delta' and 'epsilon' to the arguments.  If either is not
+    // explicitly specified then we append a NULL value for the unspecified
+    // setting, which indicates unspecified.
+    if (anonymization_options.value().delta.has_value()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
+                       ConstExpr::Create(
+                           anonymization_options.value().delta.value()));
+      arguments.push_back(std::move(arg));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
+                       ConstExpr::Create(Value::NullDouble()));
+      arguments.push_back(std::move(arg));
+    }
+    if (anonymization_options.value().epsilon.has_value()) {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
+                       ConstExpr::Create(
+                           anonymization_options.value().epsilon.value()));
+      arguments.push_back(std::move(arg));
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> arg,
+                       ConstExpr::Create(Value::NullDouble()));
+      arguments.push_back(std::move(arg));
+    }
   }
 
   const Type* type = aggregate_function->type();
@@ -2629,11 +2656,172 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggreg
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> agg,
                      AlgebrizeAggregateFn(
                          agg_variable_name,
+                         absl::optional<AnonymizationOptions>(),
                          agg_expr->expr()));
     aggregators.push_back(std::move(agg));
   }
   return AggregateOp::Create(std::move(keys), std::move(aggregators),
                              std::move(input));
+}
+
+namespace {
+
+zetasql_base::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
+    const ResolvedAnonymizedAggregateScan* aggregate_scan) {
+  AnonymizationOptions anonymization_options;
+  for (const auto& option : aggregate_scan->anonymization_option_list()) {
+    if (absl::AsciiStrToLower(option->name()) == "k_threshold") {
+      if (anonymization_options.delta.has_value()) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+            << "Only one of anonymization options DELTA or K_THRESHOLD can "
+            << "be set";
+      }
+      if (anonymization_options.k_threshold.has_value()) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+            << "Anonymization option K_THRESHOLD can only be set once";
+      }
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.k_threshold =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+    } else if (absl::AsciiStrToLower(option->name()) == "epsilon") {
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.epsilon =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+    } else if (absl::AsciiStrToLower(option->name()) == "delta") {
+      if (anonymization_options.k_threshold.has_value()) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+            << "Only one of anonymization options DELTA or K_THRESHOLD can "
+            << "be set";
+      }
+      if (anonymization_options.delta.has_value()) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+            << "Anonymization option DELTA can only be set once";
+      }
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.delta =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+    } else if (absl::AsciiStrToLower(option->name()) == "kappa") {
+      if (anonymization_options.kappa.has_value()) {
+        return zetasql_base::InvalidArgumentErrorBuilder()
+            << "Anonymization option KAPPA can only be set once";
+      }
+      ZETASQL_RET_CHECK_EQ(option->value()->node_kind(), RESOLVED_LITERAL);
+      anonymization_options.kappa =
+          option->value()->GetAs<ResolvedLiteral>()->value();
+    } else {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+          << "Unknown or invalid anonymization option found: "
+          << option->name();
+    }
+  }
+
+  // Epsilon must always be explicitly set.
+  if (!anonymization_options.epsilon.has_value()) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+          << "Anonymization option EPSILON must be set";
+  }
+
+  // Either k_threshold or delta must be set.
+  if (!anonymization_options.delta.has_value() &&
+      !anonymization_options.k_threshold.has_value()) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+          << "Anonymization option DELTA or K_THRESHOLD must be set";
+  }
+
+  // Compute k_threshold from delta/epsilon/kappa, if needed.
+  if (anonymization_options.delta.has_value()) {
+    ZETASQL_RET_CHECK(anonymization_options.epsilon.has_value());
+    ZETASQL_ASSIGN_OR_RETURN(
+        anonymization_options.k_threshold,
+        zetasql::anonymization::ComputeKThresholdFromEpsilonDeltaKappa(
+            anonymization_options.epsilon.value(),
+            anonymization_options.delta.value(),
+            (anonymization_options.kappa.has_value()
+             ? anonymization_options.kappa.value() : Value::Invalid())));
+  }
+
+  return anonymization_options;
+}
+
+}  // namespace
+
+zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+Algebrizer::AlgebrizeAnonymizedAggregateScan(
+    const ResolvedAnonymizedAggregateScan* anonymized_aggregate_scan) {
+  ZETASQL_ASSIGN_OR_RETURN(AnonymizationOptions anonymization_options,
+                   GetAnonymizationOptions(anonymized_aggregate_scan));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
+                   AlgebrizeScan(anonymized_aggregate_scan->input_scan()));
+  // Build the list of grouping keys.
+  std::vector<std::unique_ptr<KeyArg>> keys;
+  for (const std::unique_ptr<const ResolvedComputedColumn>& key_expr :
+           anonymized_aggregate_scan->group_by_list()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> key,
+                     AlgebrizeExpression(key_expr->expr()));
+    const VariableId key_variable_name =
+        column_to_variable_->AssignNewVariableToColumn(&key_expr->column());
+    keys.push_back(
+        absl::make_unique<KeyArg>(key_variable_name, std::move(key)));
+  }
+
+  // Build the set of output columns.
+  absl::flat_hash_set<ResolvedColumn> output_columns;
+  output_columns.reserve(anonymized_aggregate_scan->column_list_size());
+  for (const ResolvedColumn& column : anonymized_aggregate_scan->column_list())
+  {
+    ZETASQL_RET_CHECK(output_columns.insert(column).second) << column.DebugString();
+  }
+
+  // Build the list of aggregate functions.
+  std::vector<std::unique_ptr<AggregateArg>> aggregators;
+  for (const std::unique_ptr<const ResolvedComputedColumn>& agg_expr :
+           anonymized_aggregate_scan->aggregate_list()) {
+    const ResolvedColumn& column = agg_expr->column();
+
+    // Add the aggregate function to the output.
+    const VariableId agg_variable_name =
+        column_to_variable_->AssignNewVariableToColumn(&column);
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> agg,
+                     AlgebrizeAggregateFn(agg_variable_name,
+                                          anonymization_options,
+                                          agg_expr->expr()));
+    aggregators.push_back(std::move(agg));
+  }
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relation_op,
+                   AggregateOp::Create(std::move(keys), std::move(aggregators),
+                                       std::move(input)));
+
+  // A ResolvedAnonymizedAggregateScan is logically two operations, a noisy
+  // aggregation followed by a k-thresholding filter.
+  //
+  // Build the k-thresholding filter op comparing k_threshold_expr() to the
+  // k-threshold AnonymizationOption, and apply it to the aggregate op.
+  std::unique_ptr<ValueExpr> val_op;
+  std::vector<std::unique_ptr<ValueExpr>> arguments;
+
+  ZETASQL_RET_CHECK(anonymization_options.k_threshold.has_value());
+  ZETASQL_ASSIGN_OR_RETURN(val_op, ConstExpr::Create(
+      anonymization_options.k_threshold.value()));
+  arguments.push_back(std::move(val_op));
+
+  const ResolvedColumn& column =
+      anonymized_aggregate_scan->k_threshold_expr()->column();
+  ZETASQL_ASSIGN_OR_RETURN(const VariableId variable_id,
+                   column_to_variable_->LookupVariableNameForColumn(&column));
+  ZETASQL_ASSIGN_OR_RETURN(
+      val_op,
+      DerefExpr::Create(variable_id,
+                        anonymized_aggregate_scan->k_threshold_expr()->type()));
+  arguments.push_back(std::move(val_op));
+
+  ZETASQL_ASSIGN_OR_RETURN(val_op, BuiltinScalarFunction::CreateCall(
+                               FunctionKind::kLessOrEqual, language_options_,
+                               type_factory_->get_bool(), std::move(arguments),
+                               ResolvedFunctionCallBase::DEFAULT_ERROR_MODE));
+  std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts;
+  algebrized_conjuncts.push_back(std::move(val_op));
+  return ApplyAlgebrizedFilterConjuncts(std::move(relation_op),
+                                        std::move(algebrized_conjuncts));
 }
 
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeAnalyticScan(
@@ -2941,6 +3129,7 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> aggregate_arg,
                      AlgebrizeAggregateFn(
                          variable,
+                         absl::optional<AnonymizationOptions>(),
                          analytic_function_call));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnalyticArg> analytic_arg,
                      AggregateAnalyticArg::Create(
@@ -3571,6 +3760,12 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeScan(
     case RESOLVED_AGGREGATE_SCAN: {
       ZETASQL_ASSIGN_OR_RETURN(
           rel_op, AlgebrizeAggregateScan(scan->GetAs<ResolvedAggregateScan>()));
+      break;
+    }
+    case RESOLVED_ANONYMIZED_AGGREGATE_SCAN: {
+      ZETASQL_ASSIGN_OR_RETURN(rel_op,
+                       AlgebrizeAnonymizedAggregateScan(
+                           scan->GetAs<ResolvedAnonymizedAggregateScan>()));
       break;
     }
     case RESOLVED_SET_OPERATION_SCAN: {

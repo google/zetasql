@@ -90,6 +90,13 @@ struct AlgebrizerOptions {
   bool inline_with_entries = false;
 };
 
+struct AnonymizationOptions {
+  absl::optional<Value> epsilon;      // double Value
+  absl::optional<Value> delta;        // double Value
+  absl::optional<Value> kappa;        // int64_t Value
+  absl::optional<Value> k_threshold;  // int64_t Value
+};
+
 class Algebrizer {
  public:
   Algebrizer(const Algebrizer&) = delete;
@@ -219,6 +226,7 @@ class Algebrizer {
   // Algebrize specific expressions.
   zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
       const VariableId& variable,
+      absl::optional<AnonymizationOptions> anonymization_options,
       const ResolvedExpr* expr);
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
       const ResolvedSubqueryExpr* subquery_expr);
@@ -347,6 +355,9 @@ class Algebrizer {
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScan(
       const ResolvedAggregateScan* aggregate_scan);
+  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+  AlgebrizeAnonymizedAggregateScan(
+      const ResolvedAnonymizedAggregateScan* aggregate_scan);
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(
       const ResolvedSetOperationScan* set_scan);
   zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUnionScan(

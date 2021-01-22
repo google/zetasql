@@ -88,9 +88,9 @@
 #include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
-#include "file_based_test_driver.h"  
-#include "run_test_case_result.h"
-#include "test_case_options.h"
+#include "file_based_test_driver/file_based_test_driver.h"  
+#include "file_based_test_driver/run_test_case_result.h"
+#include "file_based_test_driver/test_case_options.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 

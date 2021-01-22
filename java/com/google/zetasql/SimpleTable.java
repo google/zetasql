@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.LocalService.TableFromProtoRequest;
+import com.google.zetasql.SimpleTableProtos.SimpleAnonymizationInfoProto;
 import com.google.zetasql.SimpleTableProtos.SimpleColumnProto;
 import com.google.zetasql.SimpleTableProtos.SimpleTableProto;
 import io.grpc.StatusRuntimeException;
@@ -59,6 +60,9 @@ public final class SimpleTable implements Table {
   private boolean allowAnonymousColumnName = false;
   private boolean anonymousColumnSeen = false;
   private boolean allowDuplicateColumnNames = false;
+  // TODO: Add support for value tables with userIdColumns, as this
+  // implementation does not support them yet.
+  private SimpleColumn userIdColumn = null;
 
   /** Make a table with the given Columns. Crashes if there are duplicate column names. */
   public SimpleTable(String name, List<SimpleColumn> columns) {
@@ -123,6 +127,12 @@ public final class SimpleTable implements Table {
         builder.addPrimaryKeyColumnIndex(columnIndex);
       }
     }
+    if (userIdColumn != null) {
+      SimpleAnonymizationInfoProto.Builder anonymizationBuilder =
+          SimpleAnonymizationInfoProto.newBuilder();
+      anonymizationBuilder.addUseridColumnName(userIdColumn.getName());
+      builder.setAnonymizationInfo(anonymizationBuilder.build());
+    }
     return builder.build();
   }
 
@@ -155,6 +165,20 @@ public final class SimpleTable implements Table {
       table.setPrimaryKey(proto.getPrimaryKeyColumnIndexList());
     }
     table.setIsValueTable(proto.getIsValueTable());
+    if (proto.hasAnonymizationInfo()) {
+      // TODO: Support value tables with anonymization userid columns.
+      // This implementation will ignore anonymization userid columns for value
+      // tables (the findColumnByName() call will return nullptr), so such
+      // tables will be treated as if they do not support anonymization.  We
+      // cannot currently throw an exception in this case, since then all
+      // analyzer tests will fail because the sample catalog that gets
+      // serialized/deserialized includes such tables and the test setup for
+      // every test will fail.
+      if (!proto.getAnonymizationInfo().getUseridColumnNameList().isEmpty()) {
+        table.userIdColumn =
+            table.findColumnByName(proto.getAnonymizationInfo().getUseridColumnName(0));
+      }
+    }
     return table;
   }
 
@@ -253,6 +277,15 @@ public final class SimpleTable implements Table {
 
   public boolean allowDuplicateColumnNames() {
     return allowDuplicateColumnNames;
+  }
+
+  public SimpleColumn userIdColumn() {
+    return userIdColumn;
+  }
+
+  public void setUserIdColumn(SimpleColumn column) {
+    Preconditions.checkArgument(columns.contains(column));
+    userIdColumn = column;
   }
 
   public void setAllowDuplicateColumnNames(boolean value) {

@@ -493,8 +493,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   void SetPathForColumn(const ResolvedColumn& column, const std::string& path);
   void SetPathForColumnList(const ResolvedColumnList& column_list,
                             const std::string& scan_alias);
-  void SetPathForColumnsInScan(const ResolvedScan* scan,
-                               const std::string& alias);
+  absl::Status SetPathForColumnsInScan(const ResolvedScan* scan,
+                                       const std::string& alias);
 
   // Helper function to ensure:
   // - Columns in <output_column_list> matches 1:1 in order with

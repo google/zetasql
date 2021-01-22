@@ -49,7 +49,8 @@ namespace zetasql {
 namespace {
 
 // Rewrites a given AST that includes a ResolvedAnonymizedAggregateScan to use
-// the semantics defined in (broken link).
+// the semantics defined in https://arxiv.org/abs/1909.01917 and
+// (broken link).
 //
 // Overview of the rewrite process:
 // 1. This class is invoked on an AST node, blindly copying everything until a
@@ -68,8 +69,10 @@ namespace {
 //      in the per-user scan's column list is the appropriate intermediate
 //      column looked up in the column map
 // 4. If kappa is specified, a partioned-by-$uid ResolvedSampleScan is
-//    inserted to limit the number of groups that a user can contribute to,
-//    in effect providing dataset-level privacy
+//    inserted to limit the number of groups that a user can contribute to.
+//    While kappa is optional, for most queries with a GROUP BY clause in the
+//    ResolvedAnonymizedAggregationScan it MUST be specified for the resulting
+//    query to provide correct epsilon-delta differential privacy.
 // 5. The final cross-user ResolvedAnonymizedAggregateScan is created:
 //   a. The input scan is set to the (possibly sampled) per-user scan
 //   b. The first argument for each ANON_* function call in the anon node is
@@ -1172,8 +1175,8 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
       std::unique_ptr<ResolvedScan> input_scan,
       RewriteInnerAggregateScan(node, &injected_col_map, &uid_column));
 
-  // Inject a SampleScan if kappa is present, in order to provide the
-  // requested dataset-level privacy.
+  // Inject a SampleScan if kappa is present, in order to provide epsilon-delta
+  // differential privacy in the presence of a GROUP BY clause.
   if (kappa_value != nullptr) {
     std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
     partition_by_list.push_back(MakeColRef(uid_column));

@@ -17,6 +17,7 @@
 // This file contains the implementation of query-related (i.e. SELECT)
 // resolver methods from resolver.h.
 #include <algorithm>
+#include <limits>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -2672,6 +2673,12 @@ absl::Status Resolver::ResolveOrderingExprs(
       const Value& value =
           resolved_order_expression->GetAs<ResolvedLiteral>()->value();
       if (value.type_kind() == TYPE_INT64 && !value.is_null()) {
+        if (value.int64_value() < 1) {
+          return MakeSqlErrorAt(order_by_expression)
+                 << "ORDER BY column number item is out of range. "
+                 << "Column numbers must be greater than or equal to one. "
+                 << "Found : " << value.int64_value();
+        }
         const int64_t int_value = value.int64_value() - 1;  // Make it 0-based.
         order_by_info->emplace_back(order_by_expression, int_value,
                                     order_by_expression->descending(),

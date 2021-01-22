@@ -84,6 +84,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "algorithms/algorithm.h"
+#include "algorithms/bounded-mean.h"
+#include "algorithms/bounded-sum.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/exactfloat.h"
@@ -577,6 +580,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kStddevSamp, "stddev_samp", "Stddev_samp");
     RegisterFunction(FunctionKind::kVarPop, "var_pop", "Var_pop");
     RegisterFunction(FunctionKind::kVarSamp, "var_samp", "Var_samp");
+    RegisterFunction(FunctionKind::kAnonSum, "anon_sum", "Anon_sum");
+    RegisterFunction(FunctionKind::kAnonAvg, "anon_avg", "Anon_avg");
   }();
   [this]() {
     RegisterFunction(FunctionKind::kByteLength, "byte_length", "ByteLength");
@@ -2850,9 +2855,56 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   uint32_t bit_uint32_ = 0;
   uint64_t bit_uint64_ = 0;
   std::vector<Value> array_agg_;  // ArrayAgg and ArrayConcatAgg.
+  // Used for ANON_* functions from (broken link).
+  std::unique_ptr<::differential_privacy::Algorithm<double>> anon_double_;
+  std::unique_ptr<::differential_privacy::Algorithm<int64_t>> anon_int64_;
   // An output array for Min, Max.
   Value min_max_out_array_;
 };
+
+template <typename T>
+static absl::Status InitializeAnonBuilder(const std::vector<Value>& args,
+                                          T* builder) {
+  // The last two args represent 'delta' and 'epsilon'.  If clamping
+  // bounds are explicitly set, then there will be two additional args
+  // that are args 0 and 1.
+  // TODO: Remove the delta argument.  When delta is set, we
+  // compute k_threshold from delta/epsilon/kappa, and the delta value
+  // is no longer relevant to the function itself.
+  ZETASQL_RET_CHECK(args.size() == 2 || args.size() == 4) << args.size();
+
+  int epsilon_offset = 1;
+
+  if (args.size() == 4) {
+    if (args[0].type()->IsDouble()) {
+      ZETASQL_RET_CHECK(args[1].type()->IsDouble()) << args[1].type()->DebugString();
+      builder->SetLower(args[0].double_value())
+          .SetUpper(args[1].double_value());
+    } else {
+      ZETASQL_RET_CHECK(args[0].type()->IsInt64()) << args[0].type()->DebugString();
+      ZETASQL_RET_CHECK(args[1].type()->IsInt64()) << args[1].type()->DebugString();
+      builder->SetLower(args[0].int64_value())
+          .SetUpper(args[1].int64_value());
+    }
+    epsilon_offset = 3;
+  }
+
+  if (args[epsilon_offset].is_null()) {
+    // We don't currently have a way to distinguish unspecified vs. explicitly
+    // specified NULL value, so we always produce an error in this case.
+    return ::zetasql_base::OutOfRangeErrorBuilder() << "Epsilon cannot be NULL";
+  } else {
+    // We check for NaN epsilon here because it will cause the privacy
+    // libraries to ZETASQL_DCHECK fail.  The privacy libraries should also probably
+    // not allow non-positive or non-finite values, but we don't check that
+    // here for the reference implementation.
+    if (std::isnan(args[epsilon_offset].double_value())) {
+      return ::zetasql_base::OutOfRangeErrorBuilder() << "Epsilon cannot be NaN";
+    }
+    builder->SetEpsilon(args[epsilon_offset].double_value());
+  }
+  return absl::OkStatus();
+}
 
 absl::Status BuiltinAggregateAccumulator::Reset() {
   accountant()->ReturnBytes(requested_bytes_);
@@ -3042,6 +3094,25 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC):
       bignumeric_variance_aggregator_ = BigNumericValue::VarianceAggregator();
       break;
+    // Anonymization functions.
+    case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE): {
+      differential_privacy::BoundedSum<double>::Builder builder;
+      ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
+      ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
+      break;
+    }
+    case FCT(FunctionKind::kAnonSum, TYPE_INT64): {
+      differential_privacy::BoundedSum<int64_t>::Builder builder;
+      ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
+      ZETASQL_ASSIGN_OR_RETURN(anon_int64_, builder.Build());
+      break;
+    }
+    case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE): {
+      differential_privacy::BoundedMean<double>::Builder builder;
+      ZETASQL_RETURN_IF_ERROR(InitializeAnonBuilder<>(args_, &builder));
+      ZETASQL_ASSIGN_OR_RETURN(anon_double_, builder.Build());
+      break;
+    }
   }
 
   return absl::OkStatus();
@@ -3437,6 +3508,13 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
+    case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE):
+    case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE):
+      anon_double_->AddEntry(value.double_value());
+      break;
+    case FCT(FunctionKind::kAnonSum, TYPE_INT64):
+      anon_int64_->AddEntry(value.int64_value());
+      break;
   }
 
   accountant()->ReturnBytes(bytes_to_return);
@@ -3741,6 +3819,29 @@ zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInterna
     case FCT(FunctionKind::kBitOr, TYPE_UINT64):
     case FCT(FunctionKind::kBitXor, TYPE_UINT64):
       return count_ > 0 ? Value::Uint64(bit_uint64_) : Value::NullUint64();
+    case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE):
+    case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE):
+      if (anon_double_ != nullptr) {
+        auto status_or = anon_double_->PartialResult();
+        if (status_or.ok()) {
+          return Value::Double(
+              differential_privacy::GetValue<double>(status_or.value()));
+        }
+        return status_or.status();
+      } else {
+        return Value::NullDouble();
+      }
+    case FCT(FunctionKind::kAnonSum, TYPE_INT64):
+      if (anon_int64_ != nullptr) {
+        auto status_or = anon_int64_->PartialResult();
+        if (status_or.ok()) {
+          return Value::Int64(
+              differential_privacy::GetValue<int64_t>(status_or.value()));
+        }
+        return status_or.status();
+      } else {
+        return Value::NullInt64();
+      }
   }
   return ::zetasql_base::UnimplementedErrorBuilder()
          << "Unsupported aggregate function: " << function_->debug_name() << "("

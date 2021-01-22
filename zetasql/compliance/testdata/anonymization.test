@@ -1,0 +1,433 @@
+[prepare_database]
+CREATE TABLE TestTableWithUid OPTIONS (userid_column=uid) AS
+SELECT cast(1 as int64) as uid,
+       cast(null as int64) as int64_val,
+       cast(null as double) as double_val UNION ALL
+  SELECT 2,  2,    1.5  UNION ALL
+  SELECT 3,  1,    1.5  UNION ALL
+  SELECT 4,  null, 2.5  UNION ALL
+  SELECT 5,  1,    3.5  UNION ALL
+  SELECT 6,  2,    null UNION ALL
+  SELECT 7,  1,    -0.5 UNION ALL
+  SELECT 8,  4,    -1.5 UNION ALL
+  SELECT 9,  2,    1.5  UNION ALL
+  SELECT 10, 3,    2.5
+--
+ARRAY<STRUCT<uid INT64, int64_val INT64, double_val DOUBLE>>[
+  {1, NULL, NULL},
+  {2, 2, 1.5},
+  {3, 1, 1.5},
+  {4, NULL, 2.5},
+  {5, 1, 3.5},
+  {6, 2, NULL},
+  {7, 1, -0.5},
+  {8, 4, -1.5},
+  {9, 2, 1.5},
+  {10, 3, 2.5}
+]
+==
+
+[prepare_database]
+CREATE TABLE TestTableWithUid2 OPTIONS (userid_column=uid) AS
+SELECT cast(1 as int64) as id, cast(1 as int64) as uid,
+       cast(null as int64) as int64_val,
+       cast(null as double) as double_val UNION ALL
+  SELECT 2,   2,  2,    1.5   UNION ALL
+  SELECT 3,   3,  1,    1.5   UNION ALL
+  SELECT 4,   1,  null, 2.5   UNION ALL
+  SELECT 5,   2,  1,    3.5   UNION ALL
+  SELECT 6,   2,  2,    null  UNION ALL
+  SELECT 7,   1,  1,    -0.5  UNION ALL
+  SELECT 8,   2,  4,    -1.5  UNION ALL
+  SELECT 9,   3,  2,    1.5   UNION ALL
+  SELECT 10,  2,  3,    2.5
+--
+ARRAY<STRUCT<id INT64, uid INT64, int64_val INT64, double_val DOUBLE>>[
+  {1, 1, NULL, NULL},
+  {2, 2, 2, 1.5},
+  {3, 3, 1, 1.5},
+  {4, 1, NULL, 2.5},
+  {5, 2, 1, 3.5},
+  {6, 2, 2, NULL},
+  {7, 1, 1, -0.5},
+  {8, 2, 4, -1.5},
+  {9, 3, 2, 1.5},
+  {10, 2, 3, 2.5}
+]
+==
+
+# Epsilon is not specified in the query, so the query result depends on the
+# engine default (which is unspecified in ZetaSQL), if any (if there is
+# no engine default then the query should fail).  The reference implementation
+# currently provides an error in this case.
+#
+[default required_features=ANONYMIZATION]
+[name=anonymization_basic_k_threshold_only]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(k_threshold=0)
+  IF(ANON_COUNT(double_val CLAMPED BETWEEN 0 AND 10) >= 0, true, true)
+FROM TestTableWithUid;
+--
+ERROR: generic::invalid_argument: Anonymization option EPSILON must be set
+==
+
+# epsilon = 1e20 implies that no noise is added in this case
+#
+# Since the k-threshold is unspecified, the query produces an error (there
+# is no engine default).
+#
+# We can revisit this test in the future if engines want to support a default
+# k_threshold in some way.
+[name=anonymization_basic_epsilon_only]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20)
+  ANON_SUM(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid;
+--
+ERROR: generic::invalid_argument: Anonymization option DELTA or K_THRESHOLD must be set
+==
+
+# Same as above, but for ANON_AVG
+[name=anonymization_basic_epsilon_only_anon_avg]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20)
+  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid;
+--
+ERROR: generic::invalid_argument: Anonymization option DELTA or K_THRESHOLD must be set
+==
+
+[name=anonymization_basic_anon_sum_double_implicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(double_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{11}]
+==
+
+[name=anonymization_basic_anon_sum_double_implicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(double_val)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{11}]
+==
+
+[name=anonymization_basic_anon_avg_double_implicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(double_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{1.375}]
+==
+
+[name=anonymization_basic_anon_avg_double_implicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(double_val)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{1.3333333333333333}]
+==
+
+[name=anonymization_basic_anon_sum_int64_implicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(int64_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64>>[{16}]
+==
+
+[name=anonymization_basic_anon_sum_int64_implicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(int64_val)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<INT64>>[{16}]
+==
+
+[name=anonymization_basic_anon_avg_int64_implicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(int64_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{2}]
+==
+
+[name=anonymization_anon_sum_double_explicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{13}]
+==
+
+[name=anonymization_anon_sum_double_explicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{11}]
+==
+
+[name=anonymization_anon_avg_double_explicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{1.625}]
+==
+
+[name=anonymization_anon_avg_double_explicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{1.3333333333333335}]
+==
+
+[name=anonymization_anon_sum_int64_explicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64>>[{18}]
+==
+
+[name=anonymization_anon_sum_int64_explicit_bounds_with_delta]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64>>[{18}]
+==
+
+[name=anonymization_anon_sum_int64_explicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<INT64>>[{8}]
+==
+
+[name=anonymization_anon_sum_int64_explicit_bounds_multi_user_with_delta]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<INT64>>[{8}]
+==
+
+[name=anonymization_anon_sum_int64_explicit_bounds_multi_user_larger_k]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=3)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<INT64>>[{8}]
+==
+
+[name=anonymization_anon_sum_int64_explicit_bounds_multi_user_smaller_delta]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=0.7)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<INT64>>[{8}]
+==
+
+[name=anonymization_anon_avg_int64_explicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[{2.25}]
+==
+
+[name=anonymization_anon_avg_int64_explicit_bounds_multi_user]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{2.1333333333333333}]
+==
+
+[name=anonymization_anon_avg_int64_explicit_bounds_multi_user_with_delta]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1)
+  ANON_AVG(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{2.1333333333333333}]
+==
+
+[name=anonymization_anon_avg_int64_explicit_bounds_multi_user_larger_k]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=3)
+  ANON_AVG(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{2.1333333333333333}]
+==
+
+[name=anonymization_anon_avg_int64_explicit_bounds_multi_user_smaller_delta]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=0.7)
+  ANON_AVG(int64_val CLAMPED BETWEEN 2 AND 3)
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<DOUBLE>>[{2.1333333333333333}]
+==
+
+[name=anonymization_k_threshold_eliminates_row]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=100)
+  ANON_SUM(double_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[]
+==
+
+# There are ten userids in this table, so the epsilon/delta combination
+# must compute an effective k_threshold of over 10.  This combination
+# of epsilon/delta computes a k_threshold of 12.
+[name=anonymization_delta_eliminates_row]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=5, delta=2.0894334e-24)
+  ANON_SUM(double_val CLAMPED BETWEEN 0 AND 4)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[]
+==
+
+[name=anonymization_k_threshold_eliminates_row_for_anon_avg]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=100)
+  ANON_AVG(double_val)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[]
+==
+
+# There are ten userids in this table, so the epsilon/delta combination
+# must compute an effective k_threshold of over 10.  This combination
+# of epsilon/delta computes a k_threshold of 12.
+[name=anonymization_delta_eliminates_row_for_anon_avg]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=5, delta=2.0894334e-24)
+  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 4)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE>>[]
+==
+
+[name=anonymization_explicit_bounds_sum_and_count]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_SUM(int64_val CLAMPED BETWEEN 2 AND 3),
+  ANON_COUNT(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<INT64, INT64>>[{18, 8}]
+==
+
+[name=anonymization_explicit_bounds_avg_and_count]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_AVG(int64_val CLAMPED BETWEEN 2 AND 3),
+  ANON_COUNT(double_val CLAMPED BETWEEN 0 AND 10)
+FROM TestTableWithUid;
+--
+ARRAY<STRUCT<DOUBLE, INT64>>[{2.25, 8}]
+==
+
+# Total aggregation, without kappa.
+[name=anonymization_kappa_scalar_aggregation]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1)
+  ANON_COUNT(*)
+FROM TestTableWithUid
+  CROSS JOIN
+     UNNEST([1,2,3]) as x;
+--
+ARRAY<STRUCT<INT64>>[{30}]
+==
+
+# Same as the previous, but with kappa = 1.  Since kappa is 1, and there
+# is only 1 group, no user contributions are discarded and the final result
+# is the same as the previous query without kappa.
+[name=anonymization_kappa_scalar_aggregation_explicit]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, kappa=1)
+  ANON_COUNT(*)
+FROM TestTableWithUid
+  CROSS JOIN
+     UNNEST([1,2,3]) as x;
+--
+ARRAY<STRUCT<INT64>>[{30}]
+==
+
+# In this query, each user contributes to 3 groups.  Kappa is 3, so none
+# of the contributions are filtered.
+[name=anonymization_kappa_group_by_3]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, kappa=3)
+  x, ANON_COUNT(*)
+FROM TestTableWithUid
+  CROSS JOIN
+     UNNEST([1,2,3]) as x
+GROUP BY x
+ORDER BY x ASC;
+--
+ARRAY<STRUCT<x INT64, INT64>>[{1, 10}, {2, 10}, {3, 10}]
+==
+
+# Similar to the previous query, each user has data for all of the 3 groups.
+# Kappa is 2, so each user can only contribute to 2 groups.  The groups that
+# the user contributes to can vary from one execution of the query to the
+# next, so to get a determinstic result we perform a total aggregation
+# across all groups to verify that each user contributes to exactly 2
+# groups.  So the expected final result is 20 (10 users, 2 groups each).
+[name=anonymization_kappa_group_by_2]
+[labels=anonymization]
+SELECT SUM(anon_count_star)
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, kappa=2)
+    x, ANON_COUNT(*) as anon_count_star
+  FROM TestTableWithUid
+    CROSS JOIN
+       UNNEST([1,2,3]) as x
+  GROUP BY x);
+--
+ARRAY<STRUCT<INT64>>[{20}]
+==
+
+# Same as the previous query, but with kappa = 1 so the expected result is 10.
+[name=anonymization_kappa_group_by_1]
+[labels=anonymization]
+SELECT SUM(anon_count_star)
+FROM (
+  SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=1, kappa=1)
+    x, ANON_COUNT(*) as anon_count_star
+  FROM TestTableWithUid
+    CROSS JOIN
+       UNNEST([1,2,3]) as x
+  GROUP BY x);
+--
+ARRAY<STRUCT<INT64>>[{10}]

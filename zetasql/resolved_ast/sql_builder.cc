@@ -1475,14 +1475,28 @@ absl::Status SQLBuilder::VisitResolvedTableScan(const ResolvedTableScan* node) {
   ZETASQL_RET_CHECK(query_expression->TrySetFromClause(from));
 
   std::vector<std::pair<std::string, std::string>> select_list;
+  // column_index_list should be preferred, but is not always available
+  // (if not set after a ResolvedTableScan is created).
+  // TODO: Remove the case use_column_index_list=false
+  const bool use_column_index_list =
+      node->column_index_list_size() == node->column_list_size();
   for (int i = 0; i < node->column_list_size(); ++i) {
     const ResolvedColumn& column = node->column_list(i);
     if (node->table()->IsValueTable() && node->column_index_list(i) == 0) {
       ZETASQL_RETURN_IF_ERROR(AddValueTableAliasForVisitResolvedTableScan(
           table_alias, column, &select_list));
     } else {
+      std::string column_name;
+      if (use_column_index_list) {
+        const Column* table_column =
+            node->table()->GetColumn(node->column_index_list(i));
+        ZETASQL_RET_CHECK(table_column != nullptr);
+        column_name = table_column->Name();
+      } else {
+        column_name = column.name();
+      }
       select_list.push_back(std::make_pair(
-          absl::StrCat(table_alias, ".", ToIdentifierLiteral(column.name())),
+          absl::StrCat(table_alias, ".", ToIdentifierLiteral(column_name)),
           GetColumnAlias(column)));
     }
   }
@@ -1792,9 +1806,10 @@ absl::Status SQLBuilder::VisitResolvedFilterScan(
   if (simple_table_scan != nullptr) {
     // Make columns from the input_scan available to filter_expr node processing
     // below.
-    SetPathForColumnsInScan(
+    ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(
         simple_table_scan,
-        zetasql_base::FindWithDefault(table_alias_map_, simple_table_scan->table(), ""));
+        zetasql_base::FindWithDefault(table_alias_map_, simple_table_scan->table(),
+                             "")));
     // Remove the underlying TableScan's select list, to let the ProjectScan
     // just above this FilterScan to install its select list without wrapping
     // this fragment.
@@ -1915,26 +1930,54 @@ void SQLBuilder::SetPathForColumnList(const ResolvedColumnList& column_list,
   }
 }
 
-void SQLBuilder::SetPathForColumnsInScan(const ResolvedScan* scan,
-                                         const std::string& alias) {
-  if (scan->node_kind() == RESOLVED_TABLE_SCAN &&
-      scan->GetAs<ResolvedTableScan>()->table()->IsValueTable()) {
-    if (scan->column_list_size() > 0) {
-      // This code is wrong.  See http://b/37291554.
-      const Table* table = scan->GetAs<ResolvedTableScan>()->table();
+absl::Status SQLBuilder::SetPathForColumnsInScan(const ResolvedScan* scan,
+                                                 const std::string& alias) {
+  if (scan->node_kind() == RESOLVED_TABLE_SCAN) {
+    const auto* table_scan = scan->GetAs<ResolvedTableScan>();
+    if (table_scan->table()->IsValueTable()) {
+      if (scan->column_list_size() > 0) {
+        // This code is wrong.  See http://b/37291554.
+        const Table* table = table_scan->table();
+        std::string table_name =
+            alias.empty() ? ToIdentifierLiteral(table->Name()) : alias;
+        SetPathForColumn(scan->column_list(0), table_name);
+      }
+      return absl::OkStatus();
+    }
+    // While column_index_list should always match to column_list, it's not
+    // always the case. When it does, use column_index_list to retrieve column
+    // names, otherwise fallback to using ResolvedColumn outside this
+    // if-block.
+    // See the class comment on `ResolvedTableScan` and ResolvedTableScan
+    // generation code in gen_resolved_ast.py
+    // TODO: Remove this if() and always use column_index_list
+    // to handle ResolvedTableScan.
+    if (table_scan->column_index_list_size() > 0) {
+      ZETASQL_RET_CHECK_EQ(table_scan->column_index_list_size(),
+                   table_scan->column_list_size());
+      const Table* table = table_scan->table();
       std::string table_name =
           alias.empty() ? ToIdentifierLiteral(table->Name()) : alias;
-      SetPathForColumn(scan->column_list(0), table_name);
-    }
-  } else {
-    for (const ResolvedColumn& column : scan->column_list()) {
-      std::string table_name =
-          alias.empty() ? ToIdentifierLiteral(column.table_name()) : alias;
-      SetPathForColumn(
-          column,
-          absl::StrCat(table_name, ".", ToIdentifierLiteral(column.name())));
+      for (int i = 0; i < table_scan->column_index_list_size(); ++i) {
+        const Column* column =
+            table->GetColumn(table_scan->column_index_list(i));
+        ZETASQL_RET_CHECK_NE(column, nullptr);
+        SetPathForColumn(
+            scan->column_list(i),
+            absl::StrCat(table_name, ".", ToIdentifierLiteral(column->Name())));
+      }
+      return absl::OkStatus();
     }
   }
+  // Use ResolvedColumn::name() for non-table scans and table scans where
+  // column_index_list does not match in length column_list.
+  for (const ResolvedColumn& column : scan->column_list()) {
+    std::string table_name =
+        alias.empty() ? ToIdentifierLiteral(column.table_name()) : alias;
+    SetPathForColumn(column, absl::StrCat(table_name, ".",
+                                          ToIdentifierLiteral(column.name())));
+  }
+  return absl::OkStatus();
 }
 
 absl::Status SQLBuilder::VisitResolvedJoinScan(const ResolvedJoinScan* node) {
@@ -2403,10 +2446,10 @@ absl::Status SQLBuilder::VisitResolvedSampleScan(
       // they can be referenced in the PARTITION BY).
       const ResolvedTableScan* resolved_table_scan =
           node->input_scan()->GetAs<ResolvedTableScan>();
-      SetPathForColumnsInScan(
+      ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(
           node->input_scan(),
-          zetasql_base::FindWithDefault(table_alias_map_,
-                               resolved_table_scan->table(), ""));
+          zetasql_base::FindWithDefault(table_alias_map_, resolved_table_scan->table(),
+                               "")));
       break;
     }
     case RESOLVED_JOIN_SCAN:
@@ -4178,7 +4221,7 @@ absl::Status SQLBuilder::VisitResolvedUpdateStmt(
     // Always use a table alias. If we have the FROM clause, the alias might
     // appear in the FROM scan.
     const std::string alias = GetScanAlias(node->table_scan());
-    SetPathForColumnsInScan(node->table_scan(), alias);
+    ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), alias));
     absl::StrAppend(
         &target_sql,
         TableNameToIdentifierLiteral(node->table_scan()->table()->Name()),
@@ -4202,7 +4245,7 @@ absl::Status SQLBuilder::VisitResolvedUpdateStmt(
 
   std::string from_sql;
   if (node->from_scan() != nullptr) {
-    SetPathForColumnsInScan(node->from_scan(), "");
+    ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->from_scan(), ""));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> from,
                      ProcessNode(node->from_scan()));
     std::unique_ptr<QueryExpression> query_expression(
@@ -4333,7 +4376,7 @@ absl::Status SQLBuilder::VisitResolvedInsertStmt(
   if (node->returning() != nullptr) {
     // Prepares the visible columns for the returning clause
     ZETASQL_RET_CHECK_NE(node->table_scan(), nullptr);
-    SetPathForColumnsInScan(node->table_scan(), target_sql);
+    ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), target_sql));
 
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> returning,
                      ProcessNode(node->returning()));
@@ -4350,7 +4393,7 @@ absl::Status SQLBuilder::VisitResolvedMergeStmt(const ResolvedMergeStmt* node) {
   // Creates alias for the target table, because its column names may appear in
   // the source scan.
   std::string alias = GetScanAlias(node->table_scan());
-  SetPathForColumnsInScan(node->table_scan(), alias);
+  ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), alias));
   absl::StrAppend(
       &sql, TableNameToIdentifierLiteral(node->table_scan()->table()->Name()),
       " AS ", alias);

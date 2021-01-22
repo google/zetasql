@@ -25,6 +25,8 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
@@ -56,6 +58,17 @@ ABSL_FLAG(std::string, table_spec, "",
           "where <spec> is of the form:"
           "\n    csv:<path> - csv file that is represented by a table whose "
           "string-typed column names are determined from the header row).");
+
+ABSL_FLAG(
+    std::string, descriptor_pool,
+    "generated",
+    "The descriptor pool to use while resolving the query. This can be:"
+    "\n    'generated' - the generated pool of protos compiled into "
+    "this binary"
+    "\n    'none'      - no protos are included (but syntax is still "
+    "supported");
+// TODO: Support specifying proto files to parse.
+
 namespace zetasql {
 
 namespace {
@@ -77,6 +90,23 @@ absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
     return zetasql_base::InvalidArgumentErrorBuilder() << "Must specify --mode";
   } else {
     return zetasql_base::InvalidArgumentErrorBuilder() << "Invalid --mode: " << mode;
+  }
+}
+
+absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config) {
+  const std::string pool = absl::GetFlag(FLAGS_descriptor_pool);
+
+  if (pool == "none") {
+    // Do nothing
+    return absl::OkStatus();
+  } else if (pool == "generated") {
+    config.mutable_catalog().SetDescriptorPool(
+        google::protobuf::DescriptorPool::generated_pool());
+    return absl::OkStatus();
+  } else {
+    return absl::Status(absl::StatusCode::kInvalidArgument,
+                        "--descriptor_pool flag must be one of: none, generated"
+    );
   }
 }
 
@@ -188,18 +218,31 @@ ExecuteQueryConfig::ExecuteQueryConfig() : catalog_("") {}
 // Runs the tool.
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           std::ostream& out_stream) {
-  PreparedQuery query{std::string(sql), EvaluatorOptions()};
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(
+      sql, config.analyzer_options(), &config.mutable_catalog(),
+      config.mutable_catalog().type_factory(), &analyzer_output));
+
+  const ResolvedStatement* resolved_statement =
+      analyzer_output->resolved_statement();
+
+  ZETASQL_RET_CHECK_NE(resolved_statement, nullptr);
+  if (config.examine_resolved_ast_callback() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(config.examine_resolved_ast_callback()(resolved_statement));
+  }
+  if (config.tool_mode() == ToolMode::kResolve) {
+    out_stream << resolved_statement->DebugString() << std::endl;
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK_EQ(resolved_statement->node_kind(), RESOLVED_QUERY_STMT);
+
+  PreparedQuery query{resolved_statement->GetAs<ResolvedQueryStmt>(),
+                      EvaluatorOptions()};
 
   ZETASQL_RETURN_IF_ERROR(
       query.Prepare(config.analyzer_options(), &config.mutable_catalog()));
-  if (config.examine_resolved_ast_callback() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(
-        config.examine_resolved_ast_callback()(query.resolved_query_stmt()));
-  }
   switch (config.tool_mode()) {
-    case ToolMode::kResolve:
-      out_stream << query.resolved_query_stmt()->DebugString() << std::endl;
-      return absl::OkStatus();
     case ToolMode::kExplain: {
       ZETASQL_ASSIGN_OR_RETURN(const std::string explain, query.ExplainAfterPrepare());
       out_stream << explain << std::endl;

@@ -29,6 +29,7 @@ import com.google.zetasql.SimpleTable;
 import com.google.zetasql.Type;
 import com.google.zetasql.TypeFactory;
 import com.google.zetasql.Value;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedColumnDefinition;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedLimitOffsetScan;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedLiteral;
@@ -102,7 +103,7 @@ public class ResolvedNodesTest {
   }
 
   @Test
-  public void testBuilderFailsOnUnsetValue() {
+  public void testBuilderFailsOnUnsetNotIgnorableField() {
     try {
       // FloatLiteralId and HasExplicitType are optional constructor arguments and can be omitted.
       ResolvedLiteral.builder().setType(INT32_TYPE).setValue(Value.createInt32Value(5)).build();
@@ -118,6 +119,17 @@ public class ResolvedNodesTest {
     } catch (IllegalArgumentException e) {
       // IllegalArgumentException is expected.
     }
+  }
+
+  @Test
+  public void testBuilderSucceedsOnUnsetIgnorableFields() {
+      ResolvedColumnDefinition.builder()
+          .setName("testColumn")
+          .setType(INT32_TYPE)
+          .setIsHidden(false)
+          //.setColumn() skip setting IGNORABLE field
+          //.setGeneratedColumnInfo() skip setting IGNORABLE_DEFAULT field
+          .build();
   }
 
   @Test

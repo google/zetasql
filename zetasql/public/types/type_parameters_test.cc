@@ -109,7 +109,9 @@ TEST(TypeParameters, TypeParametersWithChildList) {
   TypeParameters struct_type_param =
       TypeParameters::MakeTypeParametersWithChildList(child_list);
   EXPECT_EQ(struct_type_param.num_children(), 3);
-  EXPECT_TRUE(struct_type_param.child(0).IsEmptyTypeParameters());
+  EXPECT_TRUE(struct_type_param.IsTypeParametersInStructOrArray());
+  EXPECT_FALSE(struct_type_param.IsEmpty());
+  EXPECT_TRUE(struct_type_param.child(0).IsEmpty());
   EXPECT_EQ(struct_type_param.child(1).string_type_parameters().max_length(),
             10);
   EXPECT_EQ(struct_type_param.child(2).numeric_type_parameters().precision(),
@@ -132,7 +134,9 @@ TEST(TypeParameters, ExtendedTypeParametersWithChildList) {
   TypeParameters extended_type_with_children =
       TypeParameters::MakeExtendedTypeParameters(
           ExtendedTypeParameters(parameters), child_list);
+  EXPECT_TRUE(extended_type_with_children.IsTypeParametersInStructOrArray());
   EXPECT_EQ(extended_type_with_children.num_children(), 1);
+  EXPECT_FALSE(extended_type_with_children.IsEmpty());
   EXPECT_EQ(extended_type_with_children.child(0)
                 .string_type_parameters()
                 .max_length(),

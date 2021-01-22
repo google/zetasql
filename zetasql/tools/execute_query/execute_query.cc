@@ -23,7 +23,6 @@
 #include <utility>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
@@ -39,13 +38,14 @@
 
 static absl::Status InitializeExecuteQueryConfig(
     zetasql::ExecuteQueryConfig& config) {
-  config.mutable_catalog().SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
+  ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
-  config.mutable_catalog().AddZetaSQLFunctions();
   config.mutable_analyzer_options()
       .mutable_language()
       ->EnableMaximumLanguageFeaturesForDevelopment();
+  config.mutable_catalog().AddZetaSQLFunctions(
+        config.analyzer_options().language());
   return absl::OkStatus();
 }
 

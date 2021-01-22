@@ -511,6 +511,10 @@ void Unparser::visitASTCreateTableStatement(
     println();
     node->table_element_list()->Accept(this, data);
   }
+  if (node->like_table_name() != nullptr) {
+    println("LIKE");
+    node->like_table_name()->Accept(this, data);
+  }
   if (node->partition_by() != nullptr) {
     node->partition_by()->Accept(this, data);
   }

@@ -394,6 +394,12 @@ enum LanguageFeature {
   // Related bugs: b/118904900 (scalar arguments) b/165763119 (table arguments)
   FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES = 55;
 
+  // Enables support for CREATE TABLE LIKE
+  // Example:
+  // CREATE TABLE t1 LIKE t2
+  FEATURE_CREATE_TABLE_LIKE = 57
+      [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.

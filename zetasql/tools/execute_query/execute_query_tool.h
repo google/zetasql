@@ -86,6 +86,8 @@ class ExecuteQueryConfig {
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);
 
+absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config);
+
 zetasql_base::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
     absl::string_view table_name, absl::string_view path);
 
@@ -103,5 +105,6 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 // Exposed for tests only
 ABSL_DECLARE_FLAG(std::string, mode);
 ABSL_DECLARE_FLAG(std::string, table_spec);
+ABSL_DECLARE_FLAG(std::string, descriptor_pool);
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_TOOL_H_

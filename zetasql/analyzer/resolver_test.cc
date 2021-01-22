@@ -985,6 +985,32 @@ TEST_F(ResolverTest, TestExpectedErrorMessage) {
                            expected_error_substr);
 }
 
+TEST_F(ResolverTest, ReturnsErrorWhenRequestedToOrderByZero) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_ast;
+
+  const std::string query = "SELECT '' FROM UNNEST([]) ORDER BY 0";
+  ZETASQL_ASSERT_OK(ParseStatement(query, ParserOptions(), &parser_output));
+  EXPECT_THAT(
+      resolver_->ResolveStatement(query, parser_output->statement(),
+                                  &resolved_ast),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("ORDER BY column number item is out of range.")));
+}
+
+TEST_F(ResolverTest, ReturnsErrorWhenRequestedToOrderByNegativeNumber) {
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_ast;
+
+  const std::string query = "SELECT '' FROM UNNEST([]) ORDER BY -1";
+  ZETASQL_ASSERT_OK(ParseStatement(query, ParserOptions(), &parser_output));
+  EXPECT_THAT(
+      resolver_->ResolveStatement(query, parser_output->statement(),
+                                  &resolved_ast),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("ORDER BY column number item is out of range.")));
+}
+
 TEST_F(ResolverTest, TestHasAnonymization) {
   std::unique_ptr<ParserOutput> parser_output;
   std::unique_ptr<const ResolvedStatement> resolved_statement;

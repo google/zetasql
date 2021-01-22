@@ -503,7 +503,14 @@ class SimpleTable : public Table {
   std::string FullName() const override { return name_; }
 
   int NumColumns() const override { return columns_.size(); }
-  const Column* GetColumn(int i) const override { return columns_[i]; }
+  const Column* GetColumn(int i) const override {
+    // Note: The column interface does not define what should happen
+    // when `i` is out of range.
+    if (i < 0 || i >= columns_.size()) {
+      return nullptr;
+    }
+    return columns_[i];
+  }
   const Column* FindColumnByName(const std::string& name) const override;
   std::optional<std::vector<int>> PrimaryKey() const override {
     return primary_key_;

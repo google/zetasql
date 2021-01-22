@@ -114,7 +114,6 @@ cc_binary(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -145,6 +144,7 @@ cc_library(
         "//zetasql/base:statusor",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
         "//zetasql/public:catalog",
         "//zetasql/public:evaluator",
         "//zetasql/public:evaluator_table_iterator",

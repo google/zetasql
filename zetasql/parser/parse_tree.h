@@ -4995,12 +4995,14 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   const ASTPartitionBy* partition_by() const { return partition_by_; }
   const ASTClusterBy* cluster_by() const { return cluster_by_; }
   const ASTQuery* query() const { return query_; }
+  const ASTPathExpression* like_table_name() const { return like_table_name_; }
 
  private:
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&name_);
     fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
+    fl.AddOptional(&like_table_name_, AST_PATH_EXPRESSION);
     fl.AddOptional(&partition_by_, AST_PARTITION_BY);
     fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
     fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
@@ -5010,6 +5012,7 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
   const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTQuery* query_ = nullptr;                          // May be NULL.
+  const ASTPathExpression* like_table_name_ = nullptr;       // May be NULL.
 };
 
 class ASTCreateEntityStatement final : public ASTCreateStatement {

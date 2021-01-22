@@ -160,7 +160,7 @@ static std::vector<std::string> GetTypeLabels(
 
 // Returns a SQL literal for the value.
 static std::string MakeLiteral(const Value& value) {
-  LOG_IF(FATAL, value.is_null()) << "Null value " << value.DebugString();
+  ZETASQL_LOG_IF(FATAL, value.is_null()) << "Null value " << value.DebugString();
 
   switch (value.type_kind()) {
     case TYPE_STRING:

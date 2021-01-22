@@ -17,6 +17,52 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "anonymization_utils",
+    srcs = [
+        "anonymization_utils.cc",
+    ],
+    hdrs = [
+        "anonymization_utils.h",
+    ],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":value",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_cc_differential_privacy//algorithms:partition-selection",
+    ],
+)
+
+cc_test(
+    name = "anonymization_utils_test",
+    size = "small",
+    srcs = ["anonymization_utils_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":anonymization_utils",
+        ":value",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
+cc_library(
     name = "type",
     srcs = [
         "convert_type_to_proto.cc",
