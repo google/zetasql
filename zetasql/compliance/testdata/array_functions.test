@@ -665,8 +665,13 @@ SELECT RANGE_BUCKET(1, NULL)
        ^
 ==
 [name=concat_op_wrong_type_int_int]
+[test_features1=V_1_3_CONCAT_MIXED_TYPES]
 SELECT 1 || 2
 --
+WITH FEATURES: V_1_3_CONCAT_MIXED_TYPES
+ARRAY<STRUCT<STRING>>[{"12"}]
+--
+WITH FEATURES: <none>
 ERROR: generic::invalid_argument: No matching signature for operator || for argument types: INT64, INT64. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:8]
 SELECT 1 || 2
        ^
@@ -679,8 +684,13 @@ SELECT ARRAY<INT32>[1] || 2
        ^
 ==
 [name=concat_op_wrong_type_string_int]
+[test_features1=V_1_3_CONCAT_MIXED_TYPES]
 SELECT "abc" || 2
 --
+WITH FEATURES: V_1_3_CONCAT_MIXED_TYPES
+ARRAY<STRUCT<STRING>>[{"abc2"}]
+--
+WITH FEATURES: <none>
 ERROR: generic::invalid_argument: No matching signature for operator || for argument types: STRING, INT64. Supported signatures: STRING || STRING; BYTES || BYTES; ARRAY || ARRAY [at 1:8]
 SELECT "abc" || 2
        ^

@@ -987,8 +987,9 @@ class Resolver {
   // argument names are in scope for expression and table name resolution.
   // Returns a cleanup object that resets the Resolver::function_argument_info_
   // variable when it goes out of scope.
-  zetasql_base::Cleanup<std::function<void()>> SetArgumentInfo(
-      const FunctionArgumentInfo* arg_info);
+  using AutoUnsetArgumentInfo =
+      decltype(zetasql_base::MakeCleanup(std::function<void()>()));
+  AutoUnsetArgumentInfo SetArgumentInfo(const FunctionArgumentInfo* arg_info);
 
   absl::Status ResolveCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* ast_statement,

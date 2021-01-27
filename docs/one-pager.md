@@ -4282,6 +4282,7 @@ ZetaSQL.
 <span class="var">select</span>:
     <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
         { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+        [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
     [ <a href="#from_clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
@@ -4293,20 +4294,13 @@ ZetaSQL.
 
 <span class="var">from_item</span>: {
     <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
-    <span class="var">join</span> |
+    <a href="#join_types"><span class="var">join_operation</span></a> |
     ( <span class="var">query_expr</span> ) [ [ AS ] <span class="var">alias</span> ] |
     <span class="var">field_path</span> |
     { <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> ) | UNNEST( <span class="var">array_path</span> ) | <span class="var">array_path</span> }
         [ [ AS ] <span class="var">alias</span> ] [ WITH OFFSET [ [ AS ] <span class="var">alias</span> ] ] |
     <span class="var"><a href="#with_query_name">with_query_name</a></span> [ [ AS ] <span class="var">alias</span> ]
 }
-
-<span class="var">join</span>:
-    <span class="var">from_item</span> [ <span class="var">join_type</span> ] <a href="#join_types">JOIN</a> <span class="var">from_item</span>
-    [ { <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) } ]
-
-<span class="var">join_type</span>:
-    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
 
 <span class="var">tablesample_type</span>:
     <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
@@ -4379,8 +4373,8 @@ and the number of points scored by the athlete in that game (`PointsScored`).
 | Adams      | 51         | 3            |
 | Buchanan   | 77         | 0            |
 | Coolidge   | 77         | 1            |
-| Davis      | 52         | 4            |
-| Eisenhower | 50         | 13           |
+| Adams      | 52         | 4            |
+| Buchanan   | 50         | 13           |
 +----------------------------------------+
 ```
 
@@ -4731,7 +4725,7 @@ See [Using Aliases][using-aliases] for information on syntax and visibility for
 <pre>
 <span class="var">from_item</span>: {
     <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
-    <span class="var">join</span> |
+    <a href="#join_types"><span class="var">join_operation</span></a> |
     ( <span class="var">query_expr</span> ) [ [ AS ] <span class="var">alias</span> ] |
     <span class="var">field_path</span> |
     { <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> ) | UNNEST( <span class="var">array_path</span> ) | <span class="var">array_path</span> }
@@ -4753,9 +4747,9 @@ SELECT * FROM Roster;
 SELECT * FROM db.Roster;
 </pre>
 
-##### join
+##### join_operation
 
-See [JOIN Types][query-joins].
+See [JOIN operation][query-joins].
 
 ##### select
 
@@ -5210,26 +5204,39 @@ can be solved with [stratefied sampling][stratefied-sampling].
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `FROM` clause aliases.
 
-### JOIN types 
+### JOIN operation 
 <a id="join_types"></a>
 
 <pre>
-<span class="var">join</span>:
-    <span class="var">from_item</span> [ <span class="var">join_type</span> ] JOIN <span class="var">from_item</span>
-    [ <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) ]
+
+<span class="var">join_operation</span>:
+    { <span class="var">cross_join_operation</span> | <span class="var">join_operation_with_condition</span> }
+
+<span class="var">cross_join_operation</span>:
+    <span class="var"><a href="#from_clause">from_item</a></span> <a href="#cross_join">CROSS</a> JOIN <span class="var"><a href="#from_clause">from_item</a></span>
+
+<span class="var">join_operation_with_condition</span>:
+    <span class="var"><a href="#from_clause">from_item</a></span> [ <span class="var">join_type</span> ] JOIN <span class="var"><a href="#from_clause">from_item</a></span>
+    [ { <span class="var">on_clause</span> | <span class="var">using_clause</span> } ]
 
 <span class="var">join_type</span>:
-    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
+    { <a href="#inner_join">[INNER]</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
+
+<span class="var">on_clause</span>:
+    ON <span class="var">bool_expression</span>
+
+<span class="var">using_clause</span>:
+    USING ( <span class="var">join_column</span> [, ...] )
 </pre>
 
-The `JOIN` clause merges two `from_item`s so that the `SELECT` clause can
+The `JOIN` operation merges two `from_item`s so that the `SELECT` clause can
 query them as one source. The `join_type` and `ON` or `USING` clause (a
 "join condition") specify how to combine and discard rows from the two
 `from_item`s to form a single source.
 
-All `JOIN` clauses require a `join_type`.
+All `JOIN` operations require a `join_type`.
 
-A `JOIN` clause requires a join condition unless one of the following conditions
+A `JOIN` operation requires a join condition unless one of the following conditions
 is true:
 
 +  `join_type` is `CROSS`.
@@ -5459,7 +5466,7 @@ FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
 The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 `from_item`s always retains all rows of the left `from_item` in the
-`JOIN` clause, even if no rows in the right `from_item` satisfy the join
+`JOIN` operation, even if no rows in the right `from_item` satisfy the join
 predicate.
 
 `LEFT` indicates that all rows from the _left_ `from_item` are
@@ -5701,7 +5708,7 @@ Table A   Table B   Result
 #### Sequences of JOINs 
 <a id="sequences_of_joins"></a>
 
-The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
+The `FROM` clause can contain multiple `JOIN` operations in a sequence.
 `JOIN`s are bound from left to right. For example:
 
 ```sql
@@ -5731,6 +5738,24 @@ FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 -- B JOIN C USING (x)       = result_1
 -- A JOIN result_1          = result_2
 -- result_2                 = return value
+```
+
+A `FROM` clause can have multiple joins. Provided there are no comma joins in
+the `FROM` clause, joins do not require parenthesis, though parenthesis can
+help readability:
+
+```sql
+FROM A JOIN B JOIN C JOIN D USING (w) ON B.x = C.y ON A.z = B.x
+```
+
+If your clause contains comma joins, you must use parentheses:
+
+```sql {.bad}
+FROM A, B JOIN C JOIN D ON C.x = D.y ON B.z = C.x    // INVALID
+```
+
+```sql
+FROM A, B JOIN (C JOIN D ON C.x = D.y) ON B.z = C.x  // VALID
 ```
 
 When comma cross joins are present in a query with a sequence of JOINs, they
@@ -6527,6 +6552,16 @@ FROM
 
 `WITH RECURSIVE` is not supported.
 
+### WITH ANONYMIZATION clause 
+<a id="anon_clause"></a>
+
+This clause lets you anonymize the results of a query with differentially
+private aggregations. To learn more about this clause, see
+[Anonymization and Differential Privacy][anon-concepts].
+
+Note: the `WITH ANONYMIZATION` clause cannot be used with the `WITH` clause.
+Support for this clause in query patterns is limited.
+
 ### Using aliases 
 <a id="using_aliases"></a>
 
@@ -7133,7 +7168,7 @@ Results:
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
 [produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
-
+[anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
@@ -7147,7 +7182,7 @@ Results:
 [named-window-example]: #def_use_named_window
 [produce-table]: #produce-table
 [tvf-concepts]: #tvfs
-
+[anon-concepts]: #anonymization_syntax
 [flattening-arrays]: #flattening-arrays
 [in-operator]: #in-operators
 [query-value-tables]: #value-tables
@@ -7564,6 +7599,388 @@ SELECT * FROM (
 [in-operator]: #in-operators
 [array-function]: #array
 [aggregate-functions]: #aggregate_functions
+
+<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
+## Anonymization and Differential Privacy
+
+<!-- BEGIN CONTENT -->
+
+Anonymization is the process of transforming user data into anonymous
+information. This is done in such a way that it is not reasonably likely that
+anyone with access to the data can identify or re-identify an individual user
+from the anonymized data.
+
+The anonymization definition supported by ZetaSQL is
+[differential privacy][wiki-diff-privacy]. The goal of differential privacy
+is mitigating disclosure risk: the risk that an attacker can extract sensitive
+information of individuals from a dataset. Differential privacy balances
+this need to safeguard privacy against the need for statistical accuracy.
+As privacy increases, statistical utility decreases, and vice versa.
+
+With ZetaSQL, you can anonymize the results of a query with
+differentially private aggregations. When the query is executed, it:
+
+1.  Computes per-user aggregations for each group if groups are specified with
+    a `GROUP BY` clause. If `kappa` is specified, limits the
+    number of groups each user can contribute to.
+1.  [Clamps][anon-clamping] each per-user aggregate contribution to be within
+    the clamping bounds. If the clamping bounds are not specified they are
+    implicitly calculated in a differentially private way.
+1.  Aggregates the clamped per-user aggregate contributions for each group.
+1.  Adds noise to the final aggregate value for each group. The scale of
+    random noise is a function of all of the clamped bounds and privacy
+    parameters.
+1.  Computes a noisy user count for each group and eliminates groups with
+    few users. A noisy user count helps eliminate a non-deterministic set
+    of groups.
+
+The final result is a dataset where each group has noisy aggregate results
+and small groups have been eliminated.
+
+### Anonymization clause syntax 
+<a id="anon_query_syntax"></a>
+
+<pre>
+WITH ANONYMIZATION OPTIONS( privacy_parameters )
+
+privacy_parameters:
+  epsilon = expression,
+  { delta = expression | k_threshold = expression },
+  [ kappa = expression ]
+</pre>
+
+**Description**
+
+This clause indicates that you want to anonymize the results of a query with
+differentially private aggregations. If you want to use this clause, add it to
+the `SELECT` list with one or more
+[anonymization aggregate functions][anonymization-functions].
+
+Optionally, you can include privacy parameters to control how the results are
+anonymized.
+
++  [`epsilon`][anon-epsilon]: Controls the amount of noise added to the results.
+   A higher epsilon means less noise. `1e20` is usually large enough to add no
+   noise. `expression` must be constant and return a
+   `DOUBLE`.
++  [`delta`][anon-delta]: The probability the any row in the result fails to
+   be epsilon-differentially private. `expression` must return a
+   `DOUBLE`.
++  [`k_threshold`][anon-k-threshold]: The number of users that must contribute
+   to a group in order for the group to be exposed in the results.
+   `expression` must return an `INT64`.
++  [`kappa`][anon-kappa]: A positive integer identifying the limit on the
+   number of groups that a user is allowed to contribute to. This number is
+   also used to scale the noise for each group. `expression` must return an
+   `INT64`.
+
+Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
+over `k_threshold`.
+
+### Privacy parameters
+
+Privacy parameters control how the results of a query are anonymized.
+Appropriate values for these settings can depend on many things such
+as the characteristics of your data, the exposure level, and the
+privacy level.
+
+#### epsilon 
+<a id="anon_epsilon"></a>
+
+Noise is added primarily based on the specified `epsilon`.
+The higher the epsilon the less noise is added. More noise corresponding to
+smaller epsilons equals more privacy protection.
+
+Noise can usually be eliminated by setting `epsilon` to `1e20`, which can be
+useful during initial data exploration and experimentation with anonymization.
+Unusually large `epsilon` values, such as `1e308`, cause query
+failure. Start large, and reduce the `epsilon` until the query succeeds, but not
+so much that it returns noisy results.
+
+ZetaSQL splits `epsilon` between the anonymization functions
+in the query. The anonymization process for removing small groups
+injects an extra anonymized aggregate into the plan that computes a noisy user
+count per group. If you have `n` anonymization aggregate functions in your
+query, then each aggregate function individually gets `epsilon/(n+1)` for its
+computation. If used with `kappa`, the effective `epsilon`
+per function per groups is further split by `kappa`. Additionally,
+if implicit clamping is used for an aggregate anonymization function, then half
+of the function's epsilon is applied towards computing implicit bounds,
+and half of the function's epsilon is applied towards the anonymized aggregation
+itself.
+
+#### delta 
+<a id="anon_delta"></a>
+
+`delta` represents the probability that any row fails to be
+`epsilon`-differentially private in the result of an anonymized query. If you
+have to choose between `delta` and `k_threshold`, use `delta`.
+
+When supporting `delta`, the specification of `epsilon/delta` must be evaluated
+to determine `k_threshold`, and the specification of `epsilon/k_threshold` must
+be evaluated to determine `delta`. This allows a user to specify either
+(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their anonymization query.
+
+While doing testing or initial data exploration, it is often useful to set
+`delta` to a value where all groups, including small groups, are
+preserved. This removes privacy protection and should only be done when it is
+not necessary to protect query results, such as when working with non-private
+test data. `delta` roughly corresponds to the probability of keeping a small
+group.  In order to avoid losing small groups, set `delta` very close to 1,
+for example `0.99999`.
+
+#### k_threshold 
+<a id="anon_k_threshold"></a>
+
+Important: `k_threshold` is discouraged. If possible, use `delta` instead.
+
+Tip: We recommend that engines implementing this specification do not allow
+users to specify `k_threshold`.
+
+`k_threshold` computes a noisy user count for each group and eliminates groups
+with few users from the output. Use this parameter to define how many unique
+users must be included in the group for the value to be included in the output.
+
+#### kappa 
+<a id="anon_kappa"></a>
+
+`kappa` is a positive integer that, if specified, scales the noise and
+limits the number of groups that each user can contribute to. If `kappa` is
+unspecified, then there is no limit to the number of groups that each user
+can contribute to.
+
+If `kappa` is unset, the language cannot guarantee that the results will be
+differentially private. We recommend kappa to be set. Without `kappa` the
+results may still be differentially private if certain preconditions are met.
+For example, if you know that the anonymization ID column in a table or view is
+unique in the `FROM` clause, the user cannot contribute to more than one group
+and therefore the results will be the same regardless of whether `kappa` is set.
+
+Tip: We recommend that engines require kappa to be set.
+
+### Rules for producing a valid query
+
+The following rules must be met for the anonymized query to be valid.
+
+####  Anonymization-enabled table expressions 
+<a id="anon_expression"></a>
+
+An anonymization-enabled table expression is a table expression that
+produces a column that has been identified as an anonymization ID. If a query
+contains an anonymization clause, it must also contain at least one
+anonymization-enabled table expression in the `FROM` clause.
+
+#### FROM clause rules 
+<a id="anon_from"></a>
+
+The `FROM` clause must have at least one `from_item` that represents an
+[anonymization-enabled table expression][anon-expression]. Not all
+table expressions in the `FROM` clause need to be
+anonymization-enabled table expressions.
+
+If a `FROM` subquery contains an anonymization-enabled table expression,
+the subquery must produce an anonymization ID column in its output or
+an error is returned.
+
+If the `FROM` clause contains multiple anonymization-enabled table expressions,
+then all joins between those relations must include the anonymization ID column
+name in the join predicate or an error is returned. Cross joins are disallowed
+between two anonymization-enabled table expressions, since they are not joined
+on the anonymization ID column.
+
+#### Aggregate function rules 
+<a id="anon_aggregate_functions"></a>
+
+An anonymization query cannot contain non-anonymized aggregate functions.
+Only [anonymization aggregate functions][anonymization-functions] can be used.
+
+### Performance implications of anonymization
+
+Performance of similar anonymized and non-anonymized queries
+cannot be expected to be equivalent. For example, the performance profiles
+of the following two queries are not the same:
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1, delta=1e-10, kappa=1)
+  column_a, ANON_COUNT(column_b)
+FROM table_a
+GROUP BY column_a;
+```
+
+```sql
+SELECT column_a, COUNT(column_b)
+FROM table_a
+GROUP BY column_a;
+```
+
+The reason for the performance difference is that an additional
+finer-granularity level of grouping is performed for anonymized queries,
+since per-user aggregation must also be performed. The performance profiles
+of the these queries should be similar:
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1, delta=1e-10, kappa=1)
+  column_a, ANON_COUNT(column_b)
+FROM table_a
+GROUP BY column_a;
+```
+
+```sql
+SELECT column_a, id, COUNT(column_b)
+FROM table_a
+GROUP BY column_a, id;
+```
+
+This implies that if the data being anonymized has a high number of
+distinct values for the anonymization ID column, anonymized query performance
+can suffer.
+
+### Examples
+
+#### Tables and views for examples 
+<a id="anon_example_views"></a>
+
+The examples in this section reference these table and views:
+
+```sql
+CREATE OR REPLACE TABLE professors AS (
+  SELECT 101 id, "pencil" item, 24 quantity UNION ALL
+  SELECT 123, "pen", 16 UNION ALL
+  SELECT 123, "pencil", 10 UNION ALL
+  SELECT 123, "pencil", 38 UNION ALL
+  SELECT 101, "pen", 19 UNION ALL
+  SELECT 101, "pen", 23 UNION ALL
+  SELECT 130, "scissors", 8 UNION ALL
+  SELECT 150, "pencil", 72);
+
+CREATE OR REPLACE VIEW view_on_professors
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM professors);
+```
+
+```sql
+CREATE OR REPLACE TABLE students AS (
+  SELECT 1 id, "pencil" item, 5 quantity UNION ALL
+  SELECT 1, "pen", 2 UNION ALL
+  SELECT 2, "pen", 1 UNION ALL
+  SELECT 3, "pen", 4);
+
+CREATE OR REPLACE VIEW view_on_students
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM students);
+```
+
+#### Eliminate noise
+
+Removing noise removes privacy protection. Only remove noise for
+testing queries on non-private data.
+
+The following anonymized query gets the average number of items requested
+per professor. Because `epsilon` is high, noise is eliminated from the results.
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
++----------+------------------+
+| item     | average_quantity |
++----------+------------------+
+| pencil   | 40               |
+| pen      | 18.5             |
+| scissors | 8                |
++----------+------------------+
+```
+
+#### Add noise
+
+In this example, noise has been added to the anonymized query.
+Smaller groups may not be included. Smaller epsilons and more noise will
+provide greater privacy protection.
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- The scissors group was removed this time, but may not be
+-- removed the next time.
++----------+------------------+
+| item     | average_quantity |
++----------+------------------+
+| pencil   | 38.5038356810269 |
+| pen      | 13.4725028762032 |
++----------+------------------+
+```
+
+#### Limit the groups in which an anonymization ID can exist
+
+An anonymization ID can exist within multiple groups. For example, in the
+`professors` table, the anonymization ID `123` exists in the `pencil` and `pen`
+group. If you only want `123` to be used in the first group found, you can use a
+query that looks like this:
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+-- Anonymization ID 123 was not included in the pencil group.
++----------+------------------+
+| item     | average_quantity |
++----------+------------------+
+| pencil   | 72               |
+| pen      | 18.5             |
+| scissors | 8                |
++----------+------------------+
+```
+
+#### Invalid query with two anonymization ID columns
+
+The following query is invalid because `view_on_students` contains an
+anonymization ID column and so does `view_on_professors`.
+When the `FROM` clause contains multiple
+anonymization-enabled table expressions, then those tables must be joined on
+the anonymization ID column or an error is returned.
+
+```sql {.bad}
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors, view_on_students
+GROUP BY gender;
+```
+
+[anon-expression]: #anon_expression
+[anon-resources]: #anon_resources
+[anon-query]: #anon_query
+[anon-k-threshold]: #anon_k_threshold
+[anon-epsilon]: #anon_epsilon
+[anon-kappa]: #anon_kappa
+[anon-delta]: #anon_delta
+[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
+[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax#select_list
+[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
+[wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
+
+[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax#select_list
+[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
+[anonymization-functions]: #aggregate_anonymization_functions
+[anon-clamping]: #anon_clamping
+[anon-exp-clamping]: #anon_explicit_clamping
+[anon-imp-clamping]: #anon_implicit_clamping
+
+<!-- END CONTENT -->
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 

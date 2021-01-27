@@ -2212,7 +2212,11 @@ value.
       and <array_offset_column>.
               """,
       fields=[
-          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'input_scan',
+              'ResolvedScan',
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT),
           Field('array_expr', 'ResolvedExpr', tag_id=3),
           Field('element_column', SCALAR_RESOLVED_COLUMN, tag_id=4),
           Field(

@@ -1284,10 +1284,10 @@ absl::Status Resolver::CheckAndPropagateAnnotations(
   return absl::OkStatus();
 }
 
-zetasql_base::Cleanup<std::function<void()>> Resolver::SetArgumentInfo(
+Resolver::AutoUnsetArgumentInfo Resolver::SetArgumentInfo(
     const FunctionArgumentInfo* arg_info) {
   function_argument_info_ = arg_info;
-  return zetasql_base::Cleanup<std::function<void()>>(
+  return AutoUnsetArgumentInfo(
       [this]() { this->function_argument_info_ = nullptr; });
 }
 

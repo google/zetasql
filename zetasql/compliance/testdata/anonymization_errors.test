@@ -44,14 +44,16 @@ FROM TestTableWithUid;
 ARRAY<STRUCT<DOUBLE>>[{11}]
 ==
 
-# Epsilon is negative.
+# Epsilon is negative. Because this error is reported by the differential
+# privacy library, it should reflect that epsilon is split across the explicit
+# ANON_SUM function and the generated thresholding function.
 [name=epsilon_is_negative]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=-1, k_threshold=1)
   ANON_SUM(double_val)
 FROM TestTableWithUid;
 --
-ERROR: generic::invalid_argument: Epsilon must be finite and positive, but is -1.
+ERROR: generic::invalid_argument: Epsilon must be finite and positive, but is -0.5.
 ==
 
 # Epsilon is 0.

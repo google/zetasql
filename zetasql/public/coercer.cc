@@ -309,7 +309,7 @@ absl::Status CheckSupertypesGlobalOrderForCoercer(
     return absl::OkStatus();
   }
 
-  return TypeGlobalOrderChecker::Check(supertypes_list);
+  return TypeGlobalOrderChecker::Check(supertypes_list, catalog);
 }
 
 }  // namespace

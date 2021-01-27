@@ -118,6 +118,46 @@ cc_binary(
 )
 
 cc_library(
+    name = "execute_query_prompt",
+    srcs = ["execute_query_prompt.cc"],
+    hdrs = ["execute_query_prompt.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+cc_test(
+    name = "execute_query_prompt_test",
+    srcs = ["execute_query_prompt_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":execute_query_prompt",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "execute_query_tool",
     srcs = [
         "execute_query_internal_csv.cc",

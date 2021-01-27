@@ -22,6 +22,7 @@ ZetaSQL.
 <span class="var">select</span>:
     <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
         { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+        [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
     [ <a href="#from_clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
@@ -33,20 +34,13 @@ ZetaSQL.
 
 <span class="var">from_item</span>: {
     <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
-    <span class="var">join</span> |
+    <a href="#join_types"><span class="var">join_operation</span></a> |
     ( <span class="var">query_expr</span> ) [ [ AS ] <span class="var">alias</span> ] |
     <span class="var">field_path</span> |
     { <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> ) | UNNEST( <span class="var">array_path</span> ) | <span class="var">array_path</span> }
         [ [ AS ] <span class="var">alias</span> ] [ WITH OFFSET [ [ AS ] <span class="var">alias</span> ] ] |
     <span class="var"><a href="#with_query_name">with_query_name</a></span> [ [ AS ] <span class="var">alias</span> ]
 }
-
-<span class="var">join</span>:
-    <span class="var">from_item</span> [ <span class="var">join_type</span> ] <a href="#join_types">JOIN</a> <span class="var">from_item</span>
-    [ { <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) } ]
-
-<span class="var">join_type</span>:
-    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
 
 <span class="var">tablesample_type</span>:
     <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
@@ -119,8 +113,8 @@ and the number of points scored by the athlete in that game (`PointsScored`).
 | Adams      | 51         | 3            |
 | Buchanan   | 77         | 0            |
 | Coolidge   | 77         | 1            |
-| Davis      | 52         | 4            |
-| Eisenhower | 50         | 13           |
+| Adams      | 52         | 4            |
+| Buchanan   | 50         | 13           |
 +----------------------------------------+
 ```
 
@@ -471,7 +465,7 @@ See [Using Aliases][using-aliases] for information on syntax and visibility for
 <pre>
 <span class="var">from_item</span>: {
     <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
-    <span class="var">join</span> |
+    <a href="#join_types"><span class="var">join_operation</span></a> |
     ( <span class="var">query_expr</span> ) [ [ AS ] <span class="var">alias</span> ] |
     <span class="var">field_path</span> |
     { <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> ) | UNNEST( <span class="var">array_path</span> ) | <span class="var">array_path</span> }
@@ -493,9 +487,9 @@ SELECT * FROM Roster;
 SELECT * FROM db.Roster;
 </pre>
 
-#### join
+#### join_operation
 
-See [JOIN Types][query-joins].
+See [JOIN operation][query-joins].
 
 #### select
 
@@ -950,26 +944,39 @@ can be solved with [stratefied sampling][stratefied-sampling].
 See [Using Aliases][using-aliases] for information on syntax and visibility for
 `FROM` clause aliases.
 
-## JOIN types 
+## JOIN operation 
 <a id="join_types"></a>
 
 <pre>
-<span class="var">join</span>:
-    <span class="var">from_item</span> [ <span class="var">join_type</span> ] JOIN <span class="var">from_item</span>
-    [ <a href="#on_clause">ON</a> <span class="var">bool_expression</span> | <a href="#using_clause">USING</a> ( <span class="var">join_column</span> [, ...] ) ]
+
+<span class="var">join_operation</span>:
+    { <span class="var">cross_join_operation</span> | <span class="var">join_operation_with_condition</span> }
+
+<span class="var">cross_join_operation</span>:
+    <span class="var"><a href="#from_clause">from_item</a></span> <a href="#cross_join">CROSS</a> JOIN <span class="var"><a href="#from_clause">from_item</a></span>
+
+<span class="var">join_operation_with_condition</span>:
+    <span class="var"><a href="#from_clause">from_item</a></span> [ <span class="var">join_type</span> ] JOIN <span class="var"><a href="#from_clause">from_item</a></span>
+    [ { <span class="var">on_clause</span> | <span class="var">using_clause</span> } ]
 
 <span class="var">join_type</span>:
-    { <a href="#inner_join">INNER</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
+    { <a href="#inner_join">[INNER]</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
+
+<span class="var">on_clause</span>:
+    ON <span class="var">bool_expression</span>
+
+<span class="var">using_clause</span>:
+    USING ( <span class="var">join_column</span> [, ...] )
 </pre>
 
-The `JOIN` clause merges two `from_item`s so that the `SELECT` clause can
+The `JOIN` operation merges two `from_item`s so that the `SELECT` clause can
 query them as one source. The `join_type` and `ON` or `USING` clause (a
 "join condition") specify how to combine and discard rows from the two
 `from_item`s to form a single source.
 
-All `JOIN` clauses require a `join_type`.
+All `JOIN` operations require a `join_type`.
 
-A `JOIN` clause requires a join condition unless one of the following conditions
+A `JOIN` operation requires a join condition unless one of the following conditions
 is true:
 
 +  `join_type` is `CROSS`.
@@ -1199,7 +1206,7 @@ FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
 The result of a `LEFT OUTER JOIN` (or simply `LEFT JOIN`) for two
 `from_item`s always retains all rows of the left `from_item` in the
-`JOIN` clause, even if no rows in the right `from_item` satisfy the join
+`JOIN` operation, even if no rows in the right `from_item` satisfy the join
 predicate.
 
 `LEFT` indicates that all rows from the _left_ `from_item` are
@@ -1441,7 +1448,7 @@ Table A   Table B   Result
 ### Sequences of JOINs 
 <a id="sequences_of_joins"></a>
 
-The `FROM` clause can contain multiple `JOIN` clauses in a sequence.
+The `FROM` clause can contain multiple `JOIN` operations in a sequence.
 `JOIN`s are bound from left to right. For example:
 
 ```sql
@@ -1471,6 +1478,24 @@ FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 -- B JOIN C USING (x)       = result_1
 -- A JOIN result_1          = result_2
 -- result_2                 = return value
+```
+
+A `FROM` clause can have multiple joins. Provided there are no comma joins in
+the `FROM` clause, joins do not require parenthesis, though parenthesis can
+help readability:
+
+```sql
+FROM A JOIN B JOIN C JOIN D USING (w) ON B.x = C.y ON A.z = B.x
+```
+
+If your clause contains comma joins, you must use parentheses:
+
+```sql {.bad}
+FROM A, B JOIN C JOIN D ON C.x = D.y ON B.z = C.x    // INVALID
+```
+
+```sql
+FROM A, B JOIN (C JOIN D ON C.x = D.y) ON B.z = C.x  // VALID
 ```
 
 When comma cross joins are present in a query with a sequence of JOINs, they
@@ -2267,6 +2292,16 @@ FROM
 
 `WITH RECURSIVE` is not supported.
 
+## WITH ANONYMIZATION clause 
+<a id="anon_clause"></a>
+
+This clause lets you anonymize the results of a query with differentially
+private aggregations. To learn more about this clause, see
+[Anonymization and Differential Privacy][anon-concepts].
+
+Note: the `WITH ANONYMIZATION` clause cannot be used with the `WITH` clause.
+Support for this clause in query patterns is limited.
+
 ## Using aliases 
 <a id="using_aliases"></a>
 
@@ -2873,7 +2908,7 @@ Results:
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
 [produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
-
+[anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties

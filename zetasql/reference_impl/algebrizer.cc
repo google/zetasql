@@ -2748,8 +2748,6 @@ zetasql_base::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
 zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
 Algebrizer::AlgebrizeAnonymizedAggregateScan(
     const ResolvedAnonymizedAggregateScan* anonymized_aggregate_scan) {
-  ZETASQL_ASSIGN_OR_RETURN(AnonymizationOptions anonymization_options,
-                   GetAnonymizationOptions(anonymized_aggregate_scan));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> input,
                    AlgebrizeScan(anonymized_aggregate_scan->input_scan()));
   // Build the list of grouping keys.
@@ -2770,6 +2768,22 @@ Algebrizer::AlgebrizeAnonymizedAggregateScan(
   for (const ResolvedColumn& column : anonymized_aggregate_scan->column_list())
   {
     ZETASQL_RET_CHECK(output_columns.insert(column).second) << column.DebugString();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(AnonymizationOptions anonymization_options,
+                   GetAnonymizationOptions(anonymized_aggregate_scan));
+  // Split epsilon across each aggregate function.
+  if (anonymization_options.epsilon.has_value() &&
+      !anonymization_options.epsilon->is_null()) {
+    anonymization_options.epsilon =
+        Value::Double(anonymization_options.epsilon->double_value() /
+                      anonymized_aggregate_scan->aggregate_list_size());
+    // Scale epsilon by kappa (if specified).
+    if (anonymization_options.kappa.has_value()) {
+      anonymization_options.epsilon =
+          Value::Double(anonymization_options.epsilon->double_value() /
+                        anonymization_options.kappa->int64_value());
+    }
   }
 
   // Build the list of aggregate functions.
