@@ -21,6 +21,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/strings/match.h"
@@ -492,6 +493,13 @@ size_t TypeHash::operator()(const Type* const type) const {
   }
 
   return absl::Hash<Type>()(*type);
+}
+
+zetasql_base::StatusOr<TypeParameters> Type::ValidateAndResolveTypeParameters(
+    const std::vector<TypeParameterValue>& resolved_type_parameters,
+    ProductMode mode) const {
+  return MakeSqlError() << "Type " << TypeName(mode)
+                        << "does not support type parameters";
 }
 
 }  // namespace zetasql

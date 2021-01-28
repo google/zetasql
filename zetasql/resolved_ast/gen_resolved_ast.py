@@ -625,7 +625,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 171.
+          Next tag_id: 173.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -6642,6 +6642,124 @@ ResolvedArgumentRef(y)
               <output_column_list>. Worth noting, it can't see <action_column>
               and can only access columns from the DML statement target table.
                       """)
+      ])
+
+  gen.AddNode(
+      'ResolvedUnpivotArg',
+      tag_id=171,
+      parent='ResolvedArgument',
+      comment="""
+      A column group in the UNPIVOT IN clause.
+
+      Example:
+        'a' in 'UNPIVOT(x FOR z IN (a , b , c))'
+        or '(a , b)' in 'UNPIVOT((x , y) FOR z IN ((a , b), (c , d))'
+              """,
+      fields=[
+          Field(
+              'column_list',
+              'ResolvedColumnRef',
+              tag_id=2,
+              ignorable=NOT_IGNORABLE,
+              vector=True,
+              comment="""
+              A list of columns referencing an output column of the <input_scan>
+              of ResolvedUnpivotScan. The size of this vector is
+              the same as <value_column_list>.
+                      """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedUnpivotScan',
+      tag_id=172,
+      parent='ResolvedScan',
+      comment="""
+      A scan produced by the following SQL fragment:
+      <input_scan> UNPIVOT(<value_column_list>
+        FOR <label_column>
+        IN (<unpivot_arg_list>))
+
+      size of (<unpivot_arg_list>[i], i.e. column groups inside
+      <unpivot_arg_list>)
+        = size of (<value_column_list>)
+        = Let's say num_value_columns
+
+      size of (<unpivot_arg_list>)
+        = size of (<label_list>)
+        = Let's say num_args
+
+      Here is how output rows are generated --
+      for each input row :
+        for arg_index = 0 .. (num_args - 1) :
+          output a row with the original columns from <input_scan>
+
+            plus
+          arg = <unpivot_arg_list>[arg_index]
+          for value_column_index = 0 .. (num_value_columns - 1) :
+            output_value_column = <value_column_list>[value_column_index]
+            input_arg_column = arg [value_column_index]
+            output_value_column = input_arg_column
+
+            plus
+          <label_column> = <label_list>[arg_index]
+
+
+      Hence the total number of rows generated in the output =
+        input rows * size of <unpivot_arg_list>
+
+      For all column groups inside <unpivot_arg_list>, datatype of
+      columns at the same position in the vector must be equivalent, and
+      also equivalent to the datatype of the column at the same position in
+      <value_column_list>.
+      I.e. in the above pseudocode, datatypes must be equivalent for
+      output_value_column and input_arg_column.
+      Datatype of <label_column> must be the same as datatype of
+      <label_list> and can be string or int64.
+
+      Details: (broken link)
+              """,
+      fields=[
+          Field('input_scan', 'ResolvedScan', tag_id=2),
+          Field(
+              'value_column_list',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=3,
+              vector=True,
+              comment="""
+              This is a list of one or more new columns added by UNPIVOT.
+              These new column(s) store the value of input columns that are in
+              the UNPIVOT IN clause.
+                      """),
+          Field(
+              'label_column',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=4,
+              comment="""
+              This is a new column added in the output for storing labels for
+              input columns groups that are present in the IN clause. Its
+              values are taken from <label_list>.
+                      """),
+          Field(
+              'label_list',
+              'ResolvedLiteral',
+              tag_id=5,
+              vector=True,
+              comment="""
+              String or integer literal for each column group in
+              <unpivot_arg_list>.
+                      """),
+          Field(
+              'unpivot_arg_list',
+              'ResolvedUnpivotArg',
+              tag_id=6,
+              vector=True,
+              comment="""
+              The list of groups of columns in the UNPIVOT IN list. Each group
+              contains references to the output columns of <input_scan> of the
+              ResolvedUnpivotScan. The values of these columns are stored in the
+              new <value_column_list> and the column group labels/names
+              in the <label_column>.
+                      """),
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

@@ -20,11 +20,15 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/tools/execute_query/execute_query_writer.h"
+#include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
@@ -93,10 +97,14 @@ zetasql_base::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
 
 absl::Status AddTablesFromFlags(ExecuteQueryConfig& config);
 
-// Execute the query according to `config`.  `config` is logically const, but
-// due to zetasql calling conventions related to Catalog objects, must
-// be non-const.
-// Output will be printed to out_stream
+// Execute the query according to `config`. `config` is logically const, but due
+// to ZetaSQL calling conventions related to Catalog objects, must be
+// non-const.
+absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
+                          ExecuteQueryWriter& writer);
+
+// Execute a query. Output will be printed to out_stream. See other ExecuteQuery
+// overloads for details.
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           std::ostream& out_stream = std::cout);
 

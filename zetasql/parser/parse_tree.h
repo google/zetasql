@@ -4970,6 +4970,7 @@ class ASTCreateTableStmtBase : public ASTCreateStatement {
       : ASTCreateStatement(kConcreteNodeKind) {}
 
   const ASTPathExpression* name() const { return name_; }
+  const ASTPathExpression* like_table_name() const { return like_table_name_; }
   const ASTTableElementList* table_element_list() const {
     return table_element_list_;
   }
@@ -4981,6 +4982,7 @@ class ASTCreateTableStmtBase : public ASTCreateStatement {
   const ASTPathExpression* name_ = nullptr;
   const ASTTableElementList* table_element_list_ = nullptr;  // May be NULL.
   const ASTOptionsList* options_list_ = nullptr;             // May be NULL.
+  const ASTPathExpression* like_table_name_ = nullptr;       // May be NULL.
 };
 
 class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
@@ -4995,7 +4997,6 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   const ASTPartitionBy* partition_by() const { return partition_by_; }
   const ASTClusterBy* cluster_by() const { return cluster_by_; }
   const ASTQuery* query() const { return query_; }
-  const ASTPathExpression* like_table_name() const { return like_table_name_; }
 
  private:
   void InitFields() final {
@@ -5012,7 +5013,6 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
   const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTQuery* query_ = nullptr;                          // May be NULL.
-  const ASTPathExpression* like_table_name_ = nullptr;       // May be NULL.
 };
 
 class ASTCreateEntityStatement final : public ASTCreateStatement {
@@ -5502,6 +5502,7 @@ class ASTCreateExternalTableStatement final : public ASTCreateTableStmtBase {
     FieldLoader fl(this);
     fl.AddRequired(&name_);
     fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
+    fl.AddOptional(&like_table_name_, AST_PATH_EXPRESSION);
     fl.AddOptional(&with_partition_columns_clause_,
                    AST_WITH_PARTITION_COLUMNS_CLAUSE);
     fl.AddRequired(&options_list_);

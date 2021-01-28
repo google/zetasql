@@ -55,7 +55,9 @@ static const SimpleTable* t2 = new SimpleTable("T2");
 // Make a new ResolvedColumn with int32_t type.
 static ResolvedColumn MakeColumn() {
   static int column_id = 1000;
-  return ResolvedColumn(++column_id, "MakeColumn", "C", types::Int32Type());
+  return ResolvedColumn(
+      ++column_id, zetasql::IdString::MakeGlobal("MakeColumn"),
+      zetasql::IdString::MakeGlobal("C"), types::Int32Type());
 }
 
 static std::unique_ptr<const ResolvedJoinScan> MakeJoin(
@@ -88,7 +90,9 @@ TEST(ResolvedAST, Misc) {
   std::unique_ptr<const Function> function(
       new Function("fn_name", "group", Function::SCALAR, {signature}));
 
-  const ResolvedColumn select_column(10, "T", "C", type_factory.get_int32());
+  const ResolvedColumn select_column(10, zetasql::IdString::MakeGlobal("T"),
+                                     zetasql::IdString::MakeGlobal("C"),
+                                     type_factory.get_int32());
   auto project = MakeResolvedProjectScan(
       {select_column},
       MakeNodeVector(MakeResolvedComputedColumn(
@@ -158,7 +162,9 @@ TEST(ResolvedAST, ReleaseAndSet) {
   std::unique_ptr<const Function> function(
       new Function("fn_name", "group", Function::SCALAR, {signature}));
 
-  const ResolvedColumn select_column(10, "T", "C", type_factory.get_int32());
+  const ResolvedColumn select_column(10, zetasql::IdString::MakeGlobal("T"),
+                                     zetasql::IdString::MakeGlobal("C"),
+                                     type_factory.get_int32());
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
   expr_list.push_back(
       MakeResolvedComputedColumn(select_column, MakeIntLiteral(4)));
@@ -453,12 +459,14 @@ TEST(ResolvedAST, Validator) {
 
   limit_offset->set_limit(
       MakeResolvedLiteral(type_factory.get_int64(), Value::Int64(1)));
-  const ResolvedColumn resolved_column1(1, "Table", "col1",
-                                        type_factory.get_int32());
+  const ResolvedColumn resolved_column1(
+      1, zetasql::IdString::MakeGlobal("Table"),
+      zetasql::IdString::MakeGlobal("col1"), type_factory.get_int32());
   stmt->add_output_column_list(
       MakeResolvedOutputColumn("col1", resolved_column1));
-  const ResolvedColumn resolved_column2(2, "Table", "col2",
-                                        type_factory.get_int32());
+  const ResolvedColumn resolved_column2(
+      2, zetasql::IdString::MakeGlobal("Table"),
+      zetasql::IdString::MakeGlobal("col2"), type_factory.get_int32());
   EXPECT_THAT(validator.ValidateResolvedStatement(stmt),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("Incorrect reference to column "
@@ -491,8 +499,9 @@ TEST(ResolvedAST, Validator) {
   table_scan->add_column_index_list(0);
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(stmt));
 
-  const ResolvedColumn resolved_column3(3, "$query", "col3",
-                                        type_factory.get_int32());
+  const ResolvedColumn resolved_column3(
+      3, zetasql::IdString::MakeGlobal("$query"),
+      zetasql::IdString::MakeGlobal("col3"), type_factory.get_int32());
   project->add_expr_list(
       MakeResolvedComputedColumn(resolved_column3, std::move(good_literal)));
   ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(stmt));

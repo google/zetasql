@@ -43,9 +43,15 @@ static std::unique_ptr<const ResolvedLiteral> MakeInt32Literal(int value) {
 }
 
 TEST(ResolvedAstHelperTest, FindProjectExpr) {
-  const ResolvedColumn col1(10, "T", "C", types::Int32Type());
-  const ResolvedColumn col2(11, "T", "C2", types::Int32Type());
-  const ResolvedColumn col3(12, "T", "C3", types::Int32Type());
+  const ResolvedColumn col1(10, zetasql::IdString::MakeGlobal("T"),
+                            zetasql::IdString::MakeGlobal("C"),
+                            types::Int32Type());
+  const ResolvedColumn col2(11, zetasql::IdString::MakeGlobal("T"),
+                            zetasql::IdString::MakeGlobal("C2"),
+                            types::Int32Type());
+  const ResolvedColumn col3(12, zetasql::IdString::MakeGlobal("T"),
+                            zetasql::IdString::MakeGlobal("C3"),
+                            types::Int32Type());
   auto project = MakeResolvedProjectScan(
       {col1, col2} /* column_list */,
       MakeNodeVector(MakeResolvedComputedColumn(col1, MakeInt32Literal(5)),

@@ -24,15 +24,15 @@
 #include <memory>
 #include <string>
 #include <tuple>
-#include <utility>
 #include <vector>
 
-#include "zetasql/public/catalog.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "riegeli/bytes/fd_reader.h"
 #include "riegeli/csv/csv_reader.h"

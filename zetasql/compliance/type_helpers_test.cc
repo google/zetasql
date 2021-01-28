@@ -47,17 +47,33 @@ static const int kDoubleColId = 7;
 
 static ResolvedColumnList GetAllTypesColumnList() {
   return {
-      ResolvedColumn(kInt32ColId, kAllTypesTable, kInt32Col, Int32Type()),
-      ResolvedColumn(kUint32ColId, kAllTypesTable, kUint32Col, Uint32Type()),
-      ResolvedColumn(kInt64ColId, kAllTypesTable, kInt64Col, Int64Type()),
-      ResolvedColumn(kUint64ColId, kAllTypesTable, kUint64Col, Uint64Type()),
-      ResolvedColumn(kStringColId, kAllTypesTable, kStringCol, StringType()),
-      ResolvedColumn(kBoolColId, kAllTypesTable, kBoolCol, BoolType()),
-      ResolvedColumn(kDoubleColId, kAllTypesTable, kDoubleCol, DoubleType())};
+      ResolvedColumn(kInt32ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kInt32Col), Int32Type()),
+      ResolvedColumn(kUint32ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kUint32Col), Uint32Type()),
+      ResolvedColumn(kInt64ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kInt64Col), Int64Type()),
+      ResolvedColumn(kUint64ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kUint64Col), Uint64Type()),
+      ResolvedColumn(kStringColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kStringCol), StringType()),
+      ResolvedColumn(kBoolColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kBoolCol), BoolType()),
+      ResolvedColumn(
+          kDoubleColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+          zetasql::IdString::MakeGlobal(kDoubleCol), DoubleType())};
 }
 
 static ResolvedColumnList GetValueTableColumnList() {
-  return {ResolvedColumn(kInt32ColId, kValueTable, kInt32Col, Int32Type())};
+  return {
+      ResolvedColumn(kInt32ColId, zetasql::IdString::MakeGlobal(kValueTable),
+                     zetasql::IdString::MakeGlobal(kInt32Col), Int32Type())};
 }
 
 TEST(CreateTableType, NonValueTableTest) {

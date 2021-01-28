@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_TYPES_EXTENDED_TYPE_H_
 
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_parameters.h"
 
 namespace zetasql {
 
@@ -44,6 +45,11 @@ class ExtendedType : public Type {
   const ExtendedType* AsExtendedType() const override { return this; }
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
+
+  // TODO Change "final" to "override" after adding a test so that
+  // extension types can use type parameters.
+  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const final;
 };
 
 }  // namespace zetasql

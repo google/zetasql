@@ -17,6 +17,7 @@
 #include "zetasql/public/types/array_type.h"
 
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value_content.h"
 #include "zetasql/base/simple_reference_counted.h"
 
@@ -132,6 +133,21 @@ std::string ArrayType::ShortTypeName(ProductMode mode) const {
 
 std::string ArrayType::TypeName(ProductMode mode) const {
   return absl::StrCat("ARRAY<", element_type_->TypeName(mode), ">");
+}
+
+zetasql_base::StatusOr<std::string> ArrayType::TypeNameWithParameters(
+    const TypeParameters& type_params, ProductMode mode) const {
+  if (type_params.IsEmpty()) {
+    return TypeName(mode);
+  }
+  if (type_params.num_children() != 1) {
+    return MakeSqlError()
+           << "Input type parameter does not correspond to ArrayType";
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::string element_parameters,
+      element_type_->TypeNameWithParameters(type_params.child(0), mode));
+  return absl::StrCat("ARRAY<", element_parameters, ">");
 }
 
 bool ArrayType::EqualsImpl(const ArrayType* const type1,

@@ -49,9 +49,11 @@ message TypeParametersProto {
   //   parameters.
   //   Otherwise child_list is empty.
   // For STRUCT:
-  //   If the i-th field has type parameters then child_list(i) stores the
-  //   field type parameters,
-  //   Otherwise either child_list.size() <= i or child_list(i) is trivial.
+  //   If the i-th field has type parameters then child_list(i) is the field
+  //   type parameters.
+  //   If the i-th field has no type parameters, then child_list[i] contains an
+  //   empty TypeParameter. The size of the child_list is equal to either the
+  //   number of fields or 0.
   //   If none of the fields and none of their subfields has type parameters,
   //   then child_list is empty.
   // For other types, child_list is empty.

@@ -50,16 +50,22 @@ TEST(ResolvedColumnTest, Test) {
   const AnnotationMap* annotation_map;
   CreateTestAnnotationMap(type_factory.get_int64(), &type_factory,
                           &annotation_map);
-  ResolvedColumn c1(1, "T1", "C1", type_factory.get_int32());
+  ResolvedColumn c1(1, zetasql::IdString::MakeGlobal("T1"),
+                    zetasql::IdString::MakeGlobal("C1"),
+                    type_factory.get_int32());
   ResolvedColumn c2(2, IdString::MakeGlobal("T1"), IdString::MakeGlobal("C2"),
                     AnnotatedType(type_factory.get_int64(), annotation_map));
-  ResolvedColumn c3(3, "T2", "C3", type_factory.get_uint32());
+  ResolvedColumn c3(3, zetasql::IdString::MakeGlobal("T2"),
+                    zetasql::IdString::MakeGlobal("C3"),
+                    type_factory.get_uint32());
 
   EXPECT_EQ(c1, c1);
   EXPECT_FALSE(c1 == c2);
   EXPECT_FALSE(c3 == c2);
 
-  ResolvedColumn c2_alternate(2, "XXX", "YYY", type_factory.get_double());
+  ResolvedColumn c2_alternate(2, zetasql::IdString::MakeGlobal("XXX"),
+                              zetasql::IdString::MakeGlobal("YYY"),
+                              type_factory.get_double());
   EXPECT_TRUE(c2 == c2_alternate);  // Equality on column_id only.
 
   EXPECT_EQ("T1.C1#1", c1.DebugString());
@@ -81,7 +87,9 @@ TEST(ResolvedColumnTest, Test) {
   columns.insert(c2);
   EXPECT_EQ(3, columns.size());
   // Uniqueness computed on column_id only.
-  columns.insert(ResolvedColumn(2, "XX", "YY", type_factory.get_float()));
+  columns.insert(ResolvedColumn(2, zetasql::IdString::MakeGlobal("XX"),
+                                zetasql::IdString::MakeGlobal("YY"),
+                                type_factory.get_float()));
   EXPECT_EQ(3, columns.size());
 }
 
@@ -109,7 +117,8 @@ TEST(ResolvedColumnTest, SaveTo) {
 
   const ProtoType* proto_type;
   ZETASQL_CHECK_OK(type_factory.MakeProtoType(TypeProto::descriptor(), &proto_type));
-  ResolvedColumn c2(2, "T1", "C2", proto_type);
+  ResolvedColumn c2(2, zetasql::IdString::MakeGlobal("T1"),
+                    zetasql::IdString::MakeGlobal("C2"), proto_type);
   ResolvedColumnProto proto2;
   ZETASQL_CHECK_OK(c2.SaveTo(&map, &proto2));
   EXPECT_EQ("T1", proto2.table_name());

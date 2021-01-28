@@ -2284,17 +2284,17 @@ opt_with_partition_columns_clause:
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
     "TABLE" opt_if_not_exists maybe_dashed_path_expression
-    opt_table_element_list opt_with_partition_columns_clause
-    opt_options_list
+    opt_table_element_list opt_like_path_expression
+    opt_with_partition_columns_clause opt_options_list
       {
-        if ($10 == nullptr) {
+        if ($11 == nullptr) {
           YYERROR_AND_ABORT_AT(
-              @10,
+              @11,
               "Syntax error: Expected keyword OPTIONS");
         }
         auto* create =
             MAKE_NODE(ASTCreateExternalTableStatement, @$,
-            {$7, $8, $9, $10});
+            {$7, $8, $9, $10, $11});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);

@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_TYPES_ENUM_TYPE_H_
 
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_parameters.h"
 
 namespace zetasql {
 
@@ -52,6 +53,13 @@ class EnumType : public Type {
   // is just the descriptor full_name (without back-ticks).  The back-ticks
   // are not necessary for TypeName() to be reparseable, so should be removed.
   std::string TypeName(ProductMode mode_unused) const override;
+  // EnumType does not support type parameters, which is why TypeName(mode) is
+  // used.
+  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const override {
+    ZETASQL_DCHECK(type_params.IsEmpty());
+    return TypeName(mode);
+  }
   std::string ShortTypeName(
       ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
   std::string TypeName() const;  // Enum-specific version does not need mode.

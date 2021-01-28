@@ -33,6 +33,7 @@
 #include "zetasql/public/anon_function.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/type_parameters.h"
 #include <cstdint>
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
@@ -4201,6 +4202,76 @@ absl::Status Resolver::ResolveExplicitCast(
   }
   return CastResolutionError(cast->expr(), resolved_argument->type(),
                              resolved_cast_type, product_mode());
+}
+
+zetasql_base::StatusOr<TypeParameters> Resolver::ResolveTypeParameters(
+    const ASTType& type) {
+  // For an array, determine if the elements in the array have type parameters.
+  // If they do, then child_parameter_list[0] will have the element type
+  // parameters stored in a TypeParameters class.
+  if (const ASTArrayType* array_type = type.GetAsOrNull<ASTArrayType>();
+      array_type != nullptr) {
+    std::vector<TypeParameters> child_parameter_list;
+    ZETASQL_ASSIGN_OR_RETURN(TypeParameters element_type_parameters,
+                     ResolveTypeParameters(*array_type->element_type()));
+    if (!(element_type_parameters.IsEmpty())) {
+      child_parameter_list.push_back(std::move(element_type_parameters));
+    }
+    return TypeParameters(
+        TypeParameters::MakeTypeParametersWithChildList(child_parameter_list));
+  }
+
+  if (const ASTStructType* struct_type = type.GetAsOrNull<ASTStructType>();
+      struct_type != nullptr) {
+    std::vector<TypeParameters> child_parameter_list;
+
+    // For each field in a struct, determine whether the field has type
+    // parameters. If the i-th field has a type parameter, then
+    // child_parameter_list[i] will have the TypeParameters stored.
+    bool has_children = false;
+    child_parameter_list.reserve(struct_type->struct_fields().size());
+    for (const ASTStructField* struct_field : struct_type->struct_fields()) {
+      ZETASQL_ASSIGN_OR_RETURN(TypeParameters field_type_parameters,
+                       ResolveTypeParameters(*struct_field->type()));
+      if (!(field_type_parameters.IsEmpty() && !has_children)) {
+        has_children = true;
+      }
+      child_parameter_list.push_back(std::move(field_type_parameters));
+    }
+    if (has_children) {
+      return TypeParameters(TypeParameters::MakeTypeParametersWithChildList(
+          child_parameter_list));
+    }
+    return TypeParameters();
+  }
+
+  if (const ASTSimpleType* simple_type = type.GetAsOrNull<ASTSimpleType>();
+      simple_type != nullptr) {
+    const ASTTypeParameterList* type_parameters = type.type_parameters();
+
+    // No type parameters in AST.
+    if (type_parameters == nullptr) {
+      return TypeParameters();
+    }
+    if (!language().LanguageFeatureEnabled(FEATURE_PARAMETERIZED_TYPES)) {
+      return MakeSqlErrorAt(type_parameters)
+             << "Parameterized types are not supported";
+    }
+
+    // Resolve each type parameter value for the simple type.
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::vector<TypeParameterValue> resolved_type_parameter_list,
+        ResolveParameterLiterals(*type_parameters));
+
+    // Validate type parameters and get the resolved TypeParameters class.
+    TypeKind type_kind = Type::GetTypeKindIfSimple(
+        simple_type->type_name()->ToIdentifierVector()[0], language());
+    return TypeFactory()
+        .MakeSimpleType(type_kind)
+        ->ValidateAndResolveTypeParameters(resolved_type_parameter_list,
+                                           product_mode());
+  }
+  return TypeParameters();
 }
 
 absl::Status Resolver::ResolveCastWithResolvedArgument(

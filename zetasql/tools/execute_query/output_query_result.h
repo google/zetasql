@@ -17,6 +17,9 @@
 #ifndef ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_
 #define ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_
 
+#include <string>
+#include <vector>
+
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/resolved_ast/resolved_ast.h"

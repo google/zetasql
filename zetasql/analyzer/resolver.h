@@ -49,6 +49,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
@@ -214,6 +215,10 @@ class Resolver {
 
   // Resolve the Type from the <type_name>.
   absl::Status ResolveTypeName(const std::string& type_name, const Type** type);
+
+  // Resolve the Type and TypeParameters from the <type_name>.
+  absl::Status ResolveTypeName(const std::string& type_name, const Type** type,
+                               TypeParameters* type_params);
 
   // DEPRECATED: WILL BE REMOVED SOON
   // Attempt to coerce <scan>'s output types to those in <types> using
@@ -522,9 +527,11 @@ class Resolver {
   // A list of AnnotationSpec to be used to propagate annotations.
   std::vector<std::unique_ptr<AnnotationSpec>> annotation_specs_;
 
-  // Resolve the Type from the <type_name> without resetting the state.
+  // Resolve the Type and TypeParameters from the <type_name> without resetting
+  // the state.
   absl::Status ResolveTypeNameInternal(const std::string& type_name,
-                                       const Type** type);
+                                       const Type** type,
+                                       TypeParameters* type_params);
 
   const FunctionResolver* function_resolver() const {
     return function_resolver_.get();
@@ -3317,6 +3324,18 @@ class Resolver {
 
   absl::Status ResolveStructType(const ASTStructType* struct_type,
                                  const StructType** resolved_type) const;
+
+  // Resolve type parameters to the resolved TypeParameters class, which stores
+  // type parameters as a TypeParametersProto. If there are no type parameters
+  // for the given type, then an empty TypeParameters class is returned.
+  zetasql_base::StatusOr<TypeParameters> ResolveTypeParameters(const ASTType& type);
+
+  // Resolve the simple type literals for each input type parameter. Valid
+  // literal types are INT, STRING, and MAX. While the parser accepts BYTES,
+  // BOOLEAN, and FLOAT literals, they are not yet valid type parameter
+  // literals.
+  zetasql_base::StatusOr<std::vector<TypeParameterValue>> ResolveParameterLiterals(
+      const ASTTypeParameterList& type_parameters);
 
   void FetchCorrelatedSubqueryParameters(
       const CorrelatedColumnsSet& correlated_columns_set,

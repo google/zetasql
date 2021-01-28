@@ -16,35 +16,33 @@
 
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/analyzer.h"
-#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
-#include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
-#include "zetasql/public/value.h"
+#include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/tools/execute_query/output_query_result.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
-#include "absl/flags/parse.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
-#include "zetasql/base/source_location.h"
-#include "zetasql/base/status.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(std::string, mode, "execute",
@@ -164,60 +162,10 @@ absl::Status AddTablesFromFlags(ExecuteQueryConfig& config) {
   return absl::OkStatus();
 }
 
-// Prints the result of executing a query. Currently requires loading all the
-// results into memory to format pretty output.
-absl::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter,
-                          std::ostream& out) {
-  TypeFactory type_factory;
-
-  std::vector<StructField> struct_fields;
-  struct_fields.reserve(iter->NumColumns());
-  for (int i = 0; i < iter->NumColumns(); ++i) {
-    struct_fields.emplace_back(iter->GetColumnName(i), iter->GetColumnType(i));
-  }
-
-  const StructType* struct_type;
-  ZETASQL_RETURN_IF_ERROR(type_factory.MakeStructType(struct_fields, &struct_type));
-
-  std::vector<Value> rows;
-  while (true) {
-    if (!iter->NextRow()) {
-      ZETASQL_RETURN_IF_ERROR(iter->Status());
-      break;
-    }
-
-    std::vector<Value> fields;
-    fields.reserve(iter->NumColumns());
-    for (int i = 0; i < iter->NumColumns(); ++i) {
-      fields.push_back(iter->GetValue(i));
-    }
-
-    rows.push_back(Value::Struct(struct_type, fields));
-  }
-
-  const ArrayType* array_type;
-  ZETASQL_RETURN_IF_ERROR(type_factory.MakeArrayType(struct_type, &array_type));
-
-  const Value result = Value::Array(array_type, rows);
-
-  std::vector<std::string> column_names;
-  column_names.reserve(iter->NumColumns());
-  for (int i = 0; i < iter->NumColumns(); ++i) {
-    column_names.push_back(iter->GetColumnName(i));
-  }
-
-  out << ToPrettyOutputStyle(result,
-                             /*is_value_table=*/false, column_names)
-      << std::endl;
-
-  return absl::OkStatus();
-}
-
 ExecuteQueryConfig::ExecuteQueryConfig() : catalog_("") {}
 
-// Runs the tool.
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
-                          std::ostream& out_stream) {
+                          ExecuteQueryWriter& writer) {
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(
       sql, config.analyzer_options(), &config.mutable_catalog(),
@@ -230,9 +178,9 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
   if (config.examine_resolved_ast_callback() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(config.examine_resolved_ast_callback()(resolved_statement));
   }
+
   if (config.tool_mode() == ToolMode::kResolve) {
-    out_stream << resolved_statement->DebugString() << std::endl;
-    return absl::OkStatus();
+    return writer.resolved(*resolved_statement);
   }
 
   ZETASQL_RET_CHECK_EQ(resolved_statement->node_kind(), RESOLVED_QUERY_STMT);
@@ -242,21 +190,30 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 
   ZETASQL_RETURN_IF_ERROR(
       query.Prepare(config.analyzer_options(), &config.mutable_catalog()));
+
   switch (config.tool_mode()) {
     case ToolMode::kExplain: {
       ZETASQL_ASSIGN_OR_RETURN(const std::string explain, query.ExplainAfterPrepare());
-      out_stream << explain << std::endl;
-      return absl::OkStatus();
+
+      return writer.explained(*resolved_statement, explain);
     }
     case ToolMode::kExecute: {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
                        query.Execute());
-      return PrintResults(std::move(iter), out_stream);
+
+      return writer.executed(*resolved_statement, std::move(iter));
     }
     default:
       return absl::InternalError(absl::StrCat(
           "unknown tool mode: ", static_cast<int>(config.tool_mode())));
   }
+}
+
+// Runs the tool.
+absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
+                          std::ostream& out_stream) {
+  ExecuteQueryStreamWriter writer{out_stream};
+  return ExecuteQuery(sql, config, writer);
 }
 
 }  // namespace zetasql

@@ -35,7 +35,8 @@ TEST(Construction, Example) {
   const Type* type = type_factory.get_bool();
   const FunctionSignature signature = {type, {}, nullptr /* context */};
   std::shared_ptr<ResolvedFunctionCallInfo> call_info;
-  const ResolvedColumn col = {1, "table_name", "name", type};
+  const ResolvedColumn col = {1, zetasql::IdString::MakeGlobal("table_name"),
+                              zetasql::IdString::MakeGlobal("name"), type};
   auto func = absl::make_unique<Function>("name", "group", Function::SCALAR);
   auto third_value = MakeResolvedLiteral(Value::Int64(3));
   auto call = MakeResolvedFunctionCall(
@@ -211,7 +212,8 @@ TEST(MakeNodeVectorP, MakeVectorPBasicConstruction) {
 
 TEST(MakeNodeVector, MakeVectorConstructionLowestCommonAncestor) {
   const ResolvedColumn c1 =
-      ResolvedColumn(1, "MakeColumn", "C", types::Int32Type());
+      ResolvedColumn(1, zetasql::IdString::MakeGlobal("MakeColumn"),
+                     zetasql::IdString::MakeGlobal("C"), types::Int32Type());
 
   std::vector<std::unique_ptr<ResolvedExpr>> coerced_to_expr =
       MakeNodeVector(MakeResolvedLiteral(Value::Int64(1)),
@@ -221,7 +223,8 @@ TEST(MakeNodeVector, MakeVectorConstructionLowestCommonAncestor) {
 
 TEST(MakeNodeVectorP, MakeVectorConstructionIgnoreLowestCommonAncestor) {
   const ResolvedColumn c1 =
-      ResolvedColumn(1, "MakeColumn", "C", types::Int32Type());
+      ResolvedColumn(1, zetasql::IdString::MakeGlobal("MakeColumn"),
+                     zetasql::IdString::MakeGlobal("C"), types::Int32Type());
 
   std::vector<std::unique_ptr<ResolvedExpr>> coerced_to_expr =
       MakeNodeVectorP<ResolvedExpr>(
@@ -237,7 +240,8 @@ TEST(MakeNodeVectorP, MakeVectorConstructionIgnoreLowestCommonAncestor) {
 
 TEST(MakeNodeVector, MakeVectorConstructionConstness) {
   const ResolvedColumn c1 =
-      ResolvedColumn(1, "MakeColumn", "C", types::Int32Type());
+      ResolvedColumn(1, zetasql::IdString::MakeGlobal("MakeColumn"),
+                     zetasql::IdString::MakeGlobal("C"), types::Int32Type());
 
   std::unique_ptr<const ResolvedLiteral> const_literal1 =
       MakeResolvedLiteral(Value::Int64(1));

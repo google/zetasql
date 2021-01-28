@@ -183,13 +183,16 @@ const char kColumnName2[] = "column_2";
 
 class ColumnToVariableMappingTest : public ::testing::Test {
  protected:
-  const ResolvedColumn column_1_ =
-      ResolvedColumn(kColumnId1, kTableName1, kColumnName1, Int64Type());
-  const ResolvedColumn column_2_ =
-      ResolvedColumn(kColumnId2, kTableName1, kColumnName2, Int64Type());
+  const ResolvedColumn column_1_ = ResolvedColumn(
+      kColumnId1, zetasql::IdString::MakeGlobal(kTableName1),
+      zetasql::IdString::MakeGlobal(kColumnName1), Int64Type());
+  const ResolvedColumn column_2_ = ResolvedColumn(
+      kColumnId2, zetasql::IdString::MakeGlobal(kTableName1),
+      zetasql::IdString::MakeGlobal(kColumnName2), Int64Type());
   // Column 3 has the same name as column 1, but is in a different table.
-  const ResolvedColumn column_3_ =
-      ResolvedColumn(kColumnId3, kTableName2, kColumnName1, Int64Type());
+  const ResolvedColumn column_3_ = ResolvedColumn(
+      kColumnId3, zetasql::IdString::MakeGlobal(kTableName2),
+      zetasql::IdString::MakeGlobal(kColumnName1), Int64Type());
 
   const VariableId variable_1_ = VariableId(kColumnName1);
   const VariableId variable_2_ = VariableId(kColumnName2);

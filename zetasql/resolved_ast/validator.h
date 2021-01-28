@@ -458,6 +458,10 @@ class Validator {
       const ResolvedPivotScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedUnpivotScan(
+      const ResolvedUnpivotScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   absl::Status ValidateResolvedWithPartitionColumns(
       const ResolvedWithPartitionColumns* with_partition_columns,
       std::set<ResolvedColumn>* visible_columns);

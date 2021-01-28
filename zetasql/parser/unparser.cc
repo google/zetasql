@@ -687,6 +687,10 @@ void Unparser::visitASTCreateExternalTableStatement(
     println();
     node->table_element_list()->Accept(this, data);
   }
+  if (node->like_table_name() != nullptr) {
+    println("LIKE");
+    node->like_table_name()->Accept(this, data);
+  }
   if (node->with_partition_columns_clause() != nullptr) {
     node->with_partition_columns_clause()->Accept(this, data);
   }

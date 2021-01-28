@@ -342,14 +342,16 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
 static absl::Status AnalyzeTypeImpl(const std::string& type_name,
                                     const AnalyzerOptions& options,
                                     Catalog* catalog, TypeFactory* type_factory,
-                                    const Type** output_type) {
+                                    const Type** output_type,
+                                    TypeParameters* output_type_params) {
   *output_type = nullptr;
 
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
   ZETASQL_VLOG(1) << "Resolving type: " << type_name;
 
   Resolver resolver(catalog, type_factory, &options);
-  ZETASQL_RETURN_IF_ERROR(resolver.ResolveTypeName(type_name, output_type));
+  ZETASQL_RETURN_IF_ERROR(
+      resolver.ResolveTypeName(type_name, output_type, output_type_params));
 
   ZETASQL_VLOG(3) << "Resolved type: " << (*output_type)->DebugString();
   return absl::OkStatus();
@@ -358,10 +360,20 @@ static absl::Status AnalyzeTypeImpl(const std::string& type_name,
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type) {
+  TypeParameters type_params = TypeParameters();
+  return AnalyzeType(type_name, options_in, catalog, type_factory, output_type,
+                     &type_params);
+}
+
+absl::Status AnalyzeType(const std::string& type_name,
+                         const AnalyzerOptions& options_in, Catalog* catalog,
+                         TypeFactory* type_factory, const Type** output_type,
+                         TypeParameters* output_type_params) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status =
-      AnalyzeTypeImpl(type_name, options, catalog, type_factory, output_type);
+      AnalyzeTypeImpl(type_name, options, catalog, type_factory, output_type,
+                      output_type_params);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), type_name, status);
 }

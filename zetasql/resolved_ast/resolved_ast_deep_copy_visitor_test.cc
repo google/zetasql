@@ -154,8 +154,9 @@ class AddFilterToTableScan : public ResolvedASTDeepCopyVisitor {
           {FunctionSignatureIdToName(FN_GREATER_OR_EQUAL)}, &function));
 
       // Create a new column for the input of >= comparison.
-      ResolvedColumn input_column(column_id_in_scan, table_name_, column_name_,
-                                  types::Int32Type());
+      ResolvedColumn input_column(
+          column_id_in_scan, zetasql::IdString::MakeGlobal(table_name_),
+          zetasql::IdString::MakeGlobal(column_name_), types::Int32Type());
 
       // We have two arguments for our function call, the column that we compare
       // and the literal value.

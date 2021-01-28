@@ -57,6 +57,8 @@ class ProtoType;
 class StructType;
 class Type;
 class TypeFactory;
+class TypeParameters;
+class TypeParameterValue;
 class Value;
 class ValueContent;
 class ValueProto;
@@ -392,6 +394,13 @@ class Type {
   // messages.
   virtual std::string TypeName(ProductMode mode) const = 0;
 
+  // Same as above, but if <type_params> is not empty, then the type parameter
+  // values are included with the SQL name for this type. The output is
+  // reparseable as part of a query. If <type_params> is an invalid input for
+  // the given Type, then an error status will be returned.
+  virtual zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const = 0;
+
   // Returns the full description of the type without truncation. This should
   // only be used for logging or tests and not for any user-facing messages. For
   // proto-based types, this will return PROTO<name> or ENUM<name>, which are
@@ -479,6 +488,19 @@ class Type {
   // The nesting depth of the tree of types (via StructType and ArrayType) below
   // this type. For simple types this is 0.
   virtual int nesting_depth() const { return 0; }
+
+  // Performs common validation for parameterized types. Returns an empty
+  // TypeParameters class unless overridden. TypeParameters are resolved based
+  // on the input type and validated literals.
+  //
+  // <resolved_type_parameters> is the intermediate representation of type
+  // parameters as a vector of resolved TypeParameterValues.
+  // The output <TypeParameters> class is the final representation
+  // of type parameters in the ResolvedAST, storing the resolved type parameters
+  // as a TypeParametersProto.
+  virtual zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      ProductMode mode) const;
 
   // Controls for the building of the FileDescriptorSetMap.
   struct BuildFileDescriptorSetMapOptions {

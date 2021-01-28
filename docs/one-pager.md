@@ -7968,13 +7968,13 @@ GROUP BY gender;
 [anon-epsilon]: #anon_epsilon
 [anon-kappa]: #anon_kappa
 [anon-delta]: #anon_delta
-[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
-[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax#select_list
-[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
+[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
+[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
+[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 [wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
 
-[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax#select_list
-[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
+[anon-select-list]: #select_list
+[anon-group-by]: #group_by_clause
 [anonymization-functions]: #aggregate_anonymization_functions
 [anon-clamping]: #anon_clamping
 [anon-exp-clamping]: #anon_explicit_clamping
@@ -12638,10 +12638,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified,
-    the `NULL` values are excluded from the result. If `RESPECT NULLS` is
-    specified or if neither is specified,
-    the `NULL` values are included in the result.
+    specified, the `NULL` values are excluded from the result. If
+    `RESPECT NULLS` is specified, the `NULL` values are included in the
+    result. If
+    neither is specified, the `NULL` values are included in the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
@@ -14045,10 +14045,10 @@ The clauses are applied *in the following order*:
 1.  `DISTINCT`: Each distinct value of
     `expression` is aggregated only once into the result.
 1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified or if neither is specified,
-    the `NULL` values are excluded from the result. If `RESPECT NULLS` is
-    specified,
-    the `NULL` values are included in the result.
+    specified, the `NULL` values are excluded from the result. If
+    `RESPECT NULLS` is specified, the `NULL` values are included in the
+    result. If neither is specified, the `NULL`
+    values are excluded from the result.
 1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.

@@ -19,6 +19,7 @@
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_parameters.h"
 
 namespace zetasql {
 
@@ -56,6 +57,13 @@ class ProtoType : public Type {
   // is just the descriptor full_name (without back-ticks).  The back-ticks
   // are not necessary for TypeName() to be reparseable, so should be removed.
   std::string TypeName(ProductMode mode_unused) const override;
+  // ProtoType does not support type parameters, which is why TypeName(mode) is
+  // used.
+  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const override {
+    ZETASQL_DCHECK(type_params.IsEmpty());
+    return TypeName(mode);
+  }
   std::string ShortTypeName(
       ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
   std::string TypeName() const;  // Proto-specific version does not need mode.

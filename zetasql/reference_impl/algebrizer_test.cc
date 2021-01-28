@@ -166,7 +166,9 @@ class AlgebrizerTestBase : public ::testing::Test {
 
   void TestAlgebrizeColumnRef(int column_id, const std::string& column_name,
                               const Type* type, const std::string& expected) {
-    ResolvedColumn column(column_id, "table_name_unused", column_name, type);
+    ResolvedColumn column(column_id,
+                          zetasql::IdString::MakeGlobal("table_name_unused"),
+                          zetasql::IdString::MakeGlobal(column_name), type);
     std::unique_ptr<const ResolvedExpr> expr(
         MakeResolvedColumnRef(type, column, kNonCorrelated));
     ColumnToVariableMapping::Map map = {{column, VariableId(column_name)}};
@@ -180,7 +182,9 @@ class AlgebrizerTestBase : public ::testing::Test {
     // Build the resolved columns of the right hand scan and scan itself.
     ResolvedColumnList column_refs;
     for (int i = 0; i < columns.size(); ++i) {
-      ResolvedColumn column((*column_id)++, table.Name(), columns[i].name(),
+      ResolvedColumn column((*column_id)++,
+                            zetasql::IdString::MakeGlobal(table.Name()),
+                            zetasql::IdString::MakeGlobal(columns[i].name()),
                             columns[i].type());
       column_refs.push_back(column);
     }
@@ -274,26 +278,52 @@ class AlgebrizerTestBase : public ::testing::Test {
   // Set of resolved columns with one column for every supported type.
   // TODO Add the missing types.
   const ResolvedColumnList columns_ = {
-      ResolvedColumn(kInt32ColId, kAllTypesTable, kInt32Col, Int32Type()),
-      ResolvedColumn(kUint32ColId, kAllTypesTable, kUint32Col, Uint32Type()),
-      ResolvedColumn(kInt64ColId, kAllTypesTable, kInt64Col, Int64Type()),
-      ResolvedColumn(kUint64ColId, kAllTypesTable, kUint64Col, Uint64Type()),
-      ResolvedColumn(kStringColId, kAllTypesTable, kStringCol, StringType()),
-      ResolvedColumn(kBoolColId, kAllTypesTable, kBoolCol, BoolType()),
-      ResolvedColumn(kDoubleColId, kAllTypesTable, kDoubleCol, DoubleType())
-  };
+      ResolvedColumn(kInt32ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kInt32Col), Int32Type()),
+      ResolvedColumn(kUint32ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kUint32Col), Uint32Type()),
+      ResolvedColumn(kInt64ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kInt64Col), Int64Type()),
+      ResolvedColumn(kUint64ColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kUint64Col), Uint64Type()),
+      ResolvedColumn(kStringColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kStringCol), StringType()),
+      ResolvedColumn(kBoolColId,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable),
+                     zetasql::IdString::MakeGlobal(kBoolCol), BoolType()),
+      ResolvedColumn(
+          kDoubleColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+          zetasql::IdString::MakeGlobal(kDoubleCol), DoubleType())};
 
   // The columns of table_all_types_2.  The columns id's assume that this table
   // is scanned "second" after table_all_types.
   const ResolvedColumnList columns2_ = {
-      ResolvedColumn(kInt32ColId2, kAllTypesTable2, kInt32Col2, Int32Type()),
-      ResolvedColumn(kUint32ColId2, kAllTypesTable2, kUint32Col2, Uint32Type()),
-      ResolvedColumn(kInt64ColId2, kAllTypesTable2, kInt64Col2, Int64Type()),
-      ResolvedColumn(kUint64ColId2, kAllTypesTable2, kUint64Col2, Uint64Type()),
-      ResolvedColumn(kStringColId2, kAllTypesTable2, kStringCol2, StringType()),
-      ResolvedColumn(kBoolColId2, kAllTypesTable2, kBoolCol2, BoolType()),
-      ResolvedColumn(kDoubleColId2, kAllTypesTable2, kDoubleCol2, DoubleType())
-  };
+      ResolvedColumn(kInt32ColId2,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                     zetasql::IdString::MakeGlobal(kInt32Col2), Int32Type()),
+      ResolvedColumn(
+          kUint32ColId2, zetasql::IdString::MakeGlobal(kAllTypesTable2),
+          zetasql::IdString::MakeGlobal(kUint32Col2), Uint32Type()),
+      ResolvedColumn(kInt64ColId2,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                     zetasql::IdString::MakeGlobal(kInt64Col2), Int64Type()),
+      ResolvedColumn(
+          kUint64ColId2, zetasql::IdString::MakeGlobal(kAllTypesTable2),
+          zetasql::IdString::MakeGlobal(kUint64Col2), Uint64Type()),
+      ResolvedColumn(
+          kStringColId2, zetasql::IdString::MakeGlobal(kAllTypesTable2),
+          zetasql::IdString::MakeGlobal(kStringCol2), StringType()),
+      ResolvedColumn(kBoolColId2,
+                     zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                     zetasql::IdString::MakeGlobal(kBoolCol2), BoolType()),
+      ResolvedColumn(
+          kDoubleColId2, zetasql::IdString::MakeGlobal(kAllTypesTable2),
+          zetasql::IdString::MakeGlobal(kDoubleCol2), DoubleType())};
   // Schema for test tables on the algebra side.
   std::vector<std::pair<std::string, const Type*>> test_table_columns_{
       {kInt32Col, Int32Type()},   {kUint32Col, Uint32Type()},
@@ -545,8 +575,10 @@ TEST_F(StatementAlgebrizerTest, SingleRowSelect) {
   int column_id = 1;
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> constants;
   for (int i = 0; i < rows.size(); ++i) {
-    ResolvedColumn column(column_id, "$query", absl::StrCat("$col", column_id),
-                          rows[i].first);
+    ResolvedColumn column(
+        column_id, zetasql::IdString::MakeGlobal("$query"),
+        zetasql::IdString::MakeGlobal(absl::StrCat("$col", column_id)),
+        rows[i].first);
     auto literal = MakeResolvedLiteral(rows[i].second);
     constants.push_back(MakeResolvedComputedColumn(column, std::move(literal)));
     column_id++;
@@ -978,10 +1010,11 @@ TEST_P(AlgebrizerTestFunctions, SelectFunctions) {
   auto scan = MakeResolvedSingleRowScan();
   const int kColumnId = 1;
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> select_list;
-  select_list.push_back(
-      MakeResolvedComputedColumn(ResolvedColumn(kColumnId, "$query", "$col1",
-                                                function_test.function->type()),
-                                 absl::WrapUnique(function_test.function)));
+  select_list.push_back(MakeResolvedComputedColumn(
+      ResolvedColumn(kColumnId, zetasql::IdString::MakeGlobal("$query"),
+                     zetasql::IdString::MakeGlobal("$col1"),
+                     function_test.function->type()),
+      absl::WrapUnique(function_test.function)));
   std::unique_ptr<ResolvedProjectScan> single_row_select =
       CreateResolvedProjectScan(std::move(select_list), std::move(scan));
   // Algebrize the resolved AST and check the result.
@@ -1040,39 +1073,48 @@ class AlgebrizerTestFilters : public StatementAlgebrizerTest,
     FunctionSignature bool_double_double(BoolType(),
                                          {DoubleType(), DoubleType()},
                                          -1 /* context_id */);
-    return {// Compare a column to a constant.
-            {bool_int64_int64,
-             {MakeResolvedColumnRef(Int64Type(),
-                                    ResolvedColumn(kInt64ColId, kAllTypesTable,
-                                                   kInt64Col, Int64Type()),
-                                    kNonCorrelated)
-                  .release(),
-              MakeResolvedLiteral(Value::Int64(101)).release()},
-             "Equal($col_int64, ConstExpr(101))"},
-            {bool_string_string,
-             {MakeResolvedColumnRef(StringType(),
-                                    ResolvedColumn(kStringColId, kAllTypesTable,
-                                                   kStringCol, StringType()),
-                                    kNonCorrelated)
-                  .release(),
-              MakeResolvedLiteral(Value::String("Hello world")).release()},
-             "Equal($col_string, ConstExpr(\"Hello world\"))"},
-            {bool_bool_bool,
-             {MakeResolvedColumnRef(BoolType(),
-                                    ResolvedColumn(kBoolColId, kAllTypesTable,
-                                                   kBoolCol, BoolType()),
-                                    kNonCorrelated)
-                  .release(),
-              MakeResolvedLiteral(Value::Bool(true)).release()},
-             "Equal($col_bool, ConstExpr(true))"},
-            {bool_double_double,
-             {MakeResolvedColumnRef(DoubleType(),
-                                    ResolvedColumn(kDoubleColId, kAllTypesTable,
-                                                   kDoubleCol, DoubleType()),
-                                    kNonCorrelated)
-                  .release(),
-              MakeResolvedLiteral(Value::Double(2.71828)).release()},
-             "Equal($col_double, ConstExpr(2.71828))"}};
+    return {
+        // Compare a column to a constant.
+        {bool_int64_int64,
+         {MakeResolvedColumnRef(
+              Int64Type(),
+              ResolvedColumn(
+                  kInt64ColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kInt64Col), Int64Type()),
+              kNonCorrelated)
+              .release(),
+          MakeResolvedLiteral(Value::Int64(101)).release()},
+         "Equal($col_int64, ConstExpr(101))"},
+        {bool_string_string,
+         {MakeResolvedColumnRef(
+              StringType(),
+              ResolvedColumn(
+                  kStringColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kStringCol), StringType()),
+              kNonCorrelated)
+              .release(),
+          MakeResolvedLiteral(Value::String("Hello world")).release()},
+         "Equal($col_string, ConstExpr(\"Hello world\"))"},
+        {bool_bool_bool,
+         {MakeResolvedColumnRef(
+              BoolType(),
+              ResolvedColumn(
+                  kBoolColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kBoolCol), BoolType()),
+              kNonCorrelated)
+              .release(),
+          MakeResolvedLiteral(Value::Bool(true)).release()},
+         "Equal($col_bool, ConstExpr(true))"},
+        {bool_double_double,
+         {MakeResolvedColumnRef(
+              DoubleType(),
+              ResolvedColumn(
+                  kDoubleColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kDoubleCol), DoubleType()),
+              kNonCorrelated)
+              .release(),
+          MakeResolvedLiteral(Value::Double(2.71828)).release()},
+         "Equal($col_double, ConstExpr(2.71828))"}};
   }
 };
 
@@ -1212,49 +1254,68 @@ class AlgebrizerTestJoins : public StatementAlgebrizerTest,
         {bool_bool_bool,
          {MakeResolvedColumnRef(
               BoolType(),
-              ResolvedColumn(kBoolColId, kAllTypesTable, kBoolCol, BoolType()),
+              ResolvedColumn(
+                  kBoolColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kBoolCol), BoolType()),
               kNonCorrelated)
               .release(),
-          MakeResolvedColumnRef(BoolType(),
-                                ResolvedColumn(kBoolColId2, kAllTypesTable2,
-                                               kBoolCol2, BoolType()),
-                                kNonCorrelated)
+          MakeResolvedColumnRef(
+              BoolType(),
+              ResolvedColumn(
+                  kBoolColId2, zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                  zetasql::IdString::MakeGlobal(kBoolCol2), BoolType()),
+              kNonCorrelated)
               .release()},
          "Equal\\(\\$col_bool, \\$col_bool.2\\)"},
         {bool_double_double,
-         {MakeResolvedColumnRef(DoubleType(),
-                                ResolvedColumn(kDoubleColId, kAllTypesTable,
-                                               kDoubleCol, DoubleType()),
-                                kNonCorrelated)
+         {MakeResolvedColumnRef(
+              DoubleType(),
+              ResolvedColumn(
+                  kDoubleColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kDoubleCol), DoubleType()),
+              kNonCorrelated)
               .release(),
-          MakeResolvedColumnRef(DoubleType(),
-                                ResolvedColumn(kDoubleColId2, kAllTypesTable2,
-                                               kDoubleCol2, DoubleType()),
-                                kNonCorrelated)
+          MakeResolvedColumnRef(
+              DoubleType(),
+              ResolvedColumn(kDoubleColId2,
+                             zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                             zetasql::IdString::MakeGlobal(kDoubleCol2),
+                             DoubleType()),
+              kNonCorrelated)
               .release()},
          "Equal\\(\\$col_double, \\$col_double.2\\)"},
         {bool_int64_int64,
-         {MakeResolvedColumnRef(Int64Type(),
-                                ResolvedColumn(kInt64ColId, kAllTypesTable,
-                                               kInt64Col, Int64Type()),
-                                kNonCorrelated)
+         {MakeResolvedColumnRef(
+              Int64Type(),
+              ResolvedColumn(
+                  kInt64ColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kInt64Col), Int64Type()),
+              kNonCorrelated)
               .release(),
-          MakeResolvedColumnRef(Int64Type(),
-                                ResolvedColumn(kInt64ColId2, kAllTypesTable2,
-                                               kInt64Col2, Int64Type()),
-                                kNonCorrelated)
+          MakeResolvedColumnRef(
+              Int64Type(),
+              ResolvedColumn(kInt64ColId2,
+                             zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                             zetasql::IdString::MakeGlobal(kInt64Col2),
+                             Int64Type()),
+              kNonCorrelated)
               .release()},
          "Equal\\(\\$col_int64, \\$col_int64.2\\)"},
         {bool_string_string,
-         {MakeResolvedColumnRef(StringType(),
-                                ResolvedColumn(kStringColId, kAllTypesTable,
-                                               kStringCol, StringType()),
-                                kNonCorrelated)
+         {MakeResolvedColumnRef(
+              StringType(),
+              ResolvedColumn(
+                  kStringColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+                  zetasql::IdString::MakeGlobal(kStringCol), StringType()),
+              kNonCorrelated)
               .release(),
-          MakeResolvedColumnRef(StringType(),
-                                ResolvedColumn(kStringColId2, kAllTypesTable2,
-                                               kStringCol2, StringType()),
-                                kNonCorrelated)
+          MakeResolvedColumnRef(
+              StringType(),
+              ResolvedColumn(kStringColId2,
+                             zetasql::IdString::MakeGlobal(kAllTypesTable2),
+                             zetasql::IdString::MakeGlobal(kStringCol2),
+                             StringType()),
+              kNonCorrelated)
               .release()},
          "Equal\\(\\$col_string, \\$col_string.2\\)"}};
   }
@@ -1371,12 +1432,16 @@ TEST_P(AlgebrizerTestJoins, CorrelatedInnerJoin) {
   auto filter_arguments = MakeNodeVector(
       MakeResolvedColumnRef(
           Int64Type(),
-          ResolvedColumn(kInt64ColId, kAllTypesTable, kInt64Col, Int64Type()),
+          ResolvedColumn(
+              kInt64ColId, zetasql::IdString::MakeGlobal(kAllTypesTable),
+              zetasql::IdString::MakeGlobal(kInt64Col), Int64Type()),
           kNonCorrelated),
-      MakeResolvedColumnRef(Int64Type(),
-                            ResolvedColumn(kInt64ColId2, kAllTypesTable2,
-                                           kInt64Col2, Int64Type()),
-                            kNonCorrelated));
+      MakeResolvedColumnRef(
+          Int64Type(),
+          ResolvedColumn(
+              kInt64ColId2, zetasql::IdString::MakeGlobal(kAllTypesTable2),
+              zetasql::IdString::MakeGlobal(kInt64Col2), Int64Type()),
+          kNonCorrelated));
   auto filter_expr = MakeResolvedFunctionCall(
       BoolType(), equal_filter_function.get(), signature,
       std::move(filter_arguments), DEFAULT_ERROR_MODE);
@@ -1463,8 +1528,9 @@ class AlgebrizerTestGroupingAggregation
     // columns are added to the output after the grouping columns.
     std::string output_column_name =
         kAggNamePrefix + std::to_string(*output_column_id - first_agg_id + 1);
-    ResolvedColumn output_column((*output_column_id)++, kTableName,
-                                 output_column_name, result_type);
+    ResolvedColumn output_column(
+        (*output_column_id)++, zetasql::IdString::MakeGlobal(kTableName),
+        zetasql::IdString::MakeGlobal(output_column_name), result_type);
     output_columns->push_back(output_column);
     // Build the aggregate function
     functions_.emplace_back(new Function(
@@ -1500,9 +1566,11 @@ class AlgebrizerTestGroupingAggregation
     // Build the grouping expressions.
     for (int i = 0; i < parameters.key_col_idxs.size(); ++i) {
       ResolvedColumn groupby_column = table_columns[parameters.key_col_idxs[i]];
-      ResolvedColumn output_column((*column_id)++, groupby_column.table_name(),
-                                   groupby_column.name(),
-                                   groupby_column.type());
+      ResolvedColumn output_column(
+          (*column_id)++,
+          zetasql::IdString::MakeGlobal(groupby_column.table_name()),
+          zetasql::IdString::MakeGlobal(groupby_column.name()),
+          groupby_column.type());
       output_columns->push_back(output_column);
       auto key_grouping = MakeResolvedColumnRef(output_column.type(),
                                                 groupby_column, kNonCorrelated);

@@ -206,7 +206,9 @@ TEST(ValidatorTest, ValidExpression) {
 }
 
 TEST(ValidatorTest, InvalidExpression) {
-  ResolvedColumn column(1, "tbl", "col1", types::Int64Type());
+  ResolvedColumn column(1, zetasql::IdString::MakeGlobal("tbl"),
+                        zetasql::IdString::MakeGlobal("col1"),
+                        types::Int64Type());
   std::unique_ptr<ResolvedExpr> expr =
       MakeResolvedColumnRef(types::Int64Type(), column, false);
   Validator validator;

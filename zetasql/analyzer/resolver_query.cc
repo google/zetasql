@@ -1415,8 +1415,11 @@ absl::Status Resolver::ResolveModelTransformSelectList(
       const ResolvedColumnRef* resolved_col_ref =
           select_column_state->resolved_expr->GetAs<ResolvedColumnRef>();
       const ResolvedColumn resolved_col_cp(
-          AllocateColumnId(), resolved_col_ref->column().table_name(),
-          select_column_state->alias.ToString(),
+          AllocateColumnId(),
+          zetasql::IdString::MakeGlobal(
+              resolved_col_ref->column().table_name()),
+          zetasql::IdString::MakeGlobal(
+              select_column_state->alias.ToString()),
           resolved_col_ref->column().type());
       transform_list->push_back(MakeResolvedComputedColumn(
           resolved_col_cp,
@@ -4509,7 +4512,9 @@ zetasql_base::StatusOr<ResolvedColumn> Resolver::CreatePivotColumn(
               "implemented yet";
   }
 
-  return ResolvedColumn(AllocateColumnId(), "$pivot", column_name,
+  return ResolvedColumn(AllocateColumnId(),
+                        zetasql::IdString::MakeGlobal("$pivot"),
+                        zetasql::IdString::MakeGlobal(column_name),
                         resolved_pivot_expr->type());
 }
 

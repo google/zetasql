@@ -2170,7 +2170,7 @@ absl::Status Resolver::ResolveCreateTableStatement(
 
   if (ast_statement->like_table_name() != nullptr) {
     return MakeSqlErrorAt(ast_statement->like_table_name())
-           << "CREATE TABLE LIKE is unsupported";
+           << "CREATE TABLE LIKE is not supported";
   }
 
   if (ast_statement->partition_by() != nullptr &&
@@ -2535,6 +2535,11 @@ absl::Status Resolver::ResolveCreateExternalTableStatement(
   ResolveCreateTableStmtBasePropertiesArgs resolved_properties_control_args = {
       language().LanguageFeatureEnabled(
           FEATURE_CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST)};
+
+  if (ast_statement->like_table_name() != nullptr) {
+    return MakeSqlErrorAt(ast_statement->like_table_name())
+           << statement_type << " LIKE is not supported";
+  }
 
   ZETASQL_RETURN_IF_ERROR(ResolveCreateTableStmtBaseProperties(
       ast_statement, statement_type, /* query = */ nullptr,

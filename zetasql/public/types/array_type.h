@@ -47,6 +47,12 @@ class ArrayType : public Type {
   std::string ShortTypeName(ProductMode mode) const override;
   std::string TypeName(ProductMode mode) const override;
 
+  // Same as above, but if <type_params> is not empty, any nested SimpleTypes
+  // include their type parameters within parenthesis appended to their SQL
+  // name.
+  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const override;
+
   bool UsingFeatureV12CivilTimeType() const override {
     return element_type_->UsingFeatureV12CivilTimeType();
   }

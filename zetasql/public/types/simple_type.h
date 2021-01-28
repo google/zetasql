@@ -34,6 +34,11 @@ class SimpleType : public Type {
 
   std::string TypeName(ProductMode mode) const override;
 
+  // Same as above, but the type parameter values are appended within
+  // parenthesis to the SQL name for this SimpleType.
+  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const override;
+
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
   // Check whether type with a given name exists and is simple. If yes, returns
@@ -43,6 +48,17 @@ class SimpleType : public Type {
   static TypeKind GetTypeKindIfSimple(
       const absl::string_view type_name, ProductMode mode,
       const std::set<LanguageFeature>* language_features = nullptr);
+
+  // Validate and resolve type parameters for SimpleTypes.
+  // Resolvable type parameters:
+  //   - STRING(L) / BYTES(L)
+  //   - STRING(MAX) / BYTES(MAX)
+  //   - NUMERIC(P) / BIGNUMERIC(P)
+  //   - NUMERIC(P, S) / BIGNUMERIC(P, S)
+  //   - BIGNUMERIC(MAX) / BIGNUMERIC(MAX, S)
+  zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      ProductMode mode) const override;
 
  protected:
   ~SimpleType() override;
@@ -86,6 +102,16 @@ class SimpleType : public Type {
 
   void DebugStringImpl(bool details, TypeOrStringVector* stack,
                        std::string* debug_string) const override;
+
+  // Helper functions to validate type parameters for STRING(L), BYTES(L).
+  zetasql_base::StatusOr<TypeParameters> ResolveStringBytesTypeParameters(
+      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      ProductMode mode) const;
+  // Helper function to validate type parameters for NUMERIC(P), BIGNUMERIC(P),
+  // NUMERIC(P, S), BIGNUMERIC(P, S) and create respective TypeParameters class.
+  zetasql_base::StatusOr<TypeParameters> ResolveNumericBignumericTypeParameters(
+      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      ProductMode mode) const;
 
   // Used for TYPE_TIMESTAMP.
   static absl::Time GetTimestampValue(const ValueContent& value);

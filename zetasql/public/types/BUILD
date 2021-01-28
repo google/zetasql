@@ -31,6 +31,7 @@ cc_library(
         "struct_type.cc",
         "type.cc",
         "type_factory.cc",
+        "type_parameters.cc",
     ],
     hdrs = [
         "annotation.h",
@@ -43,6 +44,7 @@ cc_library(
         "struct_type.h",
         "type.h",
         "type_factory.h",
+        "type_parameters.h",
     ],
     copts = [
         "-Wno-char-subscripts",
@@ -79,6 +81,7 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type_annotation_cc_proto",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:type_parameters_cc_proto",
         "//zetasql/public:value_cc_proto",
         "//zetasql/public:value_content",
         "//zetasql/public/functions:convert_proto",
@@ -96,37 +99,8 @@ cc_library(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "@com_google_protobuf//:cc_wkt_protos",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-cc_library(
-    name = "type_parameters",
-    srcs = [
-        "type_parameters.cc",
-    ],
-    hdrs = [
-        "type_parameters.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
-    deps = [
-        ":types",
-        "//zetasql/base:case",
-        "//zetasql/base:statusor",
-        "//zetasql/public:options_cc_proto",
-        "//zetasql/public:type_parameters_cc_proto",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:variant",
+        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
     ],
 )

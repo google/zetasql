@@ -385,8 +385,8 @@ This leaves less epsilon for aggregations, so these aggregations are noisier.
 [anon-exp-clamp]: #anon_explicit_clamping
 [anon-imp-clamp]: #anon_implicit_clamping
 
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax#anon_example_views
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax#anon_from
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax#eliminate_noise
+[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
+[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
+[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
 

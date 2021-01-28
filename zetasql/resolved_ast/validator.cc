@@ -3012,6 +3012,10 @@ absl::Status Validator::ValidateResolvedScan(
       scan_subtype_status = ValidateResolvedPivotScan(
           scan->GetAs<ResolvedPivotScan>(), visible_parameters);
       break;
+    case RESOLVED_UNPIVOT_SCAN:
+      scan_subtype_status = ValidateResolvedUnpivotScan(
+          scan->GetAs<ResolvedUnpivotScan>(), visible_parameters);
+      break;
     default:
       return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled node kind: " << scan->node_kind_string()
@@ -4077,6 +4081,39 @@ absl::Status Validator::ValidateResolvedPivotScan(
   for (const ResolvedColumn& column : scan->column_list()) {
     ZETASQL_RET_CHECK(output_columns_created.contains(column));
   }
+
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedUnpivotScan(
+    const ResolvedUnpivotScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
+
+  std::set<ResolvedColumn> input_column_set;
+  ZETASQL_RETURN_IF_ERROR(
+      AddColumnList(scan->input_scan()->column_list(), &input_column_set));
+
+  for (const ResolvedColumn& column : scan->column_list()) {
+    ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+  }
+
+  // Validate unpivot_arg_list.
+  // TODO: Validate all constraints about size and datatypes for
+  // all nodes of ResolvedUnpivotScan. This can be done in the resolver.
+  absl::flat_hash_set<ResolvedColumn> input_columns_seen;
+  for (const auto& input_column_set : scan->unpivot_arg_list()) {
+    for (const auto& input_column : input_column_set->column_list()) {
+      ResolvedColumn input_column_res = input_column->column();
+      ZETASQL_RET_CHECK_EQ(input_column->node_kind(), RESOLVED_COLUMN_REF)
+          << "Column in unpivot_input_column_list of unpivot scan should be a "
+             "ResolvedColumn";
+      ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&input_columns_seen, input_column_res))
+          << "Duplicate input column " << input_column_res.DebugString()
+          << " in ResolvedUnpivotScan's input_column_list";
+    }
+  }
+  // TODO: Validate new unpivot columns.
 
   return absl::OkStatus();
 }

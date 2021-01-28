@@ -1517,8 +1517,9 @@ TEST(SQLBuilderTest, WithScanWithFilterScan) {
   auto table = absl::make_unique<SimpleTable>(table_name);
 
   // With entry list.
-  const ResolvedColumn scan_column(10, table_name, col_name,
-                                   type_factory.get_int32());
+  const ResolvedColumn scan_column(
+      10, zetasql::IdString::MakeGlobal(table_name),
+      zetasql::IdString::MakeGlobal(col_name), type_factory.get_int32());
   auto table_scan = MakeResolvedTableScan({scan_column}, table.get(),
                                           /*for_system_time_expr=*/nullptr);
   auto filter_scan = MakeResolvedFilterScan(
@@ -1529,8 +1530,9 @@ TEST(SQLBuilderTest, WithScanWithFilterScan) {
       MakeResolvedWithEntry(with_query_name, std::move(filter_scan)));
 
   // With scan query.
-  const ResolvedColumn query_column(20, with_query_name, col_name,
-                                    type_factory.get_int32());
+  const ResolvedColumn query_column(
+      20, zetasql::IdString::MakeGlobal(with_query_name),
+      zetasql::IdString::MakeGlobal(col_name), type_factory.get_int32());
   auto with_ref_scan = MakeResolvedWithRefScan({query_column}, with_query_name);
   auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},
                                        std::move(with_ref_scan));
@@ -1601,8 +1603,9 @@ TEST(SQLBuilderTest, WithScanWithJoinScan) {
       absl::make_unique<SimpleTable>(table_name2);
 
   // With entry list.
-  const ResolvedColumn scan_column(10, table_name1, col_name,
-                                   type_factory.get_int32());
+  const ResolvedColumn scan_column(
+      10, zetasql::IdString::MakeGlobal(table_name1),
+      zetasql::IdString::MakeGlobal(col_name), type_factory.get_int32());
   auto table_scan1 = MakeResolvedTableScan({scan_column}, table1.get(),
                                            /*for_system_time_expr=*/nullptr);
   auto table_scan2 = MakeResolvedTableScan(/*column_list=*/{}, table2.get(),
@@ -1616,8 +1619,9 @@ TEST(SQLBuilderTest, WithScanWithJoinScan) {
       MakeResolvedWithEntry(with_query_name, std::move(join_scan)));
 
   // With scan query.
-  const ResolvedColumn query_column(20, with_query_name, col_name,
-                                    type_factory.get_int32());
+  const ResolvedColumn query_column(
+      20, zetasql::IdString::MakeGlobal(with_query_name),
+      zetasql::IdString::MakeGlobal(col_name), type_factory.get_int32());
   std::unique_ptr<ResolvedWithRefScan> with_ref_scan =
       MakeResolvedWithRefScan({query_column}, with_query_name);
 
@@ -1658,12 +1662,14 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
       absl::make_unique<SimpleTable>(table_name);
 
   // With entry list.
-  const ResolvedColumn scan_column(10, table_name, col_name,
-                                   type_factory.get_int32());
+  const ResolvedColumn scan_column(
+      10, zetasql::IdString::MakeGlobal(table_name),
+      zetasql::IdString::MakeGlobal(col_name), type_factory.get_int32());
   auto table_scan = MakeResolvedTableScan({scan_column}, table.get(),
                                           /*for_system_time_expr=*/nullptr);
-  const ResolvedColumn array_column(15, "ArrayName", "ArrayCol",
-                                    type_factory.get_int32());
+  const ResolvedColumn array_column(
+      15, zetasql::IdString::MakeGlobal("ArrayName"),
+      zetasql::IdString::MakeGlobal("ArrayCol"), type_factory.get_int32());
   auto array_expr = MakeResolvedSubqueryExpr(
       type_factory.get_bool(), ResolvedSubqueryExpr::ARRAY,
       /*parameter_list=*/{}, /*in_expr=*/nullptr,
@@ -1677,8 +1683,9 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
       MakeResolvedWithEntry(with_query_name, std::move(array_scan)));
 
   // With scan query.
-  const ResolvedColumn query_column(20, with_query_name, col_name,
-                                    type_factory.get_int32());
+  const ResolvedColumn query_column(
+      20, zetasql::IdString::MakeGlobal(with_query_name),
+      zetasql::IdString::MakeGlobal(col_name), type_factory.get_int32());
   std::unique_ptr<ResolvedWithRefScan> with_ref_scan =
       MakeResolvedWithRefScan({query_column}, with_query_name);
   auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},

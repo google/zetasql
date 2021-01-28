@@ -236,6 +236,7 @@ cc_library(
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:make_node_vector",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
@@ -378,6 +379,30 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "filter_fields_path_validator",
+    srcs = ["filter_fields_path_validator.cc"],
+    hdrs = ["filter_fields_path_validator.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:statusor",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
 cc_test(
     name = "resolver_test",
     size = "small",
@@ -461,6 +486,29 @@ cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "filter_fields_path_validator_test",
+    size = "small",
+    srcs = ["filter_fields_path_validator_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":filter_fields_path_validator",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/status",
         "@com_google_protobuf//:protobuf",
     ],
 )

@@ -35,7 +35,6 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
-
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
@@ -190,8 +189,10 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
     absl::string_view sql, TypeFactory* type_factory, Catalog* catalog,
     const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output);
 
-// Parse and analyze a ZetaSQL type name.
-// The type may reference type names from <catalog>.
+// Parse and analyze a ZetaSQL type name with optional type parameters.
+// The type may reference type names from <catalog>. If type parameters are
+// specified in <type_name>, then the parameters will be parsed and analyzed as
+// well but are otherwise ignored. To return parameters, use the overload below.
 // Returns a type in <output_type> on success.
 //
 // This can return errors that point at a location in the input. How this
@@ -199,6 +200,13 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type);
+
+// Same as above function, but also returns a TypeParameters object in
+// <output_type_params> on success.
+absl::Status AnalyzeType(const std::string& type_name,
+                         const AnalyzerOptions& options_in, Catalog* catalog,
+                         TypeFactory* type_factory, const Type** output_type,
+                         TypeParameters* output_type_params);
 
 // A set of table names found is returned in <*table_names>, where each
 // table name is an identifier path stored as a vector<string>.

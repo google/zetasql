@@ -19,6 +19,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value_content.h"
 #include "absl/status/status.h"
 #include "zetasql/base/simple_reference_counted.h"
@@ -146,10 +147,10 @@ absl::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
 
 // TODO DebugString and other recursive methods on struct types
 // may cause a stack overflow for deeply nested types.
-std::string StructType::TypeNameImpl(
+zetasql_base::StatusOr<std::string> StructType::TypeNameImpl(
     int field_limit,
-    const std::function<std::string(const zetasql::Type*)>& field_debug_fn)
-    const {
+    const std::function<zetasql_base::StatusOr<std::string>(
+        const zetasql::Type*, int field_index)>& field_debug_fn) const {
   const int num_fields_to_show = std::min<int>(field_limit, fields_.size());
   const bool output_truncated = num_fields_to_show < fields_.size();
 
@@ -160,7 +161,9 @@ std::string StructType::TypeNameImpl(
     if (!field.name.empty()) {
       absl::StrAppend(&ret, ToIdentifierLiteral(field.name), " ");
     }
-    absl::StrAppend(&ret, field_debug_fn(field.type));
+    ZETASQL_ASSIGN_OR_RETURN(std::string field_parameters,
+                     field_debug_fn(field.type, i));
+    absl::StrAppend(&ret, field_parameters);
   }
   if (output_truncated) {
     absl::StrAppend(&ret, ", ...");
@@ -172,21 +175,41 @@ std::string StructType::TypeNameImpl(
 std::string StructType::ShortTypeName(ProductMode mode) const {
   // Limit the output to three struct fields to avoid long error messages.
   const int field_limit = 3;
-  const auto field_debug_fn = [=](const zetasql::Type* type) {
+  const auto field_debug_fn = [=](const zetasql::Type* type,
+                                  int field_index) {
     return type->ShortTypeName(mode);
   };
-  return TypeNameImpl(field_limit, field_debug_fn);
+  return TypeNameImpl(field_limit, field_debug_fn).value();
 }
 
 std::string StructType::TypeName(ProductMode mode) const {
-  const auto field_debug_fn = [=](const zetasql::Type* type) {
+  const auto field_debug_fn = [=](const zetasql::Type* type,
+                                  int field_index) {
     return type->TypeName(mode);
+  };
+  return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn).value();
+}
+
+zetasql_base::StatusOr<std::string> StructType::TypeNameWithParameters(
+    const TypeParameters& type_params, ProductMode mode) const {
+  if (type_params.IsEmpty()) {
+    return TypeName(mode);
+  }
+  if (!(type_params.IsStructOrArrayParameters() &&
+        type_params.num_children() == num_fields())) {
+    return MakeSqlError()
+           << "Input type parameter does not correspond to this StructType";
+  }
+  const auto field_debug_fn = [=](const zetasql::Type* type,
+                                  int field_index) {
+    return type->TypeNameWithParameters(type_params.child(field_index), mode);
   };
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn);
 }
 
-const StructType::StructField* StructType::FindField(
-    absl::string_view name, bool* is_ambiguous, int* found_idx) const {
+const StructType::StructField* StructType::FindField(absl::string_view name,
+                                                     bool* is_ambiguous,
+                                                     int* found_idx) const {
   *is_ambiguous = false;
   if (found_idx != nullptr) *found_idx = -1;
 

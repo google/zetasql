@@ -35,7 +35,6 @@ cc_library(
         "//zetasql/compliance:type_helpers",
         "//zetasql/public:strings",
         "//zetasql/public:value",
-        "//zetasql/reference_impl:algebrizer",
         "//zetasql/reference_impl:evaluation",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/strings",
@@ -158,6 +157,55 @@ cc_test(
 )
 
 cc_library(
+    name = "execute_query_writer",
+    srcs = ["execute_query_writer.cc"],
+    hdrs = ["execute_query_writer.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":output_query_result",
+        "//zetasql/base:status",
+        "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:value",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "execute_query_writer_test",
+    srcs = ["execute_query_writer_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":execute_query_writer",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:simple_catalog",
+        "@com_google_googletest//:gtest",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
     name = "execute_query_tool",
     srcs = [
         "execute_query_internal_csv.cc",
@@ -175,11 +223,10 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":output_query_result",
+        ":execute_query_writer",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/public:analyzer",
@@ -188,15 +235,15 @@ cc_library(
         "//zetasql/public:catalog",
         "//zetasql/public:evaluator",
         "//zetasql/public:evaluator_table_iterator",
-        "//zetasql/public:language_options",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/flags:parse",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

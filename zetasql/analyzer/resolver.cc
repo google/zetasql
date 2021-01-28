@@ -361,17 +361,27 @@ absl::Status Resolver::ResolveQueryStatementWithFunctionArguments(
 
 absl::Status Resolver::ResolveTypeName(const std::string& type_name,
                                        const Type** type) {
-  // Reset state because ResolveTypeName is a public entry-point.
-  Reset(type_name);
-  return ResolveTypeNameInternal(type_name, type);
+  TypeParameters type_params = TypeParameters();
+  return ResolveTypeName(type_name, type, &type_params);
 }
 
 absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
-                                               const Type** type) {
+                                               const Type** type,
+                                               TypeParameters* type_params) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseType(type_name, analyzer_options_.GetParserOptions(),
                             &parser_output));
-  return ResolveType(parser_output->type(), type);
+  ZETASQL_RETURN_IF_ERROR(ResolveType(parser_output->type(), type));
+  ZETASQL_ASSIGN_OR_RETURN(*type_params, ResolveTypeParameters(*parser_output->type()));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveTypeName(const std::string& type_name,
+                                       const Type** type,
+                                       TypeParameters* type_params) {
+  // Reset state because ResolveTypeName is a public entry-point.
+  Reset(type_name);
+  return ResolveTypeNameInternal(type_name, type, type_params);
 }
 
 ResolvedColumnList Resolver::ConcatColumnLists(
@@ -881,9 +891,13 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
 
 absl::Status Resolver::ResolveType(const ASTType* type,
                                    const Type** resolved_type) const {
+  // TODO: Remove this check once ResolveTypeParameters is added
+  // to the ResolveExplicitCast function to create type parameters.
   if (type->type_parameters() != nullptr) {
-    return MakeSqlErrorAt(type->type_parameters())
-           << "Parameterized types are not supported";
+    if (!language().LanguageFeatureEnabled(FEATURE_PARAMETERIZED_TYPES)) {
+      return MakeSqlErrorAt(type->type_parameters())
+             << "Parameterized types are not supported";
+    }
   }
   switch (type->node_kind()) {
     case AST_SIMPLE_TYPE: {
@@ -950,6 +964,54 @@ absl::Status Resolver::ResolveStructType(
   }
 
   return type_factory_->MakeStructType(struct_fields, resolved_type);
+}
+
+zetasql_base::StatusOr<std::vector<TypeParameterValue>>
+Resolver::ResolveParameterLiterals(
+    const ASTTypeParameterList& type_parameters) {
+  std::vector<TypeParameterValue> resolved_literals;
+  for (const ASTLeaf* type_parameter : type_parameters.parameters()) {
+    std::unique_ptr<const ResolvedExpr> resolved_literal_out;
+    switch (type_parameter->node_kind()) {
+      case AST_INT_LITERAL:
+        ZETASQL_RETURN_IF_ERROR(
+            ResolveLiteralExpr(type_parameter, &resolved_literal_out));
+        ZETASQL_RET_CHECK_EQ(resolved_literal_out->node_kind(), RESOLVED_LITERAL);
+        resolved_literals.push_back(TypeParameterValue(
+            SimpleValue::Int64(resolved_literal_out->GetAs<ResolvedLiteral>()
+                                   ->value()
+                                   .int64_value())));
+        break;
+      case AST_STRING_LITERAL: {
+        ZETASQL_RETURN_IF_ERROR(
+            ResolveLiteralExpr(type_parameter, &resolved_literal_out));
+        ZETASQL_RET_CHECK_EQ(resolved_literal_out->node_kind(), RESOLVED_LITERAL);
+        resolved_literals.push_back(TypeParameterValue(
+            SimpleValue::String(resolved_literal_out->GetAs<ResolvedLiteral>()
+                                    ->value()
+                                    .string_value())));
+        break;
+      }
+      case AST_MAX_LITERAL: {
+        resolved_literals.push_back(
+            TypeParameterValue(TypeParameterValue::kMaxLiteral));
+        break;
+      }
+      // TODO: Implement support for FLOAT/BOOL/BYTES literals.
+      case AST_FLOAT_LITERAL:
+      case AST_BOOLEAN_LITERAL:
+      case AST_BYTES_LITERAL:
+        return ::zetasql_base::UnimplementedErrorBuilder()
+               << "Support for FLOAT/BOOL/BYTES literals as type parameters is "
+                  "not implmemented";
+      default:
+        // This code should be unreachable since the parser will only accept the
+        // above AST nodes.
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected Literal: Did not expect parser to "
+                            "allow literal as a valid type parameter input. ";
+    }
+  }
+  return resolved_literals;
 }
 
 void Resolver::RecordColumnAccess(

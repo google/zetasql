@@ -25,4 +25,10 @@ bool ExtendedType::IsSupportedType(
   return language_options.LanguageFeatureEnabled(FEATURE_EXTENDED_TYPES);
 }
 
+zetasql_base::StatusOr<std::string> ExtendedType::TypeNameWithParameters(
+    const TypeParameters& type_params, ProductMode mode) const {
+  ZETASQL_DCHECK(type_params.IsEmpty());
+  return TypeName(mode);
+}
+
 }  // namespace zetasql

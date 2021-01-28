@@ -83,6 +83,12 @@ class StructType : public Type {
   std::string ShortTypeName(ProductMode mode) const override;
   std::string TypeName(ProductMode mode) const override;
 
+  // Same as above, but if <type_params> is not empty, any nested SimpleTypes
+  // include their type parameters within parenthesis appended to their SQL
+  // name.
+  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+      const TypeParameters& type_params, ProductMode mode) const override;
+
   // Check if the names in <fields> are valid.
   static absl::Status FieldNamesAreValid(
       const absl::Span<const StructField>& fields);
@@ -116,10 +122,10 @@ class StructType : public Type {
       const BuildFileDescriptorMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
-  std::string TypeNameImpl(
+  zetasql_base::StatusOr<std::string> TypeNameImpl(
       int field_limit,
-      const std::function<std::string(const zetasql::Type*)>& field_debug_fn)
-      const;
+      const std::function<zetasql_base::StatusOr<std::string>(
+          const zetasql::Type*, int field_index)>& field_debug_fn) const;
 
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;
 

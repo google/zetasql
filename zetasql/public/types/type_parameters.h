@@ -101,7 +101,7 @@ class TypeParameters {
   }
   // Returns true if this contains parameters for child types of a complex type
   // (STRUCT or ARRAY).
-  bool IsTypeParametersInStructOrArray() const { return !child_list().empty(); }
+  bool IsStructOrArrayParameters() const { return !child_list().empty(); }
 
   const StringTypeParametersProto& string_type_parameters() const {
     ZETASQL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
@@ -123,8 +123,10 @@ class TypeParameters {
   //   Otherwise child_list is empty.
   // For STRUCT:
   //   If the i-th field has type parameters then child_list(i) is the field
-  //   type parameters,
-  //   Otherwise either child_list.size() <= i or child_list(i) is empty.
+  //   type parameters.
+  //   If the i-th field has no type parameters, then child_list[i] contains an
+  //   empty TypeParameter. The size of the child_list is equal to either the
+  //   number of fields or 0.
   //   If none of the fields and none of their subfields has type parameters,
   //   then child_list is empty.
   // For other types, child_list is empty.
@@ -152,6 +154,35 @@ class TypeParameters {
       type_parameters_holder_;
   // Stores type parameters for subfields for ARRAY/STRUCT types
   std::vector<TypeParameters> child_list_;
+};
+
+// This class serves as a wrapper around SimpleValues to allow for special
+// literals to be represented as type parameters (eg. MAX).
+//
+// When a type parameter is an integer/string literal, zetasql::SimpleValue
+// can store it directly.
+//
+// When a type parameter is a special literal, e.g. in STRING(MAX), the literal
+// is stored as an TypeParametersLiteral enum.
+class TypeParameterValue {
+ public:
+  enum TypeParametersLiteral { kNonSpecialLiteral = 0, kMaxLiteral = 1 };
+
+  explicit TypeParameterValue(SimpleValue value_in)
+      : value_(value_in), literal_(kNonSpecialLiteral) {}
+  explicit TypeParameterValue(TypeParametersLiteral literal_in)
+      : literal_(literal_in) {
+    ZETASQL_CHECK(IsSpecialLiteral()) << "TypeParameterValue cannot be constructed "
+                                 "with a non-special literal";
+  }
+
+  const SimpleValue GetValue() const { return value_; }
+  const TypeParametersLiteral GetSpecialLiteral() const { return literal_; }
+  const bool IsSpecialLiteral() const { return literal_ != kNonSpecialLiteral; }
+
+ private:
+  SimpleValue value_;
+  TypeParametersLiteral literal_;
 };
 
 }  // namespace zetasql

@@ -367,15 +367,15 @@ GROUP BY gender;
 [anon-epsilon]: #anon_epsilon
 [anon-kappa]: #anon_kappa
 [anon-delta]: #anon_delta
-[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from-clause
-[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax#select_list
-[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
+[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
+[anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
+[anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 [wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
 
-[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions
-[anon-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions#anon_clamping
-[anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions#anon_explicit_clamping
-[anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions#anon_implicit_clamping
+[anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md
+[anon-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_clamping
+[anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_explicit_clamping
+[anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_implicit_clamping
 
 <!-- END CONTENT -->
 

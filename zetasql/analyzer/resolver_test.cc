@@ -212,8 +212,10 @@ class ResolverTest : public ::testing::Test {
 
   NameScope CreateNameScope(std::string name, const Type* type) {
     NameList name_list;
-    const ResolvedColumn table_column(resolver_->AllocateColumnId(),
-                                      "TestTable", name, type);
+    const ResolvedColumn table_column(
+        resolver_->AllocateColumnId(),
+        zetasql::IdString::MakeGlobal("TestTable"),
+        zetasql::IdString::MakeGlobal(name), type);
     ZETASQL_CHECK_OK(name_list.AddColumn(table_column.name_id(), table_column, true));
     return NameScope(name_list);
   }

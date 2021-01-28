@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
@@ -35,6 +36,8 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/clock.h"

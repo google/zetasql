@@ -938,8 +938,11 @@ class DMLValueExprEvalTest : public EvalTest {
 TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
   // Build a resolved AST for inserting a new row (3, "three") into the table.
   std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       table(), /*for_system_time_expr=*/nullptr);
   std::vector<std::unique_ptr<const ResolvedDMLValue>> row_values;
   row_values.push_back(MakeResolvedDMLValue(
@@ -953,8 +956,11 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
   std::unique_ptr<ResolvedInsertStmt> stmt = MakeResolvedInsertStmt(
       std::move(table_scan), ResolvedInsertStmt::OR_ERROR,
       /*assert_rows_modified=*/nullptr, /*returning=*/nullptr,
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       /*query_parameter_list=*/{}, /*query=*/nullptr,
       /*query_output_column_list=*/{}, std::move(row_list));
 
@@ -1043,8 +1049,11 @@ TEST_F(DMLValueExprEvalTest,
        DMLInsertValueExprSetsPrimaryKeyValuesToNullWhenDisallowed) {
   // Build a resolved AST for inserting a new row (3, "three") into the table.
   std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       table(), /*for_system_time_expr=*/nullptr);
   std::vector<std::unique_ptr<const ResolvedDMLValue>> row_values;
   row_values.push_back(MakeResolvedDMLValue(
@@ -1058,8 +1067,11 @@ TEST_F(DMLValueExprEvalTest,
   std::unique_ptr<ResolvedInsertStmt> stmt = MakeResolvedInsertStmt(
       std::move(table_scan), ResolvedInsertStmt::OR_ERROR,
       /*assert_rows_modified=*/nullptr, /*returning=*/nullptr,
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       /*query_parameter_list=*/{}, /*query=*/nullptr,
       /*query_output_column_list=*/{}, std::move(row_list));
 
@@ -1150,8 +1162,11 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
   // Build a resolved AST for deleting rows where str_val is null from the
   // table.
   std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       table(), /*for_system_time_expr=*/nullptr);
   std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
   resolved_column_refs.push_back(MakeResolvedColumnRef(
@@ -1277,8 +1292,11 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
   // Build a resolved AST for updating str_val from null to 'unknown' in the
   // table.
   std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       table(), /*for_system_time_expr=*/nullptr);
   std::vector<std::unique_ptr<ResolvedUpdateItem>> update_item_list;
   update_item_list.push_back(MakeResolvedUpdateItem(
@@ -1441,8 +1459,11 @@ TEST_F(DMLValueExprEvalTest,
   // Build a resolved AST for updating str_val from null to 'unknown' in the
   // table.
   std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       table(), /*for_system_time_expr=*/nullptr);
   std::vector<std::unique_ptr<ResolvedUpdateItem>> update_item_list;
   update_item_list.push_back(MakeResolvedUpdateItem(
@@ -1603,8 +1624,11 @@ TEST_F(DMLValueExprEvalTest,
   // Build a resolved AST for updating str_val from null to 'unknown' in the
   // table.
   std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
-      {ResolvedColumn{1, "test_table", "int_val", Int64Type()},
-       ResolvedColumn{2, "test_table", "str_val", StringType()}},
+      {ResolvedColumn{1, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, zetasql::IdString::MakeGlobal("test_table"),
+                      zetasql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
       table(), /*for_system_time_expr=*/nullptr);
   std::vector<std::unique_ptr<ResolvedUpdateItem>> update_item_list;
   update_item_list.push_back(MakeResolvedUpdateItem(

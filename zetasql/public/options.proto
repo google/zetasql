@@ -394,6 +394,14 @@ enum LanguageFeature {
   // Related bugs: b/118904900 (scalar arguments) b/165763119 (table arguments)
   FEATURE_FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES = 55;
 
+  // Enables support for the following parameterized types.
+  // - STRING(L) / BYTES(L)
+  // - NUMERIC(P) / NUMERIC(P, S)
+  // - BIGNUMERIC(P) / BIGNUMERIC(P, S)
+  // See (broken link) for details.
+  FEATURE_PARAMETERIZED_TYPES = 56
+      [(language_feature_options).in_development = true];
+
   // Enables support for CREATE TABLE LIKE
   // Example:
   // CREATE TABLE t1 LIKE t2
