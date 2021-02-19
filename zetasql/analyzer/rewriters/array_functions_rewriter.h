@@ -14,24 +14,16 @@
 // limitations under the License.
 //
 
-#include "zetasql/analyzer/rewriters/registration.h"
+#ifndef ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_
+#define ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_
+
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 
 namespace zetasql {
 
-RewriteRegistry& RewriteRegistry::global_instance() {
-  static auto* const kRegistry = new RewriteRegistry;
-  return *kRegistry;
-}
-
-std::vector<const Rewriter*> RewriteRegistry::GetRewriters() const {
-  absl::MutexLock l(&mu_);
-  return rewriters_;
-}
-
-RewriteRegistry::RegistryToken RewriteRegistry::Register(Rewriter* r) {
-  absl::MutexLock l(&mu_);
-  rewriters_.push_back(r);
-  return {};
-}
+// Gets a pointer to the array functions rewriter.
+const Rewriter* GetArrayFunctionsRewriter();
 
 }  // namespace zetasql
+
+#endif  // ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_

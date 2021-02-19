@@ -408,6 +408,23 @@ enum LanguageFeature {
   FEATURE_CREATE_TABLE_LIKE = 57
       [(language_feature_options).in_development = true];
 
+  // Enable support for JSON_EXTRACT_STRING_ARRAY, JSON_VALUE_ARRAY and
+  // JSON_QUERY_ARRAY. (broken link)
+  FEATURE_JSON_ARRAY_FUNCTIONS = 58
+      [(language_feature_options).in_development = true];
+
+  // Enables explicit column list for CREATE VIEW.
+  // Example:
+  // CREATE VIEW v(a, b) AS SELECT ...
+  FEATURE_CREATE_VIEW_WITH_COLUMN_LIST = 59
+      [(language_feature_options).in_development = true];
+
+  // Enables support for CREATE TABLE CLONE
+  // Example:
+  // CREATE TABLE t1 CLONE t2
+  FEATURE_CREATE_TABLE_CLONE = 60
+      [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -679,6 +696,23 @@ enum LanguageFeature {
   FEATURE_V_1_3_DML_RETURNING = 13031
       [(language_feature_options).in_development = true];
 
+  // Enables support for the FILTER_FIELDS() function.
+  //    FILTER_FIELDS(p, <-|+><field_path>, ...)
+  // returns the proto obtained by keeping p.field_path whose
+  // sign is '+' and remove p.field_path whose sign is '-'.
+  // (broken link)
+  FEATURE_V_1_3_FILTER_FIELDS = 13032
+      [(language_feature_options).in_development = true];
+
+  // QUALIFY clause ((broken link)).
+  FEATURE_V_1_3_QUALIFY = 13033
+      [(language_feature_options).in_development = true];
+
+  // Enable support for REPEAT...UNTIL...END REPEAT statement.
+  // (broken link)
+  FEATURE_V_1_3_REPEAT = 13034
+      [(language_feature_options).in_development = true];
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.
@@ -726,7 +760,7 @@ message ResolvedASTRewriteOptions {
 // node types to be quickly and easily available to engines without needing each
 // engine to implement support for the new node types.
 enum ResolvedASTRewrite {
-  // Make sure default value of 0 is not an AST rewrite.
+  // Make sure default value of 0 is not an resolved AST rewrite.
   REWRITE_INVALID_DO_NOT_USE = 0;
 
   // Rewrites ResolvedFlatten nodes into equivalent array scans / subqueries.
@@ -735,6 +769,19 @@ enum ResolvedASTRewrite {
   // Supports rewriting ResolvedAnonymizedAggregateScan and related.
   // See (broken link).
   REWRITE_ANONYMIZATION = 2 [(rewrite_options).default_enabled = false];
+
+  // Rewrites proto map functions (e.g. map[KEY(key)]) with equivalent
+  // unnest/subquery expressions. This rewrite will only occur when such
+  // functions are present in a resolved AST, which requires the
+  // V_1_3_PROTO_MAPS language feature.
+  REWRITE_PROTO_MAP_FNS = 3 [(rewrite_options).default_enabled = true];
+
+  // Rewrites array function calls into equivalent SubqueryExpr.
+  REWRITE_ARRAY_FUNCTIONS_WITH_LAMBDA = 4
+      [(rewrite_options).default_enabled = true];
+
+  // Rewrites unpivot ast to equivalent scan.
+  REWRITE_UNPIVOT = 5 [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.

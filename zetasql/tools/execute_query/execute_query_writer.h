@@ -31,12 +31,24 @@ class ExecuteQueryWriter {
  public:
   virtual ~ExecuteQueryWriter() = default;
 
-  virtual absl::Status resolved(const ResolvedNode& ast) = 0;
+  virtual absl::Status parsed(absl::string_view parse_debug_string) {
+    return absl::UnimplementedError(
+        "ExecuteQueryWriter::parsed is not implemented");
+  }
+  virtual absl::Status resolved(const ResolvedNode& ast) {
+    return absl::UnimplementedError(
+        "ExecuteQueryWriter::resolved is not implemented");
+  }
   virtual absl::Status explained(const ResolvedNode& ast,
-                                 absl::string_view explain) = 0;
-  virtual absl::Status executed(
-      const ResolvedNode& ast,
-      std::unique_ptr<EvaluatorTableIterator> iter) = 0;
+                                 absl::string_view explain) {
+    return absl::UnimplementedError(
+        "ExecuteQueryWriter::explained is not implemented");
+  }
+  virtual absl::Status executed(const ResolvedNode& ast,
+                                std::unique_ptr<EvaluatorTableIterator> iter) {
+    return absl::UnimplementedError(
+        "ExecuteQueryWriter::executed is not implemented");
+  }
 };
 
 // Writes a human-readable representation of the query result to an output
@@ -47,6 +59,7 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
   ExecuteQueryStreamWriter(const ExecuteQueryStreamWriter&) = delete;
   ExecuteQueryStreamWriter& operator=(const ExecuteQueryStreamWriter&) = delete;
 
+  absl::Status parsed(absl::string_view parsed_debug_string) override;
   absl::Status resolved(const ResolvedNode& ast) override;
   absl::Status explained(const ResolvedNode& ast,
                          absl::string_view explain) override;

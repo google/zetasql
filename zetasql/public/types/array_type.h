@@ -63,6 +63,12 @@ class ArrayType : public Type {
     return element_type_->nesting_depth() + 1;
   }
 
+  // Validate and resolve type parameters for array type, currently always
+  // return error since array type itself doesn't support type parameters.
+  zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      ProductMode mode) const override;
+
  protected:
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;
 

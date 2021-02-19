@@ -960,5 +960,5 @@ year.</td>
 [datetime-format]: #format_datetime
 [datetime-format-elements]: #supported_format_elements_for_datetime
 
-[datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
+[datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 

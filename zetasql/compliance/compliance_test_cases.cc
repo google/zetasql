@@ -1211,9 +1211,24 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractScalar, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractScalar()));
 }
 
+namespace {
+
+// Wraps test cases with FEATURE_JSON_ARRAY_FUNCTIONS.
+std::vector<FunctionTestCall> EnableJsonArrayFunctionsForTest(
+    std::vector<FunctionTestCall> tests) {
+  for (auto& test_case : tests) {
+    test_case.params =
+        test_case.params.WrapWithFeature(FEATURE_JSON_ARRAY_FUNCTIONS);
+  }
+  return tests;
+}
+
+}  // namespace
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonQueryArray, 1) {
   SetNamePrefix("StringJsonQueryArray");
-  RunFunctionCalls(Shard(GetFunctionTestsStringJsonQueryArray()));
+  RunFunctionCalls(Shard(
+      EnableJsonArrayFunctionsForTest(GetFunctionTestsStringJsonQueryArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
@@ -1223,21 +1238,27 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonValueArray, 1) {
   SetNamePrefix("StringJsonValueArray");
-  RunFunctionCalls(Shard(GetFunctionTestsStringJsonValueArray()));
+  RunFunctionCalls(Shard(
+      EnableJsonArrayFunctionsForTest(GetFunctionTestsStringJsonValueArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractStringArray, 1) {
   SetNamePrefix("StringJsonExtractStringArray");
-  RunFunctionCalls(Shard(GetFunctionTestsStringJsonExtractStringArray()));
+  RunFunctionCalls(Shard(EnableJsonArrayFunctionsForTest(
+      GetFunctionTestsStringJsonExtractStringArray())));
 }
 
 namespace {
 
-// Wraps test cases with FEATURE_JSON_TYPE.
+// Wraps test cases with FEATURE_JSON_TYPE and FEATURE_JSON_ARRAY_FUNCTIONS.
+// If a test case already has a feature set, do not wrap it.
 std::vector<FunctionTestCall> EnableJsonFeatureForTest(
     std::vector<FunctionTestCall> tests) {
   for (auto& test_case : tests) {
-    test_case.params = test_case.params.WrapWithFeature(FEATURE_JSON_TYPE);
+    if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
+      test_case.params = test_case.params.WrapWithFeatureSet(
+          {FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS});
+    }
   }
   return tests;
 }
@@ -2067,6 +2088,24 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalComparisons, 1) {
     }
   };
   RunFunctionTestsCustom(Shard(GetFunctionTestsIntervalComparisons()), cmp);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {
+  SetNamePrefix("IntervalUnaryMinus");
+  RunStatementTests(Shard(GetFunctionTestsIntervalUnaryMinus()), "-@p0");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalDateTimestampSubtractions, 1) {
+  SetNamePrefix("IntervalDatetimeSubtractions");
+  RunStatementTests(Shard(GetDateTimestampIntervalSubtractions()),
+                    "CAST(@p0 - @p1 AS STRING)");
+  RunStatementTests(Shard(GetDatetimeTimeIntervalSubtractions()),
+                    "CAST(@p0 - @p1 AS STRING)");
+  // Symmetric test cases
+  RunStatementTests(Shard(GetDateTimestampIntervalSubtractions()),
+                    "CAST(-(@p1 - @p0) AS STRING)");
+  RunStatementTests(Shard(GetDatetimeTimeIntervalSubtractions()),
+                    "CAST(-(@p1 - @p0) AS STRING)");
 }
 
 // Wrap the proto field test cases with civil time typed values. If the type of

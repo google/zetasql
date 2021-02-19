@@ -36,10 +36,16 @@ class SimpleValue {
     TYPE_INVALID = 0,
     TYPE_INT64,
     TYPE_STRING,
+    TYPE_BOOL,
+    TYPE_DOUBLE,
+    TYPE_BYTES,
   };
   // Factory methods to create atomic values.
   static SimpleValue Int64(int64_t v);
   static SimpleValue String(std::string v);
+  static SimpleValue Bool(bool v);
+  static SimpleValue Double(double v);
+  static SimpleValue Bytes(std::string v);
 
   // Constructs an invalid value.  Needed for using values with STL.  All
   // methods that fetch value will crash if called on invalid values.
@@ -59,10 +65,20 @@ class SimpleValue {
   bool IsValid() const { return type_ != TYPE_INVALID; }
   bool has_int64_value() const { return type_ == TYPE_INT64; }
   bool has_string_value() const { return type_ == TYPE_STRING; }
+  bool has_bool_value() const { return type_ == TYPE_BOOL; }
+  bool has_double_value() const { return type_ == TYPE_DOUBLE; }
+  bool has_bytes_value() const { return type_ == TYPE_BYTES; }
+
   // Crashes if type is not TYPE_INT64.
   int64_t int64_value() const;
   // Crashes if type is not TYPE_STRING.
   const std::string& string_value() const;
+  // Crashes if type is not TYPE_BOOL.
+  bool bool_value() const;
+  // Crashes if type is not TYPE_DOUBLE.
+  double double_value() const;
+  // Crashes if type is not TYPE_BYTES.
+  const std::string& bytes_value() const;
 
   // Returns true if this instance equals <that>.
   bool Equals(const SimpleValue& that) const;
@@ -83,6 +99,9 @@ class SimpleValue {
   SimpleValue(ValueType type, int64_t value) : type_(type), int64_value_(value) {}
   SimpleValue(ValueType type, std::string value)
       : type_(type), string_ptr_(new internal::StringRef(std::move(value))) {}
+  SimpleValue(ValueType type, bool value) : type_(type), bool_value_(value) {}
+  SimpleValue(ValueType type, double value)
+      : type_(type), double_value_(value) {}
 
   // Clears the contents and makes it invalid.
   void Clear();
@@ -97,8 +116,10 @@ class SimpleValue {
   ValueType type_;
   union {
     int64_t int64_value_ = 0;  // Assigned for TYPE_INT64.
-    // Assigned for TYPE_STRING.  An instance of SimpleValue may share
-    // ownership of the pointer with other instances with references being
+    bool bool_value_;        // Assigned for TYPE_BOOL.
+    double double_value_;     // Assigned for TYPE_DOUBLE.
+    // Assigned for TYPE_STRING and TYPE_BYTES.  An instance of SimpleValue may
+    // share ownership of the pointer with other instances with references being
     // counted.
     internal::StringRef* string_ptr_;
   };

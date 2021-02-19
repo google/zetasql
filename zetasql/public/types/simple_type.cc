@@ -1074,7 +1074,8 @@ SimpleType::ResolveNumericBignumericTypeParameters(
     const int max_precision =
         IsNumericType() ? kNumericMaxPrecision : kBigNumericMaxPrecision;
     int64_t precision = resolved_type_parameters[0].GetValue().int64_value();
-    if (precision < std::max(1l, scale) || precision > max_precision + scale) {
+    if (precision < std::max(int64_t{1}, scale) ||
+        precision > max_precision + scale) {
       if (resolved_type_parameters.size() == 1) {
         return MakeSqlError()
                << "In " << ShortTypeName(mode)

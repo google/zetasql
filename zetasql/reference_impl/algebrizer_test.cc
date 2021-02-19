@@ -656,8 +656,9 @@ TEST_F(ExpressionAlgebrizerTest, PositionalParametersInStatements) {
                                          /*is_untyped=*/false);
 
       const std::string column_name = absl::StrCat("p", param->position());
-      auto column = absl::make_unique<ResolvedColumn>(pos, "TableName",
-                                                      column_name, type);
+      auto column = absl::make_unique<ResolvedColumn>(
+          pos, IdString::MakeGlobal("TableName"),
+          IdString::MakeGlobal(column_name), type);
 
       const ResolvedParameter* param_ptr = param.get();
       params_and_columns.emplace_back(std::move(param), param_ptr,

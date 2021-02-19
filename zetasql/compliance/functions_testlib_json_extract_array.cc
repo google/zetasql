@@ -396,9 +396,13 @@ std::vector<FunctionTestCall> GetNativeJsonArrayTests(bool sql_standard_mode,
   }
 
   // Malformed JSON.
-  tests.push_back({function_name,
-                   {Value::UnvalidatedJsonString(R"({"a": )"), String("$")},
-                   from_array(absl::nullopt), OUT_OF_RANGE});
+  tests.push_back(
+      {function_name,
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString(R"({"a": )"), String("$")},
+           from_array(absl::nullopt), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS,
+                                FEATURE_JSON_NO_VALIDATION})});
 
   const Value json_array_with_wide_numbers = from_json(
       R"([ 1111111111111111111111111, 123456789012345678901234567890 ])");

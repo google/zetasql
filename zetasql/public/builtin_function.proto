@@ -38,21 +38,21 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls   (NextId: 275)
-  // 1000-1099 String functions              (NextId: 1082)
-  // 1100-1199 Control flow functions        (NextId: 1104)
-  // 1200-1299 Time functions                (Fully used)
-  // 1300-1399 Math functions                (Fully used)
-  // 1400-1499 Aggregate functions           (NextId: 1489)
-  // 1500-1599 Analytic functions            (NextId: 1513)
-  // 1600-1699 Misc functions                (NextId: 1697)
-  // 1700-1799 Net functions                 (NextId: 1716)
-  // 1800-1899 More time functions           (NextId: 1845)
-  // 1900-1999 Hashing/encryption functions  (NextId: 1924)
-  // 2000-2199 Geography functions           (NextId: 2068)
-  // 2200-2299 Anonymization functions       (NextId: 2208)
-  // 2300-2499 More math functions           (NextId: 2314)
-  // 2500-2599 Array functions               (NextId: 2509)
+  // 0002-0999 Non-standard function calls    (NextId: 276)
+  // 1000-1099 String functions               (NextId: 1082)
+  // 1100-1199 Control flow functions         (NextId: 1104)
+  // 1200-1299 Time functions                 (Fully used)
+  // 1300-1399 Math functions                 (Fully used)
+  // 1400-1499 Aggregate functions            (NextId: 1489)
+  // 1500-1599 Analytic functions             (NextId: 1513)
+  // 1600-1699 Misc functions                 (NextId: 1697)
+  // 1700-1799 Net functions                  (NextId: 1716)
+  // 1800-1899 More time functions            (NextId: 1845)
+  // 1900-1999 Hashing/encryption functions   (NextId: 1928)
+  // 2000-2199 Geography functions            (NextId: 2068)
+  // 2200-2299 Anonymization functions        (NextId: 2208)
+  // 2300-2499 More math functions            (NextId: 2314)
+  // 2500-2599 Array and proto map functions  (NextId: 2510)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -114,6 +114,10 @@ enum FunctionSignatureId {
   FN_SUBTRACT_NUMERIC = 249;               // $subtract
   FN_SUBTRACT_BIGNUMERIC = 262;            // $subtract
   FN_SUBTRACT_DATE_INT64 = 268;            // $subtract
+  FN_SUBTRACT_DATE = 276;                  // $subtract
+  FN_SUBTRACT_TIMESTAMP = 277;             // $subtract
+  FN_SUBTRACT_DATETIME = 278;              // $subtract
+  FN_SUBTRACT_TIME = 279;                  // $subtract
 
   FN_UNARY_MINUS_INT32 = 83;        // $unary_minus
   FN_UNARY_MINUS_INT64 = 84;        // $unary_minus
@@ -121,6 +125,7 @@ enum FunctionSignatureId {
   FN_UNARY_MINUS_DOUBLE = 88;       // $unary_minus
   FN_UNARY_MINUS_NUMERIC = 252;     // $unary_minus
   FN_UNARY_MINUS_BIGNUMERIC = 265;  // $unary_minus
+  FN_UNARY_MINUS_INTERVAL = 275;    // $unary_minus
 
   FN_DISTINCT = 269;                   // $is_distinct
   FN_DISTINCT_INT64_UINT64 = 270;      // $is_distinct
@@ -825,6 +830,14 @@ enum FunctionSignatureId {
   FN_KMS_ENCRYPT_BYTES = 1921;      // kms.encrypt(string, bytes)
   FN_KMS_DECRYPT_STRING = 1922;     // kms.decrypt_string(string, bytes)
   FN_KMS_DECRYPT_BYTES = 1923;      // kms.decrypt_bytes(string, bytes)
+  // aead.envelope_encrypt(string, bytes, string, string)
+  FN_AEAD_ENVELOPE_ENCRYPT_STRING = 1924;
+  // aead.envelope_encrypt(string, bytes, bytes, bytes)
+  FN_AEAD_ENVELOPE_ENCRYPT_BYTES = 1925;
+  // aead.envelope_decrypt_string(string, bytes, bytes, string)
+  FN_AEAD_ENVELOPE_DECRYPT_STRING = 1926;
+  // aead.envelope_decrypt_bytes(string, bytes, bytes, bytes)
+  FN_AEAD_ENVELOPE_DECRYPT_BYTES = 1927;
 
   // ST_ family of functions (Geography related - (broken link))
   // Constructors
@@ -883,6 +896,8 @@ enum FunctionSignatureId {
   FN_ST_GEOG_FROM_GEO_JSON_EXT = 2068;
   FN_ST_GEOG_FROM_WKB = 2056;
   FN_ST_GEOG_FROM_WKB_HEX = 2072;
+  FN_ST_GEOG_FROM_STRING = 2073;
+  FN_ST_GEOG_FROM_BYTES = 2074;
   FN_ST_AS_TEXT = 2053;
   FN_ST_AS_KML = 2054;
   FN_ST_AS_GEO_JSON = 2055;
@@ -913,7 +928,7 @@ enum FunctionSignatureId {
   FN_ANON_AVG_DOUBLE = 2206;
   FN_ANON_AVG_NUMERIC = 2207;
 
-  // Array functions.
+  // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
   // TODO: Move these to the array function section (2500-2599).
   FN_ARRAY_AT_OFFSET = 234;   // $array_at_offset
@@ -931,6 +946,7 @@ enum FunctionSignatureId {
   FN_ARRAY_IS_DISTINCT = 2501;      // array_is_distinct(array) -> bool
   FN_PROTO_MAP_AT_KEY = 2502;       // $proto_map_at_key
   FN_SAFE_PROTO_MAP_AT_KEY = 2503;  // $safe_proto_map_at_key
+  FN_MODIFY_MAP = 2510;             // modify_map(map [, key, value]+) -> map
 
   FN_ARRAY_FILTER = 2504;             // ARRAY_FILTER(array, lambda) -> array
   FN_ARRAY_FILTER_WITH_INDEX = 2505;  // ARRAY_FILTER(array, lambda) -> array

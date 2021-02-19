@@ -31,6 +31,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
@@ -224,38 +225,73 @@ class FunctionResolver {
       const ExprResolutionInfo* expr_info,
       QueryResolutionInfo* query_info);
 
-  // Iterates through <named_arguments> and compares them against <signature>,
-  // rearranging any of <arg_locations>, <expr_args>, <input_arg_types>, and/or
-  // <tvf_arg_types> to match the order of the given <named_arguments> or
-  // returning an error if an invariant is not satisfied. Sets
-  // <named_arguments_match_signature> to true if <named_arguments> are a match
-  // for <signature> or false otherwise. In the latter case, if
-  // <return_error_if_named_arguments_do_not_match_signature> is true, this
-  // method will return a descriptive error message.
+  // The element type of the output of the
+  // GetFunctionArgumentIndexMappingPerSignature function below. It represents
+  // a mapping from a function argument in the signature to the argument
+  // provided to the function call.
+  struct ArgIndexPair {
+    // The argument index into the function signature.
+    // The value always falls into the valid range (i.e., >= 0 && <
+    // function_signature.arguments().size()).
+    int signature_arg_index;
+    // The argument index to the function call.
+    // The value either falls into the valid range (i.e., >= 0 && <
+    // arg_locations.size()) or is -1 if the argument at <signature_arg_index>
+    // in the signature is not provided in the current call.
+    int call_arg_index;
+  };
+
+  // Iterates through <arg_locations> and <named_arguments> and compares them
+  // against <signature> to match the order of the arguments in the signature,
+  // or returns an error if the signature does not match.
   //
-  // The <arg_locations> is required, while the <expr_args>, <input_arg_types>,
-  // and <tvf_arg_types> are all optional and will be ignored if NULL; any
-  // combination is acceptable. In practice, (<expr_args>, <input_arg_types>)
-  // and <tvf_arg_types> are generally mutually exclusive. If we are resolving a
-  // scalar function call, <expr_args> and/or <input_arg_types> are provided.
-  // Otherwise, if we are resolving a TVF call, <tvf_arg_types> are provided.
+  // <num_repeated_args_repetitions> should be the number of repetitions of
+  // the repeated arguments. It is determined by the
+  // SignatureArgumentCountMatches function.
   //
-  // If <signature> contains any optional arguments whose values are not
-  // provided (either positionally in <expr_args> or <tvf_arg_types> or named
-  // in <named_arguments>) then this method may inject suitable default values
-  // in <expr_args>, <input_arg_types>, and/or <tvf_arg_types>. Currently this
-  // method injects a NULL value for such missing arguments as a default policy.
-  absl::Status ProcessNamedArguments(
+  // Returns the mapped function argument indexes in a list of <ArgIndexPair>
+  // structs. The list size will be the number of function call arguments plus
+  // the number of omitted optional arguments (i.e., #arguments in <signature>
+  // + (<num_repeated_args_repetitions> - 1) * #repeated arguments). It is
+  // guaranteed that the <signature_arg_index> is always increasing, except for
+  // the repeated arguments part. Indexes to repeated arguments appear
+  // <num_repeated_args_repetitions> times, while indexes to required and
+  // optional arguments appear exactly once in the list, even for the omitted
+  // optional arguments (which have a <call_arg_index> of -1).
+  absl::Status GetFunctionArgumentIndexMappingPerSignature(
       const std::string& function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
+      const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
           named_arguments,
-      bool return_error_if_named_arguments_do_not_match_signature,
-      bool* named_arguments_match_signature,
+      int num_repeated_args_repetitions,
+      std::vector<ArgIndexPair>* index_mapping) const;
+
+  // Reorders the given input argument representations <arg_locations>,
+  // <input_argument_types>, <resolved_args> and <resolved_tvf_args> with the
+  // given <index_mapping> which is the output of
+  // GetFunctionArgumentIndexMappingPerSignature.
+  //
+  // All of the <arg_locations>, <input_argument_types>, <resolved_args> and
+  // <resolved_tvf_args> are optional. If provided, they represent the
+  // arguments provided to the original function call (i.e., matches the order
+  // of the input to GetFunctionArgumentIndexMappingPerSignature).
+  //
+  // Upon success, this function reorders the provided lists, so that they match
+  // the argument order in the matching signature. For any optional arguments
+  // whose values are not provided (either positionally or named) the function
+  // may inject suitable default values in the lists. Currently this function
+  // injects a NULL as the default value for such a missing argument.
+  //
+  static absl::Status ReorderArgumentsPerIndexMapping(
+      absl::string_view function_name,
+      const FunctionSignature& signature,
+      absl::Span<const ArgIndexPair> index_mapping,
+      const ASTNode* ast_location,
       std::vector<const ASTNode*>* arg_locations,
-      std::vector<std::unique_ptr<const ResolvedExpr>>* expr_args,
-      std::vector<InputArgumentType>* input_arg_types,
-      std::vector<ResolvedTVFArg>* tvf_arg_types) const;
+      std::vector<InputArgumentType>* input_argument_types,
+      std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
+      std::vector<ResolvedTVFArg>* resolved_tvf_args);
 
  private:
   Catalog* catalog_;           // Not owned.
@@ -278,6 +314,10 @@ class FunctionResolver {
   // <arg_overrides>. See
   // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
   // resolved.
+  // <arg_index_mapping> is the output of
+  // GetFunctionArgumentIndexMappingPerSignature against the matching signature,
+  // so that the caller can reorder the input argument list representations
+  // accordingly.
   zetasql_base::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function,
       const std::vector<InputArgumentType>& input_arguments,
@@ -286,7 +326,17 @@ class FunctionResolver {
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
           named_arguments,
       const NameScope* name_scope,
-      std::vector<FunctionArgumentOverride>* arg_overrides) const;
+      std::vector<FunctionArgumentOverride>* arg_overrides,
+      std::vector<ArgIndexPair>* arg_index_mapping) const;
+
+  // Generates an error message for function call mismatching with the existing
+  // signatures, with <prefix_message> followed by a list of supported
+  // signatures of <function>.
+  // If <function> has no valid signatures, the returned message would be like
+  // "Function not found: <function name>".
+  std::string GenerateErrorMessageWithSupportedSignatures(
+    const Function* function,
+    const std::string& prefix_message) const;
 
   // Check a literal argument value against value constraints for a given
   // argument, and return an error if any are violated.

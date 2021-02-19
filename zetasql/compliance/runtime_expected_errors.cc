@@ -349,6 +349,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Input geographies for "));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "cannot include an empty geography"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Failed to find geography format for the input."));
   // All GEOGRAPHY STLIB errors converted from S2Error.
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "[stlib]"));

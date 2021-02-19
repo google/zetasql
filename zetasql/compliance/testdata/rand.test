@@ -13,7 +13,7 @@ ARRAY<STRUCT<right1 BOOL, wrong1 BOOL, wrong2 BOOL>>[{true, false, false}]
 WITH R AS (SELECT RAND() r)
 SELECT (rs[offset(0)] = rs[offset(1)]) right1 FROM (
 SELECT ARRAY_AGG(t.r) rs FROM (
-(SELECT r FROM R) UNION ALL (SELECT r FROM R)) t)
+(SELECT R.r FROM R) UNION ALL (SELECT R.r FROM R)) t)
 --
 ARRAY<STRUCT<right1 BOOL>>[{true}]
 ==

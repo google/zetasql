@@ -23,6 +23,7 @@
 
 #include <memory>
 
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
@@ -41,7 +42,8 @@ namespace zetasql {
 // If 'target_type' is non-null, coerces the expression to be of type
 // 'target_type'.
 absl::Status InternalAnalyzeExpression(
-    absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
+    absl::string_view sql, const AnalyzerOptions& options,
+    absl::Span<const Rewriter* const> rewriters, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output);
 
@@ -53,26 +55,26 @@ absl::Status InternalAnalyzeExpression(
 // <resolved_expr>, replacing the tree that was previously there.
 absl::Status ConvertExprToTargetType(
     const ASTExpression& ast_expression, absl::string_view sql,
-    const AnalyzerOptions& analyzer_options, Catalog* catalog,
+    const AnalyzerOptions& analyzer_options,
+    absl::Span<const Rewriter* const> rewriters, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const ResolvedExpr>* resolved_expr);
 
 absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
-    const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
-    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output);
+    const AnalyzerOptions& options, absl::Span<const Rewriter* const> rewriters,
+    Catalog* catalog, TypeFactory* type_factory, const Type* target_type,
+    std::unique_ptr<const AnalyzerOutput>* output);
 
-// Returns <options> if it already has all arenas initialized, or otherwise
-// populates <copy> as a copy for <options>, creates arenas in <copy> and
-// returns it. This avoids unnecessary duplication of AnalyzerOptions, which
-// might be expensive.
-const AnalyzerOptions& GetOptionsWithArenas(
-    const AnalyzerOptions* options, std::unique_ptr<AnalyzerOptions>* copy);
-
-// Verifies that the provided AnalyzerOptions have a valid combination of
-// settings.
-absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options);
+// Rewrites the resolved AST using the Rewriter system. Note that the
+// <rewriters> will not necessarily be used. It depends on which
+// rewriters are enabled in <analyzer_options>.
+absl::Status InternalRewriteResolvedAst(
+    const AnalyzerOptions& analyzer_options,
+    absl::Span<const Rewriter* const> rewriters, absl::string_view sql,
+    Catalog* catalog, TypeFactory* type_factory,
+    AnalyzerOutput& analyzer_output);
 
 }  // namespace zetasql
 

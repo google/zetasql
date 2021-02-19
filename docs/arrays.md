@@ -269,7 +269,117 @@ FROM sequences;
 +---------------+------+
 ```
 
-## Flattening arrays
+## Flattening tree-structured data into arrays 
+<a id="flattening_trees_into_arrays"></a>
+
+Tree-structured data is represented in the ZetaSQL type system by
+composing these typed values:
+
++ STRUCT
++ ARRAY
++ PROTO (Protobuf message types and enum types)
+
+A common operation on tree-structured values is extracting a collection of
+values that have the same semantic meaning from a tree-shaped value.
+ZetaSQL supports an extended path expression called a _flatten path_
+in a few places to make this operation easier and more concise.
+
+TLDR: The argument to the [`FLATTEN` operator][flatten-operator] is a path that
+can select many values out of a tree-shaped value and return them as an array.
+`FLATTEN(table.column.array_field.target)` will return an array of all `targets`
+inside `table.column`.
+
+Normal path expressions in ZetaSQL are a sequence of element access
+operators. A regular path expression addresses a single value within a
+tree structure, and must specify which element to access for each array value
+reached by the path. A _flatten path_ is similar, except that it can
+simultaneously access all elements of an array. This means a flatten path can
+address many elements in an array at the same time, resulting in a collection
+of values.
+
+Within a flatten path, the field access operator (the `.` operator) is allowed
+to operate on an `ARRAY` typed input. Outside a flatten path, the field
+access operator is not allowed on `ARRAY` inputs because the `ARRAY` type does
+not have fields. When evaluating a flatten path, the field access operator on
+an `ARRAY` transforms the array by replacing each element of the array with the
+result of applying the field access on the element.
+
+**Examples**
+
+Examples will consider the following tree structured value as an input:
+
+```sql
+v := [
+  STRUCT('red' AS color,
+         2 AS inventory,
+         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
+          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
+  STRUCT('green' AS color,
+         NULL AS inventory,
+         [STRUCT('a' AS agent, [75.0] AS prices),
+          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
+  STRUCT('orange' AS color, 10 AS inventory, NULL AS sales)
+]
+```
+
+The flatten path `v.color` describes the array `["red", "green", "orange"]`
+while the flatten path `v.inventory` describes the array
+`[2, NULL, 10]`.
+
+If the field accessed on the array element itself has an `ARRAY` type, then
+the elements of that array are spliced into the resulting array replacing the
+element from which they were extracted. An empty array or a `NULL` array
+contribute no elements to the resulting array.
+
+The flatten path `v.sales.prices` describes the array
+`[100.0, 50.0, 25.0, 75.0, 200.0]`.
+
+The array element access operator (the `[]` operator) is allowed in a
+flatten path. If the element access occurs after a field access on an `ARRAY`,
+then it applies locally to each array element. If the supplied element offset
+or ordinal value is outside the bounds of the array within any element, an out
+of bounds error is generated.
+
+The flatten path `v.sales.prices[SAFE_OFFSET(1)]` describes the
+array `[50.0, NULL, NULL, NULL]`
+.
+
+[`FLATTEN`][flatten-operator] is a special operator in ZetaSQL that
+takes a flatten path as its argument and returns the resulting array as a value.
+The `FLATTEN` operator is implicit inside the `UNNEST` operator and
+`UNNEST(flatten_path)` is equivalent to `UNNEST(FLATTEN(flatten_path))`.
+
+The following query is a complete self-contained example combining the above
+examples into a runnable query.
+
+```sql
+WITH t AS (SELECT [
+  STRUCT('red' AS color,
+         2 AS inventory,
+         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
+          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
+  STRUCT('green' AS color,
+         NULL AS inventory,
+         [STRUCT('a' AS agent, [75.0] AS prices),
+          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
+  STRUCT('orange' AS color, 10 AS inventory, NULL AS sales)
+] AS v)
+SELECT
+    FLATTEN(v.color) AS colors,
+    FLATTEN(v.inventory) AS inventory,
+    FLATTEN(v.sales.prices) AS all_prices,
+    FLATTEN(v.sales.prices[SAFE_OFFSET(1)]) AS second_prices
+FROM t;
+
++----------------------+---------------+------------------------+------------------------+
+| colors               | inventory     | all_prices             | second_prices          |
++----------------------+---------------+------------------------+------------------------+
+| [red, green, orange] | [2, NULL, 10] | [100, 50, 25, 75, 200] | [50, NULL, NULL, NULL] |
++----------------------+---------------+------------------------+------------------------+
+```
+
+## Flattening arrays into tables 
+<a id="flattening_arrays"></a>
 
 To convert an `ARRAY` into a set of rows, also known as "flattening," use the
 [`UNNEST`][unnest-query]
@@ -1514,17 +1624,18 @@ SELECT ARRAY(
 ```
 
 [flattening-arrays]: #flattening_arrays
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
-[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
-[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross_join
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest
+[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 [convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
 
-[in-operators]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
-[casting]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#casting
-[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions
-[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions#array_agg
-[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions#generate_array
-[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions#generate_date_array
-[offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/array_functions#offset_and_ordinal
+[in-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
+[casting]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#casting
+[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md
+[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg
+[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array
+[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array
+[offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#offset_and_ordinal
 

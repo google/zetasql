@@ -109,6 +109,108 @@ TEST_F(SimpleValueTest, SimpleValueTypeString) {
   EXPECT_TRUE(string_value.Equals(deserialized_string_value));
 }
 
+TEST_F(SimpleValueTest, SimpleValueTypeBool) {
+  SimpleValue bool_value = SimpleValue::Bool(true);
+  EXPECT_TRUE(bool_value.IsValid());
+  EXPECT_TRUE(bool_value.has_bool_value());
+  EXPECT_FALSE(bool_value.has_int64_value());
+  EXPECT_EQ(bool_value.bool_value(), true);
+
+  {
+    SimpleValue another_bool_value = SimpleValue::Bool(true);
+    EXPECT_TRUE(bool_value.Equals(another_bool_value));
+    EXPECT_TRUE(bool_value == another_bool_value);
+    EXPECT_FALSE(bool_value != another_bool_value);
+  }
+
+  {
+    SimpleValue another_bool_value = SimpleValue::Bool(false);
+    EXPECT_FALSE(bool_value.Equals(another_bool_value));
+    EXPECT_FALSE(bool_value == another_bool_value);
+    EXPECT_TRUE(bool_value != another_bool_value);
+  }
+
+  SimpleValue invalid_value;
+  EXPECT_FALSE(bool_value.Equals(invalid_value));
+
+  SimpleValue string_value = SimpleValue::String("abcdefg");
+  EXPECT_FALSE(bool_value.Equals(string_value));
+
+  SimpleValueProto proto;
+  ZETASQL_ASSERT_OK(bool_value.Serialize(&proto));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(SimpleValue deserialized_bool_value,
+                       SimpleValue::Deserialize(proto));
+  EXPECT_TRUE(bool_value.Equals(deserialized_bool_value));
+}
+
+TEST_F(SimpleValueTest, SimpleValueTypeDouble) {
+  SimpleValue double_value = SimpleValue::Double(1.23);
+  EXPECT_TRUE(double_value.IsValid());
+  EXPECT_TRUE(double_value.has_double_value());
+  EXPECT_FALSE(double_value.has_int64_value());
+  EXPECT_EQ(double_value.double_value(), 1.23);
+
+  {
+    SimpleValue another_double_value = SimpleValue::Double(1.23);
+    EXPECT_TRUE(double_value.Equals(another_double_value));
+    EXPECT_TRUE(double_value == another_double_value);
+    EXPECT_FALSE(double_value != another_double_value);
+  }
+
+  {
+    SimpleValue another_double_value = SimpleValue::Double(1.234);
+    EXPECT_FALSE(double_value.Equals(another_double_value));
+    EXPECT_FALSE(double_value == another_double_value);
+    EXPECT_TRUE(double_value != another_double_value);
+  }
+
+  SimpleValue invalid_value;
+  EXPECT_FALSE(double_value.Equals(invalid_value));
+
+  SimpleValue int64_value = SimpleValue::Int64(1);
+  EXPECT_FALSE(double_value.Equals(int64_value));
+
+  SimpleValueProto proto;
+  ZETASQL_ASSERT_OK(double_value.Serialize(&proto));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(SimpleValue deserialized_double_value,
+                       SimpleValue::Deserialize(proto));
+  EXPECT_TRUE(double_value.Equals(deserialized_double_value));
+}
+
+TEST_F(SimpleValueTest, SimpleValueTypeBytes) {
+  SimpleValue bytes_value = SimpleValue::Bytes("abcdefg");
+  EXPECT_TRUE(bytes_value.IsValid());
+  EXPECT_TRUE(bytes_value.has_bytes_value());
+  EXPECT_FALSE(bytes_value.has_string_value());
+  EXPECT_EQ(bytes_value.bytes_value(), "abcdefg");
+
+  {
+    SimpleValue another_bytes_value = SimpleValue::Bytes("abcdefg");
+    EXPECT_TRUE(bytes_value.Equals(another_bytes_value));
+    EXPECT_TRUE(bytes_value == another_bytes_value);
+    EXPECT_FALSE(bytes_value != another_bytes_value);
+  }
+
+  {
+    SimpleValue another_bytes_value = SimpleValue::Bytes("1234567");
+    EXPECT_FALSE(bytes_value.Equals(another_bytes_value));
+    EXPECT_FALSE(bytes_value == another_bytes_value);
+    EXPECT_TRUE(bytes_value != another_bytes_value);
+  }
+
+  SimpleValue invalid_value;
+  EXPECT_FALSE(bytes_value.Equals(invalid_value));
+
+  SimpleValue string_value = SimpleValue::String("abcdefg");
+  EXPECT_FALSE(bytes_value.Equals(string_value));
+
+  SimpleValueProto proto;
+  ZETASQL_ASSERT_OK(bytes_value.Serialize(&proto));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(SimpleValue deserialized_bytes_value,
+                       SimpleValue::Deserialize(proto));
+  EXPECT_TRUE(bytes_value.Equals(deserialized_bytes_value));
+}
+
 TEST_F(SimpleValueTest, SimpleValueTypeStringRefCount) {
   // Test copy assignment operator.
   {

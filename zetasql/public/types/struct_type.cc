@@ -16,6 +16,7 @@
 
 #include "zetasql/public/types/struct_type.h"
 
+#include "zetasql/common/errors.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
@@ -205,6 +206,14 @@ zetasql_base::StatusOr<std::string> StructType::TypeNameWithParameters(
     return type->TypeNameWithParameters(type_params.child(field_index), mode);
   };
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn);
+}
+
+zetasql_base::StatusOr<TypeParameters> StructType::ValidateAndResolveTypeParameters(
+    const std::vector<TypeParameterValue>& resolved_type_parameters,
+    ProductMode mode) const {
+  return MakeSqlError() << ShortTypeName(mode)
+                        << " type cannot have type parameters by itself, it "
+                           "can only have type parameters on its struct fields";
 }
 
 const StructType::StructField* StructType::FindField(absl::string_view name,

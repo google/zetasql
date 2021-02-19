@@ -1200,6 +1200,6 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 [timestamp-format]: #format_timestamp
 [timestamp-format-elements]: #supported_format_elements_for_timestamp
-[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types#date_type
-[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types#timestamp_type
+[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
+[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
 

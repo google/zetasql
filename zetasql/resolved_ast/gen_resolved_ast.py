@@ -156,6 +156,8 @@ class ScalarType(object):
 
 
 SCALAR_TYPE = ScalarType('const Type*', 'TypeProto', 'Type')
+SCALAR_TYPE_PARAMETERS = ScalarType(
+    'TypeParameters', 'TypeParametersProto', passed_by_reference=True)
 SCALAR_ANNOTATION_MAP = ScalarType(
     'const AnnotationMap*',
     'AnnotationMapProto',
@@ -625,7 +627,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 173.
+          Next tag_id: 175.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1101,6 +1103,17 @@ def main(argv):
               to NUMERIC, the resolver uses the float_literal_id to find the
               original image of the literal to avoid precision loss. An ID of 0
               represents a literal without a cached image.
+              """),
+          Field(
+              'preserve_in_literal_remover',
+              SCALAR_BOOL,
+              is_constructor_arg=False,
+              tag_id=5,
+              ignorable=IGNORABLE,
+              comment="""
+              Indicates whether ReplaceLiteralsByParameters() should leave
+              this literal value in place, rather than replace it with a query
+              parameter.
               """)
       ])
 
@@ -1252,6 +1265,91 @@ def main(argv):
           Field('argument_list', SCALAR_RESOLVED_COLUMN, tag_id=2, vector=True),
           Field('parameter_list', 'ResolvedColumnRef', tag_id=3, vector=True),
           Field('body', 'ResolvedExpr', tag_id=4),
+      ])
+
+  gen.AddNode(
+      name='ResolvedFilterFieldArg',
+      tag_id=173,
+      parent='ResolvedArgument',
+      comment="""
+      An argument to the FILTER_FIELDS() function which specifies a sign to show
+      inclusion/exclusion status and a field path to include or exclude.
+      """,
+      fields=[
+          Field(
+              'include',
+              SCALAR_BOOL,
+              tag_id=2,
+              comment="""
+              True if we want to include this proto path in the resulting proto
+              (though we may still remove paths below it).
+              If False, we will remove this path (but may still include paths
+              below it).
+              """),
+          Field(
+              'field_descriptor_path',
+              SCALAR_FIELD_DESCRIPTOR,
+              tag_id=3,
+              vector=True,
+              to_string_method='ToStringVectorFieldDescriptor',
+              java_to_string_method='toStringPeriodSeparatedForFieldDescriptors',
+              comment="""
+              A vector of FieldDescriptors that denotes the path to a proto
+              field that will be include or exclude.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedFilterField',
+      tag_id=174,
+      parent='ResolvedExpr',
+      comment="""
+      Represents a call to the FILTER_FIELDS() function. This function can be
+      used to modify a proto, prune fields and output the resulting proto. The
+      SQL syntax for this function is
+        FILTER_FIELDS(<expr>, <filter_field_arg_list>).
+
+      <expr> must have proto type. <filter_field_arg> contains a sign ('+' or
+      '-') and a field path starting from the proto.
+
+      For example:
+        FILTER_FIELDS(proto, +field1, -field1.field2)
+      means the resulting proto only contains field1.* except field1.field2.*.
+
+      Field paths are evaluated and processed in order,
+      ```
+        IF filter_field_arg_list[0].include:
+          CLEAR all fields
+        FOR filter_field_arg IN filter_field_arg_list:
+          IF filter_field_arg.include:
+            UNCLEAR filter_field_arg.field_descriptor_path (and all children)
+          ELSE:
+            CLEAR filter_field_arg.field_descriptor_path (and all children)
+      ```
+
+      The order of field_field args have following constraints:
+      1. There must be at least one filter_field arg.
+      2. Args for ancestor fields must precede descendants.
+      3. Each arg must have opposite `include` compared to the last preceding
+         ancestor field.
+
+      See (broken link) for more detail.
+      """,
+      fields=[
+          Field(
+              'expr',
+              'ResolvedExpr',
+              tag_id=2,
+              comment="""The proto to modify."""),
+          Field(
+              'filter_field_arg_list',
+              'ResolvedFilterFieldArg',
+              tag_id=3,
+              vector=True,
+              comment="""
+              The list of field paths to include or exclude. The path starts
+              from the proto type of <expr>.
+                      """),
       ])
 
   gen.AddNode(
@@ -1760,10 +1858,13 @@ def main(argv):
               tag_id=3,
               comment="""
               List of 'get' fields to evaluate in order (0 or more struct get
-              fields followed by 0 or more proto get fields) starting from expr.
-              Each get is evaluated N times where N is the number of array
-              elements from the previous get (or expr for the first expression)
-              generated.
+              fields followed by 0 or more proto or json get fields) starting
+              from expr. Each get is evaluated N times where N is the number of
+              array elements from the previous get (or expr for the first
+              expression) generated.
+
+              The 'get' fields may either be a ResolvedGet*Field or an array
+              offset function around a ResolvedGet*Field.
                       """),
       ])
 
@@ -2649,7 +2750,7 @@ right.
       parent='ResolvedArgument',
       comment="""
       This is used in CREATE TABLE statements to provide column annotations
-      such as NOT NULL and OPTIONS().
+      such as NOT NULL, type parameters, and OPTIONS().
 
       This class is recursive. It mirrors the structure of the column type
       except that child_list might be truncated.
@@ -2683,7 +2784,18 @@ right.
               'ResolvedColumnAnnotations',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'type_parameters',
+              SCALAR_TYPE_PARAMETERS,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              child_list in <type_parameters> is not used in here.
+              Instead we use child_list of this node (ResolvedColumnAnnotations)
+              to store type parameters of subfields of STRUCT or ARRAY. Users
+              can access the full type parameters with child_list by calling
+              ResolvedColumnDefinition.getFullTypeParameters() function.""")
       ])
 
   gen.AddNode(
@@ -2760,7 +2872,13 @@ right.
               'ResolvedGeneratedColumnInfo',
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT)
-      ])
+      ],
+      extra_defs="""
+        // Get the full TypeParameters object for this column, including
+        // parameters on nested fields. <annotations.type_parameters> includes
+        // only parameters on the outermost type.
+        zetasql_base::StatusOr<TypeParameters> GetFullTypeParameters() const;
+      """)
 
   gen.AddNode(
       name='ResolvedPrimaryKey',
@@ -3277,8 +3395,8 @@ right.
       parent='ResolvedCreateStatement',
       comment="""
       This statement:
-      CREATE [OR REPLACE] [UNIQUE] INDEX [IF NOT EXISTS] <index_name_path>
-      ON <table_name_path>
+      CREATE [OR REPLACE] [UNIQUE] [SEARCH] INDEX [IF NOT EXISTS]
+       <index_name_path> ON <table_name_path>
       [STORING (Expression, ...)]
       [UNNEST(path_expression) [[AS] alias] [WITH OFFSET [[AS] alias]], ...]
       (path_expression [ASC|DESC], ...) [OPTIONS (name=value, ...)];
@@ -3286,6 +3404,7 @@ right.
       <table_name_path> is the name of table being indexed.
       <table_scan> is a TableScan on the table being indexed.
       <is_unique> specifies if the index has unique entries.
+      <is_search> specifies if the index is for search.
       <index_item_list> has the columns being indexed, specified as references
                         to 'computed_columns_list' entries or the columns of
                         'table_scan'.
@@ -3309,7 +3428,15 @@ right.
               ignorable=IGNORABLE),
           Field('is_unique', SCALAR_BOOL, tag_id=4),
           Field(
-              'index_item_list', 'ResolvedIndexItem', tag_id=5,
+              'is_search',
+              SCALAR_BOOL,
+              tag_id=10,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'index_item_list',
+              'ResolvedIndexItem',
+              tag_id=5,
               vector=True),
           Field(
               'storing_expression_list',
@@ -3364,7 +3491,7 @@ right.
       is_abstract=True,
       comment="""
       This statement:
-        CREATE [TEMP] TABLE <name> (column type, ...)
+        CREATE [TEMP] TABLE <name> [(column type, ...) | LIKE <name_path>]
         [PARTITION BY expr, ...] [CLUSTER BY expr, ...]
         [OPTIONS (...)]
 
@@ -3387,6 +3514,12 @@ right.
       <cluster_by_list> specifies the clustering expressions for the table.
       <is_value_table> specifies whether the table is a value table.
                        See (broken link).
+      <like_table> identifies the table in the LIKE <name_path>.
+                   By default, all fields (column names, types, constraints,
+                   keys, clustering etc.) will be inherited from the source
+                   table. But if explicitly set, the explicit settings will
+                   take precedence.
+
               """,
       fields=[
           Field(
@@ -3430,6 +3563,11 @@ right.
               SCALAR_BOOL,
               tag_id=8,
               ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'like_table',
+              SCALAR_TABLE,
+              tag_id=11,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -3438,11 +3576,33 @@ right.
       parent='ResolvedCreateTableStmtBase',
       comment="""
       This statement:
-        CREATE [TEMP] TABLE <name> (column schema, ...)
+        CREATE [TEMP] TABLE <name>
+        [(column schema, ...) | LIKE <name_path> |
+            CLONE <name_path>
+                [FOR SYSTEM_TIME AS OF <time_expr>]
+                [WHERE <where_clause>]]
         [PARTITION BY expr, ...] [CLUSTER BY expr, ...]
         [OPTIONS (...)]
+
+      <clone_from> the source data to clone data from.
+                   ResolvedTableScan will represent the source table, with an
+                   optional for_system_time_expr.
+                   The ResolvedTableScan may be wrapped inside a
+                   ResolvedFilterScan if the source table has a where clause.
+                   No other Scan types are allowed here.
+                   By default, all fields (column names, types, constraints,
+                   partition, clustering, options etc.) will be inherited from
+                   the source table. If table options are explicitly set, the
+                   explicit options will take precedence.
+                   The 'clone_from.column_list' field may be set, but should be
+                   ignored.
               """,
       fields=[
+          Field(
+              'clone_from',
+              'ResolvedScan',
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'partition_by_list',
               'ResolvedExpr',
@@ -3463,7 +3623,7 @@ right.
       parent='ResolvedCreateTableStmtBase',
       comment="""
       This statement:
-        CREATE [TEMP] TABLE <name> [(column schema, ...)]
+        CREATE [TEMP] TABLE <name> [(column schema, ...) | LIKE <name_path>]
         [PARTITION BY expr, ...] [CLUSTER BY expr, ...] [OPTIONS (...)]
         AS SELECT ...
 
@@ -3596,14 +3756,20 @@ right.
       is_abstract=True,
       comment="""
       Common superclass for CREATE view/materialized view:
-        CREATE [TEMP|MATERIALIZED] [RECURSIVE] VIEW <name> [OPTIONS (...)]
+        CREATE [TEMP|MATERIALIZED] [RECURSIVE] VIEW <name> [(...)]
+          [OPTIONS (...)]
           AS SELECT ...
 
       <option_list> has engine-specific directives for options attached to
                     this view.
       <output_column_list> has the names and types of the columns in the
                            created view, and maps from <query>'s column_list
-                           to these output columns.
+                           to these output columns. If <has_explicit_columns> is
+                           true, names will be explicitly provided.
+      <has_explicit_columns> If this is set, the statement includes an explicit
+        column name list. These column names should still be applied even if the
+        query changes or is re-resolved in the future. The view becomes invalid
+        if the query produces a different number of columns.
       <query> is the query to run.
       <sql> is the view query text.
       <sql_security> is the declared security mode for the function. Values
@@ -3630,6 +3796,11 @@ right.
               'ResolvedOutputColumn',
               tag_id=3,
               vector=True),
+          Field(
+              'has_explicit_columns',
+              SCALAR_BOOL,
+              tag_id=9,
+              ignorable=IGNORABLE_DEFAULT),
           Field('query', 'ResolvedScan', tag_id=5, ignorable=IGNORABLE),
           Field('sql', SCALAR_STRING, tag_id=6, ignorable=IGNORABLE),
           Field(
@@ -3664,7 +3835,7 @@ right.
       parent='ResolvedCreateViewBase',
       comment="""
       This statement:
-        CREATE [TEMP] VIEW <name> [OPTIONS (...)] AS SELECT ...
+        CREATE [TEMP] VIEW <name> [(...)] [OPTIONS (...)] AS SELECT ...
               """,
       fields=[])
 
@@ -6091,6 +6262,21 @@ ResolvedArgumentRef(y)
       ])
 
   gen.AddNode(
+      name='ResolvedDropTableFunctionStmt',
+      tag_id=175,
+      parent='ResolvedStatement',
+      comment="""
+      This statement: DROP TABLE FUNCTION [IF EXISTS] <name_path>;
+
+      <is_if_exists> silently ignore the "name_path does not exist" error.
+      <name_path> is the identifier path of the function to be dropped.
+              """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
+          Field('name_path', SCALAR_STRING, tag_id=3, vector=True),
+      ])
+
+  gen.AddNode(
       name='ResolvedCallStmt',
       tag_id=83,
       parent='ResolvedStatement',
@@ -6229,7 +6415,7 @@ ResolvedArgumentRef(y)
       parent='ResolvedCreateViewBase',
       comment="""
       This statement:
-        CREATE MATERIALIZED VIEW <name> [PARTITION BY expr, ...]
+        CREATE MATERIALIZED VIEW <name> [(...)] [PARTITION BY expr, ...]
         [CLUSTER BY expr, ...] [OPTIONS (...)] AS SELECT ...
 
       <column_definition_list> matches 1:1 with the <output_column_list> in

@@ -31,6 +31,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
@@ -158,6 +159,10 @@ class TableNameResolver {
   absl::Status FindInTablePathExpression(
       const ASTTablePathExpression* table_ref,
       AliasSet* visible_aliases);
+
+  absl::Status ResolveTablePath(
+      const std::vector<std::string>& path,
+      const ASTForSystemTime* for_system_time);
 
   absl::Status FindInTableElements(const ASTTableElementList* elements);
 
@@ -294,6 +299,19 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       const ASTTableElementList* table_elements = stmt->table_element_list();
       if (table_elements != nullptr) {
         ZETASQL_RETURN_IF_ERROR(FindInTableElements(table_elements));
+      }
+
+      const ASTPathExpression* like_table_name = stmt->like_table_name();
+      if (like_table_name != nullptr) {
+        zetasql_base::InsertIfNotPresent(table_names_,
+                                like_table_name->ToIdentifierVector());
+      }
+
+      const ASTCloneDataSource* clone_data_source = stmt->clone_data_source();
+      if (clone_data_source != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(ResolveTablePath(
+            clone_data_source->path_expr()->ToIdentifierVector(),
+            clone_data_source->for_system_time()));
       }
 
       const ASTQuery* query = stmt->query();
@@ -535,6 +553,13 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
     case AST_DROP_FUNCTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DROP_FUNCTION_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
+
+    case AST_DROP_TABLE_FUNCTION_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_DROP_TABLE_FUNCTION_STMT)) {
         return absl::OkStatus();
       }
       break;
@@ -1203,6 +1228,37 @@ absl::Status TableNameResolver::FindInTableElements(
   return absl::OkStatus();
 }
 
+absl::Status TableNameResolver::ResolveTablePath(
+    const std::vector<std::string>& path,
+    const ASTForSystemTime* for_system_time) {
+  zetasql_base::InsertIfNotPresent(table_names_, path);
+  if (table_resolution_time_info_map_ == nullptr) {
+    return absl::OkStatus();
+  }
+  // Lookup for or insert a set of temporal expressions for 'path'.
+  TableResolutionTimeInfo& temporal_expressions_set =
+      (*table_resolution_time_info_map_)[path];
+  if (for_system_time != nullptr) {
+    if (!for_system_time_as_of_feature_enabled_) {
+      return MakeSqlErrorAt(for_system_time)
+             << "FOR SYSTEM_TIME AS OF is not supported";
+    }
+
+    const ASTExpression* expr = for_system_time->expression();
+    ZETASQL_RET_CHECK(expr != nullptr);
+    std::unique_ptr<const AnalyzerOutput> analyzed;
+
+    if (catalog_ != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(::zetasql::AnalyzeExpressionFromParserAST(
+          *expr, *analyzer_options_, sql_, type_factory_, catalog_, &analyzed));
+    }
+    temporal_expressions_set.exprs.push_back({expr, std::move(analyzed)});
+  } else {
+    temporal_expressions_set.has_default_resolution_time = true;
+  }
+  return absl::OkStatus();
+}
+
 absl::Status TableNameResolver::FindInTablePathExpression(
     const ASTTablePathExpression* table_ref,
     AliasSet* visible_aliases) {
@@ -1234,33 +1290,7 @@ absl::Status TableNameResolver::FindInTablePathExpression(
         (path.size() == 1
              ? (!zetasql_base::ContainsKey(local_table_aliases_, first_identifier))
              : (!zetasql_base::ContainsKey(*visible_aliases, first_identifier)))) {
-      zetasql_base::InsertIfNotPresent(table_names_, path);
-      if (table_resolution_time_info_map_ != nullptr) {
-        // Lookup for or insert a set of temporal expressions for 'path'.
-        TableResolutionTimeInfo& temporal_expressions_set =
-            (*table_resolution_time_info_map_)[path];
-
-        const ASTForSystemTime* for_system_time = table_ref->for_system_time();
-        if (for_system_time != nullptr) {
-          if (!for_system_time_as_of_feature_enabled_) {
-            return MakeSqlErrorAt(for_system_time)
-                   << "FOR SYSTEM_TIME AS OF is not supported";
-          }
-
-          const ASTExpression* expr = for_system_time->expression();
-          ZETASQL_RET_CHECK(expr != nullptr);
-          std::unique_ptr<const AnalyzerOutput> analyzed;
-
-          if (catalog_ != nullptr) {
-            ZETASQL_RETURN_IF_ERROR(::zetasql::AnalyzeExpressionFromParserAST(
-                *expr, *analyzer_options_, sql_, type_factory_, catalog_,
-                &analyzed));
-          }
-          temporal_expressions_set.exprs.push_back({expr, std::move(analyzed)});
-        } else {
-          temporal_expressions_set.has_default_resolution_time = true;
-        }
-      }
+      ZETASQL_RETURN_IF_ERROR(ResolveTablePath(path, table_ref->for_system_time()));
     }
 
     if (alias.empty()) {

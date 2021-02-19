@@ -36,9 +36,11 @@
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/proto_util.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
@@ -673,6 +675,51 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
                  FunctionOptions().add_required_language_feature(
                      LanguageFeature::FEATURE_V_1_3_PROTO_MAPS));
 
+  // Is a particular key present in a proto map?
+  FunctionArgumentTypeList modify_map_args = {
+      ARG_PROTO_MAP_ANY,
+      {ARG_PROTO_MAP_KEY_ANY, FunctionArgumentType::REPEATED},
+      {ARG_PROTO_MAP_VALUE_ANY, FunctionArgumentType::REPEATED},
+  };
+
+  InsertFunction(
+      functions, options, "modify_map", SCALAR,
+      {{ARG_PROTO_MAP_ANY, modify_map_args, FN_MODIFY_MAP}},
+      FunctionOptions()
+          .add_required_language_feature(
+              LanguageFeature::FEATURE_V_1_3_PROTO_MAPS)
+          .set_pre_resolution_argument_constraint(
+              [](const std::vector<InputArgumentType>& args,
+                 const LanguageOptions& opts) -> absl::Status {
+                if (args.size() < 3 || args.size() % 2 == 0) {
+                  return MakeSqlError()
+                         << "MODIFY_MAP must take a protocol buffer map "
+                            "as the first argument then one or more key-value "
+                            "pairs as the subsequent arguments.";
+                }
+                return absl::OkStatus();
+              })
+          .set_no_matching_signature_callback(
+              [=](const std::string& qualified_function_name,
+                  const std::vector<InputArgumentType>& args,
+                  const ProductMode& product_mode) {
+                std::string ret = absl::StrCat("No matching signature for ",
+                                               qualified_function_name, "(");
+                for (int i = 0; i < args.size(); ++i) {
+                  if (i > 0) absl::StrAppend(&ret, ", ");
+                  absl::StrAppend(&ret, args[i].UserFacingName(product_mode));
+                }
+                absl::StrAppend(&ret, "); ");
+                if (!IsProtoMap(args[0].type())) {
+                  absl::StrAppend(&ret, "first argument must be a proto map");
+                } else {
+                  absl::StrAppend(&ret,
+                                  "some key or value did not match the map's "
+                                  "key or value type");
+                }
+                return ret;
+              }));
+
   // Usage: [...], ARRAY[...], ARRAY<T>[...]
   // * Array elements would be the list of expressions enclosed within [].
   // * T (if mentioned) would define the array element type. Otherwise the
@@ -1048,18 +1095,22 @@ void GetJSONFunctions(TypeFactory* type_factory,
                  json_extract_array_signatures,
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      &CheckJsonArguments));
-  InsertFunction(functions, options, "json_extract_string_array", SCALAR,
-                 json_extract_string_array_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-  InsertFunction(functions, options, "json_query_array", SCALAR,
-                 json_query_array_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
-  InsertFunction(functions, options, "json_value_array", SCALAR,
-                 json_value_array_signatures,
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &CheckJsonArguments));
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_ARRAY_FUNCTIONS)) {
+    InsertFunction(functions, options, "json_extract_string_array", SCALAR,
+                   json_extract_string_array_signatures,
+                   FunctionOptions().set_pre_resolution_argument_constraint(
+                       &CheckJsonArguments));
+    InsertFunction(functions, options, "json_query_array", SCALAR,
+                   json_query_array_signatures,
+                   FunctionOptions().set_pre_resolution_argument_constraint(
+                       &CheckJsonArguments));
+    InsertFunction(functions, options, "json_value_array", SCALAR,
+                   json_value_array_signatures,
+                   FunctionOptions().set_pre_resolution_argument_constraint(
+                       &CheckJsonArguments));
+  }
 
   InsertFunction(functions, options, "to_json_string", SCALAR,
                  {{string_type,
@@ -1824,6 +1875,34 @@ void GetEncryptionFunctions(TypeFactory* type_factory,
       functions, options, "kms", "decrypt_bytes", SCALAR,
       {{bytes_type, {string_type, bytes_type}, FN_KMS_DECRYPT_BYTES}},
       encryption_required);
+
+  // AEAD.ENVELOPE_ENCRYPT is volatile since it generates a random IV
+  // (initialization vector) for each invocation so that encrypting the same
+  // plaintext results in different ciphertext.
+  InsertNamespaceFunction(functions, options, "aead", "envelope_encrypt",
+                          SCALAR,
+                          {{bytes_type,
+                            {string_type, bytes_type, string_type, string_type},
+                            FN_AEAD_ENVELOPE_ENCRYPT_STRING},
+                           {bytes_type,
+                            {string_type, bytes_type, bytes_type, bytes_type},
+                            FN_AEAD_ENVELOPE_ENCRYPT_BYTES}},
+                          FunctionOptions(encryption_required)
+                              .set_volatility(FunctionEnums::VOLATILE));
+
+  InsertNamespaceFunction(functions, options, "aead", "envelope_decrypt_string",
+                          SCALAR,
+                          {{string_type,
+                            {string_type, bytes_type, bytes_type, string_type},
+                            FN_AEAD_ENVELOPE_DECRYPT_STRING}},
+                          encryption_required);
+
+  InsertNamespaceFunction(functions, options, "aead", "envelope_decrypt_bytes",
+                          SCALAR,
+                          {{bytes_type,
+                            {string_type, bytes_type, bytes_type, bytes_type},
+                            FN_AEAD_ENVELOPE_DECRYPT_BYTES}},
+                          encryption_required);
 }
 
 void GetGeographyFunctions(TypeFactory* type_factory,
@@ -2081,6 +2160,10 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                    {string_type},
                    FN_ST_GEOG_FROM_WKB_HEX,
                    extended_parser_signatures}},
+                 geography_required);
+  InsertFunction(functions, options, "st_geogfrom", SCALAR,
+                 {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_BYTES},
+                  {geography_type, {string_type}, FN_ST_GEOG_FROM_STRING}},
                  geography_required);
 
   // Aggregate

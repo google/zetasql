@@ -464,11 +464,11 @@ absl::Status Function::CheckPostResolutionArgumentConstraints(
     return absl::OkStatus();
   }
   ZETASQL_RET_CHECK(signature.IsConcrete())
-      << "CheckPostResolutionArgumentConstraints of function "
+      << "CheckPostResolutionArgumentConstraints of "
       << QualifiedSQLName()
       << " must be called with a concrete signature";
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size())
-      << "Concrete arguments of function " << QualifiedSQLName()
+      << "Concrete arguments of " << QualifiedSQLName()
       << " must match the actual argument list";
   return PostResolutionConstraints()(signature, arguments, language_options);
 }

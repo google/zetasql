@@ -468,6 +468,7 @@ cc_library(
         "//zetasql/public/functions:common_proto",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/functions:datetime_cc_proto",
+        "//zetasql/public/functions:parse_date_time",
         "//zetasql/public/types",
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_function",

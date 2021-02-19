@@ -386,6 +386,13 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 // rule that starts with "FILTER_FIELDS" "(". It is resolved in favor of the
 // FILTER_FIELDS( rule, which is the desired behavior.
 //
+// AMBIGUOUS CASE 12: ANALYZE OPTIONS(...)
+// --------------------------------
+// The OPTIONS keyword is non-reserved and can be used as an identifier.
+// This causes a shift/reduce conflict between keyword_as_identifier and the
+// rule that starts with "ANALYZE"  "OPTIONS" "(". It is resolved in favor of
+// the OPTIONS( rule, which is the desired behavior.
+//
 // Total expected shift/reduce conflicts as described above:
 //   2: EXPRESSION SUBQUERY
 //   1: INSERT VALUES
@@ -399,7 +406,8 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: DESCRIPTOR
 //   1: FILTER FIELDS
 //   1: WITH ANONYMIZATION
-%expect 19
+//   1: ANALYZE
+%expect 20
 
 %union {
   bool boolean;
@@ -431,6 +439,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTForeignKeyActions::Action foreign_key_action;
   zetasql::ASTFunctionParameter::ProcedureParameterMode parameter_mode;
   zetasql::ASTCreateFunctionStmtBase::DeterminismLevel determinism_level;
+  zetasql::ASTOrderingExpression::OrderingSpec ordering_spec;
 
   // Not owned. The allocated nodes are all owned by the parser.
   // Nodes should use the most specific type available.
@@ -453,6 +462,13 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTUnpivotClause* unpivot_clause;
     zetasql::ASTAlias* alias;
   } pivot_or_unpivot_clause_and_alias;
+  struct {
+    zetasql::ASTNode* where;
+    zetasql::ASTNode* group_by;
+    zetasql::ASTNode* having;
+    zetasql::ASTNode* qualify;
+    zetasql::ASTNode* window;
+  } clauses_following_from;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -753,6 +769,7 @@ using zetasql::ASTDropStatement;
 %token KW_AGGREGATE "AGGREGATE"
 %token KW_ALTER "ALTER"
 %token KW_ANONYMIZATION "ANONYMIZATION"
+%token KW_ANALYZE "ANALYZE"
 %token KW_ASSERT "ASSERT"
 %token KW_BATCH "BATCH"
 %token KW_BEGIN "BEGIN"
@@ -763,6 +780,7 @@ using zetasql::ASTDropStatement;
 %token KW_CASCADE "CASCADE"
 %token KW_CHECK "CHECK"
 %token KW_CLAMPED "CLAMPED"
+%token KW_CLONE "CLONE"
 %token KW_CLUSTER "CLUSTER"
 %token KW_COLUMN "COLUMN"
 %token KW_COLUMNS "COLUMNS"
@@ -839,10 +857,12 @@ using zetasql::ASTDropStatement;
 %token KW_PRIVILEGES "PRIVILEGES"
 %token KW_PROCEDURE "PROCEDURE"
 %token KW_PUBLIC "PUBLIC"
+%token KW_QUALIFY "QUALIFY"
 %token KW_RAISE "RAISE"
 %token KW_READ "READ"
 %token KW_REFERENCES "REFERENCES"
 %token KW_RENAME "RENAME"
+%token KW_REPEAT "REPEAT"
 %token KW_REPEATABLE "REPEATABLE"
 %token KW_REPLACE "REPLACE"
 %token KW_REPLACE_FIELDS "REPLACE_FIELDS"
@@ -879,6 +899,7 @@ using zetasql::ASTDropStatement;
 %token KW_TYPE "TYPE"
 %token KW_UNIQUE "UNIQUE"
 %token KW_UNPIVOT "UNPIVOT"
+%token KW_UNTIL "UNTIL"
 %token KW_UPDATE "UPDATE"
 %token KW_VALUE "VALUE"
 %token KW_VALUES "VALUES"
@@ -908,6 +929,7 @@ using zetasql::ASTDropStatement;
 // All nonterminals that return nodes.
 %type <node> abort_batch_statement
 %type <node> alter_statement
+%type <node> analyze_statement
 %type <node> array_column_schema_inner
 %type <expression> array_constructor
 %type <expression> array_constructor_prefix
@@ -1024,6 +1046,8 @@ using zetasql::ASTDropStatement;
 %type <node> return_statement
 %type <node> loop_statement
 %type <node> while_statement
+%type <node> until_clause
+%type <node> repeat_statement
 %type <node> import_statement
 %type <node> variable_declaration
 %type <node> opt_default_expression
@@ -1036,6 +1060,9 @@ using zetasql::ASTDropStatement;
 %type <node> index_storing_list
 %type <node> index_unnest_expression_list
 %type <node> in_list_two_or_more_prefix
+%type <node> clone_data_source
+%type <node> clone_data_source_list
+%type <node> clone_data_statement
 %type <insert_statement> insert_statement
 %type <insert_statement> insert_statement_prefix
 %type <insert_values_row_list> insert_values_list
@@ -1078,6 +1105,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_as_sql_function_body_or_string
 %type <node> opt_assert_rows_modified
 %type <node> opt_clamped_between_modifier
+%type <node> opt_clone_table
 %type <node> opt_cluster_by_clause_no_hint
 %type <node> opt_collate_clause
 %type <node> opt_column_list
@@ -1095,9 +1123,11 @@ using zetasql::ASTDropStatement;
 %type <expression> opt_from_path_expression
 %type <node> opt_function_parameters
 %type <node> opt_function_returns
+%type <node> group_by_clause
 %type <node> opt_group_by_clause
 %type <node> generic_entity_body
 %type <node> opt_generic_entity_body
+%type <node> having_clause
 %type <node> opt_having_clause
 %type <node> opt_having_modifier
 %type <node> opt_hint
@@ -1116,11 +1146,13 @@ using zetasql::ASTDropStatement;
 %type <node> opt_order_by_clause
 %type <node> opt_partition_by_clause
 %type <node> opt_partition_by_clause_no_hint
+%type <node> opt_qualify_clause
 %type <node> opt_repeatable_clause
 %type <node> opt_returns
 %type <node> opt_returning_clause
 %type <sql_security> opt_sql_security_clause
 %type <sql_security> sql_security_clause_kind
+%type <node> opt_table_and_column_info_list
 %type <node> opt_over_clause
 %type <node> pivot_value
 %type <node> unpivot_in_item
@@ -1137,6 +1169,10 @@ using zetasql::ASTDropStatement;
 %type <node> opt_table_element_list
 %type <node> opt_transaction_mode_list
 %type <node> opt_transform_clause
+%type <clauses_following_from> opt_clauses_following_from
+%type <clauses_following_from> opt_clauses_following_where
+%type <clauses_following_from> opt_clauses_following_group_by
+%type <node> where_clause
 %type <node> opt_where_clause
 %type <node> opt_where_expression
 %type <node> opt_window_clause
@@ -1235,6 +1271,8 @@ using zetasql::ASTDropStatement;
 %type <node> table_element
 %type <node> table_element_list
 %type <node> table_element_list_prefix
+%type <node> table_and_column_info
+%type <node> table_and_column_info_list
 %type <node> table_path_expression
 %type <node> table_path_expression_base
 %type <node> table_primary
@@ -1303,7 +1341,7 @@ using zetasql::ASTDropStatement;
 %type <table_or_table_function_keywords> table_or_table_function
 %type <boolean> opt_access
 %type <boolean> opt_aggregate
-%type <boolean> opt_asc_or_desc
+%type <ordering_spec> opt_asc_or_desc
 %type <boolean> opt_filter
 %type <boolean> opt_if_exists
 %type <boolean> opt_if_not_exists
@@ -1440,6 +1478,7 @@ unterminated_script_statement:
     | variable_declaration
     | while_statement
     | loop_statement
+    | repeat_statement
     | break_statement
     | continue_statement
     | return_statement
@@ -1456,7 +1495,9 @@ terminated_statement:
 sql_statement_body:
     query_statement
     | alter_statement
+    | analyze_statement
     | assert_statement
+    | clone_data_statement
     | dml_statement
     | merge_statement
     | truncate_statement
@@ -1747,6 +1788,36 @@ opt_description:
     | /* Nothing */
       {
         $$ = nullptr;
+      }
+    ;
+
+analyze_statement:
+    "ANALYZE" opt_options_list opt_table_and_column_info_list
+      {
+        $$ = MAKE_NODE(ASTAnalyzeStatement, @$, {$2, $3});
+      }
+    ;
+
+opt_table_and_column_info_list:
+    table_and_column_info_list
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+table_and_column_info_list:
+    table_and_column_info
+      {
+        $$ = MAKE_NODE(ASTTableAndColumnInfoList, @$, {$1});
+      }
+    | table_and_column_info_list "," table_and_column_info
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+table_and_column_info:
+    maybe_dashed_path_expression opt_column_list
+      {
+        $$ = MAKE_NODE(ASTTableAndColumnInfo, @$, {$1, $2});
       }
     ;
 
@@ -2379,12 +2450,13 @@ create_table_function_statement:
 // "FUNCTION" keyword conflict.
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
-    maybe_dashed_path_expression opt_table_element_list opt_like_path_expression
+    maybe_dashed_path_expression opt_table_element_list
+    opt_like_path_expression opt_clone_table
     opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
     opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12});
+            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($5);
@@ -2993,30 +3065,32 @@ opt_recursive: "RECURSIVE" { $$ = true; }
 
 create_view_statement:
     "CREATE" opt_or_replace opt_create_scope opt_recursive "VIEW"
-    opt_if_not_exists maybe_dashed_path_expression opt_sql_security_clause
+    opt_if_not_exists maybe_dashed_path_expression opt_column_list
+    opt_sql_security_clause
     opt_options_list as_query
       {
-        auto* create = MAKE_NODE(ASTCreateViewStatement, @$, {$7, $9, $10});
+        auto* create =
+            MAKE_NODE(ASTCreateViewStatement, @$, {$7, $8, $10, $11});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_recursive($4);
         create->set_is_if_not_exists($6);
-        create->set_sql_security($8);
+        create->set_sql_security($9);
         $$ = create;
       }
     |
     "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
-    opt_if_not_exists maybe_dashed_path_expression opt_sql_security_clause
-    opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
-    opt_options_list as_query
+    opt_if_not_exists maybe_dashed_path_expression opt_column_list
+    opt_sql_security_clause opt_partition_by_clause_no_hint
+    opt_cluster_by_clause_no_hint opt_options_list as_query
       {
         auto* create = MAKE_NODE(
-          ASTCreateMaterializedViewStatement, @$, {$7, $9, $10, $11, $12});
+          ASTCreateMaterializedViewStatement, @$, {$7, $8, $10, $11, $12, $13});
         create->set_is_or_replace($2);
         create->set_recursive($4);
         create->set_scope(zetasql::ASTCreateStatement::DEFAULT_SCOPE);
         create->set_is_if_not_exists($6);
-        create->set_sql_security($8);
+        create->set_sql_security($9);
         $$ = create;
       }
     ;
@@ -3329,6 +3403,14 @@ opt_like_path_expression:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
+opt_clone_table:
+    "CLONE" clone_data_source
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 // Returns AllOrDistinctKeyword::kDistinct for DISTINCT, kAllKeyword for ALL.
 all_or_distinct:
     "ALL" { $$ = AllOrDistinctKeyword::kAll; }
@@ -3565,13 +3647,11 @@ select:
     "SELECT" opt_hint
     opt_with_anonymization
     opt_all_or_distinct
-    opt_select_as_clause select_list opt_from_clause opt_where_clause
-    opt_group_by_clause opt_having_clause opt_window_clause
+    opt_select_as_clause select_list opt_from_clause opt_clauses_following_from
       {
         auto* select =
-            MAKE_NODE(ASTSelect, @$, {$2,
-                                      $3,
-                                      $5, $6, $7, $8, $9, $10, $11});
+            MAKE_NODE(ASTSelect, @$, {$2, $3, $5, $6, $7, $8.where, $8.group_by,
+                                      $8.having, $8.qualify, $8.window});
         select->set_distinct($4 == AllOrDistinctKeyword::kDistinct);
         $$ = select;
       }
@@ -4575,11 +4655,50 @@ opt_from_clause:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
-opt_where_clause:
-    "WHERE" expression
+// The rules opt_clauses_following_from, opt_clauses_following_where and
+// opt_clauses_following_group_by are added to separate QUALIFY clause
+// (which does not have a reserved keyword at the beginning) from the FROM
+// clause (which can have a keyword_as_identifier as the trailing thing) by
+// ensuring there is a clause that starts with a reserved keyword
+// (WHERE, GROUP BY or HAVING) between them.
+opt_clauses_following_from:
+    where_clause opt_group_by_clause opt_having_clause
+    opt_qualify_clause opt_window_clause
       {
-        $$ = MAKE_NODE(ASTWhereClause, @$, {$2});
+        $$ = {$1, $2, $3, $4, $5};
       }
+    | opt_clauses_following_where
+      {
+        $$ = {/*where=*/nullptr, $1.group_by, $1.having, $1.qualify, $1.window};
+      };
+
+opt_clauses_following_where:
+    group_by_clause opt_having_clause opt_qualify_clause opt_window_clause
+      {
+        $$ = {/*where=*/nullptr, $1, $2, $3, $4};
+      }
+    | opt_clauses_following_group_by
+      {
+        $$ = {/*where=*/nullptr, /*group_by=*/nullptr, $1.having, $1.qualify,
+              $1.window};
+      };
+
+opt_clauses_following_group_by:
+    having_clause opt_qualify_clause opt_window_clause
+      {
+        $$ = {/*where=*/nullptr, /*group_by=*/nullptr, $1, $2, $3};
+      }
+    | opt_window_clause
+      {
+        $$ = {/*where=*/nullptr, /*group_by=*/nullptr, /*having=*/nullptr,
+              /*qualify=*/nullptr, $1};
+      };
+
+where_clause:
+    "WHERE" expression { $$ = MAKE_NODE(ASTWhereClause, @$, {$2}); };
+
+opt_where_clause:
+    where_clause
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -4617,19 +4736,25 @@ group_by_clause_prefix:
       }
     ;
 
-opt_group_by_clause:
+group_by_clause:
     group_by_clause_prefix
       {
         $$ = WithEndLocation($1, @$);
-      }
+      };
+
+opt_group_by_clause:
+    group_by_clause
     | /* Nothing */ { $$ = nullptr; }
     ;
 
-opt_having_clause:
+having_clause:
     "HAVING" expression
       {
         $$ = MAKE_NODE(ASTHaving, @$, {$2});
-      }
+      };
+
+opt_having_clause:
+    having_clause
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -4655,6 +4780,19 @@ opt_window_clause:
     window_clause_prefix
       {
         $$ = WithEndLocation($1, @$);
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_qualify_clause:
+    "QUALIFY" expression
+      {
+       if (parser->language_options() == nullptr ||
+            !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_QUALIFY)) {
+          YYERROR_AND_ABORT_AT(@1, "QUALIFY is not supported");
+        }
+        $$ = MAKE_NODE(ASTQualify, @$, {$2});
       }
     | /* Nothing */ { $$ = nullptr; }
     ;
@@ -4757,9 +4895,9 @@ with_clause_with_trailing_comma:
 
 // Returns true for DESC, false for ASC (which is the default).
 opt_asc_or_desc:
-    "ASC" { $$ = false; }
-    | "DESC" { $$ = true; }
-    | /* Nothing */ { $$ = false; }
+    "ASC" { $$ = zetasql::ASTOrderingExpression::ASC; }
+    | "DESC" { $$ = zetasql::ASTOrderingExpression::DESC; }
+    | /* Nothing */ { $$ = zetasql::ASTOrderingExpression::UNSPECIFIED; }
     ;
 
 opt_null_order:
@@ -4796,7 +4934,7 @@ ordering_expression:
       {
         auto* ordering_expr =
             MAKE_NODE(ASTOrderingExpression, @$, {$1, $2, $4});
-        ordering_expr->set_descending($3);
+        ordering_expr->set_ordering_spec($3);
         $$ = ordering_expr;
       }
     ;
@@ -6832,6 +6970,7 @@ keyword_as_identifier:
     | "ADD"
     | "ALTER"
     | "ANONYMIZATION"
+    | "ANALYZE"
     | "ASSERT"
     | "BATCH"
     | "BEGIN"
@@ -6842,6 +6981,7 @@ keyword_as_identifier:
     | "CASCADE"
     | "CHECK"
     | "CLAMPED"
+    | "CLONE"
     | "CLUSTER"
     | "COLUMN"
     | "COLUMNS"
@@ -6919,10 +7059,12 @@ keyword_as_identifier:
     | "PRIVILEGES"
     | "PROCEDURE"
     | "PUBLIC"
+    | "QUALIFY"
     | "RAISE"
     | "READ"
     | "REFERENCES"
     | "RENAME"
+    | "REPEAT"
     | "REPEATABLE"
     | "REPLACE"
     | "REPLACE_FIELDS"
@@ -6959,6 +7101,7 @@ keyword_as_identifier:
     | "TYPE"
     | "UNIQUE"
     | "UNPIVOT"
+    | "UNTIL"
     | "UPDATE"
     | "VALUE"
     | "VALUES"
@@ -7344,6 +7487,32 @@ insert_statement:
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected query");
         }
         $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3, $4}), @$);
+      }
+    ;
+
+clone_data_source:
+    maybe_dashed_path_expression opt_at_system_time opt_where_clause
+      {
+        $$ = MAKE_NODE(ASTCloneDataSource, @$, {$1, $2, $3});
+      }
+    ;
+
+clone_data_source_list:
+    clone_data_source
+      {
+        $$ = MAKE_NODE(ASTCloneDataSourceList, @$, {$1});
+      }
+    | clone_data_source_list "UNION" "ALL" clone_data_source
+      {
+        $$ = WithExtraChildren($1, {$4});
+      }
+    ;
+
+clone_data_statement:
+    "CLONE" "DATA" "INTO" maybe_dashed_path_expression
+    "FROM" clone_data_source_list
+      {
+        $$ = MAKE_NODE(ASTCloneDataStatement, @$, {$4, $6});
       }
     ;
 
@@ -7736,19 +7905,34 @@ drop_statement:
         $$ = drop_row_access_policy;
       }
     | "DROP" table_or_table_function opt_if_exists maybe_dashed_path_expression
+      opt_function_parameters
       {
         if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
-          // ZetaSQL does not (yet) support DROP TABLE FUNCTION,
-          // though it should as per a recent spec.  Currently, table/aggregate
-          // functions are dropped via simple DROP FUNCTION statements.
-          YYERROR_AND_ABORT_AT(@2, absl::StrCat(
-            "DROP TABLE FUNCTION is not supported, use DROP FUNCTION ",
-            zetasql::ToIdentifierLiteral(parser->GetInputText(@4), false)));
+          // Table functions don't support overloading so this statement doesn't
+          // accept any function parameters.
+          // (broken link)
+          if ($5 != nullptr) {
+            YYERROR_AND_ABORT_AT(@5,
+                                 "Syntax error: Parameters are not supported "
+                                 "for DROP TABLE FUNCTION because table "
+                                 "functions don't support "
+                                 "overloading");
+          }
+          auto* drop = MAKE_NODE(ASTDropTableFunctionStatement, @$, {$4});
+          drop->set_is_if_exists($3);
+          $$ = drop;
+        } else {
+          // This is a DROP TABLE statement. Table function parameters should
+          // not be populated.
+          if ($5 != nullptr) {
+            YYERROR_AND_ABORT_AT(@5,
+                                 "Syntax error: Unexpected \"(\"");
+          }
+          auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
+          drop->set_schema_object_kind(zetasql::SchemaObjectKind::kTable);
+          drop->set_is_if_exists($3);
+          $$ = drop;
         }
-        auto* drop = MAKE_NODE(ASTDropStatement, @$, {$4});
-        drop->set_schema_object_kind(zetasql::SchemaObjectKind::kTable);
-        drop->set_is_if_exists($3);
-        $$ = drop;
       }
     | "DROP" generic_entity_type opt_if_exists path_expression
       {
@@ -8043,6 +8227,25 @@ while_statement:
     }
     ;
 
+until_clause:
+    "UNTIL" expression
+    {
+      $$ = MAKE_NODE(ASTUntilClause, @$, {$2});
+    }
+    ;
+
+repeat_statement:
+    "REPEAT" statement_list until_clause "END" "REPEAT"
+    {
+     if (parser->language_options() != nullptr &&
+         !parser->language_options()->LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_3_REPEAT)) {
+        YYERROR_AND_ABORT_AT(@1, "REPEAT is not supported");
+      }
+      $$ = MAKE_NODE(ASTRepeatStatement, @$, {$2, $3});
+    }
+    ;
+
 break_statement:
     "BREAK"
     {
@@ -8150,6 +8353,8 @@ next_statement_kind_without_hint:
     | "UPDATE" { $$ = zetasql::ASTUpdateStatement::kConcreteNodeKind; }
     | "DELETE" { $$ = zetasql::ASTDeleteStatement::kConcreteNodeKind; }
     | "MERGE" { $$ = zetasql::ASTMergeStatement::kConcreteNodeKind; }
+    | "CLONE" "DATA"
+      { $$ = zetasql::ASTCloneDataStatement::kConcreteNodeKind; }
     | describe_keyword
       { $$ = zetasql::ASTDescribeStatement::kConcreteNodeKind; }
     | "SHOW" { $$ = zetasql::ASTShowStatement::kConcreteNodeKind; }
@@ -8160,7 +8365,13 @@ next_statement_kind_without_hint:
     | "DROP" "ROW" "ACCESS" "POLICY"
       { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
     | "DROP" table_or_table_function
-      { $$ = zetasql::ASTDropStatement::kConcreteNodeKind; }
+      {
+        if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
+          $$ = zetasql::ASTDropTableFunctionStatement::kConcreteNodeKind;
+        } else {
+          $$ = zetasql::ASTDropStatement::kConcreteNodeKind;
+        }
+      }
     | "DROP" generic_entity_type
       { $$ = zetasql::ASTDropEntityStatement::kConcreteNodeKind; }
     | "DROP" schema_object_kind
@@ -8241,7 +8452,8 @@ next_statement_kind_without_hint:
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list
-      opt_like_path_expression opt_partition_by_clause_no_hint
+      opt_like_path_expression opt_clone_table
+      opt_partition_by_clause_no_hint
       opt_cluster_by_clause_no_hint opt_options_list
       next_statement_kind_create_table_opt_as_or_semicolon
       {
@@ -8276,6 +8488,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTImportStatement::kConcreteNodeKind; }
     | "MODULE"
       { $$ = zetasql::ASTModuleStatement::kConcreteNodeKind; }
+    | "ANALYZE"
+      { $$ = zetasql::ASTAnalyzeStatement::kConcreteNodeKind; }
     | "ASSERT"
       { $$ = zetasql::ASTAssertStatement::kConcreteNodeKind; }
     | "TRUNCATE"

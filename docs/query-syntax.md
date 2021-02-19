@@ -547,14 +547,18 @@ return multiple columns:
 
 `UNNEST` destroys the order of elements in the input
 `ARRAY`. Use the optional `WITH OFFSET` clause to
-return a second column with the array element indexes (see below).
+return a second column with the array element indexes (see following).
 
+For several ways to use `UNNEST`, including construction, flattening, and
+filtering, see [`Working with arrays`][working-with-arrays].
+
+##### UNNEST and STRUCTs
 For an input `ARRAY` of `STRUCT`s, `UNNEST`
 returns a row for each `STRUCT`, with a separate column for each field in the
 `STRUCT`. The alias for each column is the name of the corresponding `STRUCT`
 field.
 
-**Example**
+Example:
 
 ```sql
 SELECT *
@@ -590,6 +594,7 @@ FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')])
 +---+-----+--------------+
 ```
 
+##### UNNEST and PROTOs
 For an input `ARRAY` of `PROTO`s, `UNNEST`
 returns a row for each `PROTO`, with a separate column for each field in the
 `PROTO`. The alias for each column is the name of the corresponding `PROTO`
@@ -635,6 +640,8 @@ FROM UNNEST(
 +---------------------------------------------------------------------+
 ```
 
+##### Explicit and implicit UNNEST
+
 `ARRAY` unnesting can be either explicit or implicit.
 In explicit unnesting, `array_expression` must return an
 `ARRAY` value but does not need to resolve to an `ARRAY`, and the `UNNEST`
@@ -662,6 +669,17 @@ structure, but the last field must be `ARRAY`-typed. No previous field in the
 expression can be `ARRAY`-typed because it is not possible to extract a named
 field from an `ARRAY`.
 
+##### UNNEST and FLATTEN
+
+The `UNNEST` operator accepts a [_flatten path_][flattening-trees-into-arrays]
+as its argument for `array_expression`. When the argument is a flatten path, the
+`UNNEST` operator produces one row for each element in the array that results
+from applying the [`FLATTEN` operator][flatten-operator] to the flatten path.
+To learn more about the relationship between these operators and flattening,
+see [Flattening tree-structured data into arrays][flattening-trees-into-arrays].
+
+##### UNNEST and NULLs
+
 `UNNEST` treats NULLs as follows:
 
 +  NULL and empty arrays produces zero rows.</li>
@@ -677,10 +695,6 @@ Example:
 ```sql
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
 ```
-
-See the [`Arrays topic`][working-with-arrays]
-for more ways to use `UNNEST`, including construction, flattening, and
-filtering.
 
 #### with_query_name
 
@@ -974,13 +988,14 @@ query them as one source. The `join_type` and `ON` or `USING` clause (a
 "join condition") specify how to combine and discard rows from the two
 `from_item`s to form a single source.
 
-All `JOIN` operations require a `join_type`.
+All `JOIN` operations require a `join_type`. If no `join_type` is provided with
+a `JOIN` operation, an `INNER JOIN` is performed.
 
 A `JOIN` operation requires a join condition unless one of the following conditions
 is true:
 
 +  `join_type` is `CROSS`.
-+  One or both of the `from_item`s is not a table, e.g. an
++  One or both of the `from_item`s is not a table, for example, an
    `array_path` or `field_path`.
 
 ### [INNER] JOIN
@@ -2702,7 +2717,7 @@ These examples include statements which perform queries on the
 and [`PlayerStats`][playerstats-table] tables.
 
 ### GROUP BY clause 
-<a id="group_by_clause"></a>
+<a id="group_by_clause_example"></a>
 
 Example:
 
@@ -2736,7 +2751,7 @@ GROUP BY LastName;
 </table>
 
 ### UNION 
-<a id="union"></a>
+<a id="union_example"></a>
 
 The `UNION` operator combines the result sets of two or more `SELECT` statements
 by pairing columns from the result set of each `SELECT` statement and vertically
@@ -2802,7 +2817,7 @@ Results:
 </table>
 
 ### INTERSECT 
-<a id="intersect"></a>
+<a id="intersect_example"></a>
 
 This query returns the last names that are present in both Roster and
 PlayerStats.
@@ -2837,7 +2852,7 @@ Results:
 </table>
 
 ### EXCEPT 
-<a id="except"></a>
+<a id="except_example"></a>
 
 The query below returns last names in Roster that are **not** present in
 PlayerStats.
@@ -2903,20 +2918,22 @@ Results:
 [query-joins]: #join_types
 [ambiguous-aliases]: #ambiguous_aliases
 [with_clause]: #with_clause
-[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
-[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
-[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
+[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_window_spec
+[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_use_named_window
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
-[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
-[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
-[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries
-[table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#table_subquery_concepts
-[expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#expression_subquery_concepts
+[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
+[flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
+[table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#table_subquery_concepts
+[expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#expression_subquery_concepts
 
-[in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
+[in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
 

@@ -434,6 +434,15 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(key_value_table);
   key_value_table_ = key_value_table;
 
+  SimpleTable* multiple_columns_table =
+      new SimpleTable("MultipleColumns", {{"int_a", types_->get_int64()},
+                                          {"string_a", types_->get_string()},
+                                          {"int_b", types_->get_int64()},
+                                          {"string_b", types_->get_string()},
+                                          {"int_c", types_->get_int64()},
+                                          {"int_d", types_->get_int64()}});
+  AddOwnedTable(multiple_columns_table);
+
   SimpleTable* key_value_table_read_time_ignored =
       new SimpleTableWithReadTimeIgnored(
           "KeyValueReadTimeIgnored",
@@ -1296,6 +1305,50 @@ void SampleCatalog::LoadFunctions() {
   function->AddSignature(
       {types_->get_bool(), {struct_int64_string_type}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(absl::WrapUnique(function));
+
+  // Adds an scalar function that takes multiple repeated and optional
+  // arguments.
+  function = new Function(
+      "fn_rep_opt", "sample_functions", Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("a0")
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("r0")
+                    .set_cardinality(FunctionArgumentType::REPEATED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("r1")
+                    .set_cardinality(FunctionArgumentType::REPEATED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("r2")
+                    .set_cardinality(FunctionArgumentType::REPEATED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("a1")
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("o0")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("o1")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+  ZETASQL_CHECK_OK(function->signatures()[0].IsValid());
 
   // Adds an aggregate function that takes no argument but supports order by.
   function = new Function(

@@ -210,7 +210,8 @@ zetasql_base::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndCol
 
   // Find the offset corresponding to the line number.
   ZETASQL_RET_CHECK_LE(line, line_offsets_.size())
-      << "No line " << line << " in " << input_;
+      << "Query had " << line << " lines but line " << line_offsets_.size()
+      << " was requested";
 
   ZETASQL_ASSIGN_OR_RETURN(absl::string_view current_line, GetLineText(line));
   ZETASQL_DCHECK_EQ(current_line.find('\r'), current_line.npos)
@@ -256,7 +257,8 @@ zetasql_base::StatusOr<absl::string_view> ParseLocationTranslator::GetLineText(
 
   ZETASQL_RET_CHECK_GT(line, 0) << "Line number <= 0";
   ZETASQL_RET_CHECK_LE(line, line_offsets_.size())
-      << "No line " << line << " in " << input_;
+      << "Query had " << line << " lines but line " << line_offsets_.size()
+      << " was requested";
 
   const int line_index = line - 1;
   const int line_start_offset = line_offsets_[line_index];

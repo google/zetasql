@@ -253,6 +253,6 @@ non-additive functions like `COUNT(DISTINCT)`.
 [hll-sketches]: #sketches-hll
 [hll-algorithm]: #about-hll-alg
 
-[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions
-[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
+[approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md
+[aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 

@@ -369,6 +369,11 @@ bool HasBigNumericTypeArgument(
     const FunctionSignature& matched_signature,
     const std::vector<InputArgumentType>& arguments);
 
+// Returns true if at least one input argument has INTERVAL type.
+bool HasIntervalTypeArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments);
+
 // Returns true if FN_CONCAT_STRING function can coerce argument of given type
 // to STRING.
 bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);

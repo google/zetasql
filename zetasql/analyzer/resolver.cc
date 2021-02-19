@@ -972,38 +972,45 @@ Resolver::ResolveParameterLiterals(
   std::vector<TypeParameterValue> resolved_literals;
   for (const ASTLeaf* type_parameter : type_parameters.parameters()) {
     std::unique_ptr<const ResolvedExpr> resolved_literal_out;
+    if (type_parameter->node_kind() == AST_MAX_LITERAL) {
+      resolved_literals.push_back(
+          TypeParameterValue(TypeParameterValue::kMaxLiteral));
+      continue;
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveLiteralExpr(type_parameter, &resolved_literal_out));
+    ZETASQL_RET_CHECK_EQ(resolved_literal_out->node_kind(), RESOLVED_LITERAL);
     switch (type_parameter->node_kind()) {
       case AST_INT_LITERAL:
-        ZETASQL_RETURN_IF_ERROR(
-            ResolveLiteralExpr(type_parameter, &resolved_literal_out));
-        ZETASQL_RET_CHECK_EQ(resolved_literal_out->node_kind(), RESOLVED_LITERAL);
         resolved_literals.push_back(TypeParameterValue(
             SimpleValue::Int64(resolved_literal_out->GetAs<ResolvedLiteral>()
                                    ->value()
                                    .int64_value())));
         break;
       case AST_STRING_LITERAL: {
-        ZETASQL_RETURN_IF_ERROR(
-            ResolveLiteralExpr(type_parameter, &resolved_literal_out));
-        ZETASQL_RET_CHECK_EQ(resolved_literal_out->node_kind(), RESOLVED_LITERAL);
         resolved_literals.push_back(TypeParameterValue(
             SimpleValue::String(resolved_literal_out->GetAs<ResolvedLiteral>()
                                     ->value()
                                     .string_value())));
         break;
       }
-      case AST_MAX_LITERAL: {
-        resolved_literals.push_back(
-            TypeParameterValue(TypeParameterValue::kMaxLiteral));
-        break;
-      }
-      // TODO: Implement support for FLOAT/BOOL/BYTES literals.
       case AST_FLOAT_LITERAL:
+        resolved_literals.push_back(TypeParameterValue(
+            SimpleValue::Double(resolved_literal_out->GetAs<ResolvedLiteral>()
+                                  ->value()
+                                  .double_value())));
+        break;
       case AST_BOOLEAN_LITERAL:
+        resolved_literals.push_back(TypeParameterValue(
+            SimpleValue::Bool(resolved_literal_out->GetAs<ResolvedLiteral>()
+                                  ->value()
+                                  .bool_value())));
+        break;
       case AST_BYTES_LITERAL:
-        return ::zetasql_base::UnimplementedErrorBuilder()
-               << "Support for FLOAT/BOOL/BYTES literals as type parameters is "
-                  "not implmemented";
+        resolved_literals.push_back(TypeParameterValue(
+            SimpleValue::Bytes(resolved_literal_out->GetAs<ResolvedLiteral>()
+                                   ->value()
+                                   .bytes_value())));
+        break;
       default:
         // This code should be unreachable since the parser will only accept the
         // above AST nodes.

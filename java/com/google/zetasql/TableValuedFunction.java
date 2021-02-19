@@ -327,8 +327,8 @@ public abstract class TableValuedFunction implements Serializable {
         ImmutableList<String> namePath,
         FunctionSignature signature,
         ImmutableList<TVFRelation.Column> columns,
-        String customContext,
-        Volatility volatility) {
+        @Nullable String customContext,
+        @Nullable Volatility volatility) {
       super(namePath, signature, columns, customContext, volatility);
     }
 

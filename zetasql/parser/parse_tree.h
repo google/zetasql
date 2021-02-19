@@ -997,6 +997,39 @@ class ASTDropFunctionStatement final : public ASTDdlStatement {
   bool is_if_exists_ = false;
 };
 
+// Represents a DROP TABLE FUNCTION statement.
+// Note: Table functions don't support overloading so function parameters are
+//       not accepted in this statement.
+//       (broken link)
+class ASTDropTableFunctionStatement final : public ASTDdlStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_DROP_TABLE_FUNCTION_STATEMENT;
+
+  ASTDropTableFunctionStatement() : ASTDdlStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // This adds the "if exists" modifier to the node name.
+  std::string SingleNodeDebugString() const override;
+
+  const ASTPathExpression* name() const { return name_; }
+  bool is_if_exists() const { return is_if_exists_; }
+  void set_is_if_exists(bool value) { is_if_exists_ = value; }
+
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+
+ private:
+  void InitFields() override {
+    FieldLoader fl(this);
+    fl.AddRequired(&name_);
+  }
+
+  const ASTPathExpression* name_ = nullptr;
+  bool is_if_exists_ = false;
+};
+
 // Represents a DROP ALL ROW ACCESS POLICIES statement.
 class ASTDropAllRowAccessPoliciesStatement final : public ASTStatement {
  public:
@@ -1363,6 +1396,7 @@ class ASTSelect final : public ASTQueryExpression {
   const ASTWhereClause* where_clause() const { return where_clause_; }
   const ASTGroupBy* group_by() const { return group_by_; }
   const ASTHaving* having() const { return having_; }
+  const ASTQualify* qualify() const { return qualify_; }
   const ASTWindowClause* window_clause() const { return window_clause_; }
 
   void set_distinct(bool distinct) { distinct_ = distinct; }
@@ -1378,6 +1412,7 @@ class ASTSelect final : public ASTQueryExpression {
     fl.AddOptional(&where_clause_, AST_WHERE_CLAUSE);
     fl.AddOptional(&group_by_, AST_GROUP_BY);
     fl.AddOptional(&having_, AST_HAVING);
+    fl.AddOptional(&qualify_, AST_QUALIFY);
     fl.AddOptional(&window_clause_, AST_WINDOW_CLAUSE);
   }
 
@@ -1390,6 +1425,7 @@ class ASTSelect final : public ASTQueryExpression {
   const ASTWhereClause* where_clause_ = nullptr;
   const ASTGroupBy* group_by_ = nullptr;
   const ASTHaving* having_ = nullptr;
+  const ASTQualify* qualify_ = nullptr;
   const ASTWindowClause* window_clause_ = nullptr;
 };
 
@@ -2288,6 +2324,26 @@ class ASTHaving final : public ASTNode {
   const ASTExpression* expression_ = nullptr;
 };
 
+class ASTQualify final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_QUALIFY;
+
+  ASTQualify() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTExpression* expression() const { return expression_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&expression_);
+  }
+
+  const ASTExpression* expression_ = nullptr;
+};
+
 class ASTCollate final : public ASTNode {
  public:
   static constexpr ASTNodeKind kConcreteNodeKind = AST_COLLATE;
@@ -2335,12 +2391,19 @@ class ASTOrderingExpression final : public ASTNode {
   static constexpr ASTNodeKind kConcreteNodeKind =
       AST_ORDERING_EXPRESSION;
 
+  enum OrderingSpec { ASC, DESC, UNSPECIFIED };
+
   ASTOrderingExpression() : ASTNode(kConcreteNodeKind) {}
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
-  void set_descending(bool descending) { descending_ = descending; }
+  //  void set_descending(bool descending) { descending_ = descending; }
+  void set_ordering_spec(OrderingSpec ordering_spec) {
+    ordering_spec_ = ordering_spec;
+  }
+  OrderingSpec ordering_spec() const { return ordering_spec_; }
+
   bool descending() const { return descending_; }
   const ASTExpression* expression() const { return expression_; }
   const ASTCollate* collate() const { return collate_; }
@@ -2354,12 +2417,14 @@ class ASTOrderingExpression final : public ASTNode {
     fl.AddRequired(&expression_);
     fl.AddOptional(&collate_, AST_COLLATE);
     fl.AddOptional(&null_order_, AST_NULL_ORDER);
+    if (ordering_spec_ == DESC) descending_ = true;
   }
 
   bool descending_ = false;  // The default if not explicitly in the ORDER BY.
   const ASTExpression* expression_ = nullptr;
   const ASTCollate* collate_ = nullptr;
   const ASTNullOrder* null_order_ = nullptr;
+  OrderingSpec ordering_spec_ = UNSPECIFIED;
 };
 
 class ASTOrderBy final : public ASTNode {
@@ -4713,6 +4778,83 @@ class ASTTVFArgument final : public ASTNode {
   const ASTDescriptor* descriptor_ = nullptr;
 };
 
+class ASTCloneDataSource final : public ASTTableExpression {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_CLONE_DATA_SOURCE;
+
+  ASTCloneDataSource() : ASTTableExpression(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* path_expr() const { return path_expr_; }
+  const ASTForSystemTime* for_system_time() const { return for_system_time_; }
+  const ASTWhereClause* where_clause() const { return where_clause_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&path_expr_);
+    fl.AddOptional(&for_system_time_, AST_FOR_SYSTEM_TIME);
+    fl.AddOptional(&where_clause_, AST_WHERE_CLAUSE);
+  }
+
+  const ASTPathExpression* path_expr_ = nullptr;
+  const ASTForSystemTime* for_system_time_ = nullptr;  // Optional
+  const ASTWhereClause* where_clause_ = nullptr;  // Optional.
+};
+
+class ASTCloneDataSourceList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CLONE_DATA_SOURCE_LIST;
+
+  ASTCloneDataSourceList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const absl::Span<const ASTCloneDataSource* const>& data_sources() const {
+    return data_sources_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&data_sources_);
+  }
+
+  absl::Span<const ASTCloneDataSource* const> data_sources_;
+};
+
+class ASTCloneDataStatement final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_CLONE_DATA_STATEMENT;
+
+  ASTCloneDataStatement() : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* target_path() const {
+    return target_path_;
+  }
+
+  const ASTCloneDataSourceList* data_source_list() const {
+    return source_list_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&target_path_);
+    fl.AddRequired(&source_list_);
+  }
+
+  const ASTPathExpression* target_path_ = nullptr;
+  const ASTCloneDataSourceList* source_list_ = nullptr;
+};
+
 // This represents a CREATE CONSTANT statement, i.e.,
 // CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] CONSTANT
 //   [IF NOT EXISTS] <name_path> = <expression>;
@@ -4994,6 +5136,9 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
 
+  const ASTCloneDataSource* clone_data_source() const {
+    return clone_data_source_;
+  }
   const ASTPartitionBy* partition_by() const { return partition_by_; }
   const ASTClusterBy* cluster_by() const { return cluster_by_; }
   const ASTQuery* query() const { return query_; }
@@ -5004,12 +5149,14 @@ class ASTCreateTableStatement final : public ASTCreateTableStmtBase {
     fl.AddRequired(&name_);
     fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
     fl.AddOptional(&like_table_name_, AST_PATH_EXPRESSION);
+    fl.AddOptional(&clone_data_source_, AST_CLONE_DATA_SOURCE);
     fl.AddOptional(&partition_by_, AST_PARTITION_BY);
     fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
     fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
     fl.AddOptional(&query_, AST_QUERY);
   }
 
+  const ASTCloneDataSource* clone_data_source_ = nullptr;    // May be NULL.
   const ASTPartitionBy* partition_by_ = nullptr;             // May be NULL.
   const ASTClusterBy* cluster_by_ = nullptr;                 // May be NULL.
   const ASTQuery* query_ = nullptr;                          // May be NULL.
@@ -5286,6 +5433,7 @@ class ASTCreateViewStatementBase : public ASTCreateStatement {
   std::string GetSqlForSqlSecurity() const;
 
   const ASTPathExpression* name() const { return name_; }
+  const ASTColumnList* column_list() const { return column_list_; }
   const ASTOptionsList* options_list() const { return options_list_; }
   const ASTQuery* query() const { return query_; }
   bool recursive() const { return recursive_; }
@@ -5302,6 +5450,7 @@ class ASTCreateViewStatementBase : public ASTCreateStatement {
   void CollectModifiers(std::vector<std::string>* modifiers) const override;
 
   const ASTPathExpression* name_ = nullptr;
+  const ASTColumnList* column_list_ = nullptr;
   SqlSecurity sql_security_;
   const ASTOptionsList* options_list_ = nullptr;
   const ASTQuery* query_ = nullptr;
@@ -5321,6 +5470,7 @@ class ASTCreateViewStatement final : public ASTCreateViewStatementBase {
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&name_);
+    fl.AddOptional(&column_list_, AST_COLUMN_LIST);
     fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
     fl.AddRequired(&query_);
   }
@@ -5346,6 +5496,7 @@ class ASTCreateMaterializedViewStatement final : public ASTCreateViewStatementBa
   void InitFields() final {
     FieldLoader fl(this);
     fl.AddRequired(&name_);
+    fl.AddOptional(&column_list_, AST_COLUMN_LIST);
     fl.AddOptional(&partition_by_, AST_PARTITION_BY);
     fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
     fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
@@ -5754,6 +5905,80 @@ class ASTDefaultLiteral final : public ASTExpression {
   void InitFields() final {
     FieldLoader(this);  // Triggers check that there were no children.
   }
+};
+
+class ASTTableAndColumnInfo final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_TABLE_AND_COLUMN_INFO;
+
+  ASTTableAndColumnInfo() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTPathExpression* table_name() const { return table_name_; }
+  const ASTColumnList* column_list() const { return column_list_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&table_name_);
+    fl.AddOptional(&column_list_, AST_COLUMN_LIST);
+  }
+
+  const ASTPathExpression* table_name_ = nullptr;  // Required
+  const ASTColumnList* column_list_ = nullptr;     // Optional
+};
+
+class ASTTableAndColumnInfoList final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind =
+      AST_TABLE_AND_COLUMN_INFO_LIST;
+
+  ASTTableAndColumnInfoList() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const absl::Span<const ASTTableAndColumnInfo* const>&
+  table_and_column_info_entries() const {
+    return table_and_column_info_entries_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRestAsRepeated(&table_and_column_info_entries_);
+  }
+
+  absl::Span<const ASTTableAndColumnInfo* const> table_and_column_info_entries_;
+};
+
+class ASTAnalyzeStatement final : public ASTStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_ANALYZE_STATEMENT;
+
+  ASTAnalyzeStatement() : ASTStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  const ASTOptionsList* options_list() const { return options_list_; }
+  const ASTTableAndColumnInfoList* table_and_column_info_list() const {
+    return table_and_column_info_list_;
+  }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
+    fl.AddOptional(&table_and_column_info_list_,
+                   AST_TABLE_AND_COLUMN_INFO_LIST);
+  }
+
+  const ASTOptionsList* options_list_ = nullptr;  // Optional
+  const ASTTableAndColumnInfoList* table_and_column_info_list_ =
+      nullptr;  // Optional
 };
 
 class ASTAssertStatement final : public ASTStatement {
@@ -8255,6 +8480,57 @@ class ASTWhileStatement final : public ASTLoopStatement {
   }
 
   const ASTExpression* condition_ = nullptr;
+};
+
+// Represents UNTIL in a REPEAT statement.
+class ASTUntilClause final : public ASTNode {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_UNTIL_CLAUSE;
+
+  ASTUntilClause() : ASTNode(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // Returns the ASTRepeatStatement that this ASTUntilClause belongs to.
+  const ASTRepeatStatement* repeat_stmt() const {
+    return parent()->GetAsOrDie<ASTRepeatStatement>();
+  }
+
+  // Required field
+  const ASTExpression* condition() const { return condition_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    fl.AddRequired(&condition_);
+  }
+
+  const ASTExpression* condition_ = nullptr;
+};
+
+// Represents the statement REPEAT...UNTIL...END REPEAT.
+// This is conceptually also called do-while.
+class ASTRepeatStatement final : public ASTLoopStatement {
+ public:
+  static constexpr ASTNodeKind kConcreteNodeKind = AST_REPEAT_STATEMENT;
+
+  ASTRepeatStatement() : ASTLoopStatement(kConcreteNodeKind) {}
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+
+  // Required field.
+  const ASTUntilClause* until_clause() const { return until_clause_; }
+
+ private:
+  void InitFields() final {
+    FieldLoader fl(this);
+    InitBodyField(&fl);
+    fl.AddRequired(&until_clause_);
+  }
+
+  const ASTUntilClause* until_clause_ = nullptr;
 };
 
 // Base class shared by break and continue statements.

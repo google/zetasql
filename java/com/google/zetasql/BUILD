@@ -38,6 +38,7 @@ TYPES_SRCS = [
     "StructType.java",
     "Type.java",
     "TypeFactory.java",
+    "TypeParameters.java",
     "TVFRelation.java",
     "Value.java",
 ]
@@ -49,6 +50,7 @@ java_library(
     deps = [
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:options_java_proto",
+        "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",

@@ -186,6 +186,7 @@ cc_library(
     ],
     deps = [
         ":container_hash_equals",
+        ":filter_fields_path_validator",
         ":function_signature_matcher",
         ":lambda_util",
         ":name_scope",
@@ -207,6 +208,7 @@ cc_library(
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output_properties",
         "//zetasql/public:anon_function",
+        "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
         "//zetasql/public:civil_time",
         "//zetasql/public:coercer",
@@ -269,6 +271,8 @@ cc_library(
 # in such binaries.
 cc_library(
     name = "all_rewriters",
+    srcs = ["all_rewriters.cc"],
+    hdrs = ["all_rewriters.h"],
     copts = [
         "-Wno-char-subscripts",
         "-Wno-return-type",
@@ -279,8 +283,12 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        ":anonymization_rewriter",  # buildcleaner:keep
+        ":anonymization_rewriter",
+        "//zetasql/analyzer/rewriters:array_functions_rewriter",
         "//zetasql/analyzer/rewriters:flatten_rewriter",
+        "//zetasql/analyzer/rewriters:map_function_rewriter",
+        "//zetasql/analyzer/rewriters:rewriter_interface",
+        "//zetasql/analyzer/rewriters:unpivot_rewriter",
     ],
 )
 
@@ -299,12 +307,17 @@ cc_library(
     ],
     deps = [
         ":resolver",
+        "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/parser",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:catalog",
+        "//zetasql/public:options_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:rewrite_utils",
         "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
@@ -327,7 +340,7 @@ cc_library(
     ],
     deps = [
         ":resolver",
-        "//zetasql/analyzer/rewriters:registration",
+        "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/base",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
@@ -349,33 +362,6 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:str_format",
-    ],
-)
-
-cc_library(
-    name = "rewriter",
-    srcs = ["rewriter.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
-    deps = [
-        ":anonymization_rewriter",
-        "//zetasql/analyzer/rewriters:registration",
-        "//zetasql/common:errors",
-        "//zetasql/parser",
-        "//zetasql/public:analyzer_output",
-        "//zetasql/public:options_cc_proto",
-        "//zetasql/public/types",
-        "//zetasql/resolved_ast",
-        "//zetasql/resolved_ast:rewrite_utils",
-        "//zetasql/resolved_ast:validator",
-        "@com_google_absl//absl/status",
     ],
 )
 
@@ -510,5 +496,68 @@ cc_test(
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "substitute",
+    srcs = ["substitute.cc"],
+    hdrs = ["substitute.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer_impl",
+        "//zetasql/analyzer/rewriters:rewriter_interface",
+        "//zetasql/base:map_util",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:catalog",
+        "//zetasql/public:function",
+        "//zetasql/public:multi_catalog",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_test(
+    name = "substitute_test",
+    srcs = ["substitute_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":all_rewriters",
+        ":substitute",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:evaluator",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/testing:test_catalog",
     ],
 )

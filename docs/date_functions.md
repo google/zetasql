@@ -857,5 +857,5 @@ space.</td>
 [date-format]: #format_date
 [date-format-elements]: #supported_format_elements_for_date
 
-[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions#timezone_definitions
+[date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 

@@ -39,8 +39,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -79,8 +79,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -119,8 +119,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -160,8 +160,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -199,8 +199,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -249,8 +249,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -288,8 +288,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 

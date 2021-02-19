@@ -121,6 +121,12 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // constructor arg.
   copy.get()->set_type_annotation_map(node->type_annotation_map());
 
+   # elif field.name == "preserve_in_literal_remover"
+  // Copy the preserve_in_literal_remover field explicitly because it is not a
+  // constructor arg.
+  copy.get()->set_preserve_in_literal_remover(
+      node->preserve_in_literal_remover());
+
    # elif not field.is_constructor_arg and not field.is_node_ptr
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);

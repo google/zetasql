@@ -59,8 +59,16 @@ namespace {
 // document tree from a given JSON string.
 class JSONValueBuilder {
  public:
-  // Constructs a builder that adds content to the given 'value'.
-  explicit JSONValueBuilder(JSON& value) : value_(value) {}
+  // Constructs a builder that adds content to the given 'value'. If
+  // 'max_nesting' has a value, then the parser will return an error when the
+  // JSON document exceeds the max level of nesting. If 'max_nesting' is
+  // negative, 0 will be set instead.
+  explicit JSONValueBuilder(JSON& value, absl::optional<int> max_nesting)
+      : value_(value), max_nesting_(max_nesting) {
+    if (max_nesting_.has_value() && *max_nesting_ < 0) {
+      max_nesting_ = 0;
+    }
+  }
 
   // Resets the builder with a new 'value' to construct.
   void Reset(JSON& value) {
@@ -70,6 +78,11 @@ class JSONValueBuilder {
   }
 
   absl::Status BeginObject() {
+    if (max_nesting_.has_value() && ref_stack_.size() >= *max_nesting_) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Max nesting of ", *max_nesting_,
+                       " has been exceeded while parsing JSON document"));
+    }
     auto result = HandleValue(JSON::value_t::object);
     ZETASQL_ASSIGN_OR_RETURN(ref_stack_.emplace_back(), result);
     return absl::OkStatus();
@@ -86,17 +99,28 @@ class JSONValueBuilder {
     if (ref_stack_.back() == GetSkippingNodeMarker()) {
        return absl::OkStatus();
     }
+
+    // Insert JSON null at the `key` spot, if an element with such `key` doesn't
+    // exist already.
+    auto [it, inserted] =
+        ref_stack_.back()->emplace(key, nlohmann::detail::value_t::null);
+
     // If object already contains key, enter skipping mode
-    if (ref_stack_.back()->contains(key)) {
+    if (!inserted) {
       object_member_ = GetSkippingNodeMarker();
       return absl::OkStatus();
     }
-    // Add null at given key and store the reference for later
-    object_member_ = &(ref_stack_.back()->operator[](key));
+    // Store the freshly added null reference for later
+    object_member_ = &(*it);
     return absl::OkStatus();
   }
 
   absl::Status BeginArray() {
+    if (max_nesting_.has_value() && ref_stack_.size() >= *max_nesting_) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Max nesting of ", *max_nesting_,
+                       " has been exceeded while parsing JSON document"));
+    }
     auto result = HandleValue(JSON::value_t::array);
     ZETASQL_ASSIGN_OR_RETURN(ref_stack_.emplace_back(), result);
     return absl::OkStatus();
@@ -184,6 +208,8 @@ class JSONValueBuilder {
 
   // The parsed JSON value.
   JSON& value_;
+  // Max nesting allowed.
+  absl::optional<int> max_nesting_;
   // Stack to model hierarchy of values.
   std::vector<JSON*> ref_stack_;
   // Helper to hold the reference for the next object element.
@@ -220,8 +246,9 @@ class JSONValueParserBase {
 class JSONValueLegacyParser : public ::zetasql::JSONParser,
                               public JSONValueParserBase {
  public:
-  JSONValueLegacyParser(absl::string_view str, JSON& value)
-      : zetasql::JSONParser(str), value_builder_(value) {}
+  JSONValueLegacyParser(absl::string_view str, JSON& value,
+                        absl::optional<int> max_nesting)
+      : zetasql::JSONParser(str), value_builder_(value, max_nesting) {}
 
  protected:
   bool BeginObject() override {
@@ -353,8 +380,10 @@ absl::Status CheckNumberRoundtrip(absl::string_view lhs, double val) {
 // NOTE: Method names are specific requirement of nlohmann SAX parser interface.
 class JSONValueStandardParser : public JSONValueParserBase {
  public:
-  JSONValueStandardParser(JSON& value, bool strict_number_parsing)
-      : value_builder_(value), strict_number_parsing_(strict_number_parsing) {}
+  JSONValueStandardParser(JSON& value, bool strict_number_parsing,
+                          absl::optional<int> max_nesting)
+      : value_builder_(value, max_nesting),
+        strict_number_parsing_(strict_number_parsing) {}
   JSONValueStandardParser() = delete;
 
   bool null() { return MaybeUpdateStatus(value_builder_.ParsedNull()); }
@@ -439,7 +468,8 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(
   if (parsing_options.legacy_mode) {
     ZETASQL_RET_CHECK(!parsing_options.strict_number_parsing)
         << "Strict number parsing not supported in legacy mode.";
-    JSONValueLegacyParser parser(str, json.impl_->value);
+    JSONValueLegacyParser parser(str, json.impl_->value,
+                                 parsing_options.max_nesting);
     if (!parser.Parse()) {
       if (parser.status().ok()) {
         return absl::InternalError(
@@ -450,7 +480,8 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(
     }
   } else {
     JSONValueStandardParser parser(json.impl_->value,
-                                   parsing_options.strict_number_parsing);
+                                   parsing_options.strict_number_parsing,
+                                   parsing_options.max_nesting);
     JSON::sax_parse(str, &parser);
     ZETASQL_RETURN_IF_ERROR(parser.status());
   }
@@ -462,7 +493,8 @@ StatusOr<JSONValue> JSONValue::DeserializeFromProtoBytes(
     absl::string_view str) {
   JSONValue json;
   JSONValueStandardParser parser(json.impl_->value,
-                                 /*strict_number_parsing=*/false);
+                                 /*strict_number_parsing=*/false,
+                                 /*max_nesting=*/absl::nullopt);
   JSON::sax_parse(str, &parser, JSON::input_format_t::ubjson);
   ZETASQL_RETURN_IF_ERROR(parser.status());
   return json;
@@ -693,5 +725,9 @@ void JSONValueRef::SetDouble(double value) { impl_->value = value; }
 void JSONValueRef::SetString(absl::string_view value) { impl_->value = value; }
 
 void JSONValueRef::SetBoolean(bool value) { impl_->value = value; }
+
+void JSONValueRef::SetToEmptyObject() { impl_->value = JSON::object(); }
+
+void JSONValueRef::SetToEmptyArray() { impl_->value = JSON::array(); }
 
 }  // namespace zetasql

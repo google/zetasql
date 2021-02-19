@@ -42,6 +42,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/function.h"
+#include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/proto_util.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -4034,7 +4035,6 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
 
   const Table* table = resolved_table_scan->table();
   const ResolvedColumnList& column_list = resolved_table_scan->column_list();
-  ZETASQL_RET_CHECK_EQ(column_list.size(), table->NumColumns());
   ZETASQL_ASSIGN_OR_RETURN(
       const ArrayType* table_array_type,
       CreateTableArrayType(column_list, table->IsValueTable(), type_factory_));
@@ -4044,8 +4044,21 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
         key_type, CreatePrimaryKeyType(column_list, table->PrimaryKey().value(),
                                        type_factory_));
   }
+  ResolvedColumnList returning_column_list;
+  auto returning_column_values =
+      absl::make_unique<std::vector<std::unique_ptr<ValueExpr>>>();
+
+  ZETASQL_RETURN_IF_ERROR(AlgebrizeDMLReturningClause(ast_root, &returning_column_list,
+                                              returning_column_values.get()));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const ArrayType* returning_array_type,
+      returning_column_list.empty()
+          ? nullptr
+          : CreateTableArrayType(returning_column_list,
+                                 /*is_value_table=*/false, type_factory_));
   ZETASQL_ASSIGN_OR_RETURN(const StructType* dml_output_type,
-                   CreateDMLOutputType(table_array_type, type_factory_));
+                   CreateDMLOutputTypeWithReturning(
+                       table_array_type, returning_array_type, type_factory_));
 
   // It is safe to move 'column_to_variable_' into the DML ValueExpr because
   // this algebrizer can only be used once. Also, 'column_to_variable_' is
@@ -4060,8 +4073,9 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ZETASQL_ASSIGN_OR_RETURN(
           value_expr,
           DMLDeleteValueExpr::Create(
-              table, table_array_type, key_type, dml_output_type,
-              ast_root->GetAs<ResolvedDeleteStmt>(), &column_list,
+              table, table_array_type, returning_array_type, key_type,
+              dml_output_type, ast_root->GetAs<ResolvedDeleteStmt>(),
+              &column_list, std::move(returning_column_values),
               std::move(column_to_variable_), std::move(resolved_scan_map),
               std::move(resolved_expr_map)));
       break;
@@ -4070,8 +4084,9 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ZETASQL_ASSIGN_OR_RETURN(
           value_expr,
           DMLUpdateValueExpr::Create(
-              table, table_array_type, key_type, dml_output_type,
-              ast_root->GetAs<ResolvedUpdateStmt>(), &column_list,
+              table, table_array_type, returning_array_type, key_type,
+              dml_output_type, ast_root->GetAs<ResolvedUpdateStmt>(),
+              &column_list, std::move(returning_column_values),
               std::move(column_to_variable_), std::move(resolved_scan_map),
               std::move(resolved_expr_map)));
       break;
@@ -4080,8 +4095,9 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLState
       ZETASQL_ASSIGN_OR_RETURN(
           value_expr,
           DMLInsertValueExpr::Create(
-              table, table_array_type, key_type, dml_output_type,
-              ast_root->GetAs<ResolvedInsertStmt>(), &column_list,
+              table, table_array_type, returning_array_type, key_type,
+              dml_output_type, ast_root->GetAs<ResolvedInsertStmt>(),
+              &column_list, std::move(returning_column_values),
               std::move(column_to_variable_), std::move(resolved_scan_map),
               std::move(resolved_expr_map)));
 
@@ -4232,6 +4248,77 @@ absl::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
                resolved_table_scan_or_null == nullptr);
   if (resolved_table_scan != nullptr) {
     *resolved_table_scan = resolved_table_scan_or_null;
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status Algebrizer::AlgebrizeDMLReturningClause(
+    const ResolvedStatement* ast_root,
+    ResolvedColumnList* returning_column_list,
+    std::vector<std::unique_ptr<ValueExpr>>* returning_column_values) {
+  const ResolvedReturningClause* returning_clause;
+  switch (ast_root->node_kind()) {
+    case RESOLVED_DELETE_STMT: {
+      returning_clause = ast_root->GetAs<ResolvedDeleteStmt>()->returning();
+      break;
+    }
+    case RESOLVED_UPDATE_STMT: {
+      returning_clause = ast_root->GetAs<ResolvedUpdateStmt>()->returning();
+      break;
+    }
+    case RESOLVED_INSERT_STMT: {
+      returning_clause = ast_root->GetAs<ResolvedInsertStmt>()->returning();
+      break;
+    }
+    case RESOLVED_MERGE_STMT: {
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported node type algebrizing a DML returning statement: "
+             << ast_root->node_kind_string();
+    }
+    default:
+      ZETASQL_RET_CHECK_FAIL()
+          << "AlgebrizeDMLReturningClause() does not support node kind "
+          << ResolvedNodeKind_Name(ast_root->node_kind());
+  }
+  if (returning_clause == nullptr) {
+    return absl::OkStatus();
+  }
+  size_t num_columns = returning_clause->output_column_list().size();
+  for (int i = 0; i < num_columns; ++i) {
+    ZETASQL_RET_CHECK(i < returning_clause->output_column_list().size());
+    const std::unique_ptr<const ResolvedOutputColumn>& output_column =
+        returning_clause->output_column_list()[i];
+
+    const ResolvedColumn& column = output_column->column();
+    returning_column_list->emplace_back(column.column_id(),
+                                        column.table_name_id(),
+                                        column.name_id(), column.type());
+
+    const ResolvedExpr* local_definition;
+    if (FindColumnDefinition(returning_clause->expr_list(), column.column_id(),
+                             &local_definition)) {
+      // An expression based on the input, append the algebrized expression.
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
+                       AlgebrizeExpression(local_definition));
+      returning_column_values->push_back(std::move(value_expr));
+    } else if (i != num_columns - 1 ||
+               returning_clause->action_column() == nullptr) {
+      // A column from the target table, append it as an DerefExpr.
+      // WITH ACTION column will be ignored in 'returning_column_values'.
+
+      VariableId column_name =
+          column_to_variable_->GetVariableNameFromColumn(&column);
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<DerefExpr> deref_expr,
+                       DerefExpr::Create(column_name, column.type()));
+      returning_column_values->push_back(std::move(deref_expr));
+    }
+  }
+
+  if (returning_clause->action_column() != nullptr) {
+    // Dummy access of the action column for CheckFieldsAccessed()
+    // where it requires to access every field in the resolved statement.
+    returning_clause->action_column()->column();
   }
 
   return absl::OkStatus();

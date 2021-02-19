@@ -22,7 +22,7 @@
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
-#include "zetasql/analyzer/rewriters/registration.h"
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/anon_function.h"
@@ -1284,7 +1284,8 @@ class AnonymizationRewriter : public Rewriter {
   }
 
   zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options, const ResolvedNode& input,
+      const AnalyzerOptions& options,
+      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
@@ -1298,6 +1299,8 @@ class AnonymizationRewriter : public Rewriter {
     output_properties.has_anonymization = false;
     return node;
   }
+
+  std::string Name() const override { return "AnonymizationRewriter"; }
 };
 
 zetasql_base::StatusOr<RewriteForAnonymizationOutput>
@@ -1313,5 +1316,9 @@ RewriteForAnonymization(const ResolvedNode& query, Catalog* catalog,
   return result;
 }
 
-REGISTER_ZETASQL_REWRITER(AnonymizationRewriter);
+const Rewriter* GetAnonymizationRewriter() {
+  static const Rewriter* kRewriter = new AnonymizationRewriter;
+  return kRewriter;
+}
+
 }  // namespace zetasql

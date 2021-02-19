@@ -578,4 +578,43 @@ absl::flat_hash_set<ResolvedASTRewrite> AnalyzerOptions::DefaultRewrites() {
   return default_rewrites;
 }
 
+const AnalyzerOptions& GetOptionsWithArenas(
+    const AnalyzerOptions* options, std::unique_ptr<AnalyzerOptions>* copy) {
+  if (options->AllArenasAreInitialized()) {
+    return *options;
+  }
+  *copy = absl::make_unique<AnalyzerOptions>(*options);
+  (*copy)->CreateDefaultArenasIfNotSet();
+  return **copy;
+}
+
+absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options) {
+  switch (options.parameter_mode()) {
+    case PARAMETER_NAMED:
+      ZETASQL_RET_CHECK(options.positional_query_parameters().empty())
+          << "Positional parameters cannot be provided in named parameter "
+             "mode";
+      break;
+    case PARAMETER_POSITIONAL:
+      ZETASQL_RET_CHECK(options.query_parameters().empty())
+          << "Named parameters cannot be provided in positional parameter "
+             "mode";
+      // AddPositionalQueryParameter guards against the case where
+      // allow_undeclared_parameters is true and a positional parameter is
+      // added, but not the reverse order.
+      ZETASQL_RET_CHECK(!options.allow_undeclared_parameters() ||
+                options.positional_query_parameters().empty())
+          << "When undeclared parameters are allowed, no positional query "
+             "parameters can be provided";
+      break;
+    case PARAMETER_NONE:
+      ZETASQL_RET_CHECK(options.query_parameters().empty() &&
+                options.positional_query_parameters().empty())
+          << "Parameters are disabled and cannot be provided";
+      break;
+  }
+
+  return absl::OkStatus();
+}
+
 }  // namespace zetasql

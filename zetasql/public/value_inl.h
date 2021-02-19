@@ -604,6 +604,10 @@ template <>
 inline BigNumericValue Value::Get<BigNumericValue>() const {
   return bignumeric_value();
 }
+template <>
+inline IntervalValue Value::Get<IntervalValue>() const {
+  return interval_value();
+}
 
 namespace values {
 

@@ -843,7 +843,7 @@ Equivalent to the unary minus operator (<code>-</code>), but returns
 
 **Return Data Type**
 
-<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
+<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
 
 ### SAFE_ADD
 
@@ -1788,5 +1788,5 @@ the two arguments to determine the quadrant. The return value is in the range
   </tbody>
 </table>
 
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 

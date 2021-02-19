@@ -627,6 +627,14 @@ class Resolver {
       std::unique_ptr<ResolvedStatement>* output_stmt,
       std::shared_ptr<const NameList>* output_name_list);
 
+  // Resolve the LIKE table name from a generic CREATE statement.
+  absl::Status ResolveCreateStatementLikeTableName(
+      const ASTPathExpression* like_table_name,
+      const IdString& table_name_id_string,
+      std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
+          column_definition_list,
+      const Table** like_table);
+
   // Resolve the CreateMode from a generic CREATE statement.
   absl::Status ResolveCreateStatementOptions(
       const ASTCreateStatement* ast_statement,
@@ -721,12 +729,14 @@ class Resolver {
 
   // Resolves AS SELECT clause for CREATE TABLE/VIEW/MATERIALIZED_VIEW/MODEL
   // statements.
-  // The CREATE statement must not have a column definition list (otherwise, use
-  // ResolveAndAdaptQueryAndOutputColumns instead).
+  // The CREATE TABLE/MODEL statement must not have a column definition list
+  // (otherwise, use ResolveAndAdaptQueryAndOutputColumns instead).
   // - <query>, <query_scan>, <is_value_table> and <output_column_list> cannot
   //   be null.
   // - <internal_table_name> should be a static IdString such as
   //   kCreateAsId and kViewId; it's used as an alias of the SELECT query.
+  // - <explicit_column_list> the list of columns in the formal DDL declaration,
+  //   currently for CREATE VIEW v(c1, c2) and CREATE MATERIALIZED VIEW v(...).
   // - <is_recursive_view> is true only for views which are actually recursive.
   //   This affects the resolved tree respresentation.
   // - If <column_definition_list> is not null, then <column_definition_list>
@@ -739,7 +749,7 @@ class Resolver {
       const ASTQuery* query, absl::string_view object_type,
       bool is_recursive_view,
       const std::vector<IdString>& table_name_id_string,
-      IdString internal_table_name,
+      IdString internal_table_name, const ASTColumnList* explicit_column_list,
       std::unique_ptr<const ResolvedScan>* query_scan, bool* is_value_table,
       std::vector<std::unique_ptr<const ResolvedOutputColumn>>*
           output_column_list,
@@ -751,7 +761,8 @@ class Resolver {
   // ensure that the output types are the same as in <column_definition_list>.
   // No pointer in the arguments can be null.
   absl::Status ResolveAndAdaptQueryAndOutputColumns(
-      const ASTQuery* query, const ASTTableElementList* table_element_list,
+      const ASTQuery* query, const ASTPathExpression* like_table_name,
+      const ASTTableElementList* table_element_list,
       absl::Span<const ASTColumnDefinition* const> ast_column_definitions,
       std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
           column_definition_list,
@@ -865,6 +876,17 @@ class Resolver {
       const ASTExpression* ast_expression,
       std::set<IdString, IdStringCaseLess>* resolved_columns,
       const ResolvedExpr* resolved_expr);
+
+  // Validates index key expressions for the search index.
+  //
+  // The key expression should not have ASC or DESC option; the key expression
+  // should not have the null order option.
+  // The key expression should only refer to column name until b/180069278 been
+  // fixed.
+  // TODO: Support alias on the index key expression.
+  absl::Status ValidateIndexKeyExpressionForCreateSearchIndex(
+      const ASTOrderingExpression& ordering_expression,
+      const ResolvedExpr& resolved_expr);
 
   // A helper that resolves 'unnest_expression_list' for CREATE INDEX statement.
   //
@@ -1071,6 +1093,10 @@ class Resolver {
       const ASTDropFunctionStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  absl::Status ResolveDropTableFunctionStatement(
+      const ASTDropTableFunctionStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveDropRowAccessPolicyStatement(
       const ASTDropRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
@@ -1188,9 +1214,9 @@ class Resolver {
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   absl::Status ResolveAlterColumnOptionsAction(
-    IdString table_name_id_string, const Table* table,
-    const ASTAlterColumnOptionsAction* action, bool is_if_exists,
-    std::unique_ptr<const ResolvedAlterAction>* alter_action);
+      IdString table_name_id_string, const Table* table,
+      const ASTAlterColumnOptionsAction* action,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   absl::Status ResolveAlterDatabaseStatement(
       const ASTAlterDatabaseStatement* ast_statement,
@@ -1310,6 +1336,11 @@ class Resolver {
                              IdString query_alias,
                              std::unique_ptr<const ResolvedScan>* output,
                              std::shared_ptr<const NameList>* output_name_list);
+
+  // Resolves CloneDataSource to a ResolvedScan.
+  absl::Status ResolveCloneDataSource(
+      const ASTCloneDataSource* data_source,
+      std::unique_ptr<const ResolvedScan>* output);
 
   // Resolve select list in TRANSFORM clause for model creation.
   absl::Status ResolveModelTransformSelectList(
@@ -1712,7 +1743,7 @@ class Resolver {
   // struct. In this case, when parsing the output vectors, the first part of
   // <generalized_path> corresponds to <struct_path> and the last part to
   // <field_descriptors>.
-  absl::Status FindFieldsForReplaceFieldItem(
+  absl::Status FindFieldsFromPathExpression(
       const ASTGeneralizedPathExpression* generalized_path,
       const Type* root_type,
       std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
@@ -1955,6 +1986,8 @@ class Resolver {
       QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr,
       ResolvedColumn* group_by_column);
+
+  absl::Status ResolveQualifyClause(const ASTQualify* qualify);
 
   absl::Status ResolveHavingExpr(
       const ASTHaving* having, const NameScope* having_and_order_by_scope,
@@ -2504,6 +2537,10 @@ class Resolver {
       int table_argument_offset,
       std::unique_ptr<const ResolvedDescriptor>* resolved_descriptor);
 
+  absl::Status ResolveForSystemTimeExpr(
+      const ASTForSystemTime* for_system_time,
+      std::unique_ptr<const ResolvedExpr>* resolved);
+
   // Resolves <path_expr> identified as <alias> as a scan from a table in
   // catalog_ (not from the <scope>). Flag <has_explicit_alias> identifies if
   // the alias was explicitly defined in the query or was computed from the
@@ -2584,9 +2621,9 @@ class Resolver {
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveFieldAccess(
-      bool can_flatten,
       std::unique_ptr<const ResolvedExpr> resolved_lhs,
       const ASTIdentifier* identifier,
+      FlattenState* flatten_state,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   // Resolves a PROTO_DEFAULT_IF_NULL function call to a ResolvedGetProtoField
@@ -2611,19 +2648,21 @@ class Resolver {
     // annotation is applied. If the extension to extract is not a primitive
     // type, the default value of the ResolvedGetProtoField will be NULL.
     bool ignore_format_annotations = false;
-
-    // If true, it's ok to resolve field access over arrays and flatten should
-    // be generated if this is required.
-    bool can_flatten = false;
   };
   absl::Status ResolveExtensionFieldAccess(
       std::unique_ptr<const ResolvedExpr> resolved_lhs,
       const ResolveExtensionFieldOptions& options,
       const ASTPathExpression* ast_path_expr,
+      FlattenState* flatten_state,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveDotGeneralizedField(
       const ASTDotGeneralizedField* dot_generalized_field,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::Status ResolveFilterFieldsExpression(
+      const ASTFilterFieldsExpression* ast_filter_fields,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -3477,6 +3516,8 @@ class Resolver {
   // Struct to store the properties of ASTCreateTableStmtBase.
   struct ResolveCreateTableStatementBaseProperties {
     std::vector<std::string> table_name;
+    const Table* like_table = nullptr;
+    std::unique_ptr<const ResolvedScan> clone_from;
     ResolvedCreateStatement::CreateScope create_scope;
     ResolvedCreateStatement::CreateMode create_mode;
     std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
@@ -3501,7 +3542,8 @@ class Resolver {
   // basis of flag values in resolved_properties_control_args.
   absl::Status ResolveCreateTableStmtBaseProperties(
       const ASTCreateTableStmtBase* ast_statement,
-      const std::string& statement_type, const ASTQuery* query,
+      const std::string& statement_type,
+      const ASTPathExpression* like_table_name, const ASTQuery* query,
       const ASTPartitionBy* partition_by, const ASTClusterBy* cluster_by,
       const ASTWithPartitionColumnsClause* with_partition_columns_clause,
       const ResolveCreateTableStmtBasePropertiesArgs&
@@ -3516,6 +3558,37 @@ class Resolver {
       std::unique_ptr<const ResolvedWithPartitionColumns>*
           resolved_with_partition_columns);
 
+  // Computes the pivot-value portion of the name of a pivot column without an
+  // explicit alias. <pivot_value> represents the literal IN-clause value used
+  // to generate the name. If successful, the generated column name is appended
+  // to <*column_name>.
+  //
+  // Pivot column names are not guaranteed uniqueness; if the same pivot value
+  // is used multiple times, the same column name will result.
+  //
+  // Returns a failed status if we do not support a default name for
+  // <pivot_value>. <ast_location> determines the parse location to use for
+  // error messages. It is not used unless there's an error.
+  absl::Status AppendPivotColumnName(const Value& pivot_value,
+                                     const ASTNode* ast_location,
+                                     std::string* column_name);
+
+  // Implements AppendPivotColumnName() for the specific case where
+  // <pivot_value> is a non-null value of one of the following types:
+  //   BOOL/INT32/INT64/UINT32/UINT64/NUMERIC/BIGNUMERIC.
+  //
+  // Generates the column name by casting the value to STRING (which, for the
+  //   above types is guaranteed to succeed), then performing
+  //   the following transformations to ensure that the result is a valid
+  //   ZetaSQL identifier.
+  //  - If the first character is a digit *and* <column_name> is currently
+  //    empty (e.g. if no pivot expression alias exists), prepends the generated
+  //    name with "_".
+  //  - Replaces "-" with "minus_".
+  //  - Replaces "." with "_point_".
+  absl::Status AppendPivotColumnNameViaStringCast(const Value& pivot_value,
+                                                  std::string* column_name);
+
   zetasql_base::StatusOr<ResolvedColumn> CreatePivotColumn(
       const ASTPivotExpression* ast_pivot_expr,
       const ResolvedExpr* resolved_pivot_expr, bool is_only_pivot_expr,
@@ -3524,7 +3597,8 @@ class Resolver {
 
   absl::Status ResolvePivotExpressions(
       const ASTPivotExpressionList* ast_pivot_expr_list, const NameScope* scope,
-      std::vector<std::unique_ptr<const ResolvedExpr>>* pivot_expr_columns);
+      std::vector<std::unique_ptr<const ResolvedExpr>>* pivot_expr_columns,
+      QueryResolutionInfo& query_resolution_info);
 
   absl::Status ResolveForExprInPivotClause(
       const ASTExpression* for_expr, const NameScope* scope,
@@ -3550,6 +3624,29 @@ class Resolver {
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
+  absl::Status ResolveUnpivotOutputValueColumns(
+      const ASTPathExpressionList* ast_unpivot_expr_list,
+      std::vector<ResolvedColumn>* unpivot_value_columns,
+      const std::vector<const Type*>& value_column_types,
+      const NameScope* scope);
+
+  absl::Status ResolveUnpivotInClause(
+      const ASTUnpivotInItemList* ast_unpivot_expr_list,
+      std::vector<std::unique_ptr<const ResolvedUnpivotArg>>* resolved_in_items,
+      const std::vector<ResolvedColumn>* input_scan_columns,
+      absl::flat_hash_set<ResolvedColumn>* in_clause_input_columns,
+      std::vector<const Type*>* val_column_type,
+      const ASTUnpivotClause* ast_unpivot_clause, const NameScope* scope);
+
+  // Constructs a list of labels for <label_list> of ResolvedUnpivotScan node.
+  // If no explicit aliases are specified, they are constructed by concatenating
+  // columns names from column groups in the IN clause of UNPIVOT.
+  absl::Status ResolveUnpivotLabelList(
+      const ASTUnpivotInItemList* ast_unpivot_expr_list,
+      std::vector<std::unique_ptr<const ResolvedLiteral>>*
+          resolved_literal_list,
+      const NameScope* scope);
+
   // Resolves an UNPIVOT clause.
   //  - <input_scan> represents the input to unpivot. On success, ownership is
   //      transferred to 'output'.
@@ -3563,7 +3660,8 @@ class Resolver {
   //      be used by external clauses to refer to columns in the UNPIVOT output.
   absl::Status ResolveUnpivotClause(
       std::unique_ptr<const ResolvedScan> input_scan,
-      const NameList* input_name_list,
+      std::shared_ptr<const NameList> input_name_list,
+      const NameScope* previous_scope,
       const ASTUnpivotClause* ast_unpivot_clause,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);

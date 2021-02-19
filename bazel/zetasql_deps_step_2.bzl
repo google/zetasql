@@ -863,7 +863,10 @@ alias(
         build_file_content = all_content,
         strip_prefix = "bison-3.6.2",
         sha256 = "e28ed3aad934de2d1df68be209ac0b454f7b6d3c3d6d01126e5cd2cbadba089a",
-        urls = ["https://ftp.gnu.org/gnu/bison/bison-3.6.2.tar.gz"],
+        urls = [
+            "https://ftp.gnu.org/gnu/bison/bison-3.6.2.tar.gz",
+            "https://mirrors.kernel.org/gnu/bison/bison-3.6.2.tar.gz",
+        ],
     )
 
     http_archive(
@@ -881,7 +884,10 @@ alias(
             build_file_content = all_content,
             strip_prefix = "m4-1.4.18",
             sha256 = "ab2633921a5cd38e48797bf5521ad259bdc4b979078034a3b790d7fec5493fab",
-            urls = ["https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz"],
+            urls = [
+                "https://ftp.gnu.org/gnu/m4/m4-1.4.18.tar.gz",
+                "https://mirrors.kernel.org/gnu/m4/m4-1.4.18.tar.gz",
+            ],
             patches = ["@com_google_zetasql//bazel:m4.patch"],
         )
 

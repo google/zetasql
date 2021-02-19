@@ -520,6 +520,16 @@ class Algebrizer {
       ResolvedExprMap* resolved_expr_map,
       const ResolvedTableScan** resolved_table_scan);
 
+  // Populates the 'returning_column_list' and 'returning_column_values' from
+  // the returning clause found in this dml statement. 'returning_column_list'
+  // is used to create the returning output table array type,
+  // 'returning_column_values' contains the ValueExpr of the returning output
+  // column list and then passed to its algebrized plan.
+  absl::Status AlgebrizeDMLReturningClause(
+      const ResolvedStatement* ast_root,
+      ResolvedColumnList* returning_column_list,
+      std::vector<std::unique_ptr<ValueExpr>>* returning_column_values);
+
   // Populates the ResolvedScanMap and the ResolvedExprMap corresponding to
   // 'update_item', which must be a DML statement. Also adds any placeholder
   // columns (i.e., ResolvedColumns that are defined in the subtree rooted at

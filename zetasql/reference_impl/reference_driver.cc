@@ -435,7 +435,13 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
     case RESOLVED_MERGE_STMT: {
       ZETASQL_RET_CHECK(output_type->IsStruct());
       const StructType* output_struct_type = output_type->AsStruct();
-      ZETASQL_RET_CHECK_EQ(2, output_struct_type->num_fields());
+
+      int expect_num_fields = output_struct_type->num_fields();
+      if (analyzed->resolved_statement()->node_kind() == RESOLVED_MERGE_STMT) {
+        ZETASQL_RET_CHECK_EQ(expect_num_fields, 2);
+      } else {
+        ZETASQL_RET_CHECK(expect_num_fields == 2 || expect_num_fields == 3);
+      }
 
       const StructField& field1 = output_struct_type->field(0);
       ZETASQL_RET_CHECK_EQ(kDMLOutputNumRowsModifiedColumnName, field1.name);
@@ -444,6 +450,12 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
       const StructField& field2 = output_struct_type->field(1);
       ZETASQL_RET_CHECK_EQ(kDMLOutputAllRowsColumnName, field2.name);
       ZETASQL_RET_CHECK(field2.type->IsArray());
+
+      if (expect_num_fields == 3) {
+        const StructField& field3 = output_struct_type->field(2);
+        ZETASQL_RET_CHECK_EQ(kDMLOutputReturningColumnName, field3.name);
+        ZETASQL_RET_CHECK(field3.type->IsArray());
+      }
       break;
     }
     default:

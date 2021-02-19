@@ -23,15 +23,17 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/parse_location_range.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "zetasql/public/parse_location_range.pb.h"
 #include "absl/memory/memory.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
@@ -598,6 +600,81 @@ std::string ResolvedImportStmt::ImportKindToString(ImportKind kind) {
 
 std::string ResolvedImportStmt::GetImportKindString() const {
   return ImportKindToString(import_kind_);
+}
+
+static zetasql_base::StatusOr<TypeParameters> GetFullTypeParametersInternal(
+    const ResolvedColumnAnnotations* annotations, const Type* type) {
+  // We need Type* to figure out the size of TypeParameters.child_list since
+  // TypeParameters.child_list.size() is not equals to
+  // ResolvedColumnAnnotations.child_list.size().
+  // ResolvedColumnAnnotations.child_list will shrink the list size while
+  // TypeParameters.child_list won't, see their contracts for details.
+
+  // Null annotations means empty TypeParameters.
+  if (annotations == nullptr) {
+    return TypeParameters();
+  }
+
+  // Annotations with child_list describes complex type parameters, (e.g.
+  // STRUCT<STRING(10)>). We reconstruct full type parameters recursively.
+  if (annotations->child_list_size() > 0) {
+    std::vector<TypeParameters> child_parameters;
+    if (type->IsArray()) {
+      ZETASQL_RET_CHECK_EQ(annotations->child_list_size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          TypeParameters child_parameter,
+          GetFullTypeParametersInternal(annotations->child_list(0),
+                                        type->AsArray()->element_type()));
+      child_parameters.push_back(child_parameter);
+    } else if (type->IsStruct()) {
+      const StructType* struct_type = type->AsStruct();
+      ZETASQL_RET_CHECK_LE(annotations->child_list_size(), struct_type->num_fields());
+      // TypeParameters.child_list.size() is the same as number of subfields
+      // in the STRUCT, which may be longer than annotations.child_list.size().
+      child_parameters.resize(struct_type->num_fields());
+      for (int field_index = 0; field_index < annotations->child_list_size();
+           ++field_index) {
+        ZETASQL_ASSIGN_OR_RETURN(child_parameters[field_index],
+                         GetFullTypeParametersInternal(
+                             annotations->child_list(field_index),
+                             struct_type->field(field_index).type));
+      }
+    } else {
+      ZETASQL_RET_CHECK_FAIL() << "ResolvedColumnAnnotations has children, but type is "
+                          "not STRUCT or ARRAY";
+    }
+
+    // If no children has type parameters, return empty type parameters.
+    bool has_no_children =
+        std::all_of(child_parameters.begin(), child_parameters.end(),
+                    std::mem_fn(&TypeParameters::IsEmpty));
+    if (has_no_children) {
+      return TypeParameters();
+    }
+
+    // If children has type parameters, make sure type parameters in root
+    // annotation is empty.
+    ZETASQL_RET_CHECK(annotations->type_parameters().IsEmpty())
+        << "ResolvedColumnAnnotations can't have both child type parameters "
+           "and root type parameters";
+    return TypeParameters::MakeTypeParametersWithChildList(child_parameters);
+  }
+
+  // Non-empty type_parameters means annotations with simple type
+  // parameters. We directly return type_parameters here.
+  if (!annotations->type_parameters().IsEmpty()) {
+    return annotations->type_parameters();
+  }
+
+  return TypeParameters();
+}
+
+// Gets the type parameters for a complex type (STRUCT or ARRAY etc..) as one
+// object, by storing type parameters for subfields in
+// TypeParameters.child_list instead of ResolvedColumnAnnotations.child_list.
+zetasql_base::StatusOr<TypeParameters> ResolvedColumnDefinition::GetFullTypeParameters()
+    const {
+  return GetFullTypeParametersInternal(annotations(), type());
 }
 
 }  // namespace zetasql

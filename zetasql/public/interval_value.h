@@ -225,6 +225,14 @@ class IntervalValue final {
             get_nano_fractions() >= v.get_nano_fractions());
   }
 
+  // Unary minus operator
+  IntervalValue operator-() const {
+    int64_t months = get_months();
+    int64_t days = get_days();
+    __int128 nanos = get_nanos();
+    return IntervalValue(-months, -days, -nanos);
+  }
+
   // Returns hash code for the value.
   size_t HashCode() const;
 

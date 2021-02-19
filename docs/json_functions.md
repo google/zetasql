@@ -505,13 +505,13 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable as t;
 
-+--------+-------------+--------------------------------+
-| id     | coordinates | json_data                      |
-+--------+-------------+--------------------------------+
-| 1      | [10,20]     | {"id":1,"coordinates":[10,20]} |
-| 2      | [30,40]     | {"id":2,"coordinates":[30,40]} |
-| 3      | [50,60]     | {"id":3,"coordinates":[50,60]} |
-+--------+-------------+--------------------------------+
++----+-------------+--------------------------------+
+| id | coordinates | json_data                      |
++----+-------------+--------------------------------+
+| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
++----+-------------+--------------------------------+
 ```
 
 Convert rows in a table to JSON with formatting.
@@ -519,28 +519,29 @@ Convert rows in a table to JSON with formatting.
 ```sql
 With CoordinatesTable AS (
     (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates)
+    (SELECT 2 AS id, [30,40] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
 FROM CoordinatesTable as t;
 
-+--------+-------------+---------------------+
-| id     | coordinates | json_data           |
-+--------+-------------+---------------------+
-| 1      | [10,20]     | {                   |
-|        |             |   "id":1,           |
-|        |             |   "coordinates":[   |
-|        |             |     10,             |
-|        |             |     20              |
-|        |             |   ]                 |
-|        |             | }                   |
-| 2      | [30,40]     | {                   |
-|        |             |   "id":2,           |
-|        |             |   "coordinates":[   |
-|        |             |     30,             |
-|        |             |     40              |
-|        |             |   ]                 |
-|        |             | }                   |
-+--------+-------------+---------------------+
++----+-------------+--------------------+
+| id | coordinates | json_data          |
++----+-------------+--------------------+
+| 1  | [10, 20]    | {                  |
+|    |             |   "id": 1,         |
+|    |             |   "coordinates": [ |
+|    |             |     10,            |
+|    |             |     20             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
+| 2  | [30, 40]    | {                  |
+|    |             |   "id": 2,         |
+|    |             |   "coordinates": [ |
+|    |             |     30,            |
+|    |             |     40             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
 ```
 
 ### JSONPath format

@@ -47,6 +47,11 @@ struct JSONParsingOptions {
   // parsing (i.e. 'legacy_mode' = true and 'strict_number_parsing' = true
   // returns an error).
   bool strict_number_parsing;
+  // If 'max_nesting' is set to a non-negative number, parsing will fail if the
+  // JSON document has more than 'max_nesting' levels of nesting. If it is set
+  // to a negative number, the max nesting will be set to 0 instead (i.e. only
+  // allowing scalar JSONs). JSON Arrays and Objects increase nesting levels.
+  absl::optional<int> max_nesting;
 };
 
 // JSONValue stores a JSON document. Access to read and update the values and
@@ -83,7 +88,8 @@ class JSONValue final {
   static zetasql_base::StatusOr<JSONValue> ParseJSONString(
       absl::string_view str,
       JSONParsingOptions parsing_options = {.legacy_mode = false,
-                                            .strict_number_parsing = false});
+                                            .strict_number_parsing = false,
+                                            .max_nesting = absl::nullopt});
 
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if
@@ -232,6 +238,10 @@ class JSONValueRef : public JSONValueConstRef {
   void SetString(absl::string_view value);
   // Sets the JSON value to the given boolean value.
   void SetBoolean(bool value);
+  // Sets the JSON value to an empty object.
+  void SetToEmptyObject();
+  // Sets the JSON value to an empty array.
+  void SetToEmptyArray();
 
   // If the JSON value being referenced is an object, returns the member
   // corresponding to the given 'key'. If such 'key' does not exists, creates

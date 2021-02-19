@@ -1022,10 +1022,10 @@ WINDOW item_window AS (
 [analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
 [analytic-functions-compute-rank]: #compute_rank
 [analytic-functions-use-named-window]: #def_use_named_window
-[analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax#window_clause
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical#hints
+[analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
+[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
-[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions
-[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions
-[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions
+[navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions.md
+[numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions.md
+[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions.md
 

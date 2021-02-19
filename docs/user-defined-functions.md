@@ -47,7 +47,7 @@ This syntax consists of the following components:
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
      exists for the lifetime of the session.
 +   `AGGREGATE`: Indicates that this is an [aggregate function][aggregate-udf-parameters].
-+   `function_parameter`: A parameter for the fuction. A parameter
++   `function_parameter`: A parameter for the function. A parameter
     includes a name and a data type. The value of `data_type`
     is a ZetaSQL [data type][data-types] or may also be `ANY TYPE`.
 +   `RETURNS data_type`: Specifies the data type
@@ -210,7 +210,7 @@ This syntax consists of the following components:
     or more `function_parameter`s.
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the fuction. A parameter includes a
++   `function_parameter`: A parameter for the function. A parameter includes a
     name and a data type. The value of `data_type` is a ZetaSQL
     [data type][data-types].
 +   `determinism_specifier`: Determines if the results of the function can be
@@ -510,7 +510,7 @@ column_declaration:
     `function_parameter`s.
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
      exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the fuction. A parameter
++   `function_parameter`: A parameter for the function. A parameter
     includes a name and a data type. The value of `data_type`
     is a ZetaSQL [data type][data-types].
     The value of `data_type` may also be `ANY TABLE`.
@@ -659,9 +659,9 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [sql-udf-syntax]: #sql-udf-structure
 [tvf-syntax]: #tvf-structure
 [javascript-data-types]: #supported-javascript-udf-data-types
-[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
-[aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
+[aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 

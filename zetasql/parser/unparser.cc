@@ -27,10 +27,13 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "absl/flags/flag.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
+
+ABSL_DECLARE_FLAG(bool, output_asc_explicitly);
 
 namespace zetasql {
 
@@ -515,6 +518,10 @@ void Unparser::visitASTCreateTableStatement(
     println("LIKE");
     node->like_table_name()->Accept(this, data);
   }
+  if (node->clone_data_source() != nullptr) {
+    println("CLONE");
+    node->clone_data_source()->Accept(this, data);
+  }
   if (node->partition_by() != nullptr) {
     node->partition_by()->Accept(this, data);
   }
@@ -629,6 +636,9 @@ void Unparser::visitASTCreateViewStatement(
     const ASTCreateViewStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "VIEW"));
   node->name()->Accept(this, data);
+  if (node->column_list() != nullptr) {
+    node->column_list()->Accept(this, data);
+  }
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
   }
@@ -654,6 +664,9 @@ void Unparser::visitASTCreateMaterializedViewStatement(
     print("IF NOT EXISTS");
   }
   node->name()->Accept(this, data);
+  if (node->column_list() != nullptr) {
+    node->column_list()->Accept(this, data);
+  }
   if (node->sql_security() != ASTCreateStatement::SQL_SECURITY_UNSPECIFIED) {
     print(node->GetSqlForSqlSecurity());
   }
@@ -955,6 +968,15 @@ void Unparser::visitASTDropFunctionStatement(
   if (node->parameters() != nullptr) {
     node->parameters()->Accept(this, data);
   }
+}
+
+void Unparser::visitASTDropTableFunctionStatement(
+    const ASTDropTableFunctionStatement* node, void* data) {
+  print("DROP TABLE FUNCTION");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
 }
 
 void Unparser::visitASTDropRowAccessPolicyStatement(
@@ -1333,6 +1355,12 @@ void Unparser::visitASTHaving(const ASTHaving* node, void* data) {
   visitASTChildren(node, data);
 }
 
+void Unparser::visitASTQualify(const ASTQualify* node, void* data) {
+  println();
+  print("QUALIFY");
+  visitASTChildren(node, data);
+}
+
 void Unparser::visitASTCollate(const ASTCollate* node, void* data) {
   print("COLLATE");
   visitASTChildren(node, data);
@@ -1360,7 +1388,12 @@ void Unparser::visitASTOrderingExpression(const ASTOrderingExpression* node,
                                           void* data) {
   node->expression()->Accept(this, data);
   if (node->collate()) node->collate()->Accept(this, data);
-  if (node->descending()) print("DESC");
+  if (node->descending()) {
+    print("DESC");
+  } else if (node->ordering_spec() == ASTOrderingExpression::ASC &&
+             absl::GetFlag(FLAGS_output_asc_explicitly)) {
+    print("ASC");
+  }
   if (node->null_order()) node->null_order()->Accept(this, data);
 }
 
@@ -1387,6 +1420,35 @@ void Unparser::visitASTClampedBetweenModifier(
   println();
   print("CLAMPED BETWEEN");
   UnparseChildrenWithSeparator(node, data, 0, node->num_children(), "AND");
+}
+
+void Unparser::visitASTCloneDataSource(const ASTCloneDataSource* node,
+                                       void* data) {
+  node->path_expr()->Accept(this, data);
+  if (node->for_system_time() != nullptr) {
+    println();
+    Formatter::Indenter indenter(&formatter_);
+    node->for_system_time()->Accept(this, data);
+  }
+  if (node->where_clause() != nullptr) {
+    Formatter::Indenter indenter(&formatter_);
+    node->where_clause()->Accept(this, data);
+  }
+  println();
+}
+
+void Unparser::visitASTCloneDataSourceList(const ASTCloneDataSourceList* node,
+                                           void* data) {
+  UnparseChildrenWithSeparator(node, data, "UNION ALL");
+}
+
+void Unparser::visitASTCloneDataStatement(const ASTCloneDataStatement* node,
+                                          void* data) {
+  print("CLONE DATA INTO");
+  node->target_path()->Accept(this, data);
+  println();
+  print("FROM");
+  node->data_source_list()->Accept(this, data);
 }
 
 void Unparser::visitASTIdentifier(const ASTIdentifier* node, void* data) {
@@ -2087,6 +2149,31 @@ void Unparser::visitASTWindowFrameExpr(
 void Unparser::visitASTDefaultLiteral(const ASTDefaultLiteral* node,
                                       void* data) {
   print("DEFAULT");
+}
+
+void Unparser::visitASTAnalyzeStatement(const ASTAnalyzeStatement* node,
+                                        void* data) {
+  println();
+  print("ANALYZE");
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    Formatter::Indenter indenter(&formatter_);
+    node->options_list()->Accept(this, data);
+  }
+  if (node->table_and_column_info_list() != nullptr) {
+    Formatter::Indenter indenter(&formatter_);
+    node->table_and_column_info_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTTableAndColumnInfo(const ASTTableAndColumnInfo* node,
+                                          void* data) {
+  visitASTChildren(node, data);
+}
+
+void Unparser::visitASTTableAndColumnInfoList(
+    const ASTTableAndColumnInfoList* node, void* data) {
+  UnparseChildrenWithSeparator(node, data, ",");
 }
 
 void Unparser::visitASTAssertStatement(const ASTAssertStatement* node,
@@ -3038,6 +3125,25 @@ void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
     print("END");
     print("LOOP");
   }
+}
+
+void Unparser::visitASTUntilClause(const ASTUntilClause* node,
+                                   void* data) {
+  print("UNTIL");
+  node->condition()->Accept(this, data);
+}
+
+void Unparser::visitASTRepeatStatement(const ASTRepeatStatement* node,
+                                       void* data) {
+  println("REPEAT");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->body()->Accept(this, data);
+  }
+  node->until_clause()->Accept(this, data);
+  println();
+  print("END");
+  print("REPEAT");
 }
 
 void Unparser::visitASTScript(const ASTScript* node, void* data) {

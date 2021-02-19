@@ -397,10 +397,10 @@ SELECT * FROM (
 [evaluation-rules-subqueries]: #evaluation_rules_subqueries
 [example-tables]: #example_tables
 [correlated_subquery_concepts]: #correlated_subquery_concepts
-[subqueries-query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax
+[subqueries-query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 
-[in-operator]: https://github.com/google/zetasql/blob/master/docs/operators#in_operators
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries
-[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions#array
-[aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
+[in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
+[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#array
+[aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 

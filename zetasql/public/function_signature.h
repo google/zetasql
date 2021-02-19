@@ -519,6 +519,7 @@ class FunctionArgumentType {
 
   bool IsTemplated() const;
 
+  bool IsScalar() const;
   bool IsRelation() const { return kind_ == ARG_TYPE_RELATION; }
   bool IsModel() const { return kind_ == ARG_TYPE_MODEL; }
   bool IsConnection() const { return kind_ == ARG_TYPE_CONNECTION; }

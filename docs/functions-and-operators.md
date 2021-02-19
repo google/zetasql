@@ -164,7 +164,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <tr>
 <td>DATE</td>
 <td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIMESTAMP</span><br /></td>
-<td>&nbsp;</td>
+<td><span>DATETIME</span><br /></td>
 </tr>
 
 <tr>
@@ -313,13 +313,16 @@ Halfway cases such as 1.5 or -0.5 round away from zero.</td>
 <tr>
 <td>STRING</td>
 <td>Floating Point</td>
-<td>Returns <code>x</code> as a
-Floating Point
-value, interpreting it as having the same form as a valid
-Floating Point
-literal.<br />
-Also supports casts from <code>"inf"</code>, <code>"+inf"</code>, <code>"-inf"</code>, and <code>"nan"</code>.<br />
-Conversions are case-insensitive.
+<td>
+  Returns <code>x</code> as a
+  Floating Point
+  value, interpreting it as having the same form as a valid
+  Floating Point
+  literal.
+  Also supports casts from <code>"[+,-]inf"</code> to <code>[,-]Infinity</code>,
+  <code>"[+,-]infinity"</code> to <code>[,-]Infinity</code>, and
+  <code>"[+,-]nan"</code> to <code>NaN</code>.
+  Conversions are case-insensitive.
 </td>
 </tr>
 <tr>
@@ -743,7 +746,7 @@ ZetaSQL provides the following additional conversion functions:
 [conversion-rules-table]: #conversion_rules
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
-[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time_zones
+[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
 [con-rules-link-to-safe-convert-bytes-to-string]: #safe_convert_bytes_to_string
 [con-rules-link-to-date-functions]: #date_functions
@@ -811,8 +814,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -895,8 +898,8 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1034,8 +1037,8 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1132,8 +1135,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1219,8 +1222,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1265,8 +1268,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1311,8 +1314,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -1387,8 +1390,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1471,8 +1474,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1537,8 +1540,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1581,8 +1584,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1626,8 +1629,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1688,8 +1691,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1775,8 +1778,8 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -1897,8 +1900,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Types**
 
@@ -2083,7 +2086,7 @@ this result:
 +---------+
 ```
 
-[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
 
 ## Statistical aggregate functions
 
@@ -2123,8 +2126,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2163,8 +2166,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2203,8 +2206,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2244,8 +2247,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2283,8 +2286,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2333,8 +2336,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2372,8 +2375,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Data Type**
 
@@ -2433,8 +2436,8 @@ Any data type **except**:
 `PROTO`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -2491,8 +2494,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -2583,8 +2586,8 @@ specifies the number of elements returned.
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -2663,8 +2666,8 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Returned Data Types**
 
@@ -3064,8 +3067,8 @@ that allows you to retrieve values whose ranks are within
 + `precision`: `INT64`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3088,8 +3091,8 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3116,8 +3119,8 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3250,8 +3253,8 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `INT64`.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3274,8 +3277,8 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `UINT64`.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3302,8 +3305,8 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `DOUBLE`.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3368,8 +3371,8 @@ percentile of the merged sketch.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3393,8 +3396,8 @@ accepts `input` of type `UINT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3422,8 +3425,8 @@ accepts `input` of type `DOUBLE`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 **Return Types**
 
@@ -3677,7 +3680,7 @@ non-additive functions like `COUNT(DISTINCT)`.
 [quantiles]: https://en.wikipedia.org/wiki/Quantile
 [link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
 [mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison_operator_examples
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
 [kll-sketches]: #sketches-kll
 [kll-algorithm]: #about-kll-alg
 [kll-quantiles]: #about-kll-quantiles
@@ -3782,8 +3785,8 @@ non-deterministic.
 
 INT64
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering_function_concepts
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#numbering_function_concepts
 
 ## Bit functions
 
@@ -4674,7 +4677,7 @@ Equivalent to the unary minus operator (<code>-</code>), but returns
 
 **Return Data Type**
 
-<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
+<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
 
 ### SAFE_ADD
 
@@ -5619,7 +5622,7 @@ the two arguments to determine the quadrant. The return value is in the range
   </tbody>
 </table>
 
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 ## Navigation functions
 
@@ -6303,8 +6306,8 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#navigation_function_concepts
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#navigation_function_concepts
 
 ## Aggregate analytic functions
 
@@ -6353,8 +6356,8 @@ COUNT(*) OVER (ROWS UNBOUNDED PRECEDING)
 SUM(DISTINCT x) OVER ()
 ```
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate_analytic_function_concepts
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#aggregate_analytic_function_concepts
 
 [analytic-functions-link-to-aggregate-functions]: #aggregate_functions
 
@@ -10298,13 +10301,13 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable as t;
 
-+--------+-------------+--------------------------------+
-| id     | coordinates | json_data                      |
-+--------+-------------+--------------------------------+
-| 1      | [10,20]     | {"id":1,"coordinates":[10,20]} |
-| 2      | [30,40]     | {"id":2,"coordinates":[30,40]} |
-| 3      | [50,60]     | {"id":3,"coordinates":[50,60]} |
-+--------+-------------+--------------------------------+
++----+-------------+--------------------------------+
+| id | coordinates | json_data                      |
++----+-------------+--------------------------------+
+| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
++----+-------------+--------------------------------+
 ```
 
 Convert rows in a table to JSON with formatting.
@@ -10312,28 +10315,29 @@ Convert rows in a table to JSON with formatting.
 ```sql
 With CoordinatesTable AS (
     (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates)
+    (SELECT 2 AS id, [30,40] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
 FROM CoordinatesTable as t;
 
-+--------+-------------+---------------------+
-| id     | coordinates | json_data           |
-+--------+-------------+---------------------+
-| 1      | [10,20]     | {                   |
-|        |             |   "id":1,           |
-|        |             |   "coordinates":[   |
-|        |             |     10,             |
-|        |             |     20              |
-|        |             |   ]                 |
-|        |             | }                   |
-| 2      | [30,40]     | {                   |
-|        |             |   "id":2,           |
-|        |             |   "coordinates":[   |
-|        |             |     30,             |
-|        |             |     40              |
-|        |             |   ]                 |
-|        |             | }                   |
-+--------+-------------+---------------------+
++----+-------------+--------------------+
+| id | coordinates | json_data          |
++----+-------------+--------------------+
+| 1  | [10, 20]    | {                  |
+|    |             |   "id": 1,         |
+|    |             |   "coordinates": [ |
+|    |             |     10,            |
+|    |             |     20             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
+| 2  | [30, 40]    | {                  |
+|    |             |   "id": 2,         |
+|    |             |   "coordinates": [ |
+|    |             |     30,            |
+|    |             |     40             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
 ```
 
 ### JSONPath format
@@ -10581,6 +10585,141 @@ FROM items;
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
+```
+
+### FLATTEN
+
+```sql
+FLATTEN(flatten_path)
+```
+
+**Description**
+
+Extracts a collection of values that have the same semantic meaning from a
+tree-shaped value and returns an array. `flatten_path` is a path that can select
+many values out of the tree-shaped value and return them as an array. For
+example, `FLATTEN(table.column.array_field.target)` will return an array of all
+`targets` inside `table.column`. Tree-shaped data is represented in the
+ZetaSQL type system by composing these typed values:
+
++ STRUCT
++ ARRAY
++ PROTO (Protobuf message types and enum types)
+
+The resulting array may contain `NULL` array elements, but only if
+evaluating the path along some array elements returns `NULL`. Returns `NULL`
+if `flatten_path` is `NULL`.
+
+You can learn more about flattening tree structured data into arrays and
+the flatten path in
+[Flattening tree-structured data into arrays][flatten-tree-to-array].
+
+**Return type**
+
+ARRAY
+
+**Examples**
+
+In this `STRUCT` example, `(5,6)` and `(7,8)` are flattened
+into `[5,6,7,8]`.
+
+```sql
+SELECT FLATTEN([
+  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
+  STRUCT( [STRUCT(7 AS y), STRUCT(8)] AS x )
+  ].x.y) AS my_array
+
++--------------+
+| my_array     |
++--------------+
+| [5, 6, 7, 8] |
++--------------+
+```
+
+In this PROTO example, `(5)`, `(6,7)` and `(8)` are
+flattened into `[5,6,7,8]`.
+
+```proto
+message MyProto {
+  message InnerProto {
+    repeated int64 x = 1;
+  }
+  repeated InnerProto y = 2;
+}
+```
+
+```sql
+SELECT FLATTEN(
+  CAST(
+     'y { x: 5 }
+      y { x: 6 x: 7 }
+      y { x: 8 }'
+  AS MyProto).y.x AS my_array
+)
+
++--------------+
+| my_array     |
++--------------+
+| [5, 6, 7, 8] |
++--------------+
+```
+
+In this PROTO example, `(5,6)` and `(7,8)` are
+flattened into `[(5,6), (7,8)]`.
+
+```proto
+message MyProto {
+  Message Inner {
+    int64 x = 1;
+    int64 y = 2;
+  }
+  repeated Inner z = 1;
+}
+```
+
+```sql
+SELECT FLATTEN(
+  CAST(
+     'z { x: 5  y: 6 }
+      z { x: 7  y: 8 }'
+  AS MyProto).z AS my_array
+
++------------------+
+| my_array         |
++------------------+
+| [(5, 6), (7, 8)] |
++------------------+
+```
+
+The resulting array may contain `NULL` `ARRAY` elements, but only if
+evaluating the flatten path along some array elements returns `NULL`.
+For example:
+
+```sql
+SELECT FLATTEN([
+  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
+  STRUCT( [STRUCT(7 AS y), NULL] AS x )
+  ].x.y) AS my_array
+
++-----------------+
+| my_array        |
++-----------------+
+| [5, 6, 7, NULL] |
++-----------------+
+```
+
+```sql
+SELECT FLATTEN([
+  STRUCT( STRUCT(5 AS y) AS x),
+  STRUCT( NULL AS x ),
+  STRUCT( STRUCT(6 AS y) )
+  ].x.y) AS my_array
+
++--------------+
+| my_array     |
++--------------+
+| [5, NULL, 6] |
++--------------+
 ```
 
 ### GENERATE_ARRAY
@@ -11157,10 +11296,11 @@ FROM items;
 +----------------------------------+---------------+----------------+
 ```
 
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
-[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
 
 [array-link-to-operators]: #operators
 
@@ -14664,8 +14804,8 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 [timestamp-format]: #format_timestamp
 [timestamp-format-elements]: #supported_format_elements_for_timestamp
-[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types#date_type
-[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types#timestamp_type
+[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
+[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
 
 ## Protocol buffer functions
 
@@ -15246,8 +15386,8 @@ SELECT EXTRACT(ONEOF_CASE(brand) FROM new Vehicle("schwinn" as bike)) as brand_f
 +------------------+
 ```
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers#querying-protocol-buffers
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers#checking-if-a-non-repeated-field-has-a-value
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying-protocol-buffers
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking-if-a-non-repeated-field-has-a-value
 
 ## Security functions
 
@@ -16078,7 +16218,7 @@ Array Functions
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16093,7 +16233,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16108,7 +16248,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16123,7 +16263,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16138,7 +16278,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16153,7 +16293,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16175,7 +16315,7 @@ Data Types
       <td>Any comparable types. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16190,7 +16330,7 @@ Data Types
       <td>Any comparable types. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -16419,17 +16559,32 @@ Result types for Division:
 
 </table>
 
-Result types for Unary Plus and Unary Minus:
+Result types for Unary Plus:
 
 <table>
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT32</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
+Result types for Unary Minus:
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
 
 </table>
@@ -16923,9 +17078,9 @@ The concatenation operator combines multiple values into one.
 </table>
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from_clause
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
+[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
 [operators-link-to-math-functions]: #mathematical_functions
 [link-to-coercion]: #coercion

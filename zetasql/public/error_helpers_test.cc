@@ -278,7 +278,7 @@ TEST(ErrorHelpersTest, GetErrorStringWithCaret) {
       GetErrorStringWithCaret(str1, MakeErrorLocation(1, 0)),
       "Check failed: column >= 1");
   EXPECT_DEBUG_DEATH(GetErrorStringWithCaret(str1, MakeErrorLocation(4, 1)),
-                     "No line .* in .*");
+                     "Query had .* lines but line .* was requested");
   EXPECT_DEBUG_DEATH(
       GetErrorStringWithCaret(str1, MakeErrorLocation(1, 5)),
       "Check failed: location.column.. <= truncated_input->size");

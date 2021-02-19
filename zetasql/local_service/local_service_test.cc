@@ -790,6 +790,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
                }
                has_explicit_type: false
                float_literal_id: 0
+               preserve_in_literal_remover: false
              }
            })pb",
       &expectedResponse));
@@ -868,6 +869,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
                        }
                        has_explicit_type: false
                        float_literal_id: 0
+                       preserve_in_literal_remover: false
                      }
                    }
                    error_mode: DEFAULT_ERROR_MODE

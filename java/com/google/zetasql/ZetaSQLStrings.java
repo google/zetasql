@@ -22,9 +22,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import org.joda.time.DateTime;
 
-/**
- * A utility class helps decorate strings
- */
+/** A utility class helps decorate strings */
+// TODO: resolve split between this class and Strings.
 public class ZetaSQLStrings {
   private static final DateTime EPOCH = new DateTime(1970, 1, 1, 0, 0);
   private static final Charset UTF_8 = StandardCharsets.UTF_8;

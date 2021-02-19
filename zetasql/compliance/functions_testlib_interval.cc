@@ -14,9 +14,13 @@
 // limitations under the License.
 //
 
+#include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/parse_date_time.h"
 #include "zetasql/public/interval_value_test_util.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT (build/include)
+#include "absl/time/time.h"
 
 namespace zetasql {
 
@@ -24,9 +28,31 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 namespace {
 
+std::vector<QueryParamsWithResult> WrapFeatureIntervalType(
+    const std::vector<QueryParamsWithResult>& params) {
+  std::vector<QueryParamsWithResult> wrapped_params;
+  wrapped_params.reserve(params.size());
+  for (const auto& param : params) {
+    wrapped_params.emplace_back(param.WrapWithFeature(FEATURE_INTERVAL_TYPE));
+  }
+  return wrapped_params;
+}
+
+std::vector<QueryParamsWithResult> WrapFeaturesIntervalAndCivilTimeTypes(
+    const std::vector<QueryParamsWithResult>& params) {
+  std::vector<QueryParamsWithResult> wrapped_params;
+  wrapped_params.reserve(params.size());
+  for (const auto& param : params) {
+    wrapped_params.emplace_back(param.WrapWithFeatureSet(
+        {FEATURE_V_1_2_CIVIL_TIME, FEATURE_INTERVAL_TYPE}));
+  }
+  return wrapped_params;
+}
+
 std::vector<FunctionTestCall> WrapFeatureIntervalType(
     const std::vector<FunctionTestCall>& tests) {
   std::vector<FunctionTestCall> wrapped_tests;
+  wrapped_tests.reserve(tests.size());
   for (auto call : tests) {
     call.params = call.params.WrapWithFeature(FEATURE_INTERVAL_TYPE);
     wrapped_tests.emplace_back(call);
@@ -55,7 +81,7 @@ Value Seconds(int64_t value) {
 Value Micros(int64_t value) {
   return Value::Interval(interval_testing::Micros(value));
 }
-Value Nanos(int64_t value) {
+Value Nanos(__int128 value) {
   return Value::Interval(interval_testing::Nanos(value));
 }
 Value YMDHMS(int64_t year, int64_t month, int64_t day, int64_t hour, int64_t minute,
@@ -196,6 +222,184 @@ std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons() {
       {"<", {YMDHMS(0, -1, 30, 0, 0, 1), Seconds(2)}, Bool(true)},
   };
   return WrapFeatureIntervalType(tests);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalUnaryMinus() {
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullInterval()}, NullInterval()},
+      {{Days(0)}, Years(0)},
+      {{Nanos(IntervalValue::kMaxNanos)}, Nanos(-IntervalValue::kMaxNanos)},
+      {{Micros(-987654)}, Micros(987654)},
+      {{Seconds(1000)}, Seconds(-1000)},
+      {{Minutes(-1)}, Minutes(1)},
+      {{Hours(12345)}, Hours(-12345)},
+      {{Days(-321)}, Days(321)},
+      {{Months(2)}, Months(-2)},
+      {{Years(-10000)}, Years(10000)},
+      {{YMDHMS(0, 0, 0, 100, 200, 300)}, YMDHMS(0, 0, 0, -100, -200, -300)},
+      {{YMDHMS(-123, 456, -789, 0, 0, 0)}, YMDHMS(123, -456, 789, 0, 0, 0)},
+      {{YMDHMS(1, -2, 3, -4, 5, -6)}, YMDHMS(-1, 2, -3, 4, -5, 6)},
+  };
+  return WrapFeatureIntervalType(tests);
+}
+
+Value Date(absl::string_view str) {
+  int32_t date;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDate(str, &date));
+  return Value::Date(date);
+}
+
+Value Timestamp(absl::string_view str) {
+  int64_t ts;
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(str, absl::UTCTimeZone(),
+                                                functions::kMicroseconds, &ts));
+  return Value::TimestampFromUnixMicros(ts);
+}
+
+Value Datetime(absl::string_view str) {
+  DatetimeValue datetime;
+  ZETASQL_CHECK_OK(functions::ConvertStringToDatetime(str, functions::kMicroseconds,
+                                               &datetime));
+  return Value::Datetime(datetime);
+}
+
+Value Time(absl::string_view str) {
+  TimeValue time;
+  ZETASQL_CHECK_OK(
+      functions::ConvertStringToTime(str, functions::kMicroseconds, &time));
+  return Value::Time(time);
+}
+
+std::vector<QueryParamsWithResult> GetDateTimestampIntervalSubtractions() {
+  // The result is of type STRING, not INTERVAL, because we want to make sure
+  // that correct date parts are populated. Intervals with different date parts
+  // can still compare equal, so we will cast result to string and compare it.
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullDate(), NullDate()}, NullString()},
+      {{Date("1970-01-01"), NullDate()}, NullString()},
+      {{NullDate(), Date("1970-01-01")}, NullString()},
+      {{Date("1990-01-23"), Date("1990-01-23")}, "0-0 0 0:0:0"},
+      {{Date("2000-01-01"), Date("1900-01-01")}, "0-0 36524 0:0:0"},
+      {{Date("1910-01-01"), Date("1900-01-01")}, "0-0 3652 0:0:0"},
+      {{Date("1901-01-01"), Date("1900-01-01")}, "0-0 365 0:0:0"},
+      {{Date("1900-12-31"), Date("1900-01-01")}, "0-0 364 0:0:0"},
+      {{Date("1900-12-01"), Date("1900-01-01")}, "0-0 334 0:0:0"},
+      {{Date("1900-02-01"), Date("1900-01-01")}, "0-0 31 0:0:0"},
+      {{Date("1900-01-31"), Date("1900-01-01")}, "0-0 30 0:0:0"},
+      {{Date("1900-01-02"), Date("1900-01-01")}, "0-0 1 0:0:0"},
+      {{Date("1900-01-01"), Date("1900-01-01")}, "0-0 0 0:0:0"},
+      {{Date("0001-01-01"), Date("9999-12-31")}, "0-0 -3652058 0:0:0"},
+
+      {{NullTimestamp(), NullTimestamp()}, NullString()},
+      {{Timestamp("1970-01-01 10:20:30"), NullTimestamp()}, NullString()},
+      {{NullTimestamp(), Timestamp("1970-01-01 00:00:01")}, NullString()},
+      {{Timestamp("1955-12-25 11:22:33"), Timestamp("1955-12-25 11:22:33")},
+       "0-0 0 0:0:0"},
+      {{Timestamp("2000-01-01 00:00:00"), Timestamp("1900-01-01 00:00:00")},
+       "0-0 0 876576:0:0"},
+      {{Timestamp("1910-01-01 00:00:00"), Timestamp("1900-01-01 00:00:00")},
+       "0-0 0 87648:0:0"},
+      {{Timestamp("1901-01-01 00:00:00"), Timestamp("1900-01-01 00:00:00")},
+       "0-0 0 8760:0:0"},
+      {{Timestamp("1900-12-31 00:00:00"), Timestamp("1900-01-01 00:00:00")},
+       "0-0 0 8736:0:0"},
+      {{Timestamp("1900-02-01 00:00:00"), Timestamp("1900-01-01 00:00:00")},
+       "0-0 0 744:0:0"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 00:00:00")},
+       "0-0 0 24:0:0"},
+      {{Timestamp("1900-01-02 00:00:00"),
+        Timestamp("1900-01-01 00:00:00.000001")},
+       "0-0 0 23:59:59.999999"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 00:00:00.001")},
+       "0-0 0 23:59:59.999"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 00:00:01")},
+       "0-0 0 23:59:59"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 00:01:00")},
+       "0-0 0 23:59:0"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 01:00:00")},
+       "0-0 0 23:0:0"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 23:59:59")},
+       "0-0 0 0:0:1"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-01 23:59:59.999")},
+       "0-0 0 0:0:0.001"},
+      {{Timestamp("1900-01-02 00:00:00"),
+        Timestamp("1900-01-01 23:59:59.999999")},
+       "0-0 0 0:0:0.000001"},
+      {{Timestamp("1900-01-02 00:00:00"), Timestamp("1900-01-02 00:00:00")},
+       "0-0 0 0:0:0"},
+      {{Timestamp("0001-01-01 00:00:00"),
+        Timestamp("9999-12-31 23:59:59.999999")},
+       "0-0 0 -87649415:59:59.999999"},
+  };
+  return WrapFeatureIntervalType(tests);
+}
+
+std::vector<QueryParamsWithResult> GetDatetimeTimeIntervalSubtractions() {
+  // The result is of type STRING, not INTERVAL, because we want to make sure
+  // that correct date parts are populated. Intervals with different date parts
+  // can still compare equal, so we will cast result to string and compare it.
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullDatetime(), NullDatetime()}, NullString()},
+      {{Datetime("1970-01-01 01:02:03"), NullDatetime()}, NullString()},
+      {{NullDatetime(), Datetime("1970-01-01 22:22:22")}, NullString()},
+      {{Datetime("2015-05-06 01:02:03"), Datetime("2015-05-06 01:02:03")},
+       "0-0 0 0:0:0"},
+      {{Datetime("2000-01-01 00:00:00"), Datetime("1900-01-01 00:00:00")},
+       "0-0 36524 0:0:0"},
+      {{Datetime("1910-01-01 00:00:00"), Datetime("1900-01-01 00:00:00")},
+       "0-0 3652 0:0:0"},
+      {{Datetime("1901-01-01 00:00:00"), Datetime("1900-01-01 00:00:00")},
+       "0-0 365 0:0:0"},
+      {{Datetime("1900-12-31 00:00:00"), Datetime("1900-01-01 00:00:00")},
+       "0-0 364 0:0:0"},
+      {{Datetime("1900-02-01 00:00:00"), Datetime("1900-01-01 00:00:00")},
+       "0-0 31 0:0:0"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 00:00:00")},
+       "0-0 1 0:0:0"},
+      {{Datetime("1900-01-02 00:00:00"),
+        Datetime("1900-01-01 00:00:00.000001")},
+       "0-0 0 23:59:59.999999"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 00:00:00.001")},
+       "0-0 0 23:59:59.999"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 00:00:01")},
+       "0-0 0 23:59:59"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 00:01:00")},
+       "0-0 0 23:59:0"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 01:00:00")},
+       "0-0 0 23:0:0"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 23:59:59")},
+       "0-0 0 0:0:1"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-01 23:59:59.999")},
+       "0-0 0 0:0:0.001"},
+      {{Datetime("1900-01-02 00:00:00"),
+        Datetime("1900-01-01 23:59:59.999999")},
+       "0-0 0 0:0:0.000001"},
+      {{Datetime("1900-01-02 00:00:00"), Datetime("1900-01-02 00:00:00")},
+       "0-0 0 0:0:0"},
+      {{Datetime("0001-01-01 00:00:00"),
+        Datetime("9999-12-31 23:59:59.999999")},
+       "0-0 -3652058 -23:59:59.999999"},
+
+      {{NullTime(), NullTime()}, NullString()},
+      {{Time("01:02:03"), NullTime()}, NullString()},
+      {{NullTime(), Time("20:30:40")}, NullString()},
+      {{Time("12:34:56.789"), Time("12:34:56.789")}, "0-0 0 0:0:0"},
+      {{Time("00:00:00"), Time("23:59:59.999999")}, "0-0 0 -23:59:59.999999"},
+      {{Time("00:00:00"), Time("23:59:59.999")}, "0-0 0 -23:59:59.999"},
+      {{Time("00:00:00"), Time("23:59:59.1")}, "0-0 0 -23:59:59.100"},
+      {{Time("00:00:00"), Time("23:59:59")}, "0-0 0 -23:59:59"},
+      {{Time("00:00:00"), Time("23:59:00")}, "0-0 0 -23:59:0"},
+      {{Time("00:00:00"), Time("23:00:00")}, "0-0 0 -23:0:0"},
+      {{Time("00:00:00"), Time("01:00:00")}, "0-0 0 -1:0:0"},
+      {{Time("00:00:00"), Time("00:01:00")}, "0-0 0 -0:1:0"},
+      {{Time("00:00:00"), Time("00:00:01")}, "0-0 0 -0:0:1"},
+      {{Time("00:00:00"), Time("00:00:00.1")}, "0-0 0 -0:0:0.100"},
+      {{Time("00:00:00"), Time("00:00:00.001")}, "0-0 0 -0:0:0.001"},
+      {{Time("00:00:00"), Time("00:00:00.000001")}, "0-0 0 -0:0:0.000001"},
+      {{Time("10:20:30.456789"), Time("01:02:03.987654")},
+       "0-0 0 9:18:26.469135"},
+  };
+  return WrapFeaturesIntervalAndCivilTimeTypes(tests);
 }
 
 }  // namespace zetasql

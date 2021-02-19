@@ -131,68 +131,41 @@ SELECT row_id, int32_val, int64_val,
            OVER (ORDER BY row_id
                  ROWS BETWEEN 3 PRECEDING AND 2 FOLLOWING),
        LAST_VALUE(int64_val IGNORE NULLS)
-           OVER (ORDER BY row_id ROWS 3 PRECEDING)
-FROM TestTable
---
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
-  {1, NULL, NULL, 6, NULL},
-  {2, NULL, NULL, 2, NULL},
-  {3, 6, 1, 3, 1},
-  {4, 2, 2, 3, 2},
-  {5, 3, 1, 5, 1},
-  {6, NULL, NULL, 2, 1},
-  {7, 5, 1, 3, 1},
-  {8, 2, 4, 1, 4},
-  {9, 3, 2, 1, 2},
-  {10, 1, NULL, 1, 2}
-]
-==
-
-[name=last_value_uint32_int64_ignore_nulls_unbound]
-SELECT row_id, int32_val, int64_val,
-       LAST_VALUE(CAST(int32_val as uint32) IGNORE NULLS)
-           OVER (ORDER BY row_id
-                 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING),
+           OVER (ORDER BY row_id ROWS 3 PRECEDING),
        LAST_VALUE(int64_val IGNORE NULLS)
            OVER (ORDER BY row_id
-                 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-FROM TestTable
---
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
-  {1, NULL, NULL, 1, 2},
-  {2, NULL, NULL, 1, 2},
-  {3, 6, 1, 1, 2},
-  {4, 2, 2, 1, 2},
-  {5, 3, 1, 1, 2},
-  {6, NULL, NULL, 1, 2},
-  {7, 5, 1, 1, 2},
-  {8, 2, 4, 1, 2},
-  {9, 3, 2, 1, 2},
-  {10, 1, NULL, 1, 2}
-]
-==
-
-[name=last_value_uint32_int64_ignore_nulls_range_current_row]
-SELECT row_id, int32_val, int64_val,
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING),
        LAST_VALUE(CAST(int32_val as uint32) IGNORE NULLS)
            OVER (ORDER BY row_id
-                 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+                 RANGE BETWEEN 2 PRECEDING AND CURRENT ROW),
        LAST_VALUE(int64_val IGNORE NULLS)
            OVER (ORDER BY row_id
-                 ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                 RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING),
+       LAST_VALUE(CAST(int32_val as uint32) IGNORE NULLS)
+           OVER (ORDER BY row_id
+                 RANGE BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
-  {1, NULL, NULL, NULL, NULL},
-  {2, NULL, NULL, NULL, NULL},
-  {3, 6, 1, 6, 1},
-  {4, 2, 2, 2, 2},
-  {5, 3, 1, 3, 1},
-  {6, NULL, NULL, 3, 1},
-  {7, 5, 1, 5, 1},
-  {8, 2, 4, 2, 4},
-  {9, 3, 2, 3, 2},
-  {10, 1, NULL, 1, 2}
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             int64_val INT64,
+             UINT32,
+             INT64,
+             INT64,
+             UINT32,
+             INT64,
+             UINT32>>
+[
+  {1, NULL, NULL, 6, NULL, NULL, NULL, 1, 1},
+  {2, NULL, NULL, 2, NULL, NULL, NULL, 2, 1},
+  {3, 6, 1, 3, 1, NULL, 6, 1, 1},
+  {4, 2, 2, 3, 2, NULL, 2, 1, 1},
+  {5, 3, 1, 5, 1, 1, 3, 1, 1},
+  {6, NULL, NULL, 2, 1, 2, 3, 4, 1},
+  {7, 5, 1, 3, 1, 1, 5, 2, 1},
+  {8, 2, 4, 1, 4, 1, 2, 2, 1},
+  {9, 3, 2, 1, 2, 1, 3, 2, NULL},
+  {10, 1, NULL, 1, 2, 4, 1, NULL, NULL}
 ]
 ==
 
@@ -202,68 +175,41 @@ SELECT row_id, int32_val, int64_val,
            OVER (ORDER BY row_id
                  ROWS BETWEEN 3 PRECEDING AND 2 FOLLOWING),
        LAST_VALUE(int64_val RESPECT NULLS)
-           OVER (ORDER BY row_id ROWS 3 PRECEDING)
-FROM TestTable
---
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
-  {1, NULL, NULL, 6, NULL},
-  {2, NULL, NULL, 2, NULL},
-  {3, 6, 1, 3, 1},
-  {4, 2, 2, NULL, 2},
-  {5, 3, 1, 5, 1},
-  {6, NULL, NULL, 2, NULL},
-  {7, 5, 1, 3, 1},
-  {8, 2, 4, 1, 4},
-  {9, 3, 2, 1, 2},
-  {10, 1, NULL, 1, NULL}
-]
-==
-
-[name=last_value_uint32_int64_respect_nulls_unbound]
-SELECT row_id, int32_val, int64_val,
-       LAST_VALUE(CAST(int32_val as uint32) RESPECT NULLS)
-           OVER (ORDER BY row_id
-                 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING),
+           OVER (ORDER BY row_id ROWS 3 PRECEDING),
        LAST_VALUE(int64_val RESPECT NULLS)
            OVER (ORDER BY row_id
-                 ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-FROM TestTable
---
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
-  {1, NULL, NULL, 1, NULL},
-  {2, NULL, NULL, 1, NULL},
-  {3, 6, 1, 1, NULL},
-  {4, 2, 2, 1, NULL},
-  {5, 3, 1, 1, NULL},
-  {6, NULL, NULL, 1, NULL},
-  {7, 5, 1, 1, NULL},
-  {8, 2, 4, 1, NULL},
-  {9, 3, 2, 1, NULL},
-  {10, 1, NULL, 1, NULL}
-]
-==
-
-[name=last_value_uint32_int64_respect_nulls_range_current_row]
-SELECT row_id, int32_val, int64_val,
+                 ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING),
        LAST_VALUE(CAST(int32_val as uint32) RESPECT NULLS)
            OVER (ORDER BY row_id
-                 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+                 RANGE BETWEEN 2 PRECEDING AND CURRENT ROW),
        LAST_VALUE(int64_val RESPECT NULLS)
            OVER (ORDER BY row_id
-                 ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
+                 RANGE BETWEEN CURRENT ROW AND 2 FOLLOWING),
+       LAST_VALUE(CAST(int32_val as uint32) RESPECT NULLS)
+           OVER (ORDER BY row_id
+                 RANGE BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
 FROM TestTable
 --
-ARRAY<STRUCT<row_id INT64, int32_val INT32, int64_val INT64, UINT32, INT64>>[
-  {1, NULL, NULL, NULL, NULL},
-  {2, NULL, NULL, NULL, NULL},
-  {3, 6, 1, 6, 1},
-  {4, 2, 2, 2, 2},
-  {5, 3, 1, 3, 1},
-  {6, NULL, NULL, NULL, NULL},
-  {7, 5, 1, 5, 1},
-  {8, 2, 4, 2, 4},
-  {9, 3, 2, 3, 2},
-  {10, 1, NULL, 1, NULL}
+ARRAY<STRUCT<row_id INT64,
+             int32_val INT32,
+             int64_val INT64,
+             UINT32,
+             INT64,
+             INT64,
+             UINT32,
+             INT64,
+             UINT32>>
+[
+  {1, NULL, NULL, 6, NULL, NULL, NULL, 1, 1},
+  {2, NULL, NULL, 2, NULL, NULL, NULL, 2, 1},
+  {3, 6, 1, 3, 1, NULL, 6, 1, 1},
+  {4, 2, 2, NULL, 2, NULL, 2, NULL, 1},
+  {5, 3, 1, 5, 1, 1, 3, 1, 1},
+  {6, NULL, NULL, 2, NULL, 2, NULL, 4, 1},
+  {7, 5, 1, 3, 1, 1, 5, 2, 1},
+  {8, 2, 4, 1, 4, NULL, 2, NULL, 1},
+  {9, 3, 2, 1, 2, 1, 3, NULL, NULL},
+  {10, 1, NULL, 1, NULL, 4, 1, NULL, NULL}
 ]
 ==
 

@@ -1079,7 +1079,7 @@ select
   json_extract(),
   json_extract_scalar()
 --
-ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT with no arguments. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
   json_extract(),
   ^
 ==
@@ -1088,7 +1088,7 @@ select
   json_extract('{"a": "foo"}'),
   json_extract_scalar('{"a": "foo"}')
 --
-ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT for argument types: STRING. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
   json_extract('{"a": "foo"}'),
   ^
 ==
@@ -1143,7 +1143,7 @@ ERROR: generic::invalid_argument: JSONPath must be a string literal or query par
 select
   json_extract_array()
 --
-ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT_ARRAY with no arguments. Supported signature: JSON_EXTRACT_ARRAY(STRING, [STRING]) [at 2:3]
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT_ARRAY. Supported signature: JSON_EXTRACT_ARRAY(STRING, [STRING]) [at 2:3]
   json_extract_array()
   ^
 ==
@@ -1159,12 +1159,14 @@ select
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_literal_path]
 select
   json_extract_string_array('{"a": ["foo"]}', '$.a')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo"]}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_multiple_inputs]
 select
   json_extract_string_array(s, '$.a')
@@ -1180,6 +1182,7 @@ ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRING>(NULL)}
 ]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_parameter_path]
 [parameters='$.a' as path]
 select
@@ -1187,6 +1190,7 @@ select
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo"]}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_non_literal_path]
 select
   json_extract_string_array('{"a": ["foo"]}', path)
@@ -1196,12 +1200,14 @@ ERROR: generic::invalid_argument: JSONPath must be a string literal or query par
   json_extract_string_array('{"a": ["foo"]}', path)
   ^
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_literal_null_path]
 select
   json_extract_string_array('{"a": ["foo"]}', NULL)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_subquery_path]
 select
   json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
@@ -1210,31 +1216,36 @@ ERROR: generic::invalid_argument: JSONPath must be a string literal or query par
   json_extract_string_array('{"a": ["foo"]}', (select '$.a'))
   ^
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_no_arguments]
 select
   json_extract_string_array()
 --
-ERROR: generic::invalid_argument: No matching signature for function JSON_EXTRACT_STRING_ARRAY with no arguments. Supported signature: JSON_EXTRACT_STRING_ARRAY(STRING, [STRING]) [at 2:3]
+ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT_STRING_ARRAY. Supported signature: JSON_EXTRACT_STRING_ARRAY(STRING, [STRING]) [at 2:3]
   json_extract_string_array()
   ^
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_one_argument_valid]
 select
   json_extract_string_array('["foo","bar","baz"]')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["foo", "bar", "baz"]}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array_one_argument_invalid]
 select
   json_extract_string_array('{"foo":"bar"}')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>(NULL)}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_query_array]
 select json_query_array('{"a.b": [1, "foo", null, {"c": 2}]}', '$."a.b"')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", '"foo"', "null", '{"c":2}']}]
 ==
+[required_features=JSON_ARRAY_FUNCTIONS]
 [name=json_value_array]
 select json_value_array('{"a.b": [1, "foo", null]}', '$."a.b"')
 --

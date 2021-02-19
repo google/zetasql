@@ -141,8 +141,10 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type",
         "//zetasql/public:type_annotation_cc_proto",
+        "//zetasql/public:type_parameters_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public/proto:type_annotation_cc_proto",
+        "//zetasql/public/types",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
@@ -192,6 +194,7 @@ cc_library(
         ":resolved_ast",
         ":resolved_ast_enums_cc_proto",
         ":resolved_node_kind_cc_proto",
+        "//zetasql/analyzer:filter_fields_path_validator",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
@@ -302,6 +305,27 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/public:value_cc_proto",
+    ],
+)
+
+cc_test(
+    name = "resolved_node_test",
+    size = "small",
+    srcs = ["resolved_node_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":resolved_ast",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public/types",
     ],
 )
 
@@ -450,6 +474,7 @@ proto_library(
         ":serialization_proto",
         "//zetasql/proto:function_proto",
         "//zetasql/public:annotation_proto",
+        "//zetasql/public:type_parameters_proto",
         "//zetasql/public:type_proto",
         "//zetasql/public/proto:type_annotation_proto",
         "@com_google_protobuf//:descriptor_proto",

@@ -25,16 +25,6 @@
 
 namespace zetasql {
 
-// TODO This version is allocating the names in the global pool, so
-// they leak.  This constructor should not be used by any production zetasql
-// code, and should probably only be used in tests, so this may be okay for
-// now, but there's a TODO in the header to try to remove this.
-// Maybe this should live in a testonly linker target.
-ResolvedColumn::ResolvedColumn(int column_id, const std::string& table_name,
-                               const std::string& name, const Type* type)
-    : ResolvedColumn(column_id, IdString::MakeGlobal(table_name),
-                     IdString::MakeGlobal(name), type) {}
-
 std::string ResolvedColumn::DebugString() const {
   return absl::StrCat(
       table_name_.ToStringView(), ".", name_.ToStringView(), "#", column_id_,

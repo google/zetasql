@@ -334,6 +334,7 @@ message MessageWithMapField {
   // comparisons don't always report true.
   map<uint32, TestOptionalFields> uint32_testoptionalfields_map = 7;
   map<bool, int32> bool_int32_map = 8;
+  map<string, string> string_string_map = 9;
 }
 
 // This protocol buffer has the exact same shape as the synthetic map entry for

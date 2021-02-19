@@ -42,7 +42,6 @@ cc_library(
         ":hash",
         ":json",
         ":uuid",
-        "@com_google_absl//absl/base",
     ],
 )
 

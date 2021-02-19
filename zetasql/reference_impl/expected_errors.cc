@@ -38,11 +38,14 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   // TABLESAMPLE is not supported by the reference implementation.
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument, "TABLESAMPLE not supported"));
-  // The reference implementation does not support KMS encryption functions
-  // since they depend on an external service.
+  // The reference implementation does not support KMS and AEAD envelope
+  // encryption functions since they depend on an external service.
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Unsupported built-in function: kms.*"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: aead\\.envelope.*"));
   // b/111212209
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,

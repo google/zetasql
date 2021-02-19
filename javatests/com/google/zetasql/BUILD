@@ -41,6 +41,7 @@ java_library(
         "//zetasql/public:options_java_proto",
         "//zetasql/public:parse_resume_location_java_proto",
         "//zetasql/public:simple_table_java_proto",
+        "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",

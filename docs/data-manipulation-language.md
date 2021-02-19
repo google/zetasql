@@ -8,6 +8,7 @@ ZetaSQL supports the following statements for manipulating data:
 + `INSERT`
 + `UPDATE`
 + `DELETE`
++ `MERGE`
 
 ## Example data 
 <a id="example-data"></a>
@@ -139,6 +140,64 @@ message Album {
 <tr>
 <td>TicketPrices</td>
 <td><code>ARRAY&lt;INT64&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+
+### Inventory table
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>product</td>
+<td><code>STRING NOT NULL</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>quantity</td>
+<td><code>INT64 NOT NULL</code></td>
+<td>0</td>
+</tr>
+<tr>
+<td>supply_constrained</td>
+<td><code>BOOL</code></td>
+<td>false</td>
+</tr>
+</tbody>
+</table>
+
+### NewArrivals table
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>product</td>
+<td><code>STRING NOT NULL</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>quantity</td>
+<td><code>INT64 NOT NULL</code></td>
+<td>0</td>
+</tr>
+<tr>
+<td>warehouse</td>
+<td><code>STRING NOT NULL</code></td>
 <td>&nbsp;</td>
 </tr>
 </tbody>
@@ -950,6 +1009,169 @@ SET
     (INSERT AlbumTitles VALUES ("The Sloth and the Tiger"));
 ```
 
-[coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#coercion
-[functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference
+## MERGE statement
+
+Use the `MERGE` statement when you want to merge rows from a source table or
+subquery into a target table.
+
+<pre>
+MERGE [INTO] target_name [[AS] alias]
+USING source_name
+ON merge_condition
+when_clause [...]
+
+when_clause ::=
+  {
+    matched_clause
+    | not_matched_by_target_clause
+    | not_matched_by_source_clause
+  }
+
+matched_clause ::=
+  WHEN MATCHED [ AND search_condition ]
+  THEN { merge_update_clause | merge_delete_clause }
+
+not_matched_by_target_clause ::=
+  WHEN NOT MATCHED [BY TARGET] [ AND search_condition ]
+  THEN merge_insert_clause
+
+not_matched_by_source_clause ::=
+  WHEN NOT MATCHED BY SOURCE [ AND search_condition ]
+  THEN { merge_update_clause | merge_delete_clause }
+
+merge_condition ::=
+  bool_expression
+
+search_condition ::=
+  bool_expression
+
+merge_update_clause ::=
+  UPDATE SET update_item [, ...]
+
+update_item ::=
+  path_expression = expression
+
+merge_delete_clause ::=
+  DELETE
+
+merge_insert_clause ::=
+  INSERT [(column [, ... ])] input
+
+input ::=
+  {
+    VALUES (expr [, ... ])
+    | ROW
+  }
+
+expr ::=
+  { expression | DEFAULT }
+</pre>
+
+A `MERGE` statement is a DML statement that can combine `INSERT`, `UPDATE`,
+and `DELETE` operations into a single statement and perform the operations
+atomically.
+
++  `target_name`: The name of the table you're changing.
++  `source_name`: A table name or subquery.
++  `merge_condition`: A `MERGE` statement performs a `JOIN` between the
+   target and the source. Then, depending on the match status (row matched,
+   only in source table, only in destination table), the corresponding `WHEN`
+   clause is executed. The merge condition is used by the `JOIN` to match rows
+   between source and target tables. Depending on the combination of
+   `WHEN` clauses, different `INNER` and `OUTER JOIN` types are applied.
+
+   If the merge condition is `FALSE`, the query optimizer avoids using a `JOIN`.
+   This optimization is referred to as a constant false predicate. A
+   constant false predicate is useful when you perform an atomic `DELETE` on
+   the target plus an `INSERT` from a source (`DELETE` with `INSERT` is also
+   known as a `REPLACE` operation).
++  `when_clause`: The `WHEN` clause has three options: `MATCHED`,
+   `NOT MATCHED BY TARGET` and `NOT MATCHED BY SOURCE`. There must be at least
+   one `WHEN` clause in each `MERGE` statement.
+
+   Each `WHEN` clause can have an optional search condition. The `WHEN` clause
+   is executed for a row if both the merge condition and search condition are
+   satisfied. When there are multiple qualified clauses, only the first
+   `WHEN` clause is executed for a row.
++  `matched_clause`: The `WHEN MATCHED` clause defines how to update or delete
+   a row in the target table if that row matches a row in the source table.
+
+   If there is at least one matched clause performing an `UPDATE` operation,
+   a runtime error is returned when multiple rows from the source table match
+   one row from the target table, and you are trying to update or delete that
+   row in the target table.
++  `not_matched_by_target_clause`: The `WHEN NOT MATCHED` clause defines how to
+   insert into the target table if a row from the source table does not match
+   any row in the target table.
+
+   When the column names of the target table are omitted, all columns in the
+   target table are included in ascending order based on their ordinal
+   positions.
+
+   `ROW` can be used to include all the columns of the source in the ascending
+   sequence of their ordinal positions. Note that none of the pseudo column of
+   the source table is included.
++  `not_matched_by_source_clause`: The `WHEN NOT MATCHED BY SOURCE` clause
+   defines how to update or delete a row in the target table if that row does
+   not match any row in the source table.
+
+In the following example, the query merges items from the `NewArrivals` table
+into the `Inventory` table. If an item is already present in `Inventory`, the
+query increments the quantity field. Otherwise, the query inserts a new row.
+
+```sql
+MERGE dataset.Inventory T
+USING dataset.NewArrivals S
+ON T.product = S.product
+WHEN MATCHED THEN
+  UPDATE SET quantity = T.quantity + S.quantity
+WHEN NOT MATCHED THEN
+  INSERT (product, quantity) VALUES(product, quantity)
+```
+
+These are the tables before you run the query:
+
+```sql
+NewArrivals
++-----------------+----------+--------------+
+|     product     | quantity |  warehouse   |
++-----------------+----------+--------------+
+| dryer           |       20 | warehouse #2 |
+| oven            |       30 | warehouse #3 |
+| refrigerator    |       25 | warehouse #2 |
+| top load washer |       10 | warehouse #1 |
++-----------------+----------+--------------+
+
+Inventory
++-------------------+----------+
+|      product      | quantity |
++-------------------+----------+
+| dishwasher        |       30 |
+| dryer             |       30 |
+| front load washer |       20 |
+| microwave         |       20 |
+| oven              |        5 |
+| top load washer   |       10 |
++-------------------+----------+
+```
+
+This is the `Inventory` table after you run the query:
+
+```sql
+Inventory
++-------------------+----------+
+|      product      | quantity |
++-------------------+----------+
+| dishwasher        |       30 |
+| dryer             |       50 |
+| front load washer |       20 |
+| microwave         |       20 |
+| oven              |       35 |
+| refrigerator      |       25 |
+| top load washer   |       20 |
++-------------------+----------+
+```
+
+[coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
+[functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
 

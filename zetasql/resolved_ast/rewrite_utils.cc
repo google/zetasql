@@ -32,31 +32,37 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
   }
 
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
-    if (in_subquery_) {
+    if (in_subquery_or_lambda_) {
       return ResolvedASTDeepCopyVisitor::VisitResolvedColumnRef(node);
     }
     PushNodeToStack(CorrelatedColumnRef(*node));
     return absl::OkStatus();
   }
 
+  template <class T>
+  void CorrelateParameterList(T* node) {
+    for (auto& column_ref : node->parameter_list()) {
+      if (!column_ref->is_correlated()) {
+        const_cast<ResolvedColumnRef*>(column_ref.get())
+            ->set_is_correlated(true);
+      }
+    }
+  }
+
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override {
-    ++in_subquery_;
+    ++in_subquery_or_lambda_;
     absl::Status s =
         ResolvedASTDeepCopyVisitor::VisitResolvedSubqueryExpr(node);
-    --in_subquery_;
+    --in_subquery_or_lambda_;
 
-    // If this is the first subquery encountered, we need to correlate the
-    // column references in the parameter list and for the in expression.
-    if (!in_subquery_) {
+    // If this is the first lambda or subquery encountered, we need to correlate
+    // the column references in the parameter list and for the in expression.
+    // Column refererences of outer columns are already correlated.
+    if (!in_subquery_or_lambda_) {
       std::unique_ptr<ResolvedSubqueryExpr> expr =
           ConsumeTopOfStack<ResolvedSubqueryExpr>();
-      for (auto& column_ref : expr->parameter_list()) {
-        if (!column_ref->is_correlated()) {
-          const_cast<ResolvedColumnRef*>(column_ref.get())
-              ->set_is_correlated(true);
-        }
-      }
+      CorrelateParameterList(expr.get());
       if (expr->in_expr() != nullptr) {
         ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> in_expr,
                          ProcessNode(expr->in_expr()));
@@ -67,10 +73,29 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
     return s;
   }
 
+  absl::Status VisitResolvedInlineLambda(
+      const ResolvedInlineLambda* node) override {
+    ++in_subquery_or_lambda_;
+    absl::Status s =
+        ResolvedASTDeepCopyVisitor::VisitResolvedInlineLambda(node);
+    --in_subquery_or_lambda_;
+
+    // If this is the first lambda or subquery encountered, we need to correlate
+    // the column references in the parameter list. Column references of outer
+    // columns are already correlated.
+    if (!in_subquery_or_lambda_) {
+      std::unique_ptr<ResolvedInlineLambda> expr =
+          ConsumeTopOfStack<ResolvedInlineLambda>();
+      CorrelateParameterList(expr.get());
+      PushNodeToStack(std::move(expr));
+    }
+    return absl::OkStatus();
+  }
+
   // Tracks if we're inside a subquery. We stop correlating when we're inside a
   // subquery as column references are either already correlated or don't need
   // to be.
-  int in_subquery_ = 0;
+  int in_subquery_or_lambda_ = 0;
 };
 
 // A visitor which collects the ResolvedColumnRef that are referenced.
@@ -95,7 +120,18 @@ class ColumnRefCollector : public ResolvedASTVisitor {
     if (node->in_expr() != nullptr) {
       ZETASQL_RETURN_IF_ERROR(node->in_expr()->Accept(this));
     }
-    // Cut off traversal once we hit a subquery.
+    // Cut off traversal once we hit a subquery. Column refs inside subquery are
+    // either internal or already collected in parameter_list.
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedInlineLambda(
+      const ResolvedInlineLambda* node) override {
+    for (const auto& column_ref : node->parameter_list()) {
+      ZETASQL_RETURN_IF_ERROR(VisitResolvedColumnRef(column_ref.get()));
+    }
+    // Cut off traversal once we hit a lambda. Column refs inside lambda body
+    // are either internal or already collected in parameter_list.
     return absl::OkStatus();
   }
 

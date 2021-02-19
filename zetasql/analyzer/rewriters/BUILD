@@ -23,6 +23,7 @@ package(
 cc_library(
     name = "flatten_rewriter",
     srcs = ["flatten_rewriter.cc"],
+    hdrs = ["flatten_rewriter.h"],
     copts = [
         "-Wno-char-subscripts",
         "-Wno-return-type",
@@ -33,7 +34,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        ":registration",
+        ":rewriter_interface",
         "//zetasql/parser",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
@@ -45,13 +46,100 @@ cc_library(
         "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/status",
     ],
-    alwayslink = 1,
 )
 
 cc_library(
-    name = "registration",
-    srcs = ["registration.cc"],
-    hdrs = ["registration.h"],
+    name = "map_function_rewriter",
+    srcs = ["map_function_rewriter.cc"],
+    hdrs = ["map_function_rewriter.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":rewriter_interface",
+        "//zetasql/analyzer:substitute",
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:value",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:make_node_vector",
+        "//zetasql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "array_functions_rewriter",
+    srcs = ["array_functions_rewriter.cc"],
+    hdrs = ["array_functions_rewriter.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":rewriter_interface",
+        "//zetasql/analyzer:substitute",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/parser",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:catalog",
+        "//zetasql/public:function",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:rewrite_utils",
+        "//zetasql/resolved_ast:validator",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_library(
+    name = "unpivot_rewriter",
+    srcs = ["unpivot_rewriter.cc"],
+    hdrs = ["unpivot_rewriter.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":rewriter_interface",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:analyzer_output_properties",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_library(
+    name = "rewriter_interface",
+    hdrs = ["rewriter_interface.h"],
     copts = [
         "-Wno-char-subscripts",
         "-Wno-return-type",
@@ -66,26 +154,6 @@ cc_library(
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public/types",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/synchronization",
-    ],
-)
-
-cc_test(
-    name = "registration_test",
-    srcs = ["registration_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
-    deps = [
-        ":registration",
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/status",
     ],
 )

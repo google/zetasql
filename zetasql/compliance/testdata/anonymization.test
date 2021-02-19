@@ -304,34 +304,10 @@ FROM TestTableWithUid;
 ARRAY<STRUCT<DOUBLE>>[]
 ==
 
-# There are ten userids in this table, so the epsilon/delta combination
-# must compute an effective k_threshold of over 10.  This combination
-# of epsilon/delta computes a k_threshold of 12.
-[name=anonymization_delta_eliminates_row]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=5, delta=2.0894334e-24)
-  ANON_SUM(double_val CLAMPED BETWEEN 0 AND 4)
-FROM TestTableWithUid;
---
-ARRAY<STRUCT<DOUBLE>>[]
-==
-
 [name=anonymization_k_threshold_eliminates_row_for_anon_avg]
 [labels=anonymization]
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, k_threshold=100)
   ANON_AVG(double_val)
-FROM TestTableWithUid;
---
-ARRAY<STRUCT<DOUBLE>>[]
-==
-
-# There are ten userids in this table, so the epsilon/delta combination
-# must compute an effective k_threshold of over 10.  This combination
-# of epsilon/delta computes a k_threshold of 12.
-[name=anonymization_delta_eliminates_row_for_anon_avg]
-[labels=anonymization]
-SELECT WITH ANONYMIZATION OPTIONS(epsilon=5, delta=2.0894334e-24)
-  ANON_AVG(double_val CLAMPED BETWEEN 0 AND 4)
 FROM TestTableWithUid;
 --
 ARRAY<STRUCT<DOUBLE>>[]

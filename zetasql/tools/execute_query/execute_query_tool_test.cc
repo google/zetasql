@@ -41,6 +41,7 @@ TEST(SetToolModeFromFlags, ToolMode) {
     ZETASQL_EXPECT_OK(SetToolModeFromFlags(config));
     EXPECT_EQ(config.tool_mode(), expected_mode);
   };
+  CheckFlag("parse", ToolMode::kParse);
   CheckFlag("resolve", ToolMode::kResolve);
   CheckFlag("explain", ToolMode::kExplain);
   CheckFlag("execute", ToolMode::kExecute);
@@ -196,6 +197,21 @@ TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
 | goodbye |
 | hello   |
 +---------+
+
+)");
+}
+
+TEST(ExecuteQuery, Parse) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kParse);
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
+  EXPECT_EQ(output.str(), R"(QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
 
 )");
 }

@@ -68,22 +68,26 @@ absl::Status Resolver::ResolveAlterActions(
         alter_actions->push_back(
             MakeResolvedSetOptionsAction(std::move(resolved_options)));
       } break;
-      case AST_ADD_CONSTRAINT_ACTION: {
+      case AST_ADD_CONSTRAINT_ACTION:
+      case AST_DROP_CONSTRAINT_ACTION: {
         if (!ast_statement->is_if_exists()) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
-        const auto* constraint = action->GetAsOrDie<ASTAddConstraintAction>();
-        std::unique_ptr<const ResolvedAddConstraintAction>
-            resolved_alter_action;
-        ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(
-            altered_table, ast_statement, constraint, &resolved_alter_action));
-        alter_actions->push_back(std::move(resolved_alter_action));
-      } break;
-      case AST_DROP_CONSTRAINT_ACTION: {
-        const auto* constraint = action->GetAsOrDie<ASTDropConstraintAction>();
-        alter_actions->push_back(MakeResolvedDropConstraintAction(
-            constraint->is_if_exists(),
-            constraint->constraint_name()->GetAsString()));
+        if (action->node_kind() == AST_ADD_CONSTRAINT_ACTION) {
+          const auto* constraint = action->GetAsOrDie<ASTAddConstraintAction>();
+          std::unique_ptr<const ResolvedAddConstraintAction>
+              resolved_alter_action;
+          ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(altered_table,
+                                                     ast_statement, constraint,
+                                                     &resolved_alter_action));
+          alter_actions->push_back(std::move(resolved_alter_action));
+        } else {
+          const auto* constraint =
+              action->GetAsOrDie<ASTDropConstraintAction>();
+          alter_actions->push_back(MakeResolvedDropConstraintAction(
+              constraint->is_if_exists(),
+              constraint->constraint_name()->GetAsString()));
+        }
       } break;
       case AST_ALTER_CONSTRAINT_ENFORCEMENT_ACTION:
         return MakeSqlErrorAt(action)
@@ -157,7 +161,7 @@ absl::Status Resolver::ResolveAlterActions(
         ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnOptionsAction(
             table_name_id_string, altered_table,
             action->GetAsOrDie<ASTAlterColumnOptionsAction>(),
-            ast_statement->is_if_exists(), &resolved_action));
+            &resolved_action));
         alter_actions->push_back(std::move(resolved_action));
       } break;
       default:
@@ -353,14 +357,14 @@ absl::Status Resolver::ResolveDropColumnAction(
 
 absl::Status Resolver::ResolveAlterColumnOptionsAction(
     IdString table_name_id_string, const Table* table,
-    const ASTAlterColumnOptionsAction* action, bool is_if_exists,
+    const ASTAlterColumnOptionsAction* action,
     std::unique_ptr<const ResolvedAlterAction>* alter_action) {
   ZETASQL_RET_CHECK(*alter_action == nullptr);
   const IdString column_name = action->column_name()->GetAsIdString();
   std::unique_ptr<ResolvedColumnRef> column_reference;
   if (table != nullptr) {
     const Column* column = table->FindColumnByName(column_name.ToString());
-    if (column == nullptr && !is_if_exists) {
+    if (column == nullptr) {
       return MakeSqlErrorAt(action) << "Column not found: " << column_name;
     }
     if (column != nullptr && column->IsPseudoColumn()) {

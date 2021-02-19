@@ -850,7 +850,7 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 
 [primary-key]: #primary-key
 [create-table]: #create-table
-[hints]: lexical#hints
+[hints]: lexical.md#hints
 [defining-columns]: #defining-columns
 [defining-constraints]: #defining-table-constraints
 [defining-foreign-reference]: #defining-foreign-references

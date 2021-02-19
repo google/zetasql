@@ -3257,5 +3257,5 @@ FROM items;
 [string-link-to-from-hex]: #from_hex
 [string-link-to-to-hex]: #to_hex
 
-[string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators
+[string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

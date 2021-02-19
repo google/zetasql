@@ -19,6 +19,7 @@
 
 #include <memory>
 
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
@@ -64,11 +65,12 @@ struct RewriteForAnonymizationOutput {
 //
 // Does not take ownership of 'query', 'catalog', or, 'type_factory'.
 ABSL_DEPRECATED("Use RewriteResolvedAst() instead")
-zetasql_base::StatusOr<RewriteForAnonymizationOutput>
-RewriteForAnonymization(const ResolvedNode& query, Catalog* catalog,
-                        TypeFactory* type_factory,
-                        const AnalyzerOptions& analyzer_options,
-                        ColumnFactory& column_factory);
+zetasql_base::StatusOr<RewriteForAnonymizationOutput> RewriteForAnonymization(
+    const ResolvedNode& query, Catalog* catalog, TypeFactory* type_factory,
+    const AnalyzerOptions& analyzer_options, ColumnFactory& column_factory);
+
+// Returns a pointer to the anonymization rewriter.
+const Rewriter* GetAnonymizationRewriter();
 
 }  // namespace zetasql
 

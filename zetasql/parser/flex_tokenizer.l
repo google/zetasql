@@ -347,6 +347,7 @@ add { return BisonParserImpl::token::KW_ADD; }
 aggregate { return BisonParserImpl::token::KW_AGGREGATE; }
 all { return BisonParserImpl::token::KW_ALL; }
 alter { return BisonParserImpl::token::KW_ALTER; }
+analyze { return BisonParserImpl::token::KW_ANALYZE; }
 and {
   if (YY_START == IN_BETWEEN) {
     // See IN_BETWEEN tokenizer mode description.
@@ -385,6 +386,7 @@ case { return BisonParserImpl::token::KW_CASE; }
 cast { return BisonParserImpl::token::KW_CAST; }
 check { return BisonParserImpl::token::KW_CHECK; }
 clamped { return BisonParserImpl::token::KW_CLAMPED; }
+clone { return BisonParserImpl::token::KW_CLONE; }
 cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
 column { return BisonParserImpl::token::KW_COLUMN; }
@@ -552,12 +554,14 @@ private { return BisonParserImpl::token::KW_PRIVATE; }
 privileges { return BisonParserImpl::token::KW_PRIVILEGES; }
 proto { return BisonParserImpl::token::KW_PROTO; }
 public { return BisonParserImpl::token::KW_PUBLIC; }
+qualify { return BisonParserImpl::token::KW_QUALIFY; }
 raise { return BisonParserImpl::token::KW_RAISE; }
 range { return BisonParserImpl::token::KW_RANGE; }
 read { return BisonParserImpl::token::KW_READ; }
 recursive { return BisonParserImpl::token::KW_RECURSIVE; }
 references { return BisonParserImpl::token::KW_REFERENCES; }
 rename { return BisonParserImpl::token::KW_RENAME; }
+repeat { return BisonParserImpl::token::KW_REPEAT; }
 repeatable { return BisonParserImpl::token::KW_REPEATABLE; }
 replace { return BisonParserImpl::token::KW_REPLACE; }
 replace_fields { return BisonParserImpl::token::KW_REPLACE_FIELDS; }
@@ -611,6 +615,7 @@ unbounded { return BisonParserImpl::token::KW_UNBOUNDED; }
 union { return BisonParserImpl::token::KW_UNION; }
 unnest { return BisonParserImpl::token::KW_UNNEST; }
 unique { return BisonParserImpl::token::KW_UNIQUE; }
+until { return BisonParserImpl::token::KW_UNTIL; }
 update { return BisonParserImpl::token::KW_UPDATE; }
 using { return BisonParserImpl::token::KW_USING; }
 value { return BisonParserImpl::token::KW_VALUE; }

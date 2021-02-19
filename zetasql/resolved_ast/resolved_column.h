@@ -56,22 +56,6 @@ class ResolvedColumn {
   // Construct a ResolvedColumn with the given <column_id> and <type>.
   // <table_name> and <name> are for display only, have no defined meaning and
   // are required to be non-empty.
-  //
-  // NOTE: The IdString constructor is preferred because it avoids doing any
-  // string copying.  We don't want the string-based constructor to be called
-  // anywhere during zetasql analysis, but there are outside callers.
-  // WARNING: This string-based constructor allocates IdStrings in the
-  // global IdStringPool, so they never get freed.  Avoid using this for an
-  // unbounded number of strings.
-  // TODO Maybe get this removed, or figure out a way to enforce that
-  // zetasql code can't call it.
-  ABSL_DEPRECATED(
-      "Please use ResolvedColumn(int, IdString, IdString, const Type*) "
-      "instead, using IdString::MakeGlobal if you do not mind the fact that "
-      "this creates and never deallocates the strings being passed into it "
-      "(for instance, in unit test code).")
-  ResolvedColumn(int column_id, const std::string& table_name,
-                 const std::string& name, const Type* type);
   ResolvedColumn(int column_id, IdString table_name, IdString name,
                  const Type* type)
       : ResolvedColumn(column_id, table_name, name,

@@ -121,12 +121,14 @@ class FunctionSignatureMatcher {
     }
 
     // Changes the set to kind TYPED_ARGUMENTS, and adds a typed argument to
-    // the set of typed arguments.
-    bool InsertTypedArgument(const InputArgumentType& input_argument) {
+    // the set of typed arguments. If set_dominant is true, the argument will
+    // be set to the dominant type in typed_arguments.
+    bool InsertTypedArgument(const InputArgumentType& input_argument,
+                             bool set_dominant = false) {
       // Typed arguments have precedence over untyped arguments.
       ZETASQL_DCHECK(!input_argument.is_untyped());
       kind_ = TYPED_ARGUMENTS;
-      return typed_arguments_.Insert(input_argument);
+      return typed_arguments_.Insert(input_argument, set_dominant);
     }
 
     // Returns the set of typed arguments corresponding to this object. Can only
@@ -173,14 +175,6 @@ class FunctionSignatureMatcher {
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, int repetitions, int optionals,
       const ArgKindToResolvedTypeMap& templated_argument_map) const;
-
-  // Determines if the argument list count matches signature, returning the
-  // number of times each repeated argument repeats and the number of
-  // optional arguments present if true.
-  bool SignatureArgumentCountMatches(
-      const std::vector<InputArgumentType>& input_arguments,
-      const FunctionSignature& signature, int* repetitions,
-      int* optionals) const;
 
   // Returns if input argument types match the signature argument types, and
   // updates related templated argument type information.
@@ -491,18 +485,23 @@ FunctionArgumentTypeList FunctionSignatureMatcher::GetConcreteArguments(
   return resolved_argument_list;
 }
 
-bool FunctionSignatureMatcher::SignatureArgumentCountMatches(
-    const std::vector<InputArgumentType>& input_arguments,
-    const FunctionSignature& signature, int* repetitions,
-    int* optionals) const {
+}  // namespace
+
+bool SignatureArgumentCountMatches(const FunctionSignature& signature,
+                                   int input_arguments_size,
+                                   int* repetitions, int* optionals) {
   const int num_required = signature.NumRequiredArguments();
 
   *repetitions = 0;
   *optionals = 0;
 
-  if (num_required == input_arguments.size()) {
+  if (num_required == input_arguments_size) {
     // Fast path: exactly the required arguments passed, return early.
     return true;
+  }
+  if (num_required > input_arguments_size) {
+    // Fast path: fewer required arguments provided, return early.
+    return false;
   }
 
   const int num_repeated = signature.NumRepeatedArguments();
@@ -510,25 +509,28 @@ bool FunctionSignatureMatcher::SignatureArgumentCountMatches(
 
   // Initially qualify the signature based on the number of arguments, taking
   // into account optional and repeated arguments.  Find x and y such that:
-  //   input_arguments.size() = sig.num_required + x*sig.num_repeated + y
+  //   input_arguments_size = sig.num_required + x*sig.num_repeated + y
   // where 0 < y <= sig.num_optional.
   if (num_repeated > 0) {
-    while (input_arguments.size() >
+    while (input_arguments_size >
            num_required + *repetitions * num_repeated + num_optional) {
       ++(*repetitions);
     }
   }
-  if (num_optional <
-      input_arguments.size() - num_required - *repetitions * num_repeated) {
+
+  const int opts =
+      input_arguments_size - num_required - *repetitions * num_repeated;
+  if (opts < 0 || opts > num_optional) {
     // We do not have enough optionals to match the arguments size, and
     // repeating the repeated block again would require too many arguments.
     return false;
   }
-  *optionals =
-      input_arguments.size() - num_required - *repetitions * num_repeated;
 
+  *optionals = opts;
   return true;
 }
+
+namespace {
 
 bool IsArgKind_ARRAY_ANY_K(SignatureArgumentKind kind) {
   return kind == ARG_ARRAY_TYPE_ANY_1 || kind == ARG_ARRAY_TYPE_ANY_2;
@@ -736,6 +738,29 @@ bool FunctionSignatureMatcher::CheckArgumentTypesAndCollectTemplatedArguments(
   return true;
 }
 
+namespace {
+// Computes the key and value types for the entries in a proto map (i.e. an
+// array of protos with the map_entry option set to true).
+struct MapEntryTypes {
+  const Type* key_type;
+  const Type* value_type;
+};
+zetasql_base::StatusOr<MapEntryTypes> GetMapEntryTypes(const Type* map_type,
+                                               TypeFactory& factory) {
+  ZETASQL_RET_CHECK(IsProtoMap(map_type)) << map_type->DebugString();
+
+  const ProtoType* map_entry_type =
+      map_type->AsArray()->element_type()->AsProto();
+  const Type* key_type;
+  ZETASQL_RETURN_IF_ERROR(
+      factory.GetProtoFieldType(map_entry_type->map_key(), &key_type));
+  const Type* value_type;
+  ZETASQL_RETURN_IF_ERROR(
+      factory.GetProtoFieldType(map_entry_type->map_value(), &value_type));
+  return {{key_type, value_type}};
+}
+}  // namespace
+
 // Utility used by above function
 bool FunctionSignatureMatcher::
     CheckSingleInputArgumentTypeAndCollectTemplatedArgument(
@@ -891,24 +916,19 @@ bool FunctionSignatureMatcher::
     if (signature_argument_kind == ARG_PROTO_MAP_ANY) {
       // If this is a proto map argument, we can infer the templated types
       // for the key and value.
-      const ProtoType* map_entry_type =
-          input_argument.type()->AsArray()->element_type()->AsProto();
-      const Type* key_type;
-      if (!type_factory_
-               ->GetProtoFieldType(map_entry_type->map_key(), &key_type)
-               .ok()) {
+      zetasql_base::StatusOr<MapEntryTypes> entry_types =
+          GetMapEntryTypes(input_argument.type(), *type_factory_);
+      if (!entry_types.ok()) {
+        ZETASQL_VLOG(1) << "Error computing map entry types: " << entry_types.status();
         return false;
       }
-      const Type* value_type;
-      if (!type_factory_
-               ->GetProtoFieldType(map_entry_type->map_value(), &value_type)
-               .ok()) {
-        return false;
-      }
+      // For map entry functions, the template type is dominant. Other arguments
+      // must be coercible to this type.
+      constexpr bool set_dominant = true;
       (*templated_argument_map)[ARG_PROTO_MAP_KEY_ANY].InsertTypedArgument(
-          MakeConcreteArgument(key_type));
+          MakeConcreteArgument(entry_types->key_type), set_dominant);
       (*templated_argument_map)[ARG_PROTO_MAP_VALUE_ANY].InsertTypedArgument(
-          MakeConcreteArgument(value_type));
+          MakeConcreteArgument(entry_types->value_type), set_dominant);
     }
   }
 
@@ -1057,7 +1077,31 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
     const SignatureArgumentKindTypeSet& type_set =
         templated_argument_entry.second;
 
-    if (!IsArgKind_ARRAY_ANY_K(kind)) {
+    if (kind == ARG_PROTO_MAP_VALUE_ANY || kind == ARG_PROTO_MAP_KEY_ANY) {
+      if (type_set.kind() != SignatureArgumentKindTypeSet::TYPED_ARGUMENTS) {
+        continue;
+      }
+
+      // For the key and the value kinds of a proto map, ensure any arguments
+      // can be coerced to the dominant type. The dominant type will be the one
+      // indicated by the proto map template argument.
+      const InputArgumentType* dominant_type =
+          type_set.typed_arguments().dominant_argument();
+      if (dominant_type == nullptr) {
+        ZETASQL_DLOG(FATAL) << "Dominant type should be set for map key and value in "
+                    << "all cases";
+        return false;
+      }
+
+      for (const auto& other_type : type_set.typed_arguments().arguments()) {
+        SignatureMatchResult unused_result;
+        if (!coercer_.CoercesTo(other_type, dominant_type->type(),
+                                /*is_explicit=*/false, &unused_result)) {
+          return false;
+        }
+      }
+      (*resolved_templated_arguments)[kind] = dominant_type->type();
+    } else if (!IsArgKind_ARRAY_ANY_K(kind)) {
       switch (type_set.kind()) {
         case SignatureArgumentKindTypeSet::UNTYPED_NULL:
           if (kind == ARG_PROTO_ANY || kind == ARG_STRUCT_ANY ||
@@ -1152,12 +1196,19 @@ bool FunctionSignatureMatcher::SignatureMatches(
   int repetitions = 0;
   int optionals = 0;
 
+  // Sanity check.
+  ZETASQL_DCHECK_LE(input_arguments.size(), std::numeric_limits<int>::max());
+  if (input_arguments.size() > std::numeric_limits<int>::max()) {
+    return false;
+  }
+
   // Initially qualify the signature based on the number of arguments, taking
   // into account optional and repeated arguments.  Find x and y such that:
   //   input_arguments.size() = sig.num_required + x*sig.num_repeated + y
   // where 0 < y <= sig.num_optional.
-  if (!SignatureArgumentCountMatches(input_arguments, signature, &repetitions,
-                                     &optionals)) {
+  if (!SignatureArgumentCountMatches(signature,
+                                     static_cast<int>(input_arguments.size()),
+                                     &repetitions, &optionals)) {
     return false;
   }
 
@@ -1308,4 +1359,5 @@ bool FunctionSignatureMatches(
       resolve_lambda_callback, result_signature, signature_match_result,
       arg_overrides);
 }
+
 }  // namespace zetasql

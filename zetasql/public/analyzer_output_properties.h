@@ -26,6 +26,10 @@ struct AnalyzerOutputProperties {
   // True if a ResolvedFlatten AST node was generated in the analyzer output.
   bool has_flatten = false;
 
+  // True if a ResolvedFunctionCall node for ARRAY_FILTER or ARRAY_TRANSFORM
+  // was generated in the analyzer output.
+  bool has_array_functions_to_rewrite = false;
+
   // Indicates if anonymization was found during analysis.  When resolving
   // queries, anonymization is found if an AnonymizedAggregateScan is
   // created.  When resolving expressions, anonymization is found if an
@@ -33,10 +37,21 @@ struct AnalyzerOutputProperties {
   // anonymized aggregate function call is present.
   bool has_anonymization = false;
 
+  // True if a ResolvedPivotScan AST node was generated in the analyzer output.
+  bool has_pivot = false;
+
+  // True if a ResolvedUnpivotScan AST node was generated in the analyzer
+  // output.
+  bool has_unpivot = false;
+
   // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
   absl::flat_hash_map<const ResolvedTableScan*,
                       const ResolvedAnonymizedAggregateScan*>
       resolved_table_scan_to_anonymized_aggregate_scan_map;
+
+  // Returns whether any proto map functions that may be rewritten by
+  // MapFunctionRewriter are used in the expression.
+  bool has_proto_map_functions = false;
 };
 
 }  // namespace zetasql

@@ -640,6 +640,17 @@ class AnalyzerOptions {
   // Copyable
 };
 
+// Returns <options> if it already has all arenas initialized, or otherwise
+// populates <copy> as a copy for <options>, creates arenas in <copy> and
+// returns it. This avoids unnecessary duplication of AnalyzerOptions, which
+// might be expensive.
+const AnalyzerOptions& GetOptionsWithArenas(
+    const AnalyzerOptions* options, std::unique_ptr<AnalyzerOptions>* copy);
+
+// Verifies that the provided AnalyzerOptions have a valid combination of
+// settings.
+absl::Status ValidateAnalyzerOptions(const AnalyzerOptions& options);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_ANALYZER_OPTIONS_H_

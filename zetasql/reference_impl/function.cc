@@ -1280,6 +1280,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     const Type* output_type,
     const std::vector<std::unique_ptr<ValueExpr>>& arguments) {
   std::vector<const Type*> input_types;
+  input_types.reserve(arguments.size());
   for (const auto& expr : arguments) {
     input_types.push_back(expr->output_type());
   }
@@ -1694,6 +1695,7 @@ BuiltinScalarFunction::CreateRegexpFunction(
     FunctionKind kind, const Type* output_type,
     const std::vector<std::unique_ptr<ValueExpr>>& arguments) {
   std::vector<const Type*> input_types;
+  input_types.reserve(arguments.size());
   for (const auto& expr : arguments) {
     input_types.push_back(expr->output_type());
   }
@@ -2083,11 +2085,47 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
 
     case FCT(FunctionKind::kSubtract, TYPE_DATE): {
       int32_t date;
-      *status =
-          functions::SubDate(args[0].date_value(), zetasql::functions::DAY,
-                             args[1].int64_value(), &date);
+      if (args[1].type()->IsInt64()) {
+        *status =
+            functions::SubDate(args[0].date_value(), zetasql::functions::DAY,
+                               args[1].int64_value(), &date);
+        if (status->ok()) {
+          *result = Value::Date(date);
+        }
+      } else {
+        auto status_interval = functions::IntervalDiffDates(
+            args[0].date_value(), args[1].date_value());
+        *status = status_interval.status();
+        if (status->ok()) {
+          *result = Value::Interval(*status_interval);
+        }
+      }
+      return status->ok();
+    }
+    case FCT(FunctionKind::kSubtract, TYPE_TIMESTAMP): {
+      auto status_interval =
+          functions::IntervalDiffTimestamps(args[0].ToTime(), args[1].ToTime());
+      *status = status_interval.status();
       if (status->ok()) {
-        *result = Value::Date(date);
+        *result = Value::Interval(*status_interval);
+      }
+      return status->ok();
+    }
+    case FCT(FunctionKind::kSubtract, TYPE_DATETIME): {
+      auto status_interval = functions::IntervalDiffDatetimes(
+          args[0].datetime_value(), args[1].datetime_value());
+      *status = status_interval.status();
+      if (status->ok()) {
+        *result = Value::Interval(*status_interval);
+      }
+      return status->ok();
+    }
+    case FCT(FunctionKind::kSubtract, TYPE_TIME): {
+      auto status_interval = functions::IntervalDiffTimes(args[0].time_value(),
+                                                          args[1].time_value());
+      *status = status_interval.status();
+      if (status->ok()) {
+        *result = Value::Interval(*status_interval);
       }
       return status->ok();
     }
@@ -2222,7 +2260,9 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kUnaryMinus, TYPE_BIGNUMERIC):
       return InvokeUnary<BigNumericValue>(
           &functions::UnaryMinus<BigNumericValue>, args, result, status);
-
+    case FCT(FunctionKind::kUnaryMinus, TYPE_INTERVAL):
+      return InvokeUnary<IntervalValue>(&functions::IntervalUnaryMinus, args,
+                                        result, status);
     case FCT(FunctionKind::kSafeNegate, TYPE_INT64):
       return SafeInvokeUnary<int64_t>(&functions::UnaryMinus<int64_t, int64_t>, args,
                                     result, status);

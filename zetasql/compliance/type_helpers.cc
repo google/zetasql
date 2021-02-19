@@ -49,6 +49,7 @@ static zetasql_base::StatusOr<const StructType*> CreateStructTypeForTableRow(
 
 const char* kDMLOutputNumRowsModifiedColumnName = "num_rows_modified";
 const char* kDMLOutputAllRowsColumnName = "all_rows";
+const char* kDMLOutputReturningColumnName = "returning_rows";
 
 zetasql_base::StatusOr<const ArrayType*> CreateTableArrayType(
     const ResolvedColumnList& table_columns, bool is_value_table,
@@ -83,9 +84,20 @@ zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
 
 zetasql_base::StatusOr<const StructType*> CreateDMLOutputType(
     const ArrayType* table_array_type, TypeFactory* type_factory) {
+  return CreateDMLOutputTypeWithReturning(table_array_type,
+                                          /*returning_array_type=*/nullptr,
+                                          type_factory);
+}
+
+zetasql_base::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(
+    const ArrayType* table_array_type, const ArrayType* returning_array_type,
+    TypeFactory* type_factory) {
   std::vector<StructType::StructField> fields;
   fields.emplace_back(kDMLOutputNumRowsModifiedColumnName, types::Int64Type());
   fields.emplace_back(kDMLOutputAllRowsColumnName, table_array_type);
+  if (returning_array_type != nullptr) {
+    fields.emplace_back(kDMLOutputReturningColumnName, returning_array_type);
+  }
 
   const StructType* dml_output_type;
   ZETASQL_RETURN_IF_ERROR(type_factory->MakeStructType(fields, &dml_output_type));

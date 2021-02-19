@@ -434,3 +434,75 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[["foo","bar"], ["baz"]]}]
 SELECT FLATTEN([STRUCT(JSON '[{"field": 1}]' AS x, 2 AS y), (JSON '{"field": 11}', 22)].x.field)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[NULL, 11]}]
+==
+
+[name=array_path_flatten_with_offset_at_end]
+SELECT FLATTEN([
+    STRUCT([1, 2, 3] AS a),
+    STRUCT([4, 5] AS a)
+  ].a[OFFSET(1)]
+)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2, 5]}]
+==
+
+[name=array_path_flatten_with_offset_after]
+SELECT FLATTEN([
+    STRUCT([1, 2, 3] AS a),
+    STRUCT([4, 5] AS a)
+  ].a
+)[OFFSET(0)]
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=array_path_flatten_with_offset_at_end_and_after]
+SELECT FLATTEN([
+    STRUCT([1, 2, 3] AS a),
+    STRUCT([4, 5] AS a)
+  ].a[OFFSET(1)]
+)[OFFSET(0)]
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=array_path_flatten_with_partially_invalid_internal_offset]
+SELECT FLATTEN([
+    STRUCT([1, 2, 3] AS a),
+    STRUCT([4, 5] AS a)
+  ].a[OFFSET(2)]
+)
+--
+ERROR: generic::out_of_range: Array index 2 is out of bounds
+==
+
+[name=array_path_flatten_with_partially_invalid_internal_safe_offset]
+SELECT FLATTEN([
+    STRUCT([1, 2, 3] AS a),
+    STRUCT([4, 5] AS a)
+  ].a[SAFE_OFFSET(2)]
+)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[3, NULL]}]
+==
+
+[name=array_path_flatten_with_offset_at_end_proto]
+SELECT FLATTEN([
+  CAST('''repeated_recursive_pb { int64_val: 1 }
+          repeated_recursive_pb { int64_val: 2 }''' AS zetasql_test.RecursivePB),
+  CAST('''repeated_recursive_pb { int64_val: 3 }
+          repeated_recursive_pb { int64_val: 4 }''' AS zetasql_test.RecursivePB)
+  ].repeated_recursive_pb[OFFSET(1)].int64_val) AS my_array
+--
+ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]
+==
+
+[name=array_path_flatten_with_offset_in_middle_proto]
+SELECT FLATTEN([
+  CAST('''repeated_recursive_pb { repeated_recursive_pb { int64_val: 1 } }
+          repeated_recursive_pb { repeated_recursive_pb { int64_val: 2 } }''' AS zetasql_test.RecursivePB),
+  CAST('''repeated_recursive_pb { repeated_recursive_pb { int64_val: 3 } }
+          repeated_recursive_pb { repeated_recursive_pb { int64_val: 4 } }''' AS zetasql_test.RecursivePB)
+  ].repeated_recursive_pb[OFFSET(1)].repeated_recursive_pb.int64_val) AS my_array
+--
+ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]

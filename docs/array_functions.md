@@ -209,6 +209,141 @@ FROM items;
 +--------------------------------+
 ```
 
+### FLATTEN
+
+```sql
+FLATTEN(flatten_path)
+```
+
+**Description**
+
+Extracts a collection of values that have the same semantic meaning from a
+tree-shaped value and returns an array. `flatten_path` is a path that can select
+many values out of the tree-shaped value and return them as an array. For
+example, `FLATTEN(table.column.array_field.target)` will return an array of all
+`targets` inside `table.column`. Tree-shaped data is represented in the
+ZetaSQL type system by composing these typed values:
+
++ STRUCT
++ ARRAY
++ PROTO (Protobuf message types and enum types)
+
+The resulting array may contain `NULL` array elements, but only if
+evaluating the path along some array elements returns `NULL`. Returns `NULL`
+if `flatten_path` is `NULL`.
+
+You can learn more about flattening tree structured data into arrays and
+the flatten path in
+[Flattening tree-structured data into arrays][flatten-tree-to-array].
+
+**Return type**
+
+ARRAY
+
+**Examples**
+
+In this `STRUCT` example, `(5,6)` and `(7,8)` are flattened
+into `[5,6,7,8]`.
+
+```sql
+SELECT FLATTEN([
+  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
+  STRUCT( [STRUCT(7 AS y), STRUCT(8)] AS x )
+  ].x.y) AS my_array
+
++--------------+
+| my_array     |
++--------------+
+| [5, 6, 7, 8] |
++--------------+
+```
+
+In this PROTO example, `(5)`, `(6,7)` and `(8)` are
+flattened into `[5,6,7,8]`.
+
+```proto
+message MyProto {
+  message InnerProto {
+    repeated int64 x = 1;
+  }
+  repeated InnerProto y = 2;
+}
+```
+
+```sql
+SELECT FLATTEN(
+  CAST(
+     'y { x: 5 }
+      y { x: 6 x: 7 }
+      y { x: 8 }'
+  AS MyProto).y.x AS my_array
+)
+
++--------------+
+| my_array     |
++--------------+
+| [5, 6, 7, 8] |
++--------------+
+```
+
+In this PROTO example, `(5,6)` and `(7,8)` are
+flattened into `[(5,6), (7,8)]`.
+
+```proto
+message MyProto {
+  Message Inner {
+    int64 x = 1;
+    int64 y = 2;
+  }
+  repeated Inner z = 1;
+}
+```
+
+```sql
+SELECT FLATTEN(
+  CAST(
+     'z { x: 5  y: 6 }
+      z { x: 7  y: 8 }'
+  AS MyProto).z AS my_array
+
++------------------+
+| my_array         |
++------------------+
+| [(5, 6), (7, 8)] |
++------------------+
+```
+
+The resulting array may contain `NULL` `ARRAY` elements, but only if
+evaluating the flatten path along some array elements returns `NULL`.
+For example:
+
+```sql
+SELECT FLATTEN([
+  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
+  STRUCT( [STRUCT(7 AS y), NULL] AS x )
+  ].x.y) AS my_array
+
++-----------------+
+| my_array        |
++-----------------+
+| [5, 6, 7, NULL] |
++-----------------+
+```
+
+```sql
+SELECT FLATTEN([
+  STRUCT( STRUCT(5 AS y) AS x),
+  STRUCT( NULL AS x ),
+  STRUCT( STRUCT(6 AS y) )
+  ].x.y) AS my_array
+
++--------------+
+| my_array     |
++--------------+
+| [5, NULL, 6] |
++--------------+
+```
+
 ### GENERATE_ARRAY
 
 ```sql
@@ -783,10 +918,11 @@ FROM items;
 +----------------------------------+---------------+----------------+
 ```
 
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
-[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
 
-[array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators
+[array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

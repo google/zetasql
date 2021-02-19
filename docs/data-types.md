@@ -97,7 +97,7 @@ Protocol Buffer comparisons are not supported.
 All types that support comparisons
 can be used in a <code>JOIN</code> condition. See
 
-<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax#join_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">
 
 JOIN Types
 </a>
@@ -105,6 +105,254 @@ JOIN Types
 for an explanation of join conditions.</td></tr>
 </tbody>
 </table>
+
+## Array type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ARRAY</code></td>
+<td>Ordered list of zero or more elements of any non-ARRAY type.</td>
+</tr>
+</tbody>
+</table>
+
+An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
+ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
+ARRAYs will return an error. Instead a STRUCT must be inserted between the
+ARRAYs using the `SELECT AS STRUCT` construct.
+
+An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
+`NULL` elements.
+
+### Declaring an ARRAY type
+
+```
+ARRAY<T>
+```
+
+ARRAY types are declared using the angle brackets (`<` and `>`). The type
+of the elements of an ARRAY can be arbitrarily complex with the exception that
+an ARRAY cannot directly contain another ARRAY.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Type Declaration</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+ARRAY&lt;INT64&gt;
+</code>
+</td>
+<td>Simple ARRAY of 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;STRUCT&lt;INT64, INT64&gt;&gt;
+</code>
+</td>
+<td>An ARRAY of STRUCTs, each of which contains two 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
+</code><br/>
+(not supported)
+</td>
+<td>This is an <strong>invalid</strong> type declaration which is included here
+just in case you came looking for how to create a multi-level ARRAY. ARRAYs
+cannot contain ARRAYs directly. Instead see the next example.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
+</code>
+</td>
+<td>An ARRAY of ARRAYS of 64-bit integers. Notice that there is a STRUCT between
+the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
+</tr>
+<tbody>
+</table>
+
+## Boolean type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BOOL</code></td>
+<td>Boolean values are represented by the keywords <code>TRUE</code> and
+<code>FALSE</code> (case insensitive).</td>
+</tr>
+</tbody>
+</table>
+
+Boolean values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  1. `FALSE`
+  1. `TRUE`
+
+## Bytes type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BYTES</code></td>
+<td>Variable-length binary data.</td>
+</tr>
+</tbody>
+</table>
+
+STRING and BYTES are separate types that cannot be used interchangeably. Most
+functions on STRING are also defined on BYTES. The BYTES version operates on raw
+bytes rather than Unicode characters. Casts between STRING and BYTES enforce
+that the bytes are encoded using UTF-8.
+
+## Date type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATE</code></td>
+<td>0001-01-01 to 9999-12-31.</td>
+</tr>
+</tbody>
+</table>
+
+The DATE type represents a logical calendar date, independent of time zone. A
+DATE value does not represent a specific 24-hour time period. Rather, a given
+DATE value represents a different 24-hour period when interpreted in different
+time zones, and may represent a shorter or longer day during Daylight Savings
+Time transitions.
+To represent an absolute point in time,
+use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+'YYYY-[M]M-[D]D'
+```
+
++ `YYYY`: Four-digit year
++ `[M]M`: One or two digit month
++ `[D]D`: One or two digit day
+
+## Datetime type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATETIME</code></td>
+<td>
+    
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
+        <hr/>
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999<br/>
+    
+</td>
+</tr>
+</tbody>
+</table>
+
+A DATETIME object represents a date and time, as they might be displayed
+on a calendar or clock, independent of time zone.
+It includes the year, month, day, hour, minute, second,
+and subsecond.
+The range of subsecond precision is determined by the SQL engine.
+To represent an absolute point in time,
+use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
+```
+
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
+
+## Enum type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ENUM</code></td>
+<td>Named type that maps STRING constants to INT32 constants.</td>
+</tr>
+</tbody>
+</table>
+
+An ENUM is a named type that enumerates a list of possible values, each of which
+has:
+
++ An integer value. Integers are used for comparison and ordering ENUM values.
+There is no requirement that these integers start at zero or that they be
+contiguous.
++ A string value. Strings are case sensitive.
++ Optional alias values. One or more additional string values that act as
+aliases.
+
+Enum values are referenced using their integer value or their string value.
+You reference an ENUM type, such as when using CAST, by using its fully
+qualified name.
+
+You cannot create new ENUM types using ZetaSQL.
 
 ## Numeric types
 
@@ -354,7 +602,7 @@ done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
   * 0 or -0 &mdash; All zero values are considered equal when grouping.
   * `+inf`
 
-## Boolean type
+## Protocol buffer type
 
 <table>
 <thead>
@@ -365,18 +613,44 @@ done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
 </thead>
 <tbody>
 <tr>
-<td><code>BOOL</code></td>
-<td>Boolean values are represented by the keywords <code>TRUE</code> and
-<code>FALSE</code> (case insensitive).</td>
+<td><code>PROTO</code></td>
+<td>An instance of protocol buffer.</td>
 </tr>
 </tbody>
 </table>
 
-Boolean values are sorted in this order, from least to greatest:
+Protocol buffers provide structured data types with a defined serialization
+format and cross-language support libraries. Protocol buffer message types can
+contain optional, required or repeated fields, including nested messages. See
+the
+[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
 
-  1. `NULL`
-  1. `FALSE`
-  1. `TRUE`
+Protocol buffer message types behave similarly to STRUCT types, and support
+similar operations like reading field values by name. Protocol buffer types are
+always named types, and can be referred to by their fully-qualified protocol
+buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
+behavior beyond STRUCTs, like default field values, and checking for the
+presence of optional fields.
+
+Protocol buffer ENUM types are also available and can be referenced using the
+fully-qualified ENUM type name.
+
+See [Using Protocol Buffers][protocol-buffers]
+for more information.
+
+### Limited comparisons for PROTO
+
+No direct comparison of PROTO values is supported. There are a couple possible
+workarounds:
+
+  * The most accurate way to compare PROTOs is to do a pair-wise comparison
+    between the fields of the PROTOs. This can also be used to `GROUP BY` or
+    `ORDER BY` PROTO fields.
+  * For simple equality comparisons, you can cast a PROTO to BYTES and compare
+    the results.
+  * To get a simple approximation for inequality comparisons, you can cast PROTO
+    to STRING. Note that this will do lexicographical ordering for numeric
+    fields.
 
 ## String type
 
@@ -414,427 +688,6 @@ that cannot be used interchangeably. There is no implicit casting in either
 direction. Explicit casting between STRING and BYTES does UTF-8 encoding and
 decoding. Casting BYTES to STRING returns an error if the bytes are not
 valid UTF-8.
-
-## Bytes type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BYTES</code></td>
-<td>Variable-length binary data.</td>
-</tr>
-</tbody>
-</table>
-
-STRING and BYTES are separate types that cannot be used interchangeably. Most
-functions on STRING are also defined on BYTES. The BYTES version operates on raw
-bytes rather than Unicode characters. Casts between STRING and BYTES enforce
-that the bytes are encoded using UTF-8.
-
-## Date type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATE</code></td>
-<td>0001-01-01 to 9999-12-31.</td>
-</tr>
-</tbody>
-</table>
-
-The DATE type represents a logical calendar date, independent of time zone. A
-DATE value does not represent a specific 24-hour time period. Rather, a given
-DATE value represents a different 24-hour period when interpreted in different
-time zones, and may represent a shorter or longer day during Daylight Savings
-Time transitions.
-To represent an absolute point in time,
-use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-'YYYY-[M]M-[D]D'
-```
-
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-
-## Datetime type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATETIME</code></td>
-<td>
-    
-        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
-        <hr/>
-        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999<br/>
-    
-</td>
-</tr>
-</tbody>
-</table>
-
-A DATETIME object represents a date and time, as they might be displayed
-on a calendar or clock, independent of time zone.
-It includes the year, month, day, hour, minute, second,
-and subsecond.
-The range of subsecond precision is determined by the SQL engine.
-To represent an absolute point in time,
-use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
-```
-
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
-</ul>
-
-## Time type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TIME</code></td>
-
-    <td>
-        00:00:00 to 23:59:59.999999999<br/>
-        <hr/>
-        00:00:00 to 23:59:59.999999<br/>
-    </td>
-
-</tr>
-</tbody>
-</table>
-
-A TIME object represents a time, as might be displayed on a watch,
-independent of a specific date and timezone.
-The range of
-subsecond precision is determined by the
-SQL engine. To represent
-an absolute point in time, use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
-```
-
-<ul>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
-</ul>
-
-## Timestamp type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TIMESTAMP</code></td>
-
-    <td>
-      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
-      <hr/>
-      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC<br/>
-    </td>
-
-</tr>
-</tbody>
-</table>
-
-A TIMESTAMP object represents an absolute point in time,
-independent of any time zone or convention such as Daylight Savings Time
-with
-microsecond or nanosecond
-precision.
-The range of subsecond precision is determined by the SQL engine.
-
-+  To represent a date as it might appear on a calendar,
-   use a [DATE][date-type] object.
-+  To represent a time, as it might appear on a clock,
-   use a [TIME][time-type] object.
-+  To represent a date and time, as they might appear on a calendar and clock,
-   use a [DATETIME][datetime-type] object.
-
-<div>
-
-</div>
-
-##### Canonical format
-
-```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
-```
-
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
-    <li><code>[time zone]</code>: String representing the time zone.
-                                  When a time zone is not explicitly specified, the
-                                  default time zone, which is implementation defined, is used.
-                                  See the <a href="#time_zones">time zones</a> section for details.
-   </li>
-</ul>
-
-### Time zones
-
-Time zones are used when parsing timestamps or formatting timestamps
-for display. The timestamp value itself does not store a specific time zone,
-nor does it change when you apply a time zone offset.
-
-Time zones are represented by strings in one of these two canonical formats:
-
-+ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
-+ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
-
-#### Offset from Coordinated Universal Time (UTC)
-
-```
-(+|-)H[H][:M[M]]
-Z
-```
-
-**Examples**
-
-```
--08:00
--8:15
-+3:00
-+07:30
--7
-Z
-```
-
-When using this format, no space is allowed between the time zone and the rest
-of the timestamp.
-
-```
-2014-09-27 12:30:00.45-8:00
-2014-09-27T12:30:00.45Z
-```
-
-#### Time zone name
-
-```
-continent/[region/]city
-```
-
-Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
-For a less comprehensive but simpler reference, see the
-[List of tz database time zones][tz-database-list]{: class=external target=_blank }
-on Wikipedia.
-
-**Examples**
-
-```
-America/Los_Angeles
-America/Argentina/Buenos_Aires
-```
-
-When using a time zone name, a space is required between the name and the rest
-of the timestamp:
-
-```
-2014-09-27 12:30:00.45 America/Los_Angeles
-```
-
-Note that not all time zone names are interchangeable even if they do happen to
-report the same time during a given part of the year. For example,
-`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
-Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
-Savings Time.
-
-If a time zone is not specified, the default time zone value is used.
-
-#### Leap seconds
-
-A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
-exactly 60 seconds per minute. Leap seconds are not represented as part of a
-stored timestamp.
-
-If the input contains values that use ":60" in the seconds field to represent a
-leap second, that leap second is not preserved when converting to a timestamp
-value. Instead that value is interpreted as a timestamp with ":00" in the
-seconds field of the following minute.
-
-Leap seconds do not affect timestamp computations. All timestamp computations
-are done using Unix-style timestamps, which do not reflect leap seconds. Leap
-seconds are only observable through functions that measure real-world time. In
-these functions, it is possible for a timestamp second to be skipped or repeated
-when there is a leap second.
-
-## Array type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ARRAY</code></td>
-<td>Ordered list of zero or more elements of any non-ARRAY type.</td>
-</tr>
-</tbody>
-</table>
-
-An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
-ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
-ARRAYs will return an error. Instead a STRUCT must be inserted between the
-ARRAYs using the `SELECT AS STRUCT` construct.
-
-An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
-`NULL` elements.
-
-### Declaring an ARRAY type
-
-```
-ARRAY<T>
-```
-
-ARRAY types are declared using the angle brackets (`<` and `>`). The type
-of the elements of an ARRAY can be arbitrarily complex with the exception that
-an ARRAY cannot directly contain another ARRAY.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Type Declaration</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>
-ARRAY&lt;INT64&gt;
-</code>
-</td>
-<td>Simple ARRAY of 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;STRUCT&lt;INT64, INT64&gt;&gt;
-</code>
-</td>
-<td>An ARRAY of STRUCTs, each of which contains two 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
-</code><br/>
-(not supported)
-</td>
-<td>This is an <strong>invalid</strong> type declaration which is included here
-just in case you came looking for how to create a multi-level ARRAY. ARRAYs
-cannot contain ARRAYs directly. Instead see the next example.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
-</code>
-</td>
-<td>An ARRAY of ARRAYS of 64-bit integers. Notice that there is a STRUCT between
-the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
-</tr>
-<tbody>
-</table>
-
-## Enum type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ENUM</code></td>
-<td>Named type that maps STRING constants to INT32 constants.</td>
-</tr>
-</tbody>
-</table>
-
-An ENUM is a named type that enumerates a list of possible values, each of which
-has:
-
-+ An integer value. Integers are used for comparison and ordering ENUM values.
-There is no requirement that these integers start at zero or that they be
-contiguous.
-+ A string value. Strings are case sensitive.
-+ Optional alias values. One or more additional string values that act as
-aliases.
-
-Enum values are referenced using their integer value or their string value.
-You reference an ENUM type, such as when using CAST, by using its fully
-qualified name.
-
-You cannot create new ENUM types using ZetaSQL.
 
 ## Struct type
 
@@ -1054,55 +907,202 @@ the STRUCT pairwise in ordinal order ignoring any field names. If instead you
 want to compare identically named fields of a STRUCT, you can compare the
 individual fields directly.
 
-## Protocol buffer type
+## Time type
 
 <table>
 <thead>
 <tr>
 <th>Name</th>
-<th>Description</th>
+<th>Range</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>PROTO</code></td>
-<td>An instance of protocol buffer.</td>
+<td><code>TIME</code></td>
+
+    <td>
+        00:00:00 to 23:59:59.999999999<br/>
+        <hr/>
+        00:00:00 to 23:59:59.999999<br/>
+    </td>
+
 </tr>
 </tbody>
 </table>
 
-Protocol buffers provide structured data types with a defined serialization
-format and cross-language support libraries. Protocol buffer message types can
-contain optional, required or repeated fields, including nested messages. See
-the
-[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
+A TIME object represents a time, as might be displayed on a watch,
+independent of a specific date and timezone.
+The range of
+subsecond precision is determined by the
+SQL engine. To represent
+an absolute point in time, use a [timestamp][timestamp-type].
 
-Protocol buffer message types behave similarly to STRUCT types, and support
-similar operations like reading field values by name. Protocol buffer types are
-always named types, and can be referred to by their fully-qualified protocol
-buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
-behavior beyond STRUCTs, like default field values, and checking for the
-presence of optional fields.
+##### Canonical format
 
-Protocol buffer ENUM types are also available and can be referenced using the
-fully-qualified ENUM type name.
+```
+[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
+```
 
-See [Using Protocol Buffers][protocol-buffers]
-for more information.
+<ul>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
 
-### Limited comparisons for PROTO
+## Timestamp type
 
-No direct comparison of PROTO values is supported. There are a couple possible
-workarounds:
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TIMESTAMP</code></td>
 
-  * The most accurate way to compare PROTOs is to do a pair-wise comparison
-    between the fields of the PROTOs. This can also be used to `GROUP BY` or
-    `ORDER BY` PROTO fields.
-  * For simple equality comparisons, you can cast a PROTO to BYTES and compare
-    the results.
-  * To get a simple approximation for inequality comparisons, you can cast PROTO
-    to STRING. Note that this will do lexicographical ordering for numeric
-    fields.
+    <td>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
+      <hr/>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC<br/>
+    </td>
+
+</tr>
+</tbody>
+</table>
+
+A TIMESTAMP object represents an absolute point in time,
+independent of any time zone or convention such as Daylight Savings Time
+with
+microsecond or nanosecond
+precision.
+The range of subsecond precision is determined by the SQL engine.
+
++  To represent a date as it might appear on a calendar,
+   use a [DATE][date-type] object.
++  To represent a time, as it might appear on a clock,
+   use a [TIME][time-type] object.
++  To represent a date and time, as they might appear on a calendar and clock,
+   use a [DATETIME][datetime-type] object.
+
+<div>
+
+</div>
+
+##### Canonical format
+
+```
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
+```
+
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+    <li><code>[time zone]</code>: String representing the time zone.
+                                  When a time zone is not explicitly specified, the
+                                  default time zone, which is implementation defined, is used.
+                                  See the <a href="#time_zones">time zones</a> section for details.
+   </li>
+</ul>
+
+### Time zones
+
+Time zones are used when parsing timestamps or formatting timestamps
+for display. The timestamp value itself does not store a specific time zone,
+nor does it change when you apply a time zone offset.
+
+Time zones are represented by strings in one of these two canonical formats:
+
++ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
++ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
+
+#### Offset from Coordinated Universal Time (UTC)
+
+```
+(+|-)H[H][:M[M]]
+Z
+```
+
+**Examples**
+
+```
+-08:00
+-8:15
++3:00
++07:30
+-7
+Z
+```
+
+When using this format, no space is allowed between the time zone and the rest
+of the timestamp.
+
+```
+2014-09-27 12:30:00.45-8:00
+2014-09-27T12:30:00.45Z
+```
+
+#### Time zone name
+
+```
+continent/[region/]city
+```
+
+Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
+For a less comprehensive but simpler reference, see the
+[List of tz database time zones][tz-database-list]{: class=external target=_blank }
+on Wikipedia.
+
+**Examples**
+
+```
+America/Los_Angeles
+America/Argentina/Buenos_Aires
+```
+
+When using a time zone name, a space is required between the name and the rest
+of the timestamp:
+
+```
+2014-09-27 12:30:00.45 America/Los_Angeles
+```
+
+Note that not all time zone names are interchangeable even if they do happen to
+report the same time during a given part of the year. For example,
+`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
+Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
+Savings Time.
+
+If a time zone is not specified, the default time zone value is used.
+
+#### Leap seconds
+
+A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
+exactly 60 seconds per minute. Leap seconds are not represented as part of a
+stored timestamp.
+
+If the input contains values that use ":60" in the seconds field to represent a
+leap second, that leap second is not preserved when converting to a timestamp
+value. Instead that value is interpreted as a timestamp with ":00" in the
+seconds field of the following minute.
+
+Leap seconds do not affect timestamp computations. All timestamp computations
+are done using Unix-style timestamps, which do not reflect leap seconds. Leap
+seconds are only observable through functions that measure real-world time. In
+these functions, it is possible for a timestamp second to be skipped or repeated
+when there is a leap second.
 
 [protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
 [tz-database]: http://www.iana.org/time-zones
@@ -1113,9 +1113,9 @@ workarounds:
 [date-type]: #date_type
 [datetime-type]: #datetime_type
 [time-type]: #time_type
-[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers
-[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
+[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals.md
 
-[geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions
-[mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions
+[geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
+[mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
 

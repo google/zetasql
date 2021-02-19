@@ -1567,13 +1567,15 @@ TEST(SQLBuilderTest, TableScanPrefersColumnIndexList) {
   ZETASQL_ASSERT_OK(table->AddColumn(
       new SimpleColumn(table_name, col_name, type_factory.get_int32()),
       /*is_owned=*/true));
-  const ResolvedColumn scan_column(column_id, unused_name, unused_name,
+  const ResolvedColumn scan_column(column_id, IdString::MakeGlobal(unused_name),
+                                   IdString::MakeGlobal(unused_name),
                                    type_factory.get_int32());
   auto table_scan = MakeResolvedTableScan({scan_column}, table.get(),
                                           /*for_system_time_expr=*/nullptr);
   table_scan->set_column_index_list({0});
-  const ResolvedColumn query_column(column_id, unused_name, unused_name,
-                                    type_factory.get_int32());
+  const ResolvedColumn query_column(
+      column_id, IdString::MakeGlobal(unused_name),
+      IdString::MakeGlobal(unused_name), type_factory.get_int32());
   auto query = MakeResolvedProjectScan({query_column}, /*expr_list=*/{},
                                        std::move(table_scan));
 

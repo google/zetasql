@@ -148,10 +148,11 @@ TEST(ConvertLocalErrorToScriptError, InvalidErrorLocation) {
   absl::Status invalid_status = MakeSqlError().Attach(error_location)
       << "Test error message";
 
-  EXPECT_THAT(ConvertStatus(invalid_status, error_stmt_segment),
-              AllOf(StatusIs(absl::StatusCode::kInternal,
-                             HasSubstr("No line 2 in SELECT error_location")),
-                    HasNoPayloadWithType<ErrorLocation>()));
+  EXPECT_THAT(
+      ConvertStatus(invalid_status, error_stmt_segment),
+      AllOf(StatusIs(absl::StatusCode::kInternal,
+                     HasSubstr("Query had 2 lines but line 1 was requested")),
+            HasNoPayloadWithType<ErrorLocation>()));
 }
 
 }  // namespace

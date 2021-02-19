@@ -391,13 +391,16 @@ class Value {
   static Value Extended(const ExtendedType* type, const ValueContent& value);
 
   // Generic factory for numeric PODs.
-  // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
+  // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double,
+  // NumericValue, BigNumericValue, IntervalValue
   template <typename T>
   inline static Value Make(T value) {
     if constexpr (std::is_same_v<T, NumericValue>) {
       return Value::Numeric(value);
     } else if constexpr (std::is_same_v<T, BigNumericValue>) {
       return Value::BigNumeric(value);
+    } else if constexpr (std::is_same_v<T, IntervalValue>) {
+      return Value::Interval(value);
     } else if constexpr (std::is_same_v<T, bool>) {
       return Value::Bool(value);
     } else if constexpr (std::is_same_v<T, float>) {

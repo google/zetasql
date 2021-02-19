@@ -30,6 +30,9 @@ message SimpleValueProto {
   oneof value {
     int64 int64_value = 1;    // Set when SimpleValue::type_ is TYPE_INT64.
     string string_value = 2;  // Set when SimpleValue::type_ is TYPE_STRING.
+    bool bool_value = 3;      // Set when SimpleValue::type_ is TYPE_BOOL.
+    double double_value = 4;  // Set when SimpleValue::type_ is TYPE_DOUBLE.
+    bytes bytes_value = 5;    // Set when SimpleValue::type_ is TYPE_BYTES.
 
     // User code that switches on this oneof enum must have a default case so
     // builds won't break when new fields are added.

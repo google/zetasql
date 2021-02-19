@@ -169,8 +169,14 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertDatetimeToTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToTime();
 std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime();
 
+// Tests for CAST formatting of time types.
+std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp();
+
 std::vector<FunctionTestCall> GetFunctionTestsIntervalConstructor();
 std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons();
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalUnaryMinus();
+std::vector<QueryParamsWithResult> GetDateTimestampIntervalSubtractions();
+std::vector<QueryParamsWithResult> GetDatetimeTimeIntervalSubtractions();
 
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();

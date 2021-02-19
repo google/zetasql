@@ -150,6 +150,14 @@ zetasql_base::StatusOr<std::string> ArrayType::TypeNameWithParameters(
   return absl::StrCat("ARRAY<", element_parameters, ">");
 }
 
+zetasql_base::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(
+    const std::vector<TypeParameterValue>& resolved_type_parameters,
+    ProductMode mode) const {
+  return MakeSqlError() << ShortTypeName(mode)
+                        << " type cannot have type parameters by itself, it "
+                           "can only have type parameters on its element type";
+}
+
 bool ArrayType::EqualsImpl(const ArrayType* const type1,
                            const ArrayType* const type2, bool equivalent) {
   return type1->element_type()->EqualsImpl(type2->element_type(), equivalent);

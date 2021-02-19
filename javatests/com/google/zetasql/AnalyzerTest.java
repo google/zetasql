@@ -117,6 +117,37 @@ public class AnalyzerTest {
   }
 
   @Test
+  public void testAnalyzeStatementWithTable() {
+
+    SimpleColumn column =
+        new SimpleColumn("t", "bar", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+    SimpleTable table = new SimpleTable("t", ImmutableList.of(column));
+    SimpleCatalog catalog = new SimpleCatalog("");
+    catalog.addSimpleTable(table);
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select bar from t;";
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+  }
+
+  @Test
+  public void testAnalyzeStatementWithSubCatalogTable() {
+
+    SimpleColumn column =
+        new SimpleColumn("t", "bar", TypeFactory.createSimpleType(TypeKind.TYPE_INT32));
+    SimpleTable table = new SimpleTable("t", ImmutableList.of(column));
+    SimpleCatalog subCatalog = new SimpleCatalog("sub");
+    subCatalog.addSimpleTable(table);
+
+    SimpleCatalog catalog = new SimpleCatalog("");
+    catalog.addSimpleCatalog(subCatalog);
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select bar from sub.t;";
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+  }
+
+  @Test
   public void testAnalyzeExpressionWithCatalog() {
     SimpleCatalog catalog = new SimpleCatalog("foo");
     catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());

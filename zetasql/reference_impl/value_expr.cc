@@ -54,15 +54,19 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include <cstdint>
 #include "zetasql/base/cleanup.h"
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -1352,35 +1356,121 @@ ValueExpr* LetExpr::mutable_body() {
 // out scan_op_->DebugString() and somehow match up the ResolvedExprs with the
 // corresponding ValueExpr::DebugString() in 'resolved_expr_map_'. But that
 // doesn't seem to be worth the effort.
-std::string DMLValueExpr::DebugInternal(const std::string& /*indent*/,
-                                        bool verbose) const {
+std::string DMLValueExpr::DebugDMLCommon(const std::string& indent,
+                                         bool verbose) const {
+  const std::string indent_input = absl::StrCat(indent, kIndentFork);
+  const std::string indent_entry =
+      absl::StrCat(indent, kIndentBar, kIndentSpace, kIndentFork);
+  const std::string indent_entry_bar =
+      absl::StrCat(indent, kIndentBar, kIndentSpace, kIndentBar, kIndentSpace);
+  const std::string indent_entry_space = absl::StrCat(
+      indent, kIndentBar, kIndentSpace, kIndentSpace, kIndentSpace);
+
+  std::string ret = "DMLValueExpr";
   if (verbose) {
     const std::vector<std::string> lines =
         absl::StrSplit(resolved_node_->DebugString(), '\n');
-    std::string ret;
     for (const std::string& line : lines) {
       absl::StrAppend(&ret, line, "\n");
     }
-    return ret;
-  } else {
-    return ResolvedNodeKind_Name(resolved_node_->node_kind());
   }
+
+  absl::StrAppend(&ret, indent_input, "target table:", table_->Name(), " ",
+                  table_array_type_->DebugString());
+  if (column_list_ != nullptr && !column_list_->empty()) {
+    absl::StrAppend(&ret, indent_input, "column list(");
+    int i = 0;
+    for (const ResolvedColumn& column : *column_list_) {
+      absl::StrAppend(&ret, column.DebugString(),
+                      (++i == column_list_->size()) ? ")" : ",");
+    }
+  }
+  if (returning_array_type_ != nullptr) {
+    absl::StrAppend(&ret, indent_input, "returning array type:",
+                    returning_array_type_->DebugString());
+
+    absl::StrAppend(&ret, indent_input, "returning column values(");
+    int i = 0;
+    for (const std::unique_ptr<ValueExpr>& value_expr :
+         *returning_column_values_) {
+      absl::StrAppend(&ret, value_expr->DebugString(verbose),
+                      (++i == returning_column_values_->size() ? ")" : ","));
+    }
+  }
+
+  if (!resolved_scan_map_->empty()) {
+    absl::StrAppend(&ret, indent_input, "scan map(");
+    absl::btree_map<std::string, const RelationalOp*> ordered_scan_map;
+    for (const auto& entry : *resolved_scan_map_) {
+      std::string formatted_scan_str = entry.first->DebugString();
+      formatted_scan_str =
+          absl::StrReplaceAll(absl::StripSuffix(formatted_scan_str, "\n"),
+                              {{"\n", indent_entry_bar}});
+      ordered_scan_map.insert({formatted_scan_str, entry.second.get()});
+    }
+    int i = 0;
+    for (const auto& entry : ordered_scan_map) {
+      absl::StrAppend(&ret, indent_entry, "key[", i, "]:", entry.first,
+                      indent_entry, "value[", i, "]:");
+      if (++i == ordered_scan_map.size()) {
+        absl::StrAppend(
+            &ret, entry.second->DebugInternal(indent_entry_space, verbose),
+            ")");
+      } else {
+        absl::StrAppend(
+            &ret, entry.second->DebugInternal(indent_entry_bar, verbose), ",");
+      }
+    }
+  }
+  if (!resolved_expr_map_->empty()) {
+    absl::StrAppend(&ret, indent_input, "expr map(");
+    absl::btree_map<std::string, const ValueExpr*> ordered_expr_map;
+    for (const auto& entry : *resolved_expr_map_) {
+      std::string formatted_expr_str = entry.first->DebugString();
+      formatted_expr_str =
+          absl::StrReplaceAll(absl::StripSuffix(formatted_expr_str, "\n"),
+                              {{"\n", indent_entry_bar}});
+      ordered_expr_map.insert({formatted_expr_str, entry.second.get()});
+    }
+    int i = 0;
+    for (const auto& entry : ordered_expr_map) {
+      absl::StrAppend(&ret, indent_entry, "key[", i, "]:", entry.first,
+                      indent_entry, "value[", i, "]:");
+      if (++i == ordered_expr_map.size()) {
+        absl::StrAppend(
+            &ret, entry.second->DebugInternal(indent_entry_space, verbose),
+            ")");
+      } else {
+        absl::StrAppend(
+            &ret, entry.second->DebugInternal(indent_entry_bar, verbose), ",");
+      }
+    }
+  }
+  absl::StrAppend(&ret, indent_input,
+                  "output type:", dml_output_type_->DebugString());
+
+  return ret;
 }
 
 DMLValueExpr::DMLValueExpr(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedNode* resolved_node, const ResolvedColumnList* column_list,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedNode* resolved_node,
+    const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
     : ValueExpr(dml_output_type),
       table_(table),
       table_array_type_(table_array_type),
+      returning_array_type_(returning_array_type),
       primary_key_type_(primary_key_type),
       dml_output_type_(dml_output_type),
       resolved_node_(resolved_node),
       column_list_(column_list),
+      returning_column_values_(std::move(returning_column_values)),
       column_to_variable_mapping_(std::move(column_to_variable_mapping)),
       resolved_scan_map_(std::move(resolved_scan_map)),
       resolved_expr_map_(std::move(resolved_expr_map)) {}
@@ -1545,6 +1635,7 @@ DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
 zetasql_base::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
     int64_t num_rows_modified,
     const std::vector<std::vector<Value>>& dml_output_rows,
+    const std::vector<std::vector<Value>>& dml_returning_rows,
     EvaluationContext* context) const {
   for (const std::vector<Value>& dml_output_row : dml_output_rows) {
     for (const Value& value : dml_output_row) {
@@ -1575,9 +1666,56 @@ zetasql_base::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
   const Value dml_output_row_array = InternalValue::ArrayNotChecked(
       table_array_type_, InternalValue::kIgnoresOrder,
       std::move(dml_output_values));
-  return Value::Struct(dml_output_type_,
-                       std::array<Value, 2>{Value::Int64(num_rows_modified),
-                                            dml_output_row_array});
+
+  // Returning rows are not needed.
+  if (returning_array_type_ == nullptr) {
+    return Value::Struct(dml_output_type_,
+                         std::array<Value, 2>{Value::Int64(num_rows_modified),
+                                              dml_output_row_array});
+  }
+  std::vector<Value> dml_returning_values;
+  for (const std::vector<Value>& dml_returning_row : dml_returning_rows) {
+    const Type* element_type = returning_array_type_->element_type();
+    ZETASQL_RET_CHECK(element_type->IsStruct());
+    const StructType* returning_row_type = element_type->AsStruct();
+    dml_returning_values.push_back(
+        Value::Struct(returning_row_type, dml_returning_row));
+  }
+
+  // Returning rows are not ordered.
+  const Value dml_returning_row_array = InternalValue::ArrayNotChecked(
+      returning_array_type_, InternalValue::kIgnoresOrder,
+      std::move(dml_returning_values));
+
+  return Value::Struct(
+      dml_output_type_,
+      std::array<Value, 3>{Value::Int64(num_rows_modified),
+                           dml_output_row_array, dml_returning_row_array});
+}
+
+absl::Status DMLValueExpr::EvalReturningClause(
+    const zetasql::ResolvedReturningClause* returning,
+    absl::Span<const TupleData* const> params, EvaluationContext* context,
+    TupleData* tuple_data, const Value& action_value,
+    std::vector<std::vector<Value>>& dml_returning_rows) const {
+  std::vector<const TupleData*> input_params =
+      ConcatSpans(params, {tuple_data});
+
+  std::vector<Value> returning_tuple_as_values;
+  for (const std::unique_ptr<ValueExpr>& value_expr :
+       *returning_column_values_) {
+    ZETASQL_ASSIGN_OR_RETURN(const Value expr_value,
+                     EvalExpr(*value_expr, input_params, context));
+    returning_tuple_as_values.push_back(expr_value);
+  }
+  if (returning->action_column() != nullptr) {
+    // Appends the action column value.
+    returning_tuple_as_values.push_back(action_value);
+  }
+
+  dml_returning_rows.push_back(returning_tuple_as_values);
+
+  return absl::OkStatus();
 }
 
 // Evaluates 'op' on 'params', then populates 'schema' and 'datas' with the
@@ -1590,7 +1728,7 @@ static absl::Status EvalRelationalOp(
                    op.CreateIterator(params, /*num_extra_slots=*/0, context));
   *schema = absl::make_unique<TupleSchema>(iter->Schema().variables());
   // We disable reordering when iterating over relations when processing DML
-  // statements for backwardws compatibility with the text-based reference
+  // statements for backwards compatibility with the text-based reference
   // implementation compliance tests. As another advantage, this effectively
   // disables scrambling for simple statements, which makes the tests easier to
   // understand.
@@ -1612,15 +1750,18 @@ static absl::Status EvalRelationalOp(
 
 zetasql_base::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> DMLDeleteValueExpr::Create(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedDeleteStmt* resolved_node,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedDeleteStmt* resolved_node,
     const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
   return absl::WrapUnique(new DMLDeleteValueExpr(
-      table, table_array_type, primary_key_type, dml_output_type, resolved_node,
-      column_list, std::move(column_to_variable_mapping),
+      table, table_array_type, returning_array_type, primary_key_type,
+      dml_output_type, resolved_node, column_list,
+      std::move(returning_column_values), std::move(column_to_variable_mapping),
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
 
@@ -1639,10 +1780,20 @@ absl::Status DMLDeleteValueExpr::SetSchemasForEvaluation(
   const std::unique_ptr<const TupleSchema> scan_schema =
       scan->CreateOutputSchema();
 
+  std::vector<const TupleSchema*> expr_schemas =
+      ConcatSpans(params_schemas, {scan_schema.get()});
+
   ZETASQL_ASSIGN_OR_RETURN(ValueExpr * where_expr,
                    LookupResolvedExpr(stmt()->where_expr()));
-  return where_expr->SetSchemasForEvaluation(
-      ConcatSpans(params_schemas, {scan_schema.get()}));
+  ZETASQL_RETURN_IF_ERROR(where_expr->SetSchemasForEvaluation(expr_schemas));
+
+  if (stmt()->returning() != nullptr) {
+    for (const auto& it : *returning_column_values_) {
+      ZETASQL_RETURN_IF_ERROR(it->SetSchemasForEvaluation(expr_schemas));
+    }
+  }
+
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<Value> DMLDeleteValueExpr::Eval(
@@ -1653,6 +1804,7 @@ zetasql_base::StatusOr<Value> DMLDeleteValueExpr::Eval(
 
   int64_t num_rows_deleted = 0;
   std::vector<std::vector<Value>> dml_output_rows;
+  std::vector<std::vector<Value>> dml_returning_rows;
 
   ZETASQL_ASSIGN_OR_RETURN(const RelationalOp* relational_op,
                    LookupResolvedScan(stmt()->table_scan()));
@@ -1680,6 +1832,11 @@ zetasql_base::StatusOr<Value> DMLDeleteValueExpr::Eval(
       if (!context->options().return_all_rows_for_dml) {
         dml_output_rows.push_back(tuple_as_values);
       }
+      if (stmt()->returning() != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(EvalReturningClause(
+            stmt()->returning(), params, context, tuple_data.get(),
+            Value::StringValue("DELETE"), dml_returning_rows));
+      }
     } else {
       // In all_rows mode,the output contains the remaining rows.
       if (context->options().return_all_rows_for_dml) {
@@ -1692,19 +1849,28 @@ zetasql_base::StatusOr<Value> DMLDeleteValueExpr::Eval(
                                         num_rows_deleted, context));
 
   ZETASQL_RETURN_IF_ERROR(resolved_node_->CheckFieldsAccessed());
-  return GetDMLOutputValue(num_rows_deleted, dml_output_rows, context);
+  return GetDMLOutputValue(num_rows_deleted, dml_output_rows,
+                           dml_returning_rows, context);
+}
+
+std::string DMLDeleteValueExpr::DebugInternal(const std::string& indent,
+                                              bool verbose) const {
+  return absl::StrCat("DMLDeleteValueExpr : ", DebugDMLCommon(indent, verbose));
 }
 
 DMLDeleteValueExpr::DMLDeleteValueExpr(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedDeleteStmt* resolved_node,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedDeleteStmt* resolved_node,
     const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
-    : DMLValueExpr(table, table_array_type, primary_key_type, dml_output_type,
-                   resolved_node, column_list,
+    : DMLValueExpr(table, table_array_type, returning_array_type,
+                   primary_key_type, dml_output_type, resolved_node,
+                   column_list, std::move(returning_column_values),
                    std::move(column_to_variable_mapping),
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
 }
@@ -1715,15 +1881,18 @@ DMLDeleteValueExpr::DMLDeleteValueExpr(
 
 zetasql_base::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> DMLUpdateValueExpr::Create(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedUpdateStmt* resolved_node,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedUpdateStmt* resolved_node,
     const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
   return absl::WrapUnique(new DMLUpdateValueExpr(
-      table, table_array_type, primary_key_type, dml_output_type, resolved_node,
-      column_list, std::move(column_to_variable_mapping),
+      table, table_array_type, returning_array_type, primary_key_type,
+      dml_output_type, resolved_node, column_list,
+      std::move(returning_column_values), std::move(column_to_variable_mapping),
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
 
@@ -1768,6 +1937,11 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(rows->SetSchemasForEvaluation(params_schemas));
   }
 
+  if (stmt()->returning() != nullptr) {
+    for (const std::unique_ptr<ValueExpr>& val : *returning_column_values_) {
+      ZETASQL_RETURN_IF_ERROR(val->SetSchemasForEvaluation(joined_schemas));
+    }
+  }
   return absl::OkStatus();
 }
 
@@ -1795,6 +1969,7 @@ zetasql_base::StatusOr<Value> DMLUpdateValueExpr::Eval(
 
   int64_t num_rows_modified = 0;
   std::vector<std::vector<Value>> dml_output_rows;
+  std::vector<std::vector<Value>> dml_returning_rows;
 
   ZETASQL_ASSIGN_OR_RETURN(const RelationalOp* relational_op,
                    LookupResolvedScan(stmt()->table_scan()));
@@ -1836,6 +2011,14 @@ zetasql_base::StatusOr<Value> DMLUpdateValueExpr::Eval(
 
     ZETASQL_ASSIGN_OR_RETURN(std::vector<Value> dml_output_row,
                      GetDMLOutputRow(tuple, update_map, context));
+
+    if (stmt()->returning() != nullptr) {
+      TupleData updated_tuple_data = CreateTupleDataFromValues(dml_output_row);
+      ZETASQL_RETURN_IF_ERROR(EvalReturningClause(
+          stmt()->returning(), params, context, &updated_tuple_data,
+          Value::StringValue("UPDATE"), dml_returning_rows));
+    }
+
     dml_output_rows.push_back(dml_output_row);
   }
 
@@ -1852,7 +2035,13 @@ zetasql_base::StatusOr<Value> DMLUpdateValueExpr::Eval(
                                         num_rows_modified, context));
 
   ZETASQL_RETURN_IF_ERROR(resolved_node_->CheckFieldsAccessed());
-  return GetDMLOutputValue(num_rows_modified, dml_output_rows, context);
+  return GetDMLOutputValue(num_rows_modified, dml_output_rows,
+                           dml_returning_rows, context);
+}
+
+std::string DMLUpdateValueExpr::DebugInternal(const std::string& indent,
+                                              bool verbose) const {
+  return absl::StrCat("DMLUpdateValueExpr : ", DebugDMLCommon(indent, verbose));
 }
 
 zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
@@ -2013,14 +2202,17 @@ zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
 
 DMLUpdateValueExpr::DMLUpdateValueExpr(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedUpdateStmt* resolved_node,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedUpdateStmt* resolved_node,
     const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
-    : DMLValueExpr(table, table_array_type, primary_key_type, dml_output_type,
-                   resolved_node, column_list,
+    : DMLValueExpr(table, table_array_type, returning_array_type,
+                   primary_key_type, dml_output_type, resolved_node,
+                   column_list, std::move(returning_column_values),
                    std::move(column_to_variable_mapping),
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
 }
@@ -2107,6 +2299,8 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedDelete(
     ZETASQL_RETURN_IF_ERROR(rows_expr->SetSchemasForEvaluation(params_schemas));
   }
 
+  ZETASQL_RET_CHECK_EQ(nested_delete->returning(), nullptr);
+
   return absl::OkStatus();
 }
 
@@ -2147,6 +2341,8 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedUpdate(
     ZETASQL_RETURN_IF_ERROR(rows_expr->SetSchemasForEvaluation(params_schemas));
   }
 
+  ZETASQL_RET_CHECK_EQ(nested_update->returning(), nullptr);
+
   return absl::OkStatus();
 }
 
@@ -2175,6 +2371,8 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedInsert(
         LookupResolvedExpr(nested_insert->assert_rows_modified()->rows()));
     ZETASQL_RETURN_IF_ERROR(rows_expr->SetSchemasForEvaluation(params_schemas));
   }
+
+  ZETASQL_RET_CHECK_EQ(nested_insert->returning(), nullptr);
 
   return absl::OkStatus();
 }
@@ -2702,15 +2900,18 @@ absl::Status DMLUpdateValueExpr::ProcessNestedInsert(
 
 zetasql_base::StatusOr<std::unique_ptr<DMLInsertValueExpr>> DMLInsertValueExpr::Create(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedInsertStmt* resolved_node,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedInsertStmt* resolved_node,
     const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map) {
   return absl::WrapUnique(new DMLInsertValueExpr(
-      table, table_array_type, primary_key_type, dml_output_type, resolved_node,
-      column_list, std::move(column_to_variable_mapping),
+      table, table_array_type, returning_array_type, primary_key_type,
+      dml_output_type, resolved_node, column_list,
+      std::move(returning_column_values), std::move(column_to_variable_mapping),
       std::move(resolved_scan_map), std::move(resolved_expr_map)));
 }
 
@@ -2741,6 +2942,17 @@ absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(rows->SetSchemasForEvaluation(params_schemas));
   }
 
+  if (stmt()->returning() != nullptr) {
+    const std::unique_ptr<const TupleSchema> scan_schema =
+        scan->CreateOutputSchema();
+    std::vector<const TupleSchema*> expr_schemas =
+        ConcatSpans(params_schemas, {scan_schema.get()});
+
+    for (const std::unique_ptr<ValueExpr>& val : *returning_column_values_) {
+      ZETASQL_RETURN_IF_ERROR(val->SetSchemasForEvaluation(expr_schemas));
+    }
+  }
+
   return absl::OkStatus();
 }
 
@@ -2753,6 +2965,12 @@ zetasql_base::StatusOr<Value> DMLInsertValueExpr::Eval(
   std::vector<std::vector<Value>> rows_to_insert;
   ZETASQL_RETURN_IF_ERROR(PopulateRowsToInsert(insert_column_map, params, context,
                                        &rows_to_insert));
+
+  std::vector<std::vector<Value>> dml_returning_rows;
+  if (stmt()->returning() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(PopulateReturningRows(rows_to_insert, params, context,
+                                          dml_returning_rows));
+  }
 
   std::vector<std::vector<Value>> original_rows;
   ZETASQL_RETURN_IF_ERROR(PopulateRowsInOriginalTable(params, context, &original_rows));
@@ -2779,9 +2997,9 @@ zetasql_base::StatusOr<Value> DMLInsertValueExpr::Eval(
            << " is not allowed because the table does not have a primary key";
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      int64_t num_rows_modified,
-      InsertRows(insert_column_map, rows_to_insert, context, &row_map));
+  ZETASQL_ASSIGN_OR_RETURN(int64_t num_rows_modified,
+                   InsertRows(insert_column_map, rows_to_insert,
+                              dml_returning_rows, context, &row_map));
 
   ZETASQL_RETURN_IF_ERROR(VerifyNumRowsModified(stmt()->assert_rows_modified(), params,
                                         num_rows_modified, context));
@@ -2789,21 +3007,31 @@ zetasql_base::StatusOr<Value> DMLInsertValueExpr::Eval(
   ZETASQL_RETURN_IF_ERROR(resolved_node_->CheckFieldsAccessed());
 
   return context->options().return_all_rows_for_dml
-             ? GetDMLOutputValue(num_rows_modified, row_map, context)
+             ? GetDMLOutputValue(num_rows_modified, row_map, dml_returning_rows,
+                                 context)
              : DMLValueExpr::GetDMLOutputValue(num_rows_modified,
-                                               rows_to_insert, context);
+                                               rows_to_insert,
+                                               dml_returning_rows, context);
+}
+
+std::string DMLInsertValueExpr::DebugInternal(const std::string& indent,
+                                              bool verbose) const {
+  return absl::StrCat("DMLInsertValueExpr - ", DebugDMLCommon(indent, verbose));
 }
 
 DMLInsertValueExpr::DMLInsertValueExpr(
     const Table* table, const ArrayType* table_array_type,
-    const StructType* primary_key_type, const StructType* dml_output_type,
-    const ResolvedInsertStmt* resolved_node,
+    const ArrayType* returning_array_type, const StructType* primary_key_type,
+    const StructType* dml_output_type, const ResolvedInsertStmt* resolved_node,
     const ResolvedColumnList* column_list,
+    std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+        returning_column_values,
     std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
     std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
     std::unique_ptr<const ResolvedExprMap> resolved_expr_map)
-    : DMLValueExpr(table, table_array_type, primary_key_type, dml_output_type,
-                   resolved_node, column_list,
+    : DMLValueExpr(table, table_array_type, returning_array_type,
+                   primary_key_type, dml_output_type, resolved_node,
+                   column_list, std::move(returning_column_values),
                    std::move(column_to_variable_mapping),
                    std::move(resolved_scan_map), std::move(resolved_expr_map)) {
 }
@@ -2930,6 +3158,28 @@ absl::Status DMLInsertValueExpr::PopulateColumnsToInsert(
   return absl::OkStatus();
 }
 
+absl::Status DMLInsertValueExpr::PopulateReturningRows(
+    const std::vector<std::vector<Value>>& rows_to_insert,
+    absl::Span<const TupleData* const> params, EvaluationContext* context,
+    std::vector<std::vector<Value>>& dml_returning_rows) const {
+  ZETASQL_RET_CHECK_NE(stmt()->returning(), nullptr);
+
+  ZETASQL_ASSIGN_OR_RETURN(RelationalOp * scan,
+                   LookupResolvedScan(stmt()->table_scan()));
+  const std::unique_ptr<const TupleSchema> tuple_schema =
+      scan->CreateOutputSchema();
+
+  for (const std::vector<Value>& row_to_insert : rows_to_insert) {
+    TupleData tuple_data = CreateTupleDataFromValues(row_to_insert);
+    const Tuple tuple(tuple_schema.get(), &tuple_data);
+
+    ZETASQL_RETURN_IF_ERROR(
+        EvalReturningClause(stmt()->returning(), params, context, &tuple_data,
+                            Value::StringValue("INSERT"), dml_returning_rows));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status DMLInsertValueExpr::PopulateRowsInOriginalTable(
     absl::Span<const TupleData* const> params, EvaluationContext* context,
     std::vector<std::vector<Value>>* original_rows) const {
@@ -2958,10 +3208,16 @@ absl::Status DMLInsertValueExpr::PopulateRowsInOriginalTable(
 zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
     const InsertColumnMap& insert_column_map,
     const std::vector<std::vector<Value>>& rows_to_insert,
+    std::vector<std::vector<Value>>& dml_returning_rows,
     EvaluationContext* context, PrimaryKeyRowMap* row_map) const {
-  std::unordered_set<Value, ValueHasher> modified_primary_keys;
+  absl::node_hash_map<Value, int, ValueHasher> modified_primary_keys;
   const int64_t max_original_row_number = row_map->size() - 1;
   bool found_primary_key_collision = false;
+  bool has_returning = stmt()->returning() != nullptr;
+  bool has_returning_action_column =
+      has_returning && stmt()->returning()->action_column() != nullptr;
+
+  std::vector<int> rows_ignored_indexes;
   for (int i = 0; i < rows_to_insert.size(); ++i) {
     // It is expensive to call this for every row, but this code is only used
     // for compliance testing, so it's ok.
@@ -3003,7 +3259,7 @@ zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
         row_map->insert(std::make_pair(primary_key, row_number_and_values));
     if (insert_result.second) {
       // The row was successfully inserted.
-      ZETASQL_RET_CHECK(modified_primary_keys.insert(primary_key).second);
+      ZETASQL_RET_CHECK(modified_primary_keys.insert({primary_key, i}).second);
     } else {
       // The primary key of the new row is in the table, possibly corresponding
       // to a row that was previously inserted.
@@ -3022,11 +3278,25 @@ zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
         }
         case ResolvedInsertStmt::OR_IGNORE:
           // Skip this row.
+          rows_ignored_indexes.push_back(i);
           break;
         case ResolvedInsertStmt::OR_REPLACE:
           // Replace the old row with the new row, using the same primary key.
           old_row.values = row_to_insert;
-          modified_primary_keys.insert(primary_key);
+
+          if (has_returning) {
+            auto got = modified_primary_keys.find(primary_key);
+            if (got != modified_primary_keys.end()) {
+              int previous_inserted_row = got->second;
+              rows_ignored_indexes.push_back(previous_inserted_row);
+            }
+          }
+          modified_primary_keys.insert({primary_key, i});
+
+          if (has_returning_action_column) {
+            dml_returning_rows[i].back() = Value::StringValue("REPLACE");
+          }
+
           break;
         case ResolvedInsertStmt::OR_UPDATE: {
           // Update the old row according to the new row, using the same primary
@@ -3037,7 +3307,17 @@ zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
             const int column_offset = elt.second.column_offset;
             old_row.values[column_offset] = row_to_insert[column_offset];
           }
-          modified_primary_keys.insert(primary_key);
+          if (has_returning) {
+            auto got = modified_primary_keys.find(primary_key);
+            if (got != modified_primary_keys.end()) {
+              int previous_inserted_row = got->second;
+              rows_ignored_indexes.push_back(previous_inserted_row);
+            }
+          }
+          modified_primary_keys.insert({primary_key, i});
+          if (has_returning_action_column) {
+            dml_returning_rows[i].back() = Value::StringValue("UPDATE");
+          }
           break;
         }
         default:
@@ -3045,6 +3325,13 @@ zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
                            << ResolvedInsertStmtEnums_InsertMode_Name(
                                   stmt()->insert_mode());
       }
+    }
+  }
+
+  if (!rows_ignored_indexes.empty() && stmt()->returning() != nullptr) {
+    // Needs to skip these rows in the dml returning output
+    for (int64_t i = rows_ignored_indexes.size() - 1; i >= 0; --i) {
+      dml_returning_rows.erase(dml_returning_rows.begin() + i);
     }
   }
 
@@ -3060,6 +3347,7 @@ zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
 
 zetasql_base::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
     int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
+    const std::vector<std::vector<Value>>& dml_returning_rows,
     EvaluationContext* context) const {
   std::vector<std::vector<Value>> dml_output_rows(row_map.size());
   for (const auto& elt : row_map) {
@@ -3072,7 +3360,7 @@ zetasql_base::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
   }
 
   return DMLValueExpr::GetDMLOutputValue(num_rows_modified, dml_output_rows,
-                                         context);
+                                         dml_returning_rows, context);
 }
 
 // -------------------------------------------------------

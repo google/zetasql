@@ -3107,9 +3107,6 @@ class DMLValueExpr : public ValueExpr {
   virtual zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                                      EvaluationContext* context) const = 0;
 
-  std::string DebugInternal(const std::string& indent,
-                            bool verbose) const override;
-
  protected:
   // Wraps a row with its corresponding (unique) row number in the table.
   struct RowNumberAndValues {
@@ -3134,8 +3131,11 @@ class DMLValueExpr : public ValueExpr {
   // Catalog, or if the Catalog specifies that the table has no primary key.
   DMLValueExpr(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
-      const ResolvedNode* resolved_node, const ResolvedColumnList* column_list,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type, const ResolvedNode* resolved_node,
+      const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3205,14 +3205,28 @@ class DMLValueExpr : public ValueExpr {
   zetasql_base::StatusOr<Value> GetDMLOutputValue(
       int64_t num_rows_modified,
       const std::vector<std::vector<Value>>& dml_output_rows,
+      const std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context) const;
+
+  // Evaluates the returning clause for each modified row and populate its
+  // corresponding returning row as a vector of Value into 'dml_returning_rows'.
+  absl::Status EvalReturningClause(
+      const zetasql::ResolvedReturningClause* returning,
+      absl::Span<const TupleData* const> params, EvaluationContext* context,
+      TupleData* tuple_data, const Value& action_value,
+      std::vector<std::vector<Value>>& dml_returning_rows) const;
+
+  std::string DebugDMLCommon(const std::string& indent, bool verbose) const;
 
   const Table* table_;
   const ArrayType* table_array_type_;
+  const ArrayType* returning_array_type_;
   const StructType* primary_key_type_;
   const StructType* dml_output_type_;
   const ResolvedNode* resolved_node_;
   const ResolvedColumnList* column_list_;
+  const std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+      returning_column_values_;
   const std::unique_ptr<const ColumnToVariableMapping>
       column_to_variable_mapping_;
   const std::unique_ptr<const ResolvedScanMap> resolved_scan_map_;
@@ -3229,9 +3243,12 @@ class DMLDeleteValueExpr : public DMLValueExpr {
   // its primary key is not to be used in evaluting the DML expression.
   static zetasql_base::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> Create(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type,
       const ResolvedDeleteStmt* resolved_node,
       const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3242,14 +3259,20 @@ class DMLDeleteValueExpr : public DMLValueExpr {
   zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context) const override;
 
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
  private:
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or
   // its primary key is not to be used in evaluting the DML expression.
   DMLDeleteValueExpr(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type,
       const ResolvedDeleteStmt* resolved_node,
       const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3269,9 +3292,12 @@ class DMLUpdateValueExpr : public DMLValueExpr {
   // its primary key is not to be used in evaluting the DML expression.
   static zetasql_base::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> Create(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type,
       const ResolvedUpdateStmt* resolved_node,
       const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3281,6 +3307,9 @@ class DMLUpdateValueExpr : public DMLValueExpr {
 
   zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
 
  private:
   // Represents a non-column component of an update path. E.g., for an update
@@ -3461,9 +3490,12 @@ class DMLUpdateValueExpr : public DMLValueExpr {
   // its primary key is not to be used in evaluting the DML expression.
   DMLUpdateValueExpr(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type,
       const ResolvedUpdateStmt* resolved_node,
       const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3633,9 +3665,12 @@ class DMLInsertValueExpr : public DMLValueExpr {
   // its primary key is not to be used in evaluting the DML expression.
   static zetasql_base::StatusOr<std::unique_ptr<DMLInsertValueExpr>> Create(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type,
       const ResolvedInsertStmt* resolved_node,
       const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3645,6 +3680,9 @@ class DMLInsertValueExpr : public DMLValueExpr {
 
   zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
 
  private:
   // Positions corresponding to an element of 'stmt()->insert_column_list()'.
@@ -3666,9 +3704,12 @@ class DMLInsertValueExpr : public DMLValueExpr {
   // its primary key is not to be used in evaluting the DML expression.
   DMLInsertValueExpr(
       const Table* table, const ArrayType* table_array_type,
-      const StructType* primary_key_type, const StructType* dml_output_type,
+      const ArrayType* returning_array_type, const StructType* primary_key_type,
+      const StructType* dml_output_type,
       const ResolvedInsertStmt* resolved_node,
       const ResolvedColumnList* column_list,
+      std::unique_ptr<const std::vector<std::unique_ptr<ValueExpr>>>
+          returning_column_values,
       std::unique_ptr<const ColumnToVariableMapping> column_to_variable_mapping,
       std::unique_ptr<const ResolvedScanMap> resolved_scan_map,
       std::unique_ptr<const ResolvedExprMap> resolved_expr_map);
@@ -3696,6 +3737,13 @@ class DMLInsertValueExpr : public DMLValueExpr {
       absl::Span<const TupleData* const> params, EvaluationContext* context,
       std::vector<std::vector<Value>>* columns_to_insert) const;
 
+  // Populates 'dml_returning_rows' from the returning clause with one entry
+  // per 'rows_to_insert'.
+  absl::Status PopulateReturningRows(
+      const std::vector<std::vector<Value>>& rows_to_insert,
+      absl::Span<const TupleData* const> params, EvaluationContext* context,
+      std::vector<std::vector<Value>>& dml_returning_rows) const;
+
   // Populates 'original_rows' with the rows in the table before insertion. Each
   // Value has type 'table_array_type_->element_type()'.
   absl::Status PopulateRowsInOriginalTable(
@@ -3705,15 +3753,19 @@ class DMLInsertValueExpr : public DMLValueExpr {
   // Adds the rows in 'rows_to_insert' to 'row_map' and returns the number of
   // rows modified. Handles all the various insert modes and possibly generates
   // an error if there is a primary key collision.
+  // If "WITH ACTION" is present in the returning clause, update the insert
+  // mode properly for each corresponding row in "dml_returning_rows".
   zetasql_base::StatusOr<int64_t> InsertRows(
       const InsertColumnMap& insert_column_map,
       const std::vector<std::vector<Value>>& rows_to_insert,
+      std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context, PrimaryKeyRowMap* row_map) const;
 
   // Returns the DML output value corresponding to the arguments.
-  zetasql_base::StatusOr<Value> GetDMLOutputValue(int64_t num_rows_modified,
-                                          const PrimaryKeyRowMap& row_map,
-                                          EvaluationContext* context) const;
+  zetasql_base::StatusOr<Value> GetDMLOutputValue(
+      int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
+      const std::vector<std::vector<Value>>& dml_returning_rows,
+      EvaluationContext* context) const;
 };
 
 // -------------------------------------------------------

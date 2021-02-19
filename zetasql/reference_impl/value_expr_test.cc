@@ -1013,8 +1013,10 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DMLInsertValueExpr> expr,
       DMLInsertValueExpr::Create(
-          stmt->table_scan()->table(), table_array_type, primary_key_type,
-          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
           std::move(column_to_variable_mapping), std::move(resolved_scan_map),
           std::move(resolved_expr_map)));
 
@@ -1124,8 +1126,10 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DMLInsertValueExpr> expr,
       DMLInsertValueExpr::Create(
-          stmt->table_scan()->table(), table_array_type, primary_key_type,
-          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
           std::move(column_to_variable_mapping), std::move(resolved_scan_map),
           std::move(resolved_expr_map)));
 
@@ -1254,8 +1258,10 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DMLDeleteValueExpr> expr,
       DMLDeleteValueExpr::Create(
-          stmt->table_scan()->table(), table_array_type, primary_key_type,
-          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
           std::move(column_to_variable_mapping), std::move(resolved_scan_map),
           std::move(resolved_expr_map)));
 
@@ -1420,8 +1426,10 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DMLUpdateValueExpr> expr,
       DMLUpdateValueExpr::Create(
-          stmt->table_scan()->table(), table_array_type, primary_key_type,
-          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
           std::move(column_to_variable_mapping), std::move(resolved_scan_map),
           std::move(resolved_expr_map)));
 
@@ -1587,8 +1595,10 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DMLUpdateValueExpr> expr,
       DMLUpdateValueExpr::Create(
-          stmt->table_scan()->table(), table_array_type, primary_key_type,
-          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
           std::move(column_to_variable_mapping), std::move(resolved_scan_map),
           std::move(resolved_expr_map)));
 
@@ -1752,8 +1762,10 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DMLUpdateValueExpr> expr,
       DMLUpdateValueExpr::Create(
-          stmt->table_scan()->table(), table_array_type, primary_key_type,
-          dml_output_type, stmt.get(), &stmt->table_scan()->column_list(),
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
           std::move(column_to_variable_mapping), std::move(resolved_scan_map),
           std::move(resolved_expr_map)));
 

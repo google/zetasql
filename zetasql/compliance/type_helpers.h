@@ -36,6 +36,7 @@ zetasql_base::StatusOr<const ArrayType*> CreateTableArrayType(
 // Names of DML output columns used by CreateDMLOutputType().
 extern const char* kDMLOutputNumRowsModifiedColumnName;
 extern const char* kDMLOutputAllRowsColumnName;
+extern const char* kDMLOutputReturningColumnName;
 
 // Creates a Struct type representing the primary key of a table.
 //
@@ -55,6 +56,20 @@ zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
 // element of the array represents a row of the modified table.
 zetasql_base::StatusOr<const StructType*> CreateDMLOutputType(
     const ArrayType* table_array_type, TypeFactory* type_factory);
+
+// Creates the DML output struct type corresponding to a DML statement on a
+// table whose corresponding array type is 'table_array_type' and a returning
+// result table whose corresponding array type is 'returning_array_type'.
+// If "returning_array_type" is nullptr, this table as a return type of
+// returning clause is ignored from the DML output struct type.
+// and
+//
+// The returned type is a struct with three fields: an int64_t representing the
+// number of rows modified by the statement, and an array of structs, where each
+// element of the array represents a row of the modified table.
+zetasql_base::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(
+    const ArrayType* table_array_type, const ArrayType* returning_array_type,
+    TypeFactory* type_factory);
 
 }  // namespace zetasql
 

@@ -972,6 +972,7 @@ cc_library(
     deps = [
         ":base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -988,9 +989,9 @@ cc_test(
         "-Wnonnull-compare",
     ],
     deps = [
-        ":base",
         ":general_trie",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "@com_google_absl//absl/strings",
     ],
 )
 

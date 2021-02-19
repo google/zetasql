@@ -31,6 +31,7 @@
 #include "zetasql/public/strings.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/match.h"
@@ -40,6 +41,11 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
+
+ABSL_FLAG(bool, output_asc_explicitly, false,
+          "If true, outputs the asc explicitly in "
+          "ASTOrderingExpression::SingleNodeDebugString and "
+          "Unparser::visitASTOrderingExpression.");
 
 namespace zetasql {
 
@@ -69,6 +75,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_SCHEMA_STATEMENT]= "AlterSchemaStatement";
   map[AST_ALTER_VIEW_STATEMENT] = "AlterViewStatement";
   map[AST_ANALYTIC_FUNCTION_CALL] = "AnalyticFunctionCall";
+  map[AST_ANALYZE_STATEMENT] = "AnalyzeStatement";
   map[AST_AND_EXPR] = "AndExpr";
   map[AST_ARRAY_COLUMN_SCHEMA] = "ArrayColumnSchema";
   map[AST_ARRAY_CONSTRUCTOR] = "ArrayConstructor";
@@ -92,6 +99,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CAST_EXPRESSION] = "CastExpression";
   map[AST_CHECK_CONSTRAINT] = "CheckConstraint";
   map[AST_CLAMPED_BETWEEN_MODIFIER] = "ClampedBetweenModifier";
+  map[AST_CLONE_DATA_SOURCE] = "CloneDataSource";
+  map[AST_CLONE_DATA_SOURCE_LIST] = "CloneDataSourceList";
+  map[AST_CLONE_DATA_STATEMENT] = "CloneDataStatement";
   map[AST_CLUSTER_BY] = "ClusterBy";
   map[AST_COLLATE] = "Collate";
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
@@ -136,6 +146,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DROP_CONSTRAINT_ACTION] = "DropConstraintAction";
   map[AST_DROP_ENTITY_STATEMENT] = "DropEntityStatement";
   map[AST_DROP_FUNCTION_STATEMENT] = "DropFunctionStatement";
+  map[AST_DROP_TABLE_FUNCTION_STATEMENT] = "DropTableFunctionStatement";
   map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
   map[AST_DROP_MATERIALIZED_VIEW_STATEMENT] = "DropMaterializedViewStatement";
@@ -176,6 +187,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_GROUPING_ITEM] = "GroupingItem";
   map[AST_HAVING_MODIFIER] = "HavingModifier";
   map[AST_HAVING] = "Having";
+  map[AST_QUALIFY] = "Qualify";
   map[AST_HIDDEN_COLUMN_ATTRIBUTE] = "HiddenColumnAttribute";
   map[AST_HINTED_STATEMENT] = "HintedStatement";
   map[AST_HINT_ENTRY] = "HintEntry";
@@ -244,6 +256,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_RAISE_STATEMENT] = "Raise";
   map[AST_RENAME_TO_CLAUSE] = "RenameToClause";
   map[AST_RENAME_STATEMENT] = "RenameStatement";
+  map[AST_REPEAT_STATEMENT] = "Repeat";
   map[AST_REPEATABLE_CLAUSE] = "RepeatableClause";
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
@@ -289,6 +302,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_SYSTEM_VARIABLE_ASSIGNMENT] = "SystemVariableAssignment";
   map[AST_SYSTEM_VARIABLE_EXPR] = "SystemVariableExpr";
   map[AST_TABLE_CLAUSE] = "TableClause";
+  map[AST_TABLE_AND_COLUMN_INFO] = "TableAndColumnInfo";
+  map[AST_TABLE_AND_COLUMN_INFO_LIST] = "TableAndColumnInfoList";
   map[AST_TABLE_ELEMENT_LIST] = "TableElementList";
   map[AST_TABLE_PATH_EXPRESSION] = "TablePathExpression";
   map[AST_TABLE_SUBQUERY] = "TableSubquery";
@@ -307,6 +322,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_UNNEST_EXPRESSION] = "UnnestExpression";
   map[AST_UNNEST_EXPRESSION_WITH_OPT_ALIAS_AND_OFFSET] =
       "UnnestExpressionWithOptAliasAndOffset";
+  map[AST_UNTIL_CLAUSE] = "Until";
   map[AST_UPDATE_ITEM_LIST] = "UpdateItemList";
   map[AST_UPDATE_ITEM] = "UpdateItem";
   map[AST_UPDATE_SET_VALUE] = "UpdateSetValue";
@@ -622,7 +638,12 @@ std::string ASTNullOrder::SingleNodeDebugString() const {
 
 std::string ASTOrderingExpression::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
-                      descending() ? "(DESC)" : "(ASC)");
+                      descending()
+                          ? "(DESC)"
+                          : (ordering_spec() == UNSPECIFIED ||
+                                     !absl::GetFlag(FLAGS_output_asc_explicitly)
+                                 ? "(ASC)"
+                                 : "(ASC EXPLICITLY)"));
 }
 
 absl::Status
@@ -778,13 +799,19 @@ std::string ASTDropEntityStatement::SingleNodeDebugString() const {
 }
 
 std::string ASTDropFunctionStatement::SingleNodeDebugString() const {
-  const std::string& node_name = ASTNode::SingleNodeDebugString();
+  const std::string node_name = ASTNode::SingleNodeDebugString();
+  return (!is_if_exists()) ? node_name
+                           : absl::StrCat(node_name, "(is_if_exists)");
+}
+
+std::string ASTDropTableFunctionStatement::SingleNodeDebugString() const {
+  const std::string node_name = ASTNode::SingleNodeDebugString();
   return (!is_if_exists()) ? node_name
                            : absl::StrCat(node_name, "(is_if_exists)");
 }
 
 std::string ASTDropRowAccessPolicyStatement::SingleNodeDebugString() const {
-  const std::string& node_name = ASTNode::SingleNodeDebugString();
+  const std::string node_name = ASTNode::SingleNodeDebugString();
   if (!is_if_exists()) {
     return node_name;
   }
@@ -792,7 +819,7 @@ std::string ASTDropRowAccessPolicyStatement::SingleNodeDebugString() const {
 }
 
 std::string ASTDropMaterializedViewStatement::SingleNodeDebugString() const {
-  const std::string& node_name = ASTNode::SingleNodeDebugString();
+  const std::string node_name = ASTNode::SingleNodeDebugString();
   if (!is_if_exists()) {
     return node_name;
   }
@@ -1477,7 +1504,7 @@ std::string ASTRenameToClause::GetSQLForAlterAction() const {
 }
 
 std::string ASTAlterStatementBase::SingleNodeDebugString() const {
-  const std::string& node_name = ASTNode::SingleNodeDebugString();
+  const std::string node_name = ASTNode::SingleNodeDebugString();
   if (!is_if_exists()) {
     return node_name;
   }

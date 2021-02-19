@@ -961,7 +961,8 @@ std::string NoMatchingSignatureForComparisonOperator(
   std::string error_message =
       Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
           operator_name, arguments, product_mode);
-  if (IsStringLiteralComparedToBytes(arguments[0], arguments[1])) {
+  if (arguments.size() > 1 &&
+      IsStringLiteralComparedToBytes(arguments[0], arguments[1])) {
     absl::StrAppend(&error_message, kErrorMessageCompareStringLiteralToBytes);
   }
   return error_message;
@@ -1295,6 +1296,10 @@ absl::Status CheckArrayConcatArguments(
 absl::Status CheckArrayIsDistinctArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
+  if (arguments.empty()) {
+    // Let validation happen normally.  It will return an error later.
+    return absl::OkStatus();
+  }
   if (arguments[0].is_null()) {
     return absl::OkStatus();
   }
@@ -1459,6 +1464,18 @@ bool HasBigNumericTypeArgument(
     const std::vector<InputArgumentType>& arguments) {
   for (const InputArgumentType& argument : arguments) {
     if (argument.type()->kind() == TYPE_BIGNUMERIC) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Returns true if at least one input argument has INTERVAL type.
+bool HasIntervalTypeArgument(
+    const FunctionSignature& matched_signature,
+    const std::vector<InputArgumentType>& arguments) {
+  for (const InputArgumentType& argument : arguments) {
+    if (argument.type()->kind() == TYPE_INTERVAL) {
       return true;
     }
   }

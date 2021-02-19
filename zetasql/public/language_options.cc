@@ -66,6 +66,9 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_FORMAT_IN_CAST);
       features.insert(FEATURE_V_1_3_UNPIVOT);
       features.insert(FEATURE_V_1_3_DML_RETURNING);
+      features.insert(FEATURE_V_1_3_FILTER_FIELDS);
+      features.insert(FEATURE_V_1_3_QUALIFY);
+      features.insert(FEATURE_V_1_3_REPEAT);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

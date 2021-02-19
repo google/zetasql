@@ -70,6 +70,13 @@ bool FunctionSignatureMatches(
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides);
 
+// Determines if the argument list count matches signature, returning the number
+// of times each repeated argument repeats and the number of optional arguments
+// present if true.
+bool SignatureArgumentCountMatches(const FunctionSignature& signature,
+                                   int input_arguments_size, int* repetitions,
+                                   int* optionals);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_FUNCTION_SIGNATURE_MATCHER_H_

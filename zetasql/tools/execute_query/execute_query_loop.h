@@ -1,0 +1,58 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_LOOP_H_
+#define ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_LOOP_H_
+
+#include <functional>
+#include <memory>
+#include <string>
+
+#include "zetasql/tools/execute_query/execute_query_prompt.h"
+#include "zetasql/tools/execute_query/execute_query_tool.h"
+#include "zetasql/tools/execute_query/execute_query_writer.h"
+#include "absl/functional/function_ref.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
+
+namespace zetasql {
+
+using ExecuteQueryLoopStatusHandler =
+    absl::FunctionRef<absl::Status(absl::Status status, absl::string_view sql)>;
+
+// Returns status without modification.
+absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status,
+                                               absl::string_view sql);
+
+// Read queries from prompt and execute them until either the end of input is
+// reached (see ExecuteQueryPrompt::Read) or an error occurs.
+//
+// The status handler is invoked for all status codes returned for queries,
+// regardless of the actual status code (OK, invalid argument, etc.). When used
+// by an interactive shell the handler can log errors along with the failing
+// query before returning an OK status to proceed with reading the next query.
+// When no status handler is given (nullptr), all non-successful status codes
+// from the query lead to an immediate return.
+absl::Status ExecuteQueryLoop(
+    ExecuteQueryPrompt& prompt, ExecuteQueryConfig& config,
+    ExecuteQueryWriter& writer,
+    const ExecuteQueryLoopStatusHandler status_handler =
+        ExecuteQueryLoopNoOpStatusHandler);
+
+}  // namespace zetasql
+
+#endif  // ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_LOOP_H_

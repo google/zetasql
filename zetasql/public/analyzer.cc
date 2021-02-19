@@ -26,6 +26,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/analyzer_impl.h"
 #include "zetasql/analyzer/anonymization_rewriter.h"
+#include "zetasql/analyzer/all_rewriters.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/common/errors.h"
@@ -305,16 +306,16 @@ absl::Status AnalyzeExpression(absl::string_view sql,
                                const AnalyzerOptions& options, Catalog* catalog,
                                TypeFactory* type_factory,
                                std::unique_ptr<const AnalyzerOutput>* output) {
-  return InternalAnalyzeExpression(sql, options, catalog, type_factory, nullptr,
-                                   output);
+  return InternalAnalyzeExpression(sql, options, AllRewriters(), catalog,
+                                   type_factory, nullptr, output);
 }
 
 absl::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
-  return InternalAnalyzeExpression(sql, options, catalog, type_factory,
-                                   target_type, output);
+  return InternalAnalyzeExpression(sql, options, AllRewriters(), catalog,
+                                   type_factory, target_type, output);
 }
 
 absl::Status AnalyzeExpressionFromParserAST(
@@ -333,8 +334,8 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status = InternalAnalyzeExpressionFromParserAST(
-      ast_expression, /*parser_output=*/nullptr, sql, options, catalog,
-      type_factory, target_type, output);
+      ast_expression, /*parser_output=*/nullptr, sql, options,
+      AllRewriters(), catalog, type_factory, target_type, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
@@ -580,6 +581,14 @@ zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymiz
       analyzer_output->undeclared_parameters(),
       analyzer_output->undeclared_positional_parameters(),
       column_factory.max_column_id());
+}
+
+absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
+                                absl::string_view sql, Catalog* catalog,
+                                TypeFactory* type_factory,
+                                AnalyzerOutput& analyzer_output) {
+  return InternalRewriteResolvedAst(analyzer_options, AllRewriters(), sql,
+                                    catalog, type_factory, analyzer_output);
 }
 
 }  // namespace zetasql

@@ -856,6 +856,10 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   const Type* numeric_type = type_factory->get_numeric();
   const Type* bignumeric_type = type_factory->get_bignumeric();
   const Type* date_type = type_factory->get_date();
+  const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* datetime_type = type_factory->get_datetime();
+  const Type* time_type = type_factory->get_time();
+  const Type* interval_type = type_factory->get_interval();
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -865,6 +869,14 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
   has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  FunctionSignatureOptions has_interval_type_argument;
+  has_interval_type_argument.set_constraints(&HasIntervalTypeArgument);
+  FunctionSignatureOptions date_arithmetics_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_3_DATE_ARITHMETICS);
+  FunctionSignatureOptions interval_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_INTERVAL_TYPE);
 
   // Note that the '$' prefix is used in function names for those that do not
   // support function call syntax.  Otherwise, syntax like ADD(<op1>, <op2>)
@@ -873,9 +885,6 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   // Note that these arithmetic operators (+, -, *, /, <unary minus>) have
   // related SAFE versions (SAFE_ADD, SAFE_SUBTRACT, etc.) that must have
   // the same signatures as these operators.
-  FunctionSignatureOptions date_arithmetics_options =
-      FunctionSignatureOptions().add_required_language_feature(
-          FEATURE_V_1_3_DATE_ARITHMETICS);
   InsertFunction(functions, options, "$add", SCALAR,
                  {
                      {int64_type, {int64_type, int64_type}, FN_ADD_INT64},
@@ -927,6 +936,22 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
            {date_type, int64_type},
            FN_SUBTRACT_DATE_INT64,
            date_arithmetics_options},
+          {interval_type,
+           {date_type, date_type},
+           FN_SUBTRACT_DATE,
+           interval_options},
+          {interval_type,
+           {timestamp_type, timestamp_type},
+           FN_SUBTRACT_TIMESTAMP,
+           interval_options},
+          {interval_type,
+           {datetime_type, datetime_type},
+           FN_SUBTRACT_DATETIME,
+           interval_options},
+          {interval_type,
+           {time_type, time_type},
+           FN_SUBTRACT_TIME,
+           interval_options},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -985,7 +1010,11 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_UNARY_MINUS_BIGNUMERIC,
-                   has_bignumeric_type_argument}},
+                   has_bignumeric_type_argument},
+                  {interval_type,
+                   {interval_type},
+                   FN_UNARY_MINUS_INTERVAL,
+                   has_interval_type_argument}},
                  FunctionOptions()
                      .set_supports_safe_error_mode(false)
                      .set_sql_name("-")

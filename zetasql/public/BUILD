@@ -202,6 +202,32 @@ cc_test(
 )
 
 cc_library(
+    name = "multi_catalog",
+    srcs = ["multi_catalog.cc"],
+    hdrs = ["multi_catalog.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":catalog",
+        ":constant",
+        ":function",
+        ":type",
+        "//zetasql/base",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
     name = "civil_time",
     srcs = [
         "civil_time.cc",
@@ -2131,7 +2157,6 @@ cc_library(
         "//zetasql/analyzer:all_rewriters",
         "//zetasql/analyzer:analyzer_impl",
         "//zetasql/analyzer:resolver",
-        "//zetasql/analyzer:rewriter",  # buildcleaner:keep
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",

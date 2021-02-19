@@ -25,6 +25,7 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -95,6 +96,12 @@ template <>
 struct TestIsDefaultValue<ResolvedColumn> {
   static bool IsDefaultValue(const ResolvedColumn& column) {
     return !column.IsInitialized();
+  }
+};
+template <>
+struct TestIsDefaultValue<TypeParameters> {
+  static bool IsDefaultValue(const TypeParameters& type_parameters) {
+    return type_parameters.IsEmpty();
   }
 };
 
@@ -915,6 +922,28 @@ zetasql_base::StatusOr<const AnnotationMap*>
                                                       &annotation_map));
   }
   return annotation_map;
+}
+
+static std::string ToStringImpl(const TypeParameters& type_parameters) {
+  return type_parameters.DebugString();
+}
+
+static absl::Status SaveToImpl(
+    const TypeParameters& type_parameters,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    TypeParametersProto* proto) {
+  if (!type_parameters.IsEmpty()) {
+    ZETASQL_RETURN_IF_ERROR(type_parameters.Serialize(proto));
+  }
+  return absl::OkStatus();
+}
+
+template<>
+zetasql_base::StatusOr<TypeParameters>
+    RestoreFromImpl(
+        const TypeParametersProto& proto,
+        const ResolvedNode::RestoreParams& params) {
+  return TypeParameters::Deserialize(proto);
 }
 
 }  // anonymous namespace

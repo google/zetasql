@@ -33,6 +33,7 @@
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -240,6 +241,62 @@ class SelectColumnStateList {
       column_alias_to_state_list_position_;
 };
 
+// Helper for representing if we're allowed to flatten (ie: allowed to dot into
+// the fields of a proto/struct/json array), and if so, if we're already in a
+// ResolvedFlatten from having previously done so.
+//
+// Flattening is allowed:
+// - inside an explicit FLATTEN(...) call
+// - in an UNNEST
+//
+// Once we're allowed to flatten and we do a field access on an array, then we
+// being constructing a ResolvedFlatten. The FlattenState tracks the current
+// ResolvedFlatten we're building and whether it's active or not.
+//
+// This allows us to differentiate:
+//    FLATTEN(a.b.c)[OFFSET(0)]
+// from
+//    FLATTEN(a.b.c[OFFSET(0)])
+//
+// In both cases, the input expression to the offset is the ResolvedFlatten
+// but in the former case (no active flatten), the offset should be on the
+// result, whereas in the latter the offset should be on the active flatten.
+class FlattenState {
+ public:
+  FlattenState() = default;
+  FlattenState(const FlattenState&) = delete;
+  FlattenState& operator=(const FlattenState&) = delete;
+
+  ~FlattenState() {
+    if (parent_ != nullptr) parent_->active_flatten_ = active_flatten_;
+  }
+
+  // Sets the parent for this FlattenState. This copies state from the parent,
+  // but also causes the active flatten to propagate back to parent after
+  // destruction so a child ExprResolutionInfo can essentially share
+  // FlattenState.
+  void SetParent(FlattenState* parent) {
+    ZETASQL_DCHECK(parent_ == nullptr) << "Parent shouldn't be set more than once";
+    ZETASQL_CHECK(parent);
+    parent_ = parent;
+    can_flatten_ = parent->can_flatten_;
+    active_flatten_ = parent->active_flatten_;
+  }
+
+  bool can_flatten() const { return can_flatten_; }
+  void set_can_flatten(bool can_flatten) { can_flatten_ = can_flatten; }
+
+  ResolvedFlatten* active_flatten() const { return active_flatten_; }
+  void set_active_flatten(ResolvedFlatten* flatten) {
+    active_flatten_ = flatten;
+  }
+
+ private:
+  FlattenState* parent_ = nullptr;
+  bool can_flatten_ = false;
+  ResolvedFlatten* active_flatten_ = nullptr;
+};
+
 // This contains common info needed to resolve and validate an expression.
 // It includes both the constant info describing what is allowed while
 // resolving the expression and mutable info that returns what it actually
@@ -361,10 +418,9 @@ struct ExprResolutionInfo {
   // field is set only when resolving SELECT columns.
   const IdString column_alias = IdString();
 
-  // True if this is a context where flattening of (nested) arrays can happen
-  // automatically. For example, in UNNEST we automatically flatten paths
-  // through arrays so that they are legal without an explicit FLATTEN.
-  bool can_flatten = false;
+  // Context around if we can flatten and if we're currently actively doing so.
+  // See FlattenState for details.
+  FlattenState flatten_state;
 };
 
 // Get an InputArgumentType for a ResolvedExpr, identifying whether or not it

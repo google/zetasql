@@ -71,16 +71,19 @@ SELECT JSON_EXTRACT_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$['a.b']")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
 ==
+[required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_extract_string_array]
 SELECT JSON_EXTRACT_STRING_ARRAY(JSON '{"a.b": [1, "foo", null]}', "$['a.b']")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
 ==
+[required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_query_array]
 SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$.\"a.b\"")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
 ==
+[required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_value_array]
 SELECT JSON_VALUE_ARRAY(JSON '{"a.b": [1, "foo", null]}', "$.\"a.b\"")
 --

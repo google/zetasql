@@ -44,6 +44,7 @@ using ::zetasql::JSONValue;
 using ::zetasql::JSONValueConstRef;
 using ::zetasql::JSONValueRef;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 
 constexpr char kJSONStr[] = R"(
   {
@@ -305,6 +306,51 @@ TEST(JSONValueTest, ObjectValue) {
   EXPECT_FALSE(ref.GetMemberIfExists(kWrongKey).has_value());
 }
 
+TEST(JSONValueTest, EmptyObjectValue) {
+  constexpr int64_t kIntegerValue = 1;
+  constexpr char kKey[] = "key";
+  constexpr char kWrongKey[] = "wrong key";
+  JSONValue value;
+
+  JSONValueRef ref = value.GetRef();
+  ref.SetToEmptyObject();
+
+  EXPECT_FALSE(ref.IsNull());
+  ASSERT_TRUE(ref.IsObject());
+  EXPECT_FALSE(ref.IsBoolean());
+  EXPECT_FALSE(ref.IsArray());
+  EXPECT_FALSE(ref.IsString());
+  EXPECT_FALSE(ref.IsNumber());
+
+  EXPECT_THAT(ref.GetMembers(), IsEmpty());
+
+  JSONValueRef member_ref = ref.GetMember(kKey);
+
+  EXPECT_TRUE(ref.HasMember(kKey));
+  EXPECT_FALSE(ref.HasMember(kWrongKey));
+  EXPECT_TRUE(member_ref.IsNull());
+
+  member_ref.SetInt64(kIntegerValue);
+
+  EXPECT_FALSE(ref.GetMember(kKey).IsNull());
+  EXPECT_EQ(ref.GetMember(kKey).GetInt64(), kIntegerValue);
+
+  std::vector<std::pair<absl::string_view, JSONValueRef>> members =
+      ref.GetMembers();
+
+  ASSERT_EQ(members.size(), 1);
+  EXPECT_EQ(members[0].first, kKey);
+  EXPECT_EQ(members[0].second.GetInt64(), kIntegerValue);
+
+  absl::optional<JSONValueConstRef> optional_member_const_ref =
+      ref.GetMemberIfExists(kKey);
+  ASSERT_TRUE(optional_member_const_ref.has_value());
+  ASSERT_TRUE(optional_member_const_ref->IsInt64());
+  EXPECT_EQ(optional_member_const_ref->GetInt64(), 1);
+
+  EXPECT_FALSE(ref.GetMemberIfExists(kWrongKey).has_value());
+}
+
 TEST(JSONValueTest, ArrayValue) {
   constexpr int64_t kIntegerValue = 1;
   constexpr size_t kIndex = 5;
@@ -333,6 +379,40 @@ TEST(JSONValueTest, ArrayValue) {
   EXPECT_EQ(kIndex + 1, elements.size());
   EXPECT_TRUE(elements[0].IsNull());
   EXPECT_EQ(kIntegerValue, elements[kIndex].GetInt64());
+}
+
+TEST(JSONValueTest, EmptyArrayValue) {
+  constexpr int64_t kIntegerValue = 1;
+  constexpr size_t kIndex = 5;
+  JSONValue value;
+  JSONValueRef ref = value.GetRef();
+  ref.SetToEmptyArray();
+
+  EXPECT_FALSE(ref.IsNull());
+  EXPECT_FALSE(ref.IsObject());
+  EXPECT_FALSE(ref.IsBoolean());
+  ASSERT_TRUE(ref.IsArray());
+  EXPECT_FALSE(ref.IsString());
+  EXPECT_FALSE(ref.IsNumber());
+
+  EXPECT_EQ(ref.GetArraySize(), 0);
+
+  JSONValueRef element_ref = ref.GetArrayElement(kIndex);
+
+  EXPECT_EQ(ref.GetArraySize(), kIndex + 1);
+  EXPECT_TRUE(element_ref.IsNull());
+  for (JSONValueConstRef element_ref : ref.GetArrayElements()) {
+    EXPECT_TRUE(element_ref.IsNull());
+  }
+
+  element_ref.SetInt64(kIntegerValue);
+  EXPECT_FALSE(ref.GetArrayElement(kIndex).IsNull());
+  EXPECT_EQ(ref.GetArrayElement(kIndex).GetInt64(), kIntegerValue);
+
+  std::vector<JSONValueRef> elements = ref.GetArrayElements();
+  EXPECT_EQ(elements.size(), kIndex + 1);
+  EXPECT_TRUE(elements[0].IsNull());
+  EXPECT_EQ(elements[kIndex].GetInt64(), kIntegerValue);
 }
 
 TEST(JSONValueTest, CopyFrom) {
@@ -1111,6 +1191,70 @@ TEST(JSONValueTest, NormalizedEqualsArray) {
 
   other_ref.GetArrayElement(2);
   EXPECT_FALSE(ref.NormalizedEquals(other_ref));
+}
+
+TEST(JSONValueTest, ParseWithNestingLimit) {
+  JSONParsingOptions options{.legacy_mode = false,
+                             .strict_number_parsing = false,
+                             .max_nesting = absl::nullopt};
+  auto result = JSONValue::ParseJSONString("[10, 20]", options);
+  ASSERT_TRUE(result.ok());
+  EXPECT_THAT(result->GetConstRef().ToString(), "[10,20]");
+
+  result = JSONValue::ParseJSONString(R"({"a": [10, 20]})", options);
+  ASSERT_TRUE(result.ok());
+  EXPECT_THAT(result->GetConstRef().ToString(), R"({"a":[10,20]})");
+
+  options.max_nesting = -1;
+  result = JSONValue::ParseJSONString("10", options);
+  ASSERT_TRUE(result.ok());
+  EXPECT_THAT(result->GetConstRef().ToString(), "10");
+
+  result = JSONValue::ParseJSONString("[10, 20]", options);
+  EXPECT_FALSE(result.ok());
+  EXPECT_THAT(
+      result.status().message(),
+      HasSubstr(
+          "Max nesting of 0 has been exceeded while parsing JSON document"));
+
+  options.max_nesting = 0;
+  result = JSONValue::ParseJSONString(R"({"a": 10})", options);
+  EXPECT_FALSE(result.ok());
+  EXPECT_THAT(
+      result.status().message(),
+      HasSubstr(
+          "Max nesting of 0 has been exceeded while parsing JSON document"));
+
+  options.max_nesting = 1;
+  result = JSONValue::ParseJSONString("[10, 20]", options);
+  ASSERT_TRUE(result.ok());
+  EXPECT_THAT(result->GetConstRef().ToString(), "[10,20]");
+
+  result = JSONValue::ParseJSONString(R"({"a": 10})", options);
+  ASSERT_TRUE(result.ok());
+  EXPECT_THAT(result->GetConstRef().ToString(), R"({"a":10})");
+
+  result = JSONValue::ParseJSONString(R"({"a": [10, 20]})", options);
+  EXPECT_FALSE(result.ok());
+  EXPECT_THAT(
+      result.status().message(),
+      HasSubstr(
+          "Max nesting of 1 has been exceeded while parsing JSON document"));
+
+  options.max_nesting = 3;
+  result = JSONValue::ParseJSONString(
+      R"({"a": [{"b": "foo"}, {"b": "bar"}], "c": 10})", options);
+  ASSERT_TRUE(result.ok());
+  EXPECT_THAT(result->GetConstRef().ToString(),
+              R"({"a":[{"b":"foo"},{"b":"bar"}],"c":10})");
+
+  result = JSONValue::ParseJSONString(
+      R"({"a": [{"b": "foo"}, {"b": {"c": 10}}], "d": 10})", options);
+  EXPECT_FALSE(result.ok());
+  EXPECT_THAT(
+      result.status().message(),
+      HasSubstr(
+          "Max nesting of 3 has been exceeded while parsing JSON document"));
 }
 
 }  // namespace

@@ -87,6 +87,12 @@ absl::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter,
 ExecuteQueryStreamWriter::ExecuteQueryStreamWriter(std::ostream& out)
     : stream_{out} {}
 
+absl::Status ExecuteQueryStreamWriter::parsed(
+    absl::string_view parsed_debug_string) {
+  stream_ << parsed_debug_string << std::endl;
+  return absl::OkStatus();
+}
+
 absl::Status ExecuteQueryStreamWriter::resolved(const ResolvedNode& ast) {
   stream_ << ast.DebugString() << std::endl;
   return absl::OkStatus();

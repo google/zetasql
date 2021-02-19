@@ -16,7 +16,7 @@
 
 #include <memory>
 
-#include "zetasql/analyzer/rewriters/registration.h"
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -259,13 +259,21 @@ FlattenRewriterVisitor::FlattenToScan(
       input = MakeResolvedColumnRef(column.type(), column,
                                     /*is_correlated=*/false);
     }
-    if (get_field->Is<ResolvedGetProtoField>()) {
-      get_field->GetAs<ResolvedGetProtoField>()->set_expr(std::move(input));
-    } else if (get_field->Is<ResolvedGetStructField>()) {
-      get_field->GetAs<ResolvedGetStructField>()->set_expr(std::move(input));
+    ResolvedExpr* to_set_input = get_field.get();
+    if (get_field->Is<ResolvedFunctionCall>()) {
+      ResolvedFunctionCall* call = get_field->GetAs<ResolvedFunctionCall>();
+      ZETASQL_RET_CHECK_EQ(2, call->argument_list_size());
+      to_set_input = const_cast<ResolvedExpr*>(
+          get_field->GetAs<ResolvedFunctionCall>()->argument_list(0));
+    }
+    if (to_set_input->Is<ResolvedGetProtoField>()) {
+      to_set_input->GetAs<ResolvedGetProtoField>()->set_expr(std::move(input));
+    } else if (to_set_input->Is<ResolvedGetStructField>()) {
+      to_set_input->GetAs<ResolvedGetStructField>()->set_expr(std::move(input));
+    } else if (to_set_input->Is<ResolvedGetJsonField>()) {
+      to_set_input->GetAs<ResolvedGetJsonField>()->set_expr(std::move(input));
     } else {
-      ZETASQL_RET_CHECK(get_field->Is<ResolvedGetJsonField>());
-      get_field->GetAs<ResolvedGetJsonField>()->set_expr(std::move(input));
+      ZETASQL_RET_CHECK_FAIL() << "Unsupported node: " << to_set_input->DebugString();
     }
     input = nullptr;  // already null, but avoids ClangTidy "use after free"
 
@@ -331,7 +339,8 @@ class FlattenRewriter : public Rewriter {
   }
 
   zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options, const ResolvedNode& input,
+      const AnalyzerOptions& options,
+      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
@@ -343,8 +352,13 @@ class FlattenRewriter : public Rewriter {
     output_properties.has_flatten = false;
     return result;
   }
+
+  std::string Name() const override { return "FlattenRewriter"; }
 };
 
-REGISTER_ZETASQL_REWRITER(FlattenRewriter);
+const Rewriter* GetFlattenRewriter() {
+  static const auto* const kRewriter = new FlattenRewriter;
+  return kRewriter;
+}
 
 }  // namespace zetasql

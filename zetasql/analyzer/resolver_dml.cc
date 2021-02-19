@@ -874,8 +874,9 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
       return ResolveExtensionFieldAccess(
-          std::move(info.target), ResolveExtensionFieldOptions(),
-          dot_generalized_field->path(), &info.target);
+          std::move(info.target),
+          ResolveExtensionFieldOptions(), dot_generalized_field->path(),
+          &expr_resolution_info->flatten_state, &info.target);
     }
     case AST_DOT_IDENTIFIER: {
       const auto* dot_identifier = path->GetAsOrDie<ASTDotIdentifier>();
@@ -886,8 +887,9 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           expr_resolution_info, update_target_infos));
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
-      return ResolveFieldAccess(/*can_flatten=*/false, std::move(info.target),
-                                dot_identifier->name(), &info.target);
+      return ResolveFieldAccess(std::move(info.target), dot_identifier->name(),
+                                &expr_resolution_info->flatten_state,
+                                &info.target);
     }
     case AST_ARRAY_ELEMENT: {
       const auto* array_element = path->GetAsOrDie<ASTArrayElement>();

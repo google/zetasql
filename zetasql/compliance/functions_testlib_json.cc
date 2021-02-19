@@ -516,10 +516,13 @@ const std::vector<FunctionTestCall> GetNativeJsonTests(
           String("$.a.b[0].f")},
          Json(std::move(null_json_value))});
     // Malformed JSON.
-    tests.push_back({query_fn_name,
-                     {Value::UnvalidatedJsonString(R"({"a": )"), String("$")},
-                     NullJson(),
-                     OUT_OF_RANGE});
+    tests.push_back(
+        {query_fn_name,
+         QueryParamsWithResult(
+             {Value::UnvalidatedJsonString(R"({"a": )"), String("$")},
+             NullJson(), OUT_OF_RANGE)
+             .WrapWithFeatureSet(
+                 {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION})});
     tests.push_back(
         {query_fn_name,
          {json_with_wide_numbers, String("$")},

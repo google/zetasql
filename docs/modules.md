@@ -292,6 +292,6 @@ IMPORT MODULE x.y.z AS baz;
 CREATE PUBLIC FUNCTION foo(d int) AS (baz.bar(d));
 ```
 
-[user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
-[table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions#tvfs
+[user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
+[table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 

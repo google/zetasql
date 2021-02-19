@@ -38,6 +38,7 @@ import com.google.zetasql.FunctionSignature;
 import com.google.zetasql.ZetaSQLAnnotation.AnnotationMapProto;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.NotFoundException;
@@ -54,6 +55,7 @@ import com.google.zetasql.TableValuedFunction;
 import com.google.zetasql.TableValuedFunctionRefProto;
 import com.google.zetasql.Type;
 import com.google.zetasql.TypeFactory;
+import com.google.zetasql.TypeParameters;
 import com.google.zetasql.Value;
 import com.google.zetasql.ValueWithTypeProto;
 
@@ -179,5 +181,9 @@ public final class DeserializationHelper {
   AnnotationMap deserialize(AnnotationMapProto proto) {
     // TODO: use TypeFactory to create AnnotatedType.
     return null;
+  }
+
+  TypeParameters deserialize(TypeParametersProto proto) {
+    return TypeParameters.deserialize(proto);
   }
 }

@@ -49,7 +49,7 @@ left side of the IN operator. Returns FALSE if the subquery returns zero rows.
 <code>x IN ()</code> is equivalent to <code>x IN (value, value, ...)</code>
 See the <code>IN</code> operator in
 
-<a href="https://github.com/google/zetasql/blob/master/docs/operators#comparison_operators">
+<a href="https://github.com/google/zetasql/blob/master/docs/operators.md#comparison_operators">
 
 Comparison Operators
 </a>

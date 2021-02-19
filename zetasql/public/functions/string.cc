@@ -183,6 +183,7 @@ const icu::Normalizer2* GetNormalizerByMode(NormalizeMode normalize_mode,
         absl::StatusCode::kInternal,
         absl::StrCat("Failed to get a normalizer instance with error: ",
                      icu_errorcode.errorName())));
+    icu_errorcode.reset();
     return nullptr;
   }
   return normalizer;

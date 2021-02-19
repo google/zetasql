@@ -17,12 +17,14 @@
 #include "zetasql/resolved_ast/validator.h"
 
 #include <algorithm>
+#include <iterator>
 #include <string>
 #include <type_traits>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/varsetter.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
@@ -37,6 +39,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
@@ -247,6 +250,28 @@ static absl::Status ValidateGenericArgumentsAgainstConcreteArguments(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedFilterField(
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    const ResolvedFilterField* filter_field) {
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                       filter_field->expr()));
+
+  const auto& expr_type = filter_field->expr()->type();
+  ZETASQL_RET_CHECK(expr_type->IsProto());
+
+  const auto& filter_field_arg_list = filter_field->filter_field_arg_list();
+  ZETASQL_RET_CHECK(!filter_field_arg_list.empty());
+  FilterFieldsPathValidator validator(expr_type->AsProto()->descriptor());
+  for (const auto& filter_field_arg : filter_field_arg_list) {
+    ZETASQL_RET_CHECK(!filter_field_arg->field_descriptor_path().empty());
+    ZETASQL_RET_CHECK_OK(
+        validator.ValidateFieldPath(filter_field_arg->include(),
+                                    filter_field_arg->field_descriptor_path()));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedFunctionCallBase(
     const std::set<ResolvedColumn>& visible_columns,
     const std::set<ResolvedColumn>& visible_parameters,
@@ -449,12 +474,51 @@ absl::Status Validator::ValidateResolvedExpr(
     case RESOLVED_REPLACE_FIELD:
       return ValidateResolvedReplaceField(visible_columns, visible_parameters,
                                           expr->GetAs<ResolvedReplaceField>());
+    case RESOLVED_FILTER_FIELD:
+      return ValidateResolvedFilterField(visible_columns, visible_parameters,
+                                         expr->GetAs<ResolvedFilterField>());
     default:
       return ::zetasql_base::InternalErrorBuilder()
              << "Unhandled node kind: " << expr->node_kind_string()
              << " in ValidateResolvedExpr";
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
+    const std::set<ResolvedColumn>& input_scan_visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    const ResolvedAggregateFunctionCall* aggregate_function_call) {
+  const Function* aggregate_function = aggregate_function_call->function();
+  const std::string& function_name = aggregate_function->Name();
+  if (!aggregate_function->SupportsOrderingArguments() &&
+      !aggregate_function_call->order_by_item_list().empty()) {
+    return ::zetasql_base::InternalErrorBuilder()
+           << "Aggregate function " << function_name
+           << " does not support ordering arguments,"
+           << " but has an ORDER BY clause:\n"
+           << aggregate_function->DebugString();
+  }
+  if (!aggregate_function->SupportsLimitArguments() &&
+      aggregate_function_call->limit() != nullptr) {
+    return ::zetasql_base::InternalErrorBuilder()
+           << "Aggregate function " << function_name
+           << " does not support limiting arguments,"
+           << " but has a LIMIT clause:\n"
+           << aggregate_function->DebugString();
+  }
+
+  for (const auto& order_by_item :
+       aggregate_function_call->order_by_item_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedOrderByItem(
+        input_scan_visible_columns, visible_parameters, order_by_item.get()));
+  }
+
+  if (aggregate_function_call->limit() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        ValidateArgumentIsInt64Constant(aggregate_function_call->limit()));
+  }
   return absl::OkStatus();
 }
 
@@ -575,26 +639,44 @@ absl::Status Validator::ValidateResolvedFlatten(
   for (const auto& get_field_expr : flatten->get_field_list()) {
     ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                          get_field_expr.get()));
-    if (get_field_expr->node_kind() == RESOLVED_GET_STRUCT_FIELD) {
-      ZETASQL_RET_CHECK(!seen_proto && !seen_json);
-      ZETASQL_RET_CHECK_EQ(
-          get_field_expr->GetAs<ResolvedGetStructField>()->expr()->node_kind(),
-          RESOLVED_FLATTENED_ARG);
-    } else if (get_field_expr->node_kind() == RESOLVED_GET_JSON_FIELD) {
-      ZETASQL_RET_CHECK(!seen_proto);
-      seen_json = true;
-      ZETASQL_RET_CHECK_EQ(
-          get_field_expr->GetAs<ResolvedGetJsonField>()->expr()->node_kind(),
-          RESOLVED_FLATTENED_ARG);
-    } else if (get_field_expr->node_kind() == RESOLVED_GET_PROTO_FIELD) {
-      ZETASQL_RET_CHECK(!seen_json);
-      seen_proto = true;
-      ZETASQL_RET_CHECK_EQ(
-          get_field_expr->GetAs<ResolvedGetProtoField>()->expr()->node_kind(),
-          RESOLVED_FLATTENED_ARG);
+    auto validate_get_field =
+        [&seen_proto, &seen_json](const ResolvedExpr& expr) -> absl::Status {
+      if (expr.node_kind() == RESOLVED_GET_STRUCT_FIELD) {
+        ZETASQL_RET_CHECK(!seen_proto);
+        ZETASQL_RET_CHECK(!seen_json);
+        ZETASQL_RET_CHECK_EQ(expr.GetAs<ResolvedGetStructField>()->expr()->node_kind(),
+                     RESOLVED_FLATTENED_ARG);
+      } else if (expr.node_kind() == RESOLVED_GET_JSON_FIELD) {
+        seen_json = true;
+        ZETASQL_RET_CHECK_EQ(expr.GetAs<ResolvedGetJsonField>()->expr()->node_kind(),
+                     RESOLVED_FLATTENED_ARG);
+      } else if (expr.node_kind() == RESOLVED_GET_PROTO_FIELD) {
+        ZETASQL_RET_CHECK(!seen_json);
+        seen_proto = true;
+        ZETASQL_RET_CHECK_EQ(expr.GetAs<ResolvedGetProtoField>()->expr()->node_kind(),
+                     RESOLVED_FLATTENED_ARG);
+      } else {
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected node kind: " << expr.DebugString();
+      }
+      return absl::OkStatus();
+    };
+    if (get_field_expr->Is<ResolvedFunctionCall>()) {
+      // The get field calls can optionally have an array offset which always
+      // take two arguments, the array and the offset.
+      const ResolvedFunctionCall* resolved_function_call =
+          get_field_expr->GetAs<ResolvedFunctionCall>();
+      const std::string& function_name =
+          resolved_function_call->function()->Name();
+      ZETASQL_RET_CHECK(function_name == "$array_at_offset" ||
+                function_name == "$array_at_ordinal" ||
+                function_name == "$safe_array_at_offset" ||
+                function_name == "$safe_array_at_ordinal")
+          << function_name;
+      ZETASQL_RET_CHECK_EQ(2, resolved_function_call->argument_list_size());
+      ZETASQL_RETURN_IF_ERROR(
+          validate_get_field(*resolved_function_call->argument_list(0)));
     } else {
-      ZETASQL_RET_CHECK_FAIL() << "Unexpected node kind: "
-                       << get_field_expr->DebugString();
+      ZETASQL_RETURN_IF_ERROR(validate_get_field(*get_field_expr));
     }
   }
   return absl::OkStatus();
@@ -827,12 +909,34 @@ absl::Status Validator::ValidateResolvedOutputColumnList(
 absl::Status Validator::AddColumnList(
     const ResolvedColumnList& column_list,
     std::set<ResolvedColumn>* visible_columns) {
-  ZETASQL_RET_CHECK(nullptr != visible_columns);
+  ZETASQL_RET_CHECK_NE(visible_columns, nullptr);
   for (const ResolvedColumn& column : column_list) {
     ZETASQL_RET_CHECK(column_ids_seen_.contains(column.column_id()))
         << "Undefined column " << column.DebugString();
     visible_columns->insert(column);
   }
+  return absl::OkStatus();
+}
+
+absl::Status Validator::AddColumnList(
+    const ResolvedColumnList& column_list,
+    absl::flat_hash_set<ResolvedColumn>* visible_columns) {
+  ZETASQL_RET_CHECK_NE(visible_columns, nullptr);
+  for (const ResolvedColumn& column : column_list) {
+    ZETASQL_RET_CHECK(column_ids_seen_.contains(column.column_id()))
+        << "Undefined column " << column.DebugString();
+    visible_columns->insert(column);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Validator::AddColumn(
+    const ResolvedColumn& column,
+    absl::flat_hash_set<ResolvedColumn>* visible_columns) {
+  ZETASQL_RET_CHECK_NE(visible_columns, nullptr);
+  ZETASQL_RET_CHECK(column_ids_seen_.contains(column.column_id()))
+      << "Undefined column " << column.DebugString();
+  visible_columns->insert(column);
   return absl::OkStatus();
 }
 
@@ -1004,40 +1108,9 @@ absl::Status Validator::ValidateResolvedAggregateComputedColumn(
                RESOLVED_AGGREGATE_FUNCTION_CALL);
   const ResolvedAggregateFunctionCall* aggregate_function_call =
       computed_column->expr()->GetAs<ResolvedAggregateFunctionCall>();
-  const Function* aggregate_function = aggregate_function_call->function();
-  const std::string& function_name = aggregate_function->Name();
-  if (!aggregate_function->SupportsOrderingArguments() &&
-      !aggregate_function_call->order_by_item_list().empty()) {
-    return ::zetasql_base::InternalErrorBuilder()
-           << "Aggregate function " << function_name
-           << " does not support ordering arguments,"
-           << " but has an ORDER BY clause:\n"
-           << aggregate_function->DebugString();
-  }
-  if (!aggregate_function->SupportsLimitArguments() &&
-      aggregate_function_call->limit() != nullptr) {
-    return ::zetasql_base::InternalErrorBuilder()
-           << "Aggregate function " << function_name
-           << " does not support limiting arguments,"
-           << " but has a LIMIT clause:\n"
-           << aggregate_function->DebugString();
-  }
 
-  // TODO This could happen in the parent node rather than in this
-  // loop over child nodes.
-  for (const auto& order_by_item :
-       aggregate_function_call->order_by_item_list()) {
-    ZETASQL_RETURN_IF_ERROR(ValidateResolvedOrderByItem(
-        input_scan_visible_columns, visible_parameters,
-        order_by_item.get()));
-  }
-
-  if (aggregate_function_call->limit() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ValidateArgumentIsInt64Constant(
-        aggregate_function_call->limit()));
-  }
-
-  return absl::OkStatus();
+  return ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
+      input_scan_visible_columns, visible_parameters, aggregate_function_call);
 }
 
 absl::Status Validator::ValidateResolvedAggregateScanBase(
@@ -2065,6 +2138,10 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedDropFunctionStmt(
           statement->GetAs<ResolvedDropFunctionStmt>());
       break;
+    case RESOLVED_DROP_TABLE_FUNCTION_STMT:
+      status = ValidateResolvedDropTableFunctionStmt(
+          statement->GetAs<ResolvedDropTableFunctionStmt>());
+      break;
     case RESOLVED_DROP_ROW_ACCESS_POLICY_STMT:
       status = ValidateResolvedDropRowAccessPolicyStmt(
           statement->GetAs<ResolvedDropRowAccessPolicyStmt>());
@@ -2298,6 +2375,15 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
     }
   }
 
+  const Table* like_table = stmt->like_table();
+  if (like_table != nullptr) {
+    // Column information in the like_table will be extracted into column
+    // definition list.
+    ZETASQL_RET_CHECK_EQ(like_table->NumColumns(), visible_columns->size())
+        << "Number of columns does not match in like_table and column "
+           "definition list";
+  }
+
   for (const auto& column_definition : stmt->column_definition_list()) {
     if (column_definition->annotations() != nullptr) {
       ZETASQL_RETURN_IF_ERROR(ValidateColumnAnnotations(
@@ -2372,8 +2458,32 @@ absl::Status Validator::ValidateResolvedCreateTableStmtBase(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedCloneDataSource(
+    const ResolvedScan* source) {
+  switch (source->node_kind()) {
+    case RESOLVED_TABLE_SCAN:
+      break;
+    case RESOLVED_FILTER_SCAN:
+      ZETASQL_RET_CHECK(
+          source->GetAs<ResolvedFilterScan>()->input_scan()->node_kind() ==
+          RESOLVED_TABLE_SCAN)
+          << "Bad scan type: "
+          << source->GetAs<ResolvedFilterScan>()->node_kind_string();
+      break;
+    default:
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Bad scan type: " << source->node_kind_string();
+  }
+  return ValidateResolvedScan(source, {} /* visible_parameters */);
+}
+
 absl::Status Validator::ValidateResolvedCreateTableStmt(
     const ResolvedCreateTableStmt* stmt) {
+  ZETASQL_RET_CHECK(stmt->like_table() == nullptr || stmt->clone_from() == nullptr)
+      << "CLONE and LIKE cannot both be used for CREATE TABLE";
+  if (stmt->clone_from() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedCloneDataSource(stmt->clone_from()));
+  }
   // Build and store the list of visible_columns.
   std::set<ResolvedColumn> visible_columns;
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedCreateTableStmtBase(stmt, &visible_columns));
@@ -2850,6 +2960,11 @@ absl::Status Validator::ValidateResolvedDropFunctionStmt(
     }
     ZETASQL_RET_CHECK(stmt->signature()->signature().result_type().IsVoid());
   }
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedDropTableFunctionStmt(
+    const ResolvedDropTableFunctionStmt* stmt) {
   return absl::OkStatus();
 }
 
@@ -3897,6 +4012,10 @@ absl::Status Validator::ValidateResolvedAlterAction(
       auto* column_definition =
           action->GetAs<ResolvedAddColumnAction>()->column_definition();
       if (column_definition->annotations() != nullptr) {
+        // TODO: Validate column type matches column type
+        // parameters. This is suggested by Jeff Shute, first we need add a
+        // virtual method in Type class to validate resolved type parameters,
+        // then call this method in Validator.
         ZETASQL_RETURN_IF_ERROR(
             ValidateColumnAnnotations(column_definition->annotations()));
       }
@@ -4019,6 +4138,17 @@ absl::Status Validator::ValidateResolvedPivotScan(
 
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExprList(input_column_set, visible_parameters,
                                            scan->pivot_expr_list()));
+
+  // ValidateResolvedExprList() does not cover ORDER BY or LIMIT clauses inside
+  // of an aggregate function call; they must be validated separately.
+  for (const auto& expr : scan->pivot_expr_list()) {
+    ZETASQL_RET_CHECK_EQ(expr->node_kind(), RESOLVED_AGGREGATE_FUNCTION_CALL);
+    const ResolvedAggregateFunctionCall* aggregate_function_call =
+        expr->GetAs<ResolvedAggregateFunctionCall>();
+    ZETASQL_RETURN_IF_ERROR(ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
+        input_column_set, visible_parameters, aggregate_function_call));
+  }
+
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(input_column_set, visible_parameters,
                                        scan->for_expr()));
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedExprList(/*visible_columns=*/{},
@@ -4088,32 +4218,84 @@ absl::Status Validator::ValidateResolvedPivotScan(
 absl::Status Validator::ValidateResolvedUnpivotScan(
     const ResolvedUnpivotScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
+  ZETASQL_RET_CHECK_NE(scan, nullptr);
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->input_scan(), visible_parameters));
 
-  std::set<ResolvedColumn> input_column_set;
+  // Insert all columns in this set. This includes input_scan columns, unpivot
+  // value columns, unpivot label columns and additional columns generated for
+  // output like 'SELECT 1'.
+  absl::flat_hash_set<ResolvedColumn> all_columns;
   ZETASQL_RETURN_IF_ERROR(
-      AddColumnList(scan->input_scan()->column_list(), &input_column_set));
-
-  for (const ResolvedColumn& column : scan->column_list()) {
-    ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+      AddColumnList(scan->input_scan()->column_list(), &all_columns));
+  for (auto& column : scan->column_list()) {
+    // Columns from input scan are already checked for uniqueness in the
+    // ValidateResolvedScan above.
+    if (!all_columns.contains(column)) {
+      ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+      all_columns.insert(column);
+    }
+  }
+  for (auto& column : scan->value_column_list()) {
+    if (!all_columns.contains(column)) {
+      ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+      all_columns.insert(column);
+    }
+  }
+  if (!all_columns.contains(scan->label_column())) {
+    ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(scan->label_column()));
+    all_columns.insert(scan->label_column());
   }
 
-  // Validate unpivot_arg_list.
-  // TODO: Validate all constraints about size and datatypes for
-  // all nodes of ResolvedUnpivotScan. This can be done in the resolver.
+  for (auto& column : scan->column_list()) {
+    ZETASQL_RET_CHECK(zetasql_base::ContainsKey(all_columns, column))
+        << "The output columns must be a subset of input columns and the newly "
+           "generated unpivot columns.";
+  }
+
+  // Check that the order of columns in the output is input columns in order,
+  // value column in order, and label column. Not all input columns are present
+  // in the output and hence we aren't directly matching the list here.
+  std::vector<ResolvedColumn> all_columns_list;
+  all_columns_list.insert(std::end(all_columns_list),
+                          std::begin(scan->input_scan()->column_list()),
+                          std::end(scan->input_scan()->column_list()));
+  all_columns_list.insert(std::end(all_columns_list),
+                          std::begin(scan->value_column_list()),
+                          std::end(scan->value_column_list()));
+  all_columns_list.push_back(scan->label_column());
+  int ordered_column_position = 0;
+  for (auto& column : scan->column_list()) {
+    while (ordered_column_position < all_columns_list.size() &&
+           column.column_id() !=
+               all_columns_list.at(ordered_column_position).column_id()) {
+      ordered_column_position++;
+    }
+    ZETASQL_RET_CHECK_LT(ordered_column_position, all_columns_list.size())
+        << "The output columns must be in the order of input columns(in the "
+           "order that they appear in input_scan), value columns (in the "
+           "order that they are defined in UNPIVOT) and then label column.";
+  }
+
   absl::flat_hash_set<ResolvedColumn> input_columns_seen;
   for (const auto& input_column_set : scan->unpivot_arg_list()) {
+    ZETASQL_RET_CHECK_EQ(scan->value_column_list().size(),
+                 input_column_set->column_list_size())
+        << "Each column group should be of the same size as value_column_list";
     for (const auto& input_column : input_column_set->column_list()) {
       ResolvedColumn input_column_res = input_column->column();
       ZETASQL_RET_CHECK_EQ(input_column->node_kind(), RESOLVED_COLUMN_REF)
           << "Column in unpivot_input_column_list of unpivot scan should be a "
-             "ResolvedColumn";
+             "ResolvedColumnRef";
       ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&input_columns_seen, input_column_res))
           << "Duplicate input column " << input_column_res.DebugString()
           << " in ResolvedUnpivotScan's input_column_list";
     }
   }
-  // TODO: Validate new unpivot columns.
+
+  ZETASQL_RET_CHECK_EQ(scan->label_list_size(), scan->unpivot_arg_list_size());
+  for (const auto& val : scan->label_list()) {
+    ZETASQL_RET_CHECK_EQ(val->value().type(), scan->label_column().type());
+  }
 
   return absl::OkStatus();
 }

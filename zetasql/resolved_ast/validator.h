@@ -58,6 +58,7 @@ class Validator {
       const ResolvedCreateModelStmt* stmt);
   absl::Status ValidateResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* stmt);
+  absl::Status ValidateResolvedCloneDataSource(const ResolvedScan* source);
   absl::Status ValidateResolvedGeneratedColumnInfo(
       const ResolvedColumnDefinition* column_definition,
       const std::set<ResolvedColumn>& visible_columns);
@@ -107,6 +108,8 @@ class Validator {
       const ResolvedDropMaterializedViewStmt* stmt);
   absl::Status ValidateResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* stmt);
+  absl::Status ValidateResolvedDropTableFunctionStmt(
+      const ResolvedDropTableFunctionStmt* stmt);
   absl::Status ValidateResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* stmt);
   absl::Status ValidateResolvedGrantStmt(const ResolvedGrantStmt* stmt);
@@ -258,6 +261,11 @@ class Validator {
       const ResolvedReturningClause* returning,
       std::set<ResolvedColumn>& visible_columns);
 
+  absl::Status ValidateOrderByAndLimitClausesOfAggregateFunctionCall(
+      const std::set<ResolvedColumn>& input_scan_visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedAggregateFunctionCall* aggregate_function_call);
+
   absl::Status ValidateResolvedAggregateComputedColumn(
       const ResolvedComputedColumn* computed_column,
       const std::set<ResolvedColumn>& input_scan_visible_columns,
@@ -363,6 +371,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedConstant* resolved_constant);
 
+  absl::Status ValidateResolvedFilterField(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedFilterField* filter_field);
+
   absl::Status ValidateResolvedFunctionCallBase(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -403,6 +416,11 @@ class Validator {
 
   absl::Status AddColumnList(const ResolvedColumnList& column_list,
                              std::set<ResolvedColumn>* visible_columns);
+  absl::Status AddColumnList(
+      const ResolvedColumnList& column_list,
+      absl::flat_hash_set<ResolvedColumn>* visible_columns);
+  absl::Status AddColumn(const ResolvedColumn& column,
+                         absl::flat_hash_set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnFromComputedColumn(
       const ResolvedComputedColumn* computed_column,
       std::set<ResolvedColumn>* visible_columns);

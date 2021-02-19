@@ -420,6 +420,33 @@ TEST(IntervalValueTest, Comparisons) {
   ExpectLess(MonthsDaysNanos(5, 15, 9999999), MonthsDaysNanos(5, 15, 10000000));
 }
 
+TEST(IntervalValueTest, UnaryMinus) {
+  EXPECT_EQ(Days(0), -Days(0));
+  EXPECT_EQ(Nanos(IntervalValue::kMaxNanos), -Nanos(-IntervalValue::kMaxNanos));
+  EXPECT_EQ(Micros(-123456789), -Micros(123456789));
+  EXPECT_EQ(Days(1), -Days(-1));
+  EXPECT_EQ(-Years(10000), Years(-10000));
+  EXPECT_EQ(YMDHMS(1, -2, 3, -4, 5, -6), -YMDHMS(-1, 2, -3, 4, -5, 6));
+
+  absl::BitGen gen;
+  for (int i = 0; i < 10000; i++) {
+    int64_t months = absl::Uniform(gen, IntervalValue::kMinMonths,
+                                 IntervalValue::kMaxMonths);
+    int64_t days =
+        absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
+    int64_t micros = absl::Uniform(gen, IntervalValue::kMinMicros,
+                                 IntervalValue::kMaxMicros);
+    int64_t nano_fractions = absl::Uniform(gen, -999, 999);
+    __int128 nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
+
+    IntervalValue interval1 = MonthsDaysNanos(months, days, nanos);
+    IntervalValue interval2 = MonthsDaysNanos(-months, -days, -nanos);
+    EXPECT_EQ(interval1, -interval2);
+    EXPECT_EQ(-interval1, interval2);
+    EXPECT_EQ(-(-interval1), interval1);
+  }
+}
+
 TEST(IntervalValueTest, ToString) {
   EXPECT_EQ("0-0 0 0:0:0", Months(0).ToString());
   EXPECT_EQ("0-1 0 0:0:0", Months(1).ToString());

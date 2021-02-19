@@ -121,18 +121,8 @@ class SourceLocation {
       : line_(line),
         file_name_(file_name) {}
 
-  friend constexpr int UseUnused() {
-    static_assert(SourceLocation(0, nullptr).unused_column_ == 0,
-                  "Use the otherwise-unused member.");
-    return 0;
-  }
-
-  // "unused" members are present to minimize future changes in the size of this
-  // type.
   std::uint_least32_t line_;
-  std::uint_least32_t unused_column_ = 0;
   const char* file_name_;
-  const char* unused_function_name_ = nullptr;
 };
 
 }  // namespace zetasql_base

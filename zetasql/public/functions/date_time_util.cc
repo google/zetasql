@@ -33,6 +33,7 @@
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
+#include "zetasql/common/utf_util.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -42,6 +43,7 @@
 #include "absl/time/civil_time.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "zetasql/base/general_trie.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -3127,6 +3129,12 @@ absl::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart part,
   return absl::OkStatus();
 }
 
+// INTERVAL difference between DATEs is DAY granularity.
+// Months and nanos are always zero.
+zetasql_base::StatusOr<IntervalValue> IntervalDiffDates(int32_t date1, int32_t date2) {
+  return IntervalValue::FromDays(date1 - date2);
+}
+
 // Valid <part> for this function are only HOUR, MINUTE, SECOND, MILLISECOND,
 // MICROSECOND and NANOSECOND.
 // For all valid input, overflow could happen only when <part> is NANOSECOND.
@@ -3278,6 +3286,21 @@ absl::Status DiffDatetimes(const DatetimeValue& datetime1,
                              << " for DATETIME_DIFF";
   }
   return absl::OkStatus();
+}
+
+// INTERVAL difference between DATETIMEs is DAY TO SECOND granularity.
+// Months is always zero, days is the full number of days difference between two
+// datetimes (based on 24 hour days), and any DATETIME remainder is encoded as
+// nanos.
+zetasql_base::StatusOr<IntervalValue> IntervalDiffDatetimes(
+    const DatetimeValue& datetime1, const DatetimeValue& datetime2) {
+  int64_t seconds;
+  ZETASQL_RETURN_IF_ERROR(DiffDatetimes(datetime1, datetime2, SECOND, &seconds));
+  __int128 nanos = IntervalValue::kNanosInSecond * seconds;
+  nanos += (datetime1.Nanoseconds() - datetime2.Nanoseconds());
+  int64_t days = nanos / IntervalValue::kNanosInDay;
+  nanos = nanos % IntervalValue::kNanosInDay;
+  return IntervalValue::FromMonthsDaysNanos(0, days, nanos);
 }
 
 // This internal wrapper is shared by both datetime_add and datetime_sub. The
@@ -3648,6 +3671,15 @@ absl::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
   }
 }
 
+// INTERVAL difference between TIMEs is HOUR TO SECOND granularity.
+// Months and days are always zero.
+zetasql_base::StatusOr<IntervalValue> IntervalDiffTimes(const TimeValue& time1,
+                                                const TimeValue& time2) {
+  int64_t nanos;
+  ZETASQL_RETURN_IF_ERROR(DiffTimes(time1, time2, NANOSECOND, &nanos));
+  return IntervalValue::FromNanos(nanos);
+}
+
 absl::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
                           TimeValue* output) {
   if (!time.IsValid()) {
@@ -3896,6 +3928,22 @@ absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
   return absl::OkStatus();
 }
 
+// INTERVAL difference between TIMESTAMPs is HOUR TO SECOND granularity.
+// Months and days are always zero.
+zetasql_base::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
+                                                     absl::Time timestamp2) {
+  absl::Duration duration = timestamp1 - timestamp2;
+  absl::Duration nanos_rem;
+  int64_t micros =
+      absl::IDivDuration(duration, absl::Microseconds(1), &nanos_rem);
+  absl::Duration rem;
+  int64_t nano_fractions =
+      absl::IDivDuration(nanos_rem, absl::Nanoseconds(1), &rem);
+  ZETASQL_RET_CHECK(rem == absl::ZeroDuration());
+  __int128 nanos = IntervalValue::kNanosInMicro128 * micros + nano_fractions;
+  return IntervalValue::FromNanos(nanos);
+}
+
 std::string TimestampScale_Name(TimestampScale scale) {
   switch (scale) {
     case kSeconds:         return "TIMESTAMP_SECOND";
@@ -4016,6 +4064,140 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
   }
 }
 
+absl::Status CastFormatDateToString(absl::string_view format_string, int32_t date,
+                                    std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Invalid date value: " << date;
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<internal_functions::FormatElement> format_elements,
+      internal_functions::GetFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(internal_functions::ValidateDateFormatElementsForFormatting(
+      format_elements));
+  // Treats it as a timestamp at midnight on that date and invokes the
+  // format_timestamp function.
+  int64_t date_timestamp = static_cast<int64_t>(date) * kNaiveNumMicrosPerDay;
+  ZETASQL_ASSIGN_OR_RETURN(*out,
+                   internal_functions::FromCastFormatTimestampToStringInternal(
+                       format_elements, MakeTime(date_timestamp, kMicroseconds),
+                       absl::UTCTimeZone()));
+  return absl::OkStatus();
+}
+
+absl::Status CastFormatDatetimeToString(absl::string_view format_string,
+                                        const DatetimeValue& datetime,
+                                        std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  if (!datetime.IsValid()) {
+    return MakeEvalError() << "Invalid datetime value: "
+                           << datetime.DebugString();
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<internal_functions::FormatElement> format_elements,
+      internal_functions::GetFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(
+      internal_functions::ValidateDatetimeFormatElementsForFormatting(
+          format_elements));
+  absl::Time datetime_in_utc =
+      absl::UTCTimeZone().At(datetime.ConvertToCivilSecond()).pre;
+  datetime_in_utc += absl::Nanoseconds(datetime.Nanoseconds());
+
+  ZETASQL_ASSIGN_OR_RETURN(*out,
+                   internal_functions::FromCastFormatTimestampToStringInternal(
+                       format_elements, datetime_in_utc, absl::UTCTimeZone()));
+  return absl::OkStatus();
+}
+
+absl::Status CastFormatTimeToString(absl::string_view format_string,
+                                    const TimeValue& time, std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  if (!time.IsValid()) {
+    return MakeEvalError() << "Invalid time value: " << time.DebugString();
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<internal_functions::FormatElement> format_elements,
+      internal_functions::GetFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(internal_functions::ValidateTimeFormatElementsForFormatting(
+      format_elements));
+
+  absl::Time time_in_epoch_day =
+      absl::UTCTimeZone()
+          .At(absl::CivilSecond(1970, 1, 1, time.Hour(), time.Minute(),
+                                time.Second()))
+          .pre;
+  time_in_epoch_day += absl::Nanoseconds(time.Nanoseconds());
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      *out, internal_functions::FromCastFormatTimestampToStringInternal(
+                format_elements, time_in_epoch_day, absl::UTCTimeZone()));
+  return absl::OkStatus();
+}
+
+absl::Status CastFormatTimestampToString(absl::string_view format_string,
+                                         int64_t timestamp_micros,
+                                         absl::TimeZone timezone,
+                                         std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  return CastFormatTimestampToString(
+      format_string, MakeTime(timestamp_micros, kMicroseconds), timezone, out);
+}
+
+absl::Status CastFormatTimestampToString(absl::string_view format_string,
+                                         int64_t timestamp_micros,
+                                         absl::string_view timezone_string,
+                                         std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  if (!IsWellFormedUTF8(timezone_string)) {
+    return MakeEvalError() << "Timezone string is not a valid UTF-8 string.";
+  }
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
+  return CastFormatTimestampToString(format_string, timestamp_micros, timezone,
+                                     out);
+}
+
+absl::Status CastFormatTimestampToString(absl::string_view format_string,
+                                         absl::Time timestamp,
+                                         absl::string_view timezone_string,
+                                         std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
+
+  return CastFormatTimestampToString(format_string, timestamp, timezone, out);
+}
+
+absl::Status CastFormatTimestampToString(absl::string_view format_string,
+                                         absl::Time timestamp,
+                                         absl::TimeZone timezone,
+                                         std::string* out) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::vector<internal_functions::FormatElement> format_elements,
+      internal_functions::GetFormatElements(format_string));
+  ZETASQL_ASSIGN_OR_RETURN(*out,
+                   internal_functions::FromCastFormatTimestampToStringInternal(
+                       format_elements, timestamp, timezone));
+  return absl::OkStatus();
+}
+
 namespace internal_functions {
 
 // Expand "%Z" in <format_string> to the ZetaSQL-defined format:
@@ -4094,6 +4276,476 @@ absl::Status ExpandPercentZQ(absl::string_view format_string,
     }
   }
   return absl::OkStatus();
+}
+
+inline std::string FormatElementTypeString(const FormatElementType& type) {
+  switch (type) {
+    case FORMAT_ELEMENT_TYPE_UNSPECIFIED:
+      return "FORMAT_ELEMENT_TYPE_UNSPECIFIED";
+    case LITERAL:
+      return "LITERAL";
+    case DOUBLE_QUOTED_LITERAL:
+      return "DOUBLE_QUOTED_LITERAL";
+    case YEAR:
+      return "YEAR";
+    case MONTH:
+      return "MONTH";
+    case DAY:
+      return "DAY";
+    case HOUR:
+      return "HOUR";
+    case MINUTE:
+      return "MINUTE";
+    case SECOND:
+      return "SECOND";
+    case MERIDIAN_INDICATOR:
+      return "MERIDIAN_INDICATOR";
+    case TIME_ZONE:
+      return "TIME_ZONE";
+    case CENTURY:
+      return "CENTURY";
+    case QUARTER:
+      return "QUARTER";
+    case WEEK:
+      return "WEEK";
+    case ERA_INDICATOR:
+      return "ERA_INDICATOR";
+    case MISC:
+      return "MISC";
+  }
+}
+
+static const FormatElementType kFormatElementTypeNullValue =
+    FormatElementType::FORMAT_ELEMENT_TYPE_UNSPECIFIED;
+using FormatElementTypeTrie =
+    zetasql_base::GeneralTrie<FormatElementType, kFormatElementTypeNullValue>;
+
+const FormatElementTypeTrie* InitializeFormatElementTrie() {
+  FormatElementTypeTrie* trie = new FormatElementTypeTrie();
+  /*Literals*/
+  trie->Insert("-", LITERAL);
+  trie->Insert(".", LITERAL);
+  trie->Insert("/", LITERAL);
+  trie->Insert(",", LITERAL);
+  trie->Insert("'", LITERAL);
+  trie->Insert(";", LITERAL);
+  trie->Insert(":", LITERAL);
+  trie->Insert(" ", LITERAL);
+
+  /*Double Quoted Literal*/
+  // For the format element '\"xxxxx\"' (arbitrary text enclosed by ""), we
+  // would match '\"' in the trie and then manually search the end of the
+  // format element
+  trie->Insert("\"", DOUBLE_QUOTED_LITERAL);
+
+  /*Year*/
+  trie->Insert("YYYY", YEAR);
+  trie->Insert("YYY", YEAR);
+  trie->Insert("YY", YEAR);
+  trie->Insert("Y", YEAR);
+  trie->Insert("RRRR", YEAR);
+  trie->Insert("RR", YEAR);
+  trie->Insert("Y,YYY", YEAR);
+  trie->Insert("IYYY", YEAR);
+  trie->Insert("IYY", YEAR);
+  trie->Insert("IY", YEAR);
+  trie->Insert("I", YEAR);
+  trie->Insert("SYYYY", YEAR);
+  trie->Insert("YEAR", YEAR);
+  trie->Insert("SYEAR", YEAR);
+
+  /*Month*/
+  trie->Insert("MM", MONTH);
+  trie->Insert("MON", MONTH);
+  trie->Insert("MONTH", MONTH);
+  trie->Insert("RM", MONTH);
+
+  /*Day*/
+  trie->Insert("DDD", DAY);
+  trie->Insert("DD", DAY);
+  trie->Insert("D", DAY);
+  trie->Insert("DAY", DAY);
+  trie->Insert("DY", DAY);
+  trie->Insert("J", DAY);
+
+  /*Hour*/
+  trie->Insert("HH", HOUR);
+  trie->Insert("HH12", HOUR);
+  trie->Insert("HH24", HOUR);
+
+  /*Minute*/
+  trie->Insert("MI", MINUTE);
+
+  /*Second*/
+  trie->Insert("SS", SECOND);
+  trie->Insert("SSSSS", SECOND);
+  // FF1~FF9
+  for (int i = 1; i < 10; ++i) {
+    trie->Insert(absl::StrCat("FF", i), SECOND);
+  }
+
+  /*Meridian indicator*/
+  trie->Insert("A.M.", MERIDIAN_INDICATOR);
+  trie->Insert("AM", MERIDIAN_INDICATOR);
+  trie->Insert("P.M.", MERIDIAN_INDICATOR);
+  trie->Insert("PM", MERIDIAN_INDICATOR);
+
+  /*Time zone*/
+  trie->Insert("TZH", TIME_ZONE);
+  trie->Insert("TZM", TIME_ZONE);
+
+  /*Century*/
+  trie->Insert("CC", CENTURY);
+  trie->Insert("SCC", CENTURY);
+
+  /*Quarter*/
+  trie->Insert("Q", QUARTER);
+
+  /*Week*/
+  trie->Insert("IW", WEEK);
+  trie->Insert("WW", WEEK);
+  trie->Insert("W", WEEK);
+
+  /*Era Indicator*/
+  trie->Insert("AD", ERA_INDICATOR);
+  trie->Insert("BC", ERA_INDICATOR);
+  trie->Insert("A.D.", ERA_INDICATOR);
+  trie->Insert("B.C.", ERA_INDICATOR);
+
+  /*Misc*/
+  trie->Insert("SP", MISC);
+  trie->Insert("TH", MISC);
+  trie->Insert("SPTH", MISC);
+  trie->Insert("THSP", MISC);
+  trie->Insert("FM", MISC);
+
+  return trie;
+}
+
+const FormatElementTypeTrie& GetFormatElementTrie() {
+  static const FormatElementTypeTrie* format_element_trie =
+      InitializeFormatElementTrie();
+  return *format_element_trie;
+}
+
+// We need the upper <format_str> to do the search in prefix tree since matching
+// are case-sensitive and we need the original <format_str> to extract the
+// original_str for the format element object.
+zetasql_base::StatusOr<FormatElement> GetNextFormatElement(
+    absl::string_view format_str, absl::string_view upper_format_str,
+    size_t* matched_len) {
+  FormatElement format_element;
+  int matched_len_int;
+  const FormatElementTypeTrie& format_element_trie = GetFormatElementTrie();
+  const FormatElementType& type = format_element_trie.GetDataForMaximalPrefix(
+      upper_format_str, &matched_len_int, /*is_terminator = */ nullptr);
+  if (type == kFormatElementTypeNullValue) {
+    return MakeEvalError() << "Cannot find matched format element";
+  }
+  *matched_len = static_cast<size_t>(matched_len_int);
+  format_element.type = type;
+  if (type != DOUBLE_QUOTED_LITERAL) {
+    format_element.original_str =
+        std::string(format_str.substr(0, (*matched_len)));
+    return format_element;
+  }
+
+  // if the matched type is DOUBLE_QUOTED_LITERAL, we search for the end
+  // manually and do the unescaping in this process.
+  format_element.original_str = "";
+  size_t ind_to_check = 1;
+  bool is_escaped = false;
+  bool stop_search = false;
+
+  while (ind_to_check < format_str.length() && !stop_search) {
+    // include the char at position ind_to_check
+    (*matched_len)++;
+    char char_to_check = format_str[ind_to_check];
+    ind_to_check++;
+    if (is_escaped) {
+      if (char_to_check == '\\' || char_to_check == '\"') {
+        is_escaped = false;
+      } else {
+        return MakeEvalError() << "Unsupported escape sequence \\"
+                               << char_to_check << " in text";
+      }
+    } else if (char_to_check == '\\') {
+      is_escaped = true;
+      continue;
+    } else if (char_to_check == '\"') {
+      stop_search = true;
+      break;
+    }
+    format_element.original_str.push_back(char_to_check);
+  }
+  if (!stop_search) {
+    return MakeEvalError() << "Cannot find matching \" for quoted literal";
+  }
+  return format_element;
+}
+
+// We need the upper format_str to do the search in prefix tree since matching
+// are case-sensitive and we need the original format_str to extract the
+// original_str for the format element object.
+zetasql_base::StatusOr<std::vector<FormatElement>> GetFormatElements(
+    absl::string_view format_str) {
+  std::vector<FormatElement> format_elements;
+  size_t processed_len = 0;
+  std::string upper_format_str_temp = absl::AsciiStrToUpper(format_str);
+  absl::string_view upper_format_str = upper_format_str_temp;
+  while (processed_len < format_str.size()) {
+    size_t matched_len;
+    auto res = GetNextFormatElement(format_str.substr(processed_len),
+                                    upper_format_str.substr(processed_len),
+                                    &matched_len);
+    if (res.ok()) {
+      FormatElement& format_element = res.value();
+      format_elements.push_back(format_element);
+      processed_len += matched_len;
+    } else {
+      return MakeEvalError()
+             << res.status().message() << " at " << processed_len;
+    }
+  }
+
+  return format_elements;
+}
+
+bool CheckSupportedFormatYearElement(absl::string_view upper_format_string) {
+  if (upper_format_string.empty() || upper_format_string.size() > 4) {
+    return false;
+  }
+  // Currently the only supported format year strings are Y, YY, YYY, YYYY,
+  // RR or RRRR.
+  const char first_char = upper_format_string[0];
+  if (first_char != 'Y' && first_char != 'R') {
+    return false;
+  }
+  for (const char& c : upper_format_string) {
+    if (c != first_char) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Takes a format model vector and rewrites it to be a format element string
+// that can be correctly formatted by FormatTime. Any elements that are not
+// supported by FormatTime will be formatted manually in this function. Any
+// elements that output strings will be outputted with the first letter
+// capitalized and all subsequent letters will be lowercase.
+zetasql_base::StatusOr<std::string> FromFormatElementToFormatString(
+    const FormatElement& format_element, const absl::TimeZone::CivilInfo info) {
+  const std::string upper_format =
+      absl::AsciiStrToUpper(format_element.original_str);
+  switch (format_element.type) {
+    case LITERAL:
+    case DOUBLE_QUOTED_LITERAL:
+      return format_element.original_str;
+    case YEAR: {
+      if (CheckSupportedFormatYearElement(upper_format)) {
+        // YYYY will output the whole year regardless of how many digits are in
+        // the year.
+        // FormatTime does not support the year with the last 3 digits.
+        int trunc_year = static_cast<int>(info.cs.year()) %
+                         powers_of_ten[format_element.original_str.size()];
+        return absl::StrFormat(
+            "%0*d", format_element.original_str.size(),
+            (upper_format.size() == 4 ? info.cs.year() : trunc_year));
+      }
+      break;
+    }
+    case MONTH: {
+      if (upper_format == "MM")
+        return "%m";
+      else if (upper_format == "MON")
+        return "%b";
+      else if (upper_format == "MONTH")
+        return "%B";
+      break;
+    }
+    case DAY: {
+      if (upper_format == "D")
+        //  FormatTime returns 0 as Sunday.
+        return std::to_string(
+            DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(info.cs)));
+      else if (upper_format == "DD")
+        return "%d";
+      else if (upper_format == "DDD")
+        return "%j";
+      else if (upper_format == "DAY")
+        return "%A";
+      else if (upper_format == "DY")
+        return "%a";
+      break;
+    }
+    case HOUR: {
+      if (upper_format == "HH" || upper_format == "HH12")
+        return "%I";
+      else if (upper_format == "HH24")
+        return "%H";
+      break;
+    }
+    case MINUTE:
+      return "%M";
+    case SECOND: {
+      if (upper_format == "SS") {
+        return "%S";
+      } else if (upper_format == "SSSSS") {
+        // FormatTime does not support having 5 digit second of the day.
+        int second_of_day = info.cs.hour() * kNaiveNumSecondsPerHour +
+                            info.cs.minute() * kNaiveNumSecondsPerMinute +
+                            info.cs.second();
+        return absl::StrFormat("%05d", second_of_day);
+      } else if (absl::StartsWith(upper_format, "FF")) {
+        // TODO : FormatTime does not round fractional seconds.
+        return absl::StrCat("%E", format_element.original_str.substr(2), "f");
+      }
+      break;
+    }
+    case MERIDIAN_INDICATOR: {
+      if (absl::StrContains(format_element.original_str, ".")) {
+        if (info.cs.hour() > 12) {
+          return "P.M.";
+        } else {
+          return "A.M.";
+        }
+      } else {
+        if (info.cs.hour() > 12) {
+          return "PM";
+        } else {
+          return "AM";
+        }
+      }
+    }
+    case TIME_ZONE:
+      return MakeEvalError() << "TODO: Implement TZH and TZM";
+    default:
+      return MakeEvalError() << "Unsupported format_element type.";
+  }
+  return MakeEvalError() << "Unsupported format: "
+                         << format_element.original_str;
+}
+
+zetasql_base::StatusOr<std::string> ResolveFormatString(
+    const FormatElement& format_element, absl::Time base_time,
+    absl::TimeZone timezone) {
+  const absl::TimeZone::CivilInfo info = timezone.At(base_time);
+  ZETASQL_ASSIGN_OR_RETURN(const std::string format_string,
+                   FromFormatElementToFormatString(format_element, info));
+  if (format_element.type == LITERAL) {
+    return format_string;
+  }
+
+  // The following resolves casing for format elements.
+  std::string resolved_string =
+      absl::FormatTime(format_string, base_time, timezone);
+  // All of the format elements that are only one character long are numbers and
+  // so do not need it's casing changed.
+  if (format_element.original_str.size() < 2) {
+    return resolved_string;
+  }
+  // If the first letter of the element is lowercase, then all the letters in
+  // the output are lowercase.
+  if (format_element.original_str[0] ==
+      absl::ascii_tolower(format_element.original_str[0])) {
+    return absl::AsciiStrToLower(resolved_string);
+  }
+
+  // For AM/PM only the first letter indicates the overall casing.
+  if (format_element.type == MERIDIAN_INDICATOR) {
+    return absl::AsciiStrToUpper(resolved_string);
+  }
+  // If the first letter is upper case and the second letter is lowercase, then
+  // the first letter of each word in the output is capitalized and the other
+  // letters are lowercase.
+  if (format_element.original_str[0] ==
+          absl::ascii_toupper(format_element.original_str[0]) &&
+      format_element.original_str[1] ==
+          absl::ascii_tolower(format_element.original_str[1])) {
+    return resolved_string;
+  }
+  // If the first two letters of the element are both upper case, the output is
+  // capitalized.
+  return absl::AsciiStrToUpper(resolved_string);
+}
+
+// Checks to see if the format elements are valid for the date or time type.
+absl::Status ValidateDateFormatElementsForFormatting(
+    absl::Span<const FormatElement> format_elements) {
+  for (const FormatElement& element : format_elements) {
+    switch (element.type) {
+      case LITERAL:
+      case DOUBLE_QUOTED_LITERAL:
+      case YEAR:
+      case MONTH:
+      case DAY:
+        continue;
+      default:
+        return MakeEvalError()
+               << "DATE does not support " << element.original_str;
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ValidateTimeFormatElementsForFormatting(
+    absl::Span<const FormatElement> format_elements) {
+  for (const FormatElement& element : format_elements) {
+    switch (element.type) {
+      case LITERAL:
+      case DOUBLE_QUOTED_LITERAL:
+      case HOUR:
+      case MINUTE:
+      case SECOND:
+      case MERIDIAN_INDICATOR:
+        continue;
+      default:
+        return MakeEvalError()
+               << "TIME does not support " << element.original_str;
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ValidateDatetimeFormatElementsForFormatting(
+    absl::Span<const FormatElement> format_elements) {
+  for (const FormatElement& element : format_elements) {
+    switch (element.type) {
+      case LITERAL:
+      case DOUBLE_QUOTED_LITERAL:
+      case YEAR:
+      case MONTH:
+      case DAY:
+      case HOUR:
+      case MINUTE:
+      case SECOND:
+      case MERIDIAN_INDICATOR:
+        continue;
+      default:
+        return MakeEvalError()
+               << "DATETIME does not support " << element.original_str;
+    }
+  }
+  return absl::OkStatus();
+}
+
+// TODO: Refactor FormatTimestampToString to be able to use either
+// CastFormat or FormatString.
+zetasql_base::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
+    absl::Span<const FormatElement> format_elements, absl::Time base_time,
+    absl::TimeZone timezone) {
+  if (!IsValidTime(base_time)) {
+    return MakeEvalError() << "Invalid timestamp value: "
+                           << absl::ToUnixMicros(base_time);
+  }
+  std::string updated_format_string;
+  for (const FormatElement& format_element : format_elements) {
+    ZETASQL_ASSIGN_OR_RETURN(std::string str_format,
+                     ResolveFormatString(format_element, base_time, timezone));
+    absl::StrAppend(&updated_format_string, str_format);
+  }
+  return updated_format_string;
 }
 
 }  // namespace internal_functions

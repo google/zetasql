@@ -844,11 +844,11 @@ FROM
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
 
 [new-keyword]: #using_new
-[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit_alias_syntax
-[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#implicit_aliases
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules
+[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#explicit_alias_syntax
+[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#implicit_aliases
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 
-[link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#safe_casting
-[proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions#proto_extract
+[link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#safe_casting
+[proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_extract
 

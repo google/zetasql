@@ -605,7 +605,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-09-28', '2016-10-06')
 --
 
-ERROR: generic::invalid_argument: No matching signature for function GENERATE_TIMESTAMP_ARRAY for argument types: STRING, STRING. Supported signature: GENERATE_TIMESTAMP_ARRAY(TIMESTAMP, TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: generic::invalid_argument: Number of arguments does not match for function GENERATE_TIMESTAMP_ARRAY. Supported signature: GENERATE_TIMESTAMP_ARRAY(TIMESTAMP, TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
 SELECT GENERATE_TIMESTAMP_ARRAY('2016-09-28', '2016-10-06')
        ^
 ==
@@ -625,7 +625,7 @@ ERROR: generic::out_of_range: Sequence step cannot be 0.
 [name=generate_timestamp_array_empty_args]
 SELECT GENERATE_TIMESTAMP_ARRAY()
 --
-ERROR: generic::invalid_argument: No matching signature for function GENERATE_TIMESTAMP_ARRAY with no arguments. Supported signature: GENERATE_TIMESTAMP_ARRAY(TIMESTAMP, TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
+ERROR: generic::invalid_argument: Number of arguments does not match for function GENERATE_TIMESTAMP_ARRAY. Supported signature: GENERATE_TIMESTAMP_ARRAY(TIMESTAMP, TIMESTAMP, INTERVAL INT64 DATE_TIME_PART) [at 1:8]
 SELECT GENERATE_TIMESTAMP_ARRAY()
        ^
 ==
@@ -653,7 +653,7 @@ SELECT RANGE_BUCKET("abc", "def")
 [name=range_bucket_wrong_number_of_arguments]
 SELECT RANGE_BUCKET(1, 2, 3)
 --
-ERROR: generic::invalid_argument: No matching signature for function RANGE_BUCKET for argument types: INT64, INT64, INT64. Supported signature: RANGE_BUCKET(ANY, ARRAY) [at 1:8]
+ERROR: generic::invalid_argument: Number of arguments does not match for function RANGE_BUCKET. Supported signature: RANGE_BUCKET(ANY, ARRAY) [at 1:8]
 SELECT RANGE_BUCKET(1, 2, 3)
        ^
 ==

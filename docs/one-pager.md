@@ -975,8 +975,8 @@ WHERE book = "Ulysses";
 [string-literals]: #string_and_bytes_literals
 [named-query-parameters]: #named_query_parameters
 [positional-query-parameters]: #positional_query_parameters
-[query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax
-[lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
+[query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
+[lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
 [functions-reference]: #function-reference
 [query-reference]: #query-syntax
@@ -1073,7 +1073,7 @@ and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-lit
 <tr>
 <td>DATE</td>
 <td><span>STRING</span><br /><span>DATE</span><br /><span>DATETIME</span><br /><span>TIMESTAMP</span><br /></td>
-<td>&nbsp;</td>
+<td><span>DATETIME</span><br /></td>
 </tr>
 
 <tr>
@@ -1222,13 +1222,16 @@ Halfway cases such as 1.5 or -0.5 round away from zero.</td>
 <tr>
 <td>STRING</td>
 <td>Floating Point</td>
-<td>Returns <code>x</code> as a
-Floating Point
-value, interpreting it as having the same form as a valid
-Floating Point
-literal.<br />
-Also supports casts from <code>"inf"</code>, <code>"+inf"</code>, <code>"-inf"</code>, and <code>"nan"</code>.<br />
-Conversions are case-insensitive.
+<td>
+  Returns <code>x</code> as a
+  Floating Point
+  value, interpreting it as having the same form as a valid
+  Floating Point
+  literal.
+  Also supports casts from <code>"[+,-]inf"</code> to <code>[,-]Infinity</code>,
+  <code>"[+,-]infinity"</code> to <code>[,-]Infinity</code>, and
+  <code>"[+,-]nan"</code> to <code>NaN</code>.
+  Conversions are case-insensitive.
 </td>
 </tr>
 <tr>
@@ -1652,7 +1655,7 @@ ZetaSQL provides the following additional conversion functions:
 [conversion-rules-table]: #conversion_rules
 [con-rules-link-to-literal-coercion]: #literal_coercion
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
-[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types#time_zones
+[con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
 [con-rules-link-to-time-zones]: #time-zones
 [con-rules-link-to-safe-convert-bytes-to-string]: #safe_convert_bytes_to_string
@@ -2152,17 +2155,32 @@ Result types for Division:
 
 </table>
 
-Result types for Unary Plus and Unary Minus:
+Result types for Unary Plus:
 
 <table>
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT32</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
+Result types for Unary Minus:
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
 
 </table>
@@ -2656,9 +2674,9 @@ The concatenation operator combines multiple values into one.
 </table>
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from_clause
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
+[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
 [operators-link-to-filtering-arrays]: #filtering-arrays
 [operators-link-to-data-types]: #data-types
@@ -3244,6 +3262,254 @@ for an explanation of join conditions.</td></tr>
 </tbody>
 </table>
 
+### Array type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ARRAY</code></td>
+<td>Ordered list of zero or more elements of any non-ARRAY type.</td>
+</tr>
+</tbody>
+</table>
+
+An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
+ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
+ARRAYs will return an error. Instead a STRUCT must be inserted between the
+ARRAYs using the `SELECT AS STRUCT` construct.
+
+An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
+`NULL` elements.
+
+#### Declaring an ARRAY type
+
+```
+ARRAY<T>
+```
+
+ARRAY types are declared using the angle brackets (`<` and `>`). The type
+of the elements of an ARRAY can be arbitrarily complex with the exception that
+an ARRAY cannot directly contain another ARRAY.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Type Declaration</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+ARRAY&lt;INT64&gt;
+</code>
+</td>
+<td>Simple ARRAY of 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;STRUCT&lt;INT64, INT64&gt;&gt;
+</code>
+</td>
+<td>An ARRAY of STRUCTs, each of which contains two 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
+</code><br/>
+(not supported)
+</td>
+<td>This is an <strong>invalid</strong> type declaration which is included here
+just in case you came looking for how to create a multi-level ARRAY. ARRAYs
+cannot contain ARRAYs directly. Instead see the next example.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
+</code>
+</td>
+<td>An ARRAY of ARRAYS of 64-bit integers. Notice that there is a STRUCT between
+the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
+</tr>
+<tbody>
+</table>
+
+### Boolean type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BOOL</code></td>
+<td>Boolean values are represented by the keywords <code>TRUE</code> and
+<code>FALSE</code> (case insensitive).</td>
+</tr>
+</tbody>
+</table>
+
+Boolean values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  1. `FALSE`
+  1. `TRUE`
+
+### Bytes type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BYTES</code></td>
+<td>Variable-length binary data.</td>
+</tr>
+</tbody>
+</table>
+
+STRING and BYTES are separate types that cannot be used interchangeably. Most
+functions on STRING are also defined on BYTES. The BYTES version operates on raw
+bytes rather than Unicode characters. Casts between STRING and BYTES enforce
+that the bytes are encoded using UTF-8.
+
+### Date type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATE</code></td>
+<td>0001-01-01 to 9999-12-31.</td>
+</tr>
+</tbody>
+</table>
+
+The DATE type represents a logical calendar date, independent of time zone. A
+DATE value does not represent a specific 24-hour time period. Rather, a given
+DATE value represents a different 24-hour period when interpreted in different
+time zones, and may represent a shorter or longer day during Daylight Savings
+Time transitions.
+To represent an absolute point in time,
+use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+'YYYY-[M]M-[D]D'
+```
+
++ `YYYY`: Four-digit year
++ `[M]M`: One or two digit month
++ `[D]D`: One or two digit day
+
+### Datetime type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATETIME</code></td>
+<td>
+    
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
+        <hr/>
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999<br/>
+    
+</td>
+</tr>
+</tbody>
+</table>
+
+A DATETIME object represents a date and time, as they might be displayed
+on a calendar or clock, independent of time zone.
+It includes the year, month, day, hour, minute, second,
+and subsecond.
+The range of subsecond precision is determined by the SQL engine.
+To represent an absolute point in time,
+use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
+```
+
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
+
+### Enum type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ENUM</code></td>
+<td>Named type that maps STRING constants to INT32 constants.</td>
+</tr>
+</tbody>
+</table>
+
+An ENUM is a named type that enumerates a list of possible values, each of which
+has:
+
++ An integer value. Integers are used for comparison and ordering ENUM values.
+There is no requirement that these integers start at zero or that they be
+contiguous.
++ A string value. Strings are case sensitive.
++ Optional alias values. One or more additional string values that act as
+aliases.
+
+Enum values are referenced using their integer value or their string value.
+You reference an ENUM type, such as when using CAST, by using its fully
+qualified name.
+
+You cannot create new ENUM types using ZetaSQL.
+
 ### Numeric types
 
 Numeric types include the following types:
@@ -3492,7 +3758,7 @@ done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
   * 0 or -0 &mdash; All zero values are considered equal when grouping.
   * `+inf`
 
-### Boolean type
+### Protocol buffer type
 
 <table>
 <thead>
@@ -3503,18 +3769,44 @@ done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
 </thead>
 <tbody>
 <tr>
-<td><code>BOOL</code></td>
-<td>Boolean values are represented by the keywords <code>TRUE</code> and
-<code>FALSE</code> (case insensitive).</td>
+<td><code>PROTO</code></td>
+<td>An instance of protocol buffer.</td>
 </tr>
 </tbody>
 </table>
 
-Boolean values are sorted in this order, from least to greatest:
+Protocol buffers provide structured data types with a defined serialization
+format and cross-language support libraries. Protocol buffer message types can
+contain optional, required or repeated fields, including nested messages. See
+the
+[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
 
-  1. `NULL`
-  1. `FALSE`
-  1. `TRUE`
+Protocol buffer message types behave similarly to STRUCT types, and support
+similar operations like reading field values by name. Protocol buffer types are
+always named types, and can be referred to by their fully-qualified protocol
+buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
+behavior beyond STRUCTs, like default field values, and checking for the
+presence of optional fields.
+
+Protocol buffer ENUM types are also available and can be referenced using the
+fully-qualified ENUM type name.
+
+See [Using Protocol Buffers][protocol-buffers]
+for more information.
+
+#### Limited comparisons for PROTO
+
+No direct comparison of PROTO values is supported. There are a couple possible
+workarounds:
+
+  * The most accurate way to compare PROTOs is to do a pair-wise comparison
+    between the fields of the PROTOs. This can also be used to `GROUP BY` or
+    `ORDER BY` PROTO fields.
+  * For simple equality comparisons, you can cast a PROTO to BYTES and compare
+    the results.
+  * To get a simple approximation for inequality comparisons, you can cast PROTO
+    to STRING. Note that this will do lexicographical ordering for numeric
+    fields.
 
 ### String type
 
@@ -3552,427 +3844,6 @@ that cannot be used interchangeably. There is no implicit casting in either
 direction. Explicit casting between STRING and BYTES does UTF-8 encoding and
 decoding. Casting BYTES to STRING returns an error if the bytes are not
 valid UTF-8.
-
-### Bytes type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BYTES</code></td>
-<td>Variable-length binary data.</td>
-</tr>
-</tbody>
-</table>
-
-STRING and BYTES are separate types that cannot be used interchangeably. Most
-functions on STRING are also defined on BYTES. The BYTES version operates on raw
-bytes rather than Unicode characters. Casts between STRING and BYTES enforce
-that the bytes are encoded using UTF-8.
-
-### Date type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATE</code></td>
-<td>0001-01-01 to 9999-12-31.</td>
-</tr>
-</tbody>
-</table>
-
-The DATE type represents a logical calendar date, independent of time zone. A
-DATE value does not represent a specific 24-hour time period. Rather, a given
-DATE value represents a different 24-hour period when interpreted in different
-time zones, and may represent a shorter or longer day during Daylight Savings
-Time transitions.
-To represent an absolute point in time,
-use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-'YYYY-[M]M-[D]D'
-```
-
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-
-### Datetime type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATETIME</code></td>
-<td>
-    
-        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
-        <hr/>
-        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999<br/>
-    
-</td>
-</tr>
-</tbody>
-</table>
-
-A DATETIME object represents a date and time, as they might be displayed
-on a calendar or clock, independent of time zone.
-It includes the year, month, day, hour, minute, second,
-and subsecond.
-The range of subsecond precision is determined by the SQL engine.
-To represent an absolute point in time,
-use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
-```
-
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
-</ul>
-
-### Time type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TIME</code></td>
-
-    <td>
-        00:00:00 to 23:59:59.999999999<br/>
-        <hr/>
-        00:00:00 to 23:59:59.999999<br/>
-    </td>
-
-</tr>
-</tbody>
-</table>
-
-A TIME object represents a time, as might be displayed on a watch,
-independent of a specific date and timezone.
-The range of
-subsecond precision is determined by the
-SQL engine. To represent
-an absolute point in time, use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
-```
-
-<ul>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
-</ul>
-
-### Timestamp type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TIMESTAMP</code></td>
-
-    <td>
-      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
-      <hr/>
-      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC<br/>
-    </td>
-
-</tr>
-</tbody>
-</table>
-
-A TIMESTAMP object represents an absolute point in time,
-independent of any time zone or convention such as Daylight Savings Time
-with
-microsecond or nanosecond
-precision.
-The range of subsecond precision is determined by the SQL engine.
-
-+  To represent a date as it might appear on a calendar,
-   use a [DATE][date-type] object.
-+  To represent a time, as it might appear on a clock,
-   use a [TIME][time-type] object.
-+  To represent a date and time, as they might appear on a calendar and clock,
-   use a [DATETIME][datetime-type] object.
-
-<div>
-
-</div>
-
-##### Canonical format
-
-```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
-```
-
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
-    <li><code>[time zone]</code>: String representing the time zone.
-                                  When a time zone is not explicitly specified, the
-                                  default time zone, which is implementation defined, is used.
-                                  See the <a href="#time_zones">time zones</a> section for details.
-   </li>
-</ul>
-
-#### Time zones
-
-Time zones are used when parsing timestamps or formatting timestamps
-for display. The timestamp value itself does not store a specific time zone,
-nor does it change when you apply a time zone offset.
-
-Time zones are represented by strings in one of these two canonical formats:
-
-+ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
-+ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
-
-##### Offset from Coordinated Universal Time (UTC)
-
-```
-(+|-)H[H][:M[M]]
-Z
-```
-
-**Examples**
-
-```
--08:00
--8:15
-+3:00
-+07:30
--7
-Z
-```
-
-When using this format, no space is allowed between the time zone and the rest
-of the timestamp.
-
-```
-2014-09-27 12:30:00.45-8:00
-2014-09-27T12:30:00.45Z
-```
-
-##### Time zone name
-
-```
-continent/[region/]city
-```
-
-Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
-For a less comprehensive but simpler reference, see the
-[List of tz database time zones][tz-database-list]{: class=external target=_blank }
-on Wikipedia.
-
-**Examples**
-
-```
-America/Los_Angeles
-America/Argentina/Buenos_Aires
-```
-
-When using a time zone name, a space is required between the name and the rest
-of the timestamp:
-
-```
-2014-09-27 12:30:00.45 America/Los_Angeles
-```
-
-Note that not all time zone names are interchangeable even if they do happen to
-report the same time during a given part of the year. For example,
-`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
-Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
-Savings Time.
-
-If a time zone is not specified, the default time zone value is used.
-
-##### Leap seconds
-
-A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
-exactly 60 seconds per minute. Leap seconds are not represented as part of a
-stored timestamp.
-
-If the input contains values that use ":60" in the seconds field to represent a
-leap second, that leap second is not preserved when converting to a timestamp
-value. Instead that value is interpreted as a timestamp with ":00" in the
-seconds field of the following minute.
-
-Leap seconds do not affect timestamp computations. All timestamp computations
-are done using Unix-style timestamps, which do not reflect leap seconds. Leap
-seconds are only observable through functions that measure real-world time. In
-these functions, it is possible for a timestamp second to be skipped or repeated
-when there is a leap second.
-
-### Array type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ARRAY</code></td>
-<td>Ordered list of zero or more elements of any non-ARRAY type.</td>
-</tr>
-</tbody>
-</table>
-
-An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
-ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
-ARRAYs will return an error. Instead a STRUCT must be inserted between the
-ARRAYs using the `SELECT AS STRUCT` construct.
-
-An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
-`NULL` elements.
-
-#### Declaring an ARRAY type
-
-```
-ARRAY<T>
-```
-
-ARRAY types are declared using the angle brackets (`<` and `>`). The type
-of the elements of an ARRAY can be arbitrarily complex with the exception that
-an ARRAY cannot directly contain another ARRAY.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Type Declaration</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>
-ARRAY&lt;INT64&gt;
-</code>
-</td>
-<td>Simple ARRAY of 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;STRUCT&lt;INT64, INT64&gt;&gt;
-</code>
-</td>
-<td>An ARRAY of STRUCTs, each of which contains two 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
-</code><br/>
-(not supported)
-</td>
-<td>This is an <strong>invalid</strong> type declaration which is included here
-just in case you came looking for how to create a multi-level ARRAY. ARRAYs
-cannot contain ARRAYs directly. Instead see the next example.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
-</code>
-</td>
-<td>An ARRAY of ARRAYS of 64-bit integers. Notice that there is a STRUCT between
-the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
-</tr>
-<tbody>
-</table>
-
-### Enum type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ENUM</code></td>
-<td>Named type that maps STRING constants to INT32 constants.</td>
-</tr>
-</tbody>
-</table>
-
-An ENUM is a named type that enumerates a list of possible values, each of which
-has:
-
-+ An integer value. Integers are used for comparison and ordering ENUM values.
-There is no requirement that these integers start at zero or that they be
-contiguous.
-+ A string value. Strings are case sensitive.
-+ Optional alias values. One or more additional string values that act as
-aliases.
-
-Enum values are referenced using their integer value or their string value.
-You reference an ENUM type, such as when using CAST, by using its fully
-qualified name.
-
-You cannot create new ENUM types using ZetaSQL.
 
 ### Struct type
 
@@ -4192,55 +4063,202 @@ the STRUCT pairwise in ordinal order ignoring any field names. If instead you
 want to compare identically named fields of a STRUCT, you can compare the
 individual fields directly.
 
-### Protocol buffer type
+### Time type
 
 <table>
 <thead>
 <tr>
 <th>Name</th>
-<th>Description</th>
+<th>Range</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>PROTO</code></td>
-<td>An instance of protocol buffer.</td>
+<td><code>TIME</code></td>
+
+    <td>
+        00:00:00 to 23:59:59.999999999<br/>
+        <hr/>
+        00:00:00 to 23:59:59.999999<br/>
+    </td>
+
 </tr>
 </tbody>
 </table>
 
-Protocol buffers provide structured data types with a defined serialization
-format and cross-language support libraries. Protocol buffer message types can
-contain optional, required or repeated fields, including nested messages. See
-the
-[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
+A TIME object represents a time, as might be displayed on a watch,
+independent of a specific date and timezone.
+The range of
+subsecond precision is determined by the
+SQL engine. To represent
+an absolute point in time, use a [timestamp][timestamp-type].
 
-Protocol buffer message types behave similarly to STRUCT types, and support
-similar operations like reading field values by name. Protocol buffer types are
-always named types, and can be referred to by their fully-qualified protocol
-buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
-behavior beyond STRUCTs, like default field values, and checking for the
-presence of optional fields.
+##### Canonical format
 
-Protocol buffer ENUM types are also available and can be referenced using the
-fully-qualified ENUM type name.
+```
+[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
+```
 
-See [Using Protocol Buffers][protocol-buffers]
-for more information.
+<ul>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+</ul>
 
-#### Limited comparisons for PROTO
+### Timestamp type
 
-No direct comparison of PROTO values is supported. There are a couple possible
-workarounds:
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TIMESTAMP</code></td>
 
-  * The most accurate way to compare PROTOs is to do a pair-wise comparison
-    between the fields of the PROTOs. This can also be used to `GROUP BY` or
-    `ORDER BY` PROTO fields.
-  * For simple equality comparisons, you can cast a PROTO to BYTES and compare
-    the results.
-  * To get a simple approximation for inequality comparisons, you can cast PROTO
-    to STRING. Note that this will do lexicographical ordering for numeric
-    fields.
+    <td>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
+      <hr/>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC<br/>
+    </td>
+
+</tr>
+</tbody>
+</table>
+
+A TIMESTAMP object represents an absolute point in time,
+independent of any time zone or convention such as Daylight Savings Time
+with
+microsecond or nanosecond
+precision.
+The range of subsecond precision is determined by the SQL engine.
+
++  To represent a date as it might appear on a calendar,
+   use a [DATE][date-type] object.
++  To represent a time, as it might appear on a clock,
+   use a [TIME][time-type] object.
++  To represent a date and time, as they might appear on a calendar and clock,
+   use a [DATETIME][datetime-type] object.
+
+<div>
+
+</div>
+
+##### Canonical format
+
+```
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
+```
+
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    
+        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
+    
+    <li><code>[time zone]</code>: String representing the time zone.
+                                  When a time zone is not explicitly specified, the
+                                  default time zone, which is implementation defined, is used.
+                                  See the <a href="#time_zones">time zones</a> section for details.
+   </li>
+</ul>
+
+#### Time zones
+
+Time zones are used when parsing timestamps or formatting timestamps
+for display. The timestamp value itself does not store a specific time zone,
+nor does it change when you apply a time zone offset.
+
+Time zones are represented by strings in one of these two canonical formats:
+
++ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
++ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
+
+##### Offset from Coordinated Universal Time (UTC)
+
+```
+(+|-)H[H][:M[M]]
+Z
+```
+
+**Examples**
+
+```
+-08:00
+-8:15
++3:00
++07:30
+-7
+Z
+```
+
+When using this format, no space is allowed between the time zone and the rest
+of the timestamp.
+
+```
+2014-09-27 12:30:00.45-8:00
+2014-09-27T12:30:00.45Z
+```
+
+##### Time zone name
+
+```
+continent/[region/]city
+```
+
+Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
+For a less comprehensive but simpler reference, see the
+[List of tz database time zones][tz-database-list]{: class=external target=_blank }
+on Wikipedia.
+
+**Examples**
+
+```
+America/Los_Angeles
+America/Argentina/Buenos_Aires
+```
+
+When using a time zone name, a space is required between the name and the rest
+of the timestamp:
+
+```
+2014-09-27 12:30:00.45 America/Los_Angeles
+```
+
+Note that not all time zone names are interchangeable even if they do happen to
+report the same time during a given part of the year. For example,
+`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
+Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
+Savings Time.
+
+If a time zone is not specified, the default time zone value is used.
+
+##### Leap seconds
+
+A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
+exactly 60 seconds per minute. Leap seconds are not represented as part of a
+stored timestamp.
+
+If the input contains values that use ":60" in the seconds field to represent a
+leap second, that leap second is not preserved when converting to a timestamp
+value. Instead that value is interpreted as a timestamp with ":00" in the
+seconds field of the following minute.
+
+Leap seconds do not affect timestamp computations. All timestamp computations
+are done using Unix-style timestamps, which do not reflect leap seconds. Leap
+seconds are only observable through functions that measure real-world time. In
+these functions, it is possible for a timestamp second to be skipped or repeated
+when there is a leap second.
 
 [protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
 [tz-database]: http://www.iana.org/time-zones
@@ -4251,8 +4269,8 @@ workarounds:
 [date-type]: #date_type
 [datetime-type]: #datetime_type
 [time-type]: #time_type
-[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers
-[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals
+[protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
+[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals.md
 
 [protocol-buffers]: #protocol-buffers
 [lexical-literals]: #literals
@@ -4807,14 +4825,18 @@ return multiple columns:
 
 `UNNEST` destroys the order of elements in the input
 `ARRAY`. Use the optional `WITH OFFSET` clause to
-return a second column with the array element indexes (see below).
+return a second column with the array element indexes (see following).
 
+For several ways to use `UNNEST`, including construction, flattening, and
+filtering, see [`Working with arrays`][working-with-arrays].
+
+##### UNNEST and STRUCTs
 For an input `ARRAY` of `STRUCT`s, `UNNEST`
 returns a row for each `STRUCT`, with a separate column for each field in the
 `STRUCT`. The alias for each column is the name of the corresponding `STRUCT`
 field.
 
-**Example**
+Example:
 
 ```sql
 SELECT *
@@ -4850,6 +4872,7 @@ FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')])
 +---+-----+--------------+
 ```
 
+##### UNNEST and PROTOs
 For an input `ARRAY` of `PROTO`s, `UNNEST`
 returns a row for each `PROTO`, with a separate column for each field in the
 `PROTO`. The alias for each column is the name of the corresponding `PROTO`
@@ -4895,6 +4918,8 @@ FROM UNNEST(
 +---------------------------------------------------------------------+
 ```
 
+##### Explicit and implicit UNNEST
+
 `ARRAY` unnesting can be either explicit or implicit.
 In explicit unnesting, `array_expression` must return an
 `ARRAY` value but does not need to resolve to an `ARRAY`, and the `UNNEST`
@@ -4922,6 +4947,17 @@ structure, but the last field must be `ARRAY`-typed. No previous field in the
 expression can be `ARRAY`-typed because it is not possible to extract a named
 field from an `ARRAY`.
 
+##### UNNEST and FLATTEN
+
+The `UNNEST` operator accepts a [_flatten path_][flattening-trees-into-arrays]
+as its argument for `array_expression`. When the argument is a flatten path, the
+`UNNEST` operator produces one row for each element in the array that results
+from applying the [`FLATTEN` operator][flatten-operator] to the flatten path.
+To learn more about the relationship between these operators and flattening,
+see [Flattening tree-structured data into arrays][flattening-trees-into-arrays].
+
+##### UNNEST and NULLs
+
 `UNNEST` treats NULLs as follows:
 
 +  NULL and empty arrays produces zero rows.</li>
@@ -4937,10 +4973,6 @@ Example:
 ```sql
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
 ```
-
-See the [`Arrays topic`][working-with-arrays]
-for more ways to use `UNNEST`, including construction, flattening, and
-filtering.
 
 ##### with_query_name
 
@@ -5234,13 +5266,14 @@ query them as one source. The `join_type` and `ON` or `USING` clause (a
 "join condition") specify how to combine and discard rows from the two
 `from_item`s to form a single source.
 
-All `JOIN` operations require a `join_type`.
+All `JOIN` operations require a `join_type`. If no `join_type` is provided with
+a `JOIN` operation, an `INNER JOIN` is performed.
 
 A `JOIN` operation requires a join condition unless one of the following conditions
 is true:
 
 +  `join_type` is `CROSS`.
-+  One or both of the `from_item`s is not a table, e.g. an
++  One or both of the `from_item`s is not a table, for example, an
    `array_path` or `field_path`.
 
 #### [INNER] JOIN
@@ -6962,7 +6995,7 @@ These examples include statements which perform queries on the
 and [`PlayerStats`][playerstats-table] tables.
 
 #### GROUP BY clause 
-<a id="group_by_clause"></a>
+<a id="group_by_clause_example"></a>
 
 Example:
 
@@ -6996,7 +7029,7 @@ GROUP BY LastName;
 </table>
 
 #### UNION 
-<a id="union"></a>
+<a id="union_example"></a>
 
 The `UNION` operator combines the result sets of two or more `SELECT` statements
 by pairing columns from the result set of each `SELECT` statement and vertically
@@ -7062,7 +7095,7 @@ Results:
 </table>
 
 #### INTERSECT 
-<a id="intersect"></a>
+<a id="intersect_example"></a>
 
 This query returns the last names that are present in both Roster and
 PlayerStats.
@@ -7097,7 +7130,7 @@ Results:
 </table>
 
 #### EXCEPT 
-<a id="except"></a>
+<a id="except_example"></a>
 
 The query below returns last names in Roster that are **not** present in
 PlayerStats.
@@ -7163,19 +7196,21 @@ Results:
 [query-joins]: #join_types
 [ambiguous-aliases]: #ambiguous_aliases
 [with_clause]: #with_clause
-[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_window_spec
-[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#def_use_named_window
-[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#produce-table
+[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_window_spec
+[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_use_named_window
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#produce-table
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
-[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays#flattening_arrays
-[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating-point-semantics
-[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries
-[table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#table_subquery_concepts
-[expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries#expression_subquery_concepts
+[flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
+[flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+[subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
+[table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#table_subquery_concepts
+[expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#expression_subquery_concepts
 
 [analytic-concepts]: #analytic-function-concepts
 [query-window-specification]: #def_window_spec
@@ -7184,6 +7219,8 @@ Results:
 [tvf-concepts]: #tvfs
 [anon-concepts]: #anonymization_syntax
 [flattening-arrays]: #flattening-arrays
+[flattening-trees-into-arrays]: #flattening_trees_into_arrays
+[flatten-operator]: #flatten
 [in-operator]: #in-operators
 [query-value-tables]: #value-tables
 [working-with-arrays]: #working-with-arrays
@@ -7592,7 +7629,7 @@ SELECT * FROM (
 [evaluation-rules-subqueries]: #evaluation_rules_subqueries
 [example-tables]: #example_tables
 [correlated_subquery_concepts]: #correlated_subquery_concepts
-[subqueries-query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax
+[subqueries-query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 
 [subqueries-query-syntax]: #query-syntax
 [expression-subqueries]: #expression-subqueries
@@ -9005,8 +9042,8 @@ WINDOW item_window AS (
 [analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
 [analytic-functions-compute-rank]: #compute_rank
 [analytic-functions-use-named-window]: #def_use_named_window
-[analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax#window_clause
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical#hints
+[analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
+[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 [analytic-functions-link-to-window]: #window-clause
 [analytic-functions-link-to-hints]: #hints
@@ -9858,9 +9895,9 @@ FROM
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
 
 [new-keyword]: #using_new
-[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#explicit_alias_syntax
-[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax#implicit_aliases
-[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules
+[explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#explicit_alias_syntax
+[implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#implicit_aliases
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 
 [explicit-alias]: #explicit-alias-syntax
@@ -10140,7 +10177,117 @@ FROM sequences;
 +---------------+------+
 ```
 
-### Flattening arrays
+### Flattening tree-structured data into arrays 
+<a id="flattening_trees_into_arrays"></a>
+
+Tree-structured data is represented in the ZetaSQL type system by
+composing these typed values:
+
++ STRUCT
++ ARRAY
++ PROTO (Protobuf message types and enum types)
+
+A common operation on tree-structured values is extracting a collection of
+values that have the same semantic meaning from a tree-shaped value.
+ZetaSQL supports an extended path expression called a _flatten path_
+in a few places to make this operation easier and more concise.
+
+TLDR: The argument to the [`FLATTEN` operator][flatten-operator] is a path that
+can select many values out of a tree-shaped value and return them as an array.
+`FLATTEN(table.column.array_field.target)` will return an array of all `targets`
+inside `table.column`.
+
+Normal path expressions in ZetaSQL are a sequence of element access
+operators. A regular path expression addresses a single value within a
+tree structure, and must specify which element to access for each array value
+reached by the path. A _flatten path_ is similar, except that it can
+simultaneously access all elements of an array. This means a flatten path can
+address many elements in an array at the same time, resulting in a collection
+of values.
+
+Within a flatten path, the field access operator (the `.` operator) is allowed
+to operate on an `ARRAY` typed input. Outside a flatten path, the field
+access operator is not allowed on `ARRAY` inputs because the `ARRAY` type does
+not have fields. When evaluating a flatten path, the field access operator on
+an `ARRAY` transforms the array by replacing each element of the array with the
+result of applying the field access on the element.
+
+**Examples**
+
+Examples will consider the following tree structured value as an input:
+
+```sql
+v := [
+  STRUCT('red' AS color,
+         2 AS inventory,
+         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
+          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
+  STRUCT('green' AS color,
+         NULL AS inventory,
+         [STRUCT('a' AS agent, [75.0] AS prices),
+          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
+  STRUCT('orange' AS color, 10 AS inventory, NULL AS sales)
+]
+```
+
+The flatten path `v.color` describes the array `["red", "green", "orange"]`
+while the flatten path `v.inventory` describes the array
+`[2, NULL, 10]`.
+
+If the field accessed on the array element itself has an `ARRAY` type, then
+the elements of that array are spliced into the resulting array replacing the
+element from which they were extracted. An empty array or a `NULL` array
+contribute no elements to the resulting array.
+
+The flatten path `v.sales.prices` describes the array
+`[100.0, 50.0, 25.0, 75.0, 200.0]`.
+
+The array element access operator (the `[]` operator) is allowed in a
+flatten path. If the element access occurs after a field access on an `ARRAY`,
+then it applies locally to each array element. If the supplied element offset
+or ordinal value is outside the bounds of the array within any element, an out
+of bounds error is generated.
+
+The flatten path `v.sales.prices[SAFE_OFFSET(1)]` describes the
+array `[50.0, NULL, NULL, NULL]`
+.
+
+[`FLATTEN`][flatten-operator] is a special operator in ZetaSQL that
+takes a flatten path as its argument and returns the resulting array as a value.
+The `FLATTEN` operator is implicit inside the `UNNEST` operator and
+`UNNEST(flatten_path)` is equivalent to `UNNEST(FLATTEN(flatten_path))`.
+
+The following query is a complete self-contained example combining the above
+examples into a runnable query.
+
+```sql
+WITH t AS (SELECT [
+  STRUCT('red' AS color,
+         2 AS inventory,
+         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
+          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
+  STRUCT('green' AS color,
+         NULL AS inventory,
+         [STRUCT('a' AS agent, [75.0] AS prices),
+          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
+  STRUCT('orange' AS color, 10 AS inventory, NULL AS sales)
+] AS v)
+SELECT
+    FLATTEN(v.color) AS colors,
+    FLATTEN(v.inventory) AS inventory,
+    FLATTEN(v.sales.prices) AS all_prices,
+    FLATTEN(v.sales.prices[SAFE_OFFSET(1)]) AS second_prices
+FROM t;
+
++----------------------+---------------+------------------------+------------------------+
+| colors               | inventory     | all_prices             | second_prices          |
++----------------------+---------------+------------------------+------------------------+
+| [red, green, orange] | [2, NULL, 10] | [100, 50, 25, 75, 200] | [50, NULL, NULL, NULL] |
++----------------------+---------------+------------------------+------------------------+
+```
+
+### Flattening arrays into tables 
+<a id="flattening_arrays"></a>
 
 To convert an `ARRAY` into a set of rows, also known as "flattening," use the
 [`UNNEST`][unnest-query]
@@ -11385,9 +11532,10 @@ SELECT ARRAY(
 ```
 
 [flattening-arrays]: #flattening_arrays
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
-[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#unnest
-[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax#cross_join
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest
+[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 [convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
 
 [array-data-type]: #array-type
@@ -11401,6 +11549,7 @@ SELECT ARRAY(
 [cross-join-query]: #cross-join
 [in-operators]: #in_operators
 [expression-subqueries]: #expression_subqueries
+[flatten-operator]: #flatten
 
 <!-- This file is auto-generated. DO NOT EDIT.                               -->
 
@@ -11834,9 +11983,9 @@ value does not have a field called `ROWNUM`.
 
 [value-table-example]: #value-table-example
 [pseudo-columns]: #pseudo-columns
-[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language
-[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax#value_tables
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md
+[query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value_tables
 
 [data-types]: #data-types
 [data-manipulation-language]: #data-manipulation-reference
@@ -11889,7 +12038,7 @@ This syntax consists of the following components:
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
      exists for the lifetime of the session.
 +   `AGGREGATE`: Indicates that this is an [aggregate function][aggregate-udf-parameters].
-+   `function_parameter`: A parameter for the fuction. A parameter
++   `function_parameter`: A parameter for the function. A parameter
     includes a name and a data type. The value of `data_type`
     is a ZetaSQL [data type][data-types] or may also be `ANY TYPE`.
 +   `RETURNS data_type`: Specifies the data type
@@ -12052,7 +12201,7 @@ This syntax consists of the following components:
     or more `function_parameter`s.
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the fuction. A parameter includes a
++   `function_parameter`: A parameter for the function. A parameter includes a
     name and a data type. The value of `data_type` is a ZetaSQL
     [data type][data-types].
 +   `determinism_specifier`: Determines if the results of the function can be
@@ -12352,7 +12501,7 @@ column_declaration:
     `function_parameter`s.
 +   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
      exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the fuction. A parameter
++   `function_parameter`: A parameter for the function. A parameter
     includes a name and a data type. The value of `data_type`
     is a ZetaSQL [data type][data-types].
     The value of `data_type` may also be `ANY TABLE`.
@@ -12501,11 +12650,11 @@ FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
 [sql-udf-syntax]: #sql-udf-structure
 [tvf-syntax]: #tvf-structure
 [javascript-data-types]: #supported-javascript-udf-data-types
-[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax#group_by_clause
-[aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
+[aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
 
 [data-types]: #data-types
 [data-types-struct]: #struct-type
@@ -12576,8 +12725,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -12663,8 +12812,8 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -12805,8 +12954,8 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -12906,8 +13055,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -12996,8 +13145,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13045,8 +13194,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13094,8 +13243,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13173,8 +13322,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13260,8 +13409,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13329,8 +13478,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13376,8 +13525,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13424,8 +13573,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13489,8 +13638,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13579,8 +13728,8 @@ The clauses are applied *in the following order*:
     The limit `n` must be a constant INT64.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13704,8 +13853,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -13893,7 +14042,7 @@ this result:
 +---------+
 ```
 
-[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data-type-properties
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
 
 [agg-data-type-properties]: #data-type-properties
 
@@ -13944,8 +14093,8 @@ COUNT(*) OVER (ROWS UNBOUNDED PRECEDING)
 SUM(DISTINCT x) OVER ()
 ```
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#aggregate_analytic_function_concepts
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#aggregate_analytic_function_concepts
 
 [analytic-functions-link-to-aggregate-functions]: #aggregate_functions
 
@@ -13993,8 +14142,8 @@ Any data type **except**:
 `PROTO`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14054,8 +14203,8 @@ The clauses are applied *in the following order*:
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14149,8 +14298,8 @@ specifies the number of elements returned.
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14232,8 +14381,8 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14643,8 +14792,8 @@ that allows you to retrieve values whose ranks are within
 + `precision`: `INT64`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14670,8 +14819,8 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14701,8 +14850,8 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14838,8 +14987,8 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `INT64`.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14865,8 +15014,8 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `UINT64`.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14896,8 +15045,8 @@ Takes KLL16 sketches as `BYTES`, initialized on data
 of type `DOUBLE`.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14965,8 +15114,8 @@ percentile of the merged sketch.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -14993,8 +15142,8 @@ accepts `input` of type `UINT64`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -15025,8 +15174,8 @@ accepts `input` of type `DOUBLE`.
 + `phi` is a `DOUBLE` between 0 and 1.
 
 [max_min_clause]: #max_min_clause
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types#floating_point_semantics
+[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
 
 [analytic-functions]: #analytic-function-concepts
 [floating-point-semantics]: #floating-point-semantics
@@ -15283,7 +15432,7 @@ non-additive functions like `COUNT(DISTINCT)`.
 [quantiles]: https://en.wikipedia.org/wiki/Quantile
 [link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
 [mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
-[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types#comparison_operator_examples
+[sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
 [kll-sketches]: #sketches-kll
 [kll-algorithm]: #about-kll-alg
 [kll-quantiles]: #about-kll-quantiles
@@ -15392,8 +15541,8 @@ non-deterministic.
 
 INT64
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#numbering_function_concepts
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#numbering_function_concepts
 
 [analytic-function-concepts]: #analytic-function-concepts
 [numbering-function-concepts]: #numbering-function-concepts
@@ -16287,7 +16436,7 @@ Equivalent to the unary minus operator (<code>-</code>), but returns
 
 **Return Data Type**
 
-<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
+<table><thead><tr><th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th></tr></thead><tbody><tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr></tbody></table>
 
 #### SAFE_ADD
 
@@ -17232,7 +17381,7 @@ the two arguments to determine the quadrant. The return value is in the range
   </tbody>
 </table>
 
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types#data_type_properties
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
 [data-type-properties]: #data-type-properties
 
@@ -17918,8 +18067,8 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts#navigation_function_concepts
+[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#navigation_function_concepts
 
 [analytic-function-concepts]: #analytic-function-concepts
 [navigation-function-concepts]: #navigation-function-concepts
@@ -21866,13 +22015,13 @@ With CoordinatesTable AS (
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
 FROM CoordinatesTable as t;
 
-+--------+-------------+--------------------------------+
-| id     | coordinates | json_data                      |
-+--------+-------------+--------------------------------+
-| 1      | [10,20]     | {"id":1,"coordinates":[10,20]} |
-| 2      | [30,40]     | {"id":2,"coordinates":[30,40]} |
-| 3      | [50,60]     | {"id":3,"coordinates":[50,60]} |
-+--------+-------------+--------------------------------+
++----+-------------+--------------------------------+
+| id | coordinates | json_data                      |
++----+-------------+--------------------------------+
+| 1  | [10, 20]    | {"id":1,"coordinates":[10,20]} |
+| 2  | [30, 40]    | {"id":2,"coordinates":[30,40]} |
+| 3  | [50, 60]    | {"id":3,"coordinates":[50,60]} |
++----+-------------+--------------------------------+
 ```
 
 Convert rows in a table to JSON with formatting.
@@ -21880,28 +22029,29 @@ Convert rows in a table to JSON with formatting.
 ```sql
 With CoordinatesTable AS (
     (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
-    (SELECT 2 AS id, [30,40] AS coordinates)
+    (SELECT 2 AS id, [30,40] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
 FROM CoordinatesTable as t;
 
-+--------+-------------+---------------------+
-| id     | coordinates | json_data           |
-+--------+-------------+---------------------+
-| 1      | [10,20]     | {                   |
-|        |             |   "id":1,           |
-|        |             |   "coordinates":[   |
-|        |             |     10,             |
-|        |             |     20              |
-|        |             |   ]                 |
-|        |             | }                   |
-| 2      | [30,40]     | {                   |
-|        |             |   "id":2,           |
-|        |             |   "coordinates":[   |
-|        |             |     30,             |
-|        |             |     40              |
-|        |             |   ]                 |
-|        |             | }                   |
-+--------+-------------+---------------------+
++----+-------------+--------------------+
+| id | coordinates | json_data          |
++----+-------------+--------------------+
+| 1  | [10, 20]    | {                  |
+|    |             |   "id": 1,         |
+|    |             |   "coordinates": [ |
+|    |             |     10,            |
+|    |             |     20             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
+| 2  | [30, 40]    | {                  |
+|    |             |   "id": 2,         |
+|    |             |   "coordinates": [ |
+|    |             |     30,            |
+|    |             |     40             |
+|    |             |   ]                |
+|    |             | }                  |
++----+-------------+--------------------+
 ```
 
 #### JSONPath format
@@ -22149,6 +22299,141 @@ FROM items;
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
+```
+
+#### FLATTEN
+
+```sql
+FLATTEN(flatten_path)
+```
+
+**Description**
+
+Extracts a collection of values that have the same semantic meaning from a
+tree-shaped value and returns an array. `flatten_path` is a path that can select
+many values out of the tree-shaped value and return them as an array. For
+example, `FLATTEN(table.column.array_field.target)` will return an array of all
+`targets` inside `table.column`. Tree-shaped data is represented in the
+ZetaSQL type system by composing these typed values:
+
++ STRUCT
++ ARRAY
++ PROTO (Protobuf message types and enum types)
+
+The resulting array may contain `NULL` array elements, but only if
+evaluating the path along some array elements returns `NULL`. Returns `NULL`
+if `flatten_path` is `NULL`.
+
+You can learn more about flattening tree structured data into arrays and
+the flatten path in
+[Flattening tree-structured data into arrays][flatten-tree-to-array].
+
+**Return type**
+
+ARRAY
+
+**Examples**
+
+In this `STRUCT` example, `(5,6)` and `(7,8)` are flattened
+into `[5,6,7,8]`.
+
+```sql
+SELECT FLATTEN([
+  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
+  STRUCT( [STRUCT(7 AS y), STRUCT(8)] AS x )
+  ].x.y) AS my_array
+
++--------------+
+| my_array     |
++--------------+
+| [5, 6, 7, 8] |
++--------------+
+```
+
+In this PROTO example, `(5)`, `(6,7)` and `(8)` are
+flattened into `[5,6,7,8]`.
+
+```proto
+message MyProto {
+  message InnerProto {
+    repeated int64 x = 1;
+  }
+  repeated InnerProto y = 2;
+}
+```
+
+```sql
+SELECT FLATTEN(
+  CAST(
+     'y { x: 5 }
+      y { x: 6 x: 7 }
+      y { x: 8 }'
+  AS MyProto).y.x AS my_array
+)
+
++--------------+
+| my_array     |
++--------------+
+| [5, 6, 7, 8] |
++--------------+
+```
+
+In this PROTO example, `(5,6)` and `(7,8)` are
+flattened into `[(5,6), (7,8)]`.
+
+```proto
+message MyProto {
+  Message Inner {
+    int64 x = 1;
+    int64 y = 2;
+  }
+  repeated Inner z = 1;
+}
+```
+
+```sql
+SELECT FLATTEN(
+  CAST(
+     'z { x: 5  y: 6 }
+      z { x: 7  y: 8 }'
+  AS MyProto).z AS my_array
+
++------------------+
+| my_array         |
++------------------+
+| [(5, 6), (7, 8)] |
++------------------+
+```
+
+The resulting array may contain `NULL` `ARRAY` elements, but only if
+evaluating the flatten path along some array elements returns `NULL`.
+For example:
+
+```sql
+SELECT FLATTEN([
+  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
+  STRUCT( [STRUCT(7 AS y), NULL] AS x )
+  ].x.y) AS my_array
+
++-----------------+
+| my_array        |
++-----------------+
+| [5, 6, 7, NULL] |
++-----------------+
+```
+
+```sql
+SELECT FLATTEN([
+  STRUCT( STRUCT(5 AS y) AS x),
+  STRUCT( NULL AS x ),
+  STRUCT( STRUCT(6 AS y) )
+  ].x.y) AS my_array
+
++--------------+
+| my_array     |
++--------------+
+| [5, NULL, 6] |
++--------------+
 ```
 
 #### GENERATE_ARRAY
@@ -22725,10 +23010,11 @@ FROM items;
 +----------------------------------+---------------+----------------+
 ```
 
-[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax#subqueries
-[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#standard-sql-tables
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model#value-tables
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types#array_type
+[subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
 
 [array-link-to-operators]: #operators
 
@@ -22737,6 +23023,7 @@ FROM items;
 [datamodel-value-tables]: #value-tables
 [array-data-type]: #array-type
 [array-link-to-operators]: #operators
+[flatten-tree-to-array]: #flattening_trees_into_arrays
 
 ## Date functions
 
@@ -26308,8 +26595,8 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 [timestamp-format]: #format_timestamp
 [timestamp-format-elements]: #supported_format_elements_for_timestamp
-[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types#date_type
-[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types#timestamp_type
+[data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
+[data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
 
 [data-types-link-to-date_type]: #date_type
 [data-types-link-to-timestamp_type]: #timestamp_type
@@ -26893,8 +27180,8 @@ SELECT EXTRACT(ONEOF_CASE(brand) FROM new Vehicle("schwinn" as bike)) as brand_f
 +------------------+
 ```
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers#querying-protocol-buffers
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers#checking-if-a-non-repeated-field-has-a-value
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying-protocol-buffers
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking-if-a-non-repeated-field-has-a-value
 
 [querying-protocol-buffers]: #querying-protocol-buffers
 [has-value]: #checking-if-a-non-repeated-field-has-a-value
@@ -28431,7 +28718,7 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 
 [primary-key]: #primary-key
 [create-table]: #create-table
-[hints]: lexical#hints
+[hints]: lexical.md#hints
 [defining-columns]: #defining-columns
 [defining-constraints]: #defining-table-constraints
 [defining-foreign-reference]: #defining-foreign-references
@@ -28447,6 +28734,7 @@ ZetaSQL supports the following statements for manipulating data:
 + `INSERT`
 + `UPDATE`
 + `DELETE`
++ `MERGE`
 
 ### Example data 
 <a id="example-data"></a>
@@ -28578,6 +28866,64 @@ message Album {
 <tr>
 <td>TicketPrices</td>
 <td><code>ARRAY&lt;INT64&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+
+#### Inventory table
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>product</td>
+<td><code>STRING NOT NULL</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>quantity</td>
+<td><code>INT64 NOT NULL</code></td>
+<td>0</td>
+</tr>
+<tr>
+<td>supply_constrained</td>
+<td><code>BOOL</code></td>
+<td>false</td>
+</tr>
+</tbody>
+</table>
+
+#### NewArrivals table
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>product</td>
+<td><code>STRING NOT NULL</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>quantity</td>
+<td><code>INT64 NOT NULL</code></td>
+<td>0</td>
+</tr>
+<tr>
+<td>warehouse</td>
+<td><code>STRING NOT NULL</code></td>
 <td>&nbsp;</td>
 </tr>
 </tbody>
@@ -29387,6 +29733,169 @@ SET
     (UPDATE AlbumTitles a SET a.AlbumTitles = "Album IV"
         WHERE a.AlbumTitles = "Album Four"),
     (INSERT AlbumTitles VALUES ("The Sloth and the Tiger"));
+```
+
+### MERGE statement
+
+Use the `MERGE` statement when you want to merge rows from a source table or
+subquery into a target table.
+
+<pre>
+MERGE [INTO] target_name [[AS] alias]
+USING source_name
+ON merge_condition
+when_clause [...]
+
+when_clause ::=
+  {
+    matched_clause
+    | not_matched_by_target_clause
+    | not_matched_by_source_clause
+  }
+
+matched_clause ::=
+  WHEN MATCHED [ AND search_condition ]
+  THEN { merge_update_clause | merge_delete_clause }
+
+not_matched_by_target_clause ::=
+  WHEN NOT MATCHED [BY TARGET] [ AND search_condition ]
+  THEN merge_insert_clause
+
+not_matched_by_source_clause ::=
+  WHEN NOT MATCHED BY SOURCE [ AND search_condition ]
+  THEN { merge_update_clause | merge_delete_clause }
+
+merge_condition ::=
+  bool_expression
+
+search_condition ::=
+  bool_expression
+
+merge_update_clause ::=
+  UPDATE SET update_item [, ...]
+
+update_item ::=
+  path_expression = expression
+
+merge_delete_clause ::=
+  DELETE
+
+merge_insert_clause ::=
+  INSERT [(column [, ... ])] input
+
+input ::=
+  {
+    VALUES (expr [, ... ])
+    | ROW
+  }
+
+expr ::=
+  { expression | DEFAULT }
+</pre>
+
+A `MERGE` statement is a DML statement that can combine `INSERT`, `UPDATE`,
+and `DELETE` operations into a single statement and perform the operations
+atomically.
+
++  `target_name`: The name of the table you're changing.
++  `source_name`: A table name or subquery.
++  `merge_condition`: A `MERGE` statement performs a `JOIN` between the
+   target and the source. Then, depending on the match status (row matched,
+   only in source table, only in destination table), the corresponding `WHEN`
+   clause is executed. The merge condition is used by the `JOIN` to match rows
+   between source and target tables. Depending on the combination of
+   `WHEN` clauses, different `INNER` and `OUTER JOIN` types are applied.
+
+   If the merge condition is `FALSE`, the query optimizer avoids using a `JOIN`.
+   This optimization is referred to as a constant false predicate. A
+   constant false predicate is useful when you perform an atomic `DELETE` on
+   the target plus an `INSERT` from a source (`DELETE` with `INSERT` is also
+   known as a `REPLACE` operation).
++  `when_clause`: The `WHEN` clause has three options: `MATCHED`,
+   `NOT MATCHED BY TARGET` and `NOT MATCHED BY SOURCE`. There must be at least
+   one `WHEN` clause in each `MERGE` statement.
+
+   Each `WHEN` clause can have an optional search condition. The `WHEN` clause
+   is executed for a row if both the merge condition and search condition are
+   satisfied. When there are multiple qualified clauses, only the first
+   `WHEN` clause is executed for a row.
++  `matched_clause`: The `WHEN MATCHED` clause defines how to update or delete
+   a row in the target table if that row matches a row in the source table.
+
+   If there is at least one matched clause performing an `UPDATE` operation,
+   a runtime error is returned when multiple rows from the source table match
+   one row from the target table, and you are trying to update or delete that
+   row in the target table.
++  `not_matched_by_target_clause`: The `WHEN NOT MATCHED` clause defines how to
+   insert into the target table if a row from the source table does not match
+   any row in the target table.
+
+   When the column names of the target table are omitted, all columns in the
+   target table are included in ascending order based on their ordinal
+   positions.
+
+   `ROW` can be used to include all the columns of the source in the ascending
+   sequence of their ordinal positions. Note that none of the pseudo column of
+   the source table is included.
++  `not_matched_by_source_clause`: The `WHEN NOT MATCHED BY SOURCE` clause
+   defines how to update or delete a row in the target table if that row does
+   not match any row in the source table.
+
+In the following example, the query merges items from the `NewArrivals` table
+into the `Inventory` table. If an item is already present in `Inventory`, the
+query increments the quantity field. Otherwise, the query inserts a new row.
+
+```sql
+MERGE dataset.Inventory T
+USING dataset.NewArrivals S
+ON T.product = S.product
+WHEN MATCHED THEN
+  UPDATE SET quantity = T.quantity + S.quantity
+WHEN NOT MATCHED THEN
+  INSERT (product, quantity) VALUES(product, quantity)
+```
+
+These are the tables before you run the query:
+
+```sql
+NewArrivals
++-----------------+----------+--------------+
+|     product     | quantity |  warehouse   |
++-----------------+----------+--------------+
+| dryer           |       20 | warehouse #2 |
+| oven            |       30 | warehouse #3 |
+| refrigerator    |       25 | warehouse #2 |
+| top load washer |       10 | warehouse #1 |
++-----------------+----------+--------------+
+
+Inventory
++-------------------+----------+
+|      product      | quantity |
++-------------------+----------+
+| dishwasher        |       30 |
+| dryer             |       30 |
+| front load washer |       20 |
+| microwave         |       20 |
+| oven              |        5 |
+| top load washer   |       10 |
++-------------------+----------+
+```
+
+This is the `Inventory` table after you run the query:
+
+```sql
+Inventory
++-------------------+----------+
+|      product      | quantity |
++-------------------+----------+
+| dishwasher        |       30 |
+| dryer             |       50 |
+| front load washer |       20 |
+| microwave         |       20 |
+| oven              |       35 |
+| refrigerator      |       25 |
+| top load washer   |       20 |
++-------------------+----------+
 ```
 
 [coercion]: #coercion

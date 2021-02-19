@@ -46,9 +46,12 @@
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(std::string, mode, "execute",
-          "The tool mode to use. Valid values are 'resolve', to print the "
-          "resolved AST, 'explain', to show the query plan, and 'execute', "
-          "to actually run the query and print the result.");
+          "The tool mode to use. Valid values are:"
+          "\n     'parse'   parse the parser AST"
+          "\n     'resolve' print the resolved AST"
+          "\n     'explain' print the query plan"
+          "\n     'execute' actually run the query and print the result. (not"
+          "                 all functionality is supported).");
 
 ABSL_FLAG(std::string, table_spec, "",
           "The table spec to use for building the ZetaSQL Catalog. This is a "
@@ -75,7 +78,10 @@ using ToolMode = ExecuteQueryConfig::ToolMode;
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
   const std::string mode = absl::GetFlag(FLAGS_mode);
-  if (mode == "resolve") {
+  if (mode == "parse") {
+    config.set_tool_mode(ToolMode::kParse);
+    return absl::OkStatus();
+  } else if (mode == "resolve") {
     config.set_tool_mode(ToolMode::kResolve);
     return absl::OkStatus();
   } else if (mode == "explain") {
@@ -166,6 +172,21 @@ ExecuteQueryConfig::ExecuteQueryConfig() : catalog_("") {}
 
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           ExecuteQueryWriter& writer) {
+  if (config.tool_mode() == ToolMode::kParse) {
+    std::unique_ptr<ParserOutput> parser_output;
+    ParserOptions parser_options;
+
+    parser_options.set_language_options(&config.analyzer_options().language());
+    ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
+
+    const ASTNode* root = parser_output->statement();
+    ZETASQL_RET_CHECK_NE(root, nullptr);
+
+    // Note, ASTNode is not public, and therefore cannot be part of the public
+    // interface, thus, we can only return the string.
+    return writer.parsed(root->DebugString());
+  }
+
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(
       sql, config.analyzer_options(), &config.mutable_catalog(),
@@ -199,7 +220,7 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     }
     case ToolMode::kExecute: {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
-                       query.Execute());
+                       query.ExecuteAfterPrepare());
 
       return writer.executed(*resolved_statement, std::move(iter));
     }

@@ -45,6 +45,9 @@ class ExecuteQueryConfig {
   ExecuteQueryConfig& operator=(const ExecuteQueryConfig&) = delete;
 
   enum class ToolMode {
+    // Parse the query, and print a debug string of the parsed AST.
+    kParse,
+
     // Resolve the query, and print the ResolveAST
     kResolve,
 

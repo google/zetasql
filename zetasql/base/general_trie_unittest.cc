@@ -1,5 +1,5 @@
 //
-// Copyright 2019 Google LLC
+// Copyright 2004 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,33 +16,30 @@
 
 #include "zetasql/base/general_trie.h"
 
-#include <iostream>
-#include <list>
+#include <string.h>
+
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "zetasql/base/logging.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql_base {
 namespace {
 
-class TestIntTraverser : public GeneralTrie<int, 0>::Traverser {
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
+using ::testing::Pair;
+
+struct TestIntTraverser : public GeneralTrie<int, 0>::Traverser {
  public:
-  explicit TestIntTraverser(std::list<int> *expected)
-    : expected_(expected) {
+  void Process(const std::string& s, const int& data) override {
+    values.push_back(data);
   }
 
-  virtual void Process(const std::string& s, const int& data) {
-    ZETASQL_CHECK_GT(expected_->size(), 0);
-    std::list<int>::iterator it = expected_->begin();
-    ZETASQL_CHECK_EQ(*it, data);
-    expected_->erase(it);
-  }
-
- private:
-  std::list<int> *expected_;
+  std::vector<int> values;
 };
 
 TEST(GeneralTrie, Basic) {
@@ -58,113 +55,79 @@ TEST(GeneralTrie, Basic) {
   trie.Insert("twoiscompany", 7);
 
   // Make sure trie traversal works as expected.
-  std::list<int> expected;
-  expected.push_back(1);
-  expected.push_back(4);
-  expected.push_back(5);
-  expected.push_back(6);
-  expected.push_back(3);
-  expected.push_back(2);
-  expected.push_back(7);
-  TestIntTraverser *traverser = new TestIntTraverser(&expected);
-  trie.PreorderTraverse(traverser);
-  ZETASQL_CHECK_EQ(expected.size(), 0);
-  delete traverser;
+  TestIntTraverser traverser;
+  trie.PreorderTraverse(&traverser);
+  EXPECT_THAT(traverser.values, ElementsAre(1, 4, 5, 6, 3, 2, 7));
 
-  std::list<int> postorder_expected = {6, 5, 4, 1, 3, 7, 2};
-  traverser = new TestIntTraverser(&postorder_expected);
-  trie.PostorderTraverse(traverser);
-  ZETASQL_CHECK_EQ(postorder_expected.size(), 0);
-  delete traverser;
+  traverser = TestIntTraverser();
+  trie.PostorderTraverse(&traverser);
+  EXPECT_THAT(traverser.values, ElementsAre(6, 5, 4, 1, 3, 7, 2));
 
-  expected.push_back(4);
-  expected.push_back(5);
-  expected.push_back(6);
-  traverser = new TestIntTraverser(&expected);
-  trie.PreorderTraverseAllMatchingStrings("onefl", strlen("onefl"), traverser);
-  ZETASQL_CHECK_EQ(expected.size(), 0);
-  delete traverser;
+  traverser = TestIntTraverser();
+  trie.PreorderTraverseAllMatchingStrings("onefl", &traverser);
+  EXPECT_THAT(traverser.values, ElementsAre(4, 5, 6));
 
-  postorder_expected.push_back(6);
-  postorder_expected.push_back(5);
-  postorder_expected.push_back(4);
-  traverser = new TestIntTraverser(&postorder_expected);
-  trie.PostorderTraverseAllMatchingStrings("onefl", strlen("onefl"), traverser);
-  ZETASQL_CHECK_EQ(postorder_expected.size(), 0);
-  delete traverser;
+  traverser = TestIntTraverser();
+  trie.PostorderTraverseAllMatchingStrings("onefl", strlen("onefl"),
+                                           &traverser);
+  EXPECT_THAT(traverser.values, ElementsAre(6, 5, 4));
 
-  ZETASQL_CHECK_EQ(trie.GetData("one"), 1);
-  ZETASQL_CHECK_EQ(trie.GetData("two"), 2);
-  ZETASQL_CHECK_EQ(trie.GetData("three"), 3);
-  ZETASQL_CHECK_EQ(trie.GetData("oneflew"), 4);
-  ZETASQL_CHECK_EQ(trie.GetData("oneflewover"), 5);
-  ZETASQL_CHECK_EQ(trie.GetData("oneflewoverthe"), 6);
-  ZETASQL_CHECK_EQ(trie.GetData("twoiscompany"), 7);
+  EXPECT_EQ(trie.GetData("one"), 1);
+  EXPECT_EQ(trie.GetData("two"), 2);
+  EXPECT_EQ(trie.GetData("three"), 3);
+  EXPECT_EQ(trie.GetData("oneflew"), 4);
+  EXPECT_EQ(trie.GetData("oneflewover"), 5);
+  EXPECT_EQ(trie.GetData("oneflewoverthe"), 6);
+  EXPECT_EQ(trie.GetData("twoiscompany"), 7);
   // test non existent entry
-  ZETASQL_CHECK_EQ(trie.GetData("foo"), 0);
+  EXPECT_EQ(trie.GetData("foo"), 0);
 
   // Test GetData on const trie.
-  ZETASQL_CHECK_EQ(const_trie.GetData("one"), 1);
-  ZETASQL_CHECK_EQ(const_trie.GetData("foo"), 0);
+  EXPECT_EQ(const_trie.GetData("one"), 1);
+  EXPECT_EQ(const_trie.GetData("foo"), 0);
 
   int& one_data = trie.GetData("one");
   one_data--;
-  ZETASQL_CHECK_EQ(trie.GetData("one"), 0);
+  EXPECT_EQ(trie.GetData("one"), 0);
   one_data++;
 
   int chars_matched = -1;
-  ZETASQL_CHECK_EQ(trie.GetDataForMaximalPrefix("one", &chars_matched, nullptr), 1);
-  ZETASQL_CHECK_EQ(chars_matched, 3);
+  EXPECT_EQ(trie.GetDataForMaximalPrefix("one", &chars_matched, nullptr), 1);
+  EXPECT_EQ(chars_matched, 3);
   bool is_terminators[256];
   is_terminators['b'] = true;
-  ZETASQL_CHECK_EQ(
-      trie.GetDataForMaximalPrefix("oneby", &chars_matched, is_terminators),
-      1);
-  ZETASQL_CHECK_EQ(chars_matched, 3);
+  EXPECT_EQ(
+      trie.GetDataForMaximalPrefix("oneby", &chars_matched, is_terminators), 1);
+  EXPECT_EQ(chars_matched, 3);
   std::vector<std::pair<std::string, int> > outdata;
-  trie.GetAllMatchingStrings("onefl", strlen("onefl"), &outdata);
-  ZETASQL_CHECK_EQ(outdata.size(), 3);
-  ZETASQL_CHECK_EQ(outdata[0].first, "oneflew");
-  ZETASQL_CHECK_EQ(outdata[0].second, 4);
-  ZETASQL_CHECK_EQ(outdata[1].first, "oneflewover");
-  ZETASQL_CHECK_EQ(outdata[1].second, 5);
-  ZETASQL_CHECK_EQ(outdata[2].first, "oneflewoverthe");
-  ZETASQL_CHECK_EQ(outdata[2].second, 6);
+  trie.GetAllMatchingStrings("onefl", &outdata);
+  EXPECT_THAT(outdata, ElementsAre(Pair("oneflew", 4), Pair("oneflewover", 5),
+                                   Pair("oneflewoverthe", 6)));
 
-  trie.GetAllMatchingStrings("two", strlen("two"), &outdata);
-  ZETASQL_CHECK_EQ(outdata.size(), 2);
-  ZETASQL_CHECK_EQ(outdata[0].first, "two");
-  ZETASQL_CHECK_EQ(outdata[0].second, 2);
-  ZETASQL_CHECK_EQ(outdata[1].first, "twoiscompany");
-  ZETASQL_CHECK_EQ(outdata[1].second, 7);
+  trie.GetAllMatchingStrings("two", &outdata);
+  EXPECT_THAT(outdata, ElementsAre(Pair("two", 2), Pair("twoiscompany", 7)));
 
-  trie.GetAllMatchingStrings("three", strlen("three"), &outdata);
-  ZETASQL_CHECK_EQ(outdata.size(), 1);
-  ZETASQL_CHECK_EQ(outdata[0].first, "three");
-  ZETASQL_CHECK_EQ(outdata[0].second, 3);
+  trie.GetAllMatchingStrings("three", &outdata);
+  EXPECT_THAT(outdata, ElementsAre(Pair("three", 3)));
 
-  trie.GetAllMatchingStrings("foo", strlen("foo"), &outdata);
-  ZETASQL_CHECK_EQ(outdata.size(), 0);
+  trie.GetAllMatchingStrings("foo", &outdata);
+  EXPECT_THAT(outdata, IsEmpty());
 
-  trie.SetData("two", -2);
+  // Test with a string_view that is not null-terminated.
+  trie.SetData(absl::string_view("twoiscompany").substr(0, 3), -2);
   trie.SetData("twoiscompany", -7);
   // test non-existent entry
-  ZETASQL_CHECK(!trie.SetData("foo", 1));
+  EXPECT_FALSE(trie.SetData("foo", 1));
 
-  ZETASQL_CHECK_EQ(trie.GetData("two"), -2);
-  ZETASQL_CHECK_EQ(trie.GetData("twoiscompany"), -7);
-  trie.GetAllMatchingStrings("two", strlen("two"), &outdata);
-  ZETASQL_CHECK_EQ(outdata.size(), 2);
-  ZETASQL_CHECK_EQ(outdata[0].first, "two");
-  ZETASQL_CHECK_EQ(outdata[0].second, -2);
-  ZETASQL_CHECK_EQ(outdata[1].first, "twoiscompany");
-  ZETASQL_CHECK_EQ(outdata[1].second, -7);
+  EXPECT_EQ(trie.GetData("two"), -2);
+  EXPECT_EQ(trie.GetData("twoiscompany"), -7);
+
+  trie.GetAllMatchingStrings("two", &outdata);
+  EXPECT_THAT(outdata, ElementsAre(Pair("two", -2), Pair("twoiscompany", -7)));
 }
 
-TEST(GeneralTrie, TraverseIterator) {
+TEST(GeneralTrie, TestTraverseAlongString) {
   GeneralTrie<int, 0> trie;
-  GeneralTrie<int, 0>::TraverseIterator iter = trie.Traverse();
-  ZETASQL_CHECK(iter.Done());
 
   trie.Insert("one", 1);
   trie.Insert("two", 2);
@@ -174,47 +137,117 @@ TEST(GeneralTrie, TraverseIterator) {
   trie.Insert("oneflewoverthe", 6);
   trie.Insert("twoiscompany", 7);
 
-  std::vector<std::pair<std::string, int> > expected;
-  expected.push_back(std::make_pair("one", 1));
-  expected.push_back(std::make_pair("oneflew", 4));
-  expected.push_back(std::make_pair("oneflewover", 5));
-  expected.push_back(std::make_pair("oneflewoverthe", 6));
-  expected.push_back(std::make_pair("three", 3));
-  expected.push_back(std::make_pair("two", 2));
-  expected.push_back(std::make_pair("twoiscompany", 7));
+  {
+    TestIntTraverser traverser;
+    trie.TraverseAlongString("oneflewoverfoobar", &traverser);
+    EXPECT_THAT(traverser.values, ElementsAre(1, 4, 5));
+  }
+
+  {
+    TestIntTraverser traverser;
+    std::string key = "oneflewoverfoobar";
+    trie.TraverseAlongString(key, &traverser);
+    EXPECT_THAT(traverser.values, ElementsAre(1, 4, 5));
+  }
+
+  {
+    TestIntTraverser traverser;
+    trie.TraverseAlongString("oneFlewoverfoobar", &traverser);
+    EXPECT_THAT(traverser.values, ElementsAre(1));
+  }
+
+  {
+    TestIntTraverser traverser;
+    // Simulates a string_view that is not null-terminated.
+    char raw[] = {'o', 'n', 'e'};
+    absl::string_view key(raw, 3);
+    // Ensure that string_view is handled correctly.
+    trie.TraverseAlongString(key, &traverser);
+    EXPECT_THAT(traverser.values, ElementsAre(1));
+  }
+}
+
+TEST(GeneralTrie, TraverseIterator) {
+  GeneralTrie<int, 0> trie;
+  GeneralTrie<int, 0>::TraverseIterator iter = trie.Traverse();
+  EXPECT_TRUE(iter.Done());
+
+  trie.Insert("one", 1);
+  trie.Insert("two", 2);
+  trie.Insert("three", 3);
+  trie.Insert("oneflew", 4);
+  trie.Insert("oneflewover", 5);
+  trie.Insert("oneflewoverthe", 6);
+  trie.Insert("twoiscompany", 7);
+
+  std::vector<std::pair<std::string, int> > expected = {
+    {"one", 1},
+    {"oneflew", 4},
+    {"oneflewover", 5},
+    {"oneflewoverthe", 6},
+    {"three", 3},
+    {"two", 2},
+    {"twoiscompany", 7},
+  };
 
   int i = 0;
   for (GeneralTrie<int, 0>::TraverseIterator iter = trie.Traverse();
        !iter.Done(); iter.Next()) {
-    ZETASQL_CHECK_EQ(expected[i].first, iter.Key());
-    ZETASQL_CHECK_EQ(expected[i].second, iter.Value());
+    EXPECT_THAT(expected[i], Pair(iter.Key(), iter.Value()));
     i++;
   }
-  ZETASQL_CHECK_EQ(7, i);
+  EXPECT_EQ(7, i);
 
   // Test a trie that has data at the root.
   GeneralTrie<int, 0> root_data_trie;
   root_data_trie.Insert("", 1234);
 
   iter = root_data_trie.Traverse();
-  ZETASQL_CHECK(!iter.Done());
-  ZETASQL_CHECK_EQ("", iter.Key());
-  ZETASQL_CHECK_EQ(1234, iter.Value());
+  ASSERT_FALSE(iter.Done());
+  EXPECT_EQ("", iter.Key());
+  EXPECT_EQ(1234, iter.Value());
   iter.Next();
-  ZETASQL_CHECK(iter.Done());
+  EXPECT_TRUE(iter.Done());
 
   // Insert another item, and iterate through again.
   root_data_trie.Insert("a", 5678);
   iter = root_data_trie.Traverse();
-  ZETASQL_CHECK(!iter.Done());
-  ZETASQL_CHECK_EQ("", iter.Key());
-  ZETASQL_CHECK_EQ(1234, iter.Value());
+  ASSERT_FALSE(iter.Done());
+  EXPECT_EQ("", iter.Key());
+  EXPECT_EQ(1234, iter.Value());
   iter.Next();
-  ZETASQL_CHECK(!iter.Done());
-  ZETASQL_CHECK_EQ("a", iter.Key());
-  ZETASQL_CHECK_EQ(5678, iter.Value());
+  ASSERT_FALSE(iter.Done());
+  EXPECT_EQ("a", iter.Key());
+  EXPECT_EQ(5678, iter.Value());
   iter.Next();
-  ZETASQL_CHECK(iter.Done());
+  EXPECT_TRUE(iter.Done());
+}
+
+TEST(GeneralTrie, TestCompression) {
+  GeneralTrie<int, 0> trie;
+
+  trie.Insert("abcde", 2);
+  // Inserting a smaller key will correctly break up the key compression.
+  trie.Insert("abcd", 1);
+  EXPECT_EQ(trie.GetData("abcd"), 1);
+  EXPECT_EQ(trie.GetData("abcde"), 2);
+  // Open box testing: this ensures that we don't accidentally read past the key
+  // when it matches a compressed path in the trie.
+  EXPECT_EQ(trie.GetData(absl::string_view("abcd", 3)), 0);
+
+  TestIntTraverser traverser;
+  // Open box testing: this ensures that we don't read past the key when it
+  // matches a compressed path in the trie.
+  trie.TraverseAlongString(absl::string_view("abcde", 3), &traverser);
+  EXPECT_THAT(traverser.values, IsEmpty());
+
+  // Open box testing: this ensures that we don't read past the key when it
+  // matches a compressed path in the trie.
+  int matched = -1;
+  EXPECT_EQ(trie.GetDataForMaximalPrefix(absl::string_view("abcd", 3), &matched,
+                                         nullptr),
+            0);
+  EXPECT_EQ(matched, -1);
 }
 
 //

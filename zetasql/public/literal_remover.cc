@@ -109,13 +109,15 @@ absl::Status ReplaceLiteralsByParameters(
     }
   }
 
-  // Collect all <literals> that have a parse location.
+  // Collect all <literals> that have a parse location and not marked to be
+  // preserved.
   std::vector<const ResolvedNode*> literal_nodes;
   stmt->GetDescendantsWithKinds({RESOLVED_LITERAL}, &literal_nodes);
   std::vector<const ResolvedLiteral*> literals;
   for (const ResolvedNode* node : literal_nodes) {
     const ResolvedLiteral* literal = node->GetAs<ResolvedLiteral>();
     if (literal->GetParseLocationRangeOrNULL() != nullptr &&
+        !literal->preserve_in_literal_remover() &&
         !zetasql_base::ContainsKey(ignore_options_literals, literal)) {
       literals.push_back(literal);
     }

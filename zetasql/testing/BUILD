@@ -54,6 +54,57 @@ cc_library(
 )
 
 cc_library(
+    name = "test_catalog",
+    testonly = 1,
+    srcs = ["test_catalog.cc"],
+    hdrs = ["test_catalog.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/public:catalog",
+        "//zetasql/public:function",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "test_catalog_test",
+    size = "small",
+    srcs = ["test_catalog_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":test_catalog",
+        "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:function",
+        "//zetasql/public:type",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_library(
     name = "test_value",
     testonly = 1,
     srcs = ["test_value.cc"],

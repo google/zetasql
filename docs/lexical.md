@@ -964,8 +964,8 @@ WHERE book = "Ulysses";
 [string-literals]: #string_and_bytes_literals
 [named-query-parameters]: #named_query_parameters
 [positional-query-parameters]: #positional_query_parameters
-[query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax
-[lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions
+[query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
+[lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
-[functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference
+[functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
 

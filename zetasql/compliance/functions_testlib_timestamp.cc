@@ -4371,6 +4371,7 @@ GetParseDateTimestampCommonTests() {
       {"%I:%M %p", TEST_FORMAT_TIME, "12:02 pm", "12:02:00"},
       {"%I:%M %p", TEST_FORMAT_TIME, "13:01 AM", EXPECT_ERROR},
       {"%I:%M %p", TEST_FORMAT_TIME, "13:02 pm", EXPECT_ERROR},
+      {"%I:%M %p", TEST_FORMAT_TIME, "A:01 AM", EXPECT_ERROR},
 
       {"%l:%M %p", TEST_FORMAT_TIME, "2:01 Am", "02:01:00"},
       {"%l:%M %p", TEST_FORMAT_TIME, "2:02 pM", "14:02:00"},
@@ -4383,6 +4384,7 @@ GetParseDateTimestampCommonTests() {
       {"%l:%M %p", TEST_FORMAT_TIME, "12:02 pm", "12:02:00"},
       {"%l:%M %p", TEST_FORMAT_TIME, "13:01 AM", EXPECT_ERROR},
       {"%l:%M %p", TEST_FORMAT_TIME, "13:02 pm", EXPECT_ERROR},
+      {"%l:%M %p", TEST_FORMAT_TIME, "13:02 ZM", EXPECT_ERROR},
 
       // Test timestamp boundaries expressed in non-UTC timezones.
       // These should work because the corresponding timestamp value
@@ -4924,7 +4926,13 @@ GetParseDateTimestampCommonTests() {
       // Invalid strings are an error.
       {"%a", TEST_FORMAT_DATE, "Blahday", EXPECT_ERROR},
 
-      // %G - ISO 8601 year with century
+      // %G - ISO 8601 year with century:
+      {"%G", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "a", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "-0", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "-1999", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "+0", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "+1999", EXPECT_ERROR},
       {"%G", TEST_FORMAT_DATE, "0", kTestExpected19700101},
       {"%G", TEST_FORMAT_DATE, "2", kTestExpected19700101},
       {"%G", TEST_FORMAT_DATE, "22", kTestExpected19700101},
@@ -4937,6 +4945,8 @@ GetParseDateTimestampCommonTests() {
 
       // %g - ISO 8601 two-digit year without century 00-99.  More than
       //      two digits fails.
+      {"%g", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"%g", TEST_FORMAT_DATE, "a", EXPECT_ERROR},
       {"%g", TEST_FORMAT_DATE, "0", kTestExpected19700101},
       {"%g", TEST_FORMAT_DATE, "00", kTestExpected19700101},
       {"%g", TEST_FORMAT_DATE, "000", EXPECT_ERROR},
@@ -5203,6 +5213,7 @@ GetParseDateTimestampCommonTests() {
   for (const std::string& hour12 : hour12_elements) {
     tests.push_back({hour12, TEST_FORMAT_TIME, "0",  EXPECT_ERROR});
     tests.push_back({hour12, TEST_FORMAT_TIME, "00", EXPECT_ERROR});
+
     tests.push_back({hour12, TEST_FORMAT_TIME, "01", "01:00:00"});
     tests.push_back({hour12, TEST_FORMAT_TIME, "03", "03:00:00"});
     tests.push_back({hour12, TEST_FORMAT_TIME, "9",  "09:00:00"});
@@ -5212,6 +5223,22 @@ GetParseDateTimestampCommonTests() {
     tests.push_back({hour12, TEST_FORMAT_TIME, "12", "00:00:00"});
     tests.push_back({hour12, TEST_FORMAT_TIME, "13", EXPECT_ERROR});
     tests.push_back({hour12, TEST_FORMAT_TIME, "23", EXPECT_ERROR});
+
+    // Weird stuff inherited from strptime
+    //   Whitespace characteristics - consumes any amount of prefix whitespace
+    //   including none.
+    tests.push_back({absl::StrCat("x", hour12, "y"), TEST_FORMAT_TIME, "x 01y",
+                     "01:00:00"});
+    tests.push_back(
+        {absl::StrCat("x", hour12, "y"), TEST_FORMAT_TIME, "x 1y", "01:00:00"});
+    tests.push_back({absl::StrCat("x", hour12, "y"), TEST_FORMAT_TIME, "x 11y",
+                     "11:00:00"});
+    tests.push_back({absl::StrCat("x", hour12, "y"), TEST_FORMAT_TIME,
+                     "x\r\n\t11y", "11:00:00"});
+    tests.push_back({absl::StrCat("x", hour12, "y"), TEST_FORMAT_TIME, "x11 y",
+                     EXPECT_ERROR});
+    tests.push_back({absl::StrCat("x", hour12, "y"), TEST_FORMAT_TIME, "x011y",
+                     EXPECT_ERROR});
   }
 
   // %m - month 1-12, with an optional leading 0.  More than two digits
@@ -5276,6 +5303,12 @@ GetParseDateTimestampCommonTests() {
     tests.push_back({ampm, TEST_FORMAT_TIME, "PM", "00:00:00"});
     tests.push_back({ampm, TEST_FORMAT_TIME, "aM", "00:00:00"});
     tests.push_back({ampm, TEST_FORMAT_TIME, "Pm", "00:00:00"});
+    tests.push_back({ampm, TEST_FORMAT_TIME, "P", EXPECT_ERROR});
+    tests.push_back({ampm, TEST_FORMAT_TIME, "A", EXPECT_ERROR});
+    tests.push_back({ampm, TEST_FORMAT_TIME, "Ax", EXPECT_ERROR});
+    tests.push_back({ampm, TEST_FORMAT_TIME, "Px", EXPECT_ERROR});
+    tests.push_back({ampm, TEST_FORMAT_TIME, "xM", EXPECT_ERROR});
+    tests.push_back({ampm, TEST_FORMAT_TIME, "xm", EXPECT_ERROR});
   }
   // %R - equivalent to time format %H:%M, leading 0's are optional.
   const std::string hour_minute_elements[] = {"%R", "%H:%M"};
@@ -5297,10 +5330,13 @@ GetParseDateTimestampCommonTests() {
     tests.push_back({clock, TEST_FORMAT_TIME, "12:00:00 am", "00:00:00"});
     tests.push_back({clock, TEST_FORMAT_TIME, "12:00:00am", "00:00:00"});
     tests.push_back({clock, TEST_FORMAT_TIME, "12:00:00   am", "00:00:00"});
-    tests.push_back({clock, TEST_FORMAT_TIME, "1:00:11 am", "01:00:11"});
+    tests.push_back({clock, TEST_FORMAT_TIME, "01:00:11 am", "01:00:11"});
     tests.push_back({clock, TEST_FORMAT_TIME, "11:59:59 am", "11:59:59"});
     tests.push_back({clock, TEST_FORMAT_TIME, "12:00:00 pm", "12:00:00"});
     tests.push_back({clock, TEST_FORMAT_TIME, "1:00:11 pm", "13:00:11"});
+    // Allow arbitrary whitespace before the hour string. and before the am/pm.
+    tests.push_back({absl::StrCat("x", clock), TEST_FORMAT_TIME,
+                     "x\n1:00:11\t\rpm", "13:00:11"});
     tests.push_back({clock, TEST_FORMAT_TIME, "11:59:59 Pm", "23:59:59"});
     tests.push_back({clock, TEST_FORMAT_TIME, "13:00:00 pm", EXPECT_ERROR});
   }
@@ -5421,7 +5457,7 @@ GetParseDateTimestampCommonTests() {
   }
 
   return tests;
-}
+}  // NOLINT(readability/fn_size)
 
 class ParseTimestampTest {
  public:
@@ -7150,6 +7186,292 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime() {
   };
   return PrepareCivilTimeTestCaseAsFunctionTestCall(
       convert_timestamp_to_datetime_test_cases, "datetime");
+}
+
+#define EXPECT_ERROR ""
+// Tests for CAST format timestamps.
+// Tests that should pass regardless of the time type.
+struct CastFormatCommonTest {
+  std::string format_string;
+  std::string expected_result;
+};
+
+static std::vector<CastFormatCommonTest> GetCastFormatLiteralTests() {
+  // Tests that should pass against kCommonTestTimestamp and kCommonTestDate.
+  std::vector<CastFormatCommonTest> tests = {
+      // Test literal characters and quote escaped strings.
+      {R"("abcd")", "abcd"},
+      {R"("abcd"YYYY"efgh")", "abcd2015efgh"},
+      // UTF-8 as well.
+      {R"("%ыфщ"YYYY"ыфщ")", "%ыфщ2015ыфщ"},
+  };
+  return tests;
+}
+
+static std::vector<CastFormatCommonTest> GetCommonCastFormatDateTests() {
+  // Tests that should pass against kCommonTestTimestamp, kCommonTestDate, and
+  // common_datetime.
+  std::vector<CastFormatCommonTest> tests = {
+      {"YYYY", "2015"},  {"RRRR", "2015"},
+      {"YYY", "015"},    {"YY", "15"},
+      {"RR", "15"},      {"Y", "5"},
+      {"D", "4"},        {"DD", "08"},
+      {"DDD", "189"},    {"Day", "Wednesday"},
+      {"Dy", "Wed"},     {"DAy", "WEDNESDAY"},
+      {"Month", "July"}, {"Mon", "Jul"},
+      {"MM", "07"},      {"YYYY-MM-DD", "2015-07-08"},
+  };
+  return tests;
+}
+
+static std::vector<CastFormatCommonTest> GetCommonCastFormatTimeTests() {
+  // Tests that should pass against kCommonTestTimestamp, common_datetime,
+  // and common_time.
+  std::vector<CastFormatCommonTest> tests = {
+      {"HH", "01"},         {"HH12", "01"},
+      {"HH24", "01"},       {"MI", "02"},
+      {"SS", "03"},         {"SSSSS", "03723"},
+      {"FF1", "4"},         {"FF2", "45"},
+      {"FF3", "456"},       {"FF4", "4567"},
+      {"FF5", "45678"},     {"FF6", "456789"},
+      {"FF7", "4567890"},   {"FF8", "45678900"},
+      {"FF9", "456789000"}, {"A.M.", "A.M."},
+      {"P.M.", "A.M."},     {"AM", "AM"},
+      {"P.m.", "A.M."},     {"A.m.", "A.M."},
+      {"a.m.", "a.m."},     {"a.M.", "a.m."},
+      {"PM", "AM"},         {"HH:MI:SS.FF9 PM", "01:02:03.456789000 AM"}};
+  return tests;
+}
+
+// Formats that should fail for Date types.
+static std::vector<std::string> GetInvalidDateCastFormats() {
+  std::vector<std::string> tests = {
+      "HH",  "HH12", "HH24", "MI",  "SS",  "SSSSS", "FF1",  "FF2", "FF3", "FF4",
+      "FF5", "FF6",  "FF7",  "FF8", "FF9", "A.M.",  "P.M.", "TZH", "TZM"};
+  return tests;
+}
+
+// Formats that should fail for Time types.
+static std::vector<std::string> GetInvalidTimeCastFormats() {
+  std::vector<std::string> tests = {
+      "YYYY",  "YYY", "YY", "Y",   "RRRR", "RR", "MM",  "MON",
+      "MONTH", "DAY", "DY", "DDD", "DD",   "D",  "TZH", "TZM"};
+  return tests;
+}
+
+// Formats that should fail for DateTime types.
+static std::vector<std::string> GetInvalidDatetimeCastFormats() {
+  std::vector<std::string> tests = {"TZH", "TZM"};
+  return tests;
+}
+
+static std::vector<FormatDateTest> GetCastFormatDateTests() {
+  std::vector<FormatDateTest> tests;
+  for (const auto& literal_test : GetCastFormatLiteralTests()) {
+    tests.push_back({literal_test.format_string, kCommonTestDate,
+                     literal_test.expected_result});
+  }
+
+  for (const auto& date_test : GetCommonCastFormatDateTests()) {
+    // Test first char uppercase rest char lowercase.
+    tests.push_back(
+        {date_test.format_string, kCommonTestDate, date_test.expected_result});
+    // Test all uppercase.
+    tests.push_back({absl::AsciiStrToUpper(date_test.format_string),
+                     kCommonTestDate,
+                     absl::AsciiStrToUpper(date_test.expected_result)});
+    // Test all lowercase.
+    tests.push_back({absl::AsciiStrToLower(date_test.format_string),
+                     kCommonTestDate,
+                     absl::AsciiStrToLower(date_test.expected_result)});
+  }
+
+  // Tests edge dates
+  tests.push_back({"DDD", "2000-01-01", "001"});
+  tests.push_back({"DDD", "2000-12-31", "366"});
+  tests.push_back({"DDD", "2001-12-31", "365"});
+
+  // Tests failed formats.
+  for (const std::string& failed_test : GetInvalidDateCastFormats()) {
+    tests.push_back({failed_test, kCommonTestDate, EXPECT_ERROR});
+  }
+  return tests;
+}
+
+static std::vector<FormatTimestampTest> GetCastFormatTimestampTests() {
+  int64_t epoch_timestamp = 0;
+  int64_t timestamp;
+  const std::string timezone = "America/Los_Angeles";
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(kCommonTestTimestamp, kCommonTestTimezone,
+                                    kMicroseconds, &timestamp));
+
+  std::vector<FormatTimestampTest> tests = {
+      {"YYYY-MM-DD HH24:MI:SS", epoch_timestamp, "UTC", "1970-01-01 00:00:00"},
+
+      // Test the hour in different time zones.
+      {"HH24", timestamp, "America/Los_Angeles", "01"},
+      {"HH24", timestamp, "Asia/Rangoon", "14"},
+      {"HH24", timestamp, "UTC", "08"},
+      // TODO: Add timezone tests.
+  };
+
+  for (const auto& literal_test : GetCastFormatLiteralTests()) {
+    tests.push_back({literal_test.format_string, timestamp, kCommonTestTimezone,
+                     literal_test.expected_result});
+  }
+  for (const auto& date_test : GetCommonCastFormatDateTests()) {
+    tests.push_back({date_test.format_string, timestamp, kCommonTestTimezone,
+                     date_test.expected_result});
+  }
+  for (const auto& time_test : GetCommonCastFormatTimeTests()) {
+    tests.push_back({time_test.format_string, timestamp, kCommonTestTimezone,
+                     time_test.expected_result});
+  }
+
+  // Timestamp range boundary testing.
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp("0001-01-01 00:00:00.000000", "UTC",
+                                    kMicroseconds, &timestamp));
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, "UTC",
+                   "0001-01-01 00:00:00.000000"});
+
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp("9999-12-31 23:59:59.999999", "UTC",
+                                    kMicroseconds, &timestamp));
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, "UTC",
+                   "9999-12-31 23:59:59.999999"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, timezone,
+                   "9999-12-31 15:59:59.999999"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, "Asia/Rangoon",
+                   "10000-01-01 06:29:59.999999"});
+  return tests;
+}
+
+struct FormatValueTest {
+  std::string format_string;
+  Value value;
+  std::string expected_result;
+};
+
+static std::vector<FormatValueTest> GetCastFormatDatetimeTests() {
+  const Value common_datetime = DatetimeMicros(2015, 7, 8, 1, 2, 3, 456789);
+  std::vector<FormatValueTest> tests = {
+      // Boundary cases.
+      {"YYYY-MM-DD HH24:MI:SS.FF6", DatetimeMicros(1, 1, 1, 0, 0, 0, 0),
+       "0001-01-01 00:00:00.000000"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6",
+       DatetimeMicros(9999, 12, 31, 23, 59, 59, 999999),
+       "9999-12-31 23:59:59.999999"},
+  };
+
+  for (const auto& literal_test : GetCastFormatLiteralTests()) {
+    tests.push_back({literal_test.format_string, common_datetime,
+                     literal_test.expected_result});
+  }
+  for (const auto& date_test : GetCommonCastFormatDateTests()) {
+    tests.push_back(
+        {date_test.format_string, common_datetime, date_test.expected_result});
+  }
+  for (const auto& time_test : GetCommonCastFormatTimeTests()) {
+    tests.push_back(
+        {time_test.format_string, common_datetime, time_test.expected_result});
+  }
+
+  // Tests failed formats.
+  for (const std::string& failed_test : GetInvalidDatetimeCastFormats()) {
+    tests.push_back({failed_test, common_datetime, EXPECT_ERROR});
+  }
+
+  return tests;
+}
+
+static std::vector<FormatValueTest> GetCastFormatTimeTests() {
+  const Value common_time = TimeMicros(1, 2, 3, 456789);
+  std::vector<FormatValueTest> tests = {
+      // Boundary cases.
+      // hour 00-23
+      {"HH24", TimeMicros(23, 45, 1, 0), "23"},
+      {"HH24", TimeMicros(1, 45, 1, 0), "01"},
+      {"HH24", TimeMicros(0, 45, 1, 0), "00"},
+
+      // hour 01-12
+      {"HH", TimeMicros(23, 45, 1, 0), "11"},
+      {"HH", TimeMicros(1, 45, 1, 0), "01"},
+      {"HH", TimeMicros(0, 45, 1, 0), "12"},
+
+      {"HH12", TimeMicros(23, 45, 1, 0), "11"},
+      {"HH12", TimeMicros(1, 45, 1, 0), "01"},
+      {"HH12", TimeMicros(0, 45, 1, 0), "12"},
+
+      // Time range boundary testing
+      {"HH24:MI:SS.FF6", TimeMicros(0, 0, 0, 0), "00:00:00.000000"},
+      {"HH24:MI:SS.FF6", TimeMicros(23, 59, 59, 999999), "23:59:59.999999"}};
+
+  for (const auto& time_test : GetCommonCastFormatTimeTests()) {
+    tests.push_back(
+        {time_test.format_string, common_time, time_test.expected_result});
+  }
+
+  // Tests failed formats.
+  for (const std::string& failed_test : GetInvalidTimeCastFormats()) {
+    tests.push_back({failed_test, common_time, EXPECT_ERROR});
+  }
+
+  return tests;
+}
+
+#undef EXPECT_ERROR
+std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
+  std::vector<FunctionTestCall> tests;
+  for (const auto& test : GetCastFormatTimestampTests()) {
+    if (IsExpectedError(test.expected_result)) {
+      tests.push_back({"cast_format_timestamp",
+                       {String(test.format_string), Timestamp(test.timestamp),
+                        String(test.timezone)},
+                       NullString(),
+                       OUT_OF_RANGE});
+    } else {
+      tests.push_back({"cast_format_timestamp",
+                       {String(test.format_string), Timestamp(test.timestamp),
+                        String(test.timezone)},
+                       String(test.expected_result)});
+    }
+  }
+  for (const auto& test : GetCastFormatDateTests()) {
+    if (IsExpectedError(test.expected_result)) {
+      tests.push_back({"cast_format_date",
+                       {String(test.format_string), DateFromStr(test.date)},
+                       NullString(),
+                       OUT_OF_RANGE});
+    } else {
+      tests.push_back({"cast_format_date",
+                       {String(test.format_string), DateFromStr(test.date)},
+                       String(test.expected_result)});
+    }
+  }
+  for (const auto& test : GetCastFormatDatetimeTests()) {
+    if (IsExpectedError(test.expected_result)) {
+      tests.push_back({"cast_format_datetime",
+                       {String(test.format_string), test.value},
+                       NullString(),
+                       OUT_OF_RANGE});
+    } else {
+      tests.push_back({"cast_format_datetime",
+                       {String(test.format_string), test.value},
+                       String(test.expected_result)});
+    }
+  }
+  for (const auto& test : GetCastFormatTimeTests()) {
+    if (IsExpectedError(test.expected_result)) {
+      tests.push_back({"cast_format_time",
+                       {String(test.format_string), test.value},
+                       NullString(),
+                       OUT_OF_RANGE});
+    } else {
+      tests.push_back({"cast_format_time",
+                       {String(test.format_string), test.value},
+                       String(test.expected_result)});
+    }
+  }
+  return tests;
 }
 
 }  // namespace zetasql

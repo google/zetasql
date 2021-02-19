@@ -97,6 +97,12 @@ class StructType : public Type {
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
+  // Validate and resolve type parameters for struct type, currently always
+  // return error since struct type itself doesn't support type parameters.
+  zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      ProductMode mode) const override;
+
  protected:
   // Return estimated size of memory owned by this type. Owned memory includes
   // field names, but not the memory associated with field types (which are

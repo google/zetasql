@@ -16,7 +16,7 @@
 
 // Tool for running a query against a Catalog constructed from various input
 // sources. Also serves as a demo of the PreparedQuery API.
-//
+
 #include <iostream>
 #include <memory>
 #include <string>
@@ -27,14 +27,29 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/tools/execute_query/execute_query_loop.h"
+#include "zetasql/tools/execute_query/execute_query_prompt.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
+#include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "zetasql/base/status_macros.h"
+
+namespace {
+constexpr absl::string_view kHistoryFileName{
+    ".zetasql_execute_query_history"};
+}
+
+ABSL_FLAG(
+    bool, interactive, false,
+    absl::StrFormat("Use interactive shell for entering multiple queries with "
+                    "the query history stored in ~/%s.",
+                    kHistoryFileName));
 
 static absl::Status InitializeExecuteQueryConfig(
     zetasql::ExecuteQueryConfig& config) {
@@ -45,24 +60,41 @@ static absl::Status InitializeExecuteQueryConfig(
       .mutable_language()
       ->EnableMaximumLanguageFeaturesForDevelopment();
   config.mutable_catalog().AddZetaSQLFunctions(
-        config.analyzer_options().language());
+      config.analyzer_options().language());
   return absl::OkStatus();
 }
 
 int main(int argc, char* argv[]) {
   const char kUsage[] =
-      "Usage: execute_query [--table_spec=<table_spec>] <sql>\n";
-  std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
-  if (argc <= 1) {
+      "Usage: execute_query [--table_spec=<table_spec>] "
+      "{ --interactive | <sql> }\n";
+  std::vector<std::string> args;
+
+  {
+    std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
+    args.assign(remaining_args.cbegin() + 1, remaining_args.cend());
+  }
+
+  if (absl::GetFlag(FLAGS_interactive) != args.empty()) {
     ZETASQL_LOG(QFATAL) << kUsage;
   }
-  const std::string sql = absl::StrJoin(remaining_args.begin() + 1,
-  remaining_args.end(), " ");
+
   zetasql::ExecuteQueryConfig config;
   absl::Status status = InitializeExecuteQueryConfig(config);
+
   if (status.ok()) {
-    status = ExecuteQuery(sql, config);
+    zetasql::ExecuteQueryStreamWriter writer{std::cout};
+
+    if (absl::GetFlag(FLAGS_interactive)) {
+      ZETASQL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
+    } else {
+      const std::string sql = absl::StrJoin(args, " ");
+      zetasql::ExecuteQuerySingleInput prompt{sql};
+
+      status = zetasql::ExecuteQueryLoop(prompt, config, writer);
+    }
   }
+
   if (status.ok()) {
     return 0;
   } else {

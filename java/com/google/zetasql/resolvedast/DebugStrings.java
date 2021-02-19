@@ -36,6 +36,7 @@ import com.google.zetasql.Table;
 import com.google.zetasql.TableValuedFunction;
 import com.google.zetasql.Type;
 import com.google.zetasql.TypeAnnotationProto.FieldFormat;
+import com.google.zetasql.TypeParameters;
 import com.google.zetasql.Value;
 import com.google.zetasql.resolvedast.ResolvedFunctionCallBaseEnums.ErrorMode;
 import com.google.zetasql.resolvedast.ResolvedInsertStmtEnums.InsertMode;
@@ -116,6 +117,10 @@ class DebugStrings {
 
   static boolean isDefaultValue(AnnotationMap annotationMap) {
     return annotationMap == null;
+  }
+
+  static boolean isDefaultValue(TypeParameters typeParameters) {
+    return typeParameters.isEmpty();
   }
 
   static boolean isDefaultValue(Table table) {
@@ -227,6 +232,10 @@ class DebugStrings {
 
   static String toStringImpl(AnnotationMap annotationMap) {
     return annotationMap.debugString();
+  }
+
+  static String toStringImpl(TypeParameters typeParameters) {
+    return typeParameters.debugString();
   }
 
   static String toStringPeriodSeparatedForFieldDescriptors(List<ZetaSQLFieldDescriptor> fields) {

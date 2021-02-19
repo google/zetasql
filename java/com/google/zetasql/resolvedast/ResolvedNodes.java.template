@@ -47,6 +47,7 @@ import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.ZetaSQLType.ProtoTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
+import com.google.zetasql.ZetaSQLTypeParameters.TypeParametersProto;
 import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.Procedure;
@@ -60,6 +61,7 @@ import com.google.zetasql.TableValuedFunctionRefProto;
 import com.google.zetasql.TVFSignature;
 import com.google.zetasql.Type;
 import com.google.zetasql.TypeAnnotationProto.FieldFormat;
+import com.google.zetasql.TypeParameters;
 import com.google.zetasql.Value;
 import com.google.zetasql.ValueWithTypeProto;
 import com.google.zetasql.resolvedast.ResolvedColumn;
@@ -206,6 +208,12 @@ public final class ResolvedNodes {
       AnnotationMap annotationMap,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return annotationMap.serialize(fileDescriptorSetsBuilder);
+  }
+
+  static TypeParametersProto serialize(
+      TypeParameters typeParameters,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return typeParameters.serialize();
   }
 
   public static ResolvedNode deserialize(

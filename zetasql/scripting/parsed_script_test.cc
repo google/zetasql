@@ -30,14 +30,21 @@ namespace {
 
 using ::testing::_;
 using ::testing::HasSubstr;
+using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
 
 class TestInput {
  public:
-  TestInput(const std::string& sql,
+  explicit TestInput(const zetasql_base::SourceLocation& location,
+                     const std::string& sql)
+      : location_(location), sql_(sql), error_(""), owned_names_({}) {}
+  TestInput(const zetasql_base::SourceLocation& location, const std::string& sql,
             const std::vector<std::string>& named_parameters,
             const std::string& error = "")
-      : sql_(sql), error_(error), owned_names_(named_parameters) {
+      : location_(location),
+        sql_(sql),
+        error_(error),
+        owned_names_(named_parameters) {
     ParsedScript::StringSet ids;
     for (const std::string& name : named_parameters) {
       IdString id = IdString::MakeGlobal(name);
@@ -46,10 +53,13 @@ class TestInput {
     parameters_ = ids;
   }
 
-  TestInput(const std::string& sql,
+  TestInput(const zetasql_base::SourceLocation& location, const std::string& sql,
             const std::pair<int64_t, int64_t>& positional_parameters,
             const std::string& error = "")
-      : sql_(sql), error_(error), parameters_(positional_parameters) {}
+      : location_(location),
+        sql_(sql),
+        error_(error),
+        parameters_(positional_parameters) {}
 
   const std::string& sql() const { return sql_; }
   const std::string& error() const { return error_; }
@@ -65,12 +75,28 @@ class TestInput {
     return absl::get<std::pair<int64_t, int64_t>>(parameters_);
   }
 
+  const zetasql_base::SourceLocation& location() const { return location_; }
+
+  // Show a user-friendly name when a failing TestInput appears in a Sponge log.
+  friend std::ostream& operator<<(std::ostream& os,
+                                  const TestInput& test_input) {
+    return os << "TestInput (" << test_input.location().file_name() << ":"
+              << test_input.location().line() << "):\n"
+              << test_input.sql();
+  }
+
  private:
+  zetasql_base::SourceLocation location_;
   const std::string sql_;
   const std::string error_;
   const std::vector<std::string> owned_names_;
   absl::variant<ParsedScript::StringSet, std::pair<int64_t, int64_t>> parameters_;
 };
+
+TestInput TestInputWithError(const zetasql_base::SourceLocation& location,
+                             const std::string& error, const std::string& sql) {
+  return TestInput(location, sql, std::vector<std::string>{}, error);
+}
 
 class TestCase {
  public:
@@ -88,7 +114,7 @@ class TestCase {
   const std::string error_;
 };
 
-class ParametersTest
+class ScriptValidationTest
     : public ::testing::TestWithParam<absl::variant<TestCase, TestInput>> {};
 
 void CheckStatement(const ParseLocationRange& range, const ParsedScript* parsed,
@@ -143,7 +169,7 @@ void CheckTestCase(const TestCase& test_case) {
 
   ParserOptions options;
   std::unique_ptr<ParsedScript> parsed =
-      ParsedScript::Create(script, options, ERROR_MESSAGE_WITH_PAYLOAD).value();
+      ParsedScript::Create(script, options, ERROR_MESSAGE_ONE_LINE).value();
   ZETASQL_EXPECT_OK(parsed->CheckQueryParameters(parameters));
 
   absl::Span<const ASTStatement* const> stmts =
@@ -174,21 +200,27 @@ void CheckTestInput(const TestInput& test_input) {
   }
 
   ParserOptions options;
-  std::unique_ptr<ParsedScript> parsed =
-      ParsedScript::Create(test_input.sql(), options,
-                           ERROR_MESSAGE_WITH_PAYLOAD)
-          .value();
-  absl::Status status = parsed->CheckQueryParameters(parameters);
+  zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> status_or_parsed =
+      ParsedScript::Create(test_input.sql(), options, ERROR_MESSAGE_ONE_LINE);
+  absl::Status status = status_or_parsed.status();
+  std::unique_ptr<ParsedScript> parsed;
+  if (status.ok()) {
+    parsed = std::move(status_or_parsed.value());
+    status = parsed->CheckQueryParameters(parameters);
+  }
 
   if (test_input.error().empty()) {
-    CheckStatement(parsed->script()->GetParseLocationRange(), parsed.get(),
-                   test_input);
+    EXPECT_THAT(status, IsOk());
+    if (status.ok()) {
+      CheckStatement(parsed->script()->GetParseLocationRange(), parsed.get(),
+                     test_input);
+    }
   } else {
     EXPECT_THAT(status, StatusIs(_, HasSubstr(test_input.error())));
   }
 }
 
-TEST_P(ParametersTest, CheckParameters) {
+TEST_P(ScriptValidationTest, ValidateScripts) {
   absl::variant<TestCase, TestInput> param = GetParam();
 
   if (absl::holds_alternative<TestCase>(param)) {
@@ -201,48 +233,222 @@ TEST_P(ParametersTest, CheckParameters) {
 std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   std::vector<std::string> empty_named;
   std::pair<int64_t, int64_t> empty_pos;
-  return {
-      TestInput("SELECT 1;", empty_named),
-      TestInput("SELECT 1;", empty_pos),
-      TestInput("SELECT @a, @A, @b, @a;", {"a", "b"}),
-      TestInput("SELECT @a, @a, @b, @a;", {"a"},
-                "Unknown named query parameter: b"),
-      TestCase({
-          TestInput("SELECT 1;", empty_pos),
-          TestInput("SELECT ?;", {0, 1}),
-      }),
-      TestCase({
-          TestInput("SELECT ?;", {0, 1}),
-          TestInput("SELECT 1;", empty_pos),
-      }),
-      TestCase({
-          TestInput("SELECT 1;", empty_pos),
-          TestInput("SELECT ?;", {0, 1}),
-          TestInput("SELECT ?, ?;", {1, 2}),
-          TestInput("SELECT ?;", {3, 1}),
-          TestInput("SELECT 1;", empty_pos),
-      }),
-      TestCase({
-          TestInput("SELECT 1;", empty_named),
-          TestInput("SELECT @a;", {"a"}),
-      }),
-      TestCase({
-          TestInput("SELECT 1;", empty_named),
-          TestInput("SELECT @a;", {"a"}),
-          TestInput("SELECT @a, @b;", {"a", "b"}),
-      }),
-      TestCase({
-          TestInput("SELECT @a;", {"a"}),
-          TestInput("SELECT @b;", {"b"}),
-      }),
-      TestCase({
-          TestInput("SELECT @A;", {"a"}),
-          TestInput("SELECT @B;", {"b"}),
-      }),
-  };
+
+  std::vector<absl::variant<TestCase, TestInput>> result;
+  // Simple test case illustrate a BREAK statement without an enclosing
+  // loop. As detection of BREAK and CONTINUE statements outside of a loop
+  // is implemented as part of building the control-flow graph, this is
+  // covered more thoroughly in the control-flow-graph tests.
+  result.push_back(TestInputWithError(
+      ZETASQL_LOC, "BREAK is only allowed inside of a loop body [at 3:7]",
+      R"(
+      SELECT 1;
+      BREAK;
+    )"));
+
+  // Test cases with variables. This checks logic to screen for:
+  // - Illegal variable redeclaration or shadowing
+  // - Variable declaration outside of the start of the block or script
+  result.push_back(TestInput(ZETASQL_LOC, R"(
+    -- Variable declarations at start
+    DECLARE x INT64;
+    DECLARE y DEFAULT x;
+    DECLARE z INT64 DEFAULT y + 1;
+    DECLARE a,b INT64;
+    DECLARE c,d INT64 DEFAULT z + 1;
+    SELECT a, b, c, d, x, y, z;
+  )"));
+
+  result.push_back(TestInput(ZETASQL_LOC, R"(
+    -- Variable declarations inside BEGIN block
+    SELECT 1;
+    BEGIN
+      DECLARE x INT64;
+      DECLARE y DEFAULT x;
+      DECLARE z INT64 DEFAULT y + 1;
+      DECLARE a,b INT64;
+      DECLARE c,d INT64 DEFAULT z + 1;
+      SELECT a, b, c, d, x, y, z;
+    END;
+  )"));
+  result.push_back(TestInput(ZETASQL_LOC, R"(
+    -- Variable declarations inside nested BEGIN blocks
+    SELECT 1;
+    BEGIN
+      DECLARE x INT64;
+      DECLARE y DEFAULT x;
+      BEGIN BEGIN
+        DECLARE z INT64 DEFAULT y + 1;
+        DECLARE a,b INT64;
+        DECLARE c,d INT64 DEFAULT z + 1;
+        SELECT a, b, c, d, x, y, z;
+      END; END;
+    END;
+  )"));
+  result.push_back(
+      TestInputWithError(ZETASQL_LOC,
+                         "Variable declarations are allowed only at the start "
+                         "of a block or script [at 4:5]",
+                         R"(
+    -- Variable declaration after SELECT statement
+    SELECT 1;
+    DECLARE x INT64;
+  )"));
+  result.push_back(
+      TestInputWithError(ZETASQL_LOC,
+                         "Variable declarations are allowed only at the start "
+                         "of a block or script [at 4:7]",
+                         R"(
+    -- Variable declaration at start of IF body
+    IF TRUE THEN
+      DECLARE x INT64;
+    END IF;
+  )"));
+  result.push_back(
+      TestInputWithError(ZETASQL_LOC,
+                         "Variable declarations are allowed only at the start "
+                         "of a block or script [at 5:7]",
+                         R"(
+    -- Variable declaration at start of exception handler without inner BEGIN.
+    BEGIN
+    EXCEPTION WHEN ERROR THEN
+      DECLARE x INT64;
+    END;
+  )"));
+  result.push_back(
+      TestInputWithError(ZETASQL_LOC,
+                         "Variable declarations are allowed only at the start "
+                         "of a block or script [at 5:7]",
+                         R"(
+    -- Variable declaration in middle of BEGIN block
+    BEGIN
+      SELECT 1;
+      DECLARE x INT64;
+    END;
+  )"));
+  result.push_back(TestInputWithError(ZETASQL_LOC,
+                                      "Variable 'x' redeclaration [at 3:16]; x "
+                                      "previously declared here [at 3:13]",
+                                      R"(
+    -- Variable redeclaration (same statement)
+    DECLARE x, x INT64;
+  )"));
+  result.push_back(TestInputWithError(ZETASQL_LOC,
+                                      "Variable 'x' redeclaration [at 5:13]; x "
+                                      "previously declared here [at 3:13]",
+                                      R"(
+    -- Variable redeclaration (earlier statement)
+    DECLARE x INT64;
+    DECLARE y STRING;
+    DECLARE x INT64;
+  )"));
+  result.push_back(TestInputWithError(ZETASQL_LOC,
+                                      "Variable 'x' redeclaration [at 5:22]; x "
+                                      "previously declared here [at 3:17]",
+                                      R"(
+        -- Variable redeclaration (outer block)
+        DECLARE x INT64;
+        BEGIN
+          DECLARE y, x INT64;
+        END;
+      )"));
+  result.push_back(TestInputWithError(ZETASQL_LOC,
+                                      "Variable 'X' redeclaration [at 3:20]; X "
+                                      "previously declared here [at 3:17]",
+                                      R"(
+        -- Variable redeclaration (names differ only by case)
+        DECLARE x, X INT64;
+      )"));
+  result.push_back(TestInput(ZETASQL_LOC,
+                             R"(
+    -- Disjoint blocks declaring the same variable is ok.
+    BEGIN
+      DECLARE x INT64;
+      SELECT x;
+    END;
+    BEGIN
+      DECLARE x STRING;
+      SELECT x;
+    END;
+  )"));
+  result.push_back(TestInput(ZETASQL_LOC,
+                             R"(
+    -- An EXCEPTION clause uses a different variable scope from its
+    -- associated BEGIN clause, so reuse of 'x' here is ok.
+    BEGIN
+      DECLARE x INT64;
+      SELECT x;
+    EXCEPTION WHEN ERROR THEN
+      BEGIN
+        DECLARE x INT64;
+      END;
+    END;
+  )"));
+
+  // Test cases with RAISE.
+  result.push_back(TestInput(ZETASQL_LOC, R"(
+    -- Legal uses of RAISE
+    RAISE USING MESSAGE = "test";
+    BEGIN
+      DECLARE x INT64;
+      SELECT x;
+    EXCEPTION WHEN ERROR THEN
+      IF x = 1 THEN
+        RAISE;
+      END IF;
+      RAISE;
+    END;
+  )"));
+  result.push_back(
+      TestInputWithError(ZETASQL_LOC,
+                         "Cannot re-raise an existing exception outside of an "
+                         "exception handler [at 2:5]",
+                         R"(
+    RAISE;
+  )"));
+
+  // Test cases with query parameters
+  result.push_back(TestInput(ZETASQL_LOC, "SELECT 1;", empty_named));
+  result.push_back(TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos));
+  result.push_back(TestInput(ZETASQL_LOC, "SELECT @a, @A, @b, @a;", {"a", "b"}));
+  result.push_back(TestInput(ZETASQL_LOC, "SELECT @a, @a, @b, @a;", {"a"},
+                             "Unknown named query parameter: b"));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
+      TestInput(ZETASQL_LOC, "SELECT ?;", {0, 1}),
+  }));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT ?;", {0, 1}),
+      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
+  }));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
+      TestInput(ZETASQL_LOC, "SELECT ?;", {0, 1}),
+      TestInput(ZETASQL_LOC, "SELECT ?, ?;", {1, 2}),
+      TestInput(ZETASQL_LOC, "SELECT ?;", {3, 1}),
+      TestInput(ZETASQL_LOC, "SELECT 1;", empty_pos),
+  }));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT 1;", empty_named),
+      TestInput(ZETASQL_LOC, "SELECT @a;", {"a"}),
+  }));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT 1;", empty_named),
+      TestInput(ZETASQL_LOC, "SELECT @a;", {"a"}),
+      TestInput(ZETASQL_LOC, "SELECT @a, @b;", {"a", "b"}),
+  }));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT @a;", {"a"}),
+      TestInput(ZETASQL_LOC, "SELECT @b;", {"b"}),
+  }));
+  result.push_back(TestCase({
+      TestInput(ZETASQL_LOC, "SELECT @A;", {"a"}),
+      TestInput(ZETASQL_LOC, "SELECT @B;", {"b"}),
+  }));
+  return result;
 }
 
-INSTANTIATE_TEST_CASE_P(RunParametersTest, ParametersTest,
+INSTANTIATE_TEST_CASE_P(RunScriptValidationTest, ScriptValidationTest,
                         ::testing::ValuesIn(GetScripts()));
 
 }  // namespace

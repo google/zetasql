@@ -44,7 +44,7 @@ statement.
       <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/array_functions#array_functions">
+<a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_functions">
 
 Array Functions
 </a>
@@ -150,7 +150,7 @@ Array Functions
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -165,7 +165,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -180,7 +180,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -195,7 +195,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -210,7 +210,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -225,7 +225,7 @@ Data Types
       <td>Any comparable type. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -247,7 +247,7 @@ Data Types
       <td>Any comparable types. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -262,7 +262,7 @@ Data Types
       <td>Any comparable types. See
       
 
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types#data_types">
+<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
 
 Data Types
 </a>
@@ -372,7 +372,7 @@ e.g.expression.fieldname1.fieldname2...</td>
 <td>Type T stored in ARRAY</td>
 <td>position_keyword is either OFFSET or ORDINAL. See
 
-<a href="https://github.com/google/zetasql/blob/master/docs/array_functions#array_functions">
+<a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_functions">
 
 Array Functions
 </a>
@@ -491,17 +491,32 @@ Result types for Division:
 
 </table>
 
-Result types for Unary Plus and Unary Minus:
+Result types for Unary Plus:
 
 <table>
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT32</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
+</tbody>
+
+</table>
+
+Result types for Unary Minus:
+
+<table>
+
+<thead>
+<tr>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+</tr>
+</thead>
+<tbody>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT32</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">ERROR</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">FLOAT</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
 
 </table>
@@ -995,10 +1010,10 @@ The concatenation operator combines multiple values into one.
 </table>
 
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
-[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types
-[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax#from_clause
-[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types#struct_type
+[operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+[operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
-[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions
-[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules#coercion
+[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
+[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
 

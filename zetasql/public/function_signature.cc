@@ -569,6 +569,15 @@ bool FunctionArgumentType::IsTemplated() const {
   return kind_ != ARG_TYPE_FIXED && !IsFixedRelation() && !IsVoid();
 }
 
+bool FunctionArgumentType::IsScalar() const {
+  return kind_ == ARG_TYPE_FIXED || kind_ == ARG_TYPE_ANY_1 ||
+         kind_ == ARG_TYPE_ANY_2 || kind_ == ARG_ARRAY_TYPE_ANY_1 ||
+         kind_ == ARG_ARRAY_TYPE_ANY_2 || kind_ == ARG_PROTO_MAP_ANY ||
+         kind_ == ARG_PROTO_MAP_KEY_ANY || kind_ == ARG_PROTO_MAP_VALUE_ANY ||
+         kind_ == ARG_PROTO_ANY || kind_ == ARG_STRUCT_ANY ||
+         kind_ == ARG_ENUM_ANY || kind_ == ARG_TYPE_ARBITRARY;
+}
+
 // Intentionally restrictive for known functional programming functions. If this
 // is to be expanded in the future, make sure type inference part of signature
 // matching works as intended.
@@ -706,7 +715,9 @@ std::string FunctionArgumentType::UserFacingName(
       case ARG_PROTO_MAP_ANY:
         return "PROTO_MAP";
       case ARG_PROTO_MAP_KEY_ANY:
+        return "PROTO_MAP_KEY";
       case ARG_PROTO_MAP_VALUE_ANY:
+        return "PROTO_MAP_VALUE";
       case ARG_TYPE_ANY_1:
       case ARG_TYPE_ANY_2:
       case ARG_TYPE_ARBITRARY:

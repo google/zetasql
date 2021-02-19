@@ -180,6 +180,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropStmt* node) override;
   absl::Status VisitResolvedDropFunctionStmt(
       const ResolvedDropFunctionStmt* node) override;
+  absl::Status VisitResolvedDropTableFunctionStmt(
+      const ResolvedDropTableFunctionStmt* node) override;
   absl::Status VisitResolvedDropMaterializedViewStmt(
       const ResolvedDropMaterializedViewStmt* node) override;
   absl::Status VisitResolvedDropRowAccessPolicyStmt(
@@ -238,6 +240,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedGetProtoField(
       const ResolvedGetProtoField* node) override;
   absl::Status VisitResolvedFlatten(const ResolvedFlatten* node) override;
+  absl::Status VisitResolvedFilterField(
+      const ResolvedFilterField* node) override;
   absl::Status VisitResolvedReplaceField(
       const ResolvedReplaceField* node) override;
   absl::Status VisitResolvedFlattenedArg(
@@ -311,6 +315,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedSampleScan* node) override;
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
+  absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
 
   // Visit methods for analytic functions related nodes.
   absl::Status VisitResolvedAnalyticFunctionGroup(
@@ -475,6 +480,11 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status GetCreateStatementPrefix(const ResolvedCreateStatement* node,
                                         const std::string& object_type,
                                         std::string* sql);
+
+  // If the view was created with explicit column names,
+  // prints the column names.
+  void GetOptionalColumnNameList(const ResolvedCreateViewBase* node,
+                                 std::string* sql);
 
   // Appends PARTITION BY or CLUSTER BY expressions to the provided string, not
   // including the "PARTITION BY " or "CLUSTER BY " prefix.

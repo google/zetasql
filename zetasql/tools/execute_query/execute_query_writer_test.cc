@@ -26,6 +26,12 @@
 
 namespace zetasql {
 
+TEST(ExecuteQueryStreamWriterTest, Parsed) {
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQueryStreamWriter{output}.parsed("short parser string"));
+  EXPECT_EQ(output.str(), "short parser string\n");
+}
+
 TEST(ExecuteQueryStreamWriterTest, ResolvedSelect) {
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
   ZETASQL_EXPECT_OK(
