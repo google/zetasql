@@ -1,0 +1,359 @@
+create row access policy on t1 grant to ('foo@google.com') filter using(c1 = 'foo');
+--
+CreateRowAccessPolicyStatement [0-83]
+  PathExpression [28-30]
+    Identifier(t1) [28-30]
+  GrantToClause [31-58]
+    GranteeList [41-57]
+      StringLiteral('foo@google.com') [41-57]
+  FilterUsingClause [59-83]
+    BinaryExpression(=) [72-82]
+      PathExpression [72-74]
+        Identifier(c1) [72-74]
+      StringLiteral('foo') [77-82]
+--
+CREATE ROW ACCESS POLICY ON t1 GRANT TO ('foo@google.com') FILTER USING (c1 = 'foo')
+==
+
+create row access policy p1 on t1 grant to ('mdbuser/bar') filter using(c2 = 'foo');
+--
+CreateRowAccessPolicyStatement [0-83]
+  PathExpression [31-33]
+    Identifier(t1) [31-33]
+  GrantToClause [34-58]
+    GranteeList [44-57]
+      StringLiteral('mdbuser/bar') [44-57]
+  FilterUsingClause [59-83]
+    BinaryExpression(=) [72-82]
+      PathExpression [72-74]
+        Identifier(c2) [72-74]
+      StringLiteral('foo') [77-82]
+  PathExpression [25-27]
+    Identifier(p1) [25-27]
+--
+CREATE ROW ACCESS POLICY p1 ON t1 GRANT TO ('mdbuser/bar') FILTER USING (c2 = 'foo')
+==
+
+create row access policy on t1 grant to ('foo@google.com', 'mdbgroup/bar') filter using(c1);
+--
+CreateRowAccessPolicyStatement [0-91]
+  PathExpression [28-30]
+    Identifier(t1) [28-30]
+  GrantToClause [31-74]
+    GranteeList [41-73]
+      StringLiteral('foo@google.com') [41-57]
+      StringLiteral('mdbgroup/bar') [59-73]
+  FilterUsingClause [75-91]
+    PathExpression [88-90]
+      Identifier(c1) [88-90]
+--
+CREATE ROW ACCESS POLICY ON t1 GRANT TO ('foo@google.com', 'mdbgroup/bar') FILTER USING (c1)
+==
+
+create row access policy on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar') filter using(c1);
+--
+CreateRowAccessPolicyStatement [0-94]
+  PathExpression [28-33]
+    Identifier(n1) [28-30]
+    Identifier(t1) [31-33]
+  GrantToClause [34-77]
+    GranteeList [44-76]
+      StringLiteral('foo@google.com') [44-60]
+      StringLiteral('mdbgroup/bar') [62-76]
+  FilterUsingClause [78-94]
+    PathExpression [91-93]
+      Identifier(c1) [91-93]
+--
+CREATE ROW ACCESS POLICY ON n1.t1 GRANT TO ('foo@google.com', 'mdbgroup/bar') FILTER USING (c1)
+==
+
+create row access policy on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar') filter using(1);
+--
+CreateRowAccessPolicyStatement [0-93]
+  PathExpression [28-33]
+    Identifier(n1) [28-30]
+    Identifier(t1) [31-33]
+  GrantToClause [34-77]
+    GranteeList [44-76]
+      StringLiteral('foo@google.com') [44-60]
+      StringLiteral('mdbgroup/bar') [62-76]
+  FilterUsingClause [78-93]
+    IntLiteral(1) [91-92]
+--
+CREATE ROW ACCESS POLICY ON n1.t1 GRANT TO ('foo@google.com', 'mdbgroup/bar') FILTER USING (1)
+==
+
+create row access policy on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar';
+--
+ERROR: Syntax error: Expected ")" or "," but got ";" [at 1:77]
+create row access policy on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar';
+                                                                            ^
+==
+
+create row access policy on n1.t1) filter using(true);
+--
+ERROR: Syntax error: Expected keyword USING but got ")" [at 1:34]
+create row access policy on n1.t1) filter using(true);
+                                 ^
+==
+
+create row access policy grant to ('mdbuser/foo') filter using(true);
+--
+ERROR: Syntax error: Expected keyword ON but got keyword TO [at 1:32]
+create row access policy grant to ('mdbuser/foo') filter using(true);
+                               ^
+==
+
+create row access policy on t1 grant to (foo) filter using(true);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "foo" [at 1:42]
+create row access policy on t1 grant to (foo) filter using(true);
+                                         ^
+==
+
+create policy on t1 grant to ('foo@google.com') filter using(true);
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword POLICY [at 1:8]
+create policy on t1 grant to ('foo@google.com') filter using(true);
+       ^
+==
+
+# CREATE scope modifiers (TEMP, PUBLIC, PRIVATE) are not allowed for
+# CREATE ROW POLICY.
+create {{temp|temporary|public|private}} row access policy on t1
+grant to ('foo@google.com') filter using(true);
+--
+ALTERNATION GROUP: temp
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:13]
+create temp row access policy on t1
+            ^
+--
+ALTERNATION GROUP: temporary
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:18]
+create temporary row access policy on t1
+                 ^
+--
+ALTERNATION GROUP: public
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:15]
+create public row access policy on t1
+              ^
+--
+ALTERNATION GROUP: private
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword ROW [at 1:16]
+create private row access policy on t1
+               ^
+==
+
+create row access policy on t1 @{a=1} grant to ('foo@google.com') filter using(true);
+--
+ERROR: Syntax error: Expected keyword USING but got "@" [at 1:32]
+create row access policy on t1 @{a=1} grant to ('foo@google.com') filter usin...
+                               ^
+==
+
+create row access policy on t1 grant to (@test_param_string) filter using(true);
+--
+CreateRowAccessPolicyStatement [0-79]
+  PathExpression [28-30]
+    Identifier(t1) [28-30]
+  GrantToClause [31-60]
+    GranteeList [41-59]
+      ParameterExpr [41-59]
+        Identifier(test_param_string) [42-59]
+  FilterUsingClause [61-79]
+    BooleanLiteral(true) [74-78]
+--
+CREATE ROW ACCESS POLICY ON t1 GRANT TO (@test_param_string) FILTER USING (true)
+==
+
+# Test edge cases in GRANTEE LIST.
+create row access policy on t1 grant to ({{|concat("mdbuser/", "foo")|NULL|""|1}}) filter using(true);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got ")" [at 1:42]
+create row access policy on t1 grant to () filter using(true);
+                                         ^
+--
+ALTERNATION GROUP: concat("mdbuser/", "foo")
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "concat" [at 1:42]
+create row access policy on t1 grant to (concat("mdbuser/", "foo")) filter us...
+                                         ^
+--
+ALTERNATION GROUP: NULL
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got keyword NULL [at 1:42]
+create row access policy on t1 grant to (NULL) filter using(true);
+                                         ^
+--
+ALTERNATION GROUP: ""
+--
+CreateRowAccessPolicyStatement [0-63]
+  PathExpression [28-30]
+    Identifier(t1) [28-30]
+  GrantToClause [31-44]
+    GranteeList [41-43]
+      StringLiteral("") [41-43]
+  FilterUsingClause [45-63]
+    BooleanLiteral(true) [58-62]
+--
+CREATE ROW ACCESS POLICY ON t1 GRANT TO ("") FILTER USING (true)
+--
+ALTERNATION GROUP: 1
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got integer literal "1" [at 1:42]
+create row access policy on t1 grant to (1) filter using(true);
+                                         ^
+==
+
+# Test GRANTEE LIST must have a list / parentheses.
+create row access policy on t1 grant to {{|concat("mdbuser/", "foo")|NULL|""|1}} filter using(true);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "(" but got keyword FILTER [at 1:42]
+create row access policy on t1 grant to  filter using(true);
+                                         ^
+--
+ALTERNATION GROUP: concat("mdbuser/", "foo")
+--
+ERROR: Syntax error: Expected "(" but got identifier "concat" [at 1:41]
+create row access policy on t1 grant to concat("mdbuser/", "foo") filter usin...
+                                        ^
+--
+ALTERNATION GROUP: NULL
+--
+ERROR: Syntax error: Expected "(" but got keyword NULL [at 1:41]
+create row access policy on t1 grant to NULL filter using(true);
+                                        ^
+--
+ALTERNATION GROUP: ""
+--
+ERROR: Syntax error: Expected "(" but got string literal "" [at 1:41]
+create row access policy on t1 grant to "" filter using(true);
+                                        ^
+--
+ALTERNATION GROUP: 1
+--
+ERROR: Syntax error: Expected "(" but got integer literal "1" [at 1:41]
+create row access policy on t1 grant to 1 filter using(true);
+                                        ^
+==
+
+# Test that the GRANT TO clause is optional.
+create row access policy p1 on t1 filter using(true);
+--
+CreateRowAccessPolicyStatement [0-52]
+  PathExpression [31-33]
+    Identifier(t1) [31-33]
+  FilterUsingClause [34-52]
+    BooleanLiteral(true) [47-51]
+  PathExpression [25-27]
+    Identifier(p1) [25-27]
+--
+CREATE ROW ACCESS POLICY p1 ON t1 FILTER USING (true)
+==
+
+# Test that new keywords are all optional.
+create row {{access|}} policy p1 on t1 {{grant|}} to ("bar@google.com") {{filter|}} using (region = "us");
+--
+ALTERNATION GROUP: access,grant,filter
+--
+CreateRowAccessPolicyStatement [0-90]
+  PathExpression [31-33]
+    Identifier(t1) [31-33]
+  GrantToClause [34-61]
+    GranteeList [44-60]
+      StringLiteral("bar@google.com") [44-60]
+  FilterUsingClause [62-90]
+    BinaryExpression(=) [76-89]
+      PathExpression [76-82]
+        Identifier(region) [76-82]
+      StringLiteral("us") [85-89]
+  PathExpression [25-27]
+    Identifier(p1) [25-27]
+--
+CREATE ROW ACCESS POLICY p1 ON t1 GRANT TO ("bar@google.com") FILTER USING (region = "us")
+--
+ALTERNATION GROUP: access,grant,
+--
+CreateRowAccessPolicyStatement [0-84]
+  PathExpression [31-33]
+    Identifier(t1) [31-33]
+  GrantToClause [34-61]
+    GranteeList [44-60]
+      StringLiteral("bar@google.com") [44-60]
+  FilterUsingClause [61-84]
+    BinaryExpression(=) [70-83]
+      PathExpression [70-76]
+        Identifier(region) [70-76]
+      StringLiteral("us") [79-83]
+  PathExpression [25-27]
+    Identifier(p1) [25-27]
+--
+CREATE ROW ACCESS POLICY p1 ON t1 GRANT TO ("bar@google.com") USING (region = "us")
+--
+ALTERNATION GROUP: access,,filter
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got "(" [at 1:39]
+create row access policy p1 on t1  to ("bar@google.com") filter using (region...
+                                      ^
+--
+ALTERNATION GROUP: access,,
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got "(" [at 1:39]
+create row access policy p1 on t1  to ("bar@google.com")  using (region = "us");
+                                      ^
+--
+ALTERNATION GROUP: grant,filter
+--
+CreateRowAccessPolicyStatement [0-84]
+  PathExpression [25-27]
+    Identifier(t1) [25-27]
+  GrantToClause [28-55]
+    GranteeList [38-54]
+      StringLiteral("bar@google.com") [38-54]
+  FilterUsingClause [56-84]
+    BinaryExpression(=) [70-83]
+      PathExpression [70-76]
+        Identifier(region) [70-76]
+      StringLiteral("us") [79-83]
+  PathExpression [19-21]
+    Identifier(p1) [19-21]
+--
+CREATE ROW POLICY p1 ON t1 GRANT TO ("bar@google.com") FILTER USING (region = "us")
+--
+ALTERNATION GROUP: grant,
+--
+CreateRowAccessPolicyStatement [0-78]
+  PathExpression [25-27]
+    Identifier(t1) [25-27]
+  GrantToClause [28-55]
+    GranteeList [38-54]
+      StringLiteral("bar@google.com") [38-54]
+  FilterUsingClause [55-78]
+    BinaryExpression(=) [64-77]
+      PathExpression [64-70]
+        Identifier(region) [64-70]
+      StringLiteral("us") [73-77]
+  PathExpression [19-21]
+    Identifier(p1) [19-21]
+--
+CREATE ROW POLICY p1 ON t1 GRANT TO ("bar@google.com") USING (region = "us")
+--
+ALTERNATION GROUP: filter
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got "(" [at 1:33]
+create row  policy p1 on t1  to ("bar@google.com") filter using (region = "us");
+                                ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got "(" [at 1:33]
+create row  policy p1 on t1  to ("bar@google.com")  using (region = "us");
+                                ^

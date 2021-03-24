@@ -151,7 +151,7 @@ TEST(ConvertLocalErrorToScriptError, InvalidErrorLocation) {
   EXPECT_THAT(
       ConvertStatus(invalid_status, error_stmt_segment),
       AllOf(StatusIs(absl::StatusCode::kInternal,
-                     HasSubstr("Query had 2 lines but line 1 was requested")),
+                     HasSubstr("Query had 1 lines but line 2 was requested")),
             HasNoPayloadWithType<ErrorLocation>()));
 }
 

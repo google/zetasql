@@ -90,7 +90,9 @@ TEST(ResolvedColumnDefinitionTest, TestGetFullTypeParameters) {
   std::unique_ptr<const ResolvedColumnDefinition> resolved_column_definition =
       MakeResolvedColumnDefinition("test_column", struct_type,
                                    std::move(annotations),
-                                   /*is_hidden=*/false, resolved_column1, {});
+                                   /*is_hidden=*/false, resolved_column1,
+                                   /*generated_column_info=*/{},
+                                   /*default_expression=*/{});
 
   zetasql_base::StatusOr<TypeParameters> type_parameters_or_error =
       resolved_column_definition->GetFullTypeParameters();

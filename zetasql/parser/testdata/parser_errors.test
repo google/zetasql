@@ -1,0 +1,703 @@
+select ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:8]
+select ;
+       ^
+==
+
+sdfds
+--
+ERROR: Syntax error: Unexpected identifier "sdfds" [at 1:1]
+sdfds
+^
+==
+
+# Backquoted identifiers are not quoted again in the error message.
+`sdfds`
+--
+ERROR: Syntax error: Unexpected identifier `sdfds` [at 1:1]
+`sdfds`
+^
+==
+
+# Strings and bytes are not quoted again in the error message.
+[no_test_get_parse_tokens]
+{{r|b|rb}}'sdfd{{"|}}s'
+--
+ALTERNATION GROUP: r,"
+--
+ERROR: Syntax error: Unexpected string literal r'sdfd"s' [at 1:1]
+r'sdfd"s'
+^
+--
+ALTERNATION GROUP: r,
+--
+ERROR: Syntax error: Unexpected string literal r'sdfds' [at 1:1]
+r'sdfds'
+^
+--
+ALTERNATION GROUP: b,"
+--
+ERROR: Syntax error: Unexpected bytes literal b'sdfd"s' [at 1:1]
+b'sdfd"s'
+^
+--
+ALTERNATION GROUP: b,
+--
+ERROR: Syntax error: Unexpected bytes literal b'sdfds' [at 1:1]
+b'sdfds'
+^
+--
+ALTERNATION GROUP: rb,"
+--
+ERROR: Syntax error: Unexpected bytes literal rb'sdfd"s' [at 1:1]
+rb'sdfd"s'
+^
+--
+ALTERNATION GROUP: rb,
+--
+ERROR: Syntax error: Unexpected bytes literal rb'sdfds' [at 1:1]
+rb'sdfds'
+^
+==
+
+[no_test_get_parse_tokens]
+{{r|b|rb}}"sdfd{{'|}}s"
+--
+ALTERNATION GROUP: r,'
+--
+ERROR: Syntax error: Unexpected string literal r"sdfd's" [at 1:1]
+r"sdfd's"
+^
+--
+ALTERNATION GROUP: r,
+--
+ERROR: Syntax error: Unexpected string literal r"sdfds" [at 1:1]
+r"sdfds"
+^
+--
+ALTERNATION GROUP: b,'
+--
+ERROR: Syntax error: Unexpected bytes literal b"sdfd's" [at 1:1]
+b"sdfd's"
+^
+--
+ALTERNATION GROUP: b,
+--
+ERROR: Syntax error: Unexpected bytes literal b"sdfds" [at 1:1]
+b"sdfds"
+^
+--
+ALTERNATION GROUP: rb,'
+--
+ERROR: Syntax error: Unexpected bytes literal rb"sdfd's" [at 1:1]
+rb"sdfd's"
+^
+--
+ALTERNATION GROUP: rb,
+--
+ERROR: Syntax error: Unexpected bytes literal rb"sdfds" [at 1:1]
+rb"sdfds"
+^
+==
+
+[no_test_get_parse_tokens]
+{{r|b|rb}}"""sdfds
+
+foo
+
+bar"""
+--
+ALTERNATION GROUP: r
+--
+[NEWLINE \n]
+ERROR: Syntax error: Unexpected string literal r"""sdfds\n\nfoo\n\nbar""" [at 1:1]
+r"""sdfds
+^
+--
+[NEWLINE \r]
+ERROR: Syntax error: Unexpected string literal r"""sdfds\r\rfoo\r\rbar""" [at 1:1]
+r"""sdfds
+^
+--
+[NEWLINE \r\n]
+ERROR: Syntax error: Unexpected string literal r"""sdfds\r\n\r\nfoo\r\n\r\nbar""" [at 1:1]
+r"""sdfds
+^
+--
+ALTERNATION GROUP: b
+--
+[NEWLINE \n]
+ERROR: Syntax error: Unexpected bytes literal b"""sdfds\n\nfoo\n\nbar""" [at 1:1]
+b"""sdfds
+^
+--
+[NEWLINE \r]
+ERROR: Syntax error: Unexpected bytes literal b"""sdfds\r\rfoo\r\rbar""" [at 1:1]
+b"""sdfds
+^
+--
+[NEWLINE \r\n]
+ERROR: Syntax error: Unexpected bytes literal b"""sdfds\r\n\r\nfoo\r\n\r\nbar""" [at 1:1]
+b"""sdfds
+^
+--
+ALTERNATION GROUP: rb
+--
+[NEWLINE \n]
+ERROR: Syntax error: Unexpected bytes literal rb"""sdfds\n\nfoo\n\nbar""" [at 1:1]
+rb"""sdfds
+^
+--
+[NEWLINE \r]
+ERROR: Syntax error: Unexpected bytes literal rb"""sdfds\r\rfoo\r\rbar""" [at 1:1]
+rb"""sdfds
+^
+--
+[NEWLINE \r\n]
+ERROR: Syntax error: Unexpected bytes literal rb"""sdfds\r\n\r\nfoo\r\n\r\nbar""" [at 1:1]
+rb"""sdfds
+^
+==
+
+==
+
+[no_test_get_parse_tokens]
+{{r|b|rb}}'''sdfds
+
+foo
+
+bar'''
+--
+ALTERNATION GROUP: r
+--
+[NEWLINE \n]
+ERROR: Syntax error: Unexpected string literal r'''sdfds\n\nfoo\n\nbar''' [at 1:1]
+r'''sdfds
+^
+--
+[NEWLINE \r]
+ERROR: Syntax error: Unexpected string literal r'''sdfds\r\rfoo\r\rbar''' [at 1:1]
+r'''sdfds
+^
+--
+[NEWLINE \r\n]
+ERROR: Syntax error: Unexpected string literal r'''sdfds\r\n\r\nfoo\r\n\r\nbar''' [at 1:1]
+r'''sdfds
+^
+--
+ALTERNATION GROUP: b
+--
+[NEWLINE \n]
+ERROR: Syntax error: Unexpected bytes literal b'''sdfds\n\nfoo\n\nbar''' [at 1:1]
+b'''sdfds
+^
+--
+[NEWLINE \r]
+ERROR: Syntax error: Unexpected bytes literal b'''sdfds\r\rfoo\r\rbar''' [at 1:1]
+b'''sdfds
+^
+--
+[NEWLINE \r\n]
+ERROR: Syntax error: Unexpected bytes literal b'''sdfds\r\n\r\nfoo\r\n\r\nbar''' [at 1:1]
+b'''sdfds
+^
+--
+ALTERNATION GROUP: rb
+--
+[NEWLINE \n]
+ERROR: Syntax error: Unexpected bytes literal rb'''sdfds\n\nfoo\n\nbar''' [at 1:1]
+rb'''sdfds
+^
+--
+[NEWLINE \r]
+ERROR: Syntax error: Unexpected bytes literal rb'''sdfds\r\rfoo\r\rbar''' [at 1:1]
+rb'''sdfds
+^
+--
+[NEWLINE \r\n]
+ERROR: Syntax error: Unexpected bytes literal rb'''sdfds\r\n\r\nfoo\r\n\r\nbar''' [at 1:1]
+rb'''sdfds
+^
+==
+
+# Unexpected literal is a DATE literal. This just complains about the keyword.
+DATE '2016-12-18'
+--
+ERROR: Syntax error: Unexpected keyword DATE [at 1:1]
+DATE '2016-12-18'
+^
+==
+
+# Parse error can point at the first bad keyword, skipping initial comments.
+\-- abcdef
+\# ghijkl
+/* xyz */ xxx yyy;
+--
+ERROR: Syntax error: Unexpected identifier "xxx" [at 3:11]
+/* xyz */ xxx yyy;
+          ^
+==
+
+# "//" as line comments are not supported.
+// not supported
+select 1
+--
+ERROR: Syntax error: Unexpected "/" [at 1:1]
+// not supported
+^
+==
+
+# "//" as partial line comments are not supported.
+select 1 // one
+--
+ERROR: Syntax error: Unexpected "/" [at 1:11]
+select 1 // one
+          ^
+==
+
+slect 1 as d
+--
+ERROR: Syntax error: Unexpected identifier "slect" [at 1:1]
+slect 1 as d
+^
+==
+
+select 1 as
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:12]
+select 1 as
+           ^
+==
+
+select 1 as x from;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:19]
+select 1 as x from;
+                  ^
+==
+
+select `sadffds
+` as x;
+--
+ERROR: Syntax error: Unclosed identifier literal [at 1:8]
+select `sadffds
+       ^
+==
+
+select 'some char\xyy'
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \xyy [at 1:18]
+select 'some char\xyy'
+                 ^
+==
+
+select abcd\nefg;
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+select abcd\nefg;
+           ^
+==
+
+select ``;
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:8]
+select ``;
+       ^
+==
+
+select "bad_escape_in_identifier" as `\U12345678`;
+--
+ERROR: Syntax error: Illegal escape sequence: Value of \U12345678 exceeds Unicode limit (0x0010FFFF) [at 1:39]
+select "bad_escape_in_identifier" as `\U12345678`;
+                                      ^
+==
+
+select "bad_escape_in_identifier" as `\U12345`;
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U12345 [at 1:39]
+select "bad_escape_in_identifier" as `\U12345`;
+                                      ^
+==
+
+select "bad_escape_in_identifier" as `\U1234`;
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U1234 [at 1:39]
+select "bad_escape_in_identifier" as `\U1234`;
+                                      ^
+==
+
+select "bad_escape_in_identifier" as `\u123`
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u123 [at 1:39]
+select "bad_escape_in_identifier" as `\u123`
+                                      ^
+==
+
+select a from T1 join T2 ON x Using (Y);
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword USING [at 1:31]
+select a from T1 join T2 ON x Using (Y);
+                              ^
+==
+
+select a from T1 join T2 ON x ON Y;
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword ON [at 1:31]
+select a from T1 join T2 ON x ON Y;
+                              ^
+==
+
+select a from (T1 join T2 ON x Using (Y));
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword USING [at 1:32]
+select a from (T1 join T2 ON x Using (Y));
+                               ^
+==
+
+select a from (T1 join T2 ON x ON Y);
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword ON [at 1:32]
+select a from (T1 join T2 ON x ON Y);
+                               ^
+==
+
+select a from T1 left right join T2;
+--
+ERROR: Syntax error: Expected keyword JOIN but got keyword RIGHT [at 1:23]
+select a from T1 left right join T2;
+                      ^
+==
+
+select a from T1 join left T2
+--
+ERROR: Syntax error: Unexpected keyword LEFT [at 1:23]
+select a from T1 join left T2
+                      ^
+==
+
+select a from (T1);
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:18]
+select a from (T1);
+                 ^
+==
+
+select a from (T1, T2);
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 1:18]
+select a from (T1, T2);
+                 ^
+==
+
+select a from T3 JOIN (T1, T2);
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 1:26]
+select a from T3 JOIN (T1, T2);
+                         ^
+==
+
+select * FROM ((a join b));
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:26]
+select * FROM ((a join b));
+                         ^
+==
+
+select 123abc;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+select 123abc;
+          ^
+==
+
+select 123.456abc;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:15]
+select 123.456abc;
+              ^
+==
+
+select .e10;
+--
+ERROR: Syntax error: Unexpected "." [at 1:8]
+select .e10;
+       ^
+==
+
+select  1e
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+select  1e
+         ^
+==
+
+select  x from "a\\nb"
+--
+ERROR: Syntax error: Unexpected string literal "a\\nb" [at 1:16]
+select  x from "a\\nb"
+               ^
+==
+
+select x from abc group by
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:27]
+select x from abc group by
+                          ^
+==
+
+select cast(x 1);
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:15]
+select cast(x 1);
+              ^
+==
+
+select cast(x as timestamp(a));
+--
+ERROR: Syntax error: Unexpected identifier "a" [at 1:28]
+select cast(x as timestamp(a));
+                           ^
+==
+
+select cast(x as proto);
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:18]
+select cast(x as proto);
+                 ^
+==
+
+select cast(x as proto(a));
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:18]
+select cast(x as proto(a));
+                 ^
+==
+
+select cast(x as proto<a>);
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:18]
+select cast(x as proto<a>);
+                 ^
+==
+
+select cast(x as enum<a>);
+--
+ERROR: Syntax error: Unexpected keyword ENUM [at 1:18]
+select cast(x as enum<a>);
+                 ^
+==
+
+select cast(x as array<a);
+--
+ERROR: Syntax error: Expected ">" but got ")" [at 1:25]
+select cast(x as array<a);
+                        ^
+==
+
+select cast(x as prot<a.b>);
+--
+ERROR: Syntax error: Expected ")" but got "<" [at 1:22]
+select cast(x as prot<a.b>);
+                     ^
+==
+
+select cast(x, int32);
+--
+ERROR: Syntax error: Unexpected "," [at 1:14]
+select cast(x, int32);
+             ^
+==
+
+# This case crashes without the STOP_ON_FIRST_ERROR option.
+select f(x + )
+--
+ERROR: Syntax error: Unexpected ")" [at 1:14]
+select f(x + )
+             ^
+==
+
+select count(*+1) from KeyValue
+--
+ERROR: Syntax error: Expected ")" but got "+" [at 1:15]
+select count(*+1) from KeyValue
+              ^
+==
+
+select count(1, *);
+--
+ERROR: Syntax error: Unexpected "*" [at 1:17]
+select count(1, *);
+                ^
+==
+
+select count(T.*);
+--
+ERROR: Syntax error: Expected ")" but got "." [at 1:15]
+select count(T.*);
+              ^
+==
+
+select count(1, T.*);
+--
+ERROR: Syntax error: Expected ")" but got "." [at 1:18]
+select count(1, T.*);
+                 ^
+==
+
+select array_concat([1, 2], *);
+--
+ERROR: Syntax error: Unexpected "*" [at 1:29]
+select array_concat([1, 2], *);
+                            ^
+==
+
+select * || [1, 2];
+--
+ERROR: Syntax error: Expected end of input but got "||" [at 1:10]
+select * || [1, 2];
+         ^
+==
+
+select a || *;
+--
+ERROR: Syntax error: Unexpected "*" [at 1:13]
+select a || *;
+            ^
+==
+
+# Empty string as input.
+[strip_trailing_newline]
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:1]
+
+^
+==
+
+# Empty statement - just comments.
+/* comment */
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:14]
+/* comment */
+             ^
+==
+
+# Empty statement - just whitespace.
+  
+
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:1]
+
+^
+==
+
+# Empty statement - just comments and whitespace, with a semicolon.
+/* comment */  ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:16]
+/* comment */  ;
+               ^
+==
+
+# Multiple trailing commas before the FROM clause
+select x,, from t;
+--
+ERROR: Syntax error: Expected end of input but got "," [at 1:10]
+select x,, from t;
+         ^
+==
+
+# Empty SELECT clause
+select from t;
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:8]
+select from t;
+       ^
+==
+
+# Empty SELECT with trailing comma without FROM
+select ,
+--
+ERROR: Syntax error: Unexpected "," [at 1:8]
+select ,
+       ^
+==
+
+# Empty SELECT clause with trailing comma
+select , from t;
+--
+ERROR: Syntax error: Unexpected "," [at 1:8]
+select , from t;
+       ^
+==
+
+select fn({{distinct|}} a)({{distinct|}} b);
+--
+ALTERNATION GROUP: distinct,distinct
+--
+ERROR: Syntax error: Double function call parentheses [at 1:22]
+select fn(distinct a)(distinct b);
+                     ^
+--
+ALTERNATION GROUP: distinct,
+--
+ERROR: Syntax error: Double function call parentheses [at 1:22]
+select fn(distinct a)( b);
+                     ^
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: Syntax error: Double function call parentheses [at 1:14]
+select fn( a)(distinct b);
+             ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Double function call parentheses [at 1:14]
+select fn( a)( b);
+             ^
+==
+
+select (a+b)({{distinct|}} a)
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 1:13]
+select (a+b)(distinct a)
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 1:13]
+select (a+b)( a)
+            ^
+==
+
+select NULL({{distinct|}} a)
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 1:12]
+select NULL(distinct a)
+           ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 1:12]
+select NULL( a)
+           ^
+==
+
+select @param({{distinct|}} a)
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 1:14]
+select @param(distinct a)
+             ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 1:14]
+select @param( a)
+             ^

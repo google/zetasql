@@ -1,0 +1,924 @@
+select abc from T
+UNION ALL
+select 5
+UNION ALL
+select null from T2
+--
+QueryStatement [0-66]
+  Query [0-66]
+    SetOperation(UNION ALL) [0-66]
+      Select [0-17]
+        SelectList [7-10]
+          SelectColumn [7-10]
+            PathExpression [7-10]
+              Identifier(abc) [7-10]
+        FromClause [11-17]
+          TablePathExpression [16-17]
+            PathExpression [16-17]
+              Identifier(T) [16-17]
+      Select [28-36]
+        SelectList [35-36]
+          SelectColumn [35-36]
+            IntLiteral(5) [35-36]
+      Select [47-66]
+        SelectList [54-58]
+          SelectColumn [54-58]
+            NullLiteral(null) [54-58]
+        FromClause [59-66]
+          TablePathExpression [64-66]
+            PathExpression [64-66]
+              Identifier(T2) [64-66]
+--
+SELECT
+  abc
+FROM
+  T
+UNION ALL
+SELECT
+  5
+UNION ALL
+SELECT
+  null
+FROM
+  T2
+==
+
+# UNION in a table subquery
+select 1
+from (select 2 UNION ALL select 3)
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+      FromClause [9-43]
+        TableSubquery [14-43]
+          Query [15-42]
+            SetOperation(UNION ALL) [15-42]
+              Select [15-23]
+                SelectList [22-23]
+                  SelectColumn [22-23]
+                    IntLiteral(2) [22-23]
+              Select [34-42]
+                SelectList [41-42]
+                  SelectColumn [41-42]
+                    IntLiteral(3) [41-42]
+--
+SELECT
+  1
+FROM
+  (
+    SELECT
+      2
+    UNION ALL
+    SELECT
+      3
+  )
+==
+
+select 1
+UNION DISTINCT
+select 2
+--
+QueryStatement [0-32]
+  Query [0-32]
+    SetOperation(UNION DISTINCT) [0-32]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [24-32]
+        SelectList [31-32]
+          SelectColumn [31-32]
+            IntLiteral(2) [31-32]
+--
+SELECT
+  1
+UNION DISTINCT
+SELECT
+  2
+==
+
+# UNION without ALL or DISTINCT not supported. TODO: Better error.
+select 1
+UNION
+select 2
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword SELECT [at 3:1]
+select 2
+^
+==
+
+select 1
+EXCEPT ALL
+select 2
+--
+QueryStatement [0-28]
+  Query [0-28]
+    SetOperation(EXCEPT ALL) [0-28]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [20-28]
+        SelectList [27-28]
+          SelectColumn [27-28]
+            IntLiteral(2) [27-28]
+--
+SELECT
+  1
+EXCEPT ALL
+SELECT
+  2
+==
+
+select 1
+EXCEPT DISTINCT
+select 2
+--
+QueryStatement [0-33]
+  Query [0-33]
+    SetOperation(EXCEPT DISTINCT) [0-33]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [25-33]
+        SelectList [32-33]
+          SelectColumn [32-33]
+            IntLiteral(2) [32-33]
+--
+SELECT
+  1
+EXCEPT DISTINCT
+SELECT
+  2
+==
+
+# EXCEPT without ALL or DISTINCT not supported.
+select 1
+EXCEPT
+select 2
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 2:1]
+EXCEPT
+^
+==
+
+# EXCEPT with other garbage after gives the same error.
+SELECT * FROM Table
+EXCEPT
+{{Garbage|5|'abc'|FROM|;|+}}
+--
+ERROR: EXCEPT must be followed by ALL, DISTINCT, or "(" [at 2:1]
+EXCEPT
+^
+==
+
+select 1
+INTERSECT ALL
+select 2
+--
+QueryStatement [0-31]
+  Query [0-31]
+    SetOperation(INTERSECT ALL) [0-31]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [23-31]
+        SelectList [30-31]
+          SelectColumn [30-31]
+            IntLiteral(2) [30-31]
+--
+SELECT
+  1
+INTERSECT ALL
+SELECT
+  2
+==
+
+select 1
+INTERSECT DISTINCT
+select 2
+--
+QueryStatement [0-36]
+  Query [0-36]
+    SetOperation(INTERSECT DISTINCT) [0-36]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [28-36]
+        SelectList [35-36]
+          SelectColumn [35-36]
+            IntLiteral(2) [35-36]
+--
+SELECT
+  1
+INTERSECT DISTINCT
+SELECT
+  2
+==
+
+# INTERSECT without ALL or DISTINCT not supported.
+select 1
+INTERSECT
+select 2
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword SELECT [at 3:1]
+select 2
+^
+==
+
+select 1
+UNION DISTINCT
+select 2
+UNION DISTINCT
+select 1
+--
+QueryStatement [0-56]
+  Query [0-56]
+    SetOperation(UNION DISTINCT) [0-56]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [24-32]
+        SelectList [31-32]
+          SelectColumn [31-32]
+            IntLiteral(2) [31-32]
+      Select [48-56]
+        SelectList [55-56]
+          SelectColumn [55-56]
+            IntLiteral(1) [55-56]
+--
+SELECT
+  1
+UNION DISTINCT
+SELECT
+  2
+UNION DISTINCT
+SELECT
+  1
+==
+
+select 1
+EXCEPT ALL
+select 2
+EXCEPT ALL
+select 3
+--
+QueryStatement [0-48]
+  Query [0-48]
+    SetOperation(EXCEPT ALL) [0-48]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [20-28]
+        SelectList [27-28]
+          SelectColumn [27-28]
+            IntLiteral(2) [27-28]
+      Select [40-48]
+        SelectList [47-48]
+          SelectColumn [47-48]
+            IntLiteral(3) [47-48]
+--
+SELECT
+  1
+EXCEPT ALL
+SELECT
+  2
+EXCEPT ALL
+SELECT
+  3
+==
+
+select 1
+EXCEPT DISTINCT
+select 2
+EXCEPT DISTINCT
+select 1
+--
+QueryStatement [0-58]
+  Query [0-58]
+    SetOperation(EXCEPT DISTINCT) [0-58]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [25-33]
+        SelectList [32-33]
+          SelectColumn [32-33]
+            IntLiteral(2) [32-33]
+      Select [50-58]
+        SelectList [57-58]
+          SelectColumn [57-58]
+            IntLiteral(1) [57-58]
+--
+SELECT
+  1
+EXCEPT DISTINCT
+SELECT
+  2
+EXCEPT DISTINCT
+SELECT
+  1
+==
+
+select 1
+INTERSECT ALL
+select 2
+INTERSECT ALL
+select 3
+--
+QueryStatement [0-54]
+  Query [0-54]
+    SetOperation(INTERSECT ALL) [0-54]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [23-31]
+        SelectList [30-31]
+          SelectColumn [30-31]
+            IntLiteral(2) [30-31]
+      Select [46-54]
+        SelectList [53-54]
+          SelectColumn [53-54]
+            IntLiteral(3) [53-54]
+--
+SELECT
+  1
+INTERSECT ALL
+SELECT
+  2
+INTERSECT ALL
+SELECT
+  3
+==
+
+select 1
+INTERSECT DISTINCT
+select 2
+INTERSECT DISTINCT
+select 3
+--
+QueryStatement [0-64]
+  Query [0-64]
+    SetOperation(INTERSECT DISTINCT) [0-64]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [28-36]
+        SelectList [35-36]
+          SelectColumn [35-36]
+            IntLiteral(2) [35-36]
+      Select [56-64]
+        SelectList [63-64]
+          SelectColumn [63-64]
+            IntLiteral(3) [63-64]
+--
+SELECT
+  1
+INTERSECT DISTINCT
+SELECT
+  2
+INTERSECT DISTINCT
+SELECT
+  3
+==
+
+# Multiple set operations of {UNION, EXCEPT} {ALL, DISTINCT} type in a single
+# query statement is not supported.
+select 1
+UNION ALL
+select 2
+UNION DISTINCT
+select 4
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+UNION DISTINCT
+^
+==
+
+select 1
+UNION ALL
+select 2
+UNION
+select 3
+--
+ERROR: Syntax error: Expected keyword ALL or keyword DISTINCT but got keyword SELECT [at 5:1]
+select 3
+^
+==
+
+select 1
+UNION ALL
+select 2
+EXCEPT ALL
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+EXCEPT ALL
+^
+==
+
+# Use paranthesis to make multiple set operations work in a single query.
+select 1
+UNION ALL
+(select 2 EXCEPT ALL select 3)
+--
+QueryStatement [0-49]
+  Query [0-49]
+    SetOperation(UNION ALL) [0-49]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Query [20-48]
+        SetOperation(EXCEPT ALL) [20-48]
+          Select [20-28]
+            SelectList [27-28]
+              SelectColumn [27-28]
+                IntLiteral(2) [27-28]
+          Select [40-48]
+            SelectList [47-48]
+              SelectColumn [47-48]
+                IntLiteral(3) [47-48]
+--
+SELECT
+  1
+UNION ALL(
+SELECT
+  2
+EXCEPT ALL
+SELECT
+  3
+)
+==
+
+# Multiple set operations of INTERSECT {ALL, DISTINCT} types in a single query
+# statement is not supported.
+select 1
+INTERSECT ALL
+select 2
+INTERSECT DISTINCT
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+INTERSECT DISTINCT
+^
+==
+
+select 1
+INTERSECT ALL
+select 2
+UNION DISTINCT
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+UNION DISTINCT
+^
+==
+
+select 1
+INTERSECT ALL
+(select 2 INTERSECT DISTINCT select 3)
+--
+QueryStatement [0-61]
+  Query [0-61]
+    SetOperation(INTERSECT ALL) [0-61]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Query [24-60]
+        SetOperation(INTERSECT DISTINCT) [24-60]
+          Select [24-32]
+            SelectList [31-32]
+              SelectColumn [31-32]
+                IntLiteral(2) [31-32]
+          Select [52-60]
+            SelectList [59-60]
+              SelectColumn [59-60]
+                IntLiteral(3) [59-60]
+--
+SELECT
+  1
+INTERSECT ALL(
+SELECT
+  2
+INTERSECT DISTINCT
+SELECT
+  3
+)
+==
+
+# No precedence for INTERSECT over UNION/EXCEPT.
+select 1
+UNION ALL
+select 2
+INTERSECT ALL
+select 3
+UNION ALL
+select 4
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+INTERSECT ALL
+^
+==
+
+select 1
+EXCEPT ALL
+select 2
+INTERSECT ALL
+select 3
+EXCEPT ALL
+select 4
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+INTERSECT ALL
+^
+==
+
+# Both UNION and EXCEPT operations in a single query statement not supported.
+select 1
+UNION ALL
+select 2
+EXCEPT ALL
+select 3
+--
+ERROR: Syntax error: Different set operations cannot be used in the same query without using parentheses for grouping [at 4:1]
+EXCEPT ALL
+^
+==
+
+select 1
+UNION ALL
+(select 2
+ INTERSECT ALL
+ (select 3 EXCEPT ALL select 4))
+--
+QueryStatement [0-76]
+  Query [0-76]
+    SetOperation(UNION ALL) [0-76]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Query [20-75]
+        SetOperation(INTERSECT ALL) [20-75]
+          Select [20-28]
+            SelectList [27-28]
+              SelectColumn [27-28]
+                IntLiteral(2) [27-28]
+          Query [46-74]
+            SetOperation(EXCEPT ALL) [46-74]
+              Select [46-54]
+                SelectList [53-54]
+                  SelectColumn [53-54]
+                    IntLiteral(3) [53-54]
+              Select [66-74]
+                SelectList [73-74]
+                  SelectColumn [73-74]
+                    IntLiteral(4) [73-74]
+--
+SELECT
+  1
+UNION ALL(
+SELECT
+  2
+INTERSECT ALL(
+SELECT
+  3
+EXCEPT ALL
+SELECT
+  4
+))
+==
+
+# 2 children and 1 simple hint (UNION ALL)
+# The extra whitespace below is intentional.
+select 1
+UNION  @{ key = 5 } ALL
+select 2
+--
+QueryStatement [0-41]
+  Query [0-41]
+    SetOperation(UNION ALL) [0-41]
+      Hint [16-28]
+        HintEntry [19-26]
+          Identifier(key) [19-22]
+          IntLiteral(5) [25-26]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [33-41]
+        SelectList [40-41]
+          SelectColumn [40-41]
+            IntLiteral(2) [40-41]
+--
+SELECT
+  1
+UNION @{ key = 5 } ALL
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (INTERSECT ALL)
+# The extra whitespace below is intentional.
+select 1
+INTERSECT  @{ key = 5 } ALL
+select 2
+--
+QueryStatement [0-45]
+  Query [0-45]
+    SetOperation(INTERSECT ALL) [0-45]
+      Hint [20-32]
+        HintEntry [23-30]
+          Identifier(key) [23-26]
+          IntLiteral(5) [29-30]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [37-45]
+        SelectList [44-45]
+          SelectColumn [44-45]
+            IntLiteral(2) [44-45]
+--
+SELECT
+  1
+INTERSECT @{ key = 5 } ALL
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (EXCEPT ALL)
+# The extra whitespace below is intentional.
+select 1
+EXCEPT  @{ key = 5 } ALL
+select 2
+--
+QueryStatement [0-42]
+  Query [0-42]
+    SetOperation(EXCEPT ALL) [0-42]
+      Hint [17-29]
+        HintEntry [20-27]
+          Identifier(key) [20-23]
+          IntLiteral(5) [26-27]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [34-42]
+        SelectList [41-42]
+          SelectColumn [41-42]
+            IntLiteral(2) [41-42]
+--
+SELECT
+  1
+EXCEPT @{ key = 5 } ALL
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (UNION DISTINCT)
+# The extra whitespace below is intentional.
+select 1
+UNION  @{ key = 5 } DISTINCT
+select 2
+--
+QueryStatement [0-46]
+  Query [0-46]
+    SetOperation(UNION DISTINCT) [0-46]
+      Hint [16-28]
+        HintEntry [19-26]
+          Identifier(key) [19-22]
+          IntLiteral(5) [25-26]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [38-46]
+        SelectList [45-46]
+          SelectColumn [45-46]
+            IntLiteral(2) [45-46]
+--
+SELECT
+  1
+UNION @{ key = 5 } DISTINCT
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (INTERSECT DISTINCT)
+select 1
+INTERSECT @{ key = 5 } DISTINCT
+select 2
+--
+QueryStatement [0-49]
+  Query [0-49]
+    SetOperation(INTERSECT DISTINCT) [0-49]
+      Hint [19-31]
+        HintEntry [22-29]
+          Identifier(key) [22-25]
+          IntLiteral(5) [28-29]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [41-49]
+        SelectList [48-49]
+          SelectColumn [48-49]
+            IntLiteral(2) [48-49]
+--
+SELECT
+  1
+INTERSECT @{ key = 5 } DISTINCT
+SELECT
+  2
+==
+
+# 2 children and 1 simple hint (EXCEPT DISTINCT)
+# The extra whitespace below is intentional.
+select 1
+EXCEPT  @{ key = 5 } DISTINCT
+select 2
+--
+QueryStatement [0-47]
+  Query [0-47]
+    SetOperation(EXCEPT DISTINCT) [0-47]
+      Hint [17-29]
+        HintEntry [20-27]
+          Identifier(key) [20-23]
+          IntLiteral(5) [26-27]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [39-47]
+        SelectList [46-47]
+          SelectColumn [46-47]
+            IntLiteral(2) [46-47]
+--
+SELECT
+  1
+EXCEPT @{ key = 5 } DISTINCT
+SELECT
+  2
+==
+
+# 3 children and 1 simple hint
+select 1
+UNION @{ key = 5 } ALL
+select 2
+UNION ALL
+select 3
+--
+QueryStatement [0-59]
+  Query [0-59]
+    SetOperation(UNION ALL) [0-59]
+      Hint [15-27]
+        HintEntry [18-25]
+          Identifier(key) [18-21]
+          IntLiteral(5) [24-25]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(1) [7-8]
+      Select [32-40]
+        SelectList [39-40]
+          SelectColumn [39-40]
+            IntLiteral(2) [39-40]
+      Select [51-59]
+        SelectList [58-59]
+          SelectColumn [58-59]
+            IntLiteral(3) [58-59]
+--
+SELECT
+  1
+UNION @{ key = 5 } ALL
+SELECT
+  2
+UNION ALL
+SELECT
+  3
+==
+
+# Error: 3 children and 2 simple hints
+select 1
+UNION @{ key = 3 } ALL
+select 2
+UNION @{ key = 5 } ALL
+select 3
+--
+ERROR: Syntax error: Hints on set operations must appear on the first  operation. [at 4:7]
+UNION @{ key = 5 } ALL
+      ^
+==
+
+# Error: 3 children and 1 simple hint in the wrong location
+select 1
+UNION ALL
+select 2
+UNION @{ key = 5 } ALL
+select 3
+--
+ERROR: Syntax error: Hints on set operations must appear on the first  operation. [at 4:7]
+UNION @{ key = 5 } ALL
+      ^
+==
+
+# More than one hint but in the proper location (expanding from left)
+(select 1
+  UNION @{ key = 1 } ALL
+  select 2)
+UNION @{ key = 2 } ALL
+select 3
+--
+QueryStatement [0-78]
+  Query [0-78]
+    SetOperation(UNION ALL) [0-78]
+      Hint [53-65]
+        HintEntry [56-63]
+          Identifier(key) [56-59]
+          IntLiteral(2) [62-63]
+      Query [1-45]
+        SetOperation(UNION ALL) [1-45]
+          Hint [18-30]
+            HintEntry [21-28]
+              Identifier(key) [21-24]
+              IntLiteral(1) [27-28]
+          Select [1-9]
+            SelectList [8-9]
+              SelectColumn [8-9]
+                IntLiteral(1) [8-9]
+          Select [37-45]
+            SelectList [44-45]
+              SelectColumn [44-45]
+                IntLiteral(2) [44-45]
+      Select [70-78]
+        SelectList [77-78]
+          SelectColumn [77-78]
+            IntLiteral(3) [77-78]
+--
+(
+SELECT
+  1
+UNION @{ key = 1 } ALL
+SELECT
+  2
+) UNION @{ key = 2 } ALL
+SELECT
+  3
+==
+
+# More than one hint but in the proper location (expanding from right)
+select 3
+UNION @{ key = 2 } ALL
+  (select 1
+  UNION @{ key = 1 } ALL
+  select 2)
+--
+QueryStatement [0-80]
+  Query [0-80]
+    SetOperation(UNION ALL) [0-80]
+      Hint [15-27]
+        HintEntry [18-25]
+          Identifier(key) [18-21]
+          IntLiteral(2) [24-25]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            IntLiteral(3) [7-8]
+      Query [35-79]
+        SetOperation(UNION ALL) [35-79]
+          Hint [52-64]
+            HintEntry [55-62]
+              Identifier(key) [55-58]
+              IntLiteral(1) [61-62]
+          Select [35-43]
+            SelectList [42-43]
+              SelectColumn [42-43]
+                IntLiteral(1) [42-43]
+          Select [71-79]
+            SelectList [78-79]
+              SelectColumn [78-79]
+                IntLiteral(2) [78-79]
+--
+SELECT
+  3
+UNION @{ key = 2 } ALL(
+SELECT
+  1
+UNION @{ key = 1 } ALL
+SELECT
+  2
+)

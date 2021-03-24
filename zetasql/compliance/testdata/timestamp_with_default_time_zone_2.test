@@ -14,7 +14,7 @@
 [load_enum_names=zetasql_test.TestEnum]
 
 [prepare_database]
-CREATE TABLE Table1 AS
+CREATE TABLE TsTable1 AS
 SELECT timestamp '2014-12-01 00:00:00+00' as timestamp_val
 --
 ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 00:00:00+00}]
@@ -76,7 +76,7 @@ ARRAY<STRUCT<TIMESTAMP>>[{2014-11-30 10:15:00+00}]
 
 [name=timestamp_type_2]
 SELECT timestamp_val
-FROM Table1
+FROM TsTable1
 --
 ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 00:00:00+00}]
 ==

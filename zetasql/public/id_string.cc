@@ -16,6 +16,8 @@
 
 #include "zetasql/public/id_string.h"
 
+#include <cstdint>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/base/case.h"
 #include "absl/synchronization/mutex.h"
@@ -73,7 +75,8 @@ IdStringPool::~IdStringPool() {
 #ifndef NDEBUG
 int64_t IdStringPool::AllocatePoolId() {
   absl::MutexLock l(&global_mutex_);
-  if (live_pool_ids_ == nullptr) live_pool_ids_ = new std::unordered_set<int64_t>;
+  if (live_pool_ids_ == nullptr)
+    live_pool_ids_ = new std::unordered_set<int64_t>;
   int64_t pool_id = ++max_pool_id_;
   zetasql_base::InsertOrDie(live_pool_ids_, pool_id);
   return pool_id;

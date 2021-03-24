@@ -16,14 +16,18 @@
 
 #include "zetasql/public/collator.h"
 
+#include <cstdint>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
+#include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 
 namespace zetasql {
-
+using ::zetasql_base::testing::StatusIs;
 enum class CompareType {
   kCompare
 };
@@ -59,9 +63,9 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
   }
 };
 
-TEST_P(CollatorTest, CreateCollator) {
+TEST_P(CollatorTest, CreateCollatorDeprecated) {
   std::unique_ptr<const ZetaSqlCollator> collator;
-  static const std::string valid_collation_names[] = {
+  const std::vector<std::string> valid_collation_names = {
       "unicode", "en", "zh-cmn", "en_US", "zh_Hans_HK", "zh_Hant_HK",
       "de@collation=phonebook",
       // Collation names are case insensitive.
@@ -72,17 +76,29 @@ TEST_P(CollatorTest, CreateCollator) {
     collator.reset(ZetaSqlCollator::CreateFromCollationName(name));
     EXPECT_NE(nullptr, collator.get()) << "name=" << name;
   }
+}
 
-  static const std::string invalid_collation_name[] = {
-      "",
-      // Note, it is not really desired that this difference exists, but it is
-      // not clear how to replicate this using solely icu.  We err on the side
-      // of being more permissive in zetasql.
-      "en:ai", "en:ci:cs"};
-  for (const std::string& name : invalid_collation_name) {
-    collator.reset(ZetaSqlCollator::CreateFromCollationName(name));
-    EXPECT_EQ(nullptr, collator.get()) << "name=" << name;
+TEST_P(CollatorTest, MakeSqlCollator) {
+  const std::vector<std::string> valid_collation_names = {
+      "unicode", "en", "zh-cmn", "en_US", "zh_Hans_HK", "zh_Hant_HK",
+      "de@collation=phonebook",
+      // Collation names are case insensitive.
+      "EN", "EN_us",
+      // Collation names with attributes.
+      "en:ci", "en_us:cs", "zh_Hans_HK:ci"};
+  for (const std::string& name : valid_collation_names) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                         MakeSqlCollator(name));
+    EXPECT_NE(nullptr, collator.get()) << "name=" << name;
   }
+}
+
+TEST_P(CollatorTest, MakeSqlCollatorErrors) {
+  EXPECT_THAT(MakeSqlCollator(":cs"), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(MakeSqlCollator("en_US:nonsense_case"),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(MakeSqlCollator("en_US:cs:extra_attr"),
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST_P(CollatorTest, Comparison) {
@@ -90,7 +106,7 @@ TEST_P(CollatorTest, Comparison) {
 
   // Comparison with "unicode" collation. Is same as the comparison with no
   // collation.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("unicode"));
+  collator = MakeSqlCollator("unicode").value();
   ASSERT_NE(collator.get(), nullptr);
   TestEquals("\u205abc", "\u205abc", collator.get());
   TestLessThan("", "a", collator.get());
@@ -100,7 +116,7 @@ TEST_P(CollatorTest, Comparison) {
   TestLessThan("Case sensitive", "case sensitive", collator.get());
 
   // Comparison with "unicode:ci" collation.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("unicode:ci"));
+  collator = MakeSqlCollator("unicode:ci").value();
   ASSERT_NE(collator.get(), nullptr);
   TestLessThan("@", "a", collator.get());
   TestEquals("Case sensitive", "case sensitive", collator.get());
@@ -110,7 +126,7 @@ TEST_P(CollatorTest, Comparison) {
              collator.get());
 
   // Comparison with "unicode:cs" collation.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("unicode:cs"));
+  collator = MakeSqlCollator("unicode:cs").value();
   ASSERT_NE(collator.get(), nullptr);
   TestLessThan("Case sensitive", "case sensitive", collator.get());
   // Greek.
@@ -119,7 +135,7 @@ TEST_P(CollatorTest, Comparison) {
                collator.get());
 
   // Comparison with "en_US" collation.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("en_US"));
+  collator = MakeSqlCollator("en_US").value();
   ASSERT_NE(nullptr, collator.get());
   TestEquals("hello", "hello", collator.get());
   TestLessThan("", "a", collator.get());
@@ -129,35 +145,35 @@ TEST_P(CollatorTest, Comparison) {
   TestLessThan("case sensitive", "Case sensitive", collator.get());
 
   // Comparison with "en_US:ci" collation.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("en_US:ci"));
+  collator = MakeSqlCollator("en_US:ci").value();
   ASSERT_NE(collator.get(), nullptr);
   TestEquals("case sensitive", "Case sensitive", collator.get());
 
   // Comparison with "en_US:cs" collation.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("en_US:cs"));
+  collator = MakeSqlCollator("en_US:cs").value();
   ASSERT_NE(collator.get(), nullptr);
   TestLessThan("case sensitive", "Case sensitive", collator.get());
 
   // Comparison with "cs" collation. cs is Czech. In Czech "ch" is considered
   // as a single character and comes after h.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("cs"));
+  collator = MakeSqlCollator("cs").value();
   ASSERT_NE(nullptr, collator.get());
   TestLessThan("h", "ch", collator.get());
   TestLessThan("ci", "h", collator.get());
   TestLessThan("ci", "ch", collator.get());
 
   // Comparison with "de:ci" collation. de is German.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("de:ci"));
+  collator = MakeSqlCollator("de:ci").value();
   ASSERT_NE(collator.get(), nullptr);
   TestEquals("Ä", "ä", collator.get());
 
   // Comparison with "de:cs" collation. de is German.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("de:cs"));
+  collator = MakeSqlCollator("de:cs").value();
   ASSERT_NE(collator.get(), nullptr);
   TestLessThan("ä", "Ä", collator.get());
 
   // Very long string.
-  collator.reset(ZetaSqlCollator::CreateFromCollationName("en_US"));
+  collator = MakeSqlCollator("en_US").value();
   for (int32_t length = 100; length < 10000; ++length) {
     TestEquals(std::string(length, 'a'), std::string(length, 'a'),
                collator.get());

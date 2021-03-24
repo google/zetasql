@@ -19,11 +19,10 @@
 //
 // The tool uses the global proto db to lookup proto descriptors based on their
 // names. For an example of how to use this tool with a custom proto db, see
-// :run_execute_query. Note that not all protos are in the global proto db.
+// :execute_query_test. Note that not all protos are in the global proto db.
 
 #include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
 #include "zetasql/public/simple_catalog.h"
@@ -42,8 +41,7 @@ namespace zetasql {
 
 zetasql_base::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
     absl::string_view table_name, absl::string_view path) {
-  riegeli::CsvReader<riegeli::FdReader<>> csv_reader(
-      std::forward_as_tuple(path, O_RDONLY));
+  riegeli::CsvReader csv_reader(riegeli::FdReader(path, O_RDONLY));
 
   std::vector<std::string> record;
   if (!csv_reader.ReadRecord(record)) {

@@ -454,16 +454,36 @@ class Type {
   // generated using Type::ShortTypeName(<mode>).
   static std::string TypeListToString(TypeListView types, ProductMode mode);
 
+  ABSL_DEPRECATED(
+      "Use ResolveBuiltinTypeNameToKindIfSimple(type_name, mode) instead")
   // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
   // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
   // 'type_name' is case-insensitive.
   static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
                                       ProductMode mode);
+  ABSL_DEPRECATED(
+      "Use ResolveBuiltinTypeNameToKindIfSimple(type_name, language_options) "
+      "instead")
   // Returns the type kind if 'type_name' is a simple type given
   // 'language_options', or TYPE_UNKNOWN otherwise.
   // 'type_name' is case-insensitive.
   static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
                                       const LanguageOptions& language_options);
+
+  // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
+  // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
+  // 'type_name' is case-insensitive. Note that we return a simple type only if
+  // 'type_name' is its builtin type name rather than an engine-defined alias
+  // name for the type.
+  static TypeKind ResolveBuiltinTypeNameToKindIfSimple(
+      absl::string_view type_name, ProductMode mode);
+  // Returns the type kind if 'type_name' is a simple type given
+  // 'language_options', or TYPE_UNKNOWN otherwise.
+  // 'type_name' is case-insensitive. Note that we return a simple type only if
+  // 'type_name' is its builtin type name rather than an engine-defined alias
+  // name for the type.
+  static TypeKind ResolveBuiltinTypeNameToKindIfSimple(
+      absl::string_view type_name, const LanguageOptions& language_options);
 
   // Functions below this line are for internal use only.
 
@@ -493,14 +513,19 @@ class Type {
   // TypeParameters class unless overridden. TypeParameters are resolved based
   // on the input type and validated literals.
   //
-  // <resolved_type_parameters> is the intermediate representation of type
+  // <type_parameters_values> is the intermediate representation of type
   // parameters as a vector of resolved TypeParameterValues.
   // The output <TypeParameters> class is the final representation
   // of type parameters in the ResolvedAST, storing the resolved type parameters
   // as a TypeParametersProto.
   virtual zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
-      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const;
+
+  // Validates resolved type parameters, used in validator.cc. Errors are
+  // returned as internal errors and are not intended to be user-visible.
+  virtual absl::Status ValidateResolvedTypeParameters(
+      const TypeParameters& type_parameters, ProductMode mode) const;
 
   // Controls for the building of the FileDescriptorSetMap.
   struct BuildFileDescriptorSetMapOptions {

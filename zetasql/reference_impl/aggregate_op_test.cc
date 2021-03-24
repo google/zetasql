@@ -16,6 +16,7 @@
 
 // Tests of aggregate function code.
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>

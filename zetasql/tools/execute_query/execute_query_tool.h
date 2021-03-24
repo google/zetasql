@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 
+#include "google/protobuf/descriptor_database.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/proto_type.h"
@@ -84,11 +85,26 @@ class ExecuteQueryConfig {
     examine_resolved_ast_callback_ = std::move(callback);
   }
 
+  // Set the google::protobuf::DescriptorPool to use when resolving types.
+  // The DescriptorPool can only be set once and cannot be changed.
+  void SetDescriptorPool(const google::protobuf::DescriptorPool* pool);
+  void SetOwnedDescriptorPool(
+      std::unique_ptr<const google::protobuf::DescriptorPool> pool);
+  void SetOwnedDescriptorDatabase(
+      std::unique_ptr<google::protobuf::DescriptorDatabase> db);
+
+  const google::protobuf::DescriptorPool* descriptor_pool() const {
+    return descriptor_pool_;
+  }
+
  private:
   ExamineResolvedASTCallback examine_resolved_ast_callback_ = nullptr;
   ToolMode tool_mode_ = ToolMode::kExecute;
   AnalyzerOptions analyzer_options_;
   SimpleCatalog catalog_;
+  const google::protobuf::DescriptorPool* descriptor_pool_ = nullptr;
+  std::unique_ptr<const google::protobuf::DescriptorPool> owned_descriptor_pool_;
+  std::unique_ptr<google::protobuf::DescriptorDatabase> descriptor_db_;
 };
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);
@@ -100,16 +116,14 @@ zetasql_base::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
 
 absl::Status AddTablesFromFlags(ExecuteQueryConfig& config);
 
+zetasql_base::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
+    const ExecuteQueryConfig& config, std::ostream& output);
+
 // Execute the query according to `config`. `config` is logically const, but due
 // to ZetaSQL calling conventions related to Catalog objects, must be
 // non-const.
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           ExecuteQueryWriter& writer);
-
-// Execute a query. Output will be printed to out_stream. See other ExecuteQuery
-// overloads for details.
-absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
-                          std::ostream& out_stream = std::cout);
 
 }  // namespace zetasql
 
@@ -117,5 +131,6 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 ABSL_DECLARE_FLAG(std::string, mode);
 ABSL_DECLARE_FLAG(std::string, table_spec);
 ABSL_DECLARE_FLAG(std::string, descriptor_pool);
+ABSL_DECLARE_FLAG(std::string, output_mode);
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_TOOL_H_

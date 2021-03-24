@@ -35,6 +35,7 @@
 
 namespace zetasql {
 
+class ASTAlias;
 class ASTNode;
 class ASTPathExpression;
 class NameList;
@@ -686,6 +687,8 @@ class NameScope {
 
   std::string DebugString(const std::string& indent = "") const;
 
+  const NameScope* previous_scope() const { return previous_scope_; }
+
  private:
   const NameScope* const previous_scope_ = nullptr;  // may be NULL
 
@@ -955,10 +958,10 @@ class NameList {
   // on the NameList does not include excluded fields, but 'rangvar.*'
   // expansion does include them.
   //
-  // Lookups for <name> will return the range variable, not the column.
-  // The returned NameList will have is_value_table()=true.
+  // Lookups for <range_variable_name> will return the range variable, not the
+  // column. The returned NameList will have is_value_table()=true.
   absl::Status AddValueTableColumn(
-      IdString name, const ResolvedColumn& column,
+      IdString range_variable_name, const ResolvedColumn& column,
       const ASTNode* ast_location,
       const IdStringSetCase& excluded_field_names = {},
       const NameListPtr& pseudo_columns_name_list = nullptr);
@@ -996,6 +999,25 @@ class NameList {
       const NameList& other,
       const IdStringSetCase* excluded_field_names,  // May be NULL
       const ASTNode* ast_location);
+
+  // Clone current NameList, invoking clone_column for each column to create new
+  // columns.
+  //
+  // The <value_table_error> is used to produce a caller-context-specific error
+  // message if the name list contains currently unsupported value table
+  // columns.
+  //
+  // The <clone_column> function is invoked once for each column to be
+  // cloned. Range variables and pseudo columns are not cloned.
+  //
+  // In practice, note that some <clone_column> function
+  // implementations remember the mapping from the original
+  // column to the cloned column.
+  zetasql_base::StatusOr<std::shared_ptr<NameList>> CloneWithNewColumns(
+      const ASTNode* ast_location, absl::string_view value_table_error,
+      const ASTAlias* alias,
+      std::function<ResolvedColumn(const ResolvedColumn&)> clone_column,
+      IdStringPool* id_string_pool) const;
 
   // Get the regular columns in this NameList.  Does not include pseudo-columns.
   int num_columns() const { return columns_.size(); }
@@ -1035,7 +1057,7 @@ class NameList {
   void set_is_value_table(bool value) { is_value_table_ = value; }
   bool is_value_table() const { return is_value_table_; }
 
-  std::string DebugString() const;
+  std::string DebugString(absl::string_view indent = absl::string_view()) const;
 
   bool HasRangeVariable(IdString name) const;
 
@@ -1045,6 +1067,17 @@ class NameList {
   bool HasRangeVariables() const {
     return name_scope_.HasLocalRangeVariables();
   }
+
+  // Add a range variable, using a wrapper NameList that gets the range
+  // variable. Example:
+  //   select ... from (select a,b,c) AS S
+  // The subquery produces a NameList with [a,b,c].
+  // To add the range variable S, we construct a NameList [a,b,c,S->[a,b,c]].
+  // Adding S to the initial NameList would allow cyclic lookups like S.S.S.a.
+  static zetasql_base::StatusOr<std::shared_ptr<NameList>>
+  AddRangeVariableInWrappingNameList(
+      IdString alias, const ASTNode* ast_location,
+      std::shared_ptr<const NameList> original_name_list);
 
  private:
   bool is_value_table_ = false;

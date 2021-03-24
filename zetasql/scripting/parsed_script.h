@@ -17,6 +17,8 @@
 #ifndef ZETASQL_SCRIPTING_PARSED_SCRIPT_H_
 #define ZETASQL_SCRIPTING_PARSED_SCRIPT_H_
 
+#include <cstdint>
+
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/options.pb.h"

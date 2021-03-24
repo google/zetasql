@@ -1,0 +1,2201 @@
+# Tests for field access, including simple path expressions (a.b.c) and
+# generalized identifiers. Generalized field access (e.g. extensions) is tested
+select NULL, x from a.b.c.T;
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-14]
+        SelectColumn [7-11]
+          NullLiteral(NULL) [7-11]
+        SelectColumn [13-14]
+          PathExpression [13-14]
+            Identifier(x) [13-14]
+      FromClause [15-27]
+        TablePathExpression [20-27]
+          PathExpression [20-27]
+            Identifier(a) [20-21]
+            Identifier(b) [22-23]
+            Identifier(c) [24-25]
+            Identifier(T) [26-27]
+--
+SELECT
+  NULL,
+  x
+FROM
+  a.b.c.T
+==
+
+# The bison parser is correct here. The JavaCC parser implements generalized
+# identifiers in path expressions by reinterpreting floating point literals in
+# the parser. That breaks if the floating point literals contain exponents.
+# (b/29625001)
+# Disabling GetParseTokens() testing here, because GetParseTokens() still uses
+# the JavaCC implementation, and this fails in the bison case.
+[no_test_get_parse_tokens]
+select x.1e+5;
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          BinaryExpression(+) [7-13]
+            PathExpression [7-11]
+              Identifier(x) [7-8]
+              Identifier(`1e`) [9-11]
+            IntLiteral(5) [12-13]
+--
+SELECT
+  x.`1e` + 5
+==
+
+select x. 1e;
+--
+QueryStatement [0-12]
+  Query [0-12]
+    Select [0-12]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          PathExpression [7-12]
+            Identifier(x) [7-8]
+            Identifier(`1e`) [10-12]
+--
+SELECT
+  x.`1e`
+==
+
+# The bison parser is correct here. The JavaCC parser implements generalized
+# identifiers in path expressions by reinterpreting floating point literals in
+# the parser. That breaks if there is whitespace after the dot. (b/29625001)
+# Disabling GetParseTokens() testing here, because GetParseTokens() still uses
+# the JavaCC implementation, and this fails in the bison case.
+[no_test_get_parse_tokens]
+select x. 1e+5;
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          BinaryExpression(+) [7-14]
+            PathExpression [7-12]
+              Identifier(x) [7-8]
+              Identifier(`1e`) [10-12]
+            IntLiteral(5) [13-14]
+--
+SELECT
+  x.`1e` + 5
+==
+
+select NULL, x from a.b.c.123;
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-14]
+        SelectColumn [7-11]
+          NullLiteral(NULL) [7-11]
+        SelectColumn [13-14]
+          PathExpression [13-14]
+            Identifier(x) [13-14]
+      FromClause [15-29]
+        TablePathExpression [20-29]
+          PathExpression [20-29]
+            Identifier(a) [20-21]
+            Identifier(b) [22-23]
+            Identifier(c) [24-25]
+            Identifier(`123`) [26-29]
+--
+SELECT
+  NULL,
+  x
+FROM
+  a.b.c.`123`
+==
+
+select NULL, x from a.b.2daysago.      456;
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-14]
+        SelectColumn [7-11]
+          NullLiteral(NULL) [7-11]
+        SelectColumn [13-14]
+          PathExpression [13-14]
+            Identifier(x) [13-14]
+      FromClause [15-42]
+        TablePathExpression [20-42]
+          PathExpression [20-42]
+            Identifier(a) [20-21]
+            Identifier(b) [22-23]
+            Identifier(`2daysago`) [24-32]
+            Identifier(`456`) [39-42]
+--
+SELECT
+  NULL,
+  x
+FROM
+  a.b.`2daysago`.`456`
+==
+
+select x from a.b.456.   2daysago;
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+      FromClause [9-33]
+        TablePathExpression [14-33]
+          PathExpression [14-33]
+            Identifier(a) [14-15]
+            Identifier(b) [16-17]
+            Identifier(`456`) [18-21]
+            Identifier(`2daysago`) [25-33]
+--
+SELECT
+  x
+FROM
+  a.b.`456`.`2daysago`
+==
+
+select x from abc.111111111111111111111111111111111111111111111111111111111111111111.2days;
+--
+QueryStatement [0-90]
+  Query [0-90]
+    Select [0-90]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+      FromClause [9-90]
+        TablePathExpression [14-90]
+          PathExpression [14-90]
+            Identifier(abc) [14-17]
+            Identifier(`111111111111111111111111111111111111111111111111111111111111111111`) [18-84]
+            Identifier(`2days`) [85-90]
+--
+SELECT
+  x
+FROM
+  abc.`111111111111111111111111111111111111111111111111111111111111111111`.`2days`
+==
+
+select x from abc.111111111111111111111111111111111111111111111111111111111111111111daysago;
+--
+QueryStatement [0-91]
+  Query [0-91]
+    Select [0-91]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+      FromClause [9-91]
+        TablePathExpression [14-91]
+          PathExpression [14-91]
+            Identifier(abc) [14-17]
+            Identifier(`111111111111111111111111111111111111111111111111111111111111111111daysago`) [18-91]
+--
+SELECT
+  x
+FROM
+  abc.`111111111111111111111111111111111111111111111111111111111111111111daysago`
+==
+
+select NULL, x from a.b.c.31daysago;
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-14]
+        SelectColumn [7-11]
+          NullLiteral(NULL) [7-11]
+        SelectColumn [13-14]
+          PathExpression [13-14]
+            Identifier(x) [13-14]
+      FromClause [15-35]
+        TablePathExpression [20-35]
+          PathExpression [20-35]
+            Identifier(a) [20-21]
+            Identifier(b) [22-23]
+            Identifier(c) [24-25]
+            Identifier(`31daysago`) [26-35]
+--
+SELECT
+  NULL,
+  x
+FROM
+  a.b.c.`31daysago`
+==
+
+select NULL, x from a.b.c.123 table;
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-14]
+        SelectColumn [7-11]
+          NullLiteral(NULL) [7-11]
+        SelectColumn [13-14]
+          PathExpression [13-14]
+            Identifier(x) [13-14]
+      FromClause [15-35]
+        TablePathExpression [20-35]
+          PathExpression [20-29]
+            Identifier(a) [20-21]
+            Identifier(b) [22-23]
+            Identifier(c) [24-25]
+            Identifier(`123`) [26-29]
+          Alias [30-35]
+            Identifier(table) [30-35]
+--
+SELECT
+  NULL,
+  x
+FROM
+  a.b.c.`123` AS table
+==
+
+select x.123.y.2daysago.z;
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-25]
+        SelectColumn [7-25]
+          PathExpression [7-25]
+            Identifier(x) [7-8]
+            Identifier(`123`) [9-12]
+            Identifier(y) [13-14]
+            Identifier(`2daysago`) [15-23]
+            Identifier(z) [24-25]
+--
+SELECT
+  x.`123`.y.`2daysago`.z
+==
+
+select x.2_3.2abc3.1234xxx.555_;
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-31]
+          PathExpression [7-31]
+            Identifier(x) [7-8]
+            Identifier(`2_3`) [9-12]
+            Identifier(`2abc3`) [13-18]
+            Identifier(`1234xxx`) [19-26]
+            Identifier(`555_`) [27-31]
+--
+SELECT
+  x.`2_3`.`2abc3`.`1234xxx`.`555_`
+==
+
+# Generalized identifiers are enabled after ")".
+select (x+y).123;
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          DotIdentifier [12-16]
+            BinaryExpression(+) [8-11]
+              PathExpression [8-9]
+                Identifier(x) [8-9]
+              PathExpression [10-11]
+                Identifier(y) [10-11]
+            Identifier(`123`) [13-16]
+--
+SELECT
+  (x + y).`123`
+==
+
+# Generalized identifiers are enabled after ")".
+select (x+y).1dayago;
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-20]
+        SelectColumn [7-20]
+          DotIdentifier [12-20]
+            BinaryExpression(+) [8-11]
+              PathExpression [8-9]
+                Identifier(x) [8-9]
+              PathExpression [10-11]
+                Identifier(y) [10-11]
+            Identifier(`1dayago`) [13-20]
+--
+SELECT
+  (x + y).`1dayago`
+==
+
+# Generalized identifiers are enabled after "]". This doesn't make sense
+# semantically, but my_array[OFFSET(1)].123 does.
+select [1, 2].123;
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          DotIdentifier [13-17]
+            ArrayConstructor [7-13]
+              IntLiteral(1) [8-9]
+              IntLiteral(2) [11-12]
+            Identifier(`123`) [14-17]
+--
+SELECT
+  ARRAY[1, 2].`123`
+==
+
+# Generalized identifiers are enabled after "]". This doesn't make sense
+# semantically, but my_array[OFFSET(1)].123 does.
+select [1, 2].1dayago;
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-21]
+          DotIdentifier [13-21]
+            ArrayConstructor [7-13]
+              IntLiteral(1) [8-9]
+              IntLiteral(2) [11-12]
+            Identifier(`1dayago`) [14-21]
+--
+SELECT
+  ARRAY[1, 2].`1dayago`
+==
+
+# The bison parser detects missing whitespace between a literal and an alias at
+# the tokenizer level, and that gets triggered before the parser rules.
+select .1dayago;
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+select .1dayago;
+         ^
+==
+
+select null from x.y. 2. z;
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-11]
+        SelectColumn [7-11]
+          NullLiteral(null) [7-11]
+      FromClause [12-26]
+        TablePathExpression [17-26]
+          PathExpression [17-26]
+            Identifier(x) [17-18]
+            Identifier(y) [19-20]
+            Identifier(`2`) [22-23]
+            Identifier(z) [25-26]
+--
+SELECT
+  null
+FROM
+  x.y.`2`.z
+==
+
+select null from x.y. 2.0. z;
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-11]
+        SelectColumn [7-11]
+          NullLiteral(null) [7-11]
+      FromClause [12-28]
+        TablePathExpression [17-28]
+          PathExpression [17-28]
+            Identifier(x) [17-18]
+            Identifier(y) [19-20]
+            Identifier(`2`) [22-23]
+            Identifier(`0`) [24-25]
+            Identifier(z) [27-28]
+--
+SELECT
+  null
+FROM
+  x.y.`2`.`0`.z
+==
+
+select x{{.| .|. | . }}1{{.| .|. | . }}2{{.| .|. | . }}3
+--
+ALTERNATION GROUP: .,.,.
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [11-12]
+            Identifier(`3`) [13-14]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+    .,., .
+    .,.,. 
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [11-12]
+            Identifier(`3`) [14-15]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP: .,., . 
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [11-12]
+            Identifier(`3`) [15-16]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+    ., .,.
+    .,. ,.
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [12-13]
+            Identifier(`3`) [14-15]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+    ., ., .
+    ., .,. 
+    .,. , .
+    .,. ,. 
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [12-13]
+            Identifier(`3`) [15-16]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+    ., ., . 
+    .,. , . 
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [12-13]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP: ., . ,.
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [15-16]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+    ., . , .
+    ., . ,. 
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP: ., . , . 
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [17-18]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     .,.,.
+    . ,.,.
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [12-13]
+            Identifier(`3`) [14-15]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     .,., .
+     .,.,. 
+    . ,., .
+    . ,.,. 
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [12-13]
+            Identifier(`3`) [15-16]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     .,., . 
+    . ,., . 
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [12-13]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     ., .,.
+     .,. ,.
+    . , .,.
+    . ,. ,.
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [15-16]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     ., ., .
+     ., .,. 
+     .,. , .
+     .,. ,. 
+    . , ., .
+    . , .,. 
+    . ,. , .
+    . ,. ,. 
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     ., ., . 
+     .,. , . 
+    . , ., . 
+    . ,. , . 
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [17-18]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     ., . ,.
+    . , . ,.
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [14-15]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     ., . , .
+     ., . ,. 
+    . , . , .
+    . , . ,. 
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [14-15]
+            Identifier(`3`) [17-18]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     ., . , . 
+    . , . , . 
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          PathExpression [7-19]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [14-15]
+            Identifier(`3`) [18-19]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP:  . ,.,.
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [15-16]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     . ,., .
+     . ,.,. 
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP:  . ,., . 
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [17-18]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     . , .,.
+     . ,. ,.
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [14-15]
+            Identifier(`3`) [16-17]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     . , ., .
+     . , .,. 
+     . ,. , .
+     . ,. ,. 
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [14-15]
+            Identifier(`3`) [17-18]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     . , ., . 
+     . ,. , . 
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          PathExpression [7-19]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [14-15]
+            Identifier(`3`) [18-19]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP:  . , . ,.
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [15-16]
+            Identifier(`3`) [17-18]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUPS:
+     . , . , .
+     . , . ,. 
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          PathExpression [7-19]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [15-16]
+            Identifier(`3`) [18-19]
+--
+SELECT
+  x.`1`.`2`.`3`
+--
+ALTERNATION GROUP:  . , . , . 
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-20]
+        SelectColumn [7-20]
+          PathExpression [7-20]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`2`) [15-16]
+            Identifier(`3`) [19-20]
+--
+SELECT
+  x.`1`.`2`.`3`
+==
+
+# Test combinations of interesting generalized identifiers that may tickle bugs
+# in how the JavaCC parser uses floating point and integer tokens to
+# reconstruct identifiers.
+# Be careful when adding new stuff to it because the combinatorial explosion can
+# make this quite slow.
+select x{{.| .|. | . }}{{1|e2|3e|4e5}}{{.| .|. | . }}{{6|e7}};
+--
+ALTERNATION GROUP: .,1,.,6
+--
+QueryStatement [0-12]
+  Query [0-12]
+    Select [0-12]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          PathExpression [7-12]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`6`) [11-12]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUP: .,1,.,e7
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          PathExpression [7-13]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(e7) [11-13]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUPS:
+    .,1, .,6
+    .,1,. ,6
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          PathExpression [7-13]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`6`) [12-13]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUPS:
+    .,1, .,e7
+    .,1,. ,e7
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(e7) [12-14]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUP: .,1, . ,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUP: .,1, . ,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [9-10]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUP: .,e2,.,6
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          PathExpression [7-13]
+            Identifier(x) [7-8]
+            Identifier(e2) [9-11]
+            Identifier(`6`) [12-13]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUP: .,e2,.,e7
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(e2) [9-11]
+            Identifier(e7) [12-14]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUPS:
+    .,e2, .,6
+    .,e2,. ,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(e2) [9-11]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUPS:
+    .,e2, .,e7
+    .,e2,. ,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(e2) [9-11]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUP: .,e2, . ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(e2) [9-11]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUP: .,e2, . ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(e2) [9-11]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUP: .,3e,.,6
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          PathExpression [7-13]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [9-11]
+            Identifier(`6`) [12-13]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUP: .,3e,.,e7
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [9-11]
+            Identifier(e7) [12-14]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUPS:
+    .,3e, .,6
+    .,3e,. ,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [9-11]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUPS:
+    .,3e, .,e7
+    .,3e,. ,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [9-11]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUP: .,3e, . ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [9-11]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUP: .,3e, . ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [9-11]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUP: .,4e5,.,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [9-12]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUP: .,4e5,.,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [9-12]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUPS:
+    .,4e5, .,6
+    .,4e5,. ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [9-12]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUPS:
+    .,4e5, .,e7
+    .,4e5,. ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [9-12]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUP: .,4e5, . ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [9-12]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUP: .,4e5, . ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [9-12]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUPS:
+     .,1,.,6
+    . ,1,.,6
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          PathExpression [7-13]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`6`) [12-13]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUPS:
+     .,1,.,e7
+    . ,1,.,e7
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(e7) [12-14]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUPS:
+     .,1, .,6
+     .,1,. ,6
+    . ,1, .,6
+    . ,1,. ,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUPS:
+     .,1, .,e7
+     .,1,. ,e7
+    . ,1, .,e7
+    . ,1,. ,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUPS:
+     .,1, . ,6
+    . ,1, . ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUPS:
+     .,1, . ,e7
+    . ,1, . ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUPS:
+     .,e2,.,6
+    . ,e2,.,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(e2) [10-12]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUPS:
+     .,e2,.,e7
+    . ,e2,.,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(e2) [10-12]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUPS:
+     .,e2, .,6
+     .,e2,. ,6
+    . ,e2, .,6
+    . ,e2,. ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(e2) [10-12]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUPS:
+     .,e2, .,e7
+     .,e2,. ,e7
+    . ,e2, .,e7
+    . ,e2,. ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(e2) [10-12]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUPS:
+     .,e2, . ,6
+    . ,e2, . ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(e2) [10-12]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUPS:
+     .,e2, . ,e7
+    . ,e2, . ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(e2) [10-12]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUPS:
+     .,3e,.,6
+    . ,3e,.,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [10-12]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUPS:
+     .,3e,.,e7
+    . ,3e,.,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [10-12]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUPS:
+     .,3e, .,6
+     .,3e,. ,6
+    . ,3e, .,6
+    . ,3e,. ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [10-12]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUPS:
+     .,3e, .,e7
+     .,3e,. ,e7
+    . ,3e, .,e7
+    . ,3e,. ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [10-12]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUPS:
+     .,3e, . ,6
+    . ,3e, . ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [10-12]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUPS:
+     .,3e, . ,e7
+    . ,3e, . ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [10-12]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUPS:
+     .,4e5,.,6
+    . ,4e5,.,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [10-13]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUPS:
+     .,4e5,.,e7
+    . ,4e5,.,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [10-13]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUPS:
+     .,4e5, .,6
+     .,4e5,. ,6
+    . ,4e5, .,6
+    . ,4e5,. ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [10-13]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUPS:
+     .,4e5, .,e7
+     .,4e5,. ,e7
+    . ,4e5, .,e7
+    . ,4e5,. ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [10-13]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUPS:
+     .,4e5, . ,6
+    . ,4e5, . ,6
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [10-13]
+            Identifier(`6`) [16-17]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUPS:
+     .,4e5, . ,e7
+    . ,4e5, . ,e7
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [10-13]
+            Identifier(e7) [16-18]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUP:  . ,1,.,6
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          PathExpression [7-14]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`6`) [13-14]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUP:  . ,1,.,e7
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(e7) [13-15]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUPS:
+     . ,1, .,6
+     . ,1,. ,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUPS:
+     . ,1, .,e7
+     . ,1,. ,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUP:  . ,1, . ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.`1`.`6`
+--
+ALTERNATION GROUP:  . ,1, . ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`1`) [11-12]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.`1`.e7
+--
+ALTERNATION GROUP:  . ,e2,.,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(e2) [11-13]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUP:  . ,e2,.,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(e2) [11-13]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUPS:
+     . ,e2, .,6
+     . ,e2,. ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(e2) [11-13]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUPS:
+     . ,e2, .,e7
+     . ,e2,. ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(e2) [11-13]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUP:  . ,e2, . ,6
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(e2) [11-13]
+            Identifier(`6`) [16-17]
+--
+SELECT
+  x.e2.`6`
+--
+ALTERNATION GROUP:  . ,e2, . ,e7
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(e2) [11-13]
+            Identifier(e7) [16-18]
+--
+SELECT
+  x.e2.e7
+--
+ALTERNATION GROUP:  . ,3e,.,6
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [11-13]
+            Identifier(`6`) [14-15]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUP:  . ,3e,.,e7
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [11-13]
+            Identifier(e7) [14-16]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUPS:
+     . ,3e, .,6
+     . ,3e,. ,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [11-13]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUPS:
+     . ,3e, .,e7
+     . ,3e,. ,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [11-13]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUP:  . ,3e, . ,6
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [11-13]
+            Identifier(`6`) [16-17]
+--
+SELECT
+  x.`3e`.`6`
+--
+ALTERNATION GROUP:  . ,3e, . ,e7
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`3e`) [11-13]
+            Identifier(e7) [16-18]
+--
+SELECT
+  x.`3e`.e7
+--
+ALTERNATION GROUP:  . ,4e5,.,6
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          PathExpression [7-16]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [11-14]
+            Identifier(`6`) [15-16]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUP:  . ,4e5,.,e7
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [11-14]
+            Identifier(e7) [15-17]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUPS:
+     . ,4e5, .,6
+     . ,4e5,. ,6
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [11-14]
+            Identifier(`6`) [16-17]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUPS:
+     . ,4e5, .,e7
+     . ,4e5,. ,e7
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [11-14]
+            Identifier(e7) [16-18]
+--
+SELECT
+  x.`4e5`.e7
+--
+ALTERNATION GROUP:  . ,4e5, . ,6
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          PathExpression [7-18]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [11-14]
+            Identifier(`6`) [17-18]
+--
+SELECT
+  x.`4e5`.`6`
+--
+ALTERNATION GROUP:  . ,4e5, . ,e7
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          PathExpression [7-19]
+            Identifier(x) [7-8]
+            Identifier(`4e5`) [11-14]
+            Identifier(e7) [17-19]
+--
+SELECT
+  x.`4e5`.e7
+==
+
+select a. 1. 2. 3. b . 4. 5. c. 6. 7. 8. 9. d;
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [7-45]
+        SelectColumn [7-45]
+          PathExpression [7-45]
+            Identifier(a) [7-8]
+            Identifier(`1`) [10-11]
+            Identifier(`2`) [13-14]
+            Identifier(`3`) [16-17]
+            Identifier(b) [19-20]
+            Identifier(`4`) [23-24]
+            Identifier(`5`) [26-27]
+            Identifier(c) [29-30]
+            Identifier(`6`) [32-33]
+            Identifier(`7`) [35-36]
+            Identifier(`8`) [38-39]
+            Identifier(`9`) [41-42]
+            Identifier(d) [44-45]
+--
+SELECT
+  a.`1`.`2`.`3`.b.`4`.`5`.c.`6`.`7`.`8`.`9`.d
+==
+
+# The bison parser detects the "." and then sees a floating point literal.
+# This seems to make more sense than the error from the JavaCC parser, which
+# complains about a "." that could actually be valid there if it were followed
+# by something else.
+# The GetParseTokens test results for this query don't make sense, so they are
+# disabled. The .1e5 gets parsed as .1 * 10^5 = 10000, so the reconstructed
+# query looks like "abc. 10000.0", which succeeds even though the original
+# query didn't.
+# TODO: Consider making invalid identifiers after dots a
+# tokenizer-level error.
+[no_test_get_parse_tokens]
+select abc..1e5;
+--
+ERROR: Syntax error: Unexpected floating point literal ".1e5" [at 1:12]
+select abc..1e5;
+           ^
+==
+
+select 1,2,'abc',"def" from Customer where 5;
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [7-22]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+        SelectColumn [9-10]
+          IntLiteral(2) [9-10]
+        SelectColumn [11-16]
+          StringLiteral('abc') [11-16]
+        SelectColumn [17-22]
+          StringLiteral("def") [17-22]
+      FromClause [23-36]
+        TablePathExpression [28-36]
+          PathExpression [28-36]
+            Identifier(Customer) [28-36]
+      WhereClause [37-44]
+        IntLiteral(5) [43-44]
+--
+SELECT
+  1,
+  2,
+  'abc',
+  "def"
+FROM
+  Customer
+WHERE
+  5
+==
+
+# Test that "CALL" keyword can be used as an identifier.
+select call from T
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-11]
+        SelectColumn [7-11]
+          PathExpression [7-11]
+            Identifier(call) [7-11]
+      FromClause [12-18]
+        TablePathExpression [17-18]
+          PathExpression [17-18]
+            Identifier(T) [17-18]
+--
+SELECT
+  call
+FROM
+  T
+

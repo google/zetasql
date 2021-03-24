@@ -38,9 +38,24 @@ enum TestProto3Enum {
   ENUM0 = 0;
   ENUM1 = 1;
   ENUM2 = 2;
+  ENUM2147483647 = 2147483647;
 }
 
-// Next_id: 68
+message Proto3TestExtraPB {
+  int32 int32_val1 = 1;
+  int32 int32_val2 = 2;
+  repeated string str_value = 3;
+}
+
+message Proto3RepeatedHolderPB {
+  repeated Proto3TestExtraPB repeated_field = 1;
+}
+
+message MessageWithInvalidMap {
+  map<string, string> invalid_test_map = 63 [(zetasql.format) = DATE];
+}
+
+// Next_id: 70
 message Proto3KitchenSink {
   int32 int32_val = 1;
   uint32 uint32_val = 2;
@@ -78,10 +93,10 @@ message Proto3KitchenSink {
 
   message Nested {
     int64 nested_int64 = 1;
-    repeated int64 repeated_nested_int64 = 2;
+    repeated int64 nested_repeated_int64 = 2;
   }
   Nested nested_value = 31;
-  repeated Nested repeated_nested_value = 32;
+  repeated Nested nested_repeated_value = 32;
 
   int32 date = 33 [(zetasql.format) = DATE];
   int32 date_default = 34 [(zetasql.format) = DATE];
@@ -115,15 +130,15 @@ message Proto3KitchenSink {
     option (zetasql.use_field_defaults) = false;
 
     int64 nested_int64 = 1;
-    repeated int64 repeated_nested_int64 = 2;
+    repeated int64 nested_repeated_int64 = 2;
     int32 date = 3 [(zetasql.format) = DATE];
   }
   NullableNested nullable_nested_value = 66;
 
   TestProto3Enum test_enum = 50;
+  repeated TestProto3Enum repeated_test_enum = 69;
 
   map<string, int32> test_map = 51;
-  map<string, string> invalid_test_map = 63 [(zetasql.format) = DATE];
 
   Proto3AnnotatedStruct test_struct = 52;
 
@@ -142,6 +157,8 @@ message Proto3KitchenSink {
   google.protobuf.Struct struct_wkt = 60;
   google.protobuf.Int32Value wrapped_int32_wkt = 61;
   google.protobuf.Api api_wkt = 62;
+
+  repeated Proto3RepeatedHolderPB repeated_holder = 68;
 }
 
 message SimpleProto3Message {
@@ -164,4 +181,11 @@ message Proto3SmallMessageWithNoUseDefaults {
   option (zetasql.use_field_defaults) = false;
 
   string s1 = 1;
+}
+
+message Proto3MessageWithNulls {
+  option (zetasql.use_field_defaults) = false;
+
+  int64 i1 = 1;
+  int64 i2 = 2 [(zetasql.use_defaults) = true];
 }

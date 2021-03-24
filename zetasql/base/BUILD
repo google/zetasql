@@ -803,41 +803,6 @@ cc_test(
 )
 
 cc_library(
-    name = "cleanup",
-    hdrs = ["cleanup.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
-    deps = [
-        "@com_google_absl//absl/base:core_headers",
-    ],
-)
-
-cc_test(
-    name = "cleanup_test",
-    srcs = ["cleanup_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
-    deps = [
-        ":cleanup",
-        "//zetasql/base/testing:zetasql_gtest_main",
-    ],
-)
-
-cc_library(
     name = "time_proto_util",
     srcs = ["time_proto_util.cc"],
     hdrs = ["time_proto_util.h"],

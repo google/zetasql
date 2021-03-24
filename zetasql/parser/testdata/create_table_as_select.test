@@ -1,0 +1,1107 @@
+# NOTE: CREATE VIEW syntax and tests are identical to those for
+# CREATE TABLE AS SELECT tests, except for the keyword.
+
+create table t1 as select * from t2;
+--
+CreateTableStatement [0-35]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  Query [19-35]
+    Select [19-35]
+      SelectList [26-27]
+        SelectColumn [26-27]
+          Star(*) [26-27]
+      FromClause [28-35]
+        TablePathExpression [33-35]
+          PathExpression [33-35]
+            Identifier(t2) [33-35]
+--
+CREATE TABLE t1 AS
+SELECT
+  *
+FROM
+  t2
+==
+
+# CREATE TABLE LIKE AS
+create table t1 like t2 as select * from t2;
+--
+CreateTableStatement [0-43]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  PathExpression [21-23]
+    Identifier(t2) [21-23]
+  Query [27-43]
+    Select [27-43]
+      SelectList [34-35]
+        SelectColumn [34-35]
+          Star(*) [34-35]
+      FromClause [36-43]
+        TablePathExpression [41-43]
+          PathExpression [41-43]
+            Identifier(t2) [41-43]
+--
+CREATE TABLE t1 LIKE
+t2 AS
+SELECT
+  *
+FROM
+  t2
+==
+
+# CREATE TABLE LIKE AS with column list, valid for parser and Resolver will
+# catch the co-existence of LIKE and column list.
+create table t1 (x int64) like t2 as select * from t2;
+--
+CreateTableStatement [0-53]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  TableElementList [16-25]
+    ColumnDefinition [17-24]
+      Identifier(x) [17-18]
+      SimpleColumnSchema [19-24]
+        PathExpression [19-24]
+          Identifier(int64) [19-24]
+  PathExpression [31-33]
+    Identifier(t2) [31-33]
+  Query [37-53]
+    Select [37-53]
+      SelectList [44-45]
+        SelectColumn [44-45]
+          Star(*) [44-45]
+      FromClause [46-53]
+        TablePathExpression [51-53]
+          PathExpression [51-53]
+            Identifier(t2) [51-53]
+--
+CREATE TABLE t1
+(
+  x int64
+) LIKE
+t2 AS
+SELECT
+  *
+FROM
+  t2
+==
+
+create {{temp|public|private}} table pkg1.`pkg2`.`t 2` as
+select 1 as a;
+--
+ALTERNATION GROUP: temp
+--
+CreateTableStatement(is_temp) [0-52]
+  PathExpression [18-35]
+    Identifier(pkg1) [18-22]
+    Identifier(pkg2) [23-29]
+    Identifier(`t 2`) [30-35]
+  Query [39-52]
+    Select [39-52]
+      SelectList [46-52]
+        SelectColumn [46-52]
+          IntLiteral(1) [46-47]
+          Alias [48-52]
+            Identifier(a) [51-52]
+--
+CREATE TEMP TABLE pkg1.pkg2.`t 2` AS
+SELECT
+  1 AS a
+--
+ALTERNATION GROUP: public
+--
+CreateTableStatement(is_public) [0-54]
+  PathExpression [20-37]
+    Identifier(pkg1) [20-24]
+    Identifier(pkg2) [25-31]
+    Identifier(`t 2`) [32-37]
+  Query [41-54]
+    Select [41-54]
+      SelectList [48-54]
+        SelectColumn [48-54]
+          IntLiteral(1) [48-49]
+          Alias [50-54]
+            Identifier(a) [53-54]
+--
+CREATE PUBLIC TABLE pkg1.pkg2.`t 2` AS
+SELECT
+  1 AS a
+--
+ALTERNATION GROUP: private
+--
+CreateTableStatement(is_private) [0-55]
+  PathExpression [21-38]
+    Identifier(pkg1) [21-25]
+    Identifier(pkg2) [26-32]
+    Identifier(`t 2`) [33-38]
+  Query [42-55]
+    Select [42-55]
+      SelectList [49-55]
+        SelectColumn [49-55]
+          IntLiteral(1) [49-50]
+          Alias [51-55]
+            Identifier(a) [54-55]
+--
+CREATE PRIVATE TABLE pkg1.pkg2.`t 2` AS
+SELECT
+  1 AS a
+==
+
+create temp table pkg1.`pkg2`.`t 2` as
+select 1 from t2 union all select 2 from t3 cross join t4
+--
+CreateTableStatement(is_temp) [0-96]
+  PathExpression [18-35]
+    Identifier(pkg1) [18-22]
+    Identifier(pkg2) [23-29]
+    Identifier(`t 2`) [30-35]
+  Query [39-96]
+    SetOperation(UNION ALL) [39-96]
+      Select [39-55]
+        SelectList [46-47]
+          SelectColumn [46-47]
+            IntLiteral(1) [46-47]
+        FromClause [48-55]
+          TablePathExpression [53-55]
+            PathExpression [53-55]
+              Identifier(t2) [53-55]
+      Select [66-96]
+        SelectList [73-74]
+          SelectColumn [73-74]
+            IntLiteral(2) [73-74]
+        FromClause [75-96]
+          Join(CROSS) [83-96]
+            TablePathExpression [80-82]
+              PathExpression [80-82]
+                Identifier(t3) [80-82]
+            TablePathExpression [94-96]
+              PathExpression [94-96]
+                Identifier(t4) [94-96]
+--
+CREATE TEMP TABLE pkg1.pkg2.`t 2` AS
+SELECT
+  1
+FROM
+  t2
+UNION ALL
+SELECT
+  2
+FROM
+  t3
+  CROSS JOIN
+  t4
+==
+
+# No create table inside WITH.
+with tt as (select * from KeyValue)
+create table t3 as
+select * from tt
+--
+ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got keyword CREATE [at 2:1]
+create table t3 as
+^
+==
+
+# WITH goes inside create table.
+create table t3 as
+with tt as (select * from KeyValue)
+select * from tt
+--
+CreateTableStatement [0-71]
+  PathExpression [13-15]
+    Identifier(t3) [13-15]
+  Query [19-71]
+    WithClause [19-54]
+      WithClauseEntry [24-54]
+        Identifier(tt) [24-26]
+        Query [31-53]
+          Select [31-53]
+            SelectList [38-39]
+              SelectColumn [38-39]
+                Star(*) [38-39]
+            FromClause [40-53]
+              TablePathExpression [45-53]
+                PathExpression [45-53]
+                  Identifier(KeyValue) [45-53]
+    Select [55-71]
+      SelectList [62-63]
+        SelectColumn [62-63]
+          Star(*) [62-63]
+      FromClause [64-71]
+        TablePathExpression [69-71]
+          PathExpression [69-71]
+            Identifier(tt) [69-71]
+--
+CREATE TABLE t3 AS
+WITH
+  tt AS (
+    SELECT
+      *
+    FROM
+      KeyValue
+  )
+SELECT
+  *
+FROM
+  tt
+==
+
+create table t4 options(x=y) as
+with t1 as (select 1), t2 as (select 2)
+select 3
+--
+CreateTableStatement [0-80]
+  PathExpression [13-15]
+    Identifier(t4) [13-15]
+  OptionsList [23-28]
+    OptionsEntry [24-27]
+      Identifier(x) [24-25]
+      PathExpression [26-27]
+        Identifier(y) [26-27]
+  Query [32-80]
+    WithClause [32-71]
+      WithClauseEntry [37-53]
+        Identifier(t1) [37-39]
+        Query [44-52]
+          Select [44-52]
+            SelectList [51-52]
+              SelectColumn [51-52]
+                IntLiteral(1) [51-52]
+      WithClauseEntry [55-71]
+        Identifier(t2) [55-57]
+        Query [62-70]
+          Select [62-70]
+            SelectList [69-70]
+              SelectColumn [69-70]
+                IntLiteral(2) [69-70]
+    Select [72-80]
+      SelectList [79-80]
+        SelectColumn [79-80]
+          IntLiteral(3) [79-80]
+--
+CREATE TABLE t4 OPTIONS(x = y) AS
+WITH
+  t1 AS (
+    SELECT
+      1
+  ),
+  t2 AS (
+    SELECT
+      2
+  )
+SELECT
+  3
+==
+
+# Create table with WITH with a missing query.
+create table t4 options(x=y) as
+with t1 as (select 1)
+--
+ERROR: Syntax error: Expected "(" or "," or keyword SELECT but got end of statement [at 2:22]
+with t1 as (select 1)
+                     ^
+==
+
+create table tt
+options (x = 1)
+as select 1;
+--
+CreateTableStatement [0-43]
+  PathExpression [13-15]
+    Identifier(tt) [13-15]
+  OptionsList [24-31]
+    OptionsEntry [25-30]
+      Identifier(x) [25-26]
+      IntLiteral(1) [29-30]
+  Query [35-43]
+    Select [35-43]
+      SelectList [42-43]
+        SelectColumn [42-43]
+          IntLiteral(1) [42-43]
+--
+CREATE TABLE tt OPTIONS(x = 1) AS
+SELECT
+  1
+==
+
+create temporary table tt
+options (x = 5, y = 'abc', z = @param, zz = ident, zzz = @@sysvar)
+as select 2;
+--
+CreateTableStatement(is_temp) [0-104]
+  PathExpression [23-25]
+    Identifier(tt) [23-25]
+  OptionsList [34-92]
+    OptionsEntry [35-40]
+      Identifier(x) [35-36]
+      IntLiteral(5) [39-40]
+    OptionsEntry [42-51]
+      Identifier(y) [42-43]
+      StringLiteral('abc') [46-51]
+    OptionsEntry [53-63]
+      Identifier(z) [53-54]
+      ParameterExpr [57-63]
+        Identifier(param) [58-63]
+    OptionsEntry [65-75]
+      Identifier(zz) [65-67]
+      PathExpression [70-75]
+        Identifier(ident) [70-75]
+    OptionsEntry [77-91]
+      Identifier(zzz) [77-80]
+      SystemVariableExpr [83-91]
+        PathExpression [85-91]
+          Identifier(sysvar) [85-91]
+  Query [96-104]
+    Select [96-104]
+      SelectList [103-104]
+        SelectColumn [103-104]
+          IntLiteral(2) [103-104]
+--
+CREATE TEMP TABLE tt OPTIONS(x = 5, y = 'abc', z = @param, zz = ident, zzz = @@sysvar) AS
+SELECT
+  2
+==
+
+create table tt
+options ()
+as select 2
+--
+CreateTableStatement [0-38]
+  PathExpression [13-15]
+    Identifier(tt) [13-15]
+  OptionsList [24-26]
+  Query [30-38]
+    Select [30-38]
+      SelectList [37-38]
+        SelectColumn [37-38]
+          IntLiteral(2) [37-38]
+--
+CREATE TABLE tt OPTIONS() AS
+SELECT
+  2
+==
+
+create table tt
+options (x)
+as select 2
+--
+ERROR: Syntax error: Expected "=" but got ")" [at 2:11]
+options (x)
+          ^
+==
+
+create table tt
+options (x:5)
+as select 2
+--
+ERROR: Syntax error: Expected "=" but got ":" [at 2:11]
+options (x:5)
+          ^
+==
+
+create table tt
+options (x=5.5, y=a, z=b.c)
+as select 2
+--
+CreateTableStatement [0-55]
+  PathExpression [13-15]
+    Identifier(tt) [13-15]
+  OptionsList [24-43]
+    OptionsEntry [25-30]
+      Identifier(x) [25-26]
+      FloatLiteral(5.5) [27-30]
+    OptionsEntry [32-35]
+      Identifier(y) [32-33]
+      PathExpression [34-35]
+        Identifier(a) [34-35]
+    OptionsEntry [37-42]
+      Identifier(z) [37-38]
+      PathExpression [39-42]
+        Identifier(b) [39-40]
+        Identifier(c) [41-42]
+  Query [47-55]
+    Select [47-55]
+      SelectList [54-55]
+        SelectColumn [54-55]
+          IntLiteral(2) [54-55]
+--
+CREATE TABLE tt OPTIONS(x = 5.5, y = a, z = b.c) AS
+SELECT
+  2
+==
+
+create table tt
+options (y='b.c', z=`b.c`)
+as select 2
+--
+CreateTableStatement [0-54]
+  PathExpression [13-15]
+    Identifier(tt) [13-15]
+  OptionsList [24-42]
+    OptionsEntry [25-32]
+      Identifier(y) [25-26]
+      StringLiteral('b.c') [27-32]
+    OptionsEntry [34-41]
+      Identifier(z) [34-35]
+      PathExpression [36-41]
+        Identifier(`b.c`) [36-41]
+  Query [46-54]
+    Select [46-54]
+      SelectList [53-54]
+        SelectColumn [53-54]
+          IntLiteral(2) [53-54]
+--
+CREATE TABLE tt OPTIONS(y = 'b.c', z = `b.c`) AS
+SELECT
+  2
+==
+
+# Table with no name.
+create table as select 1;
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:14]
+create table as select 1;
+             ^
+==
+
+# CREATE EXTERNAL TABLE is a different statement, and doesn't take a query.
+create external table as select 1;
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:23]
+create external table as select 1;
+                      ^
+==
+
+# Options is a non-reserved keyword so can be used as an identifier.
+create table options as select 1 x;
+--
+CreateTableStatement [0-34]
+  PathExpression [13-20]
+    Identifier(options) [13-20]
+  Query [24-34]
+    Select [24-34]
+      SelectList [31-34]
+        SelectColumn [31-34]
+          IntLiteral(1) [31-32]
+          Alias [33-34]
+            Identifier(x) [33-34]
+--
+CREATE TABLE options AS
+SELECT
+  1 AS x
+==
+
+create table options OPTIONS (x=y) AS select 1 x;
+--
+CreateTableStatement [0-48]
+  PathExpression [13-20]
+    Identifier(options) [13-20]
+  OptionsList [29-34]
+    OptionsEntry [30-33]
+      Identifier(x) [30-31]
+      PathExpression [32-33]
+        Identifier(y) [32-33]
+  Query [38-48]
+    Select [38-48]
+      SelectList [45-48]
+        SelectColumn [45-48]
+          IntLiteral(1) [45-46]
+          Alias [47-48]
+            Identifier(x) [47-48]
+--
+CREATE TABLE options OPTIONS(x = y) AS
+SELECT
+  1 AS x
+==
+
+# This is parsed as a table named options with an options clause.
+create table options options(x=y) as select 1 x;
+--
+CreateTableStatement [0-47]
+  PathExpression [13-20]
+    Identifier(options) [13-20]
+  OptionsList [28-33]
+    OptionsEntry [29-32]
+      Identifier(x) [29-30]
+      PathExpression [31-32]
+        Identifier(y) [31-32]
+  Query [37-47]
+    Select [37-47]
+      SelectList [44-47]
+        SelectColumn [44-47]
+          IntLiteral(1) [44-45]
+          Alias [46-47]
+            Identifier(x) [46-47]
+--
+CREATE TABLE options OPTIONS(x = y) AS
+SELECT
+  1 AS x
+==
+
+# Note: here OPTIONS is a keyword used as an identifier (trying to create a
+# table named 'options').
+create table options(x=y) as select 1 x;
+--
+ERROR: Syntax error: Unexpected "=" [at 1:23]
+create table options(x=y) as select 1 x;
+                      ^
+==
+
+create or replace table xyz as (select 1)
+--
+CreateTableStatement(is_or_replace) [0-41]
+  PathExpression [24-27]
+    Identifier(xyz) [24-27]
+  Query [31-41]
+    Query [32-40]
+      Select [32-40]
+        SelectList [39-40]
+          SelectColumn [39-40]
+            IntLiteral(1) [39-40]
+--
+CREATE OR REPLACE TABLE xyz AS
+(
+SELECT
+  1
+)
+==
+
+create table if not exists xyz as (select 1)
+--
+CreateTableStatement(is_if_not_exists) [0-44]
+  PathExpression [27-30]
+    Identifier(xyz) [27-30]
+  Query [34-44]
+    Query [35-43]
+      Select [35-43]
+        SelectList [42-43]
+          SelectColumn [42-43]
+            IntLiteral(1) [42-43]
+--
+CREATE TABLE IF NOT EXISTS xyz AS
+(
+SELECT
+  1
+)
+==
+
+# IF NOT EXISTS should precede the table name.
+create table xyz if not exists as (select 1)
+--
+ERROR: Syntax error: Expected end of input but got keyword IF [at 1:18]
+create table xyz if not exists as (select 1)
+                 ^
+==
+
+# One with everything.  This is not legal, but parses successfully.
+create or replace temporary table if not exists a.b.c options(d=e) as select 1
+--
+CreateTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-78]
+  PathExpression [48-53]
+    Identifier(a) [48-49]
+    Identifier(b) [50-51]
+    Identifier(c) [52-53]
+  OptionsList [61-66]
+    OptionsEntry [62-65]
+      Identifier(d) [62-63]
+      PathExpression [64-65]
+        Identifier(e) [64-65]
+  Query [70-78]
+    Select [70-78]
+      SelectList [77-78]
+        SelectColumn [77-78]
+          IntLiteral(1) [77-78]
+--
+CREATE OR REPLACE TEMP TABLE IF NOT EXISTS a.b.c OPTIONS(d = e) AS
+SELECT
+  1
+==
+
+create table t as
+with q as (select 1), q2 as (select * from q)
+select * from q2
+--
+CreateTableStatement [0-80]
+  PathExpression [13-14]
+    Identifier(t) [13-14]
+  Query [18-80]
+    WithClause [18-63]
+      WithClauseEntry [23-38]
+        Identifier(q) [23-24]
+        Query [29-37]
+          Select [29-37]
+            SelectList [36-37]
+              SelectColumn [36-37]
+                IntLiteral(1) [36-37]
+      WithClauseEntry [40-63]
+        Identifier(q2) [40-42]
+        Query [47-62]
+          Select [47-62]
+            SelectList [54-55]
+              SelectColumn [54-55]
+                Star(*) [54-55]
+            FromClause [56-62]
+              TablePathExpression [61-62]
+                PathExpression [61-62]
+                  Identifier(q) [61-62]
+    Select [64-80]
+      SelectList [71-72]
+        SelectColumn [71-72]
+          Star(*) [71-72]
+      FromClause [73-80]
+        TablePathExpression [78-80]
+          PathExpression [78-80]
+            Identifier(q2) [78-80]
+--
+CREATE TABLE t AS
+WITH
+  q AS (
+    SELECT
+      1
+  ),
+  q2 AS (
+    SELECT
+      *
+    FROM
+      q
+  )
+SELECT
+  *
+FROM
+  q2
+==
+
+# Column list for CREATE TABLE AS
+create table t1 (a int64, b string) AS SELECT 1 a, 'hi' b;
+--
+CreateTableStatement [0-57]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  TableElementList [16-35]
+    ColumnDefinition [17-24]
+      Identifier(a) [17-18]
+      SimpleColumnSchema [19-24]
+        PathExpression [19-24]
+          Identifier(int64) [19-24]
+    ColumnDefinition [26-34]
+      Identifier(b) [26-27]
+      SimpleColumnSchema [28-34]
+        PathExpression [28-34]
+          Identifier(string) [28-34]
+  Query [39-57]
+    Select [39-57]
+      SelectList [46-57]
+        SelectColumn [46-49]
+          IntLiteral(1) [46-47]
+          Alias [48-49]
+            Identifier(a) [48-49]
+        SelectColumn [51-57]
+          StringLiteral('hi') [51-55]
+          Alias [56-57]
+            Identifier(b) [56-57]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) AS
+SELECT
+  1 AS a,
+  'hi' AS b
+
+==
+
+create temp table t(param1 int64, param2 int64) as
+select 1, 2, 3
+--
+CreateTableStatement(is_temp) [0-65]
+  PathExpression [18-19]
+    Identifier(t) [18-19]
+  TableElementList [19-47]
+    ColumnDefinition [20-32]
+      Identifier(param1) [20-26]
+      SimpleColumnSchema [27-32]
+        PathExpression [27-32]
+          Identifier(int64) [27-32]
+    ColumnDefinition [34-46]
+      Identifier(param2) [34-40]
+      SimpleColumnSchema [41-46]
+        PathExpression [41-46]
+          Identifier(int64) [41-46]
+  Query [51-65]
+    Select [51-65]
+      SelectList [58-65]
+        SelectColumn [58-59]
+          IntLiteral(1) [58-59]
+        SelectColumn [61-62]
+          IntLiteral(2) [61-62]
+        SelectColumn [64-65]
+          IntLiteral(3) [64-65]
+--
+CREATE TEMP TABLE t
+(
+  param1 int64,
+  param2 int64
+) AS
+SELECT
+  1,
+  2,
+  3
+
+==
+
+# Create table statements should not allow any fields from CREATE TABLE FUNCTION
+# statements.
+create temp table t
+language sql
+as
+select 1, 2, 3
+--
+ERROR: Syntax error: Expected end of input but got keyword LANGUAGE [at 2:1]
+language sql
+^
+==
+
+# Create table statements should not allow any fields from CREATE TABLE FUNCTION
+# statements.
+create temp table t
+returns table<x int64, y string>
+as select 1, 2, 3
+--
+ERROR: Syntax error: Expected end of input but got keyword RETURNS [at 2:1]
+returns table<x int64, y string>
+^
+==
+
+create table `function` as select 1, 2, 3;
+--
+CreateTableStatement [0-41]
+  PathExpression [13-23]
+    Identifier(`function`) [13-23]
+  Query [27-41]
+    Select [27-41]
+      SelectList [34-41]
+        SelectColumn [34-35]
+          IntLiteral(1) [34-35]
+        SelectColumn [37-38]
+          IntLiteral(2) [37-38]
+        SelectColumn [40-41]
+          IntLiteral(3) [40-41]
+--
+CREATE TABLE `function` AS
+SELECT
+  1,
+  2,
+  3
+==
+
+# This was originally crash bug b/34282868
+create {{|or replace}} table foo as "must be a query not a string";
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got string literal "must be a query not a string" [at 1:22]
+create  table foo as "must be a query not a string";
+                     ^
+--
+ALTERNATION GROUP: or replace
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got string literal "must be a query not a string" [at 1:32]
+create or replace table foo as "must be a query not a string";
+                               ^
+==
+
+create table t1 partition by key, value as
+select key, value from KeyValue
+--
+CreateTableStatement [0-74]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  PartitionBy [16-39]
+    PathExpression [29-32]
+      Identifier(key) [29-32]
+    PathExpression [34-39]
+      Identifier(value) [34-39]
+  Query [43-74]
+    Select [43-74]
+      SelectList [50-60]
+        SelectColumn [50-53]
+          PathExpression [50-53]
+            Identifier(key) [50-53]
+        SelectColumn [55-60]
+          PathExpression [55-60]
+            Identifier(value) [55-60]
+      FromClause [61-74]
+        TablePathExpression [66-74]
+          PathExpression [66-74]
+            Identifier(KeyValue) [66-74]
+--
+CREATE TABLE t1 PARTITION BY key, value AS
+SELECT
+  key,
+  value
+FROM
+  KeyValue
+
+==
+
+# CREATE TABLE AS with column list and PARTITION BY
+create table t1 (a int64, b string) PARTITION BY b AS SELECT 1 a, 'hi' b;
+--
+CreateTableStatement [0-72]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  TableElementList [16-35]
+    ColumnDefinition [17-24]
+      Identifier(a) [17-18]
+      SimpleColumnSchema [19-24]
+        PathExpression [19-24]
+          Identifier(int64) [19-24]
+    ColumnDefinition [26-34]
+      Identifier(b) [26-27]
+      SimpleColumnSchema [28-34]
+        PathExpression [28-34]
+          Identifier(string) [28-34]
+  PartitionBy [36-50]
+    PathExpression [49-50]
+      Identifier(b) [49-50]
+  Query [54-72]
+    Select [54-72]
+      SelectList [61-72]
+        SelectColumn [61-64]
+          IntLiteral(1) [61-62]
+          Alias [63-64]
+            Identifier(a) [63-64]
+        SelectColumn [66-72]
+          StringLiteral('hi') [66-70]
+          Alias [71-72]
+            Identifier(b) [71-72]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) PARTITION BY b AS
+SELECT
+  1 AS a,
+  'hi' AS b
+
+==
+
+create table t1 cluster by key, value as
+select key, value from KeyValue
+--
+CreateTableStatement [0-72]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  ClusterBy [16-37]
+    PathExpression [27-30]
+      Identifier(key) [27-30]
+    PathExpression [32-37]
+      Identifier(value) [32-37]
+  Query [41-72]
+    Select [41-72]
+      SelectList [48-58]
+        SelectColumn [48-51]
+          PathExpression [48-51]
+            Identifier(key) [48-51]
+        SelectColumn [53-58]
+          PathExpression [53-58]
+            Identifier(value) [53-58]
+      FromClause [59-72]
+        TablePathExpression [64-72]
+          PathExpression [64-72]
+            Identifier(KeyValue) [64-72]
+--
+CREATE TABLE t1 CLUSTER BY key, value AS
+SELECT
+  key,
+  value
+FROM
+  KeyValue
+==
+
+# CREATE TABLE AS with column list and CLUSTER BY
+create table t1 (a int64, b string) CLUSTER BY b AS SELECT 1 a, 'hi' b;
+--
+CreateTableStatement [0-70]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  TableElementList [16-35]
+    ColumnDefinition [17-24]
+      Identifier(a) [17-18]
+      SimpleColumnSchema [19-24]
+        PathExpression [19-24]
+          Identifier(int64) [19-24]
+    ColumnDefinition [26-34]
+      Identifier(b) [26-27]
+      SimpleColumnSchema [28-34]
+        PathExpression [28-34]
+          Identifier(string) [28-34]
+  ClusterBy [36-48]
+    PathExpression [47-48]
+      Identifier(b) [47-48]
+  Query [52-70]
+    Select [52-70]
+      SelectList [59-70]
+        SelectColumn [59-62]
+          IntLiteral(1) [59-60]
+          Alias [61-62]
+            Identifier(a) [61-62]
+        SelectColumn [64-70]
+          StringLiteral('hi') [64-68]
+          Alias [69-70]
+            Identifier(b) [69-70]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) CLUSTER BY b AS
+SELECT
+  1 AS a,
+  'hi' AS b
+
+==
+
+# CREATE TABLE AS with column list, PARTITION BY, CLUSTER BY, and OPTIONS
+create table t1 (a int64, b string)
+PARTITION BY b CLUSTER BY a OPTIONS (key='value') AS
+SELECT 1 a, 'hi' b;
+--
+CreateTableStatement [0-107]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  TableElementList [16-35]
+    ColumnDefinition [17-24]
+      Identifier(a) [17-18]
+      SimpleColumnSchema [19-24]
+        PathExpression [19-24]
+          Identifier(int64) [19-24]
+    ColumnDefinition [26-34]
+      Identifier(b) [26-27]
+      SimpleColumnSchema [28-34]
+        PathExpression [28-34]
+          Identifier(string) [28-34]
+  PartitionBy [36-50]
+    PathExpression [49-50]
+      Identifier(b) [49-50]
+  ClusterBy [51-63]
+    PathExpression [62-63]
+      Identifier(a) [62-63]
+  OptionsList [72-85]
+    OptionsEntry [73-84]
+      Identifier(key) [73-76]
+      StringLiteral('value') [77-84]
+  Query [89-107]
+    Select [89-107]
+      SelectList [96-107]
+        SelectColumn [96-99]
+          IntLiteral(1) [96-97]
+          Alias [98-99]
+            Identifier(a) [98-99]
+        SelectColumn [101-107]
+          StringLiteral('hi') [101-105]
+          Alias [106-107]
+            Identifier(b) [106-107]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) PARTITION BY b CLUSTER BY a OPTIONS(key = 'value') AS
+SELECT
+  1 AS a,
+  'hi' AS b
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+create table x-5-z as select * from a-3-b;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `x-5-z` [at 1:14]
+create table x-5-z as select * from a-3-b;
+             ^
+--
+ALTERNATION GROUP: <empty>
+--
+CreateTableStatement [0-41]
+  PathExpression [13-18]
+    Identifier(`x-5-z`) [13-18]
+  Query [22-41]
+    Select [22-41]
+      SelectList [29-30]
+        SelectColumn [29-30]
+          Star(*) [29-30]
+      FromClause [31-41]
+        TablePathExpression [36-41]
+          PathExpression [36-41]
+            Identifier(`a-3-b`) [36-41]
+--
+CREATE TABLE `x-5-z` AS
+SELECT
+  *
+FROM
+  `a-3-b`
+==
+
+create table t1 as select 1 a, 2 b,
+--
+CreateTableStatement [0-35]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  Query [19-35]
+    Select [19-35]
+      SelectList [26-35]
+        SelectColumn [26-29]
+          IntLiteral(1) [26-27]
+          Alias [28-29]
+            Identifier(a) [28-29]
+        SelectColumn [31-34]
+          IntLiteral(2) [31-32]
+          Alias [33-34]
+            Identifier(b) [33-34]
+--
+CREATE TABLE t1 AS
+SELECT
+  1 AS a,
+  2 AS b
+==
+
+create table t1 (a int64, b string,) as select 1 a, 'foo' b,
+--
+CreateTableStatement [0-60]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  TableElementList [16-36]
+    ColumnDefinition [17-24]
+      Identifier(a) [17-18]
+      SimpleColumnSchema [19-24]
+        PathExpression [19-24]
+          Identifier(int64) [19-24]
+    ColumnDefinition [26-34]
+      Identifier(b) [26-27]
+      SimpleColumnSchema [28-34]
+        PathExpression [28-34]
+          Identifier(string) [28-34]
+  Query [40-60]
+    Select [40-60]
+      SelectList [47-60]
+        SelectColumn [47-50]
+          IntLiteral(1) [47-48]
+          Alias [49-50]
+            Identifier(a) [49-50]
+        SelectColumn [52-59]
+          StringLiteral('foo') [52-57]
+          Alias [58-59]
+            Identifier(b) [58-59]
+--
+CREATE TABLE t1
+(
+  a int64,
+  b string
+) AS
+SELECT
+  1 AS a,
+  'foo' AS b

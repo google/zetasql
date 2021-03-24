@@ -42,6 +42,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
@@ -495,7 +496,8 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
     } else {
       // TODO: When we're confident that it's no longer possible to
       // crash the reference implementation, remove this validation step.
-      ZETASQL_RETURN_IF_ERROR(Validator().ValidateResolvedStatement(statement_));
+      ZETASQL_RETURN_IF_ERROR(
+          Validator(options.language()).ValidateResolvedStatement(statement_));
     }
 
     // Algebrize.
@@ -544,7 +546,8 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
     } else {
       // TODO: When we're confident that it's no longer possible to
       // crash the reference implementation, remove this validation step.
-      ZETASQL_RETURN_IF_ERROR(Validator().ValidateStandaloneResolvedExpr(expr_));
+      ZETASQL_RETURN_IF_ERROR(
+          Validator(options.language()).ValidateStandaloneResolvedExpr(expr_));
     }
 
     // Algebrize.
@@ -652,7 +655,7 @@ zetasql_base::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
 absl::Status Evaluator::TranslateParameterValueMapToList(
     const ParameterValueMap& parameters_map, const ParameterMap& variable_map,
     ParameterKind kind, ParameterValueList* variable_values) const {
-  std::unordered_map<std::string, const Value*> normalized_parameters;
+  absl::node_hash_map<std::string, const Value*> normalized_parameters;
   for (const auto& value : parameters_map) {
     normalized_parameters[absl::AsciiStrToLower(value.first)] = &value.second;
   }

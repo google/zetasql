@@ -16,6 +16,7 @@
 
 // Tests for ValueExprs not covered by other tests.
 
+#include <cstdint>
 #include <memory>
 #include <set>
 #include <string>

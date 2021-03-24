@@ -610,13 +610,7 @@ zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Cr
       if (user_id_column_found) {
         // We found the field from the struct, so return an AnonymizationInfo
         // with this name (if it is not ambiguous).
-        std::unique_ptr<AnonymizationInfo> anonymization_info;
-        ZETASQL_ASSIGN_OR_RETURN(
-            AnonymizationUserIdInfo userid_info,
-            AnonymizationUserIdInfo::Create(userid_column_name_path));
-        anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
-
-        return std::move(anonymization_info);
+        return Create(userid_column_name_path);
       }
     } else {
       bool user_id_column_found = true;
@@ -640,12 +634,7 @@ zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Cr
       if (user_id_column_found) {
         // We found the field from the proto, so return an AnonymizationInfo
         // with this name.
-        std::unique_ptr<AnonymizationInfo> anonymization_info;
-        ZETASQL_ASSIGN_OR_RETURN(
-            AnonymizationUserIdInfo userid_info,
-            AnonymizationUserIdInfo::Create(userid_column_name_path));
-        anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
-        return std::move(anonymization_info);
+        return Create(userid_column_name_path);
       }
     }
   }
@@ -672,9 +661,36 @@ zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Cr
 
   return not_found_error;
 }
+// static
+zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
+    absl::Span<const std::string> userid_column_name_path) {
+  std::unique_ptr<AnonymizationInfo> anonymization_info;
+  ZETASQL_ASSIGN_OR_RETURN(AnonymizationUserIdInfo userid_info,
+                   AnonymizationUserIdInfo::Create(userid_column_name_path));
+  anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
+  return std::move(anonymization_info);
+}
 
 absl::Span<const std::string> AnonymizationInfo::UserIdColumnNamePath() const {
   return userid_info_.get_column_name_path();
+}
+
+std::string Table::GetTableTypeName(ProductMode mode) const {
+  std::string ret = "TABLE<";
+  for (int i = 0; i < NumColumns(); ++i) {
+    const Column* column = GetColumn(i);
+    // Skip pseudo-columns such as _PARTITION_DATE
+    if (column->IsPseudoColumn()) {
+      continue;
+    }
+    if (i != 0) absl::StrAppend(&ret, ", ");
+    if (!column->Name().empty()) {
+      absl::StrAppend(&ret, ToIdentifierLiteral(column->Name()), " ");
+    }
+    absl::StrAppend(&ret, column->GetType()->TypeName(mode));
+  }
+  absl::StrAppend(&ret, ">");
+  return ret;
 }
 
 }  // namespace zetasql

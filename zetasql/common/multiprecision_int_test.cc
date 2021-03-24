@@ -29,6 +29,7 @@
 
 #include "zetasql/common/multiprecision_int.h"
 
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <sstream>
@@ -2149,8 +2150,8 @@ void TestConversion(V128 x) {
   Src<32, 5> x_32_5(x);
   Src<32, 4> x_32_4(x);
   Src<32, 3> x_32_3(std::array<uint32_t, 3>{static_cast<uint32_t>(x),
-                                          static_cast<uint32_t>(x >> 32),
-                                          static_cast<uint32_t>(x >> 64)});
+                                            static_cast<uint32_t>(x >> 32),
+                                            static_cast<uint32_t>(x >> 64)});
   V128 x_lo96 = (x << 32) >> 32;
 
   EXPECT_EQ((Dest<64, 3>(x_64_2).number()), x_64_3.number());

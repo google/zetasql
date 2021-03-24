@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/evaluation.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

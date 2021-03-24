@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_
 #define ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_
 
+#include <cstdint>
+
 #include "zetasql/public/numeric_value.h"
 #include "absl/random/random.h"
 #include "zetasql/base/statusor.h"
@@ -89,8 +91,8 @@ double MakeLosslessRandomDoubleValue(uint max_integer_bits,
                                      absl::BitGen* random) {
   uint max_mantissa_bits =
       std::min<uint>(53, T::kMaxFractionalDigits + max_integer_bits);
-  int64_t mantissa = absl::Uniform<int64_t>(*random, 1 - (1LL << max_mantissa_bits),
-                                        (1LL << max_mantissa_bits));
+  int64_t mantissa = absl::Uniform<int64_t>(
+      *random, 1 - (1LL << max_mantissa_bits), (1LL << max_mantissa_bits));
   int exponent_bits = absl::Uniform<int>(absl::IntervalClosedClosed, *random,
                                          -T::kMaxFractionalDigits,
                                          max_integer_bits - max_mantissa_bits);

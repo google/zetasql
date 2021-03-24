@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/math.h"
 
 #include <cmath>
+#include <cstdint>
 #include <type_traits>
 
 #include "absl/base/macros.h"
@@ -128,8 +129,7 @@ static inline bool CastRounded(FromType in, ToType* out) {
 }  // anonymous namespace
 
 template <>
-bool RoundDecimal(double in, int64_t digits, double *out,
-                  absl::Status* error) {
+bool RoundDecimal(double in, int64_t digits, double* out, absl::Status* error) {
   if (digits < -kDoubleMaxExponent) {
     *out = 0.0;
     return true;
@@ -176,8 +176,7 @@ bool RoundDecimal(double in, int64_t digits, double *out,
 }
 
 template <>
-bool RoundDecimal(float in, int64_t digits, float *out,
-                  absl::Status* error) {
+bool RoundDecimal(float in, int64_t digits, float* out, absl::Status* error) {
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
@@ -201,8 +200,7 @@ bool RoundDecimal(float in, int64_t digits, float *out,
   }
 }
 template <>
-bool TruncDecimal(double in, int64_t digits, double *out,
-                  absl::Status* error) {
+bool TruncDecimal(double in, int64_t digits, double* out, absl::Status* error) {
   if (digits < -kDoubleMaxExponent) {
     *out = 0.0;
     return true;
@@ -232,8 +230,7 @@ bool TruncDecimal(double in, int64_t digits, double *out,
 }
 
 template <>
-bool TruncDecimal(float in, int64_t digits, float *out,
-                  absl::Status* error) {
+bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error) {
   static_assert(std::numeric_limits<double>::max_exponent >=
                 std::numeric_limits<float>::max_exponent * 2 ,
                 "double's exponent must be wider than float's");
@@ -273,7 +270,7 @@ bool Round(NumericValue in, NumericValue *out, absl::Status* error) {
 }
 
 template <>
-bool RoundDecimal(NumericValue in, int64_t digits, NumericValue *out,
+bool RoundDecimal(NumericValue in, int64_t digits, NumericValue* out,
                   absl::Status* error) {
   return SetNumericResultOrError(in.Round(digits), out, error);
 }

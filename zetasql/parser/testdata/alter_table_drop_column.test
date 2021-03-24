@@ -1,0 +1,134 @@
+alter table foo.bar drop;
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:25]
+alter table foo.bar drop;
+                        ^
+
+==
+
+alter table foo.bar drop column;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:32]
+alter table foo.bar drop column;
+                               ^
+
+==
+
+alter table foo.bar drop column baz;
+--
+AlterTableStatement [0-35]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-35]
+    DropColumnAction [20-35]
+      Identifier(baz) [32-35]
+--
+ALTER TABLE foo.bar DROP COLUMN baz
+==
+
+alter table if exists foo.bar drop column baz;
+--
+AlterTableStatement(is_if_exists) [0-45]
+  PathExpression [22-29]
+    Identifier(foo) [22-25]
+    Identifier(bar) [26-29]
+  AlterActionList [30-45]
+    DropColumnAction [30-45]
+      Identifier(baz) [42-45]
+--
+ALTER TABLE IF EXISTS foo.bar DROP COLUMN baz
+==
+
+alter table foo.bar drop column baz.car;
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:36]
+alter table foo.bar drop column baz.car;
+                                   ^
+==
+
+alter table foo.bar drop column if exists baz;
+--
+AlterTableStatement [0-45]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-45]
+    DropColumnAction(is_if_exists) [20-45]
+      Identifier(baz) [42-45]
+--
+ALTER TABLE foo.bar DROP COLUMN IF EXISTS baz
+
+==
+
+alter table column drop column baz;
+--
+AlterTableStatement [0-34]
+  PathExpression [12-18]
+    Identifier(column) [12-18]
+  AlterActionList [19-34]
+    DropColumnAction [19-34]
+      Identifier(baz) [31-34]
+--
+ALTER TABLE column DROP COLUMN baz
+
+==
+
+alter table column drop column check;
+--
+AlterTableStatement [0-36]
+  PathExpression [12-18]
+    Identifier(column) [12-18]
+  AlterActionList [19-36]
+    DropColumnAction [19-36]
+      Identifier(check) [31-36]
+--
+ALTER TABLE column DROP COLUMN check
+
+==
+
+alter table column drop column column;
+--
+AlterTableStatement [0-37]
+  PathExpression [12-18]
+    Identifier(column) [12-18]
+  AlterActionList [19-37]
+    DropColumnAction [19-37]
+      Identifier(column) [31-37]
+--
+ALTER TABLE column DROP COLUMN column
+==
+
+alter table column drop column `union`;
+--
+AlterTableStatement [0-38]
+  PathExpression [12-18]
+    Identifier(column) [12-18]
+  AlterActionList [19-38]
+    DropColumnAction [19-38]
+      Identifier(`union`) [31-38]
+--
+ALTER TABLE column DROP COLUMN `union`
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+ALTER TABLE foo-bar.baz DROP COLUMN a
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar.baz` [at 1:13]
+ALTER TABLE foo-bar.baz DROP COLUMN a
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-37]
+  PathExpression [12-23]
+    Identifier(`foo-bar`) [12-19]
+    Identifier(baz) [20-23]
+  AlterActionList [24-37]
+    DropColumnAction [24-37]
+      Identifier(a) [36-37]
+--
+ALTER TABLE `foo-bar`.baz DROP COLUMN a

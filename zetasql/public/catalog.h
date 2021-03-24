@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_CATALOG_H_
 #define ZETASQL_PUBLIC_CATALOG_H_
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -650,6 +651,10 @@ class AnonymizationInfo {
       const Table* table,
       absl::Span<const std::string> userid_column_name_path);
 
+  // Creates an AnonymizationInfo for the specified <userid_column_name_path>.
+  static zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
+      absl::Span<const std::string> userid_column_name_path);
+
   // Returns AnonymizationUserIdInfo related to the Table.
   const AnonymizationUserIdInfo& GetUserIdInfo() const {
     return userid_info_;
@@ -743,7 +748,7 @@ class Table {
   // also contain tables with SupportsAnonymization()==false (although those
   // tables are assumed to not contain sensitive user data).
   virtual std::optional<const AnonymizationInfo> GetAnonymizationInfo() const {
-    return std::optional<const AnonymizationInfo>();
+    return std::nullopt;
   }
   bool SupportsAnonymization() const {
     return GetAnonymizationInfo().has_value();
@@ -763,6 +768,14 @@ class Table {
   const TableSubclass* GetAs() const {
     return static_cast<const TableSubclass*>(this);
   }
+
+  // Generates the SQL name for this table type, which will be reparseable as
+  // part of a query.
+  // NOTE: Pseudo-columns such as _PARTITION_DATE are not included.
+  //
+  // e.g. TABLE<x INT64, y STRING> for tables with named columns
+  //      TABLE<INT64, STRING> for tables with anonymous columns
+  virtual std::string GetTableTypeName(ProductMode mode) const;
 };
 
 // A Model object visible in a ZetaSQL query.

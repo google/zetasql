@@ -84,6 +84,8 @@ class ResolverTest : public ::testing::Test {
         FEATURE_V_1_3_UNNEST_AND_FLATTEN_ARRAYS);
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_INTERVAL_TYPE);
+    analyzer_options_.mutable_language()->EnableLanguageFeature(
+        FEATURE_PARAMETERIZED_TYPES);
     analyzer_options_.CreateDefaultArenasIfNotSet();
     sample_catalog_ = absl::make_unique<SampleCatalog>(
         analyzer_options_.language(), &type_factory_);
@@ -526,8 +528,9 @@ TEST_F(ResolverTest, ResolveTypeInvalidTypeNameTests) {
   EXPECT_THAT(resolver_->ResolveTypeName("CONCAT", &type),
               StatusIs(_, HasSubstr("Type not found: CONCAT")));
 
-  EXPECT_THAT(resolver_->ResolveTypeName("timestamp(0)", &type),
-              StatusIs(_, HasSubstr("Parameterized types are not supported")));
+  EXPECT_THAT(
+      resolver_->ResolveTypeName("timestamp(0)", &type),
+      StatusIs(_, HasSubstr("TIMESTAMP does not support type parameters")));
 }
 
 TEST_F(ResolverTest, TestErrorCatalogNameTests) {
@@ -703,8 +706,7 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   ResolveFunctionFails("CAST(b'0' as binary)", "Type not found: binary");
   ResolveFunctionFails("CAST(b'0' as BLOB)", "Type not found: BLOB");
   ResolveFunctionFails("CAST('foo' as CHAR)", "Type not found: CHAR");
-  ResolveFunctionFails("CAST('foo' AS VARCHAR(5))",
-                       "Parameterized types are not supported");
+  ResolveFunctionFails("CAST('foo' AS VARCHAR(5))", "Type not found: VARCHAR");
 
   // SQL Standard type names which are not even parsable in ZetaSQL
   ParseFunctionFails(

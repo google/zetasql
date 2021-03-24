@@ -1,0 +1,176 @@
+# Script containing a single statement, with terminating semi-colon.
+[default mode=script]
+SELECT 3{{;|}}
+--
+ALTERNATION GROUP: ;
+--
+Script [0-10]
+  StatementList [0-10]
+    QueryStatement [0-8]
+      Query [0-8]
+        Select [0-8]
+          SelectList [7-8]
+            SelectColumn [7-8]
+              IntLiteral(3) [7-8]
+--
+SELECT
+  3
+;
+--
+ALTERNATION GROUP: <empty>
+--
+Script [0-8]
+  StatementList [0-8]
+    QueryStatement [0-8]
+      Query [0-8]
+        Select [0-8]
+          SelectList [7-8]
+            SelectColumn [7-8]
+              IntLiteral(3) [7-8]
+--
+SELECT
+  3
+;
+==
+
+# Empty script
+
+--
+Script [0-0]
+  StatementList [0-0]
+--
+==
+
+# Script with multiple statements, both with and without a terminating semicolon
+# following the last statement.
+SELECT 3; SELECT 4{{;|}}
+--
+ALTERNATION GROUP: ;
+--
+Script [0-20]
+  StatementList [0-20]
+    QueryStatement [0-8]
+      Query [0-8]
+        Select [0-8]
+          SelectList [7-8]
+            SelectColumn [7-8]
+              IntLiteral(3) [7-8]
+    QueryStatement [10-18]
+      Query [10-18]
+        Select [10-18]
+          SelectList [17-18]
+            SelectColumn [17-18]
+              IntLiteral(4) [17-18]
+--
+SELECT
+  3
+;
+SELECT
+  4
+;
+--
+ALTERNATION GROUP: <empty>
+--
+Script [0-18]
+  StatementList [0-18]
+    QueryStatement [0-8]
+      Query [0-8]
+        Select [0-8]
+          SelectList [7-8]
+            SelectColumn [7-8]
+              IntLiteral(3) [7-8]
+    QueryStatement [10-18]
+      Query [10-18]
+        Select [10-18]
+          SelectList [17-18]
+            SelectColumn [17-18]
+              IntLiteral(4) [17-18]
+--
+SELECT
+  3
+;
+SELECT
+  4
+;
+==
+
+# This is an error because omitting the semi-colon between statements is not
+# allowed.
+SELECT 7 SELECT 8
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 1:10]
+SELECT 7 SELECT 8
+         ^
+==
+
+# Test compound statements appearing in a script.
+IF true then
+  select 9;
+  select 10;
+end if;
+SELECT 11
+--
+Script [0-55]
+  StatementList [0-55]
+    IfStatement [0-44]
+      BooleanLiteral(true) [3-7]
+      StatementList [15-38]
+        QueryStatement [15-23]
+          Query [15-23]
+            Select [15-23]
+              SelectList [22-23]
+                SelectColumn [22-23]
+                  IntLiteral(9) [22-23]
+        QueryStatement [27-36]
+          Query [27-36]
+            Select [27-36]
+              SelectList [34-36]
+                SelectColumn [34-36]
+                  IntLiteral(10) [34-36]
+    QueryStatement [46-55]
+      Query [46-55]
+        Select [46-55]
+          SelectList [53-55]
+            SelectColumn [53-55]
+              IntLiteral(11) [53-55]
+--
+IF true THEN
+  SELECT
+    9
+  ;
+  SELECT
+    10
+  ;
+END IF ;
+SELECT
+  11
+;
+==
+
+# Error: standalone expressions not allowed
+7
+--
+ERROR: Syntax error: Expected end of input but got integer literal "7" [at 1:1]
+7
+^
+==
+
+SELECT 1;
+EXECUTE IMMEDIATE x;
+--
+Script [0-31]
+  StatementList [0-31]
+    QueryStatement [0-8]
+      Query [0-8]
+        Select [0-8]
+          SelectList [7-8]
+            SelectColumn [7-8]
+              IntLiteral(1) [7-8]
+    ExecuteImmediateStatement [10-29]
+      PathExpression [28-29]
+        Identifier(x) [28-29]
+--
+SELECT
+  1
+;
+EXECUTE IMMEDIATE x ;

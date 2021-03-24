@@ -21,6 +21,8 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include <cstdint>
+
 #include "zetasql/public/functions/util.h"
 #include "absl/base/optimization.h"
 #include "absl/strings/ascii.h"
@@ -228,7 +230,7 @@ bool IPTrunc(absl::string_view in, int64_t prefix_length_bits, std::string* out,
   const uint8_t remaining_bits = prefix_length_bits % 8;
   if (remaining_bits > 0) {
     *out_data = static_cast<uint8_t>(in[bytes_to_keep]) &
-        static_cast<uint8_t>(0xff00u >> remaining_bits);
+                static_cast<uint8_t>(0xff00u >> remaining_bits);
   }
   return true;
 }
@@ -555,7 +557,7 @@ absl::Status DomainSuffix(
   std::string normalized_host_storage;
   absl::string_view normalized_host = host;
   for (const char c : host) {
-    if (kHostCharMap[c] & kNormalize) {
+    if (kHostCharMap[static_cast<uint8_t>(c)] & kNormalize) {
       if (!zetasql::internal::ToASCII(host, &normalized_host_storage)) {
         return absl::OkStatus();
       }

@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/algebrizer.h"
 
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <string>

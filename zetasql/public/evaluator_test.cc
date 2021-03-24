@@ -16,6 +16,7 @@
 
 #include "zetasql/public/evaluator.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -1833,8 +1834,52 @@ TEST(EvaluatorTest, ExecuteAfterPreparePositonalColumnsNamedParameters) {
                                  "columns are positional")));
 }
 
+TEST(EvaluatorTest, ResolvedExprValidatedWithCorrectLanguageOptions) {
+  // When a resolved tree is passed to the PreparedQuery constructor, it
+  // validates the tree. Make sure the correct language options are being
+  // plumbed through to the validator.
+  //
+  // We choose a WITH RECURSIVE query for this, since the validator will give an
+  // error if it sees a ResolvedRecursiveScan without the corresopnding language
+  // option enabled.
+  std::string query = R"(
+    ARRAY(WITH RECURSIVE t AS (
+      SELECT 1 AS x UNION ALL SELECT x + 1 FROM t WHERE x < 5)
+    SELECT * FROM t))";
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_WITH_RECURSIVE);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_1_WITH_ON_SUBQUERY);
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddZetaSQLFunctions();
+
+  TypeFactory type_factory;
+
+  ZETASQL_ASSERT_OK(AnalyzeExpression(query, analyzer_options, &catalog, &type_factory,
+                              &analyzer_output));
+  const ResolvedExpr* resolved_expr = analyzer_output->resolved_expr();
+
+  EvaluatorOptions evaluator_options;
+
+  // Try to prepare the query with feature enabled in analyzer options
+  PreparedExpression prepared_expr(resolved_expr, evaluator_options);
+  ZETASQL_EXPECT_OK(prepared_expr.Prepare(analyzer_options));
+
+  // Now, try to prepare the query again with the same resolved tree, but
+  // feature disabled.
+  PreparedExpression prepared_expr2(resolved_expr, evaluator_options);
+  EXPECT_THAT(prepared_expr2.Prepare(AnalyzerOptions()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Found recursive scan, but WITH RECURSIVE is "
+                                 "disabled in language features")));
+}
+
 TEST_F(UDFEvalTest, OkUDFEvaluator) {
-  function_options_.set_evaluator([](const absl::Span<const Value>& args) {
+  function_options_.set_evaluator([](const absl::Span<const Value> args) {
     // Returns string length as int64_t.
     return Value::Int64(args[0].string_value().size());
   });
@@ -1850,11 +1895,11 @@ TEST_F(UDFEvalTest, OkUDFEvaluator) {
 
 TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
   static FunctionEvaluator evaluator_int64 =
-      [](const absl::Span<const Value>& args) {
+      [](const absl::Span<const Value> args) {
         return Value::Int64(args[0].int64_value() * 2);
       };
   static FunctionEvaluator evaluator_string =
-      [](const absl::Span<const Value>& args) {
+      [](const absl::Span<const Value> args) {
         return Value::Int64(args[0].string_value().size());
       };
   function_options_.set_evaluator_factory(
@@ -1911,7 +1956,7 @@ TEST_F(UDFEvalTest, NoUDFEvaluator) {
 
 TEST_F(UDFEvalTest, UDFEvaluatorRuntimeErrors) {
   function_options_.set_evaluator(
-      [](const absl::Span<const Value>& args) -> zetasql_base::StatusOr<Value> {
+      [](const absl::Span<const Value> args) -> zetasql_base::StatusOr<Value> {
         std::string arg = args[0].string_value();
         if (arg == "not found") {
           return absl::Status(absl::StatusCode::kNotFound, "Wrong number");
@@ -2320,6 +2365,49 @@ TEST(PreparedQuery,
           absl::StatusCode::kInternal,
           HasSubstr("Mismatch in number of analyzer parameters versus "
                     "algebrizer parameters")));
+}
+
+TEST(PreparedQuery, ResolvedQueryValidatedWithCorrectLanguageOptions) {
+  // When a resolved tree is passed to the PreparedQuery constructor, it
+  // validates the tree. Make sure the correct language options are being
+  // plumbed through to the validator.
+  //
+  // We choose a WITH RECURSIVE query for this, since the validator will give an
+  // error if it sees a ResolvedRecursiveScan without the corresopnding language
+  // option enabled.
+  std::string query = R"(
+    WITH RECURSIVE t AS (
+      SELECT 1 AS x UNION ALL SELECT x + 1 FROM t WHERE x < 5)
+    SELECT * FROM t;)";
+
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  AnalyzerOptions analyzer_options;
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_3_WITH_RECURSIVE);
+
+  SimpleCatalog catalog("TestCatalog");
+  catalog.AddZetaSQLFunctions();
+
+  TypeFactory type_factory;
+
+  ZETASQL_ASSERT_OK(AnalyzeStatement(query, analyzer_options, &catalog, &type_factory,
+                             &analyzer_output));
+  const ResolvedQueryStmt* query_stmt =
+      analyzer_output->resolved_statement()->GetAs<ResolvedQueryStmt>();
+
+  EvaluatorOptions evaluator_options;
+
+  // Try to prepare the query with feature enabled in analyzer options
+  PreparedQuery prepared_query(query_stmt, evaluator_options);
+  ZETASQL_EXPECT_OK(prepared_query.Prepare(analyzer_options));
+
+  // Now, try to prepare the query again with the same resolved tree, but
+  // feature disabled.
+  PreparedQuery prepared_query2(query_stmt, evaluator_options);
+  EXPECT_THAT(prepared_query2.Prepare(AnalyzerOptions()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Found recursive scan, but WITH RECURSIVE is "
+                                 "disabled in language features")));
 }
 
 class PreparedModifyTest : public ::testing::Test {

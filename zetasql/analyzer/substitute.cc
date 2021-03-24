@@ -482,12 +482,27 @@ absl::Status VariableReplacementInserter::AddLambdaColumnRefsToSubqueryExpr(
 }
 }  // namespace
 
+absl::Status ExpectAnalyzeSubstituteSuccess(
+    zetasql_base::StatusBuilder status_builder) {
+  ZETASQL_RET_CHECK_OK(status_builder) << "Unexpected error in AnalyzeSubstitute()";
+  return status_builder;
+}
+
 zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
     AnalyzerOptions options, absl::Span<const Rewriter* const> rewriters,
     Catalog& catalog, TypeFactory& type_factory, absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas) {
+  constexpr absl::string_view arenas_msg =
+      "AnalyzeSubstitute: All arenas and the column sequence number must be "
+      "set on the input options, and they must be the same arenas used to "
+      "generate the variables and lambdas. Otherwise, the result of "
+      "substitution will be subtly broken";
+  ZETASQL_RET_CHECK(options.id_string_pool()) << arenas_msg;
+  ZETASQL_RET_CHECK(options.arena()) << arenas_msg;
+  ZETASQL_RET_CHECK(options.column_id_sequence_number()) << arenas_msg;
+
   return ExpressionSubstitutor(std::move(options), rewriters, catalog,
                                type_factory)
       .Substitute(expression, variables, lambdas);

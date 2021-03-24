@@ -16,17 +16,31 @@
 
 #include "zetasql/public/types/type_factory.h"
 
+#include <cstdint>
+#include <iterator>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "google/protobuf/descriptor.h"
+#include "google/protobuf/repeated_field.h"
 #include "zetasql/common/proto_helper.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type.h"
-#include "zetasql/base/cleanup.h"
+#include "absl/algorithm/container.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
 
@@ -182,12 +196,18 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
              store_->factories_depending_on_this_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_array_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_proto_types_) +
-         internal::GetExternallyAllocatedMemoryEstimate(cached_enum_types_);
+         internal::GetExternallyAllocatedMemoryEstimate(cached_enum_types_) +
+         internal::GetExternallyAllocatedMemoryEstimate(
+             cached_proto_types_with_catalog_name_) +
+         internal::GetExternallyAllocatedMemoryEstimate(
+             cached_enum_types_with_catalog_name_) +
+         internal::GetExternallyAllocatedMemoryEstimate(cached_catalog_names_);
 }
 
 template <class TYPE>
 const TYPE* TypeFactory::TakeOwnership(const TYPE* type) {
-  const int64_t type_owned_bytes_size = type->GetEstimatedOwnedMemoryBytesSize();
+  const int64_t type_owned_bytes_size =
+      type->GetEstimatedOwnedMemoryBytesSize();
   absl::MutexLock l(&store_->mutex_);
   return TakeOwnershipLocked(type, type_owned_bytes_size);
 }
@@ -234,8 +254,8 @@ const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   return type;
 }
 
-absl::Status TypeFactory::MakeArrayType(
-    const Type* element_type, const ArrayType** result) {
+absl::Status TypeFactory::MakeArrayType(const Type* element_type,
+                                        const ArrayType** result) {
   *result = nullptr;
   AddDependency(element_type);
   if (element_type->IsArray()) {
@@ -258,8 +278,8 @@ absl::Status TypeFactory::MakeArrayType(
   }
 }
 
-absl::Status TypeFactory::MakeArrayType(
-    const Type* element_type, const Type** result) {
+absl::Status TypeFactory::MakeArrayType(const Type* element_type,
+                                        const Type** result) {
   return MakeArrayType(element_type,
                        reinterpret_cast<const ArrayType**>(result));
 }
@@ -304,37 +324,92 @@ absl::Status TypeFactory::MakeStructTypeFromVector(
                                   reinterpret_cast<const StructType**>(result));
 }
 
-absl::Status TypeFactory::MakeProtoType(
-    const google::protobuf::Descriptor* descriptor, const ProtoType** result) {
+template <typename Descriptor>
+const auto* TypeFactory::MakeDescribedType(
+    const Descriptor* descriptor, std::vector<std::string> catalog_name_path) {
   absl::MutexLock lock(&store_->mutex_);
-  auto& cached_result = cached_proto_types_[descriptor];
-  if (cached_result == nullptr) {
-    cached_result = TakeOwnershipLocked(new ProtoType(this, descriptor));
+
+  const internal::CatalogName* cached_catalog =
+      FindOrCreateCatalogName(std::move(catalog_name_path));
+
+  const auto*& cached_type = FindOrCreateCachedType(descriptor, cached_catalog);
+  using DescribedType =
+      absl::remove_pointer_t<absl::remove_reference_t<decltype(cached_type)>>;
+
+  if (cached_type == nullptr) {
+    cached_type = TakeOwnershipLocked(
+        new DescribedType(this, descriptor, cached_catalog));
   }
-  *result = cached_result;
+  return cached_type;
+}
+
+template <>
+const auto*& TypeFactory::FindOrCreateCachedType<google::protobuf::Descriptor>(
+    const google::protobuf::Descriptor* descriptor,
+    const internal::CatalogName* catalog) {
+  if (catalog == nullptr)
+    return cached_proto_types_[descriptor];
+  else
+    return cached_proto_types_with_catalog_name_[std::make_pair(descriptor,
+                                                                catalog)];
+}
+
+template <>
+const auto*& TypeFactory::FindOrCreateCachedType<google::protobuf::EnumDescriptor>(
+    const google::protobuf::EnumDescriptor* descriptor,
+    const internal::CatalogName* catalog) {
+  if (catalog == nullptr)
+    return cached_enum_types_[descriptor];
+  else
+    return cached_enum_types_with_catalog_name_[std::make_pair(descriptor,
+                                                               catalog)];
+}
+
+const internal::CatalogName* TypeFactory::FindOrCreateCatalogName(
+    std::vector<std::string> catalog_name_path) {
+  if (catalog_name_path.empty()) return nullptr;
+
+  auto [it, was_inserted] = cached_catalog_names_.try_emplace(
+      IdentifierPathToString(catalog_name_path), internal::CatalogName());
+
+  // node_hash_map provides pointer stability for both key and value.
+  internal::CatalogName* catalog_name = &it->second;
+
+  if (was_inserted) {
+    catalog_name->path_string = &it->first;
+    catalog_name->path.reserve(catalog_name_path.size());
+    absl::c_move(catalog_name_path, std::back_inserter(catalog_name->path));
+  }
+
+  return catalog_name;
+}
+
+absl::Status TypeFactory::MakeProtoType(
+    const google::protobuf::Descriptor* descriptor, const ProtoType** result,
+    std::vector<std::string> catalog_name_path) {
+  *result = MakeDescribedType(descriptor, std::move(catalog_name_path));
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeProtoType(
-    const google::protobuf::Descriptor* descriptor, const Type** result) {
-  return MakeProtoType(descriptor, reinterpret_cast<const ProtoType**>(result));
-}
-
-absl::Status TypeFactory::MakeEnumType(
-    const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result) {
-  absl::MutexLock lock(&store_->mutex_);
-  auto& cached_result = cached_enum_types_[enum_descriptor];
-  if (cached_result == nullptr) {
-    cached_result = TakeOwnershipLocked(new EnumType(this, enum_descriptor));
-  }
-  *result = cached_result;
+    const google::protobuf::Descriptor* descriptor, const Type** result,
+    std::vector<std::string> catalog_name_path) {
+  *result = MakeDescribedType(descriptor, std::move(catalog_name_path));
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeEnumType(
-    const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result) {
-  return MakeEnumType(enum_descriptor,
-                      reinterpret_cast<const EnumType**>(result));
+    const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
+    std::vector<std::string> catalog_name_path) {
+  *result = MakeDescribedType(enum_descriptor, std::move(catalog_name_path));
+  return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeEnumType(
+    const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result,
+    std::vector<std::string> catalog_name_path) {
+  *result = MakeDescribedType(enum_descriptor, std::move(catalog_name_path));
+  return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeUnwrappedTypeFromProto(
@@ -393,7 +468,7 @@ absl::Status TypeFactory::MakeUnwrappedTypeFromProtoImpl(
   }
   // Always erase 'message' before returning so 'ancestor_messages' contains
   // only ancestors of the current message being unwrapped.
-  auto cleanup = ::zetasql_base::MakeCleanup(
+  auto cleanup = ::absl::MakeCleanup(
       [message, ancestor_messages] { ancestor_messages->erase(message); });
   absl::Status return_status;
   if (ProtoType::GetIsWrapperAnnotation(message)) {
@@ -513,7 +588,8 @@ absl::Status TypeFactory::GetProtoFieldType(
     ZETASQL_RETURN_IF_ERROR(ProtoType::FieldDescriptorToTypeKind(
         field_descr, use_obsolete_timestamp, &computed_type_kind));
     ZETASQL_RET_CHECK_EQ((*type)->kind(), computed_type_kind)
-        << (*type)->DebugString() << "\n" << field_descr->DebugString();
+        << (*type)->DebugString() << "\n"
+        << field_descr->DebugString();
   }
 
   return absl::OkStatus();
@@ -528,8 +604,7 @@ zetasql_base::StatusOr<const AnnotationMap*> TypeFactory::TakeOwnership(
 }
 
 absl::Status TypeFactory::DeserializeAnnotationMap(
-    const AnnotationMapProto& proto,
-    const AnnotationMap** annotation_map) {
+    const AnnotationMapProto& proto, const AnnotationMap** annotation_map) {
   *annotation_map = nullptr;
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> deserialized_annotation_map,
                    AnnotationMap::Deserialize(proto));
@@ -548,8 +623,7 @@ const AnnotationMap* TypeFactory::TakeOwnershipInternal(
 }
 
 absl::Status TypeFactory::DeserializeFromProtoUsingExistingPool(
-    const TypeProto& type_proto,
-    const google::protobuf::DescriptorPool* pool,
+    const TypeProto& type_proto, const google::protobuf::DescriptorPool* pool,
     const Type** type) {
   return DeserializeFromProtoUsingExistingPools(type_proto, {pool}, type);
 }
@@ -627,7 +701,11 @@ absl::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
                << enum_descr->file()->name() << ", not "
                << type_proto.enum_type().enum_file_name() << " as specified.";
       }
-      ZETASQL_RETURN_IF_ERROR(MakeEnumType(enum_descr, &enum_type));
+      const google::protobuf::RepeatedPtrField<std::string>& catalog_name_path =
+          type_proto.enum_type().catalog_name_path();
+      ZETASQL_RETURN_IF_ERROR(
+          MakeEnumType(enum_descr, &enum_type,
+                       {catalog_name_path.begin(), catalog_name_path.end()}));
       *type = enum_type;
     } break;
     case TYPE_PROTO: {
@@ -654,7 +732,11 @@ absl::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
                << " found in " << proto_descr->file()->name() << ", not "
                << type_proto.proto_type().proto_file_name() << " as specified.";
       }
-      ZETASQL_RETURN_IF_ERROR(MakeProtoType(proto_descr, &proto_type));
+      const google::protobuf::RepeatedPtrField<std::string>& catalog_name_path =
+          type_proto.proto_type().catalog_name_path();
+      ZETASQL_RETURN_IF_ERROR(
+          MakeProtoType(proto_descr, &proto_type,
+                        {catalog_name_path.begin(), catalog_name_path.end()}));
       *type = proto_type;
     } break;
     default:
@@ -667,9 +749,8 @@ absl::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
 }
 
 absl::Status TypeFactory::DeserializeFromSelfContainedProto(
-      const TypeProto& type_proto,
-      google::protobuf::DescriptorPool* pool,
-      const Type** type) {
+    const TypeProto& type_proto, google::protobuf::DescriptorPool* pool,
+    const Type** type) {
   if (type_proto.file_descriptor_set_size() > 1) {
     return MakeSqlError()
            << "DeserializeFromSelfContainedProto cannot be used to deserialize "
@@ -681,9 +762,8 @@ absl::Status TypeFactory::DeserializeFromSelfContainedProto(
 }
 
 absl::Status TypeFactory::DeserializeFromSelfContainedProtoWithDistinctFiles(
-      const TypeProto& type_proto,
-      const std::vector<google::protobuf::DescriptorPool*>& pools,
-      const Type** type) {
+    const TypeProto& type_proto,
+    const std::vector<google::protobuf::DescriptorPool*>& pools, const Type** type) {
   if (!type_proto.file_descriptor_set().empty() &&
       type_proto.file_descriptor_set_size() != pools.size()) {
     return MakeSqlError()
@@ -697,13 +777,13 @@ absl::Status TypeFactory::DeserializeFromSelfContainedProtoWithDistinctFiles(
         &type_proto.file_descriptor_set(i), pools[i]));
   }
   const std::vector<const google::protobuf::DescriptorPool*> const_pools(pools.begin(),
-                                                          pools.end());
+                                                               pools.end());
   return DeserializeFromProtoUsingExistingPools(type_proto, const_pools, type);
 }
 
 bool IsValidTypeKind(int kind) {
   return TypeKind_IsValid(kind) &&
-      kind != __TypeKind__switch_must_have_a_default__;
+         kind != __TypeKind__switch_must_have_a_default__;
 }
 
 namespace {
@@ -814,8 +894,7 @@ static const Type* s_bignumeric_type() {
 }
 
 static const Type* s_json_type() {
-  static const Type* s_json_type =
-      new SimpleType(s_type_factory(), TYPE_JSON);
+  static const Type* s_json_type = new SimpleType(s_type_factory(), TYPE_JSON);
   return s_json_type;
 }
 

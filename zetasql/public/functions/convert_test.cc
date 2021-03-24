@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/convert.h"
 
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <string>

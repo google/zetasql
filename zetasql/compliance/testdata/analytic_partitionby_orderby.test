@@ -699,7 +699,7 @@ SELECT RANK() OVER (ORDER BY str_val COLLATE "some_collate")
                                      ^
 --
 WITH FEATURES: ANALYTIC_FUNCTIONS,V_1_1_ORDER_BY_COLLATE
-ERROR: generic::out_of_range: COLLATE has invalid collation name
+ERROR: generic::out_of_range: COLLATE has invalid collation name 'some_collate'
 ==
 
 [test_features1=V_1_1_ORDER_BY_COLLATE]

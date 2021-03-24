@@ -1,0 +1,185 @@
+# Tests for the FILTER_FIELDS function.
+
+select filter_fields(some_proto, +int32_field)
+--
+QueryStatement [0-46]
+  Query [0-46]
+    Select [0-46]
+      SelectList [7-46]
+        SelectColumn [7-46]
+          FilterFieldsExpression [7-46]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(+) [33-45]
+              PathExpression [34-45]
+                Identifier(int32_field) [34-45]
+--
+SELECT
+  FILTER_FIELDS(some_proto, +int32_field)
+==
+
+select filter_fields(some_proto, -int32_field)
+--
+QueryStatement [0-46]
+  Query [0-46]
+    Select [0-46]
+      SelectList [7-46]
+        SelectColumn [7-46]
+          FilterFieldsExpression [7-46]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(-) [33-45]
+              PathExpression [34-45]
+                Identifier(int32_field) [34-45]
+--
+SELECT
+  FILTER_FIELDS(some_proto, -int32_field)
+==
+
+select filter_fields(some_proto, -proto_field.int32_field)
+--
+QueryStatement [0-58]
+  Query [0-58]
+    Select [0-58]
+      SelectList [7-58]
+        SelectColumn [7-58]
+          FilterFieldsExpression [7-58]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(-) [33-57]
+              PathExpression [34-57]
+                Identifier(proto_field) [34-45]
+                Identifier(int32_field) [46-57]
+--
+SELECT
+  FILTER_FIELDS(some_proto, -proto_field.int32_field)
+==
+
+select filter_fields(some_proto, +(extension_field).proto_field.int32_field)
+--
+QueryStatement [0-76]
+  Query [0-76]
+    Select [0-76]
+      SelectList [7-76]
+        SelectColumn [7-76]
+          FilterFieldsExpression [7-76]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(+) [33-75]
+              DotIdentifier [63-75]
+                DotIdentifier [51-63]
+                  PathExpression [35-50]
+                    Identifier(extension_field) [35-50]
+                  Identifier(proto_field) [52-63]
+                Identifier(int32_field) [64-75]
+--
+SELECT
+  FILTER_FIELDS(some_proto, +(extension_field).proto_field.int32_field)
+==
+
+select filter_fields(some_proto, +proto_field.(extension_field).int32_field)
+--
+QueryStatement [0-76]
+  Query [0-76]
+    Select [0-76]
+      SelectList [7-76]
+        SelectColumn [7-76]
+          FilterFieldsExpression [7-76]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(+) [33-75]
+              DotIdentifier [63-75]
+                DotGeneralizedField [45-63]
+                  PathExpression [34-45]
+                    Identifier(proto_field) [34-45]
+                  PathExpression [47-62]
+                    Identifier(extension_field) [47-62]
+                Identifier(int32_field) [64-75]
+--
+SELECT
+  FILTER_FIELDS(some_proto, +proto_field.(extension_field).int32_field)
+==
+
+select filter_fields(some_proto, +proto_field.inner_proto_field.(extension_field))
+--
+QueryStatement [0-82]
+  Query [0-82]
+    Select [0-82]
+      SelectList [7-82]
+        SelectColumn [7-82]
+          FilterFieldsExpression [7-82]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(+) [33-81]
+              DotGeneralizedField [63-81]
+                PathExpression [34-63]
+                  Identifier(proto_field) [34-45]
+                  Identifier(inner_proto_field) [46-63]
+                PathExpression [65-80]
+                  Identifier(extension_field) [65-80]
+--
+SELECT
+  FILTER_FIELDS(some_proto, +proto_field.inner_proto_field.(extension_field))
+==
+
+select filter_fields(some_proto, +int32_field, +proto_field)
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-60]
+        SelectColumn [7-60]
+          FilterFieldsExpression [7-60]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(+) [33-45]
+              PathExpression [34-45]
+                Identifier(int32_field) [34-45]
+            FilterFieldsArg(+) [47-59]
+              PathExpression [48-59]
+                Identifier(proto_field) [48-59]
+--
+SELECT
+  FILTER_FIELDS(some_proto, +int32_field, +proto_field)
+==
+
+select filter_fields(some_proto)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:32]
+select filter_fields(some_proto)
+                               ^
+==
+
+select filter_fields(some_proto, int32_val)
+--
+ERROR: Syntax error: Expected "+" or "-" but got identifier "int32_val" [at 1:34]
+select filter_fields(some_proto, int32_val)
+                                 ^
+==
+
+select filter_fields(some_proto, ++int32_val)
+--
+ERROR: Syntax error: Unexpected "+" [at 1:35]
+select filter_fields(some_proto, ++int32_val)
+                                  ^
+==
+
+select filter_fields(some_proto, --makes_this_a_comment)
+--
+ERROR: Syntax error: Expected "+" or "-" but got end of statement [at 2:1]
+
+^
+==
+
+select filter_fields(some_proto, +-int32_val)
+--
+ERROR: Syntax error: Unexpected "-" [at 1:35]
+select filter_fields(some_proto, +-int32_val)
+                                  ^
+==
+
+select filter_fields(some_proto, -+int32_val)
+--
+ERROR: Syntax error: Unexpected "+" [at 1:35]
+select filter_fields(some_proto, -+int32_val)
+                                  ^

@@ -30,6 +30,7 @@ filegroup(
         "external_extension.proto",
         "referenced_schema.proto",
         "referencing_schema.proto",
+        "test_proto3.proto",
         "test_schema.proto",
     ],
 )
@@ -192,6 +193,7 @@ cc_library(
         ":test_packageless_cc_proto",
         ":test_proto3_cc_proto",
         ":test_schema_cc_proto",
+        ":tvf_with_user_id",
         "//zetasql/base",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
@@ -223,6 +225,27 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "tvf_with_user_id",
+    testonly = 1,
+    srcs = [],
+    hdrs = ["tvf_with_user_id.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/public:catalog",
+        "//zetasql/public:function",
+        "@com_google_absl//absl/algorithm:container",
     ],
 )
 

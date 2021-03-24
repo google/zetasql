@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.zetasql.FunctionProtos.FunctionSignatureOptionsProto;
 import com.google.zetasql.FunctionProtos.FunctionSignatureProto;
@@ -296,6 +297,61 @@ public class FunctionSignatureTest {
         new FunctionSignature(
             new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2), arguments, -1, options);
     checkSerializeAndDeserialize(signature);
+
+    // Test with a function signature with default arguments.
+    arguments.clear();
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1, ArgumentCardinality.REPEATED, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_2, ArgumentCardinality.REQUIRED, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_2,
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder()
+                .setCardinality(ArgumentCardinality.OPTIONAL)
+                .setDefault(Value.createInt32Value(314)).build(),
+            1));
+    arguments.add(
+        new FunctionArgumentType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_STRING),
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder()
+                .setCardinality(ArgumentCardinality.OPTIONAL)
+                .setDefault(Value.createStringValue("abc")).build(),
+            1));
+    signature =
+        new FunctionSignature(
+            new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2), arguments, -1, options);
+    checkSerializeAndDeserialize(signature);
+
+    // Test with an invalid function signature with a default argument.
+    arguments.clear();
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1, ArgumentCardinality.REPEATED, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_2, ArgumentCardinality.REQUIRED, -1));
+    arguments.add(
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_2,
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder()
+                .setCardinality(ArgumentCardinality.OPTIONAL)
+                .setDefault(Value.createInt32Value(314)).build(),
+            1));
+    arguments.add(
+        new FunctionArgumentType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_STRING), ArgumentCardinality.OPTIONAL, 1));
+    assertThrows(
+        "Optional arguments with default values must be at the end of the argument list",
+        IllegalArgumentException.class,
+        () ->
+            new FunctionSignature(
+                new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2),
+                arguments,
+                -1,
+                options));
   }
 
   private static void checkSerializeAndDeserialize(FunctionSignature signature) {

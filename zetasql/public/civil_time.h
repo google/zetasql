@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_CIVIL_TIME_H_
 #define ZETASQL_PUBLIC_CIVIL_TIME_H_
 
+#include <cstdint>
 #include <string>
 
 #include <cstdint>
@@ -127,13 +128,14 @@ class TimeValue {
   // Constructs a TimeValue with hour, minute, second and microseconds.
   //
   // Returns an invalid TimeValue if any time part is outside the valid range.
-  static TimeValue FromHMSAndMicros(int32_t hour, int32_t minute, int32_t second,
-                                    int32_t microsecond);
+  static TimeValue FromHMSAndMicros(int32_t hour, int32_t minute,
+                                    int32_t second, int32_t microsecond);
 
   // Like FromHMSAndMicros but will normalize any time parts outside of their
   // expected range and thus always returns a valid TimeValue.
   static TimeValue FromHMSAndMicrosNormalized(int32_t hour, int32_t minute,
-                                              int32_t second, int32_t microsecond);
+                                              int32_t second,
+                                              int32_t microsecond);
 
   // Construct a TimeValue with a bit field encoding hour/minute/second, and
   // another integer for micros.
@@ -157,7 +159,8 @@ class TimeValue {
   // Like FromHMSAndNanos but will normalize any time parts outside of their
   // expected range and thus always returns a valid TimeValue.
   static TimeValue FromHMSAndNanosNormalized(int32_t hour, int32_t minute,
-                                             int32_t second, int32_t nanosecond);
+                                             int32_t second,
+                                             int32_t nanosecond);
 
   // Construct a TimeValue with a bit field encoding hour/minute/second, and
   // another integer for nanoseconds.
@@ -264,15 +267,15 @@ class DatetimeValue {
 
   // Construct a DatetimeValue with year, month, day, hour, minute, second and
   // microseconds.
-  static DatetimeValue FromYMDHMSAndMicros(int32_t year, int32_t month, int32_t day,
-                                           int32_t hour, int32_t minute,
-                                           int32_t second, int32_t microsecond);
+  static DatetimeValue FromYMDHMSAndMicros(int32_t year, int32_t month,
+                                           int32_t day, int32_t hour,
+                                           int32_t minute, int32_t second,
+                                           int32_t microsecond);
 
   // Like FromYMDHMSAndMicros but values are normalized.
-  static DatetimeValue FromYMDHMSAndMicrosNormalized(int32_t year, int32_t month,
-                                                     int32_t day, int32_t hour,
-                                                     int32_t minute, int32_t second,
-                                                     int32_t microsecond);
+  static DatetimeValue FromYMDHMSAndMicrosNormalized(
+      int32_t year, int32_t month, int32_t day, int32_t hour, int32_t minute,
+      int32_t second, int32_t microsecond);
 
   // Construct a DatetimeValue with a absl::CivilSecond object and an
   // integer for micros.
@@ -290,14 +293,16 @@ class DatetimeValue {
 
   // Construct a DatetimeValue with year, month, day, hour, minute, second and
   // nanoseconds.
-  static DatetimeValue FromYMDHMSAndNanos(int32_t year, int32_t month, int32_t day,
-                                          int32_t hour, int32_t minute,
-                                          int32_t second, int32_t nanosecond);
+  static DatetimeValue FromYMDHMSAndNanos(int32_t year, int32_t month,
+                                          int32_t day, int32_t hour,
+                                          int32_t minute, int32_t second,
+                                          int32_t nanosecond);
 
   // Like FromYMDHMSAndNanos but values are normalized.
   static DatetimeValue FromYMDHMSAndNanosNormalized(int32_t year, int32_t month,
                                                     int32_t day, int32_t hour,
-                                                    int32_t minute, int32_t second,
+                                                    int32_t minute,
+                                                    int32_t second,
                                                     int32_t nanosecond);
 
   // Construct a DatetimeValue with a absl::CivilSecond object and an
@@ -353,7 +358,8 @@ class DatetimeValue {
  private:
   static DatetimeValue FromYMDHMSAndNanosInternal(int64_t year, int64_t month,
                                                   int64_t day, int64_t hour,
-                                                  int64_t minute, int64_t second,
+                                                  int64_t minute,
+                                                  int64_t second,
                                                   int64_t nanosecond);
   static DatetimeValue FromCivilSecondAndNanosInternal(
       absl::CivilSecond civil_second, int64_t nanosecond);

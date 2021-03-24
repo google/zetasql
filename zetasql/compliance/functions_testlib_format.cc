@@ -17,6 +17,7 @@
 // The file functions_testlib.cc has been split into multiple files prefixed
 // with "functions_testlib_" because an optimized compile with ASAN of the
 // original single file timed out at 900 seconds.
+#include <cstdint>
 #include <iterator>
 #include <limits>
 #include <numeric>
@@ -61,6 +62,7 @@ extern std::vector<FunctionTestCall> GetFunctionTestsFormatNulls();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatStrings();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatNumeric();
 extern std::vector<FunctionTestCall> GetFunctionTestsFormatJson();
+extern std::vector<FunctionTestCall> GetFunctionTestsFormatInterval();
 
 static std::string Zeros(absl::string_view fmt, int zeros) {
   return absl::Substitute(fmt, std::string(zeros, '0'));
@@ -598,6 +600,12 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
   test_cases.insert(test_cases.end(),
                     std::make_move_iterator(json_test_cases.begin()),
                     std::make_move_iterator(json_test_cases.end()));
+
+  std::vector<FunctionTestCall> interval_test_cases =
+      GetFunctionTestsFormatInterval();
+  test_cases.insert(test_cases.end(),
+                    std::make_move_iterator(interval_test_cases.begin()),
+                    std::make_move_iterator(interval_test_cases.end()));
 
   const std::vector<CivilTimeTestCase> civil_time_test_cases({
       {{{"%t", datetime_micros}}, String("2016-04-26 15:23:27.123456")},

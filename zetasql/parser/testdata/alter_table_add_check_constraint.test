@@ -1,0 +1,368 @@
+alter table foo.bar add;
+--
+ERROR: Syntax error: Expected keyword CHECK or keyword COLUMN or keyword CONSTRAINT or keyword FOREIGN but got ";" [at 1:24]
+alter table foo.bar add;
+                       ^
+
+==
+
+alter table foo.bar add constraint;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:35]
+alter table foo.bar add constraint;
+                                  ^
+
+==
+
+
+alter table foo.bar add constraint a_is_positive;
+--
+ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN but got ";" [at 1:49]
+alter table foo.bar add constraint a_is_positive;
+                                                ^
+
+==
+
+alter table foo.bar add constraint a_is_positive check;
+--
+ERROR: Syntax error: Expected "(" but got ";" [at 1:55]
+alter table foo.bar add constraint a_is_positive check;
+                                                      ^
+
+==
+
+alter table foo.bar add constraint check;
+--
+ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN but got ";" [at 1:41]
+alter table foo.bar add constraint check;
+                                        ^
+
+==
+
+alter table foo.bar add constraint check(a > 0);
+--
+ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN but got "(" [at 1:41]
+alter table foo.bar add constraint check(a > 0);
+                                        ^
+
+==
+
+# Add named check constraint
+alter table foo.bar ADD constraint a_is_positive check(a>0);
+--
+AlterTableStatement [0-59]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-59]
+    AddConstraintAction [20-59]
+      CheckConstraint(ENFORCED) [35-59]
+        BinaryExpression(>) [55-58]
+          PathExpression [55-56]
+            Identifier(a) [55-56]
+          IntLiteral(0) [57-58]
+        Identifier(a_is_positive) [35-48]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT a_is_positive CHECK(a > 0) ENFORCED
+==
+
+# Add enforced named check constraint
+alter table foo.bar ADD constraint a_is_positive check(a>0) enforced;
+--
+AlterTableStatement [0-68]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-68]
+    AddConstraintAction [20-68]
+      CheckConstraint(ENFORCED) [35-68]
+        BinaryExpression(>) [55-58]
+          PathExpression [55-56]
+            Identifier(a) [55-56]
+          IntLiteral(0) [57-58]
+        Identifier(a_is_positive) [35-48]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT a_is_positive CHECK(a > 0) ENFORCED
+==
+
+# Add not enforced named check constraint
+alter table foo.bar ADD constraint a_is_positive check(a>0) enforced;
+--
+AlterTableStatement [0-68]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-68]
+    AddConstraintAction [20-68]
+      CheckConstraint(ENFORCED) [35-68]
+        BinaryExpression(>) [55-58]
+          PathExpression [55-56]
+            Identifier(a) [55-56]
+          IntLiteral(0) [57-58]
+        Identifier(a_is_positive) [35-48]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT a_is_positive CHECK(a > 0) ENFORCED
+==
+
+alter table foo.bar add constraint if;
+--
+ERROR: Syntax error: Expected keyword NOT but got ";" [at 1:38]
+alter table foo.bar add constraint if;
+                                     ^
+
+==
+
+alter table foo.bar add constraint if not;
+--
+ERROR: Syntax error: Expected keyword EXISTS but got ";" [at 1:42]
+alter table foo.bar add constraint if not;
+                                         ^
+
+==
+
+alter table foo.bar add constraint if exists;
+--
+ERROR: Syntax error: Expected keyword NOT but got keyword EXISTS [at 1:39]
+alter table foo.bar add constraint if exists;
+                                      ^
+
+==
+
+alter table foo.bar add constraint if not exists;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:49]
+alter table foo.bar add constraint if not exists;
+                                                ^
+
+==
+
+# Add check constraint named 'constraint'
+alter table foo.bar add constraint constraint check(a>0);
+--
+AlterTableStatement [0-56]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-56]
+    AddConstraintAction [20-56]
+      CheckConstraint(ENFORCED) [35-56]
+        BinaryExpression(>) [52-55]
+          PathExpression [52-53]
+            Identifier(a) [52-53]
+          IntLiteral(0) [54-55]
+        Identifier(constraint) [35-45]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT constraint CHECK(a > 0) ENFORCED
+==
+
+# Add check constraint named 'constraint' with 'if not exists'
+alter table foo.bar add constraint if not exists constraint check(a>0);
+--
+AlterTableStatement [0-70]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-70]
+    AddConstraintAction(is_if_not_exists) [20-70]
+      CheckConstraint(ENFORCED) [49-70]
+        BinaryExpression(>) [66-69]
+          PathExpression [66-67]
+            Identifier(a) [66-67]
+          IntLiteral(0) [68-69]
+        Identifier(constraint) [49-59]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT IF NOT EXISTS constraint CHECK(a > 0) ENFORCED
+==
+
+# add check constraint with name 'check'
+alter table foo.bar add constraint check check(a>0);
+--
+AlterTableStatement [0-51]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-51]
+    AddConstraintAction [20-51]
+      CheckConstraint(ENFORCED) [35-51]
+        BinaryExpression(>) [47-50]
+          PathExpression [47-48]
+            Identifier(a) [47-48]
+          IntLiteral(0) [49-50]
+        Identifier(check) [35-40]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT check CHECK(a > 0) ENFORCED
+==
+
+# add check constraint with name 'check' and 'if not exists'
+alter table foo.bar add constraint if not exists check check(a>0);
+--
+AlterTableStatement [0-65]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-65]
+    AddConstraintAction(is_if_not_exists) [20-65]
+      CheckConstraint(ENFORCED) [49-65]
+        BinaryExpression(>) [61-64]
+          PathExpression [61-62]
+            Identifier(a) [61-62]
+          IntLiteral(0) [63-64]
+        Identifier(check) [49-54]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT IF NOT EXISTS check CHECK(a > 0) ENFORCED
+==
+
+# add check constraint with name 'int64'
+alter table foo.bar add constraint int64 check(a>0);
+--
+AlterTableStatement [0-51]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-51]
+    AddConstraintAction [20-51]
+      CheckConstraint(ENFORCED) [35-51]
+        BinaryExpression(>) [47-50]
+          PathExpression [47-48]
+            Identifier(a) [47-48]
+          IntLiteral(0) [49-50]
+        Identifier(int64) [35-40]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT int64 CHECK(a > 0) ENFORCED
+==
+
+# add check constraint with name 'int64' and 'if not exists'
+alter table foo.bar add constraint if not exists int64 check(a>0);
+--
+AlterTableStatement [0-65]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-65]
+    AddConstraintAction(is_if_not_exists) [20-65]
+      CheckConstraint(ENFORCED) [49-65]
+        BinaryExpression(>) [61-64]
+          PathExpression [61-62]
+            Identifier(a) [61-62]
+          IntLiteral(0) [63-64]
+        Identifier(int64) [49-54]
+--
+ALTER TABLE foo.bar ADD CONSTRAINT IF NOT EXISTS int64 CHECK(a > 0) ENFORCED
+==
+
+# add unnamed check constraint
+alter table foo.bar add check(a>0);
+--
+AlterTableStatement [0-34]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-34]
+    AddConstraintAction [20-34]
+      CheckConstraint(ENFORCED) [24-34]
+        BinaryExpression(>) [30-33]
+          PathExpression [30-31]
+            Identifier(a) [30-31]
+          IntLiteral(0) [32-33]
+--
+ALTER TABLE foo.bar ADD CHECK(a > 0) ENFORCED
+==
+
+# add explicitly enforced unnamed check constraint
+alter table foo.bar add check(a>0) enforced;
+--
+AlterTableStatement [0-43]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-43]
+    AddConstraintAction [20-43]
+      CheckConstraint(ENFORCED) [24-43]
+        BinaryExpression(>) [30-33]
+          PathExpression [30-31]
+            Identifier(a) [30-31]
+          IntLiteral(0) [32-33]
+--
+ALTER TABLE foo.bar ADD CHECK(a > 0) ENFORCED
+==
+
+# add not enforced unnamed check constraint
+alter table foo.bar add check(a>0) not enforced;
+--
+AlterTableStatement [0-47]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-47]
+    AddConstraintAction [20-47]
+      CheckConstraint(NOT ENFORCED) [24-47]
+        BinaryExpression(>) [30-33]
+          PathExpression [30-31]
+            Identifier(a) [30-31]
+          IntLiteral(0) [32-33]
+--
+ALTER TABLE foo.bar ADD CHECK(a > 0) NOT ENFORCED
+==
+
+# Alter table named 'add' to add check constraint named 'int64'
+alter table add add constraint if not exists int64 check(a>0);
+--
+AlterTableStatement [0-61]
+  PathExpression [12-15]
+    Identifier(add) [12-15]
+  AlterActionList [16-61]
+    AddConstraintAction(is_if_not_exists) [16-61]
+      CheckConstraint(ENFORCED) [45-61]
+        BinaryExpression(>) [57-60]
+          PathExpression [57-58]
+            Identifier(a) [57-58]
+          IntLiteral(0) [59-60]
+        Identifier(int64) [45-50]
+--
+ALTER TABLE add ADD CONSTRAINT IF NOT EXISTS int64 CHECK(a > 0) ENFORCED
+==
+
+# Alter table named 'constraint' to add check constraint named 'int64'
+alter table constraint add constraint if not exists int64 check(a>0);
+--
+AlterTableStatement [0-68]
+  PathExpression [12-22]
+    Identifier(constraint) [12-22]
+  AlterActionList [23-68]
+    AddConstraintAction(is_if_not_exists) [23-68]
+      CheckConstraint(ENFORCED) [52-68]
+        BinaryExpression(>) [64-67]
+          PathExpression [64-65]
+            Identifier(a) [64-65]
+          IntLiteral(0) [66-67]
+        Identifier(int64) [52-57]
+--
+ALTER TABLE constraint ADD CONSTRAINT IF NOT EXISTS int64 CHECK(a > 0) ENFORCED
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+alter table foo-123.bar ADD constraint a_is_positive check(a>0);
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-123.bar` [at 1:13]
+alter table foo-123.bar ADD constraint a_is_positive check(a>0);
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-63]
+  PathExpression [12-23]
+    Identifier(`foo-123`) [12-23]
+    Identifier(bar) [12-23]
+  AlterActionList [24-63]
+    AddConstraintAction [24-63]
+      CheckConstraint(ENFORCED) [39-63]
+        BinaryExpression(>) [59-62]
+          PathExpression [59-60]
+            Identifier(a) [59-60]
+          IntLiteral(0) [61-62]
+        Identifier(a_is_positive) [39-52]
+--
+ALTER TABLE `foo-123`.bar ADD CONSTRAINT a_is_positive CHECK(a > 0) ENFORCED

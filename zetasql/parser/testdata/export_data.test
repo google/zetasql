@@ -1,0 +1,222 @@
+export data as select 1;
+--
+ExportDataStatement [0-23]
+  Query [15-23]
+    Select [15-23]
+      SelectList [22-23]
+        SelectColumn [22-23]
+          IntLiteral(1) [22-23]
+--
+EXPORT DATA AS
+SELECT
+  1
+==
+
+export data options() as select 1;
+--
+ExportDataStatement [0-33]
+  OptionsList [19-21]
+  Query [25-33]
+    Select [25-33]
+      SelectList [32-33]
+        SelectColumn [32-33]
+          IntLiteral(1) [32-33]
+--
+EXPORT DATA OPTIONS() AS
+SELECT
+  1
+==
+
+# External table can't have a name.
+export data with_name as select 1;
+--
+ERROR: Syntax error: Expected keyword AS but got identifier "with_name" [at 1:13]
+export data with_name as select 1;
+            ^
+==
+
+# with must be combined with connection only
+export data with as select 1;
+--
+ERROR: Syntax error: Expected keyword CONNECTION but got keyword AS [at 1:18]
+export data with as select 1;
+                 ^
+==
+
+export data with connection as select 1;
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:29]
+export data with connection as select 1;
+                            ^
+==
+
+export data with connection connection_id options(x=5) as select 1;
+--
+ExportDataStatement [0-66]
+  WithConnectionClause [12-41]
+    ConnectionClause [17-41]
+      PathExpression [28-41]
+        Identifier(connection_id) [28-41]
+  OptionsList [49-54]
+    OptionsEntry [50-53]
+      Identifier(x) [50-51]
+      IntLiteral(5) [52-53]
+  Query [58-66]
+    Select [58-66]
+      SelectList [65-66]
+        SelectColumn [65-66]
+          IntLiteral(1) [65-66]
+--
+EXPORT DATA WITH CONNECTION connection_id OPTIONS(x = 5) AS
+SELECT
+  1
+==
+
+export data with connection connection options(x=5) as select 1;
+--
+ExportDataStatement [0-63]
+  WithConnectionClause [12-38]
+    ConnectionClause [17-38]
+      PathExpression [28-38]
+        Identifier(connection) [28-38]
+  OptionsList [46-51]
+    OptionsEntry [47-50]
+      Identifier(x) [47-48]
+      IntLiteral(5) [49-50]
+  Query [55-63]
+    Select [55-63]
+      SelectList [62-63]
+        SelectColumn [62-63]
+          IntLiteral(1) [62-63]
+--
+EXPORT DATA WITH CONNECTION connection OPTIONS(x = 5) AS
+SELECT
+  1
+==
+
+export data with connection a.b.c options(x=5) as select 1;
+--
+ExportDataStatement [0-58]
+  WithConnectionClause [12-33]
+    ConnectionClause [17-33]
+      PathExpression [28-33]
+        Identifier(a) [28-29]
+        Identifier(b) [30-31]
+        Identifier(c) [32-33]
+  OptionsList [41-46]
+    OptionsEntry [42-45]
+      Identifier(x) [42-43]
+      IntLiteral(5) [44-45]
+  Query [50-58]
+    Select [50-58]
+      SelectList [57-58]
+        SelectColumn [57-58]
+          IntLiteral(1) [57-58]
+--
+EXPORT DATA WITH CONNECTION a.b.c OPTIONS(x = 5) AS
+SELECT
+  1
+==
+
+export data options (x=5) as select 1;
+--
+ExportDataStatement [0-37]
+  OptionsList [20-25]
+    OptionsEntry [21-24]
+      Identifier(x) [21-22]
+      IntLiteral(5) [23-24]
+  Query [29-37]
+    Select [29-37]
+      SelectList [36-37]
+        SelectColumn [36-37]
+          IntLiteral(1) [36-37]
+--
+EXPORT DATA OPTIONS(x = 5) AS
+SELECT
+  1
+==
+
+export data options(a=b, c='d') as (select 1)
+--
+ExportDataStatement [0-45]
+  OptionsList [19-31]
+    OptionsEntry [20-23]
+      Identifier(a) [20-21]
+      PathExpression [22-23]
+        Identifier(b) [22-23]
+    OptionsEntry [25-30]
+      Identifier(c) [25-26]
+      StringLiteral('d') [27-30]
+  Query [35-45]
+    Query [36-44]
+      Select [36-44]
+        SelectList [43-44]
+          SelectColumn [43-44]
+            IntLiteral(1) [43-44]
+--
+EXPORT DATA OPTIONS(a = b, c = 'd') AS
+(
+SELECT
+  1
+)
+==
+
+export data options (a=b, c=d) as
+with q as (select 1), q2 as (select * from q)
+select * from q2
+--
+ExportDataStatement [0-96]
+  OptionsList [20-30]
+    OptionsEntry [21-24]
+      Identifier(a) [21-22]
+      PathExpression [23-24]
+        Identifier(b) [23-24]
+    OptionsEntry [26-29]
+      Identifier(c) [26-27]
+      PathExpression [28-29]
+        Identifier(d) [28-29]
+  Query [34-96]
+    WithClause [34-79]
+      WithClauseEntry [39-54]
+        Identifier(q) [39-40]
+        Query [45-53]
+          Select [45-53]
+            SelectList [52-53]
+              SelectColumn [52-53]
+                IntLiteral(1) [52-53]
+      WithClauseEntry [56-79]
+        Identifier(q2) [56-58]
+        Query [63-78]
+          Select [63-78]
+            SelectList [70-71]
+              SelectColumn [70-71]
+                Star(*) [70-71]
+            FromClause [72-78]
+              TablePathExpression [77-78]
+                PathExpression [77-78]
+                  Identifier(q) [77-78]
+    Select [80-96]
+      SelectList [87-88]
+        SelectColumn [87-88]
+          Star(*) [87-88]
+      FromClause [89-96]
+        TablePathExpression [94-96]
+          PathExpression [94-96]
+            Identifier(q2) [94-96]
+--
+EXPORT DATA OPTIONS(a = b, c = d) AS
+WITH
+  q AS (
+    SELECT
+      1
+  ),
+  q2 AS (
+    SELECT
+      *
+    FROM
+      q
+  )
+SELECT
+  *
+FROM
+  q2

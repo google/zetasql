@@ -1,0 +1,704 @@
+# Missing function arguments.
+create function myfunc
+  as ( ) ;
+--
+ERROR: Syntax error: Expected "(" or "." but got keyword AS [at 2:3]
+  as ( ) ;
+  ^
+==
+
+# Missing expression.
+create function myfunc ( )
+  as ( ) ;
+--
+ERROR: Syntax error: Unexpected ")" [at 2:8]
+  as ( ) ;
+       ^
+==
+
+# Missing AS.
+create function myfunc ( ) ( 'wot' ) ;
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 1:28]
+create function myfunc ( ) ( 'wot' ) ;
+                           ^
+==
+
+# Can't test missing parens around statement.  It parses as an external function
+# but then fails a DCHECK on unparsing.
+# create function myfunc ( ) AS 'wot' ;
+==
+
+# Inferred return type with int literal.
+create function myfunc ( )
+  as ( 42 ) ;
+--
+CreateFunctionStatement [0-38]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SqlFunctionBody [32-38]
+    IntLiteral(42) [34-36]
+--
+CREATE FUNCTION myfunc()
+AS (
+  42
+)
+==
+
+# CREATE scope modifiers
+create {{temp|temporary|public|private}} function myfunc ( )
+  as ( 42 ) ;
+--
+ALTERNATION GROUP: temp
+--
+CreateFunctionStatement(is_temp) [0-43]
+  FunctionDeclaration [21-31]
+    PathExpression [21-27]
+      Identifier(myfunc) [21-27]
+    FunctionParameters [28-31]
+  SqlFunctionBody [37-43]
+    IntLiteral(42) [39-41]
+--
+CREATE TEMP FUNCTION myfunc()
+AS (
+  42
+)
+--
+ALTERNATION GROUP: temporary
+--
+CreateFunctionStatement(is_temp) [0-48]
+  FunctionDeclaration [26-36]
+    PathExpression [26-32]
+      Identifier(myfunc) [26-32]
+    FunctionParameters [33-36]
+  SqlFunctionBody [42-48]
+    IntLiteral(42) [44-46]
+--
+CREATE TEMP FUNCTION myfunc()
+AS (
+  42
+)
+--
+ALTERNATION GROUP: public
+--
+CreateFunctionStatement(is_public) [0-45]
+  FunctionDeclaration [23-33]
+    PathExpression [23-29]
+      Identifier(myfunc) [23-29]
+    FunctionParameters [30-33]
+  SqlFunctionBody [39-45]
+    IntLiteral(42) [41-43]
+--
+CREATE PUBLIC FUNCTION myfunc()
+AS (
+  42
+)
+--
+ALTERNATION GROUP: private
+--
+CreateFunctionStatement(is_private) [0-46]
+  FunctionDeclaration [24-34]
+    PathExpression [24-30]
+      Identifier(myfunc) [24-30]
+    FunctionParameters [31-34]
+  SqlFunctionBody [40-46]
+    IntLiteral(42) [42-44]
+--
+CREATE PRIVATE FUNCTION myfunc()
+AS (
+  42
+)
+==
+
+# "if not exists"
+create function if not exists myfunc ( )
+  as ( 42 ) ;
+--
+CreateFunctionStatement(is_if_not_exists) [0-52]
+  FunctionDeclaration [30-40]
+    PathExpression [30-36]
+      Identifier(myfunc) [30-36]
+    FunctionParameters [37-40]
+  SqlFunctionBody [46-52]
+    IntLiteral(42) [48-50]
+--
+CREATE FUNCTION IF NOT EXISTS myfunc()
+AS (
+  42
+)
+==
+
+# "temp" and "if not exists"
+create temp function if not exists myfunc ( )
+  as ( 42 ) ;
+--
+CreateFunctionStatement(is_temp, is_if_not_exists) [0-57]
+  FunctionDeclaration [35-45]
+    PathExpression [35-41]
+      Identifier(myfunc) [35-41]
+    FunctionParameters [42-45]
+  SqlFunctionBody [51-57]
+    IntLiteral(42) [53-55]
+--
+CREATE TEMP FUNCTION IF NOT EXISTS myfunc()
+AS (
+  42
+)
+==
+
+# "or replace"
+create or replace function myfunc ( )
+  as ( 42 ) ;
+--
+CreateFunctionStatement(is_or_replace) [0-49]
+  FunctionDeclaration [27-37]
+    PathExpression [27-33]
+      Identifier(myfunc) [27-33]
+    FunctionParameters [34-37]
+  SqlFunctionBody [43-49]
+    IntLiteral(42) [45-47]
+--
+CREATE OR REPLACE FUNCTION myfunc()
+AS (
+  42
+)
+==
+
+# Function with multi-part name.
+create function mypackage.myfunc ( )
+  as ( 42 ) ;
+--
+CreateFunctionStatement [0-48]
+  FunctionDeclaration [16-36]
+    PathExpression [16-32]
+      Identifier(mypackage) [16-25]
+      Identifier(myfunc) [26-32]
+    FunctionParameters [33-36]
+  SqlFunctionBody [42-48]
+    IntLiteral(42) [44-46]
+--
+CREATE FUNCTION mypackage.myfunc()
+AS (
+  42
+)
+==
+
+# Function with options in the end.
+create function mypackage.myfunc ( )
+  as ( 42 )
+  options ( a=b, bruce=lee ) ;
+--
+CreateFunctionStatement [0-77]
+  FunctionDeclaration [16-36]
+    PathExpression [16-32]
+      Identifier(mypackage) [16-25]
+      Identifier(myfunc) [26-32]
+    FunctionParameters [33-36]
+  SqlFunctionBody [42-48]
+    IntLiteral(42) [44-46]
+  OptionsList [59-77]
+    OptionsEntry [61-64]
+      Identifier(a) [61-62]
+      PathExpression [63-64]
+        Identifier(b) [63-64]
+    OptionsEntry [66-75]
+      Identifier(bruce) [66-71]
+      PathExpression [72-75]
+        Identifier(lee) [72-75]
+--
+CREATE FUNCTION mypackage.myfunc()
+AS (
+  42
+)
+OPTIONS
+  (a = b, bruce = lee)
+==
+
+# Function with options before body.
+create function mypackage.myfunc ( )
+  options ( a=b, bruce=lee )
+  as ( 42 ) ;
+--
+CreateFunctionStatement [0-77]
+  FunctionDeclaration [16-36]
+    PathExpression [16-32]
+      Identifier(mypackage) [16-25]
+      Identifier(myfunc) [26-32]
+    FunctionParameters [33-36]
+  SqlFunctionBody [71-77]
+    IntLiteral(42) [73-75]
+  OptionsList [47-65]
+    OptionsEntry [49-52]
+      Identifier(a) [49-50]
+      PathExpression [51-52]
+        Identifier(b) [51-52]
+    OptionsEntry [54-63]
+      Identifier(bruce) [54-59]
+      PathExpression [60-63]
+        Identifier(lee) [60-63]
+--
+CREATE FUNCTION mypackage.myfunc()
+AS (
+  42
+)
+OPTIONS
+  (a = b, bruce = lee)
+==
+
+# Inferred return type with statement.
+create function myfunc ( a int64 )
+  as ( if ( a > 0, a, -1 ) ) ;
+--
+CreateFunctionStatement [0-63]
+  FunctionDeclaration [16-34]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-34]
+      FunctionParameter [25-32]
+        Identifier(a) [25-26]
+        SimpleType [27-32]
+          PathExpression [27-32]
+            Identifier(int64) [27-32]
+  SqlFunctionBody [40-63]
+    FunctionCall [42-61]
+      PathExpression [42-44]
+        Identifier(`if`) [42-44]
+      BinaryExpression(>) [47-52]
+        PathExpression [47-48]
+          Identifier(a) [47-48]
+        IntLiteral(0) [51-52]
+      PathExpression [54-55]
+        Identifier(a) [54-55]
+      UnaryExpression(-) [57-59]
+        IntLiteral(1) [58-59]
+--
+CREATE FUNCTION myfunc(a int64)
+AS (
+  `if`(a > 0, a, - 1)
+)
+==
+
+# Explicit return type with statement.
+create function myfunc ( a int32 )
+  returns int32
+  as ( if ( a > 0, a, -1 ) ) ;
+--
+CreateFunctionStatement [0-79]
+  FunctionDeclaration [16-34]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-34]
+      FunctionParameter [25-32]
+        Identifier(a) [25-26]
+        SimpleType [27-32]
+          PathExpression [27-32]
+            Identifier(int32) [27-32]
+  SimpleType [45-50]
+    PathExpression [45-50]
+      Identifier(int32) [45-50]
+  SqlFunctionBody [56-79]
+    FunctionCall [58-77]
+      PathExpression [58-60]
+        Identifier(`if`) [58-60]
+      BinaryExpression(>) [63-68]
+        PathExpression [63-64]
+          Identifier(a) [63-64]
+        IntLiteral(0) [67-68]
+      PathExpression [70-71]
+        Identifier(a) [70-71]
+      UnaryExpression(-) [73-75]
+        IntLiteral(1) [74-75]
+--
+CREATE FUNCTION myfunc(a int32)
+RETURNS int32 AS (
+  `if`(a > 0, a, - 1)
+)
+==
+
+# Multiple arguments.
+create function myfunc ( x int32, y int32 )
+  returns int32
+  as ( x * y ) ;
+--
+CreateFunctionStatement [0-74]
+  FunctionDeclaration [16-43]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-43]
+      FunctionParameter [25-32]
+        Identifier(x) [25-26]
+        SimpleType [27-32]
+          PathExpression [27-32]
+            Identifier(int32) [27-32]
+      FunctionParameter [34-41]
+        Identifier(y) [34-35]
+        SimpleType [36-41]
+          PathExpression [36-41]
+            Identifier(int32) [36-41]
+  SimpleType [54-59]
+    PathExpression [54-59]
+      Identifier(int32) [54-59]
+  SqlFunctionBody [65-74]
+    BinaryExpression(*) [67-72]
+      PathExpression [67-68]
+        Identifier(x) [67-68]
+      PathExpression [71-72]
+        Identifier(y) [71-72]
+--
+CREATE FUNCTION myfunc(x int32, y int32)
+RETURNS int32 AS (
+  x * y
+)
+==
+
+# Explicit standalone return type.
+# Also tests trivially returning an integer.
+create function myfunc ( int64 x )
+  returns a.b.c
+  as ( 999 ) ;
+--
+CreateFunctionStatement [0-63]
+  FunctionDeclaration [16-34]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-34]
+      FunctionParameter [25-32]
+        Identifier(int64) [25-30]
+        SimpleType [31-32]
+          PathExpression [31-32]
+            Identifier(x) [31-32]
+  SimpleType [45-50]
+    PathExpression [45-50]
+      Identifier(a) [45-46]
+      Identifier(b) [47-48]
+      Identifier(c) [49-50]
+  SqlFunctionBody [56-63]
+    IntLiteral(999) [58-61]
+--
+CREATE FUNCTION myfunc(int64 x)
+RETURNS a.b.c AS (
+  999
+)
+==
+
+# Trivial function that returns a boolean.
+create function myfunc ( )
+  returns boolean
+  as ( true ) ;
+--
+CreateFunctionStatement [0-58]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [37-44]
+    PathExpression [37-44]
+      Identifier(boolean) [37-44]
+  SqlFunctionBody [50-58]
+    BooleanLiteral(true) [52-56]
+--
+CREATE FUNCTION myfunc()
+RETURNS boolean AS (
+  true
+)
+==
+
+# Trivial function that returns a struct.
+create function myfunc ( )
+  returns struct<a string, b int32>
+  as ( STRUCT<a string, b int32>('balloons', 99)
+ ) ;
+--
+CreateFunctionStatement [0-114]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  StructType [37-62]
+    StructField [44-52]
+      Identifier(a) [44-45]
+      SimpleType [46-52]
+        PathExpression [46-52]
+          Identifier(string) [46-52]
+    StructField [54-61]
+      Identifier(b) [54-55]
+      SimpleType [56-61]
+        PathExpression [56-61]
+          Identifier(int32) [56-61]
+  SqlFunctionBody [68-114]
+    StructConstructorWithKeyword [70-111]
+      StructType [70-95]
+        StructField [77-85]
+          Identifier(a) [77-78]
+          SimpleType [79-85]
+            PathExpression [79-85]
+              Identifier(string) [79-85]
+        StructField [87-94]
+          Identifier(b) [87-88]
+          SimpleType [89-94]
+            PathExpression [89-94]
+              Identifier(int32) [89-94]
+      StructConstructorArg [96-106]
+        StringLiteral('balloons') [96-106]
+      StructConstructorArg [108-110]
+        IntLiteral(99) [108-110]
+--
+CREATE FUNCTION myfunc()
+RETURNS STRUCT< a string, b int32 > AS (
+  STRUCT< a string, b int32 > ('balloons', 99)
+)
+==
+
+# Trivial function that returns a struct, alternate syntax.
+create function myfunc ( )
+  returns struct<x string, y boolean>
+  as ( ('abc', true) ) ;
+--
+CreateFunctionStatement [0-87]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  StructType [37-64]
+    StructField [44-52]
+      Identifier(x) [44-45]
+      SimpleType [46-52]
+        PathExpression [46-52]
+          Identifier(string) [46-52]
+    StructField [54-63]
+      Identifier(y) [54-55]
+      SimpleType [56-63]
+        PathExpression [56-63]
+          Identifier(boolean) [56-63]
+  SqlFunctionBody [70-87]
+    StructConstructorWithParens [72-85]
+      StringLiteral('abc') [73-78]
+      BooleanLiteral(true) [80-84]
+--
+CREATE FUNCTION myfunc()
+RETURNS STRUCT< x string, y boolean > AS (
+  ('abc', true)
+)
+==
+
+# Trivial function that returns a string
+create function myfunc ( )
+  returns string
+  as ( 'hello world' ) ;
+--
+CreateFunctionStatement [0-66]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [37-43]
+    PathExpression [37-43]
+      Identifier(string) [37-43]
+  SqlFunctionBody [49-66]
+    StringLiteral('hello world') [51-64]
+--
+CREATE FUNCTION myfunc()
+RETURNS string AS (
+  'hello world'
+)
+==
+
+# Invalid but parseable node : argument name not given.  Missing argument
+# names are only valid in the context of DROP FUNCTION statements.
+create function myfunc ( string )
+  returns string
+  as ( 'hello world' ) ;
+--
+CreateFunctionStatement [0-73]
+  FunctionDeclaration [16-33]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-33]
+      FunctionParameter [25-31]
+        SimpleType [25-31]
+          PathExpression [25-31]
+            Identifier(string) [25-31]
+  SimpleType [44-50]
+    PathExpression [44-50]
+      Identifier(string) [44-50]
+  SqlFunctionBody [56-73]
+    StringLiteral('hello world') [58-71]
+--
+CREATE FUNCTION myfunc(string)
+RETURNS string AS (
+  'hello world'
+)
+==
+
+# Invalid but parseable node : some argument names not given.  Missing argument
+# names are only valid in the context of DROP FUNCTION statements.
+create function myfunc ( string, s string, int32, i int32 )
+  returns string
+  as ( 'hello world' ) ;
+--
+CreateFunctionStatement [0-99]
+  FunctionDeclaration [16-59]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-59]
+      FunctionParameter [25-31]
+        SimpleType [25-31]
+          PathExpression [25-31]
+            Identifier(string) [25-31]
+      FunctionParameter [33-41]
+        Identifier(s) [33-34]
+        SimpleType [35-41]
+          PathExpression [35-41]
+            Identifier(string) [35-41]
+      FunctionParameter [43-48]
+        SimpleType [43-48]
+          PathExpression [43-48]
+            Identifier(int32) [43-48]
+      FunctionParameter [50-57]
+        Identifier(i) [50-51]
+        SimpleType [52-57]
+          PathExpression [52-57]
+            Identifier(int32) [52-57]
+  SimpleType [70-76]
+    PathExpression [70-76]
+      Identifier(string) [70-76]
+  SqlFunctionBody [82-99]
+    StringLiteral('hello world') [84-97]
+--
+CREATE FUNCTION myfunc(string, s string, int32, i int32)
+RETURNS string AS (
+  'hello world'
+)
+==
+
+create aggregate function myfunc
+          (string not aggregate, s string, int32, i int32 not aggregate)
+  as ( count(*) ) ;
+--
+CreateFunctionStatement(is_aggregate=true) [0-123]
+  FunctionDeclaration [26-105]
+    PathExpression [26-32]
+      Identifier(myfunc) [26-32]
+    FunctionParameters [43-105]
+      FunctionParameter(is_not_aggregate=true) [44-64]
+        SimpleType [44-50]
+          PathExpression [44-50]
+            Identifier(string) [44-50]
+      FunctionParameter [66-74]
+        Identifier(s) [66-67]
+        SimpleType [68-74]
+          PathExpression [68-74]
+            Identifier(string) [68-74]
+      FunctionParameter [76-81]
+        SimpleType [76-81]
+          PathExpression [76-81]
+            Identifier(int32) [76-81]
+      FunctionParameter(is_not_aggregate=true) [83-104]
+        Identifier(i) [83-84]
+        SimpleType [85-90]
+          PathExpression [85-90]
+            Identifier(int32) [85-90]
+  SqlFunctionBody [111-123]
+    FunctionCall [113-121]
+      PathExpression [113-118]
+        Identifier(count) [113-118]
+      Star(*) [119-120]
+--
+CREATE AGGREGATE FUNCTION myfunc(string NOT AGGREGATE, s string, int32, i int32 NOT AGGREGATE)
+AS (
+  count(*)
+)
+==
+
+create or replace aggregate function if not exists myfunc();
+--
+CreateFunctionStatement(is_or_replace, is_if_not_exists)(is_aggregate=true) [0-59]
+  FunctionDeclaration [51-59]
+    PathExpression [51-57]
+      Identifier(myfunc) [51-57]
+    FunctionParameters [57-59]
+--
+CREATE OR REPLACE AGGREGATE FUNCTION IF NOT EXISTS myfunc()
+==
+
+create {{temp|temporary}} aggregate function myfunc();
+--
+ALTERNATION GROUP: temp
+--
+CreateFunctionStatement(is_temp)(is_aggregate=true) [0-39]
+  FunctionDeclaration [31-39]
+    PathExpression [31-37]
+      Identifier(myfunc) [31-37]
+    FunctionParameters [37-39]
+--
+CREATE TEMP AGGREGATE FUNCTION myfunc()
+--
+ALTERNATION GROUP: temporary
+--
+CreateFunctionStatement(is_temp)(is_aggregate=true) [0-44]
+  FunctionDeclaration [36-44]
+    PathExpression [36-42]
+      Identifier(myfunc) [36-42]
+    FunctionParameters [42-44]
+--
+CREATE TEMP AGGREGATE FUNCTION myfunc()
+==
+
+create or replace {{temp|temporary}} aggregate function myfunc();
+--
+ALTERNATION GROUP: temp
+--
+CreateFunctionStatement(is_temp, is_or_replace)(is_aggregate=true) [0-50]
+  FunctionDeclaration [42-50]
+    PathExpression [42-48]
+      Identifier(myfunc) [42-48]
+    FunctionParameters [48-50]
+--
+CREATE OR REPLACE TEMP AGGREGATE FUNCTION myfunc()
+--
+ALTERNATION GROUP: temporary
+--
+CreateFunctionStatement(is_temp, is_or_replace)(is_aggregate=true) [0-55]
+  FunctionDeclaration [47-55]
+    PathExpression [47-53]
+      Identifier(myfunc) [47-53]
+    FunctionParameters [53-55]
+--
+CREATE OR REPLACE TEMP AGGREGATE FUNCTION myfunc()
+==
+
+# The parser returns a helpful error message when the SQL UDF declaration
+# forgets parentheses around an expression subquery in the body.
+create temporary function f() returns int64 as (select 1);
+--
+ERROR: The body of each CREATE FUNCTION statement is an expression, not a query; to use a query as an expression, the query must be wrapped with additional parentheses to make it a scalar subquery expression [at 1:49]
+create temporary function f() returns int64 as (select 1);
+                                                ^
+==
+
+create function myfunc(x interval) returns interval
+as (x)
+--
+CreateFunctionStatement [0-58]
+  FunctionDeclaration [16-34]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [22-34]
+      FunctionParameter [23-33]
+        Identifier(x) [23-24]
+        SimpleType [25-33]
+          PathExpression [25-33]
+            Identifier(`interval`) [25-33]
+  SimpleType [43-51]
+    PathExpression [43-51]
+      Identifier(`interval`) [43-51]
+  SqlFunctionBody [55-58]
+    PathExpression [56-57]
+      Identifier(x) [56-57]
+--
+CREATE FUNCTION myfunc(x interval)
+RETURNS interval AS (
+  x
+)

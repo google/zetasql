@@ -1,0 +1,2694 @@
+# Empty argument list.
+select * from mytvf()
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-21]
+        TVF [14-21]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+--
+SELECT
+  *
+FROM
+  mytvf()
+==
+
+# Literals in the argument list.
+select * from mytvf(1, 2, 3)
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-28]
+        TVF [14-28]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-21]
+            IntLiteral(1) [20-21]
+          TVFArgument [23-24]
+            IntLiteral(2) [23-24]
+          TVFArgument [26-27]
+            IntLiteral(3) [26-27]
+--
+SELECT
+  *
+FROM
+  mytvf(1, 2, 3)
+==
+
+# A subquery in the argument list.
+select * from mytvf((select Key from KeyValue group by Key))
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-60]
+        TVF [14-60]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-59]
+            ExpressionSubquery [20-59]
+              Query [21-58]
+                Select [21-58]
+                  SelectList [28-31]
+                    SelectColumn [28-31]
+                      PathExpression [28-31]
+                        Identifier(Key) [28-31]
+                  FromClause [32-45]
+                    TablePathExpression [37-45]
+                      PathExpression [37-45]
+                        Identifier(KeyValue) [37-45]
+                  GroupBy [46-58]
+                    GroupingItem [55-58]
+                      PathExpression [55-58]
+                        Identifier(Key) [55-58]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      Key
+    FROM
+      KeyValue
+    GROUP BY Key
+  ))
+==
+
+# A subquery and literals in the argument list.
+select * from mytvf((select Key from KeyValue group by Key), 1, 2, 3)
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-69]
+        TVF [14-69]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-59]
+            ExpressionSubquery [20-59]
+              Query [21-58]
+                Select [21-58]
+                  SelectList [28-31]
+                    SelectColumn [28-31]
+                      PathExpression [28-31]
+                        Identifier(Key) [28-31]
+                  FromClause [32-45]
+                    TablePathExpression [37-45]
+                      PathExpression [37-45]
+                        Identifier(KeyValue) [37-45]
+                  GroupBy [46-58]
+                    GroupingItem [55-58]
+                      PathExpression [55-58]
+                        Identifier(Key) [55-58]
+          TVFArgument [61-62]
+            IntLiteral(1) [61-62]
+          TVFArgument [64-65]
+            IntLiteral(2) [64-65]
+          TVFArgument [67-68]
+            IntLiteral(3) [67-68]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      Key
+    FROM
+      KeyValue
+    GROUP BY Key
+  ), 1, 2, 3)
+==
+
+# Complex expressions in the argument list.
+select * from mytvf(1 + 2, 3 + 4, 5 + 6)
+--
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-40]
+        TVF [14-40]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-25]
+            BinaryExpression(+) [20-25]
+              IntLiteral(1) [20-21]
+              IntLiteral(2) [24-25]
+          TVFArgument [27-32]
+            BinaryExpression(+) [27-32]
+              IntLiteral(3) [27-28]
+              IntLiteral(4) [31-32]
+          TVFArgument [34-39]
+            BinaryExpression(+) [34-39]
+              IntLiteral(5) [34-35]
+              IntLiteral(6) [38-39]
+--
+SELECT
+  *
+FROM
+  mytvf(1 + 2, 3 + 4, 5 + 6)
+==
+
+# A subquery and complex expressions in the argument list.
+select * from mytvf((select Key from KeyValue group by Key), 1 + 2, 3 + 4)
+--
+QueryStatement [0-74]
+  Query [0-74]
+    Select [0-74]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-74]
+        TVF [14-74]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-59]
+            ExpressionSubquery [20-59]
+              Query [21-58]
+                Select [21-58]
+                  SelectList [28-31]
+                    SelectColumn [28-31]
+                      PathExpression [28-31]
+                        Identifier(Key) [28-31]
+                  FromClause [32-45]
+                    TablePathExpression [37-45]
+                      PathExpression [37-45]
+                        Identifier(KeyValue) [37-45]
+                  GroupBy [46-58]
+                    GroupingItem [55-58]
+                      PathExpression [55-58]
+                        Identifier(Key) [55-58]
+          TVFArgument [61-66]
+            BinaryExpression(+) [61-66]
+              IntLiteral(1) [61-62]
+              IntLiteral(2) [65-66]
+          TVFArgument [68-73]
+            BinaryExpression(+) [68-73]
+              IntLiteral(3) [68-69]
+              IntLiteral(4) [72-73]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      Key
+    FROM
+      KeyValue
+    GROUP BY Key
+  ), 1 + 2, 3 + 4)
+==
+
+# A subquery and complex expressions in the argument list.
+select * from mytvf((select 1), 1 + 2, 3 + 4)
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-45]
+        TVF [14-45]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-30]
+            ExpressionSubquery [20-30]
+              Query [21-29]
+                Select [21-29]
+                  SelectList [28-29]
+                    SelectColumn [28-29]
+                      IntLiteral(1) [28-29]
+          TVFArgument [32-37]
+            BinaryExpression(+) [32-37]
+              IntLiteral(1) [32-33]
+              IntLiteral(2) [36-37]
+          TVFArgument [39-44]
+            BinaryExpression(+) [39-44]
+              IntLiteral(3) [39-40]
+              IntLiteral(4) [43-44]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+  ), 1 + 2, 3 + 4)
+==
+
+# Two subqueries in the argument list.
+select * from mytvf((select Key from KeyValue group by Key), (select 1))
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-72]
+        TVF [14-72]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-59]
+            ExpressionSubquery [20-59]
+              Query [21-58]
+                Select [21-58]
+                  SelectList [28-31]
+                    SelectColumn [28-31]
+                      PathExpression [28-31]
+                        Identifier(Key) [28-31]
+                  FromClause [32-45]
+                    TablePathExpression [37-45]
+                      PathExpression [37-45]
+                        Identifier(KeyValue) [37-45]
+                  GroupBy [46-58]
+                    GroupingItem [55-58]
+                      PathExpression [55-58]
+                        Identifier(Key) [55-58]
+          TVFArgument [61-71]
+            ExpressionSubquery [61-71]
+              Query [62-70]
+                Select [62-70]
+                  SelectList [69-70]
+                    SelectColumn [69-70]
+                      IntLiteral(1) [69-70]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      Key
+    FROM
+      KeyValue
+    GROUP BY Key
+  ), (
+    SELECT
+      1
+  ))
+==
+
+# A subquery and SQL function calls in the argument list.
+select * from mytvf((select 1), abs(1 + 2), abs(1 - 2))
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-55]
+        TVF [14-55]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-30]
+            ExpressionSubquery [20-30]
+              Query [21-29]
+                Select [21-29]
+                  SelectList [28-29]
+                    SelectColumn [28-29]
+                      IntLiteral(1) [28-29]
+          TVFArgument [32-42]
+            FunctionCall [32-42]
+              PathExpression [32-35]
+                Identifier(abs) [32-35]
+              BinaryExpression(+) [36-41]
+                IntLiteral(1) [36-37]
+                IntLiteral(2) [40-41]
+          TVFArgument [44-54]
+            FunctionCall [44-54]
+              PathExpression [44-47]
+                Identifier(abs) [44-47]
+              BinaryExpression(-) [48-53]
+                IntLiteral(1) [48-49]
+                IntLiteral(2) [52-53]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+  ), abs(1 + 2), abs(1 - 2))
+==
+
+# A subquery and nested TVF calls in the argument list.
+select * from mytvf((select 1),
+                    (select 1 from mytvf()),
+                    (select 1 from mytvf() limit 1),
+                    (select 1, 2 from mytvf()),
+                    (select * from mytvf(abs(1 - 2))))
+--
+QueryStatement [0-232]
+  Query [0-232]
+    Select [0-232]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-232]
+        TVF [14-232]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-30]
+            ExpressionSubquery [20-30]
+              Query [21-29]
+                Select [21-29]
+                  SelectList [28-29]
+                    SelectColumn [28-29]
+                      IntLiteral(1) [28-29]
+          TVFArgument [52-75]
+            ExpressionSubquery [52-75]
+              Query [53-74]
+                Select [53-74]
+                  SelectList [60-61]
+                    SelectColumn [60-61]
+                      IntLiteral(1) [60-61]
+                  FromClause [62-74]
+                    TVF [67-74]
+                      PathExpression [67-72]
+                        Identifier(mytvf) [67-72]
+          TVFArgument [97-128]
+            ExpressionSubquery [97-128]
+              Query [98-127]
+                Select [98-119]
+                  SelectList [105-106]
+                    SelectColumn [105-106]
+                      IntLiteral(1) [105-106]
+                  FromClause [107-119]
+                    TVF [112-119]
+                      PathExpression [112-117]
+                        Identifier(mytvf) [112-117]
+                LimitOffset [120-127]
+                  IntLiteral(1) [126-127]
+          TVFArgument [150-176]
+            ExpressionSubquery [150-176]
+              Query [151-175]
+                Select [151-175]
+                  SelectList [158-162]
+                    SelectColumn [158-159]
+                      IntLiteral(1) [158-159]
+                    SelectColumn [161-162]
+                      IntLiteral(2) [161-162]
+                  FromClause [163-175]
+                    TVF [168-175]
+                      PathExpression [168-173]
+                        Identifier(mytvf) [168-173]
+          TVFArgument [198-231]
+            ExpressionSubquery [198-231]
+              Query [199-230]
+                Select [199-230]
+                  SelectList [206-207]
+                    SelectColumn [206-207]
+                      Star(*) [206-207]
+                  FromClause [208-230]
+                    TVF [213-230]
+                      PathExpression [213-218]
+                        Identifier(mytvf) [213-218]
+                      TVFArgument [219-229]
+                        FunctionCall [219-229]
+                          PathExpression [219-222]
+                            Identifier(abs) [219-222]
+                          BinaryExpression(-) [223-228]
+                            IntLiteral(1) [223-224]
+                            IntLiteral(2) [227-228]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+  ), (
+    SELECT
+      1
+    FROM
+      mytvf()
+  ), (
+    SELECT
+      1
+    FROM
+      mytvf()
+    LIMIT 1), (
+    SELECT
+      1,
+      2
+    FROM
+      mytvf()
+  ), (
+    SELECT
+      *
+    FROM
+      mytvf(abs(1 - 2))
+  ))
+==
+
+# A nested TVF call and some SQL function expressions without arguments in the
+# argument list.
+select * from mytvf((select 1 from mytvf()),
+                    current_date(),
+                    current_timestamp())
+--
+QueryStatement [0-121]
+  Query [0-121]
+    Select [0-121]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-121]
+        TVF [14-121]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-43]
+            ExpressionSubquery [20-43]
+              Query [21-42]
+                Select [21-42]
+                  SelectList [28-29]
+                    SelectColumn [28-29]
+                      IntLiteral(1) [28-29]
+                  FromClause [30-42]
+                    TVF [35-42]
+                      PathExpression [35-40]
+                        Identifier(mytvf) [35-40]
+          TVFArgument [65-79]
+            FunctionCall [65-79]
+              PathExpression [65-77]
+                Identifier(`current_date`) [65-77]
+          TVFArgument [101-120]
+            FunctionCall [101-120]
+              PathExpression [101-118]
+                Identifier(`current_timestamp`) [101-118]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+    FROM
+      mytvf()
+  ), `current_date`(), `current_timestamp`())
+==
+
+# A TVF has a correlated reference to the enclosing query.
+select (select * from mytvf(Key)) from KeyValue
+--
+QueryStatement [0-47]
+  Query [0-47]
+    Select [0-47]
+      SelectList [7-33]
+        SelectColumn [7-33]
+          ExpressionSubquery [7-33]
+            Query [8-32]
+              Select [8-32]
+                SelectList [15-16]
+                  SelectColumn [15-16]
+                    Star(*) [15-16]
+                FromClause [17-32]
+                  TVF [22-32]
+                    PathExpression [22-27]
+                      Identifier(mytvf) [22-27]
+                    TVFArgument [28-31]
+                      PathExpression [28-31]
+                        Identifier(Key) [28-31]
+      FromClause [34-47]
+        TablePathExpression [39-47]
+          PathExpression [39-47]
+            Identifier(KeyValue) [39-47]
+--
+SELECT
+  (
+    SELECT
+      *
+    FROM
+      mytvf(Key)
+  )
+FROM
+  KeyValue
+==
+
+# A TVF has a correlated reference to the enclosing query.
+select (select * from mytvf((SELECT Key))) from KeyValue
+--
+QueryStatement [0-56]
+  Query [0-56]
+    Select [0-56]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          ExpressionSubquery [7-42]
+            Query [8-41]
+              Select [8-41]
+                SelectList [15-16]
+                  SelectColumn [15-16]
+                    Star(*) [15-16]
+                FromClause [17-41]
+                  TVF [22-41]
+                    PathExpression [22-27]
+                      Identifier(mytvf) [22-27]
+                    TVFArgument [28-40]
+                      ExpressionSubquery [28-40]
+                        Query [29-39]
+                          Select [29-39]
+                            SelectList [36-39]
+                              SelectColumn [36-39]
+                                PathExpression [36-39]
+                                  Identifier(Key) [36-39]
+      FromClause [43-56]
+        TablePathExpression [48-56]
+          PathExpression [48-56]
+            Identifier(KeyValue) [48-56]
+--
+SELECT
+  (
+    SELECT
+      *
+    FROM
+      mytvf((
+        SELECT
+          Key
+      ))
+  )
+FROM
+  KeyValue
+==
+
+# The TVF call contains a table reference without using a subquery.
+# This passes parsing since table reference 'keyvalue' is treated as
+# an identifier, but will fail during analysis since a table reference in the
+# TVF argument must be preceded by the keyword 'TABLE'.
+select * from mytvf(keyvalue)
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-29]
+        TVF [14-29]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-28]
+            PathExpression [20-28]
+              Identifier(keyvalue) [20-28]
+--
+SELECT
+  *
+FROM
+  mytvf(keyvalue)
+==
+
+# The TVF call contains a nested TVF call without using a subquery.
+# This passes parsing since nested TVF 'mytvf' is treated as a function call.
+# This may pass analysis if a scalar function 'mytvf' exists. If not, this will
+# fail during analysis since a nested TVF call must use a subquery.
+select * from mytvf(mytvf())
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-28]
+        TVF [14-28]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-27]
+            FunctionCall [20-27]
+              PathExpression [20-25]
+                Identifier(mytvf) [20-25]
+--
+SELECT
+  *
+FROM
+  mytvf(mytvf())
+==
+
+# The TVF call contains a column reference 'Key' to a previous table 'KeyValue'
+# in the FROM clause. This passes parsing since column reference 'Key' is
+# treated as an identifier, but will fail during analysis.
+select * from KeyValue JOIN mytvf(Key) ON (TRUE)
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-48]
+        Join [23-48]
+          TablePathExpression [14-22]
+            PathExpression [14-22]
+              Identifier(KeyValue) [14-22]
+          TVF [28-38]
+            PathExpression [28-33]
+              Identifier(mytvf) [28-33]
+            TVFArgument [34-37]
+              PathExpression [34-37]
+                Identifier(Key) [34-37]
+          OnClause [39-48]
+            BooleanLiteral(TRUE) [43-47]
+--
+SELECT
+  *
+FROM
+  KeyValue
+  JOIN
+  mytvf(Key)
+  ON TRUE
+==
+
+# A dot-separated TVF name.
+select * from my.dot.separated.tvf((select * from keyvalue))
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-60]
+        TVF [14-60]
+          PathExpression [14-34]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(tvf) [31-34]
+          TVFArgument [35-59]
+            ExpressionSubquery [35-59]
+              Query [36-58]
+                Select [36-58]
+                  SelectList [43-44]
+                    SelectColumn [43-44]
+                      Star(*) [43-44]
+                  FromClause [45-58]
+                    TablePathExpression [50-58]
+                      PathExpression [50-58]
+                        Identifier(keyvalue) [50-58]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# A dot-separated TVF name with numerals.
+select * from my.42.dot.separated.tvf((select * from keyvalue))
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-63]
+        TVF [14-63]
+          PathExpression [14-37]
+            Identifier(my) [14-16]
+            Identifier(`42`) [17-19]
+            Identifier(dot) [20-23]
+            Identifier(separated) [24-33]
+            Identifier(tvf) [34-37]
+          TVFArgument [38-62]
+            ExpressionSubquery [38-62]
+              Query [39-61]
+                Select [39-61]
+                  SelectList [46-47]
+                    SelectColumn [46-47]
+                      Star(*) [46-47]
+                  FromClause [48-61]
+                    TablePathExpression [53-61]
+                      PathExpression [53-61]
+                        Identifier(keyvalue) [53-61]
+--
+SELECT
+  *
+FROM
+  my.`42`.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# A dot-separated TVF name with numerals.
+select * from my.42dot.separated.tvf((select * from keyvalue))
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-62]
+        TVF [14-62]
+          PathExpression [14-36]
+            Identifier(my) [14-16]
+            Identifier(`42dot`) [17-22]
+            Identifier(separated) [23-32]
+            Identifier(tvf) [33-36]
+          TVFArgument [37-61]
+            ExpressionSubquery [37-61]
+              Query [38-60]
+                Select [38-60]
+                  SelectList [45-46]
+                    SelectColumn [45-46]
+                      Star(*) [45-46]
+                  FromClause [47-60]
+                    TablePathExpression [52-60]
+                      PathExpression [52-60]
+                        Identifier(keyvalue) [52-60]
+--
+SELECT
+  *
+FROM
+  my.`42dot`.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# A dot-separated TVF name with numerals.
+select * from my.dot42.separated.tvf((select * from keyvalue))
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-62]
+        TVF [14-62]
+          PathExpression [14-36]
+            Identifier(my) [14-16]
+            Identifier(dot42) [17-22]
+            Identifier(separated) [23-32]
+            Identifier(tvf) [33-36]
+          TVFArgument [37-61]
+            ExpressionSubquery [37-61]
+              Query [38-60]
+                Select [38-60]
+                  SelectList [45-46]
+                    SelectColumn [45-46]
+                      Star(*) [45-46]
+                  FromClause [47-60]
+                    TablePathExpression [52-60]
+                      PathExpression [52-60]
+                        Identifier(keyvalue) [52-60]
+--
+SELECT
+  *
+FROM
+  my.dot42.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# A dot-separated TVF name with numerals.
+select * from my.dot.separated.42((select * from keyvalue))
+--
+QueryStatement [0-59]
+  Query [0-59]
+    Select [0-59]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-59]
+        TVF [14-59]
+          PathExpression [14-33]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(`42`) [31-33]
+          TVFArgument [34-58]
+            ExpressionSubquery [34-58]
+              Query [35-57]
+                Select [35-57]
+                  SelectList [42-43]
+                    SelectColumn [42-43]
+                      Star(*) [42-43]
+                  FromClause [44-57]
+                    TablePathExpression [49-57]
+                      PathExpression [49-57]
+                        Identifier(keyvalue) [49-57]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.`42`((
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# TVF names may not start with numerals.
+select * from 42.dot.separated.tvf((select * from keyvalue))
+--
+ERROR: Syntax error: Unexpected floating point literal "42." [at 1:15]
+select * from 42.dot.separated.tvf((select * from keyvalue))
+              ^
+==
+
+# TVF names may not start with numerals.
+select * from 42..dot.separated.tvf((select * from keyvalue))
+--
+ERROR: Syntax error: Unexpected floating point literal "42." [at 1:15]
+select * from 42..dot.separated.tvf((select * from keyvalue))
+              ^
+==
+
+# TVF names may not start with numerals.
+select * from 42.dot.separated.42((select * from keyvalue))
+--
+ERROR: Syntax error: Unexpected floating point literal "42." [at 1:15]
+select * from 42.dot.separated.42((select * from keyvalue))
+              ^
+==
+
+# Underscores are allowed in TVF names.
+select * from my.dot._separated.tvf((select * from keyvalue))
+--
+QueryStatement [0-61]
+  Query [0-61]
+    Select [0-61]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-61]
+        TVF [14-61]
+          PathExpression [14-35]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(_separated) [21-31]
+            Identifier(tvf) [32-35]
+          TVFArgument [36-60]
+            ExpressionSubquery [36-60]
+              Query [37-59]
+                Select [37-59]
+                  SelectList [44-45]
+                    SelectColumn [44-45]
+                      Star(*) [44-45]
+                  FromClause [46-59]
+                    TablePathExpression [51-59]
+                      PathExpression [51-59]
+                        Identifier(keyvalue) [51-59]
+--
+SELECT
+  *
+FROM
+  my.dot._separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# Special characters are not allowed in TVF names.
+select * from my.dot.-separated.tvf((select * from keyvalue))
+--
+ERROR: Syntax error: Unexpected "-" [at 1:22]
+select * from my.dot.-separated.tvf((select * from keyvalue))
+                     ^
+==
+
+# The TVF has an alias.
+select * from my.dot.separated.tvf((select * from keyvalue)) myalias
+--
+QueryStatement [0-68]
+  Query [0-68]
+    Select [0-68]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-68]
+        TVF [14-68]
+          PathExpression [14-34]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(tvf) [31-34]
+          TVFArgument [35-59]
+            ExpressionSubquery [35-59]
+              Query [36-58]
+                Select [36-58]
+                  SelectList [43-44]
+                    SelectColumn [43-44]
+                      Star(*) [43-44]
+                  FromClause [45-58]
+                    TablePathExpression [50-58]
+                      PathExpression [50-58]
+                        Identifier(keyvalue) [50-58]
+          Alias [61-68]
+            Identifier(myalias) [61-68]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  )) AS myalias
+==
+
+# The TVF has an alias with the AS keyword.
+select * from my.dot.separated.tvf((select * from keyvalue)) AS myalias
+--
+QueryStatement [0-71]
+  Query [0-71]
+    Select [0-71]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-71]
+        TVF [14-71]
+          PathExpression [14-34]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(tvf) [31-34]
+          TVFArgument [35-59]
+            ExpressionSubquery [35-59]
+              Query [36-58]
+                Select [36-58]
+                  SelectList [43-44]
+                    SelectColumn [43-44]
+                      Star(*) [43-44]
+                  FromClause [45-58]
+                    TablePathExpression [50-58]
+                      PathExpression [50-58]
+                        Identifier(keyvalue) [50-58]
+          Alias [61-71]
+            Identifier(myalias) [64-71]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  )) AS myalias
+==
+
+# The TVF has a hint.
+select * from my.dot.separated.tvf((select * from keyvalue)) @{num_workers=42}
+--
+QueryStatement [0-78]
+  Query [0-78]
+    Select [0-78]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-78]
+        TVF [14-78]
+          PathExpression [14-34]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(tvf) [31-34]
+          TVFArgument [35-59]
+            ExpressionSubquery [35-59]
+              Query [36-58]
+                Select [36-58]
+                  SelectList [43-44]
+                    SelectColumn [43-44]
+                      Star(*) [43-44]
+                  FromClause [45-58]
+                    TablePathExpression [50-58]
+                      PathExpression [50-58]
+                        Identifier(keyvalue) [50-58]
+          Hint [61-78]
+            HintEntry [63-77]
+              Identifier(num_workers) [63-74]
+              IntLiteral(42) [75-77]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  )) @{ num_workers = 42 }
+==
+
+# The TVF has an alias and a hint.
+select * from
+my.dot.separated.tvf((select * from keyvalue)) @{num_workers=42} AS myalias
+--
+QueryStatement [0-89]
+  Query [0-89]
+    Select [0-89]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-89]
+        TVF [14-89]
+          PathExpression [14-34]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(tvf) [31-34]
+          TVFArgument [35-59]
+            ExpressionSubquery [35-59]
+              Query [36-58]
+                Select [36-58]
+                  SelectList [43-44]
+                    SelectColumn [43-44]
+                      Star(*) [43-44]
+                  FromClause [45-58]
+                    TablePathExpression [50-58]
+                      PathExpression [50-58]
+                        Identifier(keyvalue) [50-58]
+          Hint [61-78]
+            HintEntry [63-77]
+              Identifier(num_workers) [63-74]
+              IntLiteral(42) [75-77]
+          Alias [79-89]
+            Identifier(myalias) [82-89]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      keyvalue
+  )) @{ num_workers = 42 } AS myalias
+==
+
+# WITH OFFSET is not support for TVFs.
+select * from my.dot.separated.tvf((select * from keyvalue)) WITH OFFSET o
+--
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 1:62]
+select * from my.dot.separated.tvf((select * from keyvalue)) WITH OFFSET o
+                                                             ^
+==
+
+# Parenthesized TVFs are not supported.
+select * from (mytvf((select * from keyvalue)))
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:47]
+select * from (mytvf((select * from keyvalue)))
+                                              ^
+==
+
+# Parenthesized joins are not supported as TVF arguments.
+select * from mytvf((keyvalue join keyvalue on true))
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:22]
+select * from mytvf((keyvalue join keyvalue on true))
+                     ^
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf((select 1))
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-31]
+        TVF [14-31]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-30]
+            ExpressionSubquery [20-30]
+              Query [21-29]
+                Select [21-29]
+                  SelectList [28-29]
+                    SelectColumn [28-29]
+                      IntLiteral(1) [28-29]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+  ))
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf (((select 1)))
+--
+QueryStatement [0-34]
+  Query [0-34]
+    Select [0-34]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-34]
+        TVF [14-34]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-33]
+            ExpressionSubquery [22-32]
+              Query [23-31]
+                Select [23-31]
+                  SelectList [30-31]
+                    SelectColumn [30-31]
+                      IntLiteral(1) [30-31]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+  ))
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf (1)
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-23]
+        TVF [14-23]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-22]
+            IntLiteral(1) [21-22]
+--
+SELECT
+  *
+FROM
+  mytvf(1)
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf ((1))
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-25]
+        TVF [14-25]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-24]
+            IntLiteral(1) [22-23]
+--
+SELECT
+  *
+FROM
+  mytvf(1)
+==
+
+# The parser interprets the ((1)) argument as a parenthesized literal value.
+select * from mytvf (((1)))
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-27]
+        TVF [14-27]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-26]
+            IntLiteral(1) [23-24]
+--
+SELECT
+  *
+FROM
+  mytvf(1)
+==
+
+# The parser correctly handles the ((select 1) + 1) argument.
+select * from mytvf ((select 1) + 1)
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-36]
+        TVF [14-36]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-35]
+            BinaryExpression(+) [21-35]
+              ExpressionSubquery [21-31]
+                Query [22-30]
+                  Select [22-30]
+                    SelectList [29-30]
+                      SelectColumn [29-30]
+                        IntLiteral(1) [29-30]
+              IntLiteral(1) [34-35]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+  ) + 1)
+==
+
+# The parser correctly interprets the argument as a scalar value.
+select * from mytvf (1 + (select 1))
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-36]
+        TVF [14-36]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-35]
+            BinaryExpression(+) [21-35]
+              IntLiteral(1) [21-22]
+              ExpressionSubquery [25-35]
+                Query [26-34]
+                  Select [26-34]
+                    SelectList [33-34]
+                      SelectColumn [33-34]
+                        IntLiteral(1) [33-34]
+--
+SELECT
+  *
+FROM
+  mytvf(1 + (
+    SELECT
+      1
+  ))
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf (select 1 from mytvf())
+--
+ERROR: Syntax error: Each subquery argument for table-valued function calls must be enclosed in parentheses. To fix this, replace SELECT... with (SELECT...) [at 1:22]
+select * from mytvf (select 1 from mytvf())
+                     ^
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf ((select 1 from mytvf()))
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-45]
+        TVF [14-45]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-44]
+            ExpressionSubquery [21-44]
+              Query [22-43]
+                Select [22-43]
+                  SelectList [29-30]
+                    SelectColumn [29-30]
+                      IntLiteral(1) [29-30]
+                  FromClause [31-43]
+                    TVF [36-43]
+                      PathExpression [36-41]
+                        Identifier(mytvf) [36-41]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+    FROM
+      mytvf()
+  ))
+==
+
+# Multiple levels of parentheses in various TVF arguments.
+select * from mytvf (((select 1 from mytvf())))
+--
+QueryStatement [0-47]
+  Query [0-47]
+    Select [0-47]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-47]
+        TVF [14-47]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [21-46]
+            ExpressionSubquery [22-45]
+              Query [23-44]
+                Select [23-44]
+                  SelectList [30-31]
+                    SelectColumn [30-31]
+                      IntLiteral(1) [30-31]
+                  FromClause [32-44]
+                    TVF [37-44]
+                      PathExpression [37-42]
+                        Identifier(mytvf) [37-42]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      1
+    FROM
+      mytvf()
+  ))
+==
+
+# The TVF argument is not enclosed in parentheses and so the parsing fails.
+select * from mytvf (select * from mytvf(((abs(1 - 2)))))
+--
+ERROR: Syntax error: Each subquery argument for table-valued function calls must be enclosed in parentheses. To fix this, replace SELECT... with (SELECT...) [at 1:22]
+select * from mytvf (select * from mytvf(((abs(1 - 2)))))
+                     ^
+==
+
+# The TVF name is the same as a reserved keyword.
+select * from if(true, (select 1), (select 2))
+--
+QueryStatement [0-46]
+  Query [0-46]
+    Select [0-46]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-46]
+        TVF [14-46]
+          PathExpression [14-16]
+            Identifier(`if`) [14-16]
+          TVFArgument [17-21]
+            BooleanLiteral(true) [17-21]
+          TVFArgument [23-33]
+            ExpressionSubquery [23-33]
+              Query [24-32]
+                Select [24-32]
+                  SelectList [31-32]
+                    SelectColumn [31-32]
+                      IntLiteral(1) [31-32]
+          TVFArgument [35-45]
+            ExpressionSubquery [35-45]
+              Query [36-44]
+                Select [36-44]
+                  SelectList [43-44]
+                    SelectColumn [43-44]
+                      IntLiteral(2) [43-44]
+--
+SELECT
+  *
+FROM
+  `if`(true, (
+    SELECT
+      1
+  ), (
+    SELECT
+      2
+  ))
+==
+
+# The TVF name is the same as a reserved keyword with special function syntax.
+# This is allowed, because TVF calls are not expressions, so SAFE_CAST does not
+# have special syntax here.
+select * from safe_cast(true, (select 1), (select 2))
+--
+QueryStatement [0-53]
+  Query [0-53]
+    Select [0-53]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-53]
+        TVF [14-53]
+          PathExpression [14-23]
+            Identifier(`safe_cast`) [14-23]
+          TVFArgument [24-28]
+            BooleanLiteral(true) [24-28]
+          TVFArgument [30-40]
+            ExpressionSubquery [30-40]
+              Query [31-39]
+                Select [31-39]
+                  SelectList [38-39]
+                    SelectColumn [38-39]
+                      IntLiteral(1) [38-39]
+          TVFArgument [42-52]
+            ExpressionSubquery [42-52]
+              Query [43-51]
+                Select [43-51]
+                  SelectList [50-51]
+                    SelectColumn [50-51]
+                      IntLiteral(2) [50-51]
+--
+SELECT
+  *
+FROM
+  `safe_cast`(true, (
+    SELECT
+      1
+  ), (
+    SELECT
+      2
+  ))
+==
+
+# Valid "TABLE path" syntax for table-valued function arguments.
+select * from tvf_one_relation_arg_with_fixed_output(table keyvalue)
+--
+QueryStatement [0-68]
+  Query [0-68]
+    Select [0-68]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-68]
+        TVF [14-68]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-67]
+            TableClause [53-67]
+              PathExpression [59-67]
+                Identifier(keyvalue) [59-67]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE keyvalue)
+
+==
+
+# Valid "MODEL path" syntax for table-valued function arguments.
+select * from tvf_one_relation_arg_with_fixed_output(model keyvalue)
+--
+QueryStatement [0-68]
+  Query [0-68]
+    Select [0-68]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-68]
+        TVF [14-68]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-67]
+            ModelClause [53-67]
+              PathExpression [59-67]
+                Identifier(keyvalue) [59-67]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(MODEL keyvalue)
+
+==
+
+# Valid "CONNECTION path" syntax for table-valued function arguments.
+select * from tvf_one_relation_arg_with_fixed_output(connection keyvalue)
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-73]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-73]
+        TVF [14-73]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-72]
+            ConnectionClause [53-72]
+              PathExpression [64-72]
+                Identifier(keyvalue) [64-72]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(CONNECTION keyvalue)
+
+==
+
+# Valid "TABLE path" syntax for table-valued function arguments with multiple
+# elements in the path.
+select * from tvf_one_relation_arg_with_fixed_output(table a.b.c)
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-65]
+        TVF [14-65]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-64]
+            TableClause [53-64]
+              PathExpression [59-64]
+                Identifier(a) [59-60]
+                Identifier(b) [61-62]
+                Identifier(c) [63-64]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE a.b.c)
+==
+
+# Valid "MODEL path" syntax for table-valued function arguments with multiple
+# elements in the path.
+select * from tvf_one_relation_arg_with_fixed_output(model a.b.c)
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-65]
+        TVF [14-65]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-64]
+            ModelClause [53-64]
+              PathExpression [59-64]
+                Identifier(a) [59-60]
+                Identifier(b) [61-62]
+                Identifier(c) [63-64]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(MODEL a.b.c)
+==
+
+# Valid "CONNECTION path" syntax for table-valued function arguments with multiple
+# elements in the path.
+select * from tvf_one_relation_arg_with_fixed_output(connection a.b.c)
+--
+QueryStatement [0-70]
+  Query [0-70]
+    Select [0-70]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-70]
+        TVF [14-70]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-69]
+            ConnectionClause [53-69]
+              PathExpression [64-69]
+                Identifier(a) [64-65]
+                Identifier(b) [66-67]
+                Identifier(c) [68-69]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(CONNECTION a.b.c)
+==
+
+# "TABLE path" is not currently supported as a stand-alone query.
+table keyvalue;
+--
+ERROR: Syntax error: Unexpected keyword TABLE [at 1:1]
+table keyvalue;
+^
+==
+
+# "MODEL path" is not currently supported as a stand-alone query.
+model keyvalue;
+--
+ERROR: Syntax error: Unexpected keyword MODEL [at 1:1]
+model keyvalue;
+^
+==
+
+# "CONNECTION path" is not currently supported as a stand-alone query.
+connection keyvalue;
+--
+ERROR: Syntax error: Unexpected keyword CONNECTION [at 1:1]
+connection keyvalue;
+^
+==
+
+# "TABLE path" is not currently supported directly in the FROM clause.
+select * from (table keyvalue);
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:30]
+select * from (table keyvalue);
+                             ^
+==
+
+# "MODEL path" is not currently supported directly in the FROM clause.
+select * from (model keyvalue);
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:30]
+select * from (model keyvalue);
+                             ^
+==
+
+# "CONNECTION path" is not currently supported directly in the FROM clause.
+select * from (connection keyvalue);
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:35]
+select * from (connection keyvalue);
+                                  ^
+==
+
+# Valid "TABLE path" syntax for table-valued function arguments, with another
+# argument.
+select *
+from tvf_two_relation_args_return_proto_value_table(
+    table keyvalue, (select 3, 4)) as mytvf
+--
+QueryStatement [0-105]
+  Query [0-105]
+    Select [0-105]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-105]
+        TVF [14-105]
+          PathExpression [14-60]
+            Identifier(tvf_two_relation_args_return_proto_value_table) [14-60]
+          TVFArgument [66-80]
+            TableClause [66-80]
+              PathExpression [72-80]
+                Identifier(keyvalue) [72-80]
+          TVFArgument [82-95]
+            ExpressionSubquery [82-95]
+              Query [83-94]
+                Select [83-94]
+                  SelectList [90-94]
+                    SelectColumn [90-91]
+                      IntLiteral(3) [90-91]
+                    SelectColumn [93-94]
+                      IntLiteral(4) [93-94]
+          Alias [97-105]
+            Identifier(mytvf) [100-105]
+--
+SELECT
+  *
+FROM
+  tvf_two_relation_args_return_proto_value_table(TABLE keyvalue, (
+    SELECT
+      3,
+      4
+  )) AS mytvf
+==
+
+# Valid "MODEL path" syntax for table-valued function arguments, with another
+# argument.
+select *
+from tvf_two_relation_args_return_proto_value_table(
+    model keyvalue, (select 3, 4)) as mytvf
+--
+QueryStatement [0-105]
+  Query [0-105]
+    Select [0-105]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-105]
+        TVF [14-105]
+          PathExpression [14-60]
+            Identifier(tvf_two_relation_args_return_proto_value_table) [14-60]
+          TVFArgument [66-80]
+            ModelClause [66-80]
+              PathExpression [72-80]
+                Identifier(keyvalue) [72-80]
+          TVFArgument [82-95]
+            ExpressionSubquery [82-95]
+              Query [83-94]
+                Select [83-94]
+                  SelectList [90-94]
+                    SelectColumn [90-91]
+                      IntLiteral(3) [90-91]
+                    SelectColumn [93-94]
+                      IntLiteral(4) [93-94]
+          Alias [97-105]
+            Identifier(mytvf) [100-105]
+
+--
+SELECT
+  *
+FROM
+  tvf_two_relation_args_return_proto_value_table(MODEL keyvalue, (
+    SELECT
+      3,
+      4
+  )) AS mytvf
+==
+
+# Valid "CONNECTION path" syntax for table-valued function arguments, with
+# another argument.
+select *
+from tvf_two_relation_args_return_proto_value_table(
+    connection keyvalue, (select 3, 4)) as mytvf
+--
+QueryStatement [0-110]
+  Query [0-110]
+    Select [0-110]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-110]
+        TVF [14-110]
+          PathExpression [14-60]
+            Identifier(tvf_two_relation_args_return_proto_value_table) [14-60]
+          TVFArgument [66-85]
+            ConnectionClause [66-85]
+              PathExpression [77-85]
+                Identifier(keyvalue) [77-85]
+          TVFArgument [87-100]
+            ExpressionSubquery [87-100]
+              Query [88-99]
+                Select [88-99]
+                  SelectList [95-99]
+                    SelectColumn [95-96]
+                      IntLiteral(3) [95-96]
+                    SelectColumn [98-99]
+                      IntLiteral(4) [98-99]
+          Alias [102-110]
+            Identifier(mytvf) [105-110]
+
+--
+SELECT
+  *
+FROM
+  tvf_two_relation_args_return_proto_value_table(CONNECTION keyvalue, (
+    SELECT
+      3,
+      4
+  )) AS mytvf
+==
+
+# Missing "table" keyword, but "keyvalue" parses as an identifier expression.
+# We must reject this query during the resolving step if the name "table" does
+# not match as an expression in this way, since a table path is not present.
+select * from tvf_one_relation_arg_with_fixed_output(keyvalue)
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-62]
+        TVF [14-62]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-61]
+            PathExpression [53-61]
+              Identifier(keyvalue) [53-61]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(keyvalue)
+==
+
+# Missing table path, but "table" parses as an identifier expression.  We must
+# reject this query during the resolving step if the name "table" does not
+# match as an expression in this way, since a table path is not present.
+select * from tvf_one_relation_arg_with_fixed_output(table)
+--
+QueryStatement [0-59]
+  Query [0-59]
+    Select [0-59]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-59]
+        TVF [14-59]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-58]
+            PathExpression [53-58]
+              Identifier(table) [53-58]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(table)
+==
+
+# Valid "TABLE path" syntax for table-valued function arguments: 'table' is a
+# keyword, but the parser allows this.
+select * from tvf_one_relation_arg_with_fixed_output(table table)
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-65]
+        TVF [14-65]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-64]
+            TableClause [53-64]
+              PathExpression [59-64]
+                Identifier(table) [59-64]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE table)
+==
+
+# Invalid "TABLE path" syntax for table-valued function arguments: table path
+# should not be in parentheses (for a single-element path).
+select * from tvf_one_relation_arg_with_fixed_output((table keyvalue))
+--
+ERROR: Syntax error: Table arguments for table-valued function calls written as "TABLE path" must not be enclosed in parentheses. To fix this, replace (TABLE path) with TABLE path [at 1:54]
+select * from tvf_one_relation_arg_with_fixed_output((table keyvalue))
+                                                     ^
+==
+
+# Invalid "TABLE path" syntax for table-valued function arguments: table path
+# should not be in parentheses (for a multi-element path).
+select * from tvf_one_relation_arg_with_fixed_output((table a.b.c))
+--
+ERROR: Syntax error: Table arguments for table-valued function calls written as "TABLE path" must not be enclosed in parentheses. To fix this, replace (TABLE path) with TABLE path [at 1:54]
+select * from tvf_one_relation_arg_with_fixed_output((table a.b.c))
+                                                     ^
+==
+
+# Valid "TABLE path(arguments...)" syntax for table-valued function call:
+# empty argument list.
+select * from tvf_one_relation_arg_with_fixed_output(table t());
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-63]
+        TVF [14-63]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-62]
+            TableClause [53-62]
+              TVF [59-62]
+                PathExpression [59-60]
+                  Identifier(t) [59-60]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE t())
+==
+
+# Valid "TABLE path(arguments...)" syntax for table-valued function call:
+# single argument in argument list.
+select * from tvf_one_relation_arg_with_fixed_output(table t(1));
+--
+QueryStatement [0-64]
+  Query [0-64]
+    Select [0-64]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-64]
+        TVF [14-64]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-63]
+            TableClause [53-63]
+              TVF [59-63]
+                PathExpression [59-60]
+                  Identifier(t) [59-60]
+                TVFArgument [61-62]
+                  IntLiteral(1) [61-62]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE t(1))
+==
+
+# Valid "TABLE path(arguments...)" syntax for table-valued function call:
+# multiple arguments in argument list.
+select * from tvf_one_relation_arg_with_fixed_output(table t(1, "abc", [true]));
+--
+QueryStatement [0-79]
+  Query [0-79]
+    Select [0-79]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-79]
+        TVF [14-79]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-78]
+            TableClause [53-78]
+              TVF [59-78]
+                PathExpression [59-60]
+                  Identifier(t) [59-60]
+                TVFArgument [61-62]
+                  IntLiteral(1) [61-62]
+                TVFArgument [64-69]
+                  StringLiteral("abc") [64-69]
+                TVFArgument [71-77]
+                  ArrayConstructor [71-77]
+                    BooleanLiteral(true) [72-76]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE t(1, "abc", ARRAY[true]))
+==
+
+# Valid "TABLE path(arguments...)" syntax for table-valued function call:
+# NULL arguments in argument list.
+select * from tvf_one_relation_arg_with_fixed_output(table t(null, null));
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-73]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-73]
+        TVF [14-73]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [53-72]
+            TableClause [53-72]
+              TVF [59-72]
+                PathExpression [59-60]
+                  Identifier(t) [59-60]
+                TVFArgument [61-65]
+                  NullLiteral(null) [61-65]
+                TVFArgument [67-71]
+                  NullLiteral(null) [67-71]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE t(null, null))
+==
+
+# Valid "TABLE path(arguments...)" syntax for table-valued function call:
+# Nested TVF calls.
+select * from tvf_one_relation_arg_with_fixed_output(
+    table t(table r(table s(1, 2, 3))));
+--
+QueryStatement [0-93]
+  Query [0-93]
+    Select [0-93]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-93]
+        TVF [14-93]
+          PathExpression [14-52]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52]
+          TVFArgument [58-92]
+            TableClause [58-92]
+              TVF [64-92]
+                PathExpression [64-65]
+                  Identifier(t) [64-65]
+                TVFArgument [66-91]
+                  TableClause [66-91]
+                    TVF [72-91]
+                      PathExpression [72-73]
+                        Identifier(r) [72-73]
+                      TVFArgument [74-90]
+                        TableClause [74-90]
+                          TVF [80-90]
+                            PathExpression [80-81]
+                              Identifier(s) [80-81]
+                            TVFArgument [82-83]
+                              IntLiteral(1) [82-83]
+                            TVFArgument [85-86]
+                              IntLiteral(2) [85-86]
+                            TVFArgument [88-89]
+                              IntLiteral(3) [88-89]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE t(TABLE r(TABLE s(1, 2, 3))))
+==
+
+# Valid TABLESAMPLE clause for table-valued function call using subqueries to
+# represent table arguments.
+select * from safe_cast(true, (select 1), (select 2))
+tablesample reservoir (100 rows) repeatable(10)
+--
+QueryStatement [0-101]
+  Query [0-101]
+    Select [0-101]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-101]
+        TVF [14-101]
+          PathExpression [14-23]
+            Identifier(`safe_cast`) [14-23]
+          TVFArgument [24-28]
+            BooleanLiteral(true) [24-28]
+          TVFArgument [30-40]
+            ExpressionSubquery [30-40]
+              Query [31-39]
+                Select [31-39]
+                  SelectList [38-39]
+                    SelectColumn [38-39]
+                      IntLiteral(1) [38-39]
+          TVFArgument [42-52]
+            ExpressionSubquery [42-52]
+              Query [43-51]
+                Select [43-51]
+                  SelectList [50-51]
+                    SelectColumn [50-51]
+                      IntLiteral(2) [50-51]
+          SampleClause [54-101]
+            Identifier(reservoir) [66-75]
+            SampleSize [77-85]
+              IntLiteral(100) [77-80]
+            SampleSuffix [87-101]
+              RepeatableClause [87-101]
+                IntLiteral(10) [98-100]
+--
+SELECT
+  *
+FROM
+  `safe_cast`(true, (
+    SELECT
+      1
+  ), (
+    SELECT
+      2
+  )) TABLESAMPLE reservoir(100 ROWS) REPEATABLE (10)
+==
+
+# Valid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+tablesample reservoir (100 rows) repeatable(10)
+--
+QueryStatement [0-109]
+  Query [0-109]
+    Select [0-109]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-109]
+        TVF [14-109]
+          PathExpression [14-23]
+            Identifier(`safe_cast`) [14-23]
+          TVFArgument [24-28]
+            BooleanLiteral(true) [24-28]
+          TVFArgument [30-44]
+            TableClause [30-44]
+              PathExpression [36-44]
+                Identifier(keyvalue) [36-44]
+          TVFArgument [46-60]
+            TableClause [46-60]
+              PathExpression [52-60]
+                Identifier(keyvalue) [52-60]
+          SampleClause [62-109]
+            Identifier(reservoir) [74-83]
+            SampleSize [85-93]
+              IntLiteral(100) [85-88]
+            SampleSuffix [95-109]
+              RepeatableClause [95-109]
+                IntLiteral(10) [106-108]
+--
+SELECT
+  *
+FROM
+  `safe_cast`(true, TABLE keyvalue, TABLE keyvalue) TABLESAMPLE reservoir(100 ROWS) REPEATABLE (10)
+==
+
+# Valid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: with query hint.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+@{num_workers=42}
+tablesample reservoir (100 rows) repeatable(10)
+--
+QueryStatement [0-127]
+  Query [0-127]
+    Select [0-127]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-127]
+        TVF [14-127]
+          PathExpression [14-23]
+            Identifier(`safe_cast`) [14-23]
+          TVFArgument [24-28]
+            BooleanLiteral(true) [24-28]
+          TVFArgument [30-44]
+            TableClause [30-44]
+              PathExpression [36-44]
+                Identifier(keyvalue) [36-44]
+          TVFArgument [46-60]
+            TableClause [46-60]
+              PathExpression [52-60]
+                Identifier(keyvalue) [52-60]
+          Hint [62-79]
+            HintEntry [64-78]
+              Identifier(num_workers) [64-75]
+              IntLiteral(42) [76-78]
+          SampleClause [80-127]
+            Identifier(reservoir) [92-101]
+            SampleSize [103-111]
+              IntLiteral(100) [103-106]
+            SampleSuffix [113-127]
+              RepeatableClause [113-127]
+                IntLiteral(10) [124-126]
+--
+SELECT
+  *
+FROM
+  `safe_cast`(true, TABLE keyvalue, TABLE keyvalue) @{ num_workers = 42 } TABLESAMPLE reservoir(100 ROWS) REPEATABLE (10)
+==
+
+# Valid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: with alias.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+as myalias
+tablesample reservoir (100 rows) repeatable(10)
+--
+QueryStatement [0-120]
+  Query [0-120]
+    Select [0-120]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-120]
+        TVF [14-120]
+          PathExpression [14-23]
+            Identifier(`safe_cast`) [14-23]
+          TVFArgument [24-28]
+            BooleanLiteral(true) [24-28]
+          TVFArgument [30-44]
+            TableClause [30-44]
+              PathExpression [36-44]
+                Identifier(keyvalue) [36-44]
+          TVFArgument [46-60]
+            TableClause [46-60]
+              PathExpression [52-60]
+                Identifier(keyvalue) [52-60]
+          Alias [62-72]
+            Identifier(myalias) [65-72]
+          SampleClause [73-120]
+            Identifier(reservoir) [85-94]
+            SampleSize [96-104]
+              IntLiteral(100) [96-99]
+            SampleSuffix [106-120]
+              RepeatableClause [106-120]
+                IntLiteral(10) [117-119]
+--
+SELECT
+  *
+FROM
+  `safe_cast`(true, TABLE keyvalue, TABLE keyvalue) AS myalias TABLESAMPLE reservoir(100 ROWS) REPEATABLE (10)
+==
+
+# Valid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: with query hint and alias.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+@{num_workers=42} as myalias
+tablesample reservoir (100 rows) repeatable(10)
+--
+QueryStatement [0-138]
+  Query [0-138]
+    Select [0-138]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-138]
+        TVF [14-138]
+          PathExpression [14-23]
+            Identifier(`safe_cast`) [14-23]
+          TVFArgument [24-28]
+            BooleanLiteral(true) [24-28]
+          TVFArgument [30-44]
+            TableClause [30-44]
+              PathExpression [36-44]
+                Identifier(keyvalue) [36-44]
+          TVFArgument [46-60]
+            TableClause [46-60]
+              PathExpression [52-60]
+                Identifier(keyvalue) [52-60]
+          Hint [62-79]
+            HintEntry [64-78]
+              Identifier(num_workers) [64-75]
+              IntLiteral(42) [76-78]
+          Alias [80-90]
+            Identifier(myalias) [83-90]
+          SampleClause [91-138]
+            Identifier(reservoir) [103-112]
+            SampleSize [114-122]
+              IntLiteral(100) [114-117]
+            SampleSuffix [124-138]
+              RepeatableClause [124-138]
+                IntLiteral(10) [135-137]
+--
+SELECT
+  *
+FROM
+  `safe_cast`(true, TABLE keyvalue, TABLE keyvalue) @{ num_workers = 42 } AS myalias TABLESAMPLE reservoir(100 ROWS) REPEATABLE (10)
+==
+
+# Invalid TABLESAMPLE clause for table-valued function call using subqueries to
+# represent table arguments: no table sample type specified.
+select * from safe_cast(true, (select 1), (select 2))
+tablesample
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:12]
+tablesample
+           ^
+==
+
+# Invalid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: no table sample type specified.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+tablesample
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:12]
+tablesample
+           ^
+==
+
+# Invalid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: hint and TABLESAMPLE clause in wrong
+# order.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+tablesample reservoir (100 rows) repeatable(10)
+@{num_workers=42}
+--
+ERROR: Syntax error: Expected end of input but got "@" [at 3:1]
+@{num_workers=42}
+^
+==
+
+# Invalid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: alias and TABLESAMPLE clause in wrong
+# order.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+tablesample reservoir (100 rows) repeatable(10)
+as myalias
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:1]
+as myalias
+^
+==
+
+# Invalid TABLESAMPLE clause for table-valued function call using the TABLE
+# keyword to represent table arguments: hint/alias and TABLESAMPLE clause in
+# wrong order.
+select * from safe_cast(true, table keyvalue, table keyvalue)
+tablesample reservoir (100 rows) repeatable(10)
+@{num_workers=42} as myalias
+--
+ERROR: Syntax error: Expected end of input but got "@" [at 3:1]
+@{num_workers=42} as myalias
+^
+==
+
+# Invalid "TABLE path(arguments...)" syntax for table-valued function call:
+# missing argument between commas.
+select * from tvf_one_relation_arg_with_fixed_output(table t(1, , "abc"));
+--
+ERROR: Syntax error: Unexpected "," [at 1:65]
+select * from tvf_one_relation_arg_with_fixed_output(table t(1, , "abc"));
+                                                                ^
+==
+
+# Invalid "TABLE path(arguments...)" syntax for table-valued function call:
+# extra comma after arguments.
+select * from tvf_one_relation_arg_with_fixed_output(table t(1, "abc",));
+--
+ERROR: Syntax error: Unexpected ")" [at 1:71]
+select * from tvf_one_relation_arg_with_fixed_output(table t(1, "abc",));
+                                                                      ^
+==
+
+# Invalid "TABLE path(arguments...)" syntax for table-valued function call.
+# the ORDER BY clause is not supported.
+select * from tvf_one_relation_arg_with_fixed_output(
+    table t(1, "abc" order by 1));
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword ORDER [at 2:22]
+    table t(1, "abc" order by 1));
+                     ^
+==
+
+# Invalid "TABLE path(arguments...)" syntax for table-valued function call.
+# the LIMIT clause is not supported.
+select * from tvf_one_relation_arg_with_fixed_output(
+    table t(1, "abc" limit 10));
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword LIMIT [at 2:22]
+    table t(1, "abc" limit 10));
+                     ^
+==
+
+# Invalid "TABLE path(arguments...)" syntax for table-valued function call.
+# the HAVING clause is not supported.
+select * from tvf_one_relation_arg_with_fixed_output(
+    table t(1, "abc" having true));
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword HAVING [at 2:22]
+    table t(1, "abc" having true));
+                     ^
+==
+
+# The TVF relation argument is a reference to a WITH clause in the enclosing
+# query.
+with w as (select 1 as x)
+select * from
+my.dot.separated.tvf((select * from w))
+--
+QueryStatement [0-79]
+  Query [0-79]
+    WithClause [0-25]
+      WithClauseEntry [5-25]
+        Identifier(w) [5-6]
+        Query [11-24]
+          Select [11-24]
+            SelectList [18-24]
+              SelectColumn [18-24]
+                IntLiteral(1) [18-19]
+                Alias [20-24]
+                  Identifier(x) [23-24]
+    Select [26-79]
+      SelectList [33-34]
+        SelectColumn [33-34]
+          Star(*) [33-34]
+      FromClause [35-79]
+        TVF [40-79]
+          PathExpression [40-60]
+            Identifier(my) [40-42]
+            Identifier(dot) [43-46]
+            Identifier(separated) [47-56]
+            Identifier(tvf) [57-60]
+          TVFArgument [61-78]
+            ExpressionSubquery [61-78]
+              Query [62-77]
+                Select [62-77]
+                  SelectList [69-70]
+                    SelectColumn [69-70]
+                      Star(*) [69-70]
+                  FromClause [71-77]
+                    TablePathExpression [76-77]
+                      PathExpression [76-77]
+                        Identifier(w) [76-77]
+--
+WITH
+  w AS (
+    SELECT
+      1 AS x
+  )
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      w
+  ))
+==
+
+# The TVF relation argument is a reference to a WITH clause in the enclosing
+# query, with one level of nested subqery.
+with w as (select 1 as x)
+select * from
+my.dot.separated.tvf((select * from (select * from w)))
+--
+QueryStatement [0-95]
+  Query [0-95]
+    WithClause [0-25]
+      WithClauseEntry [5-25]
+        Identifier(w) [5-6]
+        Query [11-24]
+          Select [11-24]
+            SelectList [18-24]
+              SelectColumn [18-24]
+                IntLiteral(1) [18-19]
+                Alias [20-24]
+                  Identifier(x) [23-24]
+    Select [26-95]
+      SelectList [33-34]
+        SelectColumn [33-34]
+          Star(*) [33-34]
+      FromClause [35-95]
+        TVF [40-95]
+          PathExpression [40-60]
+            Identifier(my) [40-42]
+            Identifier(dot) [43-46]
+            Identifier(separated) [47-56]
+            Identifier(tvf) [57-60]
+          TVFArgument [61-94]
+            ExpressionSubquery [61-94]
+              Query [62-93]
+                Select [62-93]
+                  SelectList [69-70]
+                    SelectColumn [69-70]
+                      Star(*) [69-70]
+                  FromClause [71-93]
+                    TableSubquery [76-93]
+                      Query [77-92]
+                        Select [77-92]
+                          SelectList [84-85]
+                            SelectColumn [84-85]
+                              Star(*) [84-85]
+                          FromClause [86-92]
+                            TablePathExpression [91-92]
+                              PathExpression [91-92]
+                                Identifier(w) [91-92]
+--
+WITH
+  w AS (
+    SELECT
+      1 AS x
+  )
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((
+    SELECT
+      *
+    FROM
+      (
+        SELECT
+          *
+        FROM
+          w
+      )
+  ))
+==
+
+# The TVF relation argument is a reference to a WITH clause inside the subquery.
+select * from
+my.dot.separated.tvf((with w as (select 1 as x) select * from w))
+--
+QueryStatement [0-79]
+  Query [0-79]
+    Select [0-79]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-79]
+        TVF [14-79]
+          PathExpression [14-34]
+            Identifier(my) [14-16]
+            Identifier(dot) [17-20]
+            Identifier(separated) [21-30]
+            Identifier(tvf) [31-34]
+          TVFArgument [35-78]
+            ExpressionSubquery [35-78]
+              Query [36-77]
+                WithClause [36-61]
+                  WithClauseEntry [41-61]
+                    Identifier(w) [41-42]
+                    Query [47-60]
+                      Select [47-60]
+                        SelectList [54-60]
+                          SelectColumn [54-60]
+                            IntLiteral(1) [54-55]
+                            Alias [56-60]
+                              Identifier(x) [59-60]
+                Select [62-77]
+                  SelectList [69-70]
+                    SelectColumn [69-70]
+                      Star(*) [69-70]
+                  FromClause [71-77]
+                    TablePathExpression [76-77]
+                      PathExpression [76-77]
+                        Identifier(w) [76-77]
+--
+SELECT
+  *
+FROM
+  my.dot.separated.tvf((WITH
+      w AS (
+        SELECT
+          1 AS x
+      )
+    SELECT
+      *
+    FROM
+      w
+  ))
+==
+
+# Descriptor in the argument list.
+select * from mytvf(descriptor(mycol))
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-38]
+        TVF [14-38]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-37]
+            Descriptor [20-37]
+              DescriptorColumnList [31-36]
+                DescriptorColumn [31-36]
+                  Identifier(mycol) [31-36]
+--
+SELECT
+  *
+FROM
+  mytvf(DESCRIPTOR(mycol))
+==
+
+# Descriptor with multiple columns in the argument list.
+select * from mytvf(descriptor(mycol, mycol2, mycol3))
+--
+QueryStatement [0-54]
+  Query [0-54]
+    Select [0-54]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-54]
+        TVF [14-54]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-53]
+            Descriptor [20-53]
+              DescriptorColumnList [31-36]
+                DescriptorColumn [31-36]
+                  Identifier(mycol) [31-36]
+                DescriptorColumn [38-44]
+                  Identifier(mycol2) [38-44]
+                DescriptorColumn [46-52]
+                  Identifier(mycol3) [46-52]
+--
+SELECT
+  *
+FROM
+  mytvf(DESCRIPTOR(mycol, mycol2, mycol3))
+==
+
+# Subquery and descriptor in the argument list.
+select * from mytvf((select Key from KeyValue group by Key), descriptor(Key))
+--
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-77]
+        TVF [14-77]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-59]
+            ExpressionSubquery [20-59]
+              Query [21-58]
+                Select [21-58]
+                  SelectList [28-31]
+                    SelectColumn [28-31]
+                      PathExpression [28-31]
+                        Identifier(Key) [28-31]
+                  FromClause [32-45]
+                    TablePathExpression [37-45]
+                      PathExpression [37-45]
+                        Identifier(KeyValue) [37-45]
+                  GroupBy [46-58]
+                    GroupingItem [55-58]
+                      PathExpression [55-58]
+                        Identifier(Key) [55-58]
+          TVFArgument [61-76]
+            Descriptor [61-76]
+              DescriptorColumnList [72-75]
+                DescriptorColumn [72-75]
+                  Identifier(Key) [72-75]
+--
+SELECT
+  *
+FROM
+  mytvf((
+    SELECT
+      Key
+    FROM
+      KeyValue
+    GROUP BY Key
+  ), DESCRIPTOR(Key))

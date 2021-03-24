@@ -16,6 +16,7 @@
 
 #include "zetasql/public/table_valued_function.h"
 
+#include <cstdint>
 #include <utility>
 
 #include "zetasql/proto/function.pb.h"

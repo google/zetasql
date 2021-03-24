@@ -1,0 +1,223 @@
+SELECT NORMALIZE('abcdefg'),
+       NORMALIZE('abcdefg', NFC),
+       NORMALIZE('abcdefg', NFKC),
+       NORMALIZE('abcdefg', NFD),
+       NORMALIZE('abcdefg', NFKD)
+--
+QueryStatement [0-165]
+  Query [0-165]
+    Select [0-165]
+      SelectList [7-165]
+        SelectColumn [7-27]
+          FunctionCall [7-27]
+            PathExpression [7-16]
+              Identifier(NORMALIZE) [7-16]
+            StringLiteral('abcdefg') [17-26]
+        SelectColumn [36-61]
+          FunctionCall [36-61]
+            PathExpression [36-45]
+              Identifier(NORMALIZE) [36-45]
+            StringLiteral('abcdefg') [46-55]
+            PathExpression [57-60]
+              Identifier(NFC) [57-60]
+        SelectColumn [70-96]
+          FunctionCall [70-96]
+            PathExpression [70-79]
+              Identifier(NORMALIZE) [70-79]
+            StringLiteral('abcdefg') [80-89]
+            PathExpression [91-95]
+              Identifier(NFKC) [91-95]
+        SelectColumn [105-130]
+          FunctionCall [105-130]
+            PathExpression [105-114]
+              Identifier(NORMALIZE) [105-114]
+            StringLiteral('abcdefg') [115-124]
+            PathExpression [126-129]
+              Identifier(NFD) [126-129]
+        SelectColumn [139-165]
+          FunctionCall [139-165]
+            PathExpression [139-148]
+              Identifier(NORMALIZE) [139-148]
+            StringLiteral('abcdefg') [149-158]
+            PathExpression [160-164]
+              Identifier(NFKD) [160-164]
+--
+SELECT
+  NORMALIZE('abcdefg'),
+  NORMALIZE('abcdefg', NFC),
+  NORMALIZE('abcdefg', NFKC),
+  NORMALIZE('abcdefg', NFD),
+  NORMALIZE('abcdefg', NFKD)
+==
+
+# In parser, any valid identifier would work as a mode now given the current
+# production rule. We will validate second argument and assert it must be one
+# of four valid modes in the resolver.
+SELECT NORMALIZE('abcdefg', XYZ)
+--
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          FunctionCall [7-32]
+            PathExpression [7-16]
+              Identifier(NORMALIZE) [7-16]
+            StringLiteral('abcdefg') [17-26]
+            PathExpression [28-31]
+              Identifier(XYZ) [28-31]
+--
+SELECT
+  NORMALIZE('abcdefg', XYZ)
+==
+
+SELECT NORMALIZE_AND_CASEFOLD('abcdefg'),
+       NORMALIZE_AND_CASEFOLD('abcdefg', NFC),
+       NORMALIZE_AND_CASEFOLD('abcdefg', NFKC),
+       NORMALIZE_AND_CASEFOLD('abcdefg', NFD),
+       NORMALIZE_AND_CASEFOLD('abcdefg', NFKD)
+--
+QueryStatement [0-230]
+  Query [0-230]
+    Select [0-230]
+      SelectList [7-230]
+        SelectColumn [7-40]
+          FunctionCall [7-40]
+            PathExpression [7-29]
+              Identifier(NORMALIZE_AND_CASEFOLD) [7-29]
+            StringLiteral('abcdefg') [30-39]
+        SelectColumn [49-87]
+          FunctionCall [49-87]
+            PathExpression [49-71]
+              Identifier(NORMALIZE_AND_CASEFOLD) [49-71]
+            StringLiteral('abcdefg') [72-81]
+            PathExpression [83-86]
+              Identifier(NFC) [83-86]
+        SelectColumn [96-135]
+          FunctionCall [96-135]
+            PathExpression [96-118]
+              Identifier(NORMALIZE_AND_CASEFOLD) [96-118]
+            StringLiteral('abcdefg') [119-128]
+            PathExpression [130-134]
+              Identifier(NFKC) [130-134]
+        SelectColumn [144-182]
+          FunctionCall [144-182]
+            PathExpression [144-166]
+              Identifier(NORMALIZE_AND_CASEFOLD) [144-166]
+            StringLiteral('abcdefg') [167-176]
+            PathExpression [178-181]
+              Identifier(NFD) [178-181]
+        SelectColumn [191-230]
+          FunctionCall [191-230]
+            PathExpression [191-213]
+              Identifier(NORMALIZE_AND_CASEFOLD) [191-213]
+            StringLiteral('abcdefg') [214-223]
+            PathExpression [225-229]
+              Identifier(NFKD) [225-229]
+--
+SELECT
+  NORMALIZE_AND_CASEFOLD('abcdefg'),
+  NORMALIZE_AND_CASEFOLD('abcdefg', NFC),
+  NORMALIZE_AND_CASEFOLD('abcdefg', NFKC),
+  NORMALIZE_AND_CASEFOLD('abcdefg', NFD),
+  NORMALIZE_AND_CASEFOLD('abcdefg', NFKD)
+==
+
+SELECT NORMALIZE(x),
+       NORMALIZE_AND_CASEFOLD(y),
+       NORMALIZE,
+       NORMALIZE_AND_CASEFOLD
+FROM T
+--
+QueryStatement [0-109]
+  Query [0-109]
+    Select [0-109]
+      SelectList [7-102]
+        SelectColumn [7-19]
+          FunctionCall [7-19]
+            PathExpression [7-16]
+              Identifier(NORMALIZE) [7-16]
+            PathExpression [17-18]
+              Identifier(x) [17-18]
+        SelectColumn [28-53]
+          FunctionCall [28-53]
+            PathExpression [28-50]
+              Identifier(NORMALIZE_AND_CASEFOLD) [28-50]
+            PathExpression [51-52]
+              Identifier(y) [51-52]
+        SelectColumn [62-71]
+          PathExpression [62-71]
+            Identifier(NORMALIZE) [62-71]
+        SelectColumn [80-102]
+          PathExpression [80-102]
+            Identifier(NORMALIZE_AND_CASEFOLD) [80-102]
+      FromClause [103-109]
+        TablePathExpression [108-109]
+          PathExpression [108-109]
+            Identifier(T) [108-109]
+--
+SELECT
+  NORMALIZE(x),
+  NORMALIZE_AND_CASEFOLD(y),
+  NORMALIZE,
+  NORMALIZE_AND_CASEFOLD
+FROM
+  T
+==
+
+# There's no special syntax for NORMALIZE, so this is caught at analysis time.
+SELECT NORMALIZE("abc", "NFC", 3), `NORMALIZE`("abc", "NFC", 3)
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-63]
+        SelectColumn [7-33]
+          FunctionCall [7-33]
+            PathExpression [7-16]
+              Identifier(NORMALIZE) [7-16]
+            StringLiteral("abc") [17-22]
+            StringLiteral("NFC") [24-29]
+            IntLiteral(3) [31-32]
+        SelectColumn [35-63]
+          FunctionCall [35-63]
+            PathExpression [35-46]
+              Identifier(NORMALIZE) [35-46]
+            StringLiteral("abc") [47-52]
+            StringLiteral("NFC") [54-59]
+            IntLiteral(3) [61-62]
+--
+SELECT
+  NORMALIZE("abc", "NFC", 3),
+  NORMALIZE("abc", "NFC", 3)
+==
+
+# There's no special syntax for NORMALIZE_AND_CASEFOLD, so this is caught at
+# analysis time.
+SELECT NORMALIZE_AND_CASEFOLD("abc", "NFC", def),
+       `NORMALIZE_AND_CASEFOLD`("abc", "NFC", def)
+--
+QueryStatement [0-100]
+  Query [0-100]
+    Select [0-100]
+      SelectList [7-100]
+        SelectColumn [7-48]
+          FunctionCall [7-48]
+            PathExpression [7-29]
+              Identifier(NORMALIZE_AND_CASEFOLD) [7-29]
+            StringLiteral("abc") [30-35]
+            StringLiteral("NFC") [37-42]
+            PathExpression [44-47]
+              Identifier(def) [44-47]
+        SelectColumn [57-100]
+          FunctionCall [57-100]
+            PathExpression [57-81]
+              Identifier(NORMALIZE_AND_CASEFOLD) [57-81]
+            StringLiteral("abc") [82-87]
+            StringLiteral("NFC") [89-94]
+            PathExpression [96-99]
+              Identifier(def) [96-99]
+--
+SELECT
+  NORMALIZE_AND_CASEFOLD("abc", "NFC", def),
+  NORMALIZE_AND_CASEFOLD("abc", "NFC", def)

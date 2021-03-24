@@ -298,82 +298,6 @@ class JSONValueLegacyParser : public ::zetasql::JSONParser,
   JSONValueBuilder value_builder_;
 };
 
-// Returns absl::OkStatus() if the number in string 'lhs' is numerically
-// equivalent to the number in the string created by serializing a JSON document
-// containing 'val' to a string. Returns an error status otherwise.
-//
-// Restrictions:
-//   - Input string ('lhs') can be at most 1500 characters in length.
-//   - Numbers represented by 'lhs' and 'val' can have at most 1074 significant
-//   fractional decimal digits, and at most 1500 significant digits.
-//
-// To understand the restrictions above, we must consider the following:
-//
-//  1) The 64-bit IEEE 754 double only guarantees roundtripping from text ->
-//  double -> text for numbers that have 15 significant digits at most. Values
-//  with more significant digits than 15 may or may not round-trip.
-//
-//  2) The conversion of double -> text -> double will produce the exact same
-//  double value if at least 17 significant digits are used in serialization of
-//  the double value to text (e.g. "10.000000000000001" -> double and
-//  "10.0000000000000019" -> double return the same double value).
-//
-// The implication of the above two facts might suggest that numbers with more
-// than 17 significant digits should be rejected for round-tripping. However,
-// there are 2 categories of numbers that can exceed 17 significant digits but
-// still round-trip. The first category consists of very large whole numbers
-// with a continuous sequence of trailing zeros before the decimal point
-// (e.g. 1e+200). The second category consists of very small purely fractional
-// numbers with a continuous sequence of leading zeros after the decimal point
-// (e.g. 1e-200).
-//
-// To ensure that the numbers in these additional categories are correctly
-// considered for round-tripping, we allow for a maximum of 1074 significant
-// fractional digits and a maximum total string length of 1500 characters.
-//
-// For ASCII decimal input strings, this allows for a maximum of 424 significant
-// whole decimal digits, which exceeds the number of significant whole digits
-// for the maximum value of double (~1.7976931348623157E+308), while still
-// capturing the maximum number of fractional digits for a double (1074).
-// Scientific notation input strings can potentially express more than 424
-// significant decimal digits, while still being constrained to 1074 significant
-// fractional decimal digits.
-absl::Status CheckNumberRoundtrip(absl::string_view lhs, double val) {
-  constexpr uint32_t kMaxStringLength = 1500;
-  // Reject round-trip if input string is too long
-  if (lhs.length() > kMaxStringLength) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << "Input number " << lhs << " is too long.";
-  }
-
-  // Serialize 'val' to it's string representation.
-  const std::string rhs = JSONValue(val).GetConstRef().ToString();
-  // Simple check - if strings are equal, return early.
-  if (rhs == lhs) {
-    return absl::OkStatus();
-  }
-
-  // Else, parse each string into a fixed precision representation and compare
-  // the resulting representations.
-  constexpr uint32_t word_count =
-      (kMaxStringLength /
-       multiprecision_int_impl::IntTraits<64>::kMaxWholeDecimalDigits) +
-      1;
-  FixedPointRepresentation<word_count> lhs_number;
-  FixedPointRepresentation<word_count> rhs_number;
-  auto status = ParseJSONNumber(lhs, lhs_number);
-  ZETASQL_RETURN_IF_ERROR(status);
-  status = ParseJSONNumber(rhs, rhs_number);
-  ZETASQL_RETURN_IF_ERROR(status);
-  if (lhs_number.is_negative == rhs_number.is_negative &&
-      lhs_number.output == rhs_number.output) {
-    return absl::OkStatus();
-  }
-  return zetasql_base::InvalidArgumentErrorBuilder()
-         << "Input number: " << lhs
-         << " cannot round-trip through string representation.";
-}
-
 // The parser implementation that uses nlohmann library implementation based on
 // the JSON RFC.
 //
@@ -402,7 +326,7 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
   bool number_float(double val, const std::string& input_str) {
     if (strict_number_parsing_) {
-      auto status = CheckNumberRoundtrip(input_str, val);
+      auto status = internal::CheckNumberRoundtrip(input_str, val);
       if (!status.ok()) {
         return MaybeUpdateStatus(status);
       }
@@ -548,7 +472,8 @@ bool JSONValueConstRef::IsInt64() const {
   // is_number_integer() returns true for both signed and unsigned values. We
   // need to make sure that the value fits int64_t if it is unsigned.
   return impl_->value.is_number_integer() &&
-         (!impl_->value.is_number_unsigned() || impl_->value.get<int64_t>() >= 0);
+         (!impl_->value.is_number_unsigned() ||
+          impl_->value.get<int64_t>() >= 0);
 }
 
 bool JSONValueConstRef::IsUInt64() const {
@@ -559,7 +484,9 @@ bool JSONValueConstRef::IsDouble() const {
   return impl_->value.is_number_float();
 }
 
-int64_t JSONValueConstRef::GetInt64() const { return impl_->value.get<int64_t>(); }
+int64_t JSONValueConstRef::GetInt64() const {
+  return impl_->value.get<int64_t>();
+}
 
 uint64_t JSONValueConstRef::GetUInt64() const {
   return impl_->value.get<uint64_t>();
@@ -716,6 +643,8 @@ std::vector<JSONValueRef> JSONValueRef::GetArrayElements() {
   return elements;
 }
 
+void JSONValueRef::SetNull() { impl_->value = nlohmann::detail::value_t::null; }
+
 void JSONValueRef::SetInt64(int64_t value) { impl_->value = value; }
 
 void JSONValueRef::SetUInt64(uint64_t value) { impl_->value = value; }
@@ -726,8 +655,48 @@ void JSONValueRef::SetString(absl::string_view value) { impl_->value = value; }
 
 void JSONValueRef::SetBoolean(bool value) { impl_->value = value; }
 
+void JSONValueRef::Set(JSONValue json_value) {
+  impl_->value = std::move(json_value.impl_->value);
+}
+
 void JSONValueRef::SetToEmptyObject() { impl_->value = JSON::object(); }
 
 void JSONValueRef::SetToEmptyArray() { impl_->value = JSON::array(); }
+
+absl::Status internal::CheckNumberRoundtrip(absl::string_view lhs, double val) {
+  constexpr uint32_t kMaxStringLength = 1500;
+  // Reject round-trip if input string is too long
+  if (lhs.length() > kMaxStringLength) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Input number " << lhs << " is too long.";
+  }
+
+  // Serialize 'val' to it's string representation.
+  const std::string rhs = JSONValue(val).GetConstRef().ToString();
+  // Simple check - if strings are equal, return early.
+  if (rhs == lhs) {
+    return absl::OkStatus();
+  }
+
+  // Else, parse each string into a fixed precision representation and compare
+  // the resulting representations.
+  constexpr uint32_t word_count =
+      (kMaxStringLength /
+       multiprecision_int_impl::IntTraits<64>::kMaxWholeDecimalDigits) +
+      1;
+  FixedPointRepresentation<word_count> lhs_number;
+  FixedPointRepresentation<word_count> rhs_number;
+  auto status = ParseJSONNumber(lhs, lhs_number);
+  ZETASQL_RETURN_IF_ERROR(status);
+  status = ParseJSONNumber(rhs, rhs_number);
+  ZETASQL_RETURN_IF_ERROR(status);
+  if (lhs_number.is_negative == rhs_number.is_negative &&
+      lhs_number.output == rhs_number.output) {
+    return absl::OkStatus();
+  }
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Input number: " << lhs
+         << " cannot round-trip through string representation.";
+}
 
 }  // namespace zetasql

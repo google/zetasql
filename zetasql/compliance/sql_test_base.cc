@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <iosfwd>
 #include <utility>
 
@@ -1319,7 +1320,20 @@ void SQLTestBase::StripWhitespaceVector(std::vector<std::string>* list) const {
 template <typename ContainerType>
 void SQLTestBase::LogStrings(const ContainerType& strings,
                              const std::string& prefix) const {
-  ZETASQL_LOG(INFO) << prefix << absl::StrJoin(strings, ", ");
+  const int flush_threshold = static_cast<int>(0.95 * kLogBufferSize);
+  std::string buf;
+  for (const auto& s : strings) {
+    const int logged_size = s.size() + 2;
+    const bool want_flush = buf.size() + logged_size > flush_threshold;
+    if (!buf.empty() && want_flush) {
+      ZETASQL_LOG(INFO) << prefix << buf;
+      buf.clear();
+    }
+    absl::StrAppend(&buf, buf.empty() ? "" : ", ", s);
+  }
+  if (!buf.empty()) {
+    ZETASQL_LOG(INFO) << prefix << buf;
+  }
 }
 
 void SQLTestBase::AddCodeBasedLabels(std::vector<std::string> labels) {

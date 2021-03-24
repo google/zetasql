@@ -1,0 +1,624 @@
+select a from t order by 1;
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+    OrderBy [16-26]
+      OrderingExpression(ASC) [25-26]
+        IntLiteral(1) [25-26]
+--
+SELECT
+  a
+FROM
+  t
+ORDER BY 1
+==
+
+select a from t order by a, b;
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+    OrderBy [16-29]
+      OrderingExpression(ASC) [25-26]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+      OrderingExpression(ASC) [28-29]
+        PathExpression [28-29]
+          Identifier(b) [28-29]
+--
+SELECT
+  a
+FROM
+  t
+ORDER BY a, b
+==
+
+select a from t order by a+b
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+    OrderBy [16-28]
+      OrderingExpression(ASC) [25-28]
+        BinaryExpression(+) [25-28]
+          PathExpression [25-26]
+            Identifier(a) [25-26]
+          PathExpression [27-28]
+            Identifier(b) [27-28]
+--
+SELECT
+  a
+FROM
+  t
+ORDER BY a + b
+==
+
+select * from t order by 1;
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+    OrderBy [16-26]
+      OrderingExpression(ASC) [25-26]
+        IntLiteral(1) [25-26]
+--
+SELECT
+  *
+FROM
+  t
+ORDER BY 1
+==
+
+select a from t group by a order by 1;
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-26]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+      GroupBy [16-26]
+        GroupingItem [25-26]
+          PathExpression [25-26]
+            Identifier(a) [25-26]
+    OrderBy [27-37]
+      OrderingExpression(ASC) [36-37]
+        IntLiteral(1) [36-37]
+--
+SELECT
+  a
+FROM
+  t
+GROUP BY a
+ORDER BY 1
+==
+
+select a from t group by a having a > 5 order by 1;
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+      GroupBy [16-26]
+        GroupingItem [25-26]
+          PathExpression [25-26]
+            Identifier(a) [25-26]
+      Having [27-39]
+        BinaryExpression(>) [34-39]
+          PathExpression [34-35]
+            Identifier(a) [34-35]
+          IntLiteral(5) [38-39]
+    OrderBy [40-50]
+      OrderingExpression(ASC) [49-50]
+        IntLiteral(1) [49-50]
+--
+SELECT
+  a
+FROM
+  t
+GROUP BY a
+HAVING a > 5
+ORDER BY 1
+==
+
+# ORDER BY attaches outside of the UNION ALL
+select a from t
+union all
+select b from t
+order by 1
+--
+QueryStatement [0-52]
+  Query [0-52]
+    SetOperation(UNION ALL) [0-41]
+      Select [0-15]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+        FromClause [9-15]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(t) [14-15]
+      Select [26-41]
+        SelectList [33-34]
+          SelectColumn [33-34]
+            PathExpression [33-34]
+              Identifier(b) [33-34]
+        FromClause [35-41]
+          TablePathExpression [40-41]
+            PathExpression [40-41]
+              Identifier(t) [40-41]
+    OrderBy [42-52]
+      OrderingExpression(ASC) [51-52]
+        IntLiteral(1) [51-52]
+--
+SELECT
+  a
+FROM
+  t
+UNION ALL
+SELECT
+  b
+FROM
+  t
+ORDER BY 1
+==
+
+select a from t order by 1
+union all
+select b from t;
+--
+ERROR: Syntax error: Expected end of input but got keyword UNION [at 2:1]
+union all
+^
+==
+
+(select a from t order by 1)
+UNION ALL
+(select b from t order by 2)
+order by 3
+--
+QueryStatement [0-78]
+  Query [0-78]
+    SetOperation(UNION ALL) [0-67]
+      Query [1-27]
+        Select [1-16]
+          SelectList [8-9]
+            SelectColumn [8-9]
+              PathExpression [8-9]
+                Identifier(a) [8-9]
+          FromClause [10-16]
+            TablePathExpression [15-16]
+              PathExpression [15-16]
+                Identifier(t) [15-16]
+        OrderBy [17-27]
+          OrderingExpression(ASC) [26-27]
+            IntLiteral(1) [26-27]
+      Query [40-66]
+        Select [40-55]
+          SelectList [47-48]
+            SelectColumn [47-48]
+              PathExpression [47-48]
+                Identifier(b) [47-48]
+          FromClause [49-55]
+            TablePathExpression [54-55]
+              PathExpression [54-55]
+                Identifier(t) [54-55]
+        OrderBy [56-66]
+          OrderingExpression(ASC) [65-66]
+            IntLiteral(2) [65-66]
+    OrderBy [68-78]
+      OrderingExpression(ASC) [77-78]
+        IntLiteral(3) [77-78]
+--
+(
+SELECT
+  a
+FROM
+  t
+ORDER BY 1) UNION ALL(
+SELECT
+  b
+FROM
+  t
+ORDER BY 2)
+ORDER BY 3
+==
+
+select * from (select a from t order by 1);
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-42]
+        TableSubquery [14-42]
+          Query [15-41]
+            Select [15-30]
+              SelectList [22-23]
+                SelectColumn [22-23]
+                  PathExpression [22-23]
+                    Identifier(a) [22-23]
+              FromClause [24-30]
+                TablePathExpression [29-30]
+                  PathExpression [29-30]
+                    Identifier(t) [29-30]
+            OrderBy [31-41]
+              OrderingExpression(ASC) [40-41]
+                IntLiteral(1) [40-41]
+--
+SELECT
+  *
+FROM
+  (
+    SELECT
+      a
+    FROM
+      t
+    ORDER BY 1
+  )
+==
+
+select a from T order by a asc, b desc;
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-38]
+      OrderingExpression(ASC EXPLICITLY) [25-30]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+      OrderingExpression(DESC) [32-38]
+        PathExpression [32-33]
+          Identifier(b) [32-33]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a ASC, b DESC
+==
+
+select a from T order by a desc, b asc;
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-38]
+      OrderingExpression(DESC) [25-31]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+      OrderingExpression(ASC EXPLICITLY) [33-38]
+        PathExpression [33-34]
+          Identifier(b) [33-34]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a DESC, b ASC
+==
+
+select a from T order by a desc, b desc;
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-39]
+      OrderingExpression(DESC) [25-31]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+      OrderingExpression(DESC) [33-39]
+        PathExpression [33-34]
+          Identifier(b) [33-34]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a DESC, b DESC
+==
+
+select sum(a+b) as the_sum from T group by x, y order by the_sum;
+--
+QueryStatement [0-64]
+  Query [0-64]
+    Select [0-47]
+      SelectList [7-26]
+        SelectColumn [7-26]
+          FunctionCall [7-15]
+            PathExpression [7-10]
+              Identifier(sum) [7-10]
+            BinaryExpression(+) [11-14]
+              PathExpression [11-12]
+                Identifier(a) [11-12]
+              PathExpression [13-14]
+                Identifier(b) [13-14]
+          Alias [16-26]
+            Identifier(the_sum) [19-26]
+      FromClause [27-33]
+        TablePathExpression [32-33]
+          PathExpression [32-33]
+            Identifier(T) [32-33]
+      GroupBy [34-47]
+        GroupingItem [43-44]
+          PathExpression [43-44]
+            Identifier(x) [43-44]
+        GroupingItem [46-47]
+          PathExpression [46-47]
+            Identifier(y) [46-47]
+    OrderBy [48-64]
+      OrderingExpression(ASC) [57-64]
+        PathExpression [57-64]
+          Identifier(the_sum) [57-64]
+--
+SELECT
+  sum(a + b) AS the_sum
+FROM
+  T
+GROUP BY x, y
+ORDER BY the_sum
+==
+
+select a from T order by a asc desc;
+--
+ERROR: Syntax error: Expected end of input but got keyword DESC [at 1:32]
+select a from T order by a asc desc;
+                               ^
+==
+
+select a from T order by a {{|asc|desc}} nulls {{first|last}};
+--
+ALTERNATION GROUP: first
+
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-39]
+      OrderingExpression(ASC) [25-39]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+        NullOrder(NULLS FIRST) [28-39]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a NULLS FIRST
+--
+ALTERNATION GROUP: last
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-38]
+      OrderingExpression(ASC) [25-38]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+        NullOrder(NULLS LAST) [28-38]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a NULLS LAST
+--
+ALTERNATION GROUP: asc,first
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-42]
+      OrderingExpression(ASC EXPLICITLY) [25-42]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+        NullOrder(NULLS FIRST) [31-42]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a ASC NULLS FIRST
+--
+ALTERNATION GROUP: asc,last
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-41]
+      OrderingExpression(ASC EXPLICITLY) [25-41]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+        NullOrder(NULLS LAST) [31-41]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a ASC NULLS LAST
+--
+ALTERNATION GROUP: desc,first
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-43]
+      OrderingExpression(DESC) [25-43]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+        NullOrder(NULLS FIRST) [32-43]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a DESC NULLS FIRST
+--
+ALTERNATION GROUP: desc,last
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-42]
+      OrderingExpression(DESC) [25-42]
+        PathExpression [25-26]
+          Identifier(a) [25-26]
+        NullOrder(NULLS LAST) [32-42]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY a DESC NULLS LAST
+==
+
+select a from T order by 1 nulls last, first desc nulls first, last asc nulls last;
+--
+QueryStatement [0-82]
+  Query [0-82]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-82]
+      OrderingExpression(ASC) [25-37]
+        IntLiteral(1) [25-26]
+        NullOrder(NULLS LAST) [27-37]
+      OrderingExpression(DESC) [39-61]
+        PathExpression [39-44]
+          Identifier(first) [39-44]
+        NullOrder(NULLS FIRST) [50-61]
+      OrderingExpression(ASC EXPLICITLY) [63-82]
+        PathExpression [63-67]
+          Identifier(last) [63-67]
+        NullOrder(NULLS LAST) [72-82]
+--
+SELECT
+  a
+FROM
+  T
+ORDER BY 1 NULLS LAST, first DESC NULLS FIRST, last ASC NULLS LAST

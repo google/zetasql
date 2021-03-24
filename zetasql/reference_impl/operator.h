@@ -38,6 +38,7 @@
 // - relational_op.cc (other relational operation code)
 // - value_expr.cc (code for ValueExprs)
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -675,7 +676,8 @@ class AggregateArg : public ExprArg {
       std::vector<std::unique_ptr<KeyArg>> order_by_keys = {},
       std::unique_ptr<ValueExpr> limit = nullptr,
       ResolvedFunctionCallBase::ErrorMode error_mode =
-          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
+          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
+      std::unique_ptr<ValueExpr> filter = nullptr);
 
   // Sets the schemas used in CreateAccumulator/EvalAgg.
   absl::Status SetSchemasForEvaluation(
@@ -706,7 +708,8 @@ class AggregateArg : public ExprArg {
                const HavingModifierKind having_modifier_kind,
                std::vector<std::unique_ptr<KeyArg>> order_by_keys,
                std::unique_ptr<ValueExpr> limit,
-               ResolvedFunctionCallBase::ErrorMode error_mode);
+               ResolvedFunctionCallBase::ErrorMode error_mode,
+               std::unique_ptr<ValueExpr> filter);
 
   AggregateArg(const AggregateArg&) = delete;
   AggregateArg& operator=(const AggregateArg&) = delete;
@@ -716,6 +719,8 @@ class AggregateArg : public ExprArg {
   const AggregateFunctionCallExpr* aggregate_function() const;
   AggregateFunctionCallExpr* mutable_aggregate_function();
 
+  // Number of aggregate arguments to <aggregate_function>().
+  // Does not include the filter, if present.
   int num_input_fields() const;
   const Type* input_type() const;
   bool ignores_null() const;
@@ -749,6 +754,9 @@ class AggregateArg : public ExprArg {
   const ValueExpr* parameter(int i) const;
   ValueExpr* mutable_parameter(int i);
 
+  const ValueExpr* filter() const;
+  ValueExpr* mutable_filter();
+
   const Distinctness distinct_;
   const std::unique_ptr<ValueExpr> having_expr_;
   const HavingModifierKind having_modifier_kind_;
@@ -758,6 +766,7 @@ class AggregateArg : public ExprArg {
   const ResolvedFunctionCallBase::ErrorMode error_mode_;
   // Set by SetSchemasForEvaluation().
   std::unique_ptr<const TupleSchema> group_schema_;
+  std::unique_ptr<ValueExpr> filter_;
 };
 
 // Abstract expression argument class that specifies an analytic function and
@@ -3159,8 +3168,9 @@ class DMLValueExpr : public ValueExpr {
   // "rows" (useful for when ASSERT_ROWS_MODIFIED is used with nested DML).
   absl::Status VerifyNumRowsModified(
       const ResolvedAssertRowsModified* assert_rows_modified,
-      absl::Span<const TupleData* const> params, int64_t actual_num_rows_modified,
-      EvaluationContext* context, bool print_array_elements = false) const;
+      absl::Span<const TupleData* const> params,
+      int64_t actual_num_rows_modified, EvaluationContext* context,
+      bool print_array_elements = false) const;
 
   // Returns a vector of Values corresponding to 't'. The elements of the
   // returned vector correspond to 'column_list'.

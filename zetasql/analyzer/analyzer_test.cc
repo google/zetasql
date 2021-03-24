@@ -469,16 +469,19 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageFormat) {
   EXPECT_EQ(ErrorMessageMode::ERROR_MESSAGE_ONE_LINE,
             options_.error_message_mode());
 
-  EXPECT_EQ("generic::invalid_argument: Table not found: BadTable [at 2:6]",
-            zetasql::internal::StatusToString(AnalyzeStatement(
-                query, options_, catalog(), &type_factory_, &output)));
+  EXPECT_EQ(
+      "generic::invalid_argument: Table not found: BadTable; Did you mean "
+      "abTable? [at 2:6]",
+      zetasql::internal::StatusToString(AnalyzeStatement(
+          query, options_, catalog(), &type_factory_, &output)));
   EXPECT_EQ("generic::invalid_argument: Unrecognized name: BadCol [at 2:5]",
             zetasql::internal::StatusToString(AnalyzeExpression(
                 expr, options_, catalog(), &type_factory_, &output)));
 
   options_.set_error_message_mode(ErrorMessageMode::ERROR_MESSAGE_WITH_PAYLOAD);
   EXPECT_EQ(
-      "generic::invalid_argument: Table not found: BadTable "
+      "generic::invalid_argument: Table not found: BadTable; Did you mean "
+      "abTable? "
       "[zetasql.ErrorLocation] { line: 2 column: 6 }",
       zetasql::internal::StatusToString(AnalyzeStatement(
           query, options_, catalog(), &type_factory_, &output)));
@@ -491,7 +494,8 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageFormat) {
   options_.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
   EXPECT_EQ(
-      "generic::invalid_argument: Table not found: BadTable [at 2:6]\n"
+      "generic::invalid_argument: Table not found: BadTable; Did you mean "
+      "abTable? [at 2:6]\n"
       "from BadTable\n"
       "     ^",
       zetasql::internal::StatusToString(AnalyzeStatement(
@@ -502,6 +506,41 @@ TEST_F(AnalyzerOptionsTest, ErrorMessageFormat) {
       "    ^",
       zetasql::internal::StatusToString(AnalyzeExpression(
           expr, options_, catalog(), &type_factory_, &output)));
+}
+
+TEST_F(AnalyzerOptionsTest, NestedCatalogTypesErrorMessageFormat) {
+  std::unique_ptr<const AnalyzerOutput> output;
+
+  SimpleCatalog leaf_catalog_1("leaf_catalog_1");
+  SimpleCatalog leaf_catalog_2("leaf_catalog_2");
+  catalog()->AddCatalog(&leaf_catalog_1);
+  catalog()->AddCatalog(&leaf_catalog_2);
+
+  const ProtoType* proto_type_with_catalog = nullptr;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
+      TypeProto::descriptor(), &proto_type_with_catalog, {"catalog_name"}));
+  leaf_catalog_1.AddType("zetasql.TypeProto", proto_type_with_catalog);
+
+  const ProtoType* proto_type_without_catalog = nullptr;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(TypeProto::descriptor(),
+                                        &proto_type_without_catalog));
+  leaf_catalog_2.AddType("zetasql.TypeProto", proto_type_without_catalog);
+
+  // The catalog name is shown.
+  EXPECT_EQ(
+      "generic::invalid_argument: Invalid cast from INT64 to "
+      "catalog_name.zetasql.TypeProto [at 1:6]",
+      zetasql::internal::StatusToString(
+          AnalyzeExpression("CAST(1 AS leaf_catalog_1.zetasql.TypeProto)",
+                            options_, catalog(), &type_factory_, &output)));
+
+  // The catalog name is not shown.
+  EXPECT_EQ(
+      "generic::invalid_argument: Invalid cast from INT64 to "
+      "zetasql.TypeProto [at 1:6]",
+      zetasql::internal::StatusToString(
+          AnalyzeExpression("CAST(1 AS leaf_catalog_2.zetasql.TypeProto)",
+                            options_, catalog(), &type_factory_, &output)));
 }
 
 // Some of these were previously dchecking because of bug 20010119.

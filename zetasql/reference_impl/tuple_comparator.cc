@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/tuple_comparator.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -56,10 +57,9 @@ static absl::Status GetZetaSqlCollators(
       }
 
       const std::string& collation_name = collation_value.string_value();
-      ZETASQL_ASSIGN_OR_RETURN(
-          ZetaSqlCollator* collator,
-          ZetaSqlCollator::CreateFromCollationNameLite(collation_name));
-      collators->emplace_back(collator);
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollatorLite(collation_name));
+      collators->emplace_back(std::move(collator));
     } else {
       collators->emplace_back(nullptr);
     }

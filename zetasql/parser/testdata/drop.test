@@ -1,0 +1,784 @@
+drop ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:6]
+drop ;
+     ^
+==
+
+drop external table `function`;
+--
+DropStatement EXTERNAL TABLE [0-30]
+  PathExpression [20-30]
+    Identifier(`function`) [20-30]
+--
+DROP EXTERNAL TABLE `function`
+==
+
+drop table;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:11]
+drop table;
+          ^
+==
+
+drop table bar;
+--
+DropStatement TABLE [0-14]
+  PathExpression [11-14]
+    Identifier(bar) [11-14]
+--
+DROP TABLE bar
+==
+
+drop table bar baz;
+--
+ERROR: Syntax error: Expected end of input but got identifier "baz" [at 1:16]
+drop table bar baz;
+               ^
+==
+
+drop table if;
+--
+ERROR: Syntax error: Expected keyword EXISTS but got ";" [at 1:14]
+drop table if;
+             ^
+==
+
+drop table if exists;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+drop table if exists;
+                    ^
+==
+
+drop table if exists bar;
+--
+DropStatement TABLE(is_if_exists) [0-24]
+  PathExpression [21-24]
+    Identifier(bar) [21-24]
+--
+DROP TABLE IF EXISTS bar
+==
+
+drop table if exists bar baz;
+--
+ERROR: Syntax error: Expected end of input but got identifier "baz" [at 1:26]
+drop table if exists bar baz;
+                         ^
+==
+
+drop table if exist bar;
+--
+ERROR: Syntax error: Expected keyword EXISTS but got identifier "exist" [at 1:15]
+drop table if exist bar;
+              ^
+==
+
+drop table if bar;
+--
+ERROR: Syntax error: Expected keyword EXISTS but got identifier "bar" [at 1:15]
+drop table if bar;
+              ^
+==
+
+drop table bar.baz;
+--
+DropStatement TABLE [0-18]
+  PathExpression [11-18]
+    Identifier(bar) [11-14]
+    Identifier(baz) [15-18]
+--
+DROP TABLE bar.baz
+==
+
+drop foo.bar baz;
+--
+ERROR: foo is not a supported object type [at 1:6]
+drop foo.bar baz;
+     ^
+==
+
+drop table if exists bar.baz;
+--
+DropStatement TABLE(is_if_exists) [0-28]
+  PathExpression [21-28]
+    Identifier(bar) [21-24]
+    Identifier(baz) [25-28]
+--
+DROP TABLE IF EXISTS bar.baz
+==
+
+# Including empty table parameters throws an error
+drop table bar();
+--
+ERROR: Syntax error: Unexpected "(" [at 1:15]
+drop table bar();
+              ^
+==
+
+# Including populated table parameters throws an error
+drop table bar(int64);
+--
+ERROR: Syntax error: Unexpected "(" [at 1:15]
+drop table bar(int64);
+              ^
+==
+
+drop foo.bar if exists baz;
+--
+ERROR: foo is not a supported object type [at 1:6]
+drop foo.bar if exists baz;
+     ^
+==
+
+drop materialized view a;
+--
+DropMaterializedViewStatement [0-24]
+  PathExpression [23-24]
+    Identifier(a) [23-24]
+--
+DROP MATERIALIZED VIEW a
+==
+
+drop materialized view if exists a;
+--
+DropMaterializedViewStatement(is_if_exists) [0-34]
+  PathExpression [33-34]
+    Identifier(a) [33-34]
+--
+DROP MATERIALIZED VIEW IF EXISTS a
+==
+
+drop materialized view if exists a.b;
+--
+
+DropMaterializedViewStatement(is_if_exists) [0-36]
+  PathExpression [33-36]
+    Identifier(a) [33-34]
+    Identifier(b) [35-36]
+--
+DROP MATERIALIZED VIEW IF EXISTS a.b
+==
+
+# The follow object types are syntactically valid (no syntax errors),
+# although AGGREGATE FUNCTION and TABLE FUNCTION are not currently supported.
+# Other object types are not valid.
+drop {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION,
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+drop AGGREGATE FUNCTION foo ;
+     ^
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION,RESTRICT
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+drop AGGREGATE FUNCTION foo RESTRICT;
+     ^
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION,Restrict
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+drop AGGREGATE FUNCTION foo Restrict;
+     ^
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION,CASCADE
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+drop AGGREGATE FUNCTION foo CASCADE;
+     ^
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION,INVALID_DROP_MODE
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+drop AGGREGATE FUNCTION foo INVALID_DROP_MODE;
+     ^
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION,DROP_MODE_UNSPECIFIED
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+drop AGGREGATE FUNCTION foo DROP_MODE_UNSPECIFIED;
+     ^
+--
+ALTERNATION GROUP: CONSTANT,
+--
+DropStatement CONSTANT [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+DROP CONSTANT foo
+--
+ALTERNATION GROUP: CONSTANT,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP CONSTANT [at 1:19]
+drop CONSTANT foo RESTRICT;
+                  ^
+--
+ALTERNATION GROUP: CONSTANT,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP CONSTANT [at 1:19]
+drop CONSTANT foo Restrict;
+                  ^
+--
+ALTERNATION GROUP: CONSTANT,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP CONSTANT [at 1:19]
+drop CONSTANT foo CASCADE;
+                  ^
+--
+ALTERNATION GROUP: CONSTANT,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:19]
+drop CONSTANT foo INVALID_DROP_MODE;
+                  ^
+--
+ALTERNATION GROUP: CONSTANT,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:19]
+drop CONSTANT foo DROP_MODE_UNSPECIFIED;
+                  ^
+--
+ALTERNATION GROUP: DATABASE,
+--
+DropStatement DATABASE [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+DROP DATABASE foo
+--
+ALTERNATION GROUP: DATABASE,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP DATABASE [at 1:19]
+drop DATABASE foo RESTRICT;
+                  ^
+--
+ALTERNATION GROUP: DATABASE,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP DATABASE [at 1:19]
+drop DATABASE foo Restrict;
+                  ^
+--
+ALTERNATION GROUP: DATABASE,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP DATABASE [at 1:19]
+drop DATABASE foo CASCADE;
+                  ^
+--
+ALTERNATION GROUP: DATABASE,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:19]
+drop DATABASE foo INVALID_DROP_MODE;
+                  ^
+--
+ALTERNATION GROUP: DATABASE,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:19]
+drop DATABASE foo DROP_MODE_UNSPECIFIED;
+                  ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE,
+--
+DropStatement EXTERNAL TABLE [0-23]
+  PathExpression [20-23]
+    Identifier(foo) [20-23]
+--
+DROP EXTERNAL TABLE foo
+--
+ALTERNATION GROUP: EXTERNAL TABLE,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP EXTERNAL TABLE [at 1:25]
+drop EXTERNAL TABLE foo RESTRICT;
+                        ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP EXTERNAL TABLE [at 1:25]
+drop EXTERNAL TABLE foo Restrict;
+                        ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP EXTERNAL TABLE [at 1:25]
+drop EXTERNAL TABLE foo CASCADE;
+                        ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:25]
+drop EXTERNAL TABLE foo INVALID_DROP_MODE;
+                        ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:25]
+drop EXTERNAL TABLE foo DROP_MODE_UNSPECIFIED;
+                        ^
+--
+ALTERNATION GROUP: FUNCTION,
+--
+DropFunctionStatement [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+DROP FUNCTION foo
+--
+ALTERNATION GROUP: FUNCTION,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP FUNCTION [at 1:19]
+drop FUNCTION foo RESTRICT;
+                  ^
+--
+ALTERNATION GROUP: FUNCTION,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP FUNCTION [at 1:19]
+drop FUNCTION foo Restrict;
+                  ^
+--
+ALTERNATION GROUP: FUNCTION,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP FUNCTION [at 1:19]
+drop FUNCTION foo CASCADE;
+                  ^
+--
+ALTERNATION GROUP: FUNCTION,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:19]
+drop FUNCTION foo INVALID_DROP_MODE;
+                  ^
+--
+ALTERNATION GROUP: FUNCTION,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:19]
+drop FUNCTION foo DROP_MODE_UNSPECIFIED;
+                  ^
+--
+ALTERNATION GROUP: INDEX,
+--
+DropStatement INDEX [0-14]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+--
+DROP INDEX foo
+--
+ALTERNATION GROUP: INDEX,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP INDEX [at 1:16]
+drop INDEX foo RESTRICT;
+               ^
+--
+ALTERNATION GROUP: INDEX,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP INDEX [at 1:16]
+drop INDEX foo Restrict;
+               ^
+--
+ALTERNATION GROUP: INDEX,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP INDEX [at 1:16]
+drop INDEX foo CASCADE;
+               ^
+--
+ALTERNATION GROUP: INDEX,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:16]
+drop INDEX foo INVALID_DROP_MODE;
+               ^
+--
+ALTERNATION GROUP: INDEX,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:16]
+drop INDEX foo DROP_MODE_UNSPECIFIED;
+               ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,
+--
+DropMaterializedViewStatement [0-26]
+  PathExpression [23-26]
+    Identifier(foo) [23-26]
+--
+DROP MATERIALIZED VIEW foo
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP MATERIALIZED VIEW [at 1:28]
+drop MATERIALIZED VIEW foo RESTRICT;
+                           ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP MATERIALIZED VIEW [at 1:28]
+drop MATERIALIZED VIEW foo Restrict;
+                           ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP MATERIALIZED VIEW [at 1:28]
+drop MATERIALIZED VIEW foo CASCADE;
+                           ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:28]
+drop MATERIALIZED VIEW foo INVALID_DROP_MODE;
+                           ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:28]
+drop MATERIALIZED VIEW foo DROP_MODE_UNSPECIFIED;
+                           ^
+--
+ALTERNATION GROUP: MODEL,
+--
+DropStatement MODEL [0-14]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+--
+DROP MODEL foo
+--
+ALTERNATION GROUP: MODEL,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP MODEL [at 1:16]
+drop MODEL foo RESTRICT;
+               ^
+--
+ALTERNATION GROUP: MODEL,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP MODEL [at 1:16]
+drop MODEL foo Restrict;
+               ^
+--
+ALTERNATION GROUP: MODEL,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP MODEL [at 1:16]
+drop MODEL foo CASCADE;
+               ^
+--
+ALTERNATION GROUP: MODEL,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:16]
+drop MODEL foo INVALID_DROP_MODE;
+               ^
+--
+ALTERNATION GROUP: MODEL,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:16]
+drop MODEL foo DROP_MODE_UNSPECIFIED;
+               ^
+--
+ALTERNATION GROUP: PROCEDURE,
+--
+DropStatement PROCEDURE [0-18]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+--
+DROP PROCEDURE foo
+--
+ALTERNATION GROUP: PROCEDURE,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP PROCEDURE [at 1:20]
+drop PROCEDURE foo RESTRICT;
+                   ^
+--
+ALTERNATION GROUP: PROCEDURE,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP PROCEDURE [at 1:20]
+drop PROCEDURE foo Restrict;
+                   ^
+--
+ALTERNATION GROUP: PROCEDURE,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP PROCEDURE [at 1:20]
+drop PROCEDURE foo CASCADE;
+                   ^
+--
+ALTERNATION GROUP: PROCEDURE,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:20]
+drop PROCEDURE foo INVALID_DROP_MODE;
+                   ^
+--
+ALTERNATION GROUP: PROCEDURE,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:20]
+drop PROCEDURE foo DROP_MODE_UNSPECIFIED;
+                   ^
+--
+ALTERNATION GROUP: TABLE,
+--
+DropStatement TABLE [0-14]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+--
+DROP TABLE foo
+--
+ALTERNATION GROUP: TABLE,RESTRICT
+--
+ERROR: Syntax error: Expected end of input but got keyword RESTRICT [at 1:16]
+drop TABLE foo RESTRICT;
+               ^
+--
+ALTERNATION GROUP: TABLE,Restrict
+--
+ERROR: Syntax error: Expected end of input but got keyword RESTRICT [at 1:16]
+drop TABLE foo Restrict;
+               ^
+--
+ALTERNATION GROUP: TABLE,CASCADE
+--
+ERROR: Syntax error: Expected end of input but got keyword CASCADE [at 1:16]
+drop TABLE foo CASCADE;
+               ^
+--
+ALTERNATION GROUP: TABLE,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:16]
+drop TABLE foo INVALID_DROP_MODE;
+               ^
+--
+ALTERNATION GROUP: TABLE,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:16]
+drop TABLE foo DROP_MODE_UNSPECIFIED;
+               ^
+--
+ALTERNATION GROUP: TABLE FUNCTION,
+--
+DropTableFunctionStatement [0-23]
+  PathExpression [20-23]
+    Identifier(foo) [20-23]
+--
+DROP TABLE FUNCTION foo
+--
+ALTERNATION GROUP: TABLE FUNCTION,RESTRICT
+--
+ERROR: Syntax error: Expected end of input but got keyword RESTRICT [at 1:25]
+drop TABLE FUNCTION foo RESTRICT;
+                        ^
+--
+ALTERNATION GROUP: TABLE FUNCTION,Restrict
+--
+ERROR: Syntax error: Expected end of input but got keyword RESTRICT [at 1:25]
+drop TABLE FUNCTION foo Restrict;
+                        ^
+--
+ALTERNATION GROUP: TABLE FUNCTION,CASCADE
+--
+ERROR: Syntax error: Expected end of input but got keyword CASCADE [at 1:25]
+drop TABLE FUNCTION foo CASCADE;
+                        ^
+--
+ALTERNATION GROUP: TABLE FUNCTION,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:25]
+drop TABLE FUNCTION foo INVALID_DROP_MODE;
+                        ^
+--
+ALTERNATION GROUP: TABLE FUNCTION,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:25]
+drop TABLE FUNCTION foo DROP_MODE_UNSPECIFIED;
+                        ^
+--
+ALTERNATION GROUP: VIEW,
+--
+DropStatement VIEW [0-13]
+  PathExpression [10-13]
+    Identifier(foo) [10-13]
+--
+DROP VIEW foo
+--
+ALTERNATION GROUP: VIEW,RESTRICT
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP VIEW [at 1:15]
+drop VIEW foo RESTRICT;
+              ^
+--
+ALTERNATION GROUP: VIEW,Restrict
+--
+ERROR: Syntax error: 'RESTRICT' is not supported for DROP VIEW [at 1:15]
+drop VIEW foo Restrict;
+              ^
+--
+ALTERNATION GROUP: VIEW,CASCADE
+--
+ERROR: Syntax error: 'CASCADE' is not supported for DROP VIEW [at 1:15]
+drop VIEW foo CASCADE;
+              ^
+--
+ALTERNATION GROUP: VIEW,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:15]
+drop VIEW foo INVALID_DROP_MODE;
+              ^
+--
+ALTERNATION GROUP: VIEW,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:15]
+drop VIEW foo DROP_MODE_UNSPECIFIED;
+              ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE FUNCTION,
+--
+ERROR: EXTERNAL TABLE FUNCTION is not supported [at 1:6]
+drop EXTERNAL TABLE FUNCTION foo ;
+     ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE FUNCTION,RESTRICT
+--
+ERROR: EXTERNAL TABLE FUNCTION is not supported [at 1:6]
+drop EXTERNAL TABLE FUNCTION foo RESTRICT;
+     ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE FUNCTION,Restrict
+--
+ERROR: EXTERNAL TABLE FUNCTION is not supported [at 1:6]
+drop EXTERNAL TABLE FUNCTION foo Restrict;
+     ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE FUNCTION,CASCADE
+--
+ERROR: EXTERNAL TABLE FUNCTION is not supported [at 1:6]
+drop EXTERNAL TABLE FUNCTION foo CASCADE;
+     ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE FUNCTION,INVALID_DROP_MODE
+--
+ERROR: EXTERNAL TABLE FUNCTION is not supported [at 1:6]
+drop EXTERNAL TABLE FUNCTION foo INVALID_DROP_MODE;
+     ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE FUNCTION,DROP_MODE_UNSPECIFIED
+--
+ERROR: EXTERNAL TABLE FUNCTION is not supported [at 1:6]
+drop EXTERNAL TABLE FUNCTION foo DROP_MODE_UNSPECIFIED;
+     ^
+--
+ALTERNATION GROUP: SCHEMA,
+--
+DropStatement SCHEMA [0-15]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+--
+DROP SCHEMA foo
+--
+ALTERNATION GROUPS:
+    SCHEMA,RESTRICT
+    SCHEMA,Restrict
+--
+DropStatement SCHEMA(drop_mode=RESTRICT) [0-24]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+--
+DROP SCHEMA foo RESTRICT
+--
+ALTERNATION GROUP: SCHEMA,CASCADE
+--
+DropStatement SCHEMA(drop_mode=CASCADE) [0-23]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+--
+DROP SCHEMA foo CASCADE
+--
+ALTERNATION GROUP: SCHEMA,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:17]
+drop SCHEMA foo INVALID_DROP_MODE;
+                ^
+--
+ALTERNATION GROUP: SCHEMA,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:17]
+drop SCHEMA foo DROP_MODE_UNSPECIFIED;
+                ^
+==
+
+DROP SCHEMA IF EXISTS `foo.bar` {{|RESTRICT|ResTRICT|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}} ;
+--
+ALTERNATION GROUP: <empty>
+--
+DropStatement SCHEMA(is_if_exists) [0-31]
+  PathExpression [22-31]
+    Identifier(`foo.bar`) [22-31]
+--
+DROP SCHEMA IF EXISTS `foo.bar`
+--
+ALTERNATION GROUPS:
+    RESTRICT
+    ResTRICT
+--
+DropStatement SCHEMA(is_if_exists, drop_mode=RESTRICT) [0-40]
+  PathExpression [22-31]
+    Identifier(`foo.bar`) [22-31]
+--
+DROP SCHEMA IF EXISTS `foo.bar` RESTRICT
+--
+ALTERNATION GROUP: CASCADE
+--
+DropStatement SCHEMA(is_if_exists, drop_mode=CASCADE) [0-39]
+  PathExpression [22-31]
+    Identifier(`foo.bar`) [22-31]
+--
+DROP SCHEMA IF EXISTS `foo.bar` CASCADE
+--
+ALTERNATION GROUP: INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:33]
+DROP SCHEMA IF EXISTS `foo.bar` INVALID_DROP_MODE ;
+                                ^
+--
+ALTERNATION GROUP: DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:33]
+DROP SCHEMA IF EXISTS `foo.bar` DROP_MODE_UNSPECIFIED ;
+                                ^
+==
+
+drop foo;
+--
+ERROR: foo is not a supported object type [at 1:6]
+drop foo;
+     ^
+==
+
+drop foo {{|if exists }}bar;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: foo is not a supported object type [at 1:6]
+drop foo bar;
+     ^
+--
+ALTERNATION GROUP: if exists 
+--
+ERROR: foo is not a supported object type [at 1:6]
+drop foo if exists bar;
+     ^
+==
+
+drop temporary table foo;
+--
+ERROR: Syntax error: Unexpected keyword TEMPORARY [at 1:6]
+drop temporary table foo;
+     ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+drop table foo-bar.baz;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar.baz` [at 1:12]
+drop table foo-bar.baz;
+           ^
+--
+ALTERNATION GROUP: <empty>
+--
+DropStatement TABLE [0-22]
+  PathExpression [11-22]
+    Identifier(`foo-bar`) [11-18]
+    Identifier(baz) [19-22]
+--
+DROP TABLE `foo-bar`.baz

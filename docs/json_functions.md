@@ -6,34 +6,143 @@ ZetaSQL supports functions that help you retrieve data stored in
 JSON-formatted strings and functions that help you transform data into
 JSON-formatted strings.
 
-### JSON_EXTRACT or JSON_EXTRACT_SCALAR
+### Function overview
 
-<a id="json_extract"></a>`JSON_EXTRACT(json_string_expr,
-json_path_format)`, which returns JSON values as STRINGs.
+#### Standard JSON extraction functions (recommended)
 
-<a id="json_extract_scalar"></a>`JSON_EXTRACT_SCALAR(json_string_expr,
-json_path_format)`, which returns scalar JSON values as STRINGs.
+The following functions use double quotes to escape invalid
+[JSONPath][JSONPath-format] characters: <code>"a.b"</code>.
+
+This behavior is consistent with the ANSI standard.
+
+<table>
+  <thead>
+    <tr>
+      <th>JSON function</th>
+      <th>Description</th>
+      <th>Return type</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><a href="#json_query"><code>JSON_QUERY</code></a></td>
+      <td>
+        Extracts a JSON value, such as an array or object, or a JSON-formatted
+        scalar value, such as a string, integer, or boolean.
+      </td>
+      <td>JSON-formatted <code>STRING</code></td>
+    </tr>
+    <tr>
+      <td><a href="#json_value"><code>JSON_VALUE</code></a></td>
+      <td>
+        Extracts a scalar value.
+        A scalar value can represent a string, integer, or boolean.
+        Removes the outermost quotes and unescapes the values.
+        Returns a SQL <code>NULL</code> if a non-scalar value is selected.
+      </td>
+      <td><code>STRING</code></td>
+    </tr>
+    
+    
+    
+  </tbody>
+</table>
+
+#### Legacy JSON extraction functions
+
+The following functions use single quotes and brackets to escape invalid
+[JSONPath][JSONPath-format] characters: <code>['a.b']</code></td>.
+
+While these functions are supported by ZetaSQL, we recommend using
+the functions in the previous table.
+
+<table>
+  <thead>
+    <tr>
+      <th>JSON function</th>
+      <th>Description</th>
+      <th>Return type</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><a href="#json_extract"><code>JSON_EXTRACT</code></a></td>
+      <td>
+        Extracts a JSON value, such as an array or object, or a JSON-formatted
+        scalar value, such as a string, integer, or boolean.
+      </td>
+      <td>JSON-formatted <code>STRING</code></td>
+    </tr>
+    <tr>
+      <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a></td>
+      <td>
+        Extracts a scalar value.
+        A scalar value can represent a string, integer, or boolean.
+        Removes the outermost quotes and unescapes the values.
+        Returns a SQL <code>NULL</code> if a non-scalar value is selected.
+      </td>
+      <td><code>STRING</code></td>
+    </tr>
+    
+    
+    
+  </tbody>
+</table>
+
+#### Other JSON functions
+
+<table>
+  <thead>
+    <tr>
+      <th>JSON function</th>
+      <th>Description</th>
+      <th>Return type</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a></td>
+      <td>
+        Returns a JSON-formatted string representation of a value.
+      </td>
+      <td>JSON-formatted <code>STRING</code></td>
+    </tr>
+    
+  </tbody>
+</table>
+
+### JSON_EXTRACT
+
+```sql
+JSON_EXTRACT(json_string_expr, json_path)
+```
 
 **Description**
 
-Extracts JSON values or JSON scalar values as strings.
+Extracts a JSON value, such as an array or object, or a JSON-formatted scalar
+value, such as a string, integer, or boolean. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using single quotes and brackets.
 
-+  `json_string_expr`: A JSON-formatted string. For example:
++   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
     {"class" : {"students" : [{"name" : "Jane"}]}}
     ```
-+  `json_path_format`: The [JSONpath][jsonpath-format] format.
-   This identifies the value or values you want to obtain from the
-   JSON-formatted string. If `json_path_format` returns a JSON `null`,
-   this is converted into a SQL `NULL`.
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
+    values that you want to obtain from the JSON-formatted string. If
+    `json_path` returns a JSON `null`, then this is converted into a SQL `NULL`.
 
-In cases where a JSON key uses invalid JSONPath characters, you can escape
-those characters using single quotes and brackets.
+If you want to include non-scalar values such as arrays in the extraction, then
+use `JSON_EXTRACT`. If you only want to extract scalar values such strings,
+integers, and booleans, then use `JSON_EXTRACT_SCALAR`.
 
 **Return type**
 
-`STRING`s
+A JSON-formatted `STRING`
 
 **Examples**
 
@@ -107,56 +216,35 @@ FROM UNNEST([
 +------------------------------------+
 ```
 
-```sql
-SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') as json_name,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') as scalar_name,
-  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') as json_age,
-  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') as scalar;
-
-+-----------+-------------+----------+--------+
-| json_name | scalar_name | json_age | scalar |
-+-----------+-------------+----------+--------+
-| "Jakob"   | Jakob       | "6"      | 6      |
-+-----------+-------------+----------+--------+
-```
-
-In cases where a JSON key uses invalid JSONPath characters, you can escape those
-characters using single quotes and brackets, `[' ']`. For example:
+### JSON_QUERY
 
 ```sql
-SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") as hello;
-
-+-------+
-| hello |
-+-------+
-| world |
-+-------+
+JSON_QUERY(json_string_expr, json_path)
 ```
-
-### JSON_QUERY or JSON_VALUE
-
-<a id="json_query"></a>`JSON_QUERY(json_string_expr, json_path_format)`,
-which returns JSON values as STRINGs.
-
-<a id="json_value"></a>`JSON_VALUE(json_string_expr, json_path_format)`,
-which returns scalar JSON values as STRINGs.
 
 **Description**
 
-Extracts JSON values or JSON scalar values as strings.
+Extracts a JSON value, such as an array or object, or a JSON-formatted scalar
+value, such as a string, integer, or boolean. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using double quotes.
 
-+  `json_string_expr`: A JSON-formatted string. For example:
++   `json_string_expr`: A JSON-formatted string. For example:
 
-  ```
-  {"class" : {"students" : [{"name" : "Jane"}]}}
-  ```
-+  `json_path_format`: The [JSONpath][jsonpath-format] format.
-   This identifies the value or values you want to obtain from the
-   JSON-formatted string. If `json_path_format` returns a JSON `null`,
-   this is converted into a SQL `NULL`.
+    ```
+    {"class" : {"students" : [{"name" : "Jane"}]}}
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
+    values that you want to obtain from the JSON-formatted string. If
+    `json_path` returns a JSON `null`, then this is converted into a SQL `NULL`.
 
-In cases where a JSON key uses invalid JSONPath characters,
-you can escape those characters using double quotes.
+If you want to include non-scalar values such as arrays in the extraction, then
+use `JSON_QUERY`. If you only want to extract scalar values such strings,
+integers, and booleans, then use `JSON_VALUE`.
+
+**Return type**
+
+A JSON-formatted `STRING`
 
 **Examples**
 
@@ -230,24 +318,139 @@ FROM UNNEST([
 +------------------------------------+
 ```
 
-```sql
-SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') as json_name,
-  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') as scalar_name,
-  JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') as json_age,
-  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') as scalar;
+### JSON_EXTRACT_SCALAR
 
-+-----------+-------------+----------+--------+
-| json_name | scalar_name | json_age | scalar |
-+-----------+-------------+----------+--------+
-| "Jakob"   | Jakob       | "6"      | 6      |
-+-----------+-------------+----------+--------+
+```sql
+JSON_EXTRACT_SCALAR(json_string_expr, json_path)
+```
+
+**Description**
+
+Extracts a scalar value and then returns it as a string. A scalar value can
+represent a string, integer, or boolean. Removes the outermost quotes and
+unescapes the return values. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using single quotes and brackets.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    {"class" : {"students" : [{"name" : "Jane"}]}}
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
+    values that you want to obtain from the JSON-formatted string. If
+    `json_path` returns a JSON `null` or a non-scalar value (in other words, if
+    `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+
+If you only want to extract scalar values such strings, integers, and booleans,
+then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
+arrays in the extraction, then use `JSON_EXTRACT`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+The following example compares how results are returned for the `JSON_EXTRACT`
+and `JSON_EXTRACT_SCALAR` functions.
+
+```sql
+SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
+  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
+  JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
+  JSON_EXTRACT_SCALAR('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++-----------+-------------+----------+------------+
+| json_name | scalar_name | json_age | scalar_age |
++-----------+-------------+----------+------------+
+| "Jakob"   | Jakob       | "6"      | 6          |
++-----------+-------------+----------+------------+
+
+SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
+  JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
+
++--------------------+---------------------+
+| json_extract       | json_extract_scalar |
++--------------------+---------------------+
+| ["apple","banana"] | NULL                |
++--------------------+---------------------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using single quotes and brackets, `[' ']`. For example:
+
+```sql
+SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
+
++-------+
+| hello |
++-------+
+| world |
++-------+
+```
+
+### JSON_VALUE
+
+```sql
+JSON_VALUE(json_string_expr, json_path)
+```
+
+**Description**
+
+Extracts a scalar value and then returns it as a string. A scalar value can
+represent a string, integer, or boolean. Removes the outermost quotes and
+unescapes the return values. If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using double quotes.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    {"class" : {"students" : [{"name" : "Jane"}]}}
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
+    values that you want to obtain from the JSON-formatted string. If
+    `json_path` returns a JSON `null` or a non-scalar value (in other words, if
+    `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+
+If you only want to extract scalar values such strings, integers, and booleans,
+then use `JSON_VALUE`. If you want to include non-scalar values such as arrays
+in the extraction, then use `JSON_QUERY`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
+  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.name') AS scalar_name,
+  JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.age') AS json_age,
+  JSON_VALUE('{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++-----------+-------------+----------+------------+
+| json_name | scalar_name | json_age | scalar_age |
++-----------+-------------+----------+------------+
+| "Jakob"   | Jakob       | "6"      | 6          |
++-----------+-------------+----------+------------+
+
+SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
+  JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
+
++--------------------+------------+
+| json_query         | json_value |
++--------------------+------------+
+| ["apple","banana"] | NULL       |
++--------------------+------------+
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
 characters using double quotes. For example:
 
 ```sql
-SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') as hello;
+SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
 +-------+
 | hello |
@@ -310,7 +513,7 @@ is `true`, the returned value is formatted for easy readability.
     </td>
  </tr>
  <tr>
-   <td>NUMERIC</td>
+   <td>NUMERIC, BIGNUMERIC</td>
    <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
      in the range of [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
      part. Values outside of this range are represented as quoted strings. For
@@ -491,7 +694,7 @@ is `true`, the returned value is formatted for easy readability.
 
 **Return type**
 
-JSON string representation of the value.
+A JSON-formatted `STRING`
 
 **Examples**
 
@@ -503,7 +706,7 @@ With CoordinatesTable AS (
     (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
     (SELECT 3 AS id, [50,60] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t) AS json_data
-FROM CoordinatesTable as t;
+FROM CoordinatesTable AS t;
 
 +----+-------------+--------------------------------+
 | id | coordinates | json_data                      |
@@ -521,7 +724,7 @@ With CoordinatesTable AS (
     (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
     (SELECT 2 AS id, [30,40] AS coordinates))
 SELECT id, coordinates, TO_JSON_STRING(t, true) AS json_data
-FROM CoordinatesTable as t;
+FROM CoordinatesTable AS t;
 
 +----+-------------+--------------------+
 | id | coordinates | json_data          |
@@ -544,11 +747,12 @@ FROM CoordinatesTable as t;
 +----+-------------+--------------------+
 ```
 
-### JSONPath format
+### JSONPath 
+<a id="JSONPath_format"></a>
 
-Most JSON functions pass in a `json_string_expr` and `json_path_format`
+Most JSON functions pass in a `json_string_expr` and `json_path`
 parameter. The `json_string_expr` parameter passes in a JSON-formatted
-string, and the `json_path_format` parameter identifies the value or
+string, and the `json_path` parameter identifies the value or
 values you want to obtain from the JSON-formatted string.
 
 The `json_string_expr` parameter must be a JSON string that is
@@ -558,7 +762,7 @@ formatted like this:
 {"class" : {"students" : [{"name" : "Jane"}]}}
 ```
 
-You construct the `json_path_format` parameter using the
+You construct the `json_path` parameter using the
 [JSONPath][json-path] format. As part of this format, this parameter must start
 with a `$` symbol, which refers to the outermost level of the JSON-formatted
 string. You can identify child values using dots. If the JSON object is an
@@ -572,13 +776,13 @@ $        | Root object or element | "$"                   | `{"class":{"students
 .        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
 []       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
 
-A JSON functions returns `NULL` if the `json_path_format` parameter does
+A JSON functions returns `NULL` if the `json_path` parameter does
 not match a value in `json_string_expr`. If the selected value for a scalar
 function is not scalar, such as an object or an array, the function
 returns `NULL`.
 
 If the JSONPath is invalid, the function raises an error.
 
-[jsonpath-format]: #jsonpath_format
-[json-path]: https://github.com/json-path/JsonPath#operators
+[JSONPath-format]: #JSONPath_format
+[json-path]: https://github.com/json-path/JSONPath#operators
 

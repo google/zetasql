@@ -235,7 +235,7 @@ public class EnumTypeTest {
             "The number of fields of EnumTypeProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(EnumTypeProto.getDescriptor().getFields())
-        .hasSize(3);
+        .hasSize(4);
     assertWithMessage(
             "The number of fields in EnumType class has changed, please also update the proto and "
                 + "serialization code accordingly.")

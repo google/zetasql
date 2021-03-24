@@ -16,6 +16,8 @@
 
 #include "zetasql/common/utf_util.h"
 
+#include <cstdint>
+
 #include "zetasql/base/logging.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -100,7 +102,7 @@ bool CheckAndCastStrLength(absl::string_view str, int32_t* str_length32) {
 }
 
 absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
-                               int64_t num_code_points) {
+                                 int64_t num_code_points) {
   int32_t str_offset = 0;
   for (int64_t i = 0; i < num_code_points && str_offset < str_length32; ++i) {
     UChar32 character;

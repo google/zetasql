@@ -19,6 +19,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_HASH_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_HASH_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 

@@ -1,0 +1,889 @@
+# Parenthesized query expressions need to be checked in multiple plases:
+#  - as top-level queries
+#  - as FROM-clause subqueries
+#  - as expression subqueries
+#  - for conflicts with parenthesized joins
+#  - for conflicts with parenthesized expressions
+#  - for conflicts with struct construction
+# The lookahead may differ in these cases, affecting how the parser interprets
+# leading ( characters.
+
+(select 1)
+--
+QueryStatement [0-10]
+  Query [0-10]
+    Query [1-9]
+      Select [1-9]
+        SelectList [8-9]
+          SelectColumn [8-9]
+            IntLiteral(1) [8-9]
+--
+(
+SELECT
+  1
+)
+==
+
+((((select 1))))
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Query [1-15]
+      Query [2-14]
+        Query [3-13]
+          Query [4-12]
+            Select [4-12]
+              SelectList [11-12]
+                SelectColumn [11-12]
+                  IntLiteral(1) [11-12]
+--
+((((
+SELECT
+  1
+))))
+==
+
+(select 1) limit 1
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Query [1-9]
+      Select [1-9]
+        SelectList [8-9]
+          SelectColumn [8-9]
+            IntLiteral(1) [8-9]
+    LimitOffset [11-18]
+      IntLiteral(1) [17-18]
+--
+(
+SELECT
+  1
+)
+LIMIT 1
+==
+
+# Using parentheses to reverse the order of limit and order by.
+(((select 1) limit 3) order by 1 desc)
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Query [1-37]
+      Query [2-20]
+        Query [3-11]
+          Select [3-11]
+            SelectList [10-11]
+              SelectColumn [10-11]
+                IntLiteral(1) [10-11]
+        LimitOffset [13-20]
+          IntLiteral(3) [19-20]
+      OrderBy [22-37]
+        OrderingExpression(DESC) [31-37]
+          IntLiteral(1) [31-32]
+--
+(((
+SELECT
+  1
+)
+LIMIT 3)
+ORDER BY 1 DESC)
+==
+
+((select 1) union all (select 2 union all (select 3 union all select 4)))
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Query [1-72]
+      SetOperation(UNION ALL) [1-72]
+        Query [2-10]
+          Select [2-10]
+            SelectList [9-10]
+              SelectColumn [9-10]
+                IntLiteral(1) [9-10]
+        Query [23-71]
+          SetOperation(UNION ALL) [23-71]
+            Select [23-31]
+              SelectList [30-31]
+                SelectColumn [30-31]
+                  IntLiteral(2) [30-31]
+            Query [43-70]
+              SetOperation(UNION ALL) [43-70]
+                Select [43-51]
+                  SelectList [50-51]
+                    SelectColumn [50-51]
+                      IntLiteral(3) [50-51]
+                Select [62-70]
+                  SelectList [69-70]
+                    SelectColumn [69-70]
+                      IntLiteral(4) [69-70]
+--
+((
+SELECT
+  1
+) UNION ALL(
+SELECT
+  2
+UNION ALL(
+SELECT
+  3
+UNION ALL
+SELECT
+  4
+)))
+==
+
+(select 1 from x limit 1) union all (select 2 from y order by 1)
+order by 1
+limit 10
+--
+QueryStatement [0-84]
+  Query [0-84]
+    SetOperation(UNION ALL) [0-64]
+      Query [1-24]
+        Select [1-16]
+          SelectList [8-9]
+            SelectColumn [8-9]
+              IntLiteral(1) [8-9]
+          FromClause [10-16]
+            TablePathExpression [15-16]
+              PathExpression [15-16]
+                Identifier(x) [15-16]
+        LimitOffset [17-24]
+          IntLiteral(1) [23-24]
+      Query [37-63]
+        Select [37-52]
+          SelectList [44-45]
+            SelectColumn [44-45]
+              IntLiteral(2) [44-45]
+          FromClause [46-52]
+            TablePathExpression [51-52]
+              PathExpression [51-52]
+                Identifier(y) [51-52]
+        OrderBy [53-63]
+          OrderingExpression(ASC) [62-63]
+            IntLiteral(1) [62-63]
+    OrderBy [65-75]
+      OrderingExpression(ASC) [74-75]
+        IntLiteral(1) [74-75]
+    LimitOffset [76-84]
+      IntLiteral(10) [82-84]
+--
+(
+SELECT
+  1
+FROM
+  x
+LIMIT 1) UNION ALL(
+SELECT
+  2
+FROM
+  y
+ORDER BY 1)
+ORDER BY 1
+LIMIT 10
+==
+
+# The outer () here get interpreted as expression grouping.
+select ((select 1)), ((((select 2))))
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-37]
+      SelectList [7-37]
+        SelectColumn [7-19]
+          ExpressionSubquery [8-18]
+            Query [9-17]
+              Select [9-17]
+                SelectList [16-17]
+                  SelectColumn [16-17]
+                    IntLiteral(1) [16-17]
+        SelectColumn [21-37]
+          ExpressionSubquery [24-34]
+            Query [25-33]
+              Select [25-33]
+                SelectList [32-33]
+                  SelectColumn [32-33]
+                    IntLiteral(2) [32-33]
+--
+SELECT
+  (
+    SELECT
+      1
+  ),
+  (
+    SELECT
+      2
+  )
+==
+
+select ((select 1) + (select 2))
+--
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          BinaryExpression(+) [8-31]
+            ExpressionSubquery [8-18]
+              Query [9-17]
+                Select [9-17]
+                  SelectList [16-17]
+                    SelectColumn [16-17]
+                      IntLiteral(1) [16-17]
+            ExpressionSubquery [21-31]
+              Query [22-30]
+                Select [22-30]
+                  SelectList [29-30]
+                    SelectColumn [29-30]
+                      IntLiteral(2) [29-30]
+--
+SELECT
+  ((
+    SELECT
+      1
+  ) + (
+    SELECT
+      2
+  ))
+==
+
+select ((select 1), (select 2))
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-31]
+          StructConstructorWithParens [7-31]
+            ExpressionSubquery [8-18]
+              Query [9-17]
+                Select [9-17]
+                  SelectList [16-17]
+                    SelectColumn [16-17]
+                      IntLiteral(1) [16-17]
+            ExpressionSubquery [20-30]
+              Query [21-29]
+                Select [21-29]
+                  SelectList [28-29]
+                    SelectColumn [28-29]
+                      IntLiteral(2) [28-29]
+--
+SELECT
+  ((
+      SELECT
+        1
+    ), (
+      SELECT
+        2
+    ))
+==
+
+# This case requires the special lookahead in operand() to determine
+# that the outer ( is a subquery, not expression grouping.
+# With the ARRAY modifier, we know it must be a subquery.
+select {{|ARRAY}} ((select 1) union all (select 2))
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [8-41]
+        SelectColumn [8-41]
+          ExpressionSubquery [8-41]
+            Query [9-40]
+              SetOperation(UNION ALL) [9-40]
+                Query [10-18]
+                  Select [10-18]
+                    SelectList [17-18]
+                      SelectColumn [17-18]
+                        IntLiteral(1) [17-18]
+                Query [31-39]
+                  Select [31-39]
+                    SelectList [38-39]
+                      SelectColumn [38-39]
+                        IntLiteral(2) [38-39]
+--
+SELECT
+  ((
+    SELECT
+      1
+    ) UNION ALL(
+    SELECT
+      2
+    ))
+--
+ALTERNATION GROUP: ARRAY
+--
+QueryStatement [0-46]
+  Query [0-46]
+    Select [0-46]
+      SelectList [7-46]
+        SelectColumn [7-46]
+          ExpressionSubquery(modifier=ARRAY) [7-46]
+            Query [14-45]
+              SetOperation(UNION ALL) [14-45]
+                Query [15-23]
+                  Select [15-23]
+                    SelectList [22-23]
+                      SelectColumn [22-23]
+                        IntLiteral(1) [22-23]
+                Query [36-44]
+                  Select [36-44]
+                    SelectList [43-44]
+                      SelectColumn [43-44]
+                        IntLiteral(2) [43-44]
+--
+SELECT
+  ARRAY((
+    SELECT
+      1
+    ) UNION ALL(
+    SELECT
+      2
+    ))
+==
+
+# The same case, but made extra tricky because the decision is after closing two
+# parentheses instead of just one.
+# For some reason the JavaCC parser produces an extra level of Query objects
+# for the parenthesized ((select)). This is not needed, and the Bison parser
+# doesn't produce it.
+select {{|ARRAY}} (((select 1)) union all (select 2))
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [8-43]
+        SelectColumn [8-43]
+          ExpressionSubquery [8-43]
+            Query [9-42]
+              SetOperation(UNION ALL) [9-42]
+                Query [11-19]
+                  Select [11-19]
+                    SelectList [18-19]
+                      SelectColumn [18-19]
+                        IntLiteral(1) [18-19]
+                Query [33-41]
+                  Select [33-41]
+                    SelectList [40-41]
+                      SelectColumn [40-41]
+                        IntLiteral(2) [40-41]
+--
+SELECT
+  ((
+    SELECT
+      1
+    ) UNION ALL(
+    SELECT
+      2
+    ))
+--
+ALTERNATION GROUP: ARRAY
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-48]
+        SelectColumn [7-48]
+          ExpressionSubquery(modifier=ARRAY) [7-48]
+            Query [14-47]
+              SetOperation(UNION ALL) [14-47]
+                Query [15-25]
+                  Query [16-24]
+                    Select [16-24]
+                      SelectList [23-24]
+                        SelectColumn [23-24]
+                          IntLiteral(1) [23-24]
+                Query [38-46]
+                  Select [38-46]
+                    SelectList [45-46]
+                      SelectColumn [45-46]
+                        IntLiteral(2) [45-46]
+--
+SELECT
+  ARRAY(((
+    SELECT
+      1
+    )) UNION ALL(
+    SELECT
+      2
+    ))
+==
+
+# This is an inconsistent case. (1+1) can only be a parenthesized expression,
+# but then it is UNION ALLed. The JavaCC parser tries all possible scenarios and
+# only sees that the entire thing is inconsistent. The Bison parser sees the
+# inconsistency at the point where it happens, because at that point it tries to
+# force the left hand side of the UNION ALL into being a query. However, we
+# don't give the error there because what follows may not at all look like a
+# relational operator.
+# TODO: Make this error message or location better.
+select {{|ARRAY}} (((1+1)) union all (select 2))
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+select  (((1+1)) union all (select 2))
+         ^
+--
+ALTERNATION GROUP: ARRAY
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got integer literal "1" [at 1:17]
+select ARRAY (((1+1)) union all (select 2))
+                ^
+==
+
+# This case has the same prefix, but it is consistent after the double
+# parentheses.
+select (((1+1)) + (1 + 1))
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-26]
+        SelectColumn [7-26]
+          BinaryExpression(+) [8-25]
+            BinaryExpression(+) [10-13]
+              IntLiteral(1) [10-11]
+              IntLiteral(1) [12-13]
+            BinaryExpression(+) [19-24]
+              IntLiteral(1) [19-20]
+              IntLiteral(1) [23-24]
+--
+SELECT
+  ((1 + 1) + (1 + 1))
+==
+
+# This is the reverse of the previous inconsistency. The first parenthesized
+# thing must be an expression subquery, but it is then followed by a +. This is
+# actually not inconsistent: the first part is then treated as a scalar
+# subquery.
+select ((SELECT 1) + 1)
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          BinaryExpression(+) [8-22]
+            ExpressionSubquery [8-18]
+              Query [9-17]
+                Select [9-17]
+                  SelectList [16-17]
+                    SelectColumn [16-17]
+                      IntLiteral(1) [16-17]
+            IntLiteral(1) [21-22]
+--
+SELECT
+  ((
+    SELECT
+      1
+  ) + 1)
+==
+
+# The same, but with two levels of parentheses.
+select (((SELECT 1)) + 1)
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-25]
+        SelectColumn [7-25]
+          BinaryExpression(+) [8-24]
+            ExpressionSubquery [9-19]
+              Query [10-18]
+                Select [10-18]
+                  SelectList [17-18]
+                    SelectColumn [17-18]
+                      IntLiteral(1) [17-18]
+            IntLiteral(1) [23-24]
+--
+SELECT
+  ((
+    SELECT
+      1
+  ) + 1)
+==
+
+# This one has an error inside a double-parenthesized subuqery.
+# In JavaCC, because it fails the unbounded lookahead for all cases, we get
+# the error pointing at the (.
+# With the ARRAY modifier, we know it must be a subquery.
+# Bison recognizes the error inside the subquery with or without ARRAY.
+select {{|ARRAY}}((select 1) union all select x y z)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected ")" but got identifier "z" [at 1:41]
+select ((select 1) union all select x y z)
+                                        ^
+--
+ALTERNATION GROUP: ARRAY
+--
+ERROR: Syntax error: Expected ")" but got identifier "z" [at 1:46]
+select ARRAY((select 1) union all select x y z)
+                                             ^
+==
+
+# This was failing because of bug 15826703.
+SELECT ((SELECT count(distinct x)));
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-35]
+        SelectColumn [7-35]
+          ExpressionSubquery [8-34]
+            Query [9-33]
+              Select [9-33]
+                SelectList [16-33]
+                  SelectColumn [16-33]
+                    FunctionCall(distinct=true) [16-33]
+                      PathExpression [16-21]
+                        Identifier(count) [16-21]
+                      PathExpression [31-32]
+                        Identifier(x) [31-32]
+--
+SELECT
+  (
+    SELECT
+      count(DISTINCT x)
+  )
+==
+
+# This was failing because of bug 15826703.
+SELECT 1+((count(*)))
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-21]
+          BinaryExpression(+) [7-21]
+            IntLiteral(1) [7-8]
+            FunctionCall [11-19]
+              PathExpression [11-16]
+                Identifier(count) [11-16]
+              Star(*) [17-18]
+--
+SELECT
+  1 + (count(*))
+==
+
+# This was crashing (bug 15885244) because we weren't setting hasError
+# after calling handleOtherError manually after the parse error
+# caused by bug 15826703.
+SELECT a, 1+((count(*)))
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectList [7-24]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+        SelectColumn [10-24]
+          BinaryExpression(+) [10-24]
+            IntLiteral(1) [10-11]
+            FunctionCall [14-22]
+              PathExpression [14-19]
+                Identifier(count) [14-19]
+              Star(*) [20-21]
+--
+SELECT
+  a,
+  1 + (count(*))
+==
+
+# This exposes the crash in bug 15885244 with an actual parse error that
+# won't go away when we fix bug 15826703.
+SELECT a, 1+((count(*) x x x))
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:15]
+SELECT a, 1+((count(*) x x x))
+              ^
+==
+
+# Another query that failed and crashed because of bugs 15885244 and 15826703.
+SELECT a, count(*) AS foo, count(*) / ((count(*) * 1) * 1)
+FROM (SELECT 1 AS a) GROUP BY 1;
+--
+QueryStatement [0-90]
+  Query [0-90]
+    Select [0-90]
+      SelectList [7-58]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+        SelectColumn [10-25]
+          FunctionCall [10-18]
+            PathExpression [10-15]
+              Identifier(count) [10-15]
+            Star(*) [16-17]
+          Alias [19-25]
+            Identifier(foo) [22-25]
+        SelectColumn [27-58]
+          BinaryExpression(/) [27-58]
+            FunctionCall [27-35]
+              PathExpression [27-32]
+                Identifier(count) [27-32]
+              Star(*) [33-34]
+            BinaryExpression(*) [39-57]
+              BinaryExpression(*) [40-52]
+                FunctionCall [40-48]
+                  PathExpression [40-45]
+                    Identifier(count) [40-45]
+                  Star(*) [46-47]
+                IntLiteral(1) [51-52]
+              IntLiteral(1) [56-57]
+      FromClause [59-79]
+        TableSubquery [64-79]
+          Query [65-78]
+            Select [65-78]
+              SelectList [72-78]
+                SelectColumn [72-78]
+                  IntLiteral(1) [72-73]
+                  Alias [74-78]
+                    Identifier(a) [77-78]
+      GroupBy [80-90]
+        GroupingItem [89-90]
+          IntLiteral(1) [89-90]
+--
+SELECT
+  a,
+  count(*) AS foo,
+  count(*) / ((count(*) * 1) * 1)
+FROM
+  (
+    SELECT
+      1 AS a
+  )
+GROUP BY 1
+==
+
+# In JavaCC all lookahead cases fail so we get a poor error. Bison does fine.
+select (((select * from from from)))
+--
+ERROR: Syntax error: Unexpected keyword FROM [at 1:25]
+select (((select * from from from)))
+                        ^
+==
+
+select (((1 + 2 * * 3)))
+--
+ERROR: Syntax error: Unexpected "*" [at 1:19]
+select (((1 + 2 * * 3)))
+                  ^
+==
+
+select (((select 1) + 2))
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-25]
+        SelectColumn [7-25]
+          BinaryExpression(+) [9-23]
+            ExpressionSubquery [9-19]
+              Query [10-18]
+                Select [10-18]
+                  SelectList [17-18]
+                    SelectColumn [17-18]
+                      IntLiteral(1) [17-18]
+            IntLiteral(2) [22-23]
+--
+SELECT
+  ((
+    SELECT
+      1
+  ) + 2)
+==
+
+select (((select 1) + 2 * * 3))
+--
+ERROR: Syntax error: Unexpected "*" [at 1:27]
+select (((select 1) + 2 * * 3))
+                          ^
+==
+
+select ARRAY(((select 1)))
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-26]
+        SelectColumn [7-26]
+          ExpressionSubquery(modifier=ARRAY) [7-26]
+            Query [13-25]
+              Query [14-24]
+                Query [15-23]
+                  Select [15-23]
+                    SelectList [22-23]
+                      SelectColumn [22-23]
+                        IntLiteral(1) [22-23]
+--
+SELECT
+  ARRAY(((
+    SELECT
+      1
+    )))
+==
+
+select *
+from (((select 1)))
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-28]
+        TableSubquery [14-28]
+          Query [15-27]
+            Query [16-26]
+              Query [17-25]
+                Select [17-25]
+                  SelectList [24-25]
+                    SelectColumn [24-25]
+                      IntLiteral(1) [24-25]
+--
+SELECT
+  *
+FROM
+  (((
+    SELECT
+      1
+    ))
+  )
+==
+
+select *
+from (((select 1)) union all (select 2))
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-49]
+        TableSubquery [14-49]
+          Query [15-48]
+            SetOperation(UNION ALL) [15-48]
+              Query [16-26]
+                Query [17-25]
+                  Select [17-25]
+                    SelectList [24-25]
+                      SelectColumn [24-25]
+                        IntLiteral(1) [24-25]
+              Query [39-47]
+                Select [39-47]
+                  SelectList [46-47]
+                    SelectColumn [46-47]
+                      IntLiteral(2) [46-47]
+--
+SELECT
+  *
+FROM
+  (((
+    SELECT
+      1
+    )) UNION ALL(
+    SELECT
+      2
+    )
+  )
+==
+
+select *
+from (((select 1) limit 3) order by 1)
+--
+QueryStatement [0-47]
+  Query [0-47]
+    Select [0-47]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-47]
+        TableSubquery [14-47]
+          Query [15-46]
+            Query [16-34]
+              Query [17-25]
+                Select [17-25]
+                  SelectList [24-25]
+                    SelectColumn [24-25]
+                      IntLiteral(1) [24-25]
+              LimitOffset [27-34]
+                IntLiteral(3) [33-34]
+            OrderBy [36-46]
+              OrderingExpression(ASC) [45-46]
+                IntLiteral(1) [45-46]
+--
+SELECT
+  *
+FROM
+  (((
+    SELECT
+      1
+    )
+    LIMIT 3)
+    ORDER BY 1
+  )
+==
+
+# Mixing subquery parentheses with parenenthesized joins.
+select *
+from a join ((select 1 x) join (select 2 x) using (x))
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-63]
+        Join [16-63]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          ParenthesizedJoin [21-63]
+            Join [35-62]
+              TableSubquery [22-34]
+                Query [23-33]
+                  Select [23-33]
+                    SelectList [30-33]
+                      SelectColumn [30-33]
+                        IntLiteral(1) [30-31]
+                        Alias [32-33]
+                          Identifier(x) [32-33]
+              TableSubquery [40-52]
+                Query [41-51]
+                  Select [41-51]
+                    SelectList [48-51]
+                      SelectColumn [48-51]
+                        IntLiteral(2) [48-49]
+                        Alias [50-51]
+                          Identifier(x) [50-51]
+              UsingClause [53-62]
+                Identifier(x) [60-61]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  (
+    (
+      SELECT
+        1 AS x
+    )
+    JOIN
+    (
+      SELECT
+        2 AS x
+    )
+    USING(x)
+  )

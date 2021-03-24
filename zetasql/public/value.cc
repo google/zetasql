@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <stack>
 #include <utility>
@@ -833,9 +834,11 @@ struct ValueHasherIgnoringFloat {
   template <typename H>
   static H HashInternal(H h, const Value& v) {
     static constexpr uint64_t kFloatApproximateHashCode = 0x1192AA60660CCFABull;
-    static constexpr uint64_t kDoubleApproximateHashCode = 0x520C31647E82D8E6ull;
-    static constexpr uint64_t kMessageWithFloatingPointFieldApproximateHashCode =
-        0x1F6432686AAF52A4ull;
+    static constexpr uint64_t kDoubleApproximateHashCode =
+        0x520C31647E82D8E6ull;
+    static constexpr uint64_t
+        kMessageWithFloatingPointFieldApproximateHashCode =
+            0x1F6432686AAF52A4ull;
     if (!v.is_valid() || v.is_null()) {
       // Check this first as type_kind() will crash in this case.
       return AbslHashValue(std::move(h), v);

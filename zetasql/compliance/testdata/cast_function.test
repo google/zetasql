@@ -891,3 +891,70 @@ ERROR: generic::out_of_range: Invalid time zone: abc
 SELECT CAST('1234' as timestamp FORMAT 'yyyy' at time zone 'UTC')
 --
 ERROR: generic::invalid_argument: ConvertStringToTimestampWithFormat not implemented. Timezone is UTC
+
+==
+
+# Test the success case of cast date/time to string with format
+[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[name=cast_date_and_time_to_string_success]
+select cast(date'1234-05-06' as string format 'DD-MM YYYY'),
+       cast(datetime '1234-05-06 07:08:09' as string
+            format 'HH12:MI:SS PM DD/MM/YYYY'),
+       cast(time '07:08:09' as string format 'HH24:MI:SS'),
+       cast(timestamp '1234-05-06 07:08:09-10' as string
+            format 'HH12:MI:SS PM DD/MM/YYYY  TZH:TZM' at time zone '-08:00');
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[
+  {
+    "06-05 1234",
+    "07:08:09 AM 06/05/1234",
+    "07:08:09",
+    "09:08:09 AM 06/05/1234  -08:00"
+  }
+]
+==
+
+# Test the success case of cast date/time to string with null format
+[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[name=cast_date_and_time_to_string_with_null_format]
+select cast(date'1234-05-06' as string format cast(null as string)),
+       cast(datetime '1234-05-06 07:08:09' as string format cast(null as string)),
+       cast(time '07:08:09' as string format cast(null as string)),
+       cast(timestamp '1234-05-06 07:08:09-10' as string format cast(null as string));
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[{NULL, NULL, NULL, NULL}]
+
+==
+
+# Test the case when timezone is null
+[required_features=V_1_3_FORMAT_IN_CAST]
+[name=cast_timestamp_to_string_with_null_time_zone]
+select cast(timestamp '1234-05-06 07:08:09-10' as string
+            format 'HH12:MI:SS PM DD/MM/YYYY  TZH:TZM' at time zone cast(null as string));
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+# Test that when casting number to string, the output is null is the input is null, or
+# the format string is null.
+[required_features=V_1_3_FORMAT_IN_CAST]
+[name=cast_number_to_string_null]
+SELECT CAST(CAST(null as INT64) as string FORMAT '99'),
+       CAST(1.23 as string FORMAT CAST(NULL as STRING));
+--
+ARRAY<STRUCT<STRING, STRING>>[{NULL, NULL}]
+==
+
+# Test that the implementation is invoked.
+[required_features=V_1_3_FORMAT_IN_CAST,NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[name=cast_number_to_string_simple]
+select cast(cast(1.23 as int32) as STRING format '99'),
+       cast(cast(1.23 as uint32) as STRING format '99'),
+       cast(cast(1.23 as int64) as STRING format '99'),
+       cast(cast(1.23 as uint64) as STRING format '99'),
+       cast(cast(1.23 as float) as STRING format '99'),
+       cast(cast(1.23 as double) as STRING format '99'),
+       cast(cast(1.23 as numeric) as STRING format '99'),
+       cast(cast(1.23 as bignumeric) as STRING format '99');
+--
+ERROR: generic::invalid_argument: NumericalToStringWithFormat is not implemented

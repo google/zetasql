@@ -102,13 +102,14 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
 class ColumnRefCollector : public ResolvedASTVisitor {
  public:
   explicit ColumnRefCollector(
-      std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs)
-      : column_refs_(column_refs) {}
+      std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
+      bool correlate)
+      : column_refs_(column_refs), correlate_(correlate) {}
 
  private:
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
-    column_refs_->push_back(MakeResolvedColumnRef(node->type(), node->column(),
-                                                  node->is_correlated()));
+    column_refs_->push_back(MakeResolvedColumnRef(
+        node->type(), node->column(), correlate_ || node->is_correlated()));
     return absl::OkStatus();
   }
 
@@ -136,6 +137,7 @@ class ColumnRefCollector : public ResolvedASTVisitor {
   }
 
   std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs_;
+  bool correlate_;
 };
 
 }  // namespace
@@ -170,8 +172,9 @@ zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
 
 absl::Status CollectColumnRefs(
     const ResolvedNode& node,
-    std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs) {
-  ColumnRefCollector column_ref_collector(column_refs);
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
+    bool correlate) {
+  ColumnRefCollector column_ref_collector(column_refs, correlate);
   return node.Accept(&column_ref_collector);
 }
 

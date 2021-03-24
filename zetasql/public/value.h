@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -130,17 +131,17 @@ class Value {
 
   // Accessors for accessing the data within atomic typed Values.
   // REQUIRES: !is_null().
-  int32_t int32_value() const;           // REQUIRES: int32_t type
-  int64_t int64_value() const;           // REQUIRES: int64_t type
-  uint32_t uint32_value() const;         // REQUIRES: uint32_t type
-  uint64_t uint64_value() const;         // REQUIRES: uint64_t type
+  int32_t int32_value() const;         // REQUIRES: int32_t type
+  int64_t int64_value() const;         // REQUIRES: int64_t type
+  uint32_t uint32_value() const;       // REQUIRES: uint32_t type
+  uint64_t uint64_value() const;       // REQUIRES: uint64_t type
   bool bool_value() const;             // REQUIRES: bool type
   float float_value() const;           // REQUIRES: float type
   double double_value() const;         // REQUIRES: double type
   const std::string& string_value() const;  // REQUIRES: string type
   const std::string& bytes_value() const;   // REQUIRES: bytes type
-  int32_t date_value() const;            // REQUIRES: date type
-  int32_t enum_value() const;            // REQUIRES: enum type
+  int32_t date_value() const;               // REQUIRES: date type
+  int32_t enum_value() const;               // REQUIRES: enum type
   const std::string& enum_name() const;  // REQUIRES: enum type
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
@@ -154,8 +155,8 @@ class Value {
 
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64_t, see public/civil_time.h for the encoding.
-  int64_t ToPacked64TimeMicros() const;           // REQUIRES: time type
-  int64_t ToPacked64DatetimeMicros() const;       // REQUIRES: datetime type
+  int64_t ToPacked64TimeMicros() const;      // REQUIRES: time type
+  int64_t ToPacked64DatetimeMicros() const;  // REQUIRES: datetime type
 
   TimeValue time_value() const;                 // REQUIRES: time type
   DatetimeValue datetime_value() const;         // REQUIRES: datetime type
@@ -837,16 +838,16 @@ class Value {
   // 64-bit part of the value.
   union {
     int64_t int64_value_ = 0;  // also seconds|millis|micros since 1970-1-1.
-    int32_t int32_value_;  // also date
+    int32_t int32_value_;      // also date
     uint64_t uint64_value_;
     uint32_t uint32_value_;
     bool bool_value_;
     float float_value_;
     double double_value_;
-    int64_t timestamp_seconds_;  // Same as google.protobuf.Timestamp.seconds.
-    int32_t bit_field_32_value_;   // Whole-second part of TimeValue.
-    int64_t bit_field_64_value_;   // Whole-second part of DatetimeValue.
-    int32_t enum_value_;           // Used for TYPE_ENUM.
+    int64_t timestamp_seconds_;   // Same as google.protobuf.Timestamp.seconds.
+    int32_t bit_field_32_value_;  // Whole-second part of TimeValue.
+    int64_t bit_field_64_value_;  // Whole-second part of DatetimeValue.
+    int32_t enum_value_;          // Used for TYPE_ENUM.
     internal::StringRef*
         string_ptr_;       // Reffed. Used for TYPE_STRING and TYPE_BYTES.
     TypedList* list_ptr_;  // Reffed. Used for arrays and structs.

@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdint>
 #include <limits>
 #include <memory>
 
@@ -20,21 +21,20 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/functions/format_max_output_width.h"
 #include "zetasql/public/functions/string_format.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/cleanup.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/map_util.h"
-
-ABSL_DECLARE_FLAG(int32_t, zetasql_format_max_output_width);
 
 namespace zetasql {
 namespace functions {
@@ -846,7 +846,7 @@ TEST_P(FormatFunctionTests, NumericFormat_Errors) {
                          Numeric(NumericValue::MaxValue())}),
       ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
 
-  auto flag_resetter = zetasql_base::MakeCleanup(absl::bind_front(
+  auto flag_resetter = absl::MakeCleanup(absl::bind_front(
       absl::SetFlag<int32_t>, &FLAGS_zetasql_format_max_output_width,
       absl::GetFlag(FLAGS_zetasql_format_max_output_width)));
   // No minimum output size, but string ends up being too long.
@@ -881,7 +881,7 @@ TEST_P(FormatFunctionTests, BigNumericFormat_Errors) {
                          BigNumeric(BigNumericValue::MaxValue())}),
       ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
 
-  auto flag_resetter = zetasql_base::MakeCleanup(absl::bind_front(
+  auto flag_resetter = absl::MakeCleanup(absl::bind_front(
       absl::SetFlag<int32_t>, &FLAGS_zetasql_format_max_output_width,
       absl::GetFlag(FLAGS_zetasql_format_max_output_width)));
   // No minimum output size, but string ends up being too long.
@@ -958,7 +958,8 @@ void TestFormatNumericWithRandomData(FormatF FormatFunction) {
   absl::BitGen random;
   for (int i = 0; i < 20000; ++i) {
     // Generate a random double value that can be losslessly converted to T.
-    int64_t mantissa = absl::Uniform<int64_t>(random, 1 - (1LL << 53), (1LL << 53));
+    int64_t mantissa =
+        absl::Uniform<int64_t>(random, 1 - (1LL << 53), (1LL << 53));
     constexpr double kLog2_10 = 3.321928095;
     constexpr int kMaxIntegerBits =
         static_cast<int>(T::kMaxIntegerDigits * kLog2_10);

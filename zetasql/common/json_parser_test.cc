@@ -16,13 +16,14 @@
 
 #include "zetasql/common/json_parser.h"
 
+#include <cstdint>
 #include <memory>
 
 #include "zetasql/base/logging.h"
-#include <cstdint>
-#include "absl/strings/escaping.h"
 #include "gtest/gtest.h"
+#include <cstdint>
 #include "absl/flags/flag.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 

@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <cstdint>
 #include <limits>
 #include <set>
 #include <string>
@@ -218,6 +219,22 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastBytesStringWithFormat() {
   for (auto& function_call : function_calls) {
     tests.push_back(QueryParamsWithResult(function_call.params)
                         .WrapWithFeature(FEATURE_V_1_3_FORMAT_IN_CAST));
+  }
+
+  return tests;
+}
+
+std::vector<QueryParamsWithResult>
+GetFunctionTestsCastDateTimestampStringWithFormat() {
+  std::vector<FunctionTestCall> function_calls =
+      GetFunctionTestsCastFormatDateTimestamp();
+  std::vector<QueryParamsWithResult> tests;
+
+  tests.reserve(function_calls.size());
+  for (auto& function_call : function_calls) {
+    tests.push_back(QueryParamsWithResult(function_call.params)
+                        .WrapWithFeatureSet({FEATURE_V_1_3_FORMAT_IN_CAST,
+                                             FEATURE_V_1_2_CIVIL_TIME}));
   }
 
   return tests;
@@ -1467,8 +1484,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
       {{NullDate()}, NullDate()},
       QueryParamsWithResult({{NullNumeric()}, NullNumeric()})
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {{NullBigNumeric()}, NullBigNumeric()})
+      QueryParamsWithResult({{NullBigNumeric()}, NullBigNumeric()})
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
 
       // INT32
@@ -1488,13 +1504,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
       {{Int32(int32min)}, Int64(int32min)},
       {{Int32(int32min)}, Float(int32min)},
       {{Int32(int32min)}, Double(int32min)},
-      QueryParamsWithResult(
-          {Int32(int32max)},
-          Value::Numeric(NumericValue(int32max)))
+      QueryParamsWithResult({Int32(int32max)},
+                            Value::Numeric(NumericValue(int32max)))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Int32(int32min)},
-          Value::Numeric(NumericValue(int32min)))
+      QueryParamsWithResult({Int32(int32min)},
+                            Value::Numeric(NumericValue(int32min)))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Int32(int32max)},
                             Value::BigNumeric(BigNumericValue(int32max)))
@@ -1547,15 +1561,13 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInteger() {
       {{Uint32(0)}, Uint64(0)},
       {{Uint32(0)}, Float(0)},
       {{Uint32(0)}, Double(0)},
-      QueryParamsWithResult(
-          {Uint32(uint32max)},
-          Value::Numeric(NumericValue(uint32max)))
+      QueryParamsWithResult({Uint32(uint32max)},
+                            Value::Numeric(NumericValue(uint32max)))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
       QueryParamsWithResult({Uint32(0)}, Value::Numeric(NumericValue()))
           .WrapWithFeature(FEATURE_NUMERIC_TYPE),
-      QueryParamsWithResult(
-          {Uint32(uint32max)},
-          Value::BigNumeric(BigNumericValue(uint32max)))
+      QueryParamsWithResult({Uint32(uint32max)},
+                            Value::BigNumeric(BigNumericValue(uint32max)))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
       QueryParamsWithResult({Uint32(0)}, Value::BigNumeric(BigNumericValue()))
           .WrapWithFeature(FEATURE_BIGNUMERIC_TYPE),
@@ -2398,6 +2410,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCast() {
       GetFunctionTestsCastString(),
       GetFunctionTestsCastNumericString(),
       GetFunctionTestsCastBytesStringWithFormat(),
+      GetFunctionTestsCastDateTimestampStringWithFormat(),
   });
 }
 
@@ -2405,7 +2418,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSafeCast() {
   std::vector<QueryParamsWithResult> tests;
   for (const QueryParamsWithResult& test : GetFunctionTestsCast()) {
     ZETASQL_CHECK_GE(test.params().size(), 1) << test;
-    ZETASQL_CHECK_LE(test.params().size(), 2) << test;
+    ZETASQL_CHECK_LE(test.params().size(), 3) << test;
 
     using FeatureSet = QueryParamsWithResult::FeatureSet;
     using Result = QueryParamsWithResult::Result;

@@ -1,0 +1,128 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+// parse_tree_generated.h is generated from parse_tree_generated.h.template
+// by gen_parse_tree.py. It should never be #included directly. Include
+// parse_tree.h instead.
+
+
+
+#ifndef ZETASQL_PARSER_PARSE_TREE_GENERATED_H_
+#define ZETASQL_PARSER_PARSE_TREE_GENERATED_H_
+
+#include "zetasql/parser/ast_node.h"
+#include "zetasql/parser/parse_tree_decls.h"
+#include "zetasql/public/id_string.h"
+
+// NOLINTBEGIN(whitespace/line_length)
+
+namespace zetasql {
+
+# for node in nodes
+ # if node.comment
+{{node.comment}}
+ # endif
+class {{node.name}} {{node.class_final}}: public {{node.parent}} {
+ public:
+ # if node.is_abstract
+  explicit {{node.name}}(ASTNodeKind kind) : {{node.parent}}(kind) {}
+{{blank_line}}
+ # else
+  static constexpr ASTNodeKind kConcreteNodeKind = {{node.enum_name}};
+{{blank_line}}
+  {{node.name}}() : {{node.parent}}(kConcreteNodeKind) {}
+ # endif
+
+ # if not node.is_abstract
+  void Accept(ParseTreeVisitor* visitor, void* data) const override;
+  zetasql_base::StatusOr<VisitResult> Accept(
+      NonRecursiveParseTreeVisitor* visitor) const override;
+{{blank_line}}
+# endif
+
+# if node.use_custom_debug_string
+  std::string SingleNodeDebugString() const override;
+# endif
+
+ {# setters and getters for primitives #}
+ # if node.fields
+  # for field in node.fields
+   # if field.gen_setters_and_getters and not field.is_node_ptr and not field.is_vector
+{{blank_line}}
+  void set_{{field.name}}({{field.member_type}} {{field.name}}) { {{field.member_name}} = {{field.name}}; }
+  {{field.member_type}} {{field.name}}() const { return {{field.member_name}}; }
+   # endif
+  # endfor
+{{blank_line}}
+ # endif
+
+ {# getters for non-primitives scalars.. #}
+ # for field in node.fields
+  # if field.gen_setters_and_getters and field.is_node_ptr and not field.is_vector
+   # if field.comment
+{{field.comment}}
+   # endif
+  {{field.member_type}} {{field.name}}() const { return {{field.member_name}}; }
+  # endif
+ # endfor
+
+{# getters for non-primitive vectors.. #}
+ # for field in node.fields
+  # if field.gen_setters_and_getters and field.is_vector
+  const {{field.member_type}}& {{field.name}}() const {
+    return {{field.member_name}};
+  }
+  {{field.element_storage_type}} {{field.name}}(int i) const { return {{field.member_name}}[i]; }
+{{blank_line}}
+  # endif
+ # endfor
+
+ # if node.extra_defs
+{{node.extra_defs}}
+ # endif
+
+ # if node.fields
+{{blank_line}}
+ private:
+  # if node.gen_init_fields
+  void InitFields() final {
+    FieldLoader fl(this);
+   # for field in node.fields
+    # if field.is_node_ptr or field.is_vector
+     # if field.field_loader == 'REQUIRED'
+    fl.AddRequired(&{{field.member_name}});
+     # elif field.field_loader == 'OPTIONAL'
+    fl.AddOptional(&{{field.member_name}}, {{field.enum_name}});
+     # elif field.field_loader == 'REST_AS_REPEATED'
+    fl.AddRestAsRepeated(&{{field.member_name}});
+     # endif
+    # endif
+   # endfor
+  }
+{{blank_line}}
+  # endif
+  # for field in node.fields
+  {{field.member_type}} {{field.member_name}}{%if field.cpp_default%} = {{field.cpp_default}}{%endif%};
+  # endfor
+ # endif
+};
+
+# endfor
+
+}  // namespace zetasql
+// NOLINTEND
+#endif  // ZETASQL_PARSER_PARSE_TREE_GENERATED_H_
+{{blank_line}}

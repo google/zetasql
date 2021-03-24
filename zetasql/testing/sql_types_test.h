@@ -164,7 +164,8 @@ class ZetaSQLTypesTest : public ::testing::Test {
   const ArrayType* GetStructArrayType();
   const EnumType* GetTestEnumType();
   const EnumType* GetAnotherTestEnumType();
-  const ProtoType* GetKitchenSinkProtoType();
+  const ProtoType* GetKitchenSinkNestedProtoType();
+  const ProtoType* GetKitchenSinkNestedDatesProtoType();
   const StructType* GetSimpleStructType();
 
   // Returns the list of sample test types that includes all ZetaSQL simple
@@ -257,7 +258,8 @@ class ZetaSQLTypesTest : public ::testing::Test {
   const ArrayType* struct_array_type_ = nullptr;
   const EnumType*   enum_type_ = nullptr;
   const EnumType*   another_enum_type_ = nullptr;
-  const ProtoType*  kitchen_sink_proto_type_ = nullptr;
+  const ProtoType* kitchen_sink_nested_proto_type_ = nullptr;
+  const ProtoType* kitchen_sink_nested_dates_proto_type_ = nullptr;
   const StructType* simple_struct_type_ = nullptr;
 };
 

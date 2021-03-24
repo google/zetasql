@@ -344,6 +344,18 @@ static std::string ToStringImpl(
   ZETASQL_LOG(DFATAL) << "Invalid DeterminismLevel: " << level;
   return absl::StrCat("INVALID_DETERMINISM_LEVEL(", level, ")");
 }
+static std::string ToStringImpl(
+    ResolvedGeneratedColumnInfoEnums::StoredMode mode) {
+  switch (mode) {
+    case ResolvedGeneratedColumnInfoEnums::STORED:
+      return "STORED";
+    case ResolvedGeneratedColumnInfoEnums::STORED_VOLATILE:
+      return "STORED_VOLATILE";
+    default:
+      ZETASQL_LOG(DFATAL) << "Invalid StoredMode: " << mode;
+      return absl::StrCat("INVALID_STORED_MODE(", mode, ")");
+  }
+}
 
 // Most vector<std::string> fields are identifier paths so we format
 // the value that way by default.

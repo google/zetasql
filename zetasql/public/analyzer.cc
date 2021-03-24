@@ -24,11 +24,12 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/all_rewriters.h"
 #include "zetasql/analyzer/analyzer_impl.h"
 #include "zetasql/analyzer/anonymization_rewriter.h"
-#include "zetasql/analyzer/all_rewriters.h"
 #include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/analyzer/rewrite_resolved_ast.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
@@ -587,8 +588,8 @@ absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                 absl::string_view sql, Catalog* catalog,
                                 TypeFactory* type_factory,
                                 AnalyzerOutput& analyzer_output) {
-  return InternalRewriteResolvedAst(analyzer_options, AllRewriters(), sql,
-                                    catalog, type_factory, analyzer_output);
+  return RewriteResolvedAst(analyzer_options, AllRewriters(), sql, catalog,
+                            type_factory, analyzer_output);
 }
 
 }  // namespace zetasql

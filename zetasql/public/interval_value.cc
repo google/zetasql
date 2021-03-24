@@ -32,11 +32,9 @@
 
 namespace zetasql {
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(int64_t years,
-                                                        int64_t months,
-                                                        int64_t days, int64_t hours,
-                                                        int64_t minutes,
-                                                        int64_t seconds) {
+zetasql_base::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
+    int64_t years, int64_t months, int64_t days, int64_t hours, int64_t minutes,
+    int64_t seconds) {
   absl::Status status;
   int64_t year_months;
   if (!functions::Multiply(IntervalValue::kMonthsInYear, years, &year_months,
@@ -55,6 +53,29 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(int64_t years,
 
 size_t IntervalValue::HashCode() const {
   return absl::Hash<IntervalValue>()(*this);
+}
+
+void IntervalValue::SumAggregator::Add(IntervalValue value) {
+  months_ += value.get_months();
+  days_ += value.get_days();
+  nanos_ += FixedInt<64, 3>(value.get_nanos());
+}
+
+zetasql_base::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() const {
+  // It is unlikely that months/days will overflow int64_t, and that nanos will
+  // overflow int128 - but check it nevertheless.
+  if (months_ > std::numeric_limits<int64_t>::max() ||
+      months_ < std::numeric_limits<int64_t>::min() ||
+      days_ > std::numeric_limits<int64_t>::max() ||
+      days_ < std::numeric_limits<int64_t>::min() ||
+      nanos_ > FixedInt<64, 3>(FixedInt<64, 2>::max()) ||
+      nanos_ < FixedInt<64, 3>(FixedInt<64, 2>::min())) {
+    return absl::OutOfRangeError("Interval overflow during Sum operation");
+  }
+
+  return IntervalValue::FromMonthsDaysNanos(static_cast<int64_t>(months_),
+                                            static_cast<int64_t>(days_),
+                                            static_cast<__int128>(nanos_));
 }
 
 void IntervalValue::SerializeAndAppendToBytes(std::string* bytes) const {
@@ -81,7 +102,8 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::DeserializeFromBytes(
   ptr += sizeof(micros);
   int32_t days = zetasql_base::LittleEndian::ToHost32(*absl::bit_cast<int32_t*>(ptr));
   ptr += sizeof(days);
-  uint32_t months_nanos = zetasql_base::LittleEndian::ToHost32(*absl::bit_cast<uint32_t*>(ptr));
+  uint32_t months_nanos =
+      zetasql_base::LittleEndian::ToHost32(*absl::bit_cast<uint32_t*>(ptr));
   IntervalValue interval;
   interval.micros_ = micros;
   interval.days_ = days;
@@ -139,8 +161,54 @@ std::string IntervalValue::ToString() const {
   return result;
 }
 
+std::string IntervalValue::ToISO8601() const {
+  int64_t years = get_months() / 12;
+  int64_t months = get_months() % 12;
+  int64_t days = get_days();
+  __int128 total_nanos = get_nanos();
+  int64_t hours = total_nanos / kNanosInHour;
+  int64_t minutes = (total_nanos % kNanosInHour) / kNanosInMinute;
+  int64_t seconds = (total_nanos % kNanosInMinute) / kNanosInSecond;
+  int64_t subseconds = total_nanos % kNanosInSecond;
+
+  std::string result("P");
+  if (years != 0) absl::StrAppend(&result, years, "Y");
+  if (months != 0) absl::StrAppend(&result, months, "M");
+  if (days != 0) absl::StrAppend(&result, days, "D");
+  if (total_nanos != 0) absl::StrAppend(&result, "T");
+  if (hours != 0) absl::StrAppend(&result, hours, "H");
+  if (minutes != 0) absl::StrAppend(&result, minutes, "M");
+  if (seconds != 0 || subseconds != 0) {
+    if (subseconds == 0) {
+      absl::StrAppend(&result, seconds, "S");
+    } else {
+      if (seconds != 0) {
+        absl::StrAppend(&result, seconds, ".");
+      } else if (total_nanos < 0) {
+        absl::StrAppend(&result, "-0.");
+      } else {
+        absl::StrAppend(&result, "0.");
+      }
+      // Print fractions of a second without trailing zeros
+      if (subseconds < 0) subseconds = -subseconds;
+      for (int64_t factor :
+           {100000000, 10000000, 1000000, 100000, 10000, 1000, 100, 10, 1}) {
+        int64_t digit = subseconds / factor;
+        absl::StrAppend(&result, digit);
+        subseconds %= factor;
+        if (subseconds == 0) {
+          break;
+        }
+      }
+      absl::StrAppend(&result, "S");
+    }
+  }
+  if (result.size() == 1) absl::StrAppend(&result, "0Y");
+  return result;
+}
+
 zetasql_base::StatusOr<int64_t> NanosFromFractionDigits(absl::string_view input,
-                                              absl::string_view digits) {
+                                                absl::string_view digits) {
   int64_t nano_fractions;
   if (!absl::SimpleAtoi(digits, &nano_fractions)) {
     return MakeEvalError() << "Invalid interval literal '" << input << "'";
@@ -566,6 +634,70 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::FromInteger(
       return MakeEvalError() << "Invalid interval datetime field "
                              << functions::DateTimestampPart_Name(part);
   }
+}
+
+zetasql_base::StatusOr<int64_t> IntervalValue::Extract(
+    functions::DateTimestampPart part) const {
+  switch (part) {
+    case functions::YEAR:
+      return get_months() / kMonthsInYear;
+    case functions::MONTH:
+      return get_months() % kMonthsInYear;
+    case functions::DAY:
+      return get_days();
+    case functions::HOUR:
+      return get_nanos() / kNanosInHour;
+    case functions::MINUTE:
+      return (get_nanos() % kNanosInHour) / kNanosInMinute;
+    case functions::SECOND:
+      return (get_nanos() % kNanosInMinute) / kNanosInSecond;
+    case functions::MILLISECOND:
+      return (get_nanos() % kNanosInSecond) / kNanosInMilli;
+    case functions::MICROSECOND:
+      return (get_nanos() % kNanosInSecond) / kNanosInMicro;
+    case functions::NANOSECOND:
+      return (get_nanos() % kNanosInSecond);
+    default:
+      break;  // fall through
+  }
+
+  __int128 total_nanos = get_nanos();
+  bool negative_nanos = false;
+  if (total_nanos < 0) {
+    // Cannot overflow because valid range of nanos is smaller than most
+    // negative value.
+    total_nanos = -total_nanos;
+    negative_nanos = true;
+  }
+  int64_t value;
+  switch (part) {
+    case functions::HOUR:
+      value = total_nanos / kNanosInHour;
+      break;
+    case functions::MINUTE:
+      value = (total_nanos % kNanosInHour) / kNanosInMinute;
+      break;
+    case functions::SECOND:
+      value = (total_nanos % kNanosInMinute) / kNanosInSecond;
+      break;
+    case functions::MILLISECOND:
+      value = (total_nanos % kNanosInSecond) / kNanosInMilli;
+      break;
+    case functions::MICROSECOND:
+      value = (total_nanos % kNanosInMilli) / kNanosInMicro;
+      break;
+    case functions::NANOSECOND:
+      value = total_nanos % kNanosInMicro;
+      break;
+    default:
+      return absl::OutOfRangeError(
+          absl::StrFormat("Unsupported date part %s in EXTRACT FROM INTERVAL",
+                          functions::DateTimestampPart_Name(part)));
+  }
+  if (negative_nanos) {
+    value = -value;
+  }
+  return value;
 }
 
 std::ostream& operator<<(std::ostream& out, IntervalValue value) {

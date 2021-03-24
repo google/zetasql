@@ -16,6 +16,7 @@
 
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 

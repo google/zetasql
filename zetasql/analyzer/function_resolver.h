@@ -147,34 +147,20 @@ class FunctionResolver {
   // non-literal with respect to coercion). <return_null_on_error> indicates
   // whether the cast should return a NULL value of the <target_type> in case of
   // cast failures, which should only be set to true when using SAFE_CAST.
+  // <format> is the format string used for the conversion. It can be null.
+  // <time_zone> is used together with the format string when casting from/to
+  // timestamp type. It can be null. <type_params> holds the type parameters for
+  // the cast. If no type parameters exist, <type_params> should be an empty
+  // TypeParameters object.
   //
   // Note: <ast_location> is expected to refer to the location of <argument>,
   // and would be more appropriate as type ASTExpression, though this would
   // require refactoring some callers.
   absl::Status AddCastOrConvertLiteral(
-      const ASTNode* ast_location,
-      const Type* target_type,
-      const ResolvedScan* scan,  // May be null
-      bool set_has_explicit_type,
-      bool return_null_on_error,
-      std::unique_ptr<const ResolvedExpr>* argument) const;
-
-  // Same as the previous method, but includes <format>, which is the format
-  // string used for the conversion. It can be null.
-  absl::Status AddCastOrConvertLiteral(
-      const ASTNode* ast_location, const Type* target_type,
-      std::unique_ptr<const ResolvedExpr> format,
-      const ResolvedScan* scan,  // May be null
-      bool set_has_explicit_type, bool return_null_on_error,
-      std::unique_ptr<const ResolvedExpr>* argument) const;
-
-  // Same as the previous method, but includes <time_zone>, which is used
-  // together with the format string when casting from/to timestamp type. It can
-  // be null.
-  absl::Status AddCastOrConvertLiteral(
       const ASTNode* ast_location, const Type* target_type,
       std::unique_ptr<const ResolvedExpr> format,
       std::unique_ptr<const ResolvedExpr> time_zone,
+      const TypeParameters& type_params,
       const ResolvedScan* scan,  // May be null
       bool set_has_explicit_type, bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* argument) const;
@@ -205,7 +191,9 @@ class FunctionResolver {
   // <arg_overrides>. See
   // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
   // resolved.
-  bool SignatureMatches(
+  // Returns non-OK status only for internal errors, like ZETASQL_RET_CHECK failures.
+  // E.g., the ones in FunctionSignatureMatcher::GetConcreteArguments.
+  zetasql_base::StatusOr<bool> SignatureMatches(
       const std::vector<const ASTNode*>& arg_ast_nodes,
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, bool allow_argument_coercion,
@@ -257,7 +245,15 @@ class FunctionResolver {
   // the repeated arguments part. Indexes to repeated arguments appear
   // <num_repeated_args_repetitions> times, while indexes to required and
   // optional arguments appear exactly once in the list, even for the omitted
-  // optional arguments (which have a <call_arg_index> of -1).
+  // optional arguments (whose index values depending on the
+  // <always_include_omitted_named_arguments_in_index_mapping> parameter below).
+  //
+  // <always_include_omitted_named_arguments_in_index_mapping> controls how to
+  // deal with trailing omitted arguments. When false and <named_arguments> is
+  // empty, trailing arguments in the signature that are omitted in the call and
+  // have no default values will also be omitted in the output <index_mapping>.
+  // Otherwise, their corresponding entries are included in <index_mapping>
+  // with <call_arg_index> as -1.
   absl::Status GetFunctionArgumentIndexMappingPerSignature(
       const std::string& function_name, const FunctionSignature& signature,
       const ASTNode* ast_location,
@@ -265,31 +261,61 @@ class FunctionResolver {
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
           named_arguments,
       int num_repeated_args_repetitions,
+      bool always_include_omitted_named_arguments_in_index_mapping,
       std::vector<ArgIndexPair>* index_mapping) const;
 
-  // Reorders the given input argument representations <arg_locations>,
-  // <input_argument_types>, <resolved_args> and <resolved_tvf_args> with the
-  // given <index_mapping> which is the output of
-  // GetFunctionArgumentIndexMappingPerSignature.
+  // Reorders the given <input_argument_types> with respect to the given
+  // <index_mapping> which is the output of
+  // GetFunctionArgumentIndexMappingPerSignature, and also fills in default
+  // values for omitted arguments.
   //
-  // All of the <arg_locations>, <input_argument_types>, <resolved_args> and
-  // <resolved_tvf_args> are optional. If provided, they represent the
-  // arguments provided to the original function call (i.e., matches the order
-  // of the input to GetFunctionArgumentIndexMappingPerSignature).
+  // As an input, <input_argument_types> represents the arguments provided to
+  // the original function call (i.e., matches the order of the input to
+  // GetFunctionArgumentIndexMappingPerSignature).
+  //
+  // Upon success, this function reorders the provided <input_argument_types>
+  // list, so that the elements match the argument order in the matching
+  // signature. For any optional arguments whose values are not provided
+  // (either positionally or named) the function may inject suitable default
+  // values into the list:
+  // - If a default value is present in the FunctionArgumentTypeOptions
+  //   corresponding to the omitted argument, this default value is injected.
+  // - Otherwise, a NULL value for this omitted argument might be injected.
+  //
+  // Note that a NULL value is only injected for omitted optional arguments that
+  // appear before a named argument or an argument with a default, and are not
+  // injected otherwise. The NULL injection is a temporary workaround to
+  // represent omitted arguments that do not have default values. This behavior
+  // is subject to change in the near future.
+  //
+  static absl::Status
+  ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
+      const FunctionSignature& signature,
+      absl::Span<const ArgIndexPair> index_mapping,
+      std::vector<InputArgumentType>* input_argument_types);
+
+  // Reorders the given input argument representations <arg_locations>,
+  // <resolved_args> and <resolved_tvf_args> with the given <index_mapping>
+  // which is the output of
+  // GetFunctionArgumentIndexMappingPerSignature and the <input_argument_types>
+  // which is the output of
+  // ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues.
+  //
+  // All of the <arg_locations>, <resolved_args> and <resolved_tvf_args> are
+  // optional. If provided, they represent the arguments provided to the
+  // original function call (i.e., matches the order of the input to
+  // GetFunctionArgumentIndexMappingPerSignature).
   //
   // Upon success, this function reorders the provided lists, so that they match
   // the argument order in the matching signature. For any optional arguments
   // whose values are not provided (either positionally or named) the function
-  // may inject suitable default values in the lists. Currently this function
-  // injects a NULL as the default value for such a missing argument.
-  //
-  static absl::Status ReorderArgumentsPerIndexMapping(
-      absl::string_view function_name,
-      const FunctionSignature& signature,
-      absl::Span<const ArgIndexPair> index_mapping,
-      const ASTNode* ast_location,
+  // may inject suitable default values in the lists, which are already
+  // available in <input_argument_types>.
+  static absl::Status ReorderArgumentExpressionsPerIndexMapping(
+      absl::string_view function_name, const FunctionSignature& signature,
+      absl::Span<const ArgIndexPair> index_mapping, const ASTNode* ast_location,
+      const std::vector<InputArgumentType>& input_argument_types,
       std::vector<const ASTNode*>* arg_locations,
-      std::vector<InputArgumentType>* input_argument_types,
       std::vector<std::unique_ptr<const ResolvedExpr>>* resolved_args,
       std::vector<ResolvedTVFArg>* resolved_tvf_args);
 
@@ -309,23 +335,28 @@ class FunctionResolver {
   // each of <named_arguments> comprises a pointer to the ASTNamedArgument
   // object that the parser produced for this named argument reference and also
   // an integer identifying the corresponding argument type by indexing into
-  // <input_arguments>.
+  // the passed-in list in <input_arguments>.
   // <name_scope> is used to resolve lambda. Resolved lambdas are put in
   // <arg_overrides>. See
   // <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how lambda is
   // resolved.
+  // <input_arguments> is an in-out parameter. As an input, it represents the
+  // arguments provided to the function call to be resolved. As an output, it
+  // contains the argument list reordered to match the returned signature. For
+  // any optional arguments whose values are not provided (either positionally
+  // or named) elements are also injected into this list.
   // <arg_index_mapping> is the output of
   // GetFunctionArgumentIndexMappingPerSignature against the matching signature,
   // so that the caller can reorder the input argument list representations
   // accordingly.
   zetasql_base::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function,
-      const std::vector<InputArgumentType>& input_arguments,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
       const std::vector<std::pair<const ASTNamedArgument*, int>>&
           named_arguments,
       const NameScope* name_scope,
+      std::vector<InputArgumentType>* input_arguments,
       std::vector<FunctionArgumentOverride>* arg_overrides,
       std::vector<ArgIndexPair>* arg_index_mapping) const;
 

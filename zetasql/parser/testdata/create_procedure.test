@@ -1,0 +1,547 @@
+# valid minimum statement
+CREATE PROCEDURE procedure_name()
+BEGIN
+END;
+--
+CreateProcedureStatement [0-43]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [31-33]
+  Script [34-43]
+    StatementList [34-43]
+      BeginEndBlock [34-43]
+        StatementList [39-39]
+--
+CREATE PROCEDURE procedure_name()
+BEGIN
+END
+==
+
+# valid mininum statement with all optional clause
+CREATE OR REPLACE TEMP PROCEDURE IF NOT EXISTS procedure_name()
+OPTIONS()
+BEGIN
+END;
+--
+CreateProcedureStatement(is_temp, is_or_replace, is_if_not_exists) [0-83]
+  PathExpression [47-61]
+    Identifier(procedure_name) [47-61]
+  FunctionParameters [61-63]
+  OptionsList [71-73]
+  Script [74-83]
+    StatementList [74-83]
+      BeginEndBlock [74-83]
+        StatementList [79-79]
+--
+CREATE OR REPLACE TEMP PROCEDURE IF NOT EXISTS procedure_name()
+OPTIONS
+  ()
+BEGIN
+END
+==
+
+# valid statement with options
+CREATE PROCEDURE procedure_name()
+OPTIONS(a=1, b="2")
+BEGIN
+END;
+--
+CreateProcedureStatement [0-63]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [31-33]
+  OptionsList [41-53]
+    OptionsEntry [42-45]
+      Identifier(a) [42-43]
+      IntLiteral(1) [44-45]
+    OptionsEntry [47-52]
+      Identifier(b) [47-48]
+      StringLiteral("2") [49-52]
+  Script [54-63]
+    StatementList [54-63]
+      BeginEndBlock [54-63]
+        StatementList [59-59]
+--
+CREATE PROCEDURE procedure_name()
+OPTIONS
+  (a = 1, b = "2")
+BEGIN
+END
+==
+
+# valid statement with multiple arguments
+CREATE PROCEDURE procedure_name(
+  param_a string,
+  param_b int32,
+  param_c numeric,
+  param_d table<int32, int32>,
+  param_e ANY TYPE,
+  OUT param_f ANY TYPE,
+  param_g ANY TABLE,
+  INOUT param_h ANY TABLE
+  )
+BEGIN
+END;
+--
+CreateProcedureStatement [0-222]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [31-212]
+    FunctionParameter [32-49]
+      Identifier(param_a) [35-42]
+      SimpleType [43-49]
+        PathExpression [43-49]
+          Identifier(string) [43-49]
+    FunctionParameter [50-66]
+      Identifier(param_b) [53-60]
+      SimpleType [61-66]
+        PathExpression [61-66]
+          Identifier(int32) [61-66]
+    FunctionParameter [67-85]
+      Identifier(param_c) [70-77]
+      SimpleType [78-85]
+        PathExpression [78-85]
+          Identifier(numeric) [78-85]
+    FunctionParameter [86-116]
+      Identifier(param_d) [89-96]
+      TVFSchema [97-116]
+        TVFSchemaColumn [103-108]
+          SimpleType [103-108]
+            PathExpression [103-108]
+              Identifier(int32) [103-108]
+        TVFSchemaColumn [110-115]
+          SimpleType [110-115]
+            PathExpression [110-115]
+              Identifier(int32) [110-115]
+    FunctionParameter [117-136]
+      Identifier(param_e) [120-127]
+      TemplatedParameterType [128-136]
+    FunctionParameter(mode=OUT) [140-160]
+      Identifier(param_f) [144-151]
+      TemplatedParameterType [152-160]
+    FunctionParameter [161-181]
+      Identifier(param_g) [164-171]
+      TemplatedParameterType [172-181]
+    FunctionParameter(mode=INOUT) [185-208]
+      Identifier(param_h) [191-198]
+      TemplatedParameterType [199-208]
+  Script [213-222]
+    StatementList [213-222]
+      BeginEndBlock [213-222]
+        StatementList [218-218]
+--
+CREATE PROCEDURE procedure_name(param_a string, param_b int32, param_c numeric, param_d TABLE< int32,
+int32 >, param_e ANY TYPE, OUT param_f ANY TYPE, param_g ANY TABLE, INOUT param_h ANY TABLE)
+BEGIN
+END
+==
+
+# valid statement with procedure body
+CREATE PROCEDURE procedure_name(OUT param_a string)
+BEGIN
+  DECLARE a int32;
+  SET a = 1;
+  SET param_a = "test";
+END;
+--
+CreateProcedureStatement [0-117]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [31-51]
+    FunctionParameter(mode=OUT) [32-50]
+      Identifier(param_a) [36-43]
+      SimpleType [44-50]
+        PathExpression [44-50]
+          Identifier(string) [44-50]
+  Script [52-117]
+    StatementList [52-117]
+      BeginEndBlock [52-117]
+        StatementList [60-114]
+          VariableDeclaration [60-75]
+            IdentifierList [68-69]
+              Identifier(a) [68-69]
+            SimpleType [70-75]
+              PathExpression [70-75]
+                Identifier(int32) [70-75]
+          SingleAssignment [79-88]
+            Identifier(a) [83-84]
+            IntLiteral(1) [87-88]
+          SingleAssignment [92-112]
+            Identifier(param_a) [96-103]
+            StringLiteral("test") [106-112]
+--
+CREATE PROCEDURE procedure_name(OUT param_a string)
+BEGIN
+  DECLARE a int32 ;
+  SET a = 1 ;
+  SET param_a = "test" ;
+END
+==
+
+# valid parameter with empty mode and backtick-quoted parameter name
+CREATE PROCEDURE procedure_name (`OUT` int32)
+BEGIN
+END;
+--
+CreateProcedureStatement [0-55]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-45]
+    FunctionParameter [33-44]
+      Identifier(`OUT`) [33-38]
+      SimpleType [39-44]
+        PathExpression [39-44]
+          Identifier(int32) [39-44]
+  Script [46-55]
+    StatementList [46-55]
+      BeginEndBlock [46-55]
+        StatementList [51-51]
+--
+CREATE PROCEDURE procedure_name(`OUT` int32)
+BEGIN
+END
+==
+
+# valid parameter with mode and "OUT" as parameter name
+CREATE PROCEDURE procedure_name (OUT OUT int32)
+BEGIN
+END;
+--
+CreateProcedureStatement [0-57]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-47]
+    FunctionParameter(mode=OUT) [33-46]
+      Identifier(`OUT`) [37-40]
+      SimpleType [41-46]
+        PathExpression [41-46]
+          Identifier(int32) [41-46]
+  Script [48-57]
+    StatementList [48-57]
+      BeginEndBlock [48-57]
+        StatementList [53-53]
+--
+CREATE PROCEDURE procedure_name(OUT `OUT` int32)
+BEGIN
+END
+==
+
+# valid parameter with IN/OUT/INOUT and empty mode
+CREATE PROCEDURE procedure_name ({{IN|OUT|INOUT|}} param_a int32)
+BEGIN
+END;
+--
+ALTERNATION GROUP: IN
+--
+CreateProcedureStatement [0-60]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-50]
+    FunctionParameter(mode=IN) [33-49]
+      Identifier(param_a) [36-43]
+      SimpleType [44-49]
+        PathExpression [44-49]
+          Identifier(int32) [44-49]
+  Script [51-60]
+    StatementList [51-60]
+      BeginEndBlock [51-60]
+        StatementList [56-56]
+--
+CREATE PROCEDURE procedure_name(IN param_a int32)
+BEGIN
+END
+--
+ALTERNATION GROUP: OUT
+--
+CreateProcedureStatement [0-61]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-51]
+    FunctionParameter(mode=OUT) [33-50]
+      Identifier(param_a) [37-44]
+      SimpleType [45-50]
+        PathExpression [45-50]
+          Identifier(int32) [45-50]
+  Script [52-61]
+    StatementList [52-61]
+      BeginEndBlock [52-61]
+        StatementList [57-57]
+--
+CREATE PROCEDURE procedure_name(OUT param_a int32)
+BEGIN
+END
+--
+ALTERNATION GROUP: INOUT
+--
+CreateProcedureStatement [0-63]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-53]
+    FunctionParameter(mode=INOUT) [33-52]
+      Identifier(param_a) [39-46]
+      SimpleType [47-52]
+        PathExpression [47-52]
+          Identifier(int32) [47-52]
+  Script [54-63]
+    StatementList [54-63]
+      BeginEndBlock [54-63]
+        StatementList [59-59]
+--
+CREATE PROCEDURE procedure_name(INOUT param_a int32)
+BEGIN
+END
+--
+ALTERNATION GROUP: <empty>
+--
+CreateProcedureStatement [0-58]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-48]
+    FunctionParameter [33-47]
+      Identifier(param_a) [34-41]
+      SimpleType [42-47]
+        PathExpression [42-47]
+          Identifier(int32) [42-47]
+  Script [49-58]
+    StatementList [49-58]
+      BeginEndBlock [49-58]
+        StatementList [54-54]
+--
+CREATE PROCEDURE procedure_name(param_a int32)
+BEGIN
+END
+==
+
+# Procedure name being OUT
+CREATE PROCEDURE OUT(param_1 INT32)
+BEGIN
+END;
+--
+CreateProcedureStatement [0-45]
+  PathExpression [17-20]
+    Identifier(`OUT`) [17-20]
+  FunctionParameters [20-35]
+    FunctionParameter [21-34]
+      Identifier(param_1) [21-28]
+      SimpleType [29-34]
+        PathExpression [29-34]
+          Identifier(INT32) [29-34]
+  Script [36-45]
+    StatementList [36-45]
+      BeginEndBlock [36-45]
+        StatementList [41-41]
+--
+CREATE PROCEDURE `OUT`(param_1 INT32)
+BEGIN
+END
+==
+
+# procedure with return statement
+CREATE PROCEDURE procedure_name (param_a int32)
+BEGIN
+  IF param_a > 0 THEN
+    RETURN;
+  END IF;
+END;
+--
+CreateProcedureStatement [0-101]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [32-47]
+    FunctionParameter [33-46]
+      Identifier(param_a) [33-40]
+      SimpleType [41-46]
+        PathExpression [41-46]
+          Identifier(int32) [41-46]
+  Script [48-101]
+    StatementList [48-101]
+      BeginEndBlock [48-101]
+        StatementList [56-98]
+          IfStatement [56-96]
+            BinaryExpression(>) [59-70]
+              PathExpression [59-66]
+                Identifier(param_a) [59-66]
+              IntLiteral(0) [69-70]
+            StatementList [80-90]
+              ReturnStatement [80-86]
+--
+CREATE PROCEDURE procedure_name(param_a int32)
+BEGIN
+  IF param_a > 0 THEN
+    RETURN ;
+  END IF ;
+END
+==
+
+# invalid statement missing procedure name
+CREATE PROCEDURE ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:18]
+CREATE PROCEDURE ;
+                 ^
+==
+
+# invalid statement missing argument list
+CREATE PROCEDURE procedure_name;
+--
+ERROR: Syntax error: Expected "(" or "." but got ";" [at 1:32]
+CREATE PROCEDURE procedure_name;
+                               ^
+==
+
+# invalid statement missing body
+CREATE PROCEDURE procedure_name();
+--
+ERROR: Syntax error: Expected keyword BEGIN but got ";" [at 1:34]
+CREATE PROCEDURE procedure_name();
+                                 ^
+==
+
+# invalid statement body is not valid
+CREATE PROCEDURE procedure_name()
+BEGIN
+SELEC 1;
+END;
+--
+ERROR: Syntax error: Expected keyword END but got identifier "SELEC" [at 3:1]
+SELEC 1;
+^
+==
+
+# invalid statement missing parameter name
+CREATE PROCEDURE procedure_name(OUT)
+BEGIN
+END;
+--
+ERROR: Syntax error: Unexpected ")" [at 1:36]
+CREATE PROCEDURE procedure_name(OUT)
+                                   ^
+==
+
+# invalid statement missing type
+CREATE PROCEDURE procedure_name(param_name_without_type)
+BEGIN
+END;
+--
+ERROR: Syntax error: Unexpected end of parameter. Parameters should be in the format [<parameter mode>] <parameter name> <type>. If IN/OUT/INOUT is intended to be the name of a parameter, it must be escaped with backticks [at 1:56]
+CREATE PROCEDURE procedure_name(param_name_without_type)
+                                                       ^
+
+==
+
+# invalid statement missing END
+CREATE PROCEDURE procedure_name()
+BEGIN
+--
+ERROR: Syntax error: Expected keyword END but got end of statement [at 2:6]
+BEGIN
+     ^
+==
+
+# invalid parameter missing parameter name
+CREATE PROCEDURE procedure_name( OUT int32 );
+--
+ERROR: Syntax error: Unexpected end of parameter. Parameters should be in the format [<parameter mode>] <parameter name> <type>. If IN/OUT/INOUT is intended to be the name of a parameter, it must be escaped with backticks [at 1:44]
+CREATE PROCEDURE procedure_name( OUT int32 );
+                                           ^
+==
+
+# invalid parameter missing parameter name
+CREATE PROCEDURE procedure_name(OUT int32, param_a int32 );
+--
+ERROR: Syntax error: Unexpected end of parameter. Parameters should be in the format [<parameter mode>] <parameter name> <type>. If IN/OUT/INOUT is intended to be the name of a parameter, it must be escaped with backticks [at 1:42]
+CREATE PROCEDURE procedure_name(OUT int32, param_a int32 );
+                                         ^
+==
+
+# invalid parameter missing parameter name
+CREATE PROCEDURE procedure_name(OUT TABLE<int32>);
+--
+ERROR: Syntax error: Unexpected "<" [at 1:42]
+CREATE PROCEDURE procedure_name(OUT TABLE<int32>);
+                                         ^
+==
+
+# Script with multiple CREATE PROCEDURE statements
+[mode=script]
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT 1;
+END;
+
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT 1;
+END;
+--
+Script [0-115]
+  StatementList [0-115]
+    CreateProcedureStatement [0-55]
+      PathExpression [17-31]
+        Identifier(procedure_name) [17-31]
+      FunctionParameters [31-33]
+      Script [34-55]
+        StatementList [34-55]
+          BeginEndBlock [34-55]
+            StatementList [42-52]
+              QueryStatement [42-50]
+                Query [42-50]
+                  Select [42-50]
+                    SelectList [49-50]
+                      SelectColumn [49-50]
+                        IntLiteral(1) [49-50]
+    CreateProcedureStatement [58-113]
+      PathExpression [75-89]
+        Identifier(procedure_name) [75-89]
+      FunctionParameters [89-91]
+      Script [92-113]
+        StatementList [92-113]
+          BeginEndBlock [92-113]
+            StatementList [100-110]
+              QueryStatement [100-108]
+                Query [100-108]
+                  Select [100-108]
+                    SelectList [107-108]
+                      SelectColumn [107-108]
+                        IntLiteral(1) [107-108]
+--
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT
+    1
+  ;
+END
+;
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT
+    1
+  ;
+END
+;
+==
+
+CREATE PROCEDURE procedure_name()
+BEGIN
+  DECLARE ABC INTERVAL;
+END;
+--
+CreateProcedureStatement [0-67]
+  PathExpression [17-31]
+    Identifier(procedure_name) [17-31]
+  FunctionParameters [31-33]
+  Script [34-67]
+    StatementList [34-67]
+      BeginEndBlock [34-67]
+        StatementList [42-64]
+          VariableDeclaration [42-62]
+            IdentifierList [50-53]
+              Identifier(ABC) [50-53]
+            SimpleType [54-62]
+              PathExpression [54-62]
+                Identifier(`INTERVAL`) [54-62]
+--
+CREATE PROCEDURE procedure_name()
+BEGIN
+  DECLARE ABC INTERVAL ;
+END

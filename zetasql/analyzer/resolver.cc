@@ -17,6 +17,7 @@
 #include "zetasql/analyzer/resolver.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <set>
 #include <utility>
@@ -99,8 +100,9 @@ void Resolver::Reset(absl::string_view sql) {
   // generated_column_cycle_detector_ contains a pointer to a local object, so
   // there is no need to deallocate.
   generated_column_cycle_detector_ = nullptr;
-  analyzing_stored_expression_columns_ = false;
+  analyzing_nonvolatile_stored_expression_columns_ = false;
   analyzing_check_constraint_expression_ = false;
+  column_default_expression_validator_.reset();
   unique_deprecation_warnings_.clear();
   deprecation_warnings_.clear();
   function_argument_info_ = nullptr;
@@ -372,7 +374,8 @@ absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
   ZETASQL_RETURN_IF_ERROR(ParseType(type_name, analyzer_options_.GetParserOptions(),
                             &parser_output));
   ZETASQL_RETURN_IF_ERROR(ResolveType(parser_output->type(), type));
-  ZETASQL_ASSIGN_OR_RETURN(*type_params, ResolveTypeParameters(*parser_output->type()));
+  ZETASQL_ASSIGN_OR_RETURN(*type_params,
+                   ResolveTypeParameters(*parser_output->type(), **type));
   return absl::OkStatus();
 }
 
@@ -630,10 +633,11 @@ absl::Status Resolver::ResolvePathExpressionAsType(
   const std::vector<std::string> identifier_path =
       path_expr->ToIdentifierVector();
 
-  // Check for SimpleTypes.
+  // Fast-path check for builtin SimpleTypes. If we do not find the name here,
+  // then we will try to look up the type name in <catalog_>.
   if (identifier_path.size() == 1) {
-    TypeKind type_kind =
-        Type::GetTypeKindIfSimple(identifier_path[0], language());
+    TypeKind type_kind = Type::ResolveBuiltinTypeNameToKindIfSimple(
+        identifier_path[0], language());
     if (type_kind != TYPE_UNKNOWN) {
       *resolved_type = type_factory_->MakeSimpleType(type_kind);
       ZETASQL_DCHECK((*resolved_type)->IsSupportedType(language()))
@@ -647,24 +651,22 @@ absl::Status Resolver::ResolvePathExpressionAsType(
     single_name = absl::StrJoin(path_expr->ToIdentifierVector(), ".");
   }
 
-  // Named types are ENUM and PROTO, which are not available in external mode.
-  if (product_mode() == PRODUCT_EXTERNAL) {
+  const absl::Status status = catalog_->FindType(
+      (is_single_identifier ? std::vector<std::string>{single_name}
+                            : identifier_path),
+      resolved_type, analyzer_options_.find_options());
+  if (status.code() == absl::StatusCode::kNotFound ||
+      // TODO: Ideally, Catalogs should not include unsupported types.
+      // As such, we should remove the IsSupportedType() check. But we need to
+      // verify with engines to ensure they do not include unsupported types in
+      // their Catalogs before removing this check.
+      (status.ok() && !(*resolved_type)->IsSupportedType(language()))) {
     return MakeSqlErrorAt(path_expr)
            << "Type not found: "
            << (is_single_identifier ? ToIdentifierLiteral(single_name)
                                     : path_expr->ToIdentifierPathString());
   }
 
-  const absl::Status status = catalog_->FindType(
-      (is_single_identifier ? std::vector<std::string>{single_name}
-                            : identifier_path),
-      resolved_type, analyzer_options_.find_options());
-  if (status.code() == absl::StatusCode::kNotFound) {
-    return MakeSqlErrorAt(path_expr)
-           << "Type not found: "
-           << (is_single_identifier ? ToIdentifierLiteral(single_name)
-                                    : path_expr->ToIdentifierPathString());
-  }
   return status;
 }
 
@@ -773,11 +775,11 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
              << expected_type->ShortTypeName(product_mode());
     }
 
-    ZETASQL_RETURN_IF_ERROR(
-        function_resolver_->AddCastOrConvertLiteral(
-            ast_value, expected_type, nullptr /* scan */,
-            false /* set_has_explicit_type */, false /* return_null_on_error */,
-            &resolved_expr));
+    ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
+        ast_value, expected_type, /*format=*/nullptr, /*time_zone=*/nullptr,
+        TypeParameters(), /*scan=*/nullptr,
+        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+        &resolved_expr));
   }
 
   option_list->push_back(
@@ -818,6 +820,86 @@ absl::Status Resolver::ResolveHintAndAppend(
         hints));
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveTableAndColumnInfoAndAppend(
+    const ASTTableAndColumnInfo* table_and_column_info,
+    std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>*
+        resolved_table_and_column_info_list) {
+  const Table* table;
+  ZETASQL_RETURN_IF_ERROR(FindTable(table_and_column_info->table_name(), &table));
+  ZETASQL_RET_CHECK_NE(table, nullptr);
+  // TODO: to support a value table.
+  if (table->IsValueTable()) {
+    return MakeSqlErrorAt(table_and_column_info->table_name())
+           << "ANALYZE is not supported on a value table "
+           << table_and_column_info->table_name()->ToIdentifierPathString()
+           << " yet";
+  }
+  for (int i = 0; i < resolved_table_and_column_info_list->size(); i++) {
+    if (resolved_table_and_column_info_list->at(i)->table() == table) {
+      return MakeSqlErrorAt(table_and_column_info->table_name())
+             << "The ANALYZE statement allows each table to be specified only "
+                "once, but found duplicate table "
+             << table_and_column_info->table_name()->ToIdentifierPathString();
+    }
+  }
+  if (table_and_column_info->column_list() == nullptr) {
+    auto table_info = MakeResolvedTableAndColumnInfo(table);
+    resolved_table_and_column_info_list->push_back(std::move(table_info));
+    return absl::OkStatus();
+  }
+  absl::flat_hash_set<const Column*> column_set;
+  std::set<std::string, zetasql_base::StringCaseLess> column_names;
+  for (const ASTIdentifier* column_identifier :
+       table_and_column_info->column_list()->identifiers()) {
+    const IdString column_name = column_identifier->GetAsIdString();
+
+    const Column* column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr) {
+      return MakeSqlErrorAt(table_and_column_info)
+             << "Column not found: " << column_name;
+    }
+    // TODO: Support pseudo column.
+    if (column->IsPseudoColumn()) {
+      return MakeSqlErrorAt(table_and_column_info)
+             << "Cannot ANALYZE pseudo-column " << column_name;
+    }
+    if (!column_names.insert(column_name.ToString()).second) {
+      return MakeSqlErrorAt(column_identifier)
+             << "The table column list of an ANALYZE statement can only "
+                "contain each column once, but found duplicate column "
+             << column_name;
+    }
+    column_set.insert(column);
+  }
+
+  std::vector<int> column_index_list;
+  column_index_list.reserve(column_set.size());
+  for (int i = 0; i < table->NumColumns(); i++) {
+    if (column_set.contains(table->GetColumn(i))) {
+      column_index_list.push_back(i);
+    }
+  }
+  auto table_and_column_index = MakeResolvedTableAndColumnInfo(table);
+  table_and_column_index->set_column_index_list(column_index_list);
+  resolved_table_and_column_info_list->push_back(
+      std::move(table_and_column_index));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveTableAndColumnInfoList(
+    const ASTTableAndColumnInfoList* table_and_column_info_list,
+    std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>*
+        resolved_table_and_column_info_list) {
+  if (table_and_column_info_list != nullptr) {
+    for (const ASTTableAndColumnInfo* table_and_column_info :
+         table_and_column_info_list->table_and_column_info_entries()) {
+      ZETASQL_RETURN_IF_ERROR(ResolveTableAndColumnInfoAndAppend(
+          table_and_column_info, resolved_table_and_column_info_list));
+    }
+  }
   return absl::OkStatus();
 }
 

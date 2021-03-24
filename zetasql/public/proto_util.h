@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_PROTO_UTIL_H_
 #define ZETASQL_PUBLIC_PROTO_UTIL_H_
 
+#include <cstdint>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
@@ -245,16 +246,16 @@ bool IsProtoMap(const Type* type);
 // A variant containing all the possible value types of a proto map key.
 using MapKeyVariant = absl::variant<bool, int64_t, uint64_t, std::string>;
 
-// Fills output with a logical view of the proto2 map in array_of_map_entry. The
-// key is the extracted key of the map, and the value is a pointer to the last
-// value in the array that has that key. If for any reason the map can't be
-// constructed (e.g. gsql_array isn't a proto2 map, any entry is corrupt or
-// unparseable) returns false.
+// Copies the elements of array_of_map_entry into the vector output. The first
+// element of each pair is the key, the second is the value. Note that
+// duplicate keys are not eliminated during this function call. key_type
+// or value_type may be null, in which case the Values of that element of each
+// pair will be invalid.
 //
 // REQUIRES: IsProtoMap(array_of_map_entry) is true.
 absl::Status ParseProtoMap(const Value& array_of_map_entry,
-                           google::protobuf::DynamicMessageFactory& factory,
-                           absl::flat_hash_map<MapKeyVariant, Value>& output);
+                           const Type* key_type, const Type* value_type,
+                           std::vector<std::pair<Value, Value>>& output);
 
 }  // namespace zetasql
 

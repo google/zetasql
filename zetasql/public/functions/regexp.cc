@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <cstdint>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/utf_util.h"
@@ -190,7 +191,8 @@ bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
     }
   }
   // No more input - next call to ExtractAllNext will return false.
-  if (extract_all_position_ >= static_cast<int64_t>(extract_all_input_.size())) {
+  if (extract_all_position_ >=
+      static_cast<int64_t>(extract_all_input_.size())) {
     last_match_ = true;
   }
   return true;
@@ -230,7 +232,7 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) {
   ExtractAllReset(str);
   absl::string_view next_match;
   for (int64_t current_index = 0; current_index < options.occurrence_index;
-    ++current_index) {
+       ++current_index) {
     if (!ExtractAllNext(&next_match, error)) {
       return error->ok();
     }
@@ -344,9 +346,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
   return true;
 }
 
-void RegExp::SetMaxOutSize(int32_t size) {
-  max_out_size_ = size;
-}
+void RegExp::SetMaxOutSize(int32_t size) { max_out_size_ = size; }
 
 bool RegExp::Rewrite(const absl::string_view rewrite,
                      const std::vector<absl::string_view>& groups,

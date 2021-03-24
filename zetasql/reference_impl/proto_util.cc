@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/proto_util.h"
 
+#include <cstdint>
 #include <string>
 
 #include "zetasql/base/logging.h"
@@ -108,16 +109,16 @@ absl::Status ProtoUtil::CheckIsSupportedFieldFormat(
 
 // Takes a Value of TYPE_TIMESTAMP and produces an int64_t result adjusted
 // appropriately given the <format> (seconds, millis, micros, nanos).
-static absl::Status TimestampValueToAdjustedInt64(
-    FieldFormat::Format format, const Value& timestamp,
-    int64_t* adjusted_int64) {
+static absl::Status TimestampValueToAdjustedInt64(FieldFormat::Format format,
+                                                  const Value& timestamp,
+                                                  int64_t* adjusted_int64) {
   ZETASQL_RET_CHECK(timestamp.type()->IsTimestamp());
   absl::Status status;
   const int64_t micros = timestamp.ToUnixMicros();
   switch (format) {
     case FieldFormat::TIMESTAMP_SECONDS:
       if (!functions::Divide<int64_t>(micros, int64_t{1000000}, adjusted_int64,
-                                    &status)) {
+                                      &status)) {
         return status;
       }
       if (micros < 0 && micros % 1000000LL != 0) {
@@ -126,7 +127,7 @@ static absl::Status TimestampValueToAdjustedInt64(
       break;
     case FieldFormat::TIMESTAMP_MILLIS:
       if (!functions::Divide<int64_t>(micros, int64_t{1000}, adjusted_int64,
-                                    &status)) {
+                                      &status)) {
         return status;
       }
       if (micros < 0 && micros % 1000LL != 0) {
@@ -144,7 +145,6 @@ static absl::Status TimestampValueToAdjustedInt64(
   }
   return absl::OkStatus();
 }
-
 
 // Macro used to switch on a (proto type, ZetaSQL TypeKind) pair.
 #define PAIR(proto_type, zetasql_type) \

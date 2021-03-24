@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/convert_string.h"
 
+#include <cstdint>
+
 #include "zetasql/common/string_util.h"
 #include "zetasql/public/functions/util.h"
 #include "zetasql/base/string_numbers.h"
@@ -148,7 +150,8 @@ bool StringToNumeric(absl::string_view value, bool* out, absl::Status* error) {
 }
 
 template <>
-bool StringToNumeric(absl::string_view value, int32_t* out, absl::Status* error) {
+bool StringToNumeric(absl::string_view value, int32_t* out,
+                     absl::Status* error) {
   TrimLeadingSpaces(&value);
   if (ABSL_PREDICT_FALSE(IsHex(value))) {
     if (ABSL_PREDICT_TRUE(
@@ -161,7 +164,8 @@ bool StringToNumeric(absl::string_view value, int32_t* out, absl::Status* error)
 }
 
 template <>
-bool StringToNumeric(absl::string_view value, int64_t* out, absl::Status* error) {
+bool StringToNumeric(absl::string_view value, int64_t* out,
+                     absl::Status* error) {
   TrimLeadingSpaces(&value);
   if (ABSL_PREDICT_FALSE(IsHex(value))) {
     if (ABSL_PREDICT_TRUE(

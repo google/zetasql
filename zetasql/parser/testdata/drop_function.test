@@ -1,0 +1,505 @@
+# Missing function name.
+DROP FUNCTION ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+DROP FUNCTION ;
+              ^
+==
+
+# Drop all overloads; no parameter list.
+DROP FUNCTION foo
+--
+DropFunctionStatement [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+DROP FUNCTION foo
+==
+
+DROP FUNCTION IF EXISTS foo
+--
+DropFunctionStatement(is_if_exists) [0-27]
+  PathExpression [24-27]
+    Identifier(foo) [24-27]
+--
+DROP FUNCTION IF EXISTS foo
+==
+
+# Drop no-parameter version.
+DROP FUNCTION foo()
+--
+DropFunctionStatement [0-19]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  FunctionParameters [17-19]
+--
+DROP FUNCTION foo()
+==
+
+# Drop all overloads; no parameter list.
+DROP FUNCTION foo.bar
+--
+DropFunctionStatement [0-21]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+--
+DROP FUNCTION foo.bar
+==
+
+# Drop no-parameter version.
+DROP FUNCTION foo.bar()
+--
+DropFunctionStatement [0-23]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-23]
+--
+DROP FUNCTION foo.bar()
+==
+
+# Drop no-parameter version + if exists.
+DROP FUNCTION IF EXISTS foo()
+--
+DropFunctionStatement(is_if_exists) [0-29]
+  PathExpression [24-27]
+    Identifier(foo) [24-27]
+  FunctionParameters [27-29]
+--
+DROP FUNCTION IF EXISTS foo()
+==
+
+# Drop function with single parameter as unnamed type.
+DROP FUNCTION foo.bar(int32)
+--
+DropFunctionStatement [0-28]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-28]
+    FunctionParameter [22-27]
+      SimpleType [22-27]
+        PathExpression [22-27]
+          Identifier(int32) [22-27]
+--
+DROP FUNCTION foo.bar(int32)
+==
+
+# Drop function with single parameter as named type.
+DROP FUNCTION foo.bar(a int32)
+--
+DropFunctionStatement [0-30]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-30]
+    FunctionParameter [22-29]
+      Identifier(a) [22-23]
+      SimpleType [24-29]
+        PathExpression [24-29]
+          Identifier(int32) [24-29]
+--
+DROP FUNCTION foo.bar(a int32)
+==
+
+# Drop function with parameters as unnamed types.
+DROP FUNCTION foo.bar(int32, struct<a string, b boolean>)
+--
+DropFunctionStatement [0-57]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-57]
+    FunctionParameter [22-27]
+      SimpleType [22-27]
+        PathExpression [22-27]
+          Identifier(int32) [22-27]
+    FunctionParameter [29-56]
+      StructType [29-56]
+        StructField [36-44]
+          Identifier(a) [36-37]
+          SimpleType [38-44]
+            PathExpression [38-44]
+              Identifier(string) [38-44]
+        StructField [46-55]
+          Identifier(b) [46-47]
+          SimpleType [48-55]
+            PathExpression [48-55]
+              Identifier(boolean) [48-55]
+--
+DROP FUNCTION foo.bar(int32, STRUCT< a string, b boolean >)
+==
+
+# Drop function with a mix of parameters as named and unnamed types.
+DROP FUNCTION foo.bar(int32, str struct<a string, b boolean>)
+--
+DropFunctionStatement [0-61]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-61]
+    FunctionParameter [22-27]
+      SimpleType [22-27]
+        PathExpression [22-27]
+          Identifier(int32) [22-27]
+    FunctionParameter [29-60]
+      Identifier(str) [29-32]
+      StructType [33-60]
+        StructField [40-48]
+          Identifier(a) [40-41]
+          SimpleType [42-48]
+            PathExpression [42-48]
+              Identifier(string) [42-48]
+        StructField [50-59]
+          Identifier(b) [50-51]
+          SimpleType [52-59]
+            PathExpression [52-59]
+              Identifier(boolean) [52-59]
+--
+DROP FUNCTION foo.bar(int32, str STRUCT< a string, b boolean >)
+==
+
+# Drop function with parameters as named types.
+DROP FUNCTION foo.bar(a int32, the_struct struct<a string, b boolean>)
+--
+DropFunctionStatement [0-70]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-70]
+    FunctionParameter [22-29]
+      Identifier(a) [22-23]
+      SimpleType [24-29]
+        PathExpression [24-29]
+          Identifier(int32) [24-29]
+    FunctionParameter [31-69]
+      Identifier(the_struct) [31-41]
+      StructType [42-69]
+        StructField [49-57]
+          Identifier(a) [49-50]
+          SimpleType [51-57]
+            PathExpression [51-57]
+              Identifier(string) [51-57]
+        StructField [59-68]
+          Identifier(b) [59-60]
+          SimpleType [61-68]
+            PathExpression [61-68]
+              Identifier(boolean) [61-68]
+--
+DROP FUNCTION foo.bar(a int32, the_struct STRUCT< a string, b boolean >)
+==
+
+# NOT AGGREGATE is accepted on arguments, but has no effect.
+DROP FUNCTION myfunc(string NOT AGGREGATE, s string, int32,
+    i int32 NOT AGGREGATE)
+--
+DropFunctionStatement [0-86]
+  PathExpression [14-20]
+    Identifier(myfunc) [14-20]
+  FunctionParameters [20-86]
+    FunctionParameter(is_not_aggregate=true) [21-41]
+      SimpleType [21-27]
+        PathExpression [21-27]
+          Identifier(string) [21-27]
+    FunctionParameter [43-51]
+      Identifier(s) [43-44]
+      SimpleType [45-51]
+        PathExpression [45-51]
+          Identifier(string) [45-51]
+    FunctionParameter [53-58]
+      SimpleType [53-58]
+        PathExpression [53-58]
+          Identifier(int32) [53-58]
+    FunctionParameter(is_not_aggregate=true) [64-85]
+      Identifier(i) [64-65]
+      SimpleType [66-71]
+        PathExpression [66-71]
+          Identifier(int32) [66-71]
+--
+DROP FUNCTION myfunc(string NOT AGGREGATE, s string, int32, i int32 NOT AGGREGATE)
+==
+
+# Drop function with a parameter alias.
+DROP FUNCTION foo.bar(int32 as x)
+--
+DropFunctionStatement [0-33]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-33]
+    FunctionParameter [22-32]
+      SimpleType [22-27]
+        PathExpression [22-27]
+          Identifier(int32) [22-27]
+      Alias [28-32]
+        Identifier(x) [31-32]
+--
+DROP FUNCTION foo.bar(int32 AS x)
+==
+
+# Same test as the previous, but without the AS before the alias name.
+# Note that the AS is required before the alias, so ideally this should
+# be an error, but the parameter is interpreted as name=int32 and type=x.
+DROP FUNCTION foo.bar(int32 x)
+--
+DropFunctionStatement [0-30]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-30]
+    FunctionParameter [22-29]
+      Identifier(int32) [22-27]
+      SimpleType [28-29]
+        PathExpression [28-29]
+          Identifier(x) [28-29]
+--
+DROP FUNCTION foo.bar(int32 x)
+==
+
+# Drop function with single parameter as named type, with alias.
+DROP FUNCTION foo.bar(a int32 as x)
+--
+DropFunctionStatement [0-35]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-35]
+    FunctionParameter [22-34]
+      Identifier(a) [22-23]
+      SimpleType [24-29]
+        PathExpression [24-29]
+          Identifier(int32) [24-29]
+      Alias [30-34]
+        Identifier(x) [33-34]
+--
+DROP FUNCTION foo.bar(a int32 AS x)
+==
+
+# The alias has to be BEFORE the NOT AGGREGATE specifier.
+DROP FUNCTION foo.bar(a int32 as x NOT AGGREGATE)
+--
+DropFunctionStatement [0-49]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-49]
+    FunctionParameter(is_not_aggregate=true) [22-48]
+      Identifier(a) [22-23]
+      SimpleType [24-29]
+        PathExpression [24-29]
+          Identifier(int32) [24-29]
+      Alias [30-34]
+        Identifier(x) [33-34]
+--
+DROP FUNCTION foo.bar(a int32 AS x NOT AGGREGATE)
+==
+
+# Same test as the previous, but reversing the order of NOT AGGREGATE
+# and AS alias.  This one fails since the AS alias applies to the type.
+DROP FUNCTION foo.bar(a int32 NOT AGGREGATE as x)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 1:45]
+DROP FUNCTION foo.bar(a int32 NOT AGGREGATE as x)
+                                            ^
+==
+
+
+# Missing function name.
+DROP TABLE FUNCTION ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+DROP TABLE FUNCTION ;
+                    ^
+==
+
+# Drop table function; (no parameter list as expected).
+DROP TABLE FUNCTION foo
+--
+DropTableFunctionStatement [0-23]
+  PathExpression [20-23]
+    Identifier(foo) [20-23]
+--
+DROP TABLE FUNCTION foo
+==
+
+DROP TABLE FUNCTION IF EXISTS foo
+--
+DropTableFunctionStatement(is_if_exists) [0-33]
+  PathExpression [30-33]
+    Identifier(foo) [30-33]
+--
+DROP TABLE FUNCTION IF EXISTS foo
+==
+
+# Drop table function; (no parameter list as expected).
+DROP TABLE FUNCTION foo.bar
+--
+DropTableFunctionStatement [0-27]
+  PathExpression [20-27]
+    Identifier(foo) [20-23]
+    Identifier(bar) [24-27]
+--
+DROP TABLE FUNCTION foo.bar
+==
+
+# Drop table function parameter not supported.
+DROP TABLE FUNCTION foo()
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:24]
+DROP TABLE FUNCTION foo()
+                       ^
+==
+
+# Drop table function parameter not supported. Path expression version.
+DROP TABLE FUNCTION foo.bar()
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:28]
+DROP TABLE FUNCTION foo.bar()
+                           ^
+==
+
+# Drop table function parameter not supported. If exists version.
+DROP TABLE FUNCTION IF EXISTS foo()
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:34]
+DROP TABLE FUNCTION IF EXISTS foo()
+                                 ^
+==
+
+# Drop table function parameter not supported. Populated parameter version.
+DROP TABLE FUNCTION foo.bar(int64)
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:28]
+DROP TABLE FUNCTION foo.bar(int64)
+                           ^
+==
+
+# There isn't a separate statement for DROP AGGREGATE FUNCTION.
+DROP AGGREGATE FUNCTION myfunc(string);
+--
+ERROR: DROP AGGREGATE FUNCTION is not supported, use DROP FUNCTION [at 1:6]
+DROP AGGREGATE FUNCTION myfunc(string);
+     ^
+==
+
+[no_test_get_parse_tokens]
+[allow_dashed_table_names]
+DROP {{|TABLE}} FUNCTION foo-bar-123;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:19]
+DROP  FUNCTION foo-bar-123;
+                  ^
+--
+ALTERNATION GROUP: TABLE
+--
+DropTableFunctionStatement [0-31]
+  PathExpression [20-31]
+    Identifier(`foo-bar-123`) [20-31]
+--
+DROP TABLE FUNCTION `foo-bar-123`
+==
+
+[no_test_get_parse_tokens]
+[allow_dashed_table_names]
+DROP {{|TABLE}} FUNCTION foo-bar-123.baz;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:19]
+DROP  FUNCTION foo-bar-123.baz;
+                  ^
+--
+ALTERNATION GROUP: TABLE
+--
+DropTableFunctionStatement [0-35]
+  PathExpression [20-35]
+    Identifier(`foo-bar-123`) [20-35]
+    Identifier(baz) [20-35]
+--
+DROP TABLE FUNCTION `foo-bar-123`.baz
+==
+
+[no_test_get_parse_tokens]
+[allow_dashed_table_names]
+DROP {{|TABLE}} FUNCTION foo-bar-123.baz(string);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:19]
+DROP  FUNCTION foo-bar-123.baz(string);
+                  ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:36]
+DROP TABLE FUNCTION foo-bar-123.baz(string);
+                                   ^
+==
+
+# DROP FUNCTION statements also work for table-valued functions.
+drop function foo.bar(string, table<int32, bool>);
+--
+DropFunctionStatement [0-49]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-49]
+    FunctionParameter [22-28]
+      SimpleType [22-28]
+        PathExpression [22-28]
+          Identifier(string) [22-28]
+    FunctionParameter [30-48]
+      TVFSchema [30-48]
+        TVFSchemaColumn [36-41]
+          SimpleType [36-41]
+            PathExpression [36-41]
+              Identifier(int32) [36-41]
+        TVFSchemaColumn [43-47]
+          SimpleType [43-47]
+            PathExpression [43-47]
+              Identifier(bool) [43-47]
+--
+DROP FUNCTION foo.bar(string, TABLE< int32, bool >)
+==
+
+# DROP FUNCTION statements also work for table-valued functions.
+drop function foo.bar(a string, b table<x int32, y bool>) ;
+--
+DropFunctionStatement [0-57]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  FunctionParameters [21-57]
+    FunctionParameter [22-30]
+      Identifier(a) [22-23]
+      SimpleType [24-30]
+        PathExpression [24-30]
+          Identifier(string) [24-30]
+    FunctionParameter [32-56]
+      Identifier(b) [32-33]
+      TVFSchema [34-56]
+        TVFSchemaColumn [40-47]
+          Identifier(x) [40-41]
+          SimpleType [42-47]
+            PathExpression [42-47]
+              Identifier(int32) [42-47]
+        TVFSchemaColumn [49-55]
+          Identifier(y) [49-50]
+          SimpleType [51-55]
+            PathExpression [51-55]
+              Identifier(bool) [51-55]
+--
+DROP FUNCTION foo.bar(a string, b TABLE< x int32, y bool >)
+==
+
+# It is possible to drop a function named 'function'.
+drop function function
+--
+DropFunctionStatement [0-22]
+  PathExpression [14-22]
+    Identifier(`function`) [14-22]
+--
+DROP FUNCTION `function`

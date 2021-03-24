@@ -214,6 +214,9 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTAlterColumnOptionsAction(const ASTAlterColumnOptionsAction* node,
                                         void* data) override;
+  void visitASTAlterColumnDropNotNullAction(
+      const ASTAlterColumnDropNotNullAction* node, void* data) override;
+
   void visitASTAlterColumnTypeAction(const ASTAlterColumnTypeAction* node,
                                      void* data) override;
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
@@ -370,6 +373,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTBetweenExpression(const ASTBetweenExpression* node,
                                  void* data) override;
   void visitASTFunctionCall(const ASTFunctionCall* node, void* data) override;
+  void visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) override;
   void visitASTArrayElement(const ASTArrayElement* node, void* data) override;
   void visitASTExpressionSubquery(const ASTExpressionSubquery* node,
                                   void* data) override;
@@ -510,6 +514,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTUnpivotInItem(const ASTUnpivotInItem* node, void* data) override;
   void visitASTUnpivotInItemList(const ASTUnpivotInItemList* node,
                                  void* data) override;
+  void visitASTUnpivotInItemLabel(const ASTUnpivotInItemLabel* node,
+                                  void* data) override;
   void visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) override;
   void visitASTAlterMaterializedViewStatement(
       const ASTAlterMaterializedViewStatement* node, void* data) override;
@@ -588,6 +594,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTUntilClause(const ASTUntilClause* node, void* data) override;
   void visitASTRepeatStatement(const ASTRepeatStatement* node,
+                              void* data) override;
+  void visitASTForInStatement(const ASTForInStatement* node,
                               void* data) override;
   void visitASTBreakStatement(const ASTBreakStatement* node,
                               void* data) override;

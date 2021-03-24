@@ -51,6 +51,11 @@ class LanguageOptions {
   void Serialize(LanguageOptionsProto* proto) const;
 
   // Returns true if 'kind' is supported.
+  //
+  // Note: The "supported statement kind" mechanism does not support script
+  // statements, as script statements do not exist in the resolved tree, so no
+  // ResolvedNodeKind enumeration for them exists. Script statements are gated
+  // through language features (see LanguageFeatureEnabled()).
   ABSL_MUST_USE_RESULT bool SupportsStatementKind(
       const ResolvedNodeKind kind) const {
     return supported_statement_kinds_.empty() ||

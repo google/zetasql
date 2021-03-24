@@ -268,6 +268,22 @@ SELECT NUMERIC '1.23456e05';
 SELECT NUMERIC '-9.876e-3';
 ```
 
+### BIGNUMERIC literals
+
+You can construct `BIGNUMERIC` literals using the `BIGNUMERIC` keyword followed
+by a floating point value in quotes.
+
+Examples:
+
+```sql
+SELECT BIGNUMERIC '0';
+SELECT BIGNUMERIC '123456';
+SELECT BIGNUMERIC '-3.14';
+SELECT BIGNUMERIC '-0.54321';
+SELECT BIGNUMERIC '1.23456e05';
+SELECT BIGNUMERIC '-9.876e-3';
+```
+
 ### Floating point literals 
 <a id="floating_point_literals"></a>
 
@@ -470,7 +486,7 @@ If this suffix is absent, the default time zone,
 which is implementation defined, is used.
 
 For example, the following timestamp represents 12:30 p.m. on September 27,
-2014, using the which is implementation defined time zone:
+2014 in the default time zone, which is implementation defined:
 
 ```sql
 TIMESTAMP '2014-09-27 12:30:00.45'

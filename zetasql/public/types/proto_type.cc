@@ -16,7 +16,11 @@
 
 #include "zetasql/public/types/proto_type.h"
 
+#include <cstdint>
+
 #include "google/protobuf/dynamic_message.h"
+#include "google/protobuf/repeated_field.h"
+#include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/language_options.h"
@@ -28,15 +32,20 @@
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 
 ProtoType::ProtoType(const TypeFactory* factory,
-                     const google::protobuf::Descriptor* descriptor)
-    : Type(factory, TYPE_PROTO), descriptor_(descriptor) {
+                     const google::protobuf::Descriptor* descriptor,
+                     const internal::CatalogName* catalog_name)
+    : Type(factory, TYPE_PROTO),
+      descriptor_(descriptor),
+      catalog_name_(catalog_name) {
   ZETASQL_CHECK(descriptor_ != nullptr);
 }
 
@@ -55,6 +64,10 @@ bool ProtoType::EqualsForSameKind(const Type* that, bool equivalent) const {
 
 void ProtoType::DebugStringImpl(bool details, TypeOrStringVector* stack,
                                 std::string* debug_string) const {
+  if (catalog_name_ != nullptr) {
+    absl::StrAppend(debug_string, *catalog_name_->path_string, ".");
+  }
+
   absl::StrAppend(debug_string, "PROTO<", descriptor_->full_name());
   if (details) {
     absl::StrAppend(debug_string, ", file name: ", descriptor_->file()->name(),
@@ -66,8 +79,8 @@ void ProtoType::DebugStringImpl(bool details, TypeOrStringVector* stack,
 bool ProtoType::SupportsOrdering(const LanguageOptions& language_options,
                                  std::string* type_description) const {
   if (type_description != nullptr) {
-    *type_description = TypeKindToString(this->kind(),
-                                         language_options.product_mode());
+    *type_description =
+        TypeKindToString(this->kind(), language_options.product_mode());
   }
   return false;
 }
@@ -107,6 +120,13 @@ absl::Status ProtoType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   if (set_index != 0) {
     proto_type_proto->set_file_descriptor_set_index(set_index);
   }
+
+  if (catalog_name_ != nullptr) {
+    absl::c_copy(catalog_name_->path,
+                 google::protobuf::RepeatedFieldBackInserter(
+                     proto_type_proto->mutable_catalog_name_path()));
+  }
+
   return absl::OkStatus();
 }
 
@@ -118,9 +138,9 @@ absl::Status ProtoType::GetFieldTypeByTagNumber(int number,
   const google::protobuf::FieldDescriptor* field_descr =
       descriptor_->FindFieldByNumber(number);
   if (field_descr == nullptr) {
-    return MakeSqlError()
-           << "Field number " << number << " not found in descriptor "
-           << descriptor_->full_name();
+    return MakeSqlError() << "Field number " << number
+                          << " not found in descriptor "
+                          << descriptor_->full_name();
   }
   if (name != nullptr) {
     *name = field_descr->name();
@@ -147,15 +167,36 @@ absl::Status ProtoType::GetFieldTypeByName(const std::string& name,
 }
 
 std::string ProtoType::TypeName() const {
-  return ToIdentifierLiteral(descriptor_->full_name());
+  std::string catalog_name_path;
+  if (catalog_name_ != nullptr) {
+    absl::StrAppend(&catalog_name_path, *catalog_name_->path_string, ".");
+  }
+
+  absl::StrAppend(&catalog_name_path,
+                  ToIdentifierLiteral(descriptor_->full_name()));
+
+  return catalog_name_path;
 }
 
 std::string ProtoType::ShortTypeName(ProductMode mode_unused) const {
-  return descriptor_->full_name();
+  std::string catalog_name_path;
+  if (catalog_name_ != nullptr) {
+    absl::StrAppend(&catalog_name_path, *catalog_name_->path_string, ".");
+  }
+
+  return absl::StrCat(catalog_name_path, descriptor_->full_name());
 }
 
 std::string ProtoType::TypeName(ProductMode mode_unused) const {
   return TypeName();
+}
+
+absl::Span<const std::string> ProtoType::CatalogNamePath() const {
+  if (catalog_name_ == nullptr) {
+    return {};
+  } else {
+    return catalog_name_->path;
+  }
 }
 
 // static
@@ -323,7 +364,7 @@ absl::Status ProtoType::GetTypeKindFromFieldDescriptor(
                  << field->DebugString();
       }
       break;
-  }
+    }
     case google::protobuf::FieldDescriptor::TYPE_MESSAGE:
       if (ignore_format_annotations) {
         *kind = TYPE_PROTO;
@@ -563,7 +604,16 @@ bool ProtoType::HasAnyFields() const { return descriptor_->field_count() != 0; }
 
 bool ProtoType::EqualsImpl(const ProtoType* const type1,
                            const ProtoType* const type2, bool equivalent) {
-  if (type1->descriptor() == type2->descriptor()) {
+  const internal::CatalogName* catalog_name1 = type1->catalog_name_;
+  const internal::CatalogName* catalog_name2 = type2->catalog_name_;
+  const bool catalogs_are_empty =
+      catalog_name1 == nullptr && catalog_name2 == nullptr;
+  const bool catalogs_are_equal =
+      catalog_name1 != nullptr && catalog_name2 != nullptr &&
+      *catalog_name1->path_string == *catalog_name2->path_string;
+
+  if (type1->descriptor() == type2->descriptor() &&
+      (catalogs_are_empty || catalogs_are_equal)) {
     return true;
   }
   if (equivalent &&
@@ -624,10 +674,13 @@ bool ProtoType::ValueContentEquals(
     return false;
   }
   google::protobuf::util::MessageDifferencer differencer;
+  google::protobuf::util::DefaultFieldComparator comparator;
+  comparator.set_treat_nan_as_equal(true);
   if (!options.float_margin.IsExactEquality()) {
-    differencer.set_float_comparison(
-        google::protobuf::util::MessageDifferencer::APPROXIMATE);
+    comparator.set_float_comparison(
+        google::protobuf::util::DefaultFieldComparator::APPROXIMATE);
   }
+  differencer.set_field_comparator(&comparator);
   std::string differencer_reason;
   if (options.reason != nullptr) {
     differencer.ReportDifferencesToString(&differencer_reason);

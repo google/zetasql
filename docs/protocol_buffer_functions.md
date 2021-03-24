@@ -70,7 +70,7 @@ default value for `country`.
 +-----------------+
 ```
 
-### FROM PROTO
+### FROM_PROTO
 
 ```
 FROM_PROTO(expression)
@@ -260,7 +260,7 @@ SELECT FROM_PROTO(DATE '2019-10-30')
 +------------+
 ```
 
-### TO PROTO
+### TO_PROTO
 
 ```
 TO_PROTO(expression)

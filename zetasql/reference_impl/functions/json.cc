@@ -16,7 +16,11 @@
 
 #include "zetasql/reference_impl/functions/json.h"
 
+#include <cstdint>
+
 #include "zetasql/public/functions/json.h"
+#include "zetasql/public/functions/json_format.h"
+#include "zetasql/public/functions/to_json.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/function.h"
@@ -57,6 +61,23 @@ class JsonSubscriptFunction : public SimpleBuiltinScalarFunction {
   explicit JsonSubscriptFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kSubscript,
                                     types::JsonType()) {}
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ToJsonFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ToJsonFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kToJson, types::JsonType()) {}
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class ToJsonStringFunction : public SimpleBuiltinScalarFunction {
+ public:
+  ToJsonStringFunction()
+      : SimpleBuiltinScalarFunction(FunctionKind::kToJsonString,
+                                    types::StringType()) {}
   zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
@@ -324,6 +345,45 @@ zetasql_base::StatusOr<Value> JsonArrayFunction::Eval(
   }
 }
 
+zetasql_base::StatusOr<Value> ToJsonFunction::Eval(absl::Span<const Value> args,
+                                           EvaluationContext* context) const {
+  ZETASQL_DCHECK_EQ(args.size(), 2);
+  if (args[0].is_null() || args[1].is_null()) {
+    return Value::Null(output_type());
+  }
+  const bool stringify_wide_numbers = args[1].bool_value();
+  ZETASQL_ASSIGN_OR_RETURN(JSONValue outputJson,
+                   functions::ToJson(args[0], stringify_wide_numbers,
+                                     context->GetLanguageOptions()));
+  return Value::Json(std::move(outputJson));
+}
+
+zetasql_base::StatusOr<Value> ToJsonStringFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  if (args.size() == 2 && args[1].is_null()) {
+    return Value::Null(output_type());
+  }
+
+  const bool pretty_print = args.size() == 2 ? args[1].bool_value() : false;
+  functions::JsonPrettyPrinter pretty_printer(
+      pretty_print, context->GetLanguageOptions().product_mode());
+  std::string output;
+  ZETASQL_RETURN_IF_ERROR(functions::JsonFromValue(args[0], &pretty_printer, &output));
+
+  if (context->IsDeterministicOutput()) {
+    const Type* arg_type = args[0].type();
+    if (HasFloatingPoint(arg_type)) {
+      context->SetNonDeterministicOutput();
+    } else if (arg_type->IsArray()) {
+      // For non-order-preserving arrays, mark the current evaluation context
+      // as non-deterministic. (See e.g. b/38248983.)
+      MaybeSetNonDeterministicArrayOutput(args[0], context);
+    }
+  }
+
+  return Value::String(output);
+}
+
 }  // namespace
 
 void RegisterBuiltinJsonFunctions() {
@@ -343,6 +403,15 @@ void RegisterBuiltinJsonFunctions() {
       {FunctionKind::kSubscript},
       [](FunctionKind kind, const Type* output_type) {
         return new JsonSubscriptFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kToJson}, [](FunctionKind kind, const Type* output_type) {
+        return new ToJsonFunction();
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kToJsonString},
+      [](FunctionKind kind, const Type* output_type) {
+        return new ToJsonStringFunction();
       });
 }
 

@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 #define ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 
+#include <cstdint>
+
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
@@ -59,7 +61,9 @@ class ProtoRep : public zetasql_base::SimpleReferenceCounted {
 
   const ProtoType* type() const { return type_; }
   const absl::Cord& value() const { return value_; }
-  uint64_t physical_byte_size() const { return sizeof(ProtoRep) + value_.size(); }
+  uint64_t physical_byte_size() const {
+    return sizeof(ProtoRep) + value_.size();
+  }
 
  private:
   const ProtoType* type_;

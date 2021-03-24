@@ -17,6 +17,7 @@
 #ifndef ZETASQL_REFERENCE_IMPL_EVALUATION_H_
 #define ZETASQL_REFERENCE_IMPL_EVALUATION_H_
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <string>

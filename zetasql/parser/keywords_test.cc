@@ -16,14 +16,15 @@
 
 #include "zetasql/parser/keywords.h"
 
-#include <set>
-#include <iostream>
 #include <fstream>
+#include <iostream>
+#include <set>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/flags/flag.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "re2/re2.h"

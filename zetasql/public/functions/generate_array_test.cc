@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/generate_array.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <memory>
@@ -45,8 +46,8 @@ namespace functions {
 
 TEST(GenerateArrayTest, TooManyElementsInt) {
   std::vector<int64_t> values;
-  absl::Status status = GenerateArray<int64_t, int64_t>(int64_t{1}, int64_t{1000000000},
-                                                    int64_t{1}, &values);
+  absl::Status status = GenerateArray<int64_t, int64_t>(
+      int64_t{1}, int64_t{1000000000}, int64_t{1}, &values);
   EXPECT_THAT(status, zetasql_base::testing::StatusIs(absl::StatusCode::kOutOfRange));
 }
 
@@ -86,8 +87,8 @@ TEST(GenerateArrayTest, ComplianceTests) {
       case TYPE_INT64: {
         std::vector<int64_t> output;
         status = GenerateArray<int64_t>(params[0].int64_value(),
-                                      params[1].int64_value(),
-                                      params[2].int64_value(), &output);
+                                        params[1].int64_value(),
+                                        params[2].int64_value(), &output);
         if (status.ok()) {
           result = values::Int64Array(output);
         }
@@ -96,8 +97,8 @@ TEST(GenerateArrayTest, ComplianceTests) {
       case TYPE_UINT64: {
         std::vector<uint64_t> output;
         status = GenerateArray<uint64_t>(params[0].uint64_value(),
-                                       params[1].uint64_value(),
-                                       params[2].uint64_value(), &output);
+                                         params[1].uint64_value(),
+                                         params[2].uint64_value(), &output);
         if (status.ok()) {
           result = values::Uint64Array(output);
         }

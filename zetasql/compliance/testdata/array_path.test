@@ -506,3 +506,11 @@ SELECT FLATTEN([
   ].repeated_recursive_pb[OFFSET(1)].repeated_recursive_pb.int64_val) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]
+==
+
+[name=array_path_in_unnest]
+SELECT 3 IN UNNEST([STRUCT([1, 2] AS a), STRUCT([3, 4, 5] AS a)].a)
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+

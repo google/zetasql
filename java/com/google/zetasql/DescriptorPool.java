@@ -60,11 +60,25 @@ public interface DescriptorPool extends Serializable {
   ZetaSQLFileDescriptor findFileByName(String name);
 
   /**
+   * Returns the {@code ZetaSQLFieldDescriptor} on the given {@code descriptor} or null if not
+   * found. Note, this method should resolve any extensions, and should not call or make use of the
+   * convenience method {@link ZetaSQLFieldDescriptor.findFieldByNumber} to resolve this.
+   *
+   * <p>That method may make use of this one, however.
+   */
+  @Nullable
+  ZetaSQLFieldDescriptor findFieldByNumber(ZetaSQLDescriptor descriptor, int number);
+
+  /**
    * Wrapped {@code FileDescriptor} with the {@code ImmutableZetaSQLDescriptorPool} from which it
    * was created.
    */
-  public interface ZetaSQLFileDescriptor extends Serializable {
-    DescriptorPool getZetaSQLDescriptorPool();
+  public interface ZetaSQLFileDescriptor {
+    /** @deprecated use {@link #getDescriptorPool()} */
+    @Deprecated
+    default DescriptorPool getZetaSQLDescriptorPool() {
+      return getDescriptorPool();
+    }
 
     DescriptorPool getDescriptorPool();
 
@@ -75,8 +89,12 @@ public interface DescriptorPool extends Serializable {
    * Wrapped {@code EnumDescriptor} with the {@code ImmutableZetaSQLDescriptorPool} from which it
    * was created.
    */
-  public interface ZetaSQLEnumDescriptor extends Serializable {
-    DescriptorPool getZetaSQLDescriptorPool();
+  public interface ZetaSQLEnumDescriptor {
+    /** @deprecated use {@link #getDescriptorPool()} */
+    @Deprecated
+    default DescriptorPool getZetaSQLDescriptorPool() {
+      return getDescriptorPool();
+    }
 
     DescriptorPool getDescriptorPool();
 
@@ -87,27 +105,46 @@ public interface DescriptorPool extends Serializable {
    * Wrapped {@code Descriptor} with the {@code ImmutableZetaSQLDescriptorPool} from which it was
    * created.
    */
-  public interface ZetaSQLDescriptor extends Serializable {
-    DescriptorPool getZetaSQLDescriptorPool();
+  public interface ZetaSQLDescriptor {
+
+    /** @deprecated use {@link #getDescriptorPool()} */
+    @Deprecated
+    default DescriptorPool getZetaSQLDescriptorPool() {
+      return getDescriptorPool();
+    }
 
     DescriptorPool getDescriptorPool();
 
     Descriptor getDescriptor();
 
-    ZetaSQLFieldDescriptor findFieldByNumber(int number);
+    default ZetaSQLFieldDescriptor findFieldByNumber(int number) {
+      return getDescriptorPool().findFieldByNumber(this, number);
+    }
   }
 
   /**
    * Wrapped {@code FieldDescriptor} with the {@code ZetaSQLDescriptorPool} from which it was
    * created.
    */
-  public interface ZetaSQLFieldDescriptor extends Serializable {
-    DescriptorPool getZetaSQLDescriptorPool();
+  public interface ZetaSQLFieldDescriptor {
+    /** @deprecated use {@link #getDescriptorPool()} */
+    @Deprecated
+    default DescriptorPool getZetaSQLDescriptorPool() {
+      return getDescriptorPool();
+    }
 
     DescriptorPool getDescriptorPool();
 
     FieldDescriptor getDescriptor();
   }
 
-  ImmutableList<FileDescriptor> getAllFileDescriptors();
+  /**
+   * Return all the file descriptors in this descriptor pool in proto file dependency order.
+   *
+   * <p>Additionally, this should return all transitive dependencies explicitly.
+   *
+   * <p>This generally means descriptor.proto will be first, and application specific protos will be
+   * last.
+   */
+  ImmutableList<FileDescriptor> getAllFileDescriptorsInDependencyOrder();
 }

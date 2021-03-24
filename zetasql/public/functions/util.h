@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_UTIL_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_UTIL_H_
 
+#include <cstdint>
 #include <string>
 
 #include "absl/base/attributes.h"
@@ -101,7 +102,8 @@ bool UpdateError(absl::Status* status, absl::string_view msg);
 
 // Returns an ok status if `position` and `occurrence` are valid 1-based indices
 // else returns an error.
-absl::Status ValidatePositionAndOccurrence(int64_t position, int64_t occurrence);
+absl::Status ValidatePositionAndOccurrence(int64_t position,
+                                           int64_t occurrence);
 
 }  // namespace internal
 }  // namespace functions

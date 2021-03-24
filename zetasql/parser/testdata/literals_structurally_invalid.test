@@ -1,0 +1,59 @@
+# Be careful when editing this file. Some editors will be happy to replace the
+# invalid bytes with different valid ones.
+
+# This is an invalid byte 'FF' in a UTF8 string.
+select 'ÿ'
+--
+ERROR: Syntax error: Structurally invalid UTF8 string: \xff [at 1:9]
+select 'ÿ'
+        ^
+==
+
+# This is a structurally invalid UTF8 string because this byte 'C2' indicates
+# a two-byte character but there is no following character.
+select 'Â'
+--
+ERROR: Syntax error: Structurally invalid UTF8 string: \xc2 [at 1:9]
+select 'Â'
+        ^
+==
+
+# This is a structurally invalid UTF8 string because the second byte 'C2'
+# indicates a two-byte character but the following byte is not valid in that
+# context.
+select '|Â|'
+--
+ERROR: Syntax error: Structurally invalid UTF8 string: |\xc2| [at 1:10]
+select '|Â|'
+         ^
+==
+
+# Structurally invalid UTF8 in an unterminated string.
+select '|Â|
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select '|Â|
+       ^
+==
+
+# Structurally invalid bytes string is OK.
+select b'|Â|'
+--
+QueryStatement [0-13]
+  Query [0-13]
+    Select [0-13]
+      SelectList [7-13]
+        SelectColumn [7-13]
+          BytesLiteral(b'|Â|') [7-13]
+--
+SELECT
+  b'|Â|'
+==
+
+# Structurally invalid UTF8 in an unterminated multiline string.
+select '''|Â|
+foo
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''|Â|
+       ^

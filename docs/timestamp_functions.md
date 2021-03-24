@@ -16,12 +16,12 @@ CURRENT_TIMESTAMP()
 
 **Description**
 
-Parentheses are optional. This function handles leap seconds by smearing them
-across a window of 20 hours around the inserted leap
-second.
 `CURRENT_TIMESTAMP()` produces a TIMESTAMP value that is continuous,
 non-ambiguous, has exactly 60 seconds per minute and does not repeat values over
-the leap second.
+the leap second. Parentheses are optional.
+
+This function handles leap seconds by smearing them across a window of 20 hours
+around the inserted leap second.
 
 **Supported Input Types**
 
@@ -31,7 +31,7 @@ Not applicable
 
 TIMESTAMP
 
-**Example**
+**Examples**
 
 ```sql
 SELECT CURRENT_TIMESTAMP() as now;
@@ -41,6 +41,24 @@ SELECT CURRENT_TIMESTAMP() as now;
 +---------------------------------------------+
 | 2020-06-02 17:00:53.110 America/Los_Angeles |
 +---------------------------------------------+
+```
+
+When a column named `current_timestamp` is present, the column name and the
+function call without parentheses are ambiguous. To ensure the function call,
+add parentheses; to ensure the column name, qualify it with its
+[range variable][timestamp-functions-link-to-range-variables]. For example, the
+following query will select the function in the `now` column and the table
+column in the `current_timestamp` column.
+
+```sql
+WITH t AS (SELECT 'column value' AS `current_timestamp`)
+SELECT current_timestamp() AS now, t.current_timestamp FROM t;
+
++---------------------------------------------+-------------------+
+| now                                         | current_timestamp |
++---------------------------------------------+-------------------+
+| 2020-06-02 17:00:53.110 America/Los_Angeles | column value      |
++---------------------------------------------+-------------------+
 ```
 
 ### EXTRACT
@@ -949,50 +967,61 @@ following elements:
  <tr>
     <td class="tab0">Format element</td>
     <td class="tab0">Description</td>
+    <td class="tab0">Example</td>
  </tr>
  <tr>
     <td>%A</td>
     <td>The full weekday name.</td>
+    <td>Wednesday</td>
  </tr>
  <tr>
     <td>%a</td>
     <td>The abbreviated weekday name.</td>
+    <td>Wed</td>
  </tr>
  <tr>
     <td>%B</td>
     <td>The full month name.</td>
+    <td>January</td>
  </tr>
  <tr>
     <td>%b or %h</td>
     <td>The abbreviated month name.</td>
+    <td>Jan</td>
  </tr>
  <tr>
     <td>%C</td>
     <td>The century (a year divided by 100 and truncated to an integer) as a
     decimal
 number (00-99).</td>
+    <td>20</td>
  </tr>
  <tr>
     <td>%c</td>
     <td>The date and time representation in the format %a %b %e %T %Y.</td>
+    <td>Wed Jan 20 16:47:00 2021</td>
  </tr>
  <tr>
     <td>%D</td>
     <td>The date in the format %m/%d/%y.</td>
+    <td>01/20/21</td>
  </tr>
  <tr>
     <td>%d</td>
     <td>The day of the month as a decimal number (01-31).</td>
+    <td>20</td>
  </tr>
  <tr>
     <td>%e</td>
     <td>The day of month as a decimal number (1-31); single digits are preceded
     by a
 space.</td>
+    <td>20</td>
  </tr>
  <tr>
     <td>%F</td>
     <td>The date in the format %Y-%m-%d.</td>
+    <td>2021-01-20</td>
  </tr>
  <tr>
     <td>%G</td>
@@ -1002,6 +1031,7 @@ space.</td>
     on the Monday before the first Thursday of the Gregorian calendar year.
     Note that %G and %Y may produce different results near Gregorian year
     boundaries, where the Gregorian year and ISO year can diverge.</td>
+    <td>2021</td>
  </tr>
  <tr>
     <td>%g</td>
@@ -1012,90 +1042,110 @@ space.</td>
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
     diverge.</td>
+    <td>21</td>
  </tr>
  <tr>
     <td>%H</td>
     <td>The hour (24-hour clock) as a decimal number (00-23).</td>
+    <td>16</td>
  </tr>
  <tr>
     <td>%I</td>
     <td>The hour (12-hour clock) as a decimal number (01-12).</td>
+    <td>04</td>
  </tr>
  <tr>
     <td>%j</td>
     <td>The day of the year as a decimal number (001-366).</td>
+    <td>020</td>
  </tr>
  <tr>
     <td>%k</td>
     <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
     preceded
 by a space.</td>
+    <td>16</td>
  </tr>
  <tr>
     <td>%l</td>
     <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
     preceded
 by a space.</td>
+    <td>11</td>
  </tr>
  <tr>
     <td>%M</td>
     <td>The minute as a decimal number (00-59).</td>
+    <td>47</td>
  </tr>
  <tr>
     <td>%m</td>
     <td>The month as a decimal number (01-12).</td>
+    <td>01</td>
  </tr>
  <tr>
     <td>%n</td>
     <td>A newline character.</td>
+    <td></td>
  </tr>
  <tr>
     <td>%P</td>
     <td>Either am or pm.</td>
+    <td>am</td>
  </tr>
  <tr>
     <td>%p</td>
     <td>Either AM or PM.</td>
+    <td>AM</td>
  </tr>
  <tr>
     <td>%Q</td>
     <td>The quarter as a decimal number (1-4).</td>
+    <td>1</td>
  </tr>
  <tr>
     <td>%R</td>
     <td>The time in the format %H:%M.</td>
+    <td>16:47</td>
  </tr>
  <tr>
     <td>%r</td>
     <td>The 12-hour clock time using AM/PM notation.</td>
+    <td>04:47:00 PM</td>
  </tr>
  <tr>
     <td>%S</td>
     <td>The second as a decimal number (00-60).</td>
+    <td>00</td>
  </tr>
  <tr>
     <td>%s</td>
     <td>The number of seconds since 1970-01-01 00:00:00 UTC. Always overrides all
     other format elements, independent of where %s appears in the string.
     If multiple %s elements appear, then the last one takes precedence.</td>
+    <td>1611179220</td>
 </tr>
  <tr>
     <td>%T</td>
     <td>The time in the format %H:%M:%S.</td>
+    <td>16:47:00</td>
  </tr>
  <tr>
     <td>%t</td>
     <td>A tab character.</td>
+    <td></td>
  </tr>
  <tr>
     <td>%U</td>
     <td>The week number of the year (Sunday as the first day of the week) as a
     decimal number (00-53).</td>
+    <td>03</td>
  </tr>
  <tr>
     <td>%u</td>
     <td>The weekday (Monday as the first day of the week) as a decimal number
     (1-7).</td>
+    <td>3</td>
 </tr>
  <tr>
     <td>%V</td>
@@ -1105,66 +1155,80 @@ by a space.</td>
     January 1 has four or more days in the new year, then it is week 1;
     otherwise it is week 53 of the previous year, and the next week is
     week 1.</td>
+    <td>03</td>
  </tr>
  <tr>
     <td>%W</td>
     <td>The week number of the year (Monday as the first day of the week) as a
     decimal number (00-53).</td>
+    <td>03</td>
  </tr>
  <tr>
     <td>%w</td>
     <td>The weekday (Sunday as the first day of the week) as a decimal number
     (0-6).</td>
+    <td>3</td>
  </tr>
  <tr>
     <td>%X</td>
     <td>The time representation in HH:MM:SS format.</td>
+    <td>16:47:00</td>
  </tr>
  <tr>
     <td>%x</td>
     <td>The date representation in MM/DD/YY format.</td>
+    <td>01/20/21</td>
  </tr>
  <tr>
     <td>%Y</td>
     <td>The year with century as a decimal number.</td>
+    <td>2021</td>
  </tr>
  <tr>
     <td>%y</td>
     <td>The year without century as a decimal number (00-99), with an optional
     leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
     2000s, while years 69-99 are 1900s.</td>
+    <td>21</td>
  </tr>
  <tr>
     <td>%Z</td>
     <td>The time zone name.</td>
+    <td>UTC-5</td>
  </tr>
  <tr>
     <td>%z</td>
     <td>The offset from the Prime Meridian in the format +HHMM or -HHMM as
     appropriate,
 with positive values representing locations east of Greenwich.</td>
+    <td>-0500</td>
  </tr>
  <tr>
     <td>%%</td>
     <td>A single % character.</td>
+    <td>%</td>
  </tr>
  <tr>
     <td>%Ez</td>
     <td>RFC 3339-compatible numeric time zone (+HH:MM or -HH:MM).</td>
+    <td>-05:00</td>
  </tr>
  <tr>
     <td>%E#S</td>
     <td>Seconds with # digits of fractional precision.</td>
+    <td>00.000</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
+    <td>00</td>
  </tr>
  <tr>
     <td>%E4Y</td>
     <td>Four-character years (0001 ... 9999). Note that %Y
     produces as many characters as it takes to fully render the
 year.</td>
+    <td>2021</td>
  </tr>
 </table>
 
@@ -1200,6 +1264,7 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
 [timestamp-format]: #format_timestamp
 [timestamp-format-elements]: #supported_format_elements_for_timestamp
+[timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 [data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
 [data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
 

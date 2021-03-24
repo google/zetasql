@@ -29,6 +29,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_CONVERT_STRING_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_CONVERT_STRING_H_
 
+#include <cstdint>
 #include <string>
 
 #include "zetasql/public/numeric_value.h"
@@ -77,13 +78,17 @@ bool NumericToString(BigNumericValue value, std::string* out,
 template <>
 bool StringToNumeric(absl::string_view value, bool* out, absl::Status* error);
 template <>
-bool StringToNumeric(absl::string_view value, int32_t* out, absl::Status* error);
+bool StringToNumeric(absl::string_view value, int32_t* out,
+                     absl::Status* error);
 template <>
-bool StringToNumeric(absl::string_view value, int64_t* out, absl::Status* error);
+bool StringToNumeric(absl::string_view value, int64_t* out,
+                     absl::Status* error);
 template <>
-bool StringToNumeric(absl::string_view value, uint32_t* out, absl::Status* error);
+bool StringToNumeric(absl::string_view value, uint32_t* out,
+                     absl::Status* error);
 template <>
-bool StringToNumeric(absl::string_view value, uint64_t* out, absl::Status* error);
+bool StringToNumeric(absl::string_view value, uint64_t* out,
+                     absl::Status* error);
 template <>
 bool StringToNumeric(absl::string_view value, float* out, absl::Status* error);
 template <>

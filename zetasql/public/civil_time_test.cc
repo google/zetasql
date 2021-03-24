@@ -16,6 +16,7 @@
 
 #include "zetasql/public/civil_time.h"
 
+#include <cstdint>
 #include <utility>
 #include <vector>
 

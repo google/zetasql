@@ -26,6 +26,7 @@ java_library(
     name = "tests",
     srcs = glob(["*.java"]),
     deps = [
+        "//java/com/google/zetasql:analyzer",
         "//java/com/google/zetasql:client",
         "//java/com/google/zetasql:testaccess",
         "//java/com/google/zetasql:types",
@@ -33,8 +34,10 @@ java_library(
         "//javatests/com/google/zetasql:util",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:function_java_proto",
+        "//zetasql/public:options_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
+        "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
         "@com_google_guava_guava//jar",
         "@com_google_truth_truth//jar",
@@ -44,5 +47,6 @@ java_library(
 
 junit_test_suites(
     name = "gen_tests",
+    runtime_deps = ["//java/com/google/zetasql:jni_channel"],
     deps = [":tests"],
 )

@@ -16,6 +16,7 @@
 
 #include "zetasql/common/proto_helper.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>

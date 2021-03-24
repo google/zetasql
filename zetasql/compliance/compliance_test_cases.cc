@@ -16,6 +16,7 @@
 
 #include "zetasql/compliance/compliance_test_cases.h"
 
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <map>
@@ -1047,17 +1048,25 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestComparisonFunctions_LE, 2) {
                     "@p0 <= @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 3) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 4) {
   // TODO: This needs to be sensitive to ProductMode, or
   // maybe just switched to PRODUCT_EXTERNAL.
   auto format_fct = [](const QueryParamsWithResult& p) {
     std::string optional_format_param = "";
-    if (p.num_params() == 2) {
+    if (p.num_params() == 2 || p.num_params() == 3) {
       optional_format_param = absl::StrCat(
           " FORMAT ",
           p.param(1).is_null()
               ? "NULL"
               : absl::StrCat("\'", p.param(1).string_value(), "\'"));
+      if (p.num_params() == 3) {
+        absl::StrAppend(
+            &optional_format_param,
+            " AT TIME ZONE ",
+            p.param(2).is_null()
+                ? "CAST(NULL AS STRING)"
+                : absl::StrCat("\'", p.param(2).string_value(), "\'"));
+      }
     }
     return absl::StrCat("CAST(@p0 AS ",
                         p.GetResultType()->TypeName(PRODUCT_INTERNAL),
@@ -1070,12 +1079,19 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestCastFunction, 3) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeCastFunction, 4) {
   auto format_fct = [](const QueryParamsWithResult& p) {
     std::string optional_format_param = "";
-    if (p.num_params() == 2) {
+    if (p.num_params() == 2 || p.num_params() == 3) {
       optional_format_param = absl::StrCat(
           " FORMAT ",
           p.param(1).is_null()
               ? "NULL"
               : absl::StrCat("\'", p.param(1).string_value(), "\'"));
+      if (p.num_params() == 3) {
+        absl::StrAppend(
+            &optional_format_param, " AT TIME ZONE ",
+            p.param(2).is_null()
+                ? "NULL"
+                : absl::StrCat("\'", p.param(2).string_value(), "\'"));
+      }
     }
     return absl::StrCat("SAFE_CAST(@p0 AS ",
                         p.GetResultType()->TypeName(PRODUCT_INTERNAL),
@@ -1317,6 +1333,20 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestToJsonString, 1) {
   SetNamePrefix("ToJsonString");
   RunFunctionCalls(Shard(GetFunctionTestsToJsonString(
       DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 1) {
+  SetNamePrefix("ToJson");
+  auto to_json_fct = [](const FunctionTestCall& f) {
+    if (f.params.params().size() == 1) {
+      return absl::Substitute("$0(@p0)", f.function_name);
+    }
+    return absl::Substitute("$0(@p0, stringify_wide_numbers=>@p1)",
+                            f.function_name);
+  };
+  RunFunctionTestsCustom(Shard(EnableJsonFeatureForTest(GetFunctionTestsToJson(
+                             DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS)))),
+                         to_json_fct);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -2027,6 +2057,10 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringInitCapFunctions, 1) {
       Shard(WrapFeatureAdditionalStringFunctions(GetFunctionTestsInitCap())));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestStringParseNumericFunctions, 1) {
+  RunFunctionCalls(Shard(GetFunctionTestsParseNumeric()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFunctions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsArray()));
 }
@@ -2106,6 +2140,40 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalDateTimestampSubtractions, 1) {
                     "CAST(-(@p1 - @p0) AS STRING)");
   RunStatementTests(Shard(GetDatetimeTimeIntervalSubtractions()),
                     "CAST(-(@p1 - @p0) AS STRING)");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, DateTimestampAddSubInterval, 1) {
+  SetNamePrefix("DateTimestampAddSubInterval");
+  // Timestamp
+  RunStatementTests(Shard(GetTimestampAddSubInterval()), "@p0 + @p1");
+  // Test subtraction through negation
+  RunStatementTests(Shard(GetTimestampAddSubInterval()), "@p0 - (-@p1)");
+  // // Datetime and Date
+  RunStatementTests(Shard(GetDatetimeAddSubInterval()), "@p0 + @p1");
+  // // Test subtraction through negation
+  RunStatementTests(Shard(GetDatetimeAddSubInterval()), "@p0 - (-@p1)");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalAddInterval, 1) {
+  SetNamePrefix("IntervalAddInterval");
+  RunStatementTests(Shard(GetFunctionTestsIntervalAdd()), "@p0 + @p1");
+  RunStatementTests(Shard(GetFunctionTestsIntervalAdd()), "@p1 + @p0");
+  RunStatementTests(Shard(GetFunctionTestsIntervalAdd()), "@p0 - (-@p1)");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalSubInterval, 1) {
+  SetNamePrefix("IntervalSubInterval");
+  RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "@p0 - @p1");
+  RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "@p0 + (-@p1)");
+  RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "-(@p1 - @p0)");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, ExtractFromInterval, 1) {
+  SetNamePrefix("ExtractFromInterval");
+  auto extract_fn = [](const QueryParamsWithResult& p) {
+    return absl::Substitute("EXTRACT($0 FROM @p0)", p.param(1).string_value());
+  };
+  RunStatementTestsCustom(Shard(GetFunctionTestsExtractInterval()), extract_fn);
 }
 
 // Wrap the proto field test cases with civil time typed values. If the type of
@@ -2966,24 +3034,24 @@ TEST_F(ComplianceCodebasedTests, IntegerRoundtrip) {
   // Note - the below transformation only works correctly with non-negative
   // integers.
   for (int64_t number : std::vector<int64_t>({
-         0,
-         1,
-         22,
-         300,
-         4848,
-         55555,
-         601111,
-         7771234,
-         59483726,
-         123456789,
-         9876543210,
-         122333444455555,
-         888887777666554,
-         999999999999999999,
-         1000000000000000000,
-         5647382910564738291,
-         std::numeric_limits<int64_t>::max() - 1,
-         std::numeric_limits<int64_t>::max(),
+           0,
+           1,
+           22,
+           300,
+           4848,
+           55555,
+           601111,
+           7771234,
+           59483726,
+           123456789,
+           9876543210,
+           122333444455555,
+           888887777666554,
+           999999999999999999,
+           1000000000000000000,
+           5647382910564738291,
+           std::numeric_limits<int64_t>::max() - 1,
+           std::numeric_limits<int64_t>::max(),
        })) {
     // After transformation the result should be exactly the same as original
     // number.

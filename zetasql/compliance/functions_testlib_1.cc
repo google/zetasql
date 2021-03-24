@@ -17,6 +17,7 @@
 // The file functions_testlib.cc has been split into multiple files prefixed
 // with "functions_testlib_" because an optimized compile with ASAN of the
 // original single file timed out at 900 seconds.
+#include <cstdint>
 #include <limits>
 #include <numeric>
 #include <string>
@@ -139,7 +140,8 @@ Value DateArray(const std::vector<int32_t>& values) {
 
 std::vector<FunctionTestCall> GetFunctionTestsRangeBucket() {
   const Value numeric_zero = Value::Numeric(NumericValue());
-  const Value numeric_one = Value::Numeric(NumericValue(static_cast<int64_t>(1)));
+  const Value numeric_one =
+      Value::Numeric(NumericValue(static_cast<int64_t>(1)));
   const Value numeric_max = Value::Numeric(NumericValue::MaxValue());
   const Value numeric_min = Value::Numeric(NumericValue::MinValue());
 

@@ -79,6 +79,7 @@ class SampleCatalog {
   void LoadNestedCatalogs();
   void AddFunctionWithArgumentType(std::string type_name, const Type* arg_type);
   void LoadFunctions();
+  void LoadFunctionsWithDefaultArguments();
   void LoadTemplatedSQLUDFs();
 
   // Loads several table-valued functions into the sample catalog. For a full
@@ -87,11 +88,13 @@ class SampleCatalog {
   // split it up in order to avoid lint warnings.
   void LoadTableValuedFunctions1();
   void LoadTableValuedFunctions2();
+  void LoadTableValuedFunctionsWithStructArgs();
   void LoadTVFWithExtraColumns();
   void LoadConnectionTableValuedFunctions();
   void LoadDescriptorTableValuedFunctions();
   void LoadTableValuedFunctionsWithDeprecationWarnings();
   void LoadTemplatedSQLTableValuedFunctions();
+  void LoadTableValuedFunctionsWithAnonymizationUid();
   void AddProcedureWithArgumentType(std::string type_name,
                                     const Type* arg_type);
   void LoadProcedures();
@@ -136,8 +139,12 @@ class SampleCatalog {
   const ProtoType* proto_MessageWithKitchenSinkPB_;
   const ProtoType* proto_CivilTimeTypesSinkPB_;
   const ProtoType* proto_TestExtraPB_;
+  const ProtoType* proto_abPB_;
+  const ProtoType* proto_bcPB_;
+
   const ProtoType* proto_EmptyMessage_;
   const ProtoType* proto3_KitchenSinkPB_;
+  const ProtoType* proto3_MessageWithInvalidMap_;
   const ProtoType* proto_ambiguous_has_;
   const ProtoType* proto_field_formats_proto_;
   const ProtoType* proto_MessageWithMapField_;

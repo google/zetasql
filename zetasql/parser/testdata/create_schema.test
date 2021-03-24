@@ -1,0 +1,81 @@
+# CREATE SCHEMA
+CREATE SCHEMA foo;
+--
+CreateSchemaStatement [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+CREATE SCHEMA foo
+==
+
+CREATE {{|or replace}} SCHEMA {{|if not exists}} foo.bar
+options()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateSchemaStatement [0-33]
+  PathExpression [16-23]
+    Identifier(foo) [16-19]
+    Identifier(bar) [20-23]
+  OptionsList [31-33]
+--
+CREATE SCHEMA foo.bar
+OPTIONS()
+--
+ALTERNATION GROUP: if not exists
+--
+CreateSchemaStatement(is_if_not_exists) [0-46]
+  PathExpression [29-36]
+    Identifier(foo) [29-32]
+    Identifier(bar) [33-36]
+  OptionsList [44-46]
+--
+CREATE SCHEMA IF NOT EXISTS foo.bar
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,
+--
+CreateSchemaStatement(is_or_replace) [0-43]
+  PathExpression [26-33]
+    Identifier(foo) [26-29]
+    Identifier(bar) [30-33]
+  OptionsList [41-43]
+--
+CREATE OR REPLACE SCHEMA foo.bar
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,if not exists
+--
+CreateSchemaStatement(is_or_replace, is_if_not_exists) [0-56]
+  PathExpression [39-46]
+    Identifier(foo) [39-42]
+    Identifier(bar) [43-46]
+  OptionsList [54-56]
+--
+CREATE OR REPLACE SCHEMA IF NOT EXISTS foo.bar
+OPTIONS()
+==
+
+CREATE SCHEMA foo options(x='a',y='b')
+
+--
+CreateSchemaStatement [0-38]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  OptionsList [25-38]
+    OptionsEntry [26-31]
+      Identifier(x) [26-27]
+      StringLiteral('a') [28-31]
+    OptionsEntry [32-37]
+      Identifier(y) [32-33]
+      StringLiteral('b') [34-37]
+--
+CREATE SCHEMA foo
+OPTIONS(x = 'a', y = 'b')
+==
+
+CREATE SCHEMA
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:14]
+CREATE SCHEMA
+             ^

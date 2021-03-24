@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/percentile.h"
 
 #include <cmath>
+#include <cstdint>
 #include <deque>
 #include <limits>
 #include <string>
@@ -1187,27 +1188,42 @@ struct PercentileDiscTest : public ::testing::Test {
   static const T kSortedValues[kNumValues];
 };
 
-using PercentileDiscTypes = ::testing::Types<
-    int64_t, int32_t, uint64_t, uint32_t, double, float, bool, absl::string_view>;
+using PercentileDiscTypes =
+    ::testing::Types<int64_t, int32_t, uint64_t, uint32_t, double, float, bool,
+                     absl::string_view>;
 TYPED_TEST_SUITE(PercentileDiscTest, PercentileDiscTypes);
 
-template <> const int64_t PercentileDiscTest<int64_t>::kSortedValues[] = {
-    limits<int64_t>::min(), limits<int64_t>::min() + 1, -10, 0, 1,
-    10, limits<int64_t>::max() - 1, limits<int64_t>::max()
-};
+template <>
+const int64_t PercentileDiscTest<int64_t>::kSortedValues[] = {
+    limits<int64_t>::min(),     limits<int64_t>::min() + 1, -10, 0, 1, 10,
+    limits<int64_t>::max() - 1, limits<int64_t>::max()};
 
-template <> const int32_t PercentileDiscTest<int32_t>::kSortedValues[] = {
-    limits<int32_t>::min(), limits<int32_t>::min() + 1, -10, 0, 1,
-    10, limits<int32_t>::max() - 1, limits<int32_t>::max()
-};
+template <>
+const int32_t PercentileDiscTest<int32_t>::kSortedValues[] = {
+    limits<int32_t>::min(),     limits<int32_t>::min() + 1, -10, 0, 1, 10,
+    limits<int32_t>::max() - 1, limits<int32_t>::max()};
 
-template <> const uint64_t PercentileDiscTest<uint64_t>::kSortedValues[] = {
-    0, 1, 2, 100, 128, 1000, limits<uint64_t>::max() - 1, limits<uint64_t>::max()
-};
+template <>
+const uint64_t PercentileDiscTest<uint64_t>::kSortedValues[] = {
+    0,
+    1,
+    2,
+    100,
+    128,
+    1000,
+    limits<uint64_t>::max() - 1,
+    limits<uint64_t>::max()};
 
-template <> const uint32_t PercentileDiscTest<uint32_t>::kSortedValues[] = {
-    0, 1, 2, 100, 128, 1000, limits<uint32_t>::max() - 1, limits<uint32_t>::max()
-};
+template <>
+const uint32_t PercentileDiscTest<uint32_t>::kSortedValues[] = {
+    0,
+    1,
+    2,
+    100,
+    128,
+    1000,
+    limits<uint32_t>::max() - 1,
+    limits<uint32_t>::max()};
 
 template <> const double PercentileDiscTest<double>::kSortedValues[] = {
     kNaN, -kInf, -kDoubleMax, 0, kDoubleDenormalMin, kDoubleMin, kDoubleMax,

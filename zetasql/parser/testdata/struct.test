@@ -1,0 +1,552 @@
+select (1,2,3), ((1,2,3)), (((1,2,3)))
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-38]
+        SelectColumn [7-14]
+          StructConstructorWithParens [7-14]
+            IntLiteral(1) [8-9]
+            IntLiteral(2) [10-11]
+            IntLiteral(3) [12-13]
+        SelectColumn [16-25]
+          StructConstructorWithParens [17-24]
+            IntLiteral(1) [18-19]
+            IntLiteral(2) [20-21]
+            IntLiteral(3) [22-23]
+        SelectColumn [27-38]
+          StructConstructorWithParens [29-36]
+            IntLiteral(1) [30-31]
+            IntLiteral(2) [32-33]
+            IntLiteral(3) [34-35]
+--
+SELECT
+  (1, 2, 3),
+  (1, 2, 3),
+  (1, 2, 3)
+==
+
+select (1, 'abc')
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          StructConstructorWithParens [7-17]
+            IntLiteral(1) [8-9]
+            StringLiteral('abc') [11-16]
+--
+SELECT
+  (1, 'abc')
+==
+
+select (key, value)
+from KeyValue
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          StructConstructorWithParens [7-19]
+            PathExpression [8-11]
+              Identifier(key) [8-11]
+            PathExpression [13-18]
+              Identifier(value) [13-18]
+      FromClause [20-33]
+        TablePathExpression [25-33]
+          PathExpression [25-33]
+            Identifier(KeyValue) [25-33]
+--
+SELECT
+  (key, value)
+FROM
+  KeyValue
+==
+
+select ((1, 2), (1, 2))
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          StructConstructorWithParens [7-23]
+            StructConstructorWithParens [8-14]
+              IntLiteral(1) [9-10]
+              IntLiteral(2) [12-13]
+            StructConstructorWithParens [16-22]
+              IntLiteral(1) [17-18]
+              IntLiteral(2) [20-21]
+--
+SELECT
+  ((1, 2), (1, 2))
+==
+
+select key, value
+from KeyValue
+where (key, value) in ((1, 'abc'), (2, 'abc'), (key, value))
+--
+QueryStatement [0-92]
+  Query [0-92]
+    Select [0-92]
+      SelectList [7-17]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(key) [7-10]
+        SelectColumn [12-17]
+          PathExpression [12-17]
+            Identifier(value) [12-17]
+      FromClause [18-31]
+        TablePathExpression [23-31]
+          PathExpression [23-31]
+            Identifier(KeyValue) [23-31]
+      WhereClause [32-92]
+        InExpression(IN) [51-92]
+          StructConstructorWithParens [38-50]
+            PathExpression [39-42]
+              Identifier(key) [39-42]
+            PathExpression [44-49]
+              Identifier(value) [44-49]
+          InList [55-91]
+            StructConstructorWithParens [55-65]
+              IntLiteral(1) [56-57]
+              StringLiteral('abc') [59-64]
+            StructConstructorWithParens [67-77]
+              IntLiteral(2) [68-69]
+              StringLiteral('abc') [71-76]
+            StructConstructorWithParens [79-91]
+              PathExpression [80-83]
+                Identifier(key) [80-83]
+              PathExpression [85-90]
+                Identifier(value) [85-90]
+--
+SELECT
+  key,
+  value
+FROM
+  KeyValue
+WHERE
+  (key, value) IN ((1, 'abc'), (2, 'abc'), (key, value))
+==
+
+select ((1, 2), ('abc', 'def'))
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-31]
+          StructConstructorWithParens [7-31]
+            StructConstructorWithParens [8-14]
+              IntLiteral(1) [9-10]
+              IntLiteral(2) [12-13]
+            StructConstructorWithParens [16-30]
+              StringLiteral('abc') [17-22]
+              StringLiteral('def') [24-29]
+
+--
+SELECT
+  ((1, 2), ('abc', 'def'))
+==
+
+select ((1), (2))
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          StructConstructorWithParens [7-17]
+            IntLiteral(1) [9-10]
+            IntLiteral(2) [14-15]
+--
+SELECT
+  (1, 2)
+==
+
+select (1, (2), ((3)), (((4))), ((((5)))))
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          StructConstructorWithParens [7-42]
+            IntLiteral(1) [8-9]
+            IntLiteral(2) [12-13]
+            IntLiteral(3) [18-19]
+            IntLiteral(4) [26-27]
+            IntLiteral(5) [36-37]
+--
+SELECT
+  (1, 2, 3, 4, 5)
+==
+
+select ((1, ((2, (3))), ((((2), ((3)))))))
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          StructConstructorWithParens [8-41]
+            IntLiteral(1) [9-10]
+            StructConstructorWithParens [13-21]
+              IntLiteral(2) [14-15]
+              IntLiteral(3) [18-19]
+            StructConstructorWithParens [26-38]
+              IntLiteral(2) [28-29]
+              IntLiteral(3) [34-35]
+--
+SELECT
+  (1, (2, 3), (2, 3))
+==
+
+select (1+2+3, 4+5+6), (fn(a+b), c+d), ((fn1(a+b), fn2(c+d)))
+--
+QueryStatement [0-61]
+  Query [0-61]
+    Select [0-61]
+      SelectList [7-61]
+        SelectColumn [7-21]
+          StructConstructorWithParens [7-21]
+            BinaryExpression(+) [8-13]
+              BinaryExpression(+) [8-11]
+                IntLiteral(1) [8-9]
+                IntLiteral(2) [10-11]
+              IntLiteral(3) [12-13]
+            BinaryExpression(+) [15-20]
+              BinaryExpression(+) [15-18]
+                IntLiteral(4) [15-16]
+                IntLiteral(5) [17-18]
+              IntLiteral(6) [19-20]
+        SelectColumn [23-37]
+          StructConstructorWithParens [23-37]
+            FunctionCall [24-31]
+              PathExpression [24-26]
+                Identifier(fn) [24-26]
+              BinaryExpression(+) [27-30]
+                PathExpression [27-28]
+                  Identifier(a) [27-28]
+                PathExpression [29-30]
+                  Identifier(b) [29-30]
+            BinaryExpression(+) [33-36]
+              PathExpression [33-34]
+                Identifier(c) [33-34]
+              PathExpression [35-36]
+                Identifier(d) [35-36]
+        SelectColumn [39-61]
+          StructConstructorWithParens [40-60]
+            FunctionCall [41-49]
+              PathExpression [41-44]
+                Identifier(fn1) [41-44]
+              BinaryExpression(+) [45-48]
+                PathExpression [45-46]
+                  Identifier(a) [45-46]
+                PathExpression [47-48]
+                  Identifier(b) [47-48]
+            FunctionCall [51-59]
+              PathExpression [51-54]
+                Identifier(fn2) [51-54]
+              BinaryExpression(+) [55-58]
+                PathExpression [55-56]
+                  Identifier(c) [55-56]
+                PathExpression [57-58]
+                  Identifier(d) [57-58]
+
+--
+SELECT
+  (1 + 2 + 3, 4 + 5 + 6),
+  (fn(a + b), c + d),
+  (fn1(a + b), fn2(c + d))
+==
+
+select ( (1, 2), (4, 5, 6), ( (7, 8), (9, 10, 11) ) )
+--
+QueryStatement [0-53]
+  Query [0-53]
+    Select [0-53]
+      SelectList [7-53]
+        SelectColumn [7-53]
+          StructConstructorWithParens [7-53]
+            StructConstructorWithParens [9-15]
+              IntLiteral(1) [10-11]
+              IntLiteral(2) [13-14]
+            StructConstructorWithParens [17-26]
+              IntLiteral(4) [18-19]
+              IntLiteral(5) [21-22]
+              IntLiteral(6) [24-25]
+            StructConstructorWithParens [28-51]
+              StructConstructorWithParens [30-36]
+                IntLiteral(7) [31-32]
+                IntLiteral(8) [34-35]
+              StructConstructorWithParens [38-49]
+                IntLiteral(9) [39-40]
+                IntLiteral(10) [42-44]
+                IntLiteral(11) [46-48]
+--
+SELECT
+  ((1, 2), (4, 5, 6), ((7, 8), (9, 10, 11)))
+==
+
+select [1, (2), (3, 4), (5, 6, 7) ],
+       ( [1], [2, 3], [4, 5, 6])
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-69]
+        SelectColumn [7-35]
+          ArrayConstructor [7-35]
+            IntLiteral(1) [8-9]
+            IntLiteral(2) [12-13]
+            StructConstructorWithParens [16-22]
+              IntLiteral(3) [17-18]
+              IntLiteral(4) [20-21]
+            StructConstructorWithParens [24-33]
+              IntLiteral(5) [25-26]
+              IntLiteral(6) [28-29]
+              IntLiteral(7) [31-32]
+        SelectColumn [44-69]
+          StructConstructorWithParens [44-69]
+            ArrayConstructor [46-49]
+              IntLiteral(1) [47-48]
+            ArrayConstructor [51-57]
+              IntLiteral(2) [52-53]
+              IntLiteral(3) [55-56]
+            ArrayConstructor [59-68]
+              IntLiteral(4) [60-61]
+              IntLiteral(5) [63-64]
+              IntLiteral(6) [66-67]
+--
+SELECT
+  ARRAY[1, 2, (3, 4), (5, 6, 7)],
+  (ARRAY[1], ARRAY[2, 3], ARRAY[4, 5, 6])
+==
+
+select [ (1, [ (2, 3), (4, 5) ], ( [6, 7], [8] )) ]
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-51]
+        SelectColumn [7-51]
+          ArrayConstructor [7-51]
+            StructConstructorWithParens [9-49]
+              IntLiteral(1) [10-11]
+              ArrayConstructor [13-31]
+                StructConstructorWithParens [15-21]
+                  IntLiteral(2) [16-17]
+                  IntLiteral(3) [19-20]
+                StructConstructorWithParens [23-29]
+                  IntLiteral(4) [24-25]
+                  IntLiteral(5) [27-28]
+              StructConstructorWithParens [33-48]
+                ArrayConstructor [35-41]
+                  IntLiteral(6) [36-37]
+                  IntLiteral(7) [39-40]
+                ArrayConstructor [43-46]
+                  IntLiteral(8) [44-45]
+--
+SELECT
+  ARRAY[(1, ARRAY[(2, 3), (4, 5)], (ARRAY[6, 7], ARRAY[8]))]
+==
+
+select struct(1,2)
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          StructConstructorWithKeyword [7-18]
+            StructConstructorArg [14-15]
+              IntLiteral(1) [14-15]
+            StructConstructorArg [16-17]
+              IntLiteral(2) [16-17]
+--
+SELECT
+  STRUCT(1, 2)
+==
+
+select struct<int32, int32>(1,2)
+--
+
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          StructConstructorWithKeyword [7-32]
+            StructType [7-27]
+              StructField [14-19]
+                SimpleType [14-19]
+                  PathExpression [14-19]
+                    Identifier(int32) [14-19]
+              StructField [21-26]
+                SimpleType [21-26]
+                  PathExpression [21-26]
+                    Identifier(int32) [21-26]
+            StructConstructorArg [28-29]
+              IntLiteral(1) [28-29]
+            StructConstructorArg [30-31]
+              IntLiteral(2) [30-31]
+--
+SELECT
+  STRUCT< int32, int32 > (1, 2)
+==
+
+# STRUCT is a keyword
+select (1,2) as struct
+--
+ERROR: Syntax error: Unexpected keyword STRUCT [at 1:17]
+select (1,2) as struct
+                ^
+==
+
+select struct(), struct<>()
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-27]
+        SelectColumn [7-15]
+          StructConstructorWithKeyword [7-15]
+        SelectColumn [17-27]
+          StructConstructorWithKeyword [17-27]
+            StructType [17-25]
+--
+SELECT
+  STRUCT(),
+  STRUCT< > ()
+==
+
+select struct(1+2 as x)
+where struct(a,b,c as d)
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          StructConstructorWithKeyword [7-23]
+            StructConstructorArg [14-22]
+              BinaryExpression(+) [14-17]
+                IntLiteral(1) [14-15]
+                IntLiteral(2) [16-17]
+              Alias [18-22]
+                Identifier(x) [21-22]
+      WhereClause [24-48]
+        StructConstructorWithKeyword [30-48]
+          StructConstructorArg [37-38]
+            PathExpression [37-38]
+              Identifier(a) [37-38]
+          StructConstructorArg [39-40]
+            PathExpression [39-40]
+              Identifier(b) [39-40]
+          StructConstructorArg [41-47]
+            PathExpression [41-42]
+              Identifier(c) [41-42]
+            Alias [43-47]
+              Identifier(d) [46-47]
+--
+SELECT
+  STRUCT(1 + 2 AS x)
+WHERE
+  STRUCT(a, b, c AS d)
+==
+
+select struct<int32>(5)
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          StructConstructorWithKeyword [7-23]
+            StructType [7-20]
+              StructField [14-19]
+                SimpleType [14-19]
+                  PathExpression [14-19]
+                    Identifier(int32) [14-19]
+            StructConstructorArg [21-22]
+              IntLiteral(5) [21-22]
+--
+SELECT
+  STRUCT< int32 > (5)
+==
+
+select struct<f int32, y string>(x, y as def, 77)
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-49]
+        SelectColumn [7-49]
+          StructConstructorWithKeyword [7-49]
+            StructType [7-32]
+              StructField [14-21]
+                Identifier(f) [14-15]
+                SimpleType [16-21]
+                  PathExpression [16-21]
+                    Identifier(int32) [16-21]
+              StructField [23-31]
+                Identifier(y) [23-24]
+                SimpleType [25-31]
+                  PathExpression [25-31]
+                    Identifier(string) [25-31]
+            StructConstructorArg [33-34]
+              PathExpression [33-34]
+                Identifier(x) [33-34]
+            StructConstructorArg [36-44]
+              PathExpression [36-37]
+                Identifier(y) [36-37]
+              Alias [38-44]
+                Identifier(def) [41-44]
+            StructConstructorArg [46-48]
+              IntLiteral(77) [46-48]
+--
+SELECT
+  STRUCT< f int32, y string > (x, y AS def, 77)
+==
+
+select struct<>
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:16]
+select struct<>
+               ^
+==
+
+# AS is required for aliases inside STRUCT.
+select struct(abc def)
+--
+ERROR: Syntax error: Expected ")" or "," but got identifier "def" [at 1:19]
+select struct(abc def)
+                  ^
+==
+
+# AS aliases are only allowed with the STRUCT keyword.
+select (1, 2), (3, 4 AS x)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword AS [at 1:22]
+select (1, 2), (3, 4 AS x)
+                     ^
+==
+
+# Parenthesized path expressions are not allowed for aliases inside STRUCT.
+select struct(abc AS (foo.bar))
+--
+ERROR: Syntax error: Unexpected "(" [at 1:22]
+select struct(abc AS (foo.bar))
+                     ^
+==
+
+# Parenthesized path expressions are not allowed for aliases inside STRUCT,
+# even when there is no dot.
+select struct(abc AS (foo))
+--
+ERROR: Syntax error: Unexpected "(" [at 1:22]
+select struct(abc AS (foo))
+                     ^

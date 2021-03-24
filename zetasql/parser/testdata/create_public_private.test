@@ -1,0 +1,195 @@
+# The TEMP, PUBLIC, and PRIVATE modifiers are allowed in the same location
+# for CREATE statements.
+CREATE {{|temp|public|private}} function foo() returns int64 language testlang;
+--
+ALTERNATION GROUP: <empty>
+--
+CreateFunctionStatement [0-54]
+  FunctionDeclaration [17-22]
+    PathExpression [17-20]
+      Identifier(foo) [17-20]
+    FunctionParameters [20-22]
+  SimpleType [31-36]
+    PathExpression [31-36]
+      Identifier(int64) [31-36]
+  Identifier(testlang) [46-54]
+--
+CREATE FUNCTION foo()
+RETURNS int64 LANGUAGE testlang
+--
+ALTERNATION GROUP: temp
+--
+CreateFunctionStatement(is_temp) [0-58]
+  FunctionDeclaration [21-26]
+    PathExpression [21-24]
+      Identifier(foo) [21-24]
+    FunctionParameters [24-26]
+  SimpleType [35-40]
+    PathExpression [35-40]
+      Identifier(int64) [35-40]
+  Identifier(testlang) [50-58]
+--
+CREATE TEMP FUNCTION foo()
+RETURNS int64 LANGUAGE testlang
+--
+ALTERNATION GROUP: public
+--
+CreateFunctionStatement(is_public) [0-60]
+  FunctionDeclaration [23-28]
+    PathExpression [23-26]
+      Identifier(foo) [23-26]
+    FunctionParameters [26-28]
+  SimpleType [37-42]
+    PathExpression [37-42]
+      Identifier(int64) [37-42]
+  Identifier(testlang) [52-60]
+--
+CREATE PUBLIC FUNCTION foo()
+RETURNS int64 LANGUAGE testlang
+--
+ALTERNATION GROUP: private
+--
+CreateFunctionStatement(is_private) [0-61]
+  FunctionDeclaration [24-29]
+    PathExpression [24-27]
+      Identifier(foo) [24-27]
+    FunctionParameters [27-29]
+  SimpleType [38-43]
+    PathExpression [38-43]
+      Identifier(int64) [38-43]
+  Identifier(testlang) [53-61]
+--
+CREATE PRIVATE FUNCTION foo()
+RETURNS int64 LANGUAGE testlang
+==
+
+# Only one modifier is allowed
+CREATE TEMP PUBLIC function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword PUBLIC [at 1:13]
+CREATE TEMP PUBLIC function foo() returns int64 language testlang;
+            ^
+==
+
+# Only one modifier is allowed
+CREATE PUBLIC TEMPORARY function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword TEMPORARY [at 1:15]
+CREATE PUBLIC TEMPORARY function foo() returns int64 language testlang;
+              ^
+==
+
+# Only one modifier is allowed
+CREATE TEMPORARY PRIVATE function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword PRIVATE [at 1:18]
+CREATE TEMPORARY PRIVATE function foo() returns int64 language testlang;
+                 ^
+==
+
+# Only one modifier is allowed
+CREATE PRIVATE TEMP function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword TEMP [at 1:16]
+CREATE PRIVATE TEMP function foo() returns int64 language testlang;
+               ^
+==
+
+# Only one modifier is allowed
+CREATE PRIVATE PUBLIC function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword PUBLIC [at 1:16]
+CREATE PRIVATE PUBLIC function foo() returns int64 language testlang;
+               ^
+==
+
+# Only one modifier is allowed
+CREATE PUBLIC PRIVATE function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword PRIVATE [at 1:15]
+CREATE PUBLIC PRIVATE function foo() returns int64 language testlang;
+              ^
+==
+
+# PUBLIC and PRIVATE are compatible with IF NOT EXISTS and OR REPLACE
+CREATE OR REPLACE {{PUBLIC|PRIVATE}} function IF NOT EXISTS foo()
+returns int64 language testlang;
+--
+ALTERNATION GROUP: PUBLIC
+--
+CreateFunctionStatement(is_public, is_or_replace, is_if_not_exists) [0-85]
+  FunctionDeclaration [48-53]
+    PathExpression [48-51]
+      Identifier(foo) [48-51]
+    FunctionParameters [51-53]
+  SimpleType [62-67]
+    PathExpression [62-67]
+      Identifier(int64) [62-67]
+  Identifier(testlang) [77-85]
+--
+CREATE OR REPLACE PUBLIC FUNCTION IF NOT EXISTS foo()
+RETURNS int64 LANGUAGE testlang
+--
+ALTERNATION GROUP: PRIVATE
+--
+CreateFunctionStatement(is_private, is_or_replace, is_if_not_exists) [0-86]
+  FunctionDeclaration [49-54]
+    PathExpression [49-52]
+      Identifier(foo) [49-52]
+    FunctionParameters [52-54]
+  SimpleType [63-68]
+    PathExpression [63-68]
+      Identifier(int64) [63-68]
+  Identifier(testlang) [78-86]
+--
+CREATE OR REPLACE PRIVATE FUNCTION IF NOT EXISTS foo()
+RETURNS int64 LANGUAGE testlang
+==
+
+# Modifiers other than TEMP, TEMPORARY, PUBLIC, and PRIVATE do not work.
+CREATE public.private function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got "." [at 1:14]
+CREATE public.private function foo() returns int64 language testlang;
+             ^
+==
+
+# Modifiers other than TEMP, TEMPORARY, PUBLIC, and PRIVATE do not work.
+#
+# This modifier 'IDENTIFIER_MODIFIER' is an identifier.
+CREATE IDENTIFIER_MODIFIER function foo() returns int64 language testlang;
+--
+ERROR: IDENTIFIER_MODIFIER is not a supported object type [at 1:8]
+CREATE IDENTIFIER_MODIFIER function foo() returns int64 language testlang;
+       ^
+==
+
+# Modifiers other than TEMP, TEMPORARY, PUBLIC, and PRIVATE do not work.
+#
+# This modifier 'BEGIN' is an unreserved keyword.
+CREATE BEGIN function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword BEGIN [at 1:8]
+CREATE BEGIN function foo() returns int64 language testlang;
+       ^
+==
+
+# Modifiers other than TEMP, TEMPORARY, PUBLIC, and PRIVATE do not work.
+#
+# This modifier 'AND' is a reserved keyword.
+CREATE AND function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword AND [at 1:8]
+CREATE AND function foo() returns int64 language testlang;
+       ^
+==
+
+# Modifiers other than TEMP, TEMPORARY, PUBLIC, and PRIVATE do not work.
+#
+# This modifier 'ALL' is a reserved keyword that can be used in an
+# identifier path
+CREATE ALL function foo() returns int64 language testlang;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword ALL [at 1:8]
+CREATE ALL function foo() returns int64 language testlang;
+       ^

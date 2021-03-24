@@ -100,6 +100,15 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtPoint(ParseLocationPoint poin
   return MakeSqlError().Attach(point.ToInternalErrorLocation());
 }
 
+// Returns an UnimplementedError with a payload corresponding to the given error
+// location. This is similar to MakeSqlErrorAtPoint(), except for the error
+// code.
+inline ::zetasql_base::StatusBuilder MakeUnimplementedErrorAtPoint(
+    ParseLocationPoint point) {
+  return zetasql_base::UnimplementedErrorBuilder().Attach(
+      point.ToInternalErrorLocation());
+}
+
 // Returns a StatusBuilder for SQL evaluation errors, using the OUT_OF_RANGE
 // error code. Note: if you enable logging on the StatusBuilder, the logged
 // file/line location will not be useful.

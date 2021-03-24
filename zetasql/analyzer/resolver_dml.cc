@@ -611,10 +611,11 @@ absl::Status Resolver::ResolveDMLValue(
           GetInputArgumentTypeForExpr(resolved_value.get());
       SignatureMatchResult unused;
       if (coercer_.AssignableTo(input_argument_type, target_type,
-                                /* is_explicit = */ false, &unused)) {
+                                /*is_explicit=*/false, &unused)) {
         ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-            ast_value, target_type, nullptr /* scan */,
-            false /* set_has_explicit_type */, false /* return_null_on_error */,
+            ast_value, target_type, /*format=*/nullptr,
+            /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+            /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
             &resolved_value));
       }
     }
@@ -637,7 +638,8 @@ absl::Status Resolver::ResolveDMLValue(
     if (coercer_.AssignableTo(input_argument_type, target_type,
                               /*is_explicit=*/false, &unused)) {
       ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-          ast_location, target_type, /*scan=*/nullptr,
+          ast_location, target_type, /*format=*/nullptr,
+          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
           /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
           &resolved_value));
     }
@@ -1947,8 +1949,10 @@ absl::Status Resolver::ResolveReturningClause(
       query_resolution_info->select_column_state_list();
   ZETASQL_RET_CHECK_NE(select_column_state_list, nullptr);
 
-  FinalizeSelectColumnStateList(target_alias, query_resolution_info.get(),
-                                select_column_state_list);
+  FinalizeSelectColumnStateList(
+      select_list, target_alias,
+      /*force_new_columns_for_projected_outputs=*/false,
+      query_resolution_info.get(), select_column_state_list);
 
   // build up the output name list
   auto output_name_list = std::make_shared<NameList>();

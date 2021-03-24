@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_NET_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_NET_H_
 
+#include <cstdint>
 #include <string>
 
 #include <cstdint>

@@ -16,9 +16,13 @@
 
 #include "zetasql/public/types/type_parameters.h"
 
+#include <cstdint>
+
 #include "google/protobuf/util/message_differencer.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -102,6 +106,26 @@ TypeParameters::TypeParameters() {}
 
 zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeStringTypeParameters(
     const StringTypeParametersProto& string_type_parameters) {
+  ZETASQL_RETURN_IF_ERROR(ValidateStringTypeParameters(string_type_parameters));
+  return TypeParameters(string_type_parameters);
+}
+zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeNumericTypeParameters(
+    const NumericTypeParametersProto& numeric_type_parameters) {
+  ZETASQL_RETURN_IF_ERROR(ValidateNumericTypeParameters(numeric_type_parameters));
+  return TypeParameters(numeric_type_parameters);
+}
+TypeParameters TypeParameters::MakeExtendedTypeParameters(
+    const ExtendedTypeParameters& extended_type_parameters,
+    std::vector<TypeParameters> child_list) {
+  return TypeParameters(extended_type_parameters, std::move(child_list));
+}
+TypeParameters TypeParameters::MakeTypeParametersWithChildList(
+    std::vector<TypeParameters> child_list) {
+  return TypeParameters(std::move(child_list));
+}
+
+absl::Status TypeParameters::ValidateStringTypeParameters(
+    const StringTypeParametersProto& string_type_parameters) {
   if (string_type_parameters.has_is_max_length()) {
     ZETASQL_RET_CHECK(string_type_parameters.is_max_length())
         << "is_max_length should either be unset or true";
@@ -110,9 +134,10 @@ zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeStringTypeParameters(
         << "max_length must be larger than 0, actual max_length: "
         << string_type_parameters.max_length();
   }
-  return TypeParameters(string_type_parameters);
+  return absl::OkStatus();
 }
-zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeNumericTypeParameters(
+
+absl::Status TypeParameters::ValidateNumericTypeParameters(
     const NumericTypeParametersProto& numeric_type_parameters) {
   int64_t precision = numeric_type_parameters.precision();
   int64_t scale = numeric_type_parameters.scale();
@@ -130,16 +155,12 @@ zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeNumericTypeParameters
   }
   ZETASQL_RET_CHECK(scale >= 0 && scale <= 38)
       << "scale must be within range [0, 38], actual scale: " << scale;
-  return TypeParameters(numeric_type_parameters);
+  return absl::OkStatus();
 }
-TypeParameters TypeParameters::MakeExtendedTypeParameters(
-    const ExtendedTypeParameters& extended_type_parameters,
-    std::vector<TypeParameters> child_list) {
-  return TypeParameters(extended_type_parameters, std::move(child_list));
-}
-TypeParameters TypeParameters::MakeTypeParametersWithChildList(
-    std::vector<TypeParameters> child_list) {
-  return TypeParameters(std::move(child_list));
+
+void TypeParameters::set_child_list(std::vector<TypeParameters> child_list) {
+  ZETASQL_DCHECK(IsEmpty());
+  child_list_ = std::move(child_list);
 }
 
 absl::Status TypeParameters::Serialize(TypeParametersProto* proto) const {
@@ -161,6 +182,12 @@ absl::Status TypeParameters::Serialize(TypeParametersProto* proto) const {
     ZETASQL_RETURN_IF_ERROR(child.Serialize(proto->add_child_list()));
   }
   return absl::OkStatus();
+}
+
+zetasql_base::StatusOr<std::string> TypeParameters::SerializeAsString() const {
+  TypeParametersProto proto;
+  ZETASQL_RETURN_IF_ERROR(Serialize(&proto));
+  return proto.SerializeAsString();
 }
 
 zetasql_base::StatusOr<TypeParameters> TypeParameters::Deserialize(
@@ -220,6 +247,10 @@ bool TypeParameters::Equals(const TypeParameters& that) const {
 }
 
 bool TypeParameters::MatchType(const Type* type) const {
+  // Empty TypeParameters object matches all types.
+  if (IsEmpty()) {
+    return true;
+  }
   if (IsStringTypeParameters()) {
     return type->IsString() || type->IsBytes();
   }
@@ -232,11 +263,27 @@ bool TypeParameters::MatchType(const Type* type) const {
     // extended parameters (and child_list) together match the type.
     return type->IsExtendedType();
   }
-  if (num_children() > 0) {
-    return type->IsStruct() || type->IsArray();
+  if (IsStructOrArrayParameters()) {
+    if (type->IsStruct()) {
+      const StructType* struct_type = type->AsStruct();
+      if (struct_type->num_fields() != num_children()) {
+        return false;
+      }
+      for (int i = 0; i < num_children(); ++i) {
+        if (!child(i).MatchType(struct_type->field(i).type)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (type->IsArray()) {
+      if (num_children() != 1) {
+        return false;
+      }
+      return child(0).MatchType(type->AsArray()->element_type());
+    }
   }
-  // Empty type parameters matches all types.
-  return true;
+  return false;
 }
 
 std::string ExtendedTypeParameters::DebugString() const {

@@ -1,0 +1,103 @@
+alter table foo.bar drop;
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:25]
+alter table foo.bar drop;
+                        ^
+
+==
+
+alter table foo.bar drop constraint;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:36]
+alter table foo.bar drop constraint;
+                                   ^
+
+==
+
+alter table foo.bar drop constraint baz;
+--
+AlterTableStatement [0-39]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-39]
+    DropConstraintAction [20-39]
+      Identifier(baz) [36-39]
+--
+ALTER TABLE foo.bar DROP CONSTRAINT baz
+
+==
+
+alter table foo.bar drop constraint if exists baz;
+--
+AlterTableStatement [0-49]
+  PathExpression [12-19]
+    Identifier(foo) [12-15]
+    Identifier(bar) [16-19]
+  AlterActionList [20-49]
+    DropConstraintAction(is_if_exists) [20-49]
+      Identifier(baz) [46-49]
+--
+ALTER TABLE foo.bar DROP CONSTRAINT IF EXISTS baz
+
+==
+
+alter table constraint drop constraint baz;
+--
+AlterTableStatement [0-42]
+  PathExpression [12-22]
+    Identifier(constraint) [12-22]
+  AlterActionList [23-42]
+    DropConstraintAction [23-42]
+      Identifier(baz) [39-42]
+--
+ALTER TABLE constraint DROP CONSTRAINT baz
+
+==
+
+alter table constraint drop constraint check;
+--
+AlterTableStatement [0-44]
+  PathExpression [12-22]
+    Identifier(constraint) [12-22]
+  AlterActionList [23-44]
+    DropConstraintAction [23-44]
+      Identifier(check) [39-44]
+--
+ALTER TABLE constraint DROP CONSTRAINT check
+
+==
+
+alter table constraint drop constraint constraint;
+--
+AlterTableStatement [0-49]
+  PathExpression [12-22]
+    Identifier(constraint) [12-22]
+  AlterActionList [23-49]
+    DropConstraintAction [23-49]
+      Identifier(constraint) [39-49]
+--
+ALTER TABLE constraint DROP CONSTRAINT constraint
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+ALTER TABLE foo-123.bar DROP CONSTRAINT baz
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-123.bar` [at 1:13]
+ALTER TABLE foo-123.bar DROP CONSTRAINT baz
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-43]
+  PathExpression [12-23]
+    Identifier(`foo-123`) [12-23]
+    Identifier(bar) [12-23]
+  AlterActionList [24-43]
+    DropConstraintAction [24-43]
+      Identifier(baz) [40-43]
+--
+ALTER TABLE `foo-123`.bar DROP CONSTRAINT baz

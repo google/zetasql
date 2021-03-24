@@ -12,13 +12,15 @@ CURRENT_DATE([time_zone])
 
 **Description**
 
-Returns the current date as of the specified or default timezone.
+Returns the current date as of the specified or default timezone. Parentheses
+are optional when called with no
+arguments.
 
-This function supports an optional `time_zone` parameter. This parameter is a
-string representing the timezone to use. If no timezone is specified, the
-default timezone, which is implementation defined, is used. See
-[Timezone definitions][date-functions-link-to-timezone-definitions] for information on how to
-specify a time zone.
+ This function supports an optional
+`time_zone` parameter. This parameter is a string representing the timezone to
+use. If no timezone is specified, the default timezone, which is implementation defined,
+is used. See [Timezone definitions][date-functions-link-to-timezone-definitions]
+for information on how to specify a time zone.
 
 If the `time_zone` parameter evaluates to `NULL`, this function returns `NULL`.
 
@@ -36,6 +38,24 @@ SELECT CURRENT_DATE() as the_date;
 +--------------+
 | 2016-12-25   |
 +--------------+
+```
+
+When a column named `current_date` is present, the column name and the function
+call without parentheses are ambiguous. To ensure the function call, add
+parentheses; to ensure the column name, qualify it with its
+[range variable][date-functions-link-to-range-variables]. For example, the
+following query will select the function in the `the_date` column and the table
+column in the `current_date` column.
+
+```sql
+WITH t AS (SELECT 'column value' AS `current_date`)
+SELECT current_date() AS the_date, t.current_date FROM t;
+
++------------+--------------+
+| the_date   | current_date |
++------------+--------------+
+| 2016-12-25 | column value |
++------------+--------------+
 ```
 
 ### EXTRACT
@@ -724,46 +744,56 @@ following elements:
  <tr>
     <td class="tab0">Format element</td>
     <td class="tab0">Description</td>
+    <td class="tab0">Example</td>
  </tr>
  <tr>
     <td>%A</td>
     <td>The full weekday name.</td>
+    <td>Wednesday</td>
  </tr>
  <tr>
     <td>%a</td>
     <td>The abbreviated weekday name.</td>
+    <td>Wed</td>
  </tr>
  <tr>
     <td>%B</td>
     <td>The full month name.</td>
+    <td>January</td>
  </tr>
  <tr>
     <td>%b or %h</td>
     <td>The abbreviated month name.</td>
+    <td>Jan</td>
  </tr>
  <tr>
     <td>%C</td>
     <td>The century (a year divided by 100 and truncated to an integer) as a
     decimal
 number (00-99).</td>
+    <td>20</td>
  </tr>
  <tr>
     <td>%D</td>
     <td>The date in the format %m/%d/%y.</td>
+    <td>01/20/21</td>
  </tr>
  <tr>
     <td>%d</td>
     <td>The day of the month as a decimal number (01-31).</td>
+    <td>20</td>
  </tr>
  <tr>
     <td>%e</td>
     <td>The day of month as a decimal number (1-31); single digits are preceded
     by a
 space.</td>
+    <td>20</td>
  </tr>
  <tr>
     <td>%F</td>
     <td>The date in the format %Y-%m-%d.</td>
+    <td>2021-01-20</td>
  </tr>
  <tr>
     <td>%G</td>
@@ -772,6 +802,7 @@ space.</td>
     on the Monday before the first Thursday of the Gregorian calendar year.
     Note that %G and %Y may produce different results near Gregorian year
     boundaries, where the Gregorian year and ISO year can diverge.</td>
+    <td>2021</td>
  </tr>
  <tr>
     <td>%g</td>
@@ -781,36 +812,44 @@ space.</td>
     calendar year. Note that %g and %y may produce different results near
     Gregorian year boundaries, where the Gregorian year and ISO year can
     diverge.</td>
+    <td>21</td>
  </tr>
  <tr>
     <td>%j</td>
     <td>The day of the year as a decimal number (001-366).</td>
+    <td>020</td>
  </tr>
  <tr>
     <td>%m</td>
     <td>The month as a decimal number (01-12).</td>
+    <td>01</td>
  </tr>
  <tr>
     <td>%n</td>
     <td>A newline character.</td>
+    <td></td>
  </tr>
  <tr>
     <td>%Q</td>
     <td>The quarter as a decimal number (1-4).</td>
+    <td>1</td>
  </tr>
  <tr>
     <td>%t</td>
     <td>A tab character.</td>
+    <td></td>
  </tr>
  <tr>
     <td>%U</td>
     <td>The week number of the year (Sunday as the first day of the week) as a
     decimal number (00-53).</td>
+    <td>03</td>
  </tr>
  <tr>
     <td>%u</td>
     <td>The weekday (Monday as the first day of the week) as a decimal number
     (1-7).</td>
+   <td>3</td>
 </tr>
  <tr>
     <td>%V</td>
@@ -820,35 +859,42 @@ space.</td>
     January 1 has four or more days in the new year, then it is week 1;
     otherwise it is week 53 of the previous year, and the next week is
     week 1.</td>
+    <td>03</td>
  </tr>
  <tr>
     <td>%W</td>
     <td>The week number of the year (Monday as the first day of the week) as a
     decimal number (00-53).</td>
+    <td>03</td>
  </tr>
  <tr>
     <td>%w</td>
     <td>The weekday (Sunday as the first day of the week) as a decimal number
     (0-6).</td>
+    <td>3</td>
  </tr>
  <tr>
     <td>%x</td>
     <td>The date representation in MM/DD/YY format.</td>
+    <td>01/20/21</td>
  </tr>
  <tr>
     <td>%Y</td>
     <td>The year with century as a decimal number.</td>
+    <td>2021</td>
  </tr>
  <tr>
     <td>%y</td>
     <td>The year without century as a decimal number (00-99), with an optional
     leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
     2000s, while years 69-99 are 1900s.</td>
+    <td>21</td>
  </tr>
  <tr>
     <td>%E4Y</td>
     <td>Four-character years (0001 ... 9999). Note that %Y produces as many
     characters as it takes to fully render the year.</td>
+    <td>2021</td>
  </tr>
 </table>
 
@@ -856,6 +902,7 @@ space.</td>
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
 [date-format]: #format_date
 [date-format-elements]: #supported_format_elements_for_date
+[date-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
 

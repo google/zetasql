@@ -20,6 +20,7 @@
 #include <stddef.h>
 
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include "zetasql/public/functions/arithmetics.h"

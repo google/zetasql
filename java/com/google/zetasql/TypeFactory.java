@@ -321,6 +321,11 @@ public abstract class TypeFactory implements Serializable {
       checkArgument(
           index >= 0 && index < pools.size(), "FileDescriptorSetIndex out of bound: %s", enumType);
 
+      checkArgument(
+          enumType.getCatalogNamePathCount() == 0,
+          "Catalog name support for EnumTypeProto is not implemented: %s",
+          enumType);
+
       DescriptorPool pool = pools.get(index);
 
       ZetaSQLEnumDescriptor descriptor = pool.findEnumTypeByName(name);
@@ -360,6 +365,11 @@ public abstract class TypeFactory implements Serializable {
       int index = protoType.getFileDescriptorSetIndex();
       checkArgument(
           index >= 0 && index < pools.size(), "FileDescriptorSetIndex out of bound: %s", protoType);
+
+      checkArgument(
+          protoType.getCatalogNamePathCount() == 0,
+          "Catalog name support for ProtoTypeProto is not implemented: %s",
+          protoType);
 
       DescriptorPool pool = pools.get(index);
 

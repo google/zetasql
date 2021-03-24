@@ -17,7 +17,10 @@
 #ifndef ZETASQL_PUBLIC_TYPES_SIMPLE_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_SIMPLE_TYPE_H_
 
+#include <cstdint>
+
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/type.h"
 
 namespace zetasql {
@@ -57,8 +60,11 @@ class SimpleType : public Type {
   //   - NUMERIC(P, S) / BIGNUMERIC(P, S)
   //   - BIGNUMERIC(MAX) / BIGNUMERIC(MAX, S)
   zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
-      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const override;
+  // Validates resolved type parameters, used in validator.cc.
+  absl::Status ValidateResolvedTypeParameters(
+      const TypeParameters& type_parameters, ProductMode mode) const override;
 
  protected:
   ~SimpleType() override;
@@ -103,15 +109,21 @@ class SimpleType : public Type {
   void DebugStringImpl(bool details, TypeOrStringVector* stack,
                        std::string* debug_string) const override;
 
-  // Helper functions to validate type parameters for STRING(L), BYTES(L).
+  // Resolves type parameters for STRING(L), BYTES(L).
   zetasql_base::StatusOr<TypeParameters> ResolveStringBytesTypeParameters(
-      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const;
-  // Helper function to validate type parameters for NUMERIC(P), BIGNUMERIC(P),
-  // NUMERIC(P, S), BIGNUMERIC(P, S) and create respective TypeParameters class.
+  // Resolves type parameters for NUMERIC(P), BIGNUMERIC(P), NUMERIC(P, S),
+  // BIGNUMERIC(P, S) and create respective TypeParameters class.
   zetasql_base::StatusOr<TypeParameters> ResolveNumericBignumericTypeParameters(
-      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const;
+  // Validates the resolved numeric type parameters.
+  // We put ValidateNumericTypeParameters() in Type class instead of
+  // TypeParameters class because TypeParameters class doesn't know whether
+  // type is Numeric or BigNumeric.
+  absl::Status ValidateNumericTypeParameters(
+      const NumericTypeParametersProto& numeric_param, ProductMode mode) const;
 
   // Used for TYPE_TIMESTAMP.
   static absl::Time GetTimestampValue(const ValueContent& value);

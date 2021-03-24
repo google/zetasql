@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -935,7 +936,8 @@ constexpr uint32_t k5to11 = k5to10 * 5;
 constexpr uint32_t k5to12 = k5to11 * 5;
 constexpr uint32_t k5to13 = k5to12 * 5;
 constexpr uint64_t k5to19 = static_cast<uint64_t>(k5to10) * k5to9;
-constexpr std::integral_constant<int32_t, internal::k1e9> kSignedScalingFactor{};
+constexpr std::integral_constant<int32_t, internal::k1e9>
+    kSignedScalingFactor{};
 
 }  // namespace internal
 

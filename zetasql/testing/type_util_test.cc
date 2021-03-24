@@ -68,7 +68,8 @@ TEST(HasFloatingPointNumber, NestedStructWithDoubleReturnsTrue) {
 // has floats.
 TEST_F(ZetaSQLTypesTest,
        DISABLED_HasFloatingPointNumber_ProtoWithFloatReturnsTrue) {
-  EXPECT_TRUE(HasFloatingPointNumber(GetKitchenSinkProtoType()));  // fails
+  EXPECT_TRUE(
+      HasFloatingPointNumber(GetKitchenSinkNestedProtoType()));  // fails
 }
 
 TEST(HasFloatingPointNumber, ArrayWithFloatsReturnsTrue) {

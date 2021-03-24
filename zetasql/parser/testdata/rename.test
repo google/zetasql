@@ -1,0 +1,73 @@
+rename ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:8]
+rename ;
+       ^
+==
+
+rename foo;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:11]
+rename foo;
+          ^
+==
+
+rename foo bar;
+--
+ERROR: Syntax error: Expected "." or keyword TO but got ";" [at 1:15]
+rename foo bar;
+              ^
+==
+
+rename foo bar baz;
+--
+ERROR: Syntax error: Expected "." or keyword TO but got identifier "baz" [at 1:16]
+rename foo bar baz;
+               ^
+==
+
+rename foo to bar;
+--
+ERROR: Syntax error: Unexpected keyword TO [at 1:12]
+rename foo to bar;
+           ^
+==
+
+rename foo bar too baz;
+--
+ERROR: Syntax error: Expected "." or keyword TO but got identifier "too" [at 1:16]
+rename foo bar too baz;
+               ^
+==
+
+rename foo bar to baz;
+--
+RenameStatement [0-21]
+  Identifier(foo) [7-10]
+  PathExpression [11-14]
+    Identifier(bar) [11-14]
+  PathExpression [18-21]
+    Identifier(baz) [18-21]
+--
+RENAME foo bar TO baz
+==
+
+rename foo to bar baz;
+--
+ERROR: Syntax error: Unexpected keyword TO [at 1:12]
+rename foo to bar baz;
+           ^
+==
+
+rename table foo.bar to foo.baz;
+--
+RenameStatement [0-31]
+  Identifier(table) [7-12]
+  PathExpression [13-20]
+    Identifier(foo) [13-16]
+    Identifier(bar) [17-20]
+  PathExpression [24-31]
+    Identifier(foo) [24-27]
+    Identifier(baz) [28-31]
+--
+RENAME table foo.bar TO foo.baz

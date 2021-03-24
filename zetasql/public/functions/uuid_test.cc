@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/uuid.h"
 
+#include <cstdint>
+
 #include "zetasql/base/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

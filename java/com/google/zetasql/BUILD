@@ -30,6 +30,7 @@ TYPES_SRCS = [
     "EnumType.java",
     "FileDescriptorSetsBuilder.java",
     "DescriptorPool.java",
+    "ImmutableDescriptorPool.java",
     "ZetaSQLDescriptorPool.java",
     "ZetaSQLStrings.java",
     "IntervalValue.java",

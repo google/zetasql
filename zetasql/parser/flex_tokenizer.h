@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PARSER_FLEX_TOKENIZER_H_
 #define ZETASQL_PARSER_FLEX_TOKENIZER_H_
 
+#include <cstdint>
 #include <sstream>
 #include <string>
 

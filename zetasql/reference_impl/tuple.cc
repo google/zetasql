@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/tuple.h"
 
 #include <algorithm>
+#include <cstdint>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/value.h"

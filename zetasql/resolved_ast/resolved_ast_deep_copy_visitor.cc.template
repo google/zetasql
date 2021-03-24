@@ -127,6 +127,19 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   copy.get()->set_preserve_in_literal_remover(
       node->preserve_in_literal_remover());
 
+   # elif field.name == "with_group_rows_subquery"
+  // Copy the with_group_rows_subquery field explicitly because it is not a
+  // constructor arg.
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedScan> scan,
+      ProcessNode(node->with_group_rows_subquery()));
+  copy.get()->set_with_group_rows_subquery(std::move(scan));
+
+   # elif field.name == "with_group_rows_parameter_list"
+  // Copy the with_group_rows_parameter_list field explicitly because it is not
+  // a constructor arg.
+  ZETASQL_RETURN_IF_ERROR(CopyWithGroupRowsParameterList<{{node.name}}>(node,
+                                                                copy.get()));
    # elif not field.is_constructor_arg and not field.is_node_ptr
   // Unhandled non-constructor argument not copied to new node explicitly.
   static_assert(false, CopyField{{field.name}}Of{{node.name}}MustBeImplementedManually);

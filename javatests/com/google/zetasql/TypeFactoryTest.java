@@ -317,6 +317,14 @@ public class TypeFactoryTest {
     } catch (IllegalArgumentException expected) {
     }
 
+    enumBuilder.setEnumFileName("zetasql/public/type.proto");
+    enumBuilder.addCatalogNamePath("catalog");
+    try {
+      factory.deserialize(builder.build(), Lists.newArrayList(pool));
+      fail("Should throw when deserializing enum with a catalog name.");
+    } catch (IllegalArgumentException expected) {
+    }
+
     builder.clearEnumType();
     builder.setTypeKind(TypeKind.TYPE_PROTO);
     Builder protoBuilder = builder.getProtoTypeBuilder();
@@ -373,6 +381,14 @@ public class TypeFactoryTest {
     try {
       factory.deserialize(builder.build(), Lists.newArrayList(pool));
       fail("Should throw when deserializing proto with wrong filename.");
+    } catch (IllegalArgumentException expected) {
+    }
+
+    protoBuilder.setProtoFileName("zetasql/public/type.proto");
+    protoBuilder.addCatalogNamePath("catalog");
+    try {
+      factory.deserialize(builder.build(), Lists.newArrayList(pool));
+      fail("Should throw when deserializing proto with a catalog name.");
     } catch (IllegalArgumentException expected) {
     }
   }

@@ -134,6 +134,18 @@ ERROR: generic::invalid_argument: Type not found: TIME [at 1:31]
 SELECT CONCAT(x) FROM UNNEST([TIME '01:02:03.456789']) x
                               ^
 ==
+[name=concat_interval]
+[test_features1=V_1_3_CONCAT_MIXED_TYPES,INTERVAL_TYPE]
+SELECT CONCAT(x), CONCAT('a', x)  FROM UNNEST([INTERVAL '1 2 3' MONTH TO HOUR]) x
+--
+WITH FEATURES: INTERVAL_TYPE,V_1_3_CONCAT_MIXED_TYPES
+ARRAY<STRUCT<STRING, STRING>>[{"0-1 2 3:0:0", "a0-1 2 3:0:0"}]
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: Unexpected INTERVAL expression [at 1:48]
+SELECT CONCAT(x), CONCAT('a', x)  FROM UNNEST([INTERVAL '1 2 3' MONTH TO HOUR...
+                                               ^
+==
 [name=concat_proto]
 SELECT CONCAT(x.int64_key_1, x) FROM UNNEST([NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1, 6 AS int64_key_2)]) x;
 --

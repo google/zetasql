@@ -22,9 +22,13 @@ import static org.junit.Assert.fail;
 
 import com.google.common.testing.SerializableTester;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
+import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
+import com.google.zetasqltest.TestSchemaProto.TestEnum;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,6 +53,16 @@ public class ZetaSQLDescriptorPoolTest {
     }
   }
 
+  static void assertFileDescriptorsAreDependencyOrdered(DescriptorPool pool) {
+    Set<String> fileNames = new LinkedHashSet<>();
+    for (FileDescriptor file : pool.getAllFileDescriptorsInDependencyOrder()) {
+      fileNames.add(file.getFullName());
+      for (FileDescriptor dependency : file.getDependencies()) {
+        assertThat(fileNames).contains(dependency.getFullName());
+      }
+    }
+  }
+
   @Test
   public void testOneSelfContainedFileDescriptorSet() {
     pool.importFileDescriptorSet(
@@ -69,6 +83,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool.findFileByName("test/file.proto")).isNotNull();
     assertThat(pool.findFileByName("test/file2.proto")).isNull();
     assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -178,6 +193,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool.findFileByName("test/file2.proto")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg2")).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -215,6 +231,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool.findFileByName("test/file2.proto")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg2")).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -271,6 +288,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool.findMessageTypeByName("test.msg.t")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg2")).isNotNull();
     assertThat(pool.findEnumTypeByName("test.msg2.e")).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -310,6 +328,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool.findFileByName("test/file2.proto")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg").findFieldByNumber(100)).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -360,6 +379,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool.findMessageTypeByName("test.msg")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg2")).isNotNull();
     assertThat(pool.findMessageTypeByName("test.msg").findFieldByNumber(100)).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -417,6 +437,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool2.findMessageTypeByName("test.msg.t")).isNotNull();
     assertThat(pool2.findMessageTypeByName("test.msg2")).isNotNull();
     assertThat(pool2.findEnumTypeByName("test.msg2.e")).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
   }
 
   @Test
@@ -468,6 +489,14 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(pool2.findMessageTypeByName("test.msg")).isNotNull();
     assertThat(pool2.findMessageTypeByName("test.msg2")).isNotNull();
     assertThat(pool2.findMessageTypeByName("test.msg").findFieldByNumber(100)).isNotNull();
+    assertFileDescriptorsAreDependencyOrdered(pool);
+  }
+
+  @Test
+  public void testGeneratedPool() {
+    assertFileDescriptorsAreDependencyOrdered(ZetaSQLDescriptorPool.getGeneratedPool());
+    ZetaSQLDescriptorPool.importIntoGeneratedPool(TestEnum.getDescriptor());
+    assertFileDescriptorsAreDependencyOrdered(ZetaSQLDescriptorPool.getGeneratedPool());
   }
 
   private static FileDescriptorSet fileDescriptorSetFromTextProto(String textProto) {

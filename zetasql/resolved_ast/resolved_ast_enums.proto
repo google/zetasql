@@ -107,6 +107,14 @@ message ResolvedCreateStatementEnums {
   }
 }
 
+message ResolvedGeneratedColumnInfoEnums {
+  enum StoredMode {
+    NON_STORED = 0;
+    STORED = 1;
+    STORED_VOLATILE = 2;
+  }
+}
+
 message ResolvedDropStmtEnums {
   enum DropMode {
     DROP_MODE_UNSPECIFIED = 0;

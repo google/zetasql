@@ -18,6 +18,7 @@
 
 #include <time.h>
 
+#include <cstdint>
 #include <functional>
 #include <set>
 #include <vector>

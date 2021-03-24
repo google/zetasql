@@ -1,0 +1,72 @@
+# Valid statement with connection and options.
+export model model.name with connection connection_id options(uri="destination");
+--
+ExportModelStatement [0-80]
+  PathExpression [13-23]
+    Identifier(model) [13-18]
+    Identifier(name) [19-23]
+  WithConnectionClause [24-53]
+    ConnectionClause [29-53]
+      PathExpression [40-53]
+        Identifier(connection_id) [40-53]
+  OptionsList [61-80]
+    OptionsEntry [62-79]
+      Identifier(uri) [62-65]
+      StringLiteral("destination") [66-79]
+--
+EXPORT MODEL model.name WITH CONNECTION connection_id OPTIONS(uri = "destination")
+==
+
+# Valid statement only with options.
+export model model.name options(uri = "destination");
+--
+ExportModelStatement [0-52]
+  PathExpression [13-23]
+    Identifier(model) [13-18]
+    Identifier(name) [19-23]
+  OptionsList [31-52]
+    OptionsEntry [32-51]
+      Identifier(uri) [32-35]
+      StringLiteral("destination") [38-51]
+--
+EXPORT MODEL model.name OPTIONS(uri = "destination")
+==
+
+# Valid statement only with connection.
+export model model.name with connection connection_id;
+--
+ExportModelStatement [0-53]
+  PathExpression [13-23]
+    Identifier(model) [13-18]
+    Identifier(name) [19-23]
+  WithConnectionClause [24-53]
+    ConnectionClause [29-53]
+      PathExpression [40-53]
+        Identifier(connection_id) [40-53]
+--
+EXPORT MODEL model.name WITH CONNECTION connection_id
+==
+
+# Invalid statement without model name.
+export model with connection connection_id options();
+--
+ERROR: Syntax error: Unexpected keyword WITH [at 1:14]
+export model with connection connection_id options();
+             ^
+==
+
+# Invalid statement with select statement.
+export model model.name options() as select 1 as a;
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 1:35]
+export model model.name options() as select 1 as a;
+                                  ^
+==
+
+# WITH must be combined with connection only.
+export model model.name with options();
+--
+ERROR: Syntax error: Expected keyword CONNECTION but got keyword OPTIONS [at 1:30]
+export model model.name with options();
+                             ^
+==

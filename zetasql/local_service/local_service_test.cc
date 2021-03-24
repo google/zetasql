@@ -16,11 +16,13 @@
 
 #include "zetasql/local_service/local_service.h"
 
+#include <cstdint>
 #include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
+#include "google/protobuf/wrappers.pb.h"
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
@@ -38,6 +40,8 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
+#include "zetasql/resolved_ast/resolved_ast.pb.h"
+#include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -49,6 +53,7 @@ namespace zetasql {
 using ::zetasql::testing::EqualsProto;
 using ::testing::Not;
 using ::zetasql_base::testing::IsOk;
+using ::zetasql_base::testing::StatusIs;
 
 namespace local_service {
 
@@ -759,6 +764,212 @@ TEST_F(ZetaSqlLocalServiceImplTest, Analyze) {
   AnalyzeResponse response3;
   ZETASQL_EXPECT_OK(Analyze(request3, &response3));
   EXPECT_EQ(40, response3.resume_byte_position());
+}
+
+void AddEmptyFileDescriptorSet(DescriptorPoolListProto* list) {
+  list->add_definitions()->mutable_file_descriptor_set();
+}
+
+void AddBuiltin(DescriptorPoolListProto* list) {
+  list->add_definitions()->mutable_builtin();
+}
+
+void AddKitchenSinkDescriptorPool(DescriptorPoolListProto* list) {
+  TypeFactory factory;
+  AnalyzerOptions options;
+  const ProtoType* proto_type = nullptr;
+  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+                                 &proto_type));
+  TypeProto ignored;
+
+  ZETASQL_CHECK_OK(proto_type->SerializeToProtoAndFileDescriptors(
+      &ignored, list->add_definitions()->mutable_file_descriptor_set()));
+}
+
+void AddKitchenSink3DescriptorPool(DescriptorPoolListProto* list) {
+  TypeFactory factory;
+  AnalyzerOptions options;
+  const ProtoType* proto_type = nullptr;
+  ZETASQL_CHECK_OK(factory.MakeProtoType(
+      zetasql_test::Proto3KitchenSink::descriptor(), &proto_type));
+  TypeProto ignored;
+
+  ZETASQL_CHECK_OK(proto_type->SerializeToProtoAndFileDescriptors(
+      &ignored, list->add_definitions()->mutable_file_descriptor_set()));
+}
+
+void AddDateTruncToCatalog(SimpleCatalogProto* catalog) {
+  catalog->mutable_builtin_function_options()->add_include_function_ids(
+      FN_DATE_TRUNC_DATE);
+}
+
+// builtin-only use for datetimepart
+TEST_F(ZetaSqlLocalServiceImplTest,
+       AnalyzeWithDescriptorPoolListProtoBuiltinOnlyForFunction) {
+  AnalyzeRequest request;
+  request.set_sql_statement(R"(select DATE_TRUNC(DATE "2020-10-20", MONTH))");
+  // We add a useless descriptor set, this ensures that 'zero' is not somehow
+  // magic.
+  AddEmptyFileDescriptorSet(request.mutable_descriptor_pool_list());
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddDateTruncToCatalog(request.mutable_simple_catalog());
+
+  AnalyzeResponse response;
+  ZETASQL_EXPECT_OK(Analyze(request, &response));
+
+  auto date_trunc_call = response.resolved_statement()
+                             .resolved_query_stmt_node()
+                             .query()
+                             .resolved_project_scan_node()
+                             .expr_list(0)
+                             .expr()
+                             .resolved_function_call_base_node()
+                             .resolved_function_call_node()
+                             .parent();
+  auto signature = date_trunc_call.signature();
+  EXPECT_EQ(date_trunc_call.function().name(), "ZetaSQL:date_trunc");
+
+  TypeProto datetimepart_type;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(type_kind: TYPE_ENUM
+           enum_type {
+             enum_name: "zetasql.functions.DateTimestampPart"
+             enum_file_name: "zetasql/public/functions/datetime.proto"
+             file_descriptor_set_index: 1
+           })pb",
+      &datetimepart_type));
+
+  EXPECT_THAT(signature.argument(1).type(), EqualsProto(datetimepart_type));
+}
+
+// The presence of the built in DescriptorPool doesn't magically make that
+// available in the catalog
+TEST_F(ZetaSqlLocalServiceImplTest,
+       AnalyzeWithDescriptorPoolListProtoBuiltinNotMagicallyInCatalog) {
+  AnalyzeRequest request;
+  request.set_sql_statement(R"(select new google.protobuf.Int64Value())");
+  AddBuiltin(request.mutable_descriptor_pool_list());
+
+  AnalyzeResponse response;
+  EXPECT_THAT(Analyze(request, &response),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       AnalyzeWithDescriptorPoolListProtoCatalogIndependence) {
+  constexpr int32_t kKitchenSinkPool = 1;
+  constexpr int32_t kKitchenSink3Pool = 2;
+  AnalyzeRequest request;
+  request.set_sql_statement(
+      R"(select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2),
+                new a.zetasql_test.Proto3KitchenSink(1 as int64_val),
+                new b.zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  // kKitchenSinkPool ->
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+  // kKitchenSink3Pool ->
+  AddKitchenSink3DescriptorPool(request.mutable_descriptor_pool_list());
+
+  SimpleCatalogProto* root_catalog = request.mutable_simple_catalog();
+  root_catalog->set_file_descriptor_set_index(kKitchenSinkPool);
+
+  SimpleCatalogProto* sub_catalog_a = root_catalog->add_catalog();
+  sub_catalog_a->set_name("a");
+  sub_catalog_a->set_file_descriptor_set_index(kKitchenSink3Pool);
+
+  SimpleCatalogProto* sub_catalog_b = root_catalog->add_catalog();
+  sub_catalog_b->set_name("b");
+  sub_catalog_b->set_file_descriptor_set_index(kKitchenSinkPool);
+
+  AnalyzeResponse response;
+  ZETASQL_CHECK_OK(Analyze(request, &response));
+
+  TypeProto expected_kitchen_sink_proto_type;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_PROTO
+        proto_type {
+          proto_name: "zetasql_test.KitchenSinkPB"
+          proto_file_name: "zetasql/testdata/test_schema.proto"
+          file_descriptor_set_index: 1
+        })pb",
+      &expected_kitchen_sink_proto_type));
+
+  TypeProto expected_kitchen_sink_proto3_type;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_PROTO
+        proto_type {
+          proto_name: "zetasql_test.Proto3KitchenSink"
+          proto_file_name: "zetasql/testdata/test_proto3.proto"
+          file_descriptor_set_index: 2
+        })pb",
+      &expected_kitchen_sink_proto3_type));
+
+  ZETASQL_LOG(INFO) << "response\n" << response.DebugString();
+  auto output_columns = response.resolved_statement()
+                            .resolved_query_stmt_node()
+                            .output_column_list();
+  ASSERT_EQ(output_columns.size(), 3);
+  EXPECT_THAT(output_columns[0].column().type(),
+              EqualsProto(expected_kitchen_sink_proto_type));
+
+  EXPECT_THAT(output_columns[1].column().type(),
+              EqualsProto(expected_kitchen_sink_proto3_type));
+
+  EXPECT_THAT(output_columns[2].column().type(),
+              EqualsProto(expected_kitchen_sink_proto_type));
+}
+
+// We can use the builtin DescriptorPool for parameters, even if that
+// pool is not used in the catalog (or there is no catalog).
+TEST_F(ZetaSqlLocalServiceImplTest,
+       AnalyzeWithDescriptorPoolListProtoBuiltinOnlyForParameter) {
+  AnalyzeRequest request;
+  request.set_sql_statement(R"(select @p1.value, @p1)");
+  // We add a useless descriptor set, this ensures that 'zero' is not somehow
+  // magic.
+  AddEmptyFileDescriptorSet(request.mutable_descriptor_pool_list());
+  AddBuiltin(request.mutable_descriptor_pool_list());
+
+  TypeFactory factory;
+  AnalyzerOptions options;
+  const ProtoType* int64_proto_type = nullptr;
+  ZETASQL_CHECK_OK(factory.MakeProtoType(google::protobuf::Int64Value::descriptor(),
+                                 &int64_proto_type));
+  ZETASQL_CHECK_OK(options.AddQueryParameter("p1", int64_proto_type));
+
+  google::protobuf::DescriptorPool empty;
+  FileDescriptorSetMap descriptor_map;
+  // Add an empty entry to ensure 'zero' is not magic, this won't be used.
+  descriptor_map.emplace(&empty, std::make_unique<Type::FileDescriptorEntry>());
+  ZETASQL_CHECK_OK(options.Serialize(&descriptor_map, request.mutable_options()));
+  // We expect the generated pool (i.e. what Int64Value is using) as the 2nd
+  // entry.
+  ZETASQL_CHECK_EQ(descriptor_map.size(), 2);
+  EXPECT_THAT(descriptor_map[&empty]->file_descriptors, ::testing::IsEmpty());
+
+  AnalyzeResponse response;
+  ZETASQL_EXPECT_OK(Analyze(request, &response));
+  TypeProto expected_proto_type;
+  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_PROTO
+        proto_type {
+          proto_name: "google.protobuf.Int64Value"
+          proto_file_name: "google/protobuf/wrappers.proto"
+          file_descriptor_set_index: 1
+        })pb",
+      &expected_proto_type));
+  auto output_columns = response.resolved_statement()
+                            .resolved_query_stmt_node()
+                            .output_column_list();
+  ASSERT_EQ(output_columns.size(), 2);
+  // Note, this is zetasql::TypeKind
+  EXPECT_EQ(output_columns[0].column().type().type_kind(), TYPE_INT64);
+  // Note, this is a representation of google.protobuf.Int64Value.
+  EXPECT_THAT(output_columns[1].column().type(),
+              EqualsProto(expected_proto_type));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {

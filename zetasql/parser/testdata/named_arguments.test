@@ -1,0 +1,350 @@
+# Parser tests for ZetaSQL named arguments as designed at
+# (broken link).
+#
+# Valid function call with named arguments in the same order as they appear in
+# the function signature.
+select parse_date(format_string => "%x", date_string => "12/25/08")
+--
+QueryStatement [0-67]
+  Query [0-67]
+    Select [0-67]
+      SelectList [7-67]
+        SelectColumn [7-67]
+          FunctionCall [7-67]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            NamedArgument [18-39]
+              Identifier(format_string) [18-31]
+              StringLiteral("%x") [35-39]
+            NamedArgument [41-66]
+              Identifier(date_string) [41-52]
+              StringLiteral("12/25/08") [56-66]
+--
+SELECT
+  parse_date(format_string  => "%x", date_string  => "12/25/08")
+==
+
+# Valid function call with named arguments in a different order that they appear
+# in the function signature.
+select parse_date(date_string => "12/25/08", format_string => "%x")
+--
+QueryStatement [0-67]
+  Query [0-67]
+    Select [0-67]
+      SelectList [7-67]
+        SelectColumn [7-67]
+          FunctionCall [7-67]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            NamedArgument [18-43]
+              Identifier(date_string) [18-29]
+              StringLiteral("12/25/08") [33-43]
+            NamedArgument [45-66]
+              Identifier(format_string) [45-58]
+              StringLiteral("%x") [62-66]
+--
+SELECT
+  parse_date(date_string  => "12/25/08", format_string  => "%x")
+==
+
+# Valid function call with named arguments assigned to non-literal expressions.
+select parse_date(
+    format_string => concat("%", "x"),
+    date_string => concat(cast(10 + 2 as string), "/25/08"))
+--
+QueryStatement [0-118]
+  Query [0-118]
+    Select [0-118]
+      SelectList [7-118]
+        SelectColumn [7-118]
+          FunctionCall [7-118]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            NamedArgument [23-56]
+              Identifier(format_string) [23-36]
+              FunctionCall [40-56]
+                PathExpression [40-46]
+                  Identifier(concat) [40-46]
+                StringLiteral("%") [47-50]
+                StringLiteral("x") [52-55]
+            NamedArgument [62-117]
+              Identifier(date_string) [62-73]
+              FunctionCall [77-117]
+                PathExpression [77-83]
+                  Identifier(concat) [77-83]
+                CastExpression [84-106]
+                  BinaryExpression(+) [89-95]
+                    IntLiteral(10) [89-91]
+                    IntLiteral(2) [94-95]
+                  SimpleType [99-105]
+                    PathExpression [99-105]
+                      Identifier(string) [99-105]
+                StringLiteral("/25/08") [108-116]
+--
+SELECT
+  parse_date(format_string  => concat("%", "x"), date_string  => concat(CAST(10 + 2 AS string), "/25/08"))
+==
+
+# Valid function call with a positional argument followed by a named argument.
+select parse_date("%x", date_string => "12/25/08")
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-50]
+      SelectList [7-50]
+        SelectColumn [7-50]
+          FunctionCall [7-50]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            StringLiteral("%x") [18-22]
+            NamedArgument [24-49]
+              Identifier(date_string) [24-35]
+              StringLiteral("12/25/08") [39-49]
+--
+SELECT
+  parse_date("%x", date_string  => "12/25/08")
+==
+
+# Valid TVF call with expression named arguments.
+select * from mytvf(date_string => "12/25/08", format_string => "%x")
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-69]
+        TVF [14-69]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-45]
+            NamedArgument [20-45]
+              Identifier(date_string) [20-31]
+              StringLiteral("12/25/08") [35-45]
+          TVFArgument [47-68]
+            NamedArgument [47-68]
+              Identifier(format_string) [47-60]
+              StringLiteral("%x") [64-68]
+--
+SELECT
+  *
+FROM
+  mytvf(date_string  => "12/25/08", format_string  => "%x")
+==
+
+# Valid TVF call with a combination of expression and relation named arguments.
+select * from mytvf(
+    date_string => '''
+      field: value
+    ''',
+    format_string => (select * from keyvalue));
+--
+QueryStatement [0-118]
+  Query [0-118]
+    Select [0-118]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-118]
+        TVF [14-118]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [25-70]
+            NamedArgument [25-70]
+              Identifier(date_string) [25-36]
+              StringLiteral('''
+      field: value
+    ''') [40-70]
+          TVFArgument [76-117]
+            NamedArgument [76-117]
+              Identifier(format_string) [76-89]
+              ExpressionSubquery [93-117]
+                Query [94-116]
+                  Select [94-116]
+                    SelectList [101-102]
+                      SelectColumn [101-102]
+                        Star(*) [101-102]
+                    FromClause [103-116]
+                      TablePathExpression [108-116]
+                        PathExpression [108-116]
+                          Identifier(keyvalue) [108-116]
+--
+SELECT
+  *
+FROM
+  mytvf(date_string  => '''
+      field: value
+    ''', format_string  => (
+    SELECT
+      *
+    FROM
+      keyvalue
+  ))
+==
+
+# Valid TVF call with a positional argument followed by a named argument.
+select * from mytvf("%x", date_string => (select 'abc' as input))
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-65]
+        TVF [14-65]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-24]
+            StringLiteral("%x") [20-24]
+          TVFArgument [26-64]
+            NamedArgument [26-64]
+              Identifier(date_string) [26-37]
+              ExpressionSubquery [41-64]
+                Query [42-63]
+                  Select [42-63]
+                    SelectList [49-63]
+                      SelectColumn [49-63]
+                        StringLiteral('abc') [49-54]
+                        Alias [55-63]
+                          Identifier(input) [58-63]
+--
+SELECT
+  *
+FROM
+  mytvf("%x", date_string  => (
+    SELECT
+      'abc' AS input
+  ))
+==
+
+# Valid TVF call with double parentheses in a named argument.
+select * from mytvf(date_string => ((select 1)));
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-48]
+        TVF [14-48]
+          PathExpression [14-19]
+            Identifier(mytvf) [14-19]
+          TVFArgument [20-47]
+            NamedArgument [20-47]
+              Identifier(date_string) [20-31]
+              ExpressionSubquery [36-46]
+                Query [37-45]
+                  Select [37-45]
+                    SelectList [44-45]
+                      SelectColumn [44-45]
+                        IntLiteral(1) [44-45]
+--
+SELECT
+  *
+FROM
+  mytvf(date_string  => (
+    SELECT
+      1
+  ))
+==
+
+# Invalid function call with a positional argument preceding a named argument.
+select parse_date(format_string => "%x", "12/25/08")
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-52]
+        SelectColumn [7-52]
+          FunctionCall [7-52]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            NamedArgument [18-39]
+              Identifier(format_string) [18-31]
+              StringLiteral("%x") [35-39]
+            StringLiteral("12/25/08") [41-51]
+--
+SELECT
+  parse_date(format_string  => "%x", "12/25/08")
+==
+
+# Invalid function call missing a required argument.
+select parse_date(format_string => "%x")
+--
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [7-40]
+        SelectColumn [7-40]
+          FunctionCall [7-40]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            NamedArgument [18-39]
+              Identifier(format_string) [18-31]
+              StringLiteral("%x") [35-39]
+--
+SELECT
+  parse_date(format_string  => "%x")
+==
+
+# Invalid function call missing the value of a required argument.
+select parse_date("%x", date_string => "12/25/08")
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-50]
+      SelectList [7-50]
+        SelectColumn [7-50]
+          FunctionCall [7-50]
+            PathExpression [7-17]
+              Identifier(parse_date) [7-17]
+            StringLiteral("%x") [18-22]
+            NamedArgument [24-49]
+              Identifier(date_string) [24-35]
+              StringLiteral("12/25/08") [39-49]
+--
+SELECT
+  parse_date("%x", date_string  => "12/25/08")
+==
+
+# Invalid function call missing the name of a required argument.
+select parse_date("%x", => "12/25/08")
+--
+ERROR: Syntax error: Unexpected "=>" [at 1:25]
+select parse_date("%x", => "12/25/08")
+                        ^
+==
+
+# Invalid function call missing the arrow symbol of a required argument.
+select parse_date("%x", date_string "12/25/08")
+--
+ERROR: Syntax error: Expected ")" but got string literal "12/25/08" [at 1:37]
+select parse_date("%x", date_string "12/25/08")
+                                    ^
+==
+
+# Invalid TVF call with parentheses around the named argument.
+select * from mytvf((date_string => "12/25/08"));
+--
+ERROR: Syntax error: Named arguments for table-valued function calls written as "name => value" must not be enclosed in parentheses. To fix this, replace (name => value) with name => value [at 1:21]
+select * from mytvf((date_string => "12/25/08"));
+                    ^
+==
+
+# Invalid TVF call with a named argument with the TABLE keyword.
+select * from mytvf(date_string => table keyvalue);
+--
+ERROR: Syntax error: Expected ")" or "," but got identifier "keyvalue" [at 1:42]
+select * from mytvf(date_string => table keyvalue);
+                                         ^
+==
+
+# Invalid TVF call with a named argument with the MODEL keyword.
+select * from mytvf(date_string => model keyvalue);
+--
+ERROR: Syntax error: Expected ")" or "," but got identifier "keyvalue" [at 1:42]
+select * from mytvf(date_string => model keyvalue);
+                                         ^

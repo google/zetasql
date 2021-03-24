@@ -121,6 +121,38 @@ TEST(TypeParameters, TypeParametersWithChildList) {
             "[null,(max_length=10),(precision=10,scale=5)]");
 }
 
+TEST(TypeParameters, TypeParametersWithSetChildList) {
+  TypeParameters params = TypeParameters();
+
+  // Create child_list.
+  std::vector<TypeParameters> child_list;
+  StringTypeParametersProto string_param;
+  string_param.set_max_length(10);
+  NumericTypeParametersProto numeric_param;
+  numeric_param.set_precision(10);
+  numeric_param.set_scale(5);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters string_child,
+                       TypeParameters::MakeStringTypeParameters(string_param));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      TypeParameters numeric_child,
+      TypeParameters::MakeNumericTypeParameters(numeric_param));
+  child_list.push_back(TypeParameters());
+  child_list.push_back(string_child);
+  child_list.push_back(numeric_child);
+
+  EXPECT_TRUE(params.IsEmpty());
+  params.set_child_list(child_list);
+  EXPECT_FALSE(params.IsEmpty());
+  EXPECT_TRUE(params.IsStructOrArrayParameters());
+  EXPECT_EQ(params.num_children(), 3);
+  EXPECT_EQ(params.child(1).string_type_parameters().max_length(), 10);
+  EXPECT_EQ(params.child(2).numeric_type_parameters().precision(), 10);
+  EXPECT_EQ(params.child(2).numeric_type_parameters().scale(), 5);
+  EXPECT_EQ(params.DebugString(),
+            "[null,(max_length=10),(precision=10,scale=5)]");
+}
+
 TEST(TypeParameters, ExtendedTypeParametersWithChildList) {
   std::vector<TypeParameters> child_list;
   StringTypeParametersProto string_param;
@@ -386,31 +418,172 @@ TEST(TypeParameters, MatchNumericOrBigNumericType) {
       TypeParameters::MakeNumericTypeParameters(numeric_param));
   EXPECT_TRUE(numeric_type_param.MatchType(type_factory.get_numeric()));
   EXPECT_TRUE(numeric_type_param.MatchType(type_factory.get_bignumeric()));
+  EXPECT_FALSE(numeric_type_param.MatchType(type_factory.get_int64()));
 }
 
-// EmptyTypeParameters matches all types.
+// Empty TypeParameters matches all types.
 TEST(TypeParameters, MatchNonParameterizedType) {
   TypeFactory type_factory;
+  const Type* struct_type;
+  const Type* array_type;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"int64", type_factory.get_int64()}},
+                                        &struct_type));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(type_factory.get_string(), &array_type));
   TypeParameters empty_type_param = TypeParameters();
   EXPECT_TRUE(empty_type_param.MatchType(type_factory.get_bool()));
   EXPECT_TRUE(empty_type_param.MatchType(type_factory.get_bignumeric()));
+  EXPECT_TRUE(empty_type_param.MatchType(struct_type));
+  EXPECT_TRUE(empty_type_param.MatchType(array_type));
 }
 
-// TypeParameters with child_list matches ARRAY and STRUCT type.
-TEST(TypeParameters, MatchTypeParametersWithChildList) {
+// TypeParameters with child_list matches ARRAY type.
+TEST(TypeParameters, MatchTypeParametersWithArrayType) {
   TypeFactory type_factory;
+
+  // Create TypeParameters with child_list with one child.
   std::vector<TypeParameters> child_list;
   StringTypeParametersProto string_param;
   string_param.set_max_length(10);
-  TypeParameters empty_type_param = TypeParameters();
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters string_child,
                        TypeParameters::MakeStringTypeParameters(string_param));
   child_list.push_back(string_child);
-  TypeParameters struct_type_param =
+  TypeParameters array_type_param =
       TypeParameters::MakeTypeParametersWithChildList(child_list);
-  const Type* array_type = nullptr;
-  ZETASQL_ASSERT_OK(type_factory.MakeArrayType(type_factory.get_string(), &array_type));
-  EXPECT_TRUE(empty_type_param.MatchType(array_type));
+
+  // Create array types.
+  const Type* string_array = nullptr;
+  const Type* numeric_array = nullptr;
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(type_factory.get_string(), &string_array));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(type_factory.get_numeric(), &numeric_array));
+
+  EXPECT_TRUE(array_type_param.MatchType(string_array));
+  EXPECT_FALSE(array_type_param.MatchType(numeric_array));
+}
+
+// TypeParameters with a one-child child_list matches STRUCT type.
+TEST(TypeParameters, MatchTypeParametersWithOneFieldStructType) {
+  TypeFactory type_factory;
+
+  // Create TypeParameters with child_list with one child.
+  std::vector<TypeParameters> child_list;
+  StringTypeParametersProto string_param;
+  string_param.set_max_length(10);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters string_child,
+                       TypeParameters::MakeStringTypeParameters(string_param));
+  child_list.push_back(string_child);
+  TypeParameters one_child_type_param =
+      TypeParameters::MakeTypeParametersWithChildList(child_list);
+
+  // Create struct/array types.
+  const Type* invalid_one_field_struct = nullptr;
+  const Type* one_field_struct = nullptr;
+  const Type* two_field_struct = nullptr;
+  const Type* string_array = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"int64", type_factory.get_int64()}},
+                                        &invalid_one_field_struct));
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"string", type_factory.get_string()}},
+                                        &one_field_struct));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeStructType({{"string", type_factory.get_string()},
+                                   {"numeric", type_factory.get_numeric()}},
+                                  &two_field_struct));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(type_factory.get_string(), &string_array));
+
+  EXPECT_TRUE(one_child_type_param.MatchType(one_field_struct));
+  EXPECT_FALSE(one_child_type_param.MatchType(invalid_one_field_struct));
+  EXPECT_FALSE(one_child_type_param.MatchType(two_field_struct));
+  // A TypeParameters object with one child can be applicable to both an ARRAY
+  // and STRUCT type if the STRUCT has one field and that field is the same type
+  // as that of the ARRAY elements.
+  EXPECT_TRUE(one_child_type_param.MatchType(string_array));
+}
+
+// TypeParameters with a two-child child_list matches STRUCT type.
+TEST(TypeParameters, MatchTypeParametersWithTwoFieldStructType) {
+  TypeFactory type_factory;
+
+  // Create TypeParameters with child_list with two children.
+  StringTypeParametersProto string_param;
+  string_param.set_max_length(10);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters string_child,
+                       TypeParameters::MakeStringTypeParameters(string_param));
+  NumericTypeParametersProto numeric_param;
+  numeric_param.set_precision(10);
+  numeric_param.set_scale(5);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      TypeParameters numeric_child,
+      TypeParameters::MakeNumericTypeParameters(numeric_param));
+  std::vector<TypeParameters> child_list = {string_child, numeric_child};
+  TypeParameters two_children_type_param =
+      TypeParameters::MakeTypeParametersWithChildList(child_list);
+
+  // Create struct types.
+  const Type* one_field_struct = nullptr;
+  const Type* invalid_two_field_struct = nullptr;
+  const Type* two_field_struct = nullptr;
+  ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"string", type_factory.get_string()}},
+                                        &one_field_struct));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeStructType({{"numeric", type_factory.get_numeric()},
+                                   {"string", type_factory.get_string()}},
+                                  &invalid_two_field_struct));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeStructType({{"string", type_factory.get_string()},
+                                   {"numeric", type_factory.get_numeric()}},
+                                  &two_field_struct));
+
+  EXPECT_FALSE(two_children_type_param.MatchType(one_field_struct));
+  EXPECT_FALSE(two_children_type_param.MatchType(invalid_two_field_struct));
+  EXPECT_TRUE(two_children_type_param.MatchType(two_field_struct));
+}
+
+// TypeParameters with a nested child_list matches
+// STRUCT<ARRAY<STRUCT<STRING, NUMERIC>>, STRING> type.
+TEST(TypeParameters, MatchTypeParametersNestedStructType) {
+  TypeFactory type_factory;
+
+  // Create nested TypeParameters.
+  StringTypeParametersProto string_param;
+  string_param.set_max_length(10);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters string_child,
+                       TypeParameters::MakeStringTypeParameters(string_param));
+  NumericTypeParametersProto numeric_param;
+  numeric_param.set_precision(10);
+  numeric_param.set_scale(5);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      TypeParameters numeric_child,
+      TypeParameters::MakeNumericTypeParameters(numeric_param));
+  std::vector<TypeParameters> child_list = {string_child, numeric_child};
+  TypeParameters struct_params =
+      TypeParameters::MakeTypeParametersWithChildList(child_list);
+  child_list = {struct_params};
+  TypeParameters array_params =
+      TypeParameters::MakeTypeParametersWithChildList(child_list);
+  child_list = {array_params, string_child};
+  TypeParameters nested_struct_params =
+      TypeParameters::MakeTypeParametersWithChildList(child_list);
+
+  // Create nested struct type.
+  const Type* child_struct_type = nullptr;
+  const Type* child_array_type = nullptr;
+  const Type* nested_struct_type = nullptr;
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeStructType({{"string", type_factory.get_string()},
+                                   {"numeric", type_factory.get_numeric()}},
+                                  &child_struct_type));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeArrayType(child_struct_type, &child_array_type));
+  ZETASQL_ASSERT_OK(
+      type_factory.MakeStructType({{"array", child_array_type},
+                                   {"string", type_factory.get_string()}},
+                                  &nested_struct_type));
+
+  EXPECT_TRUE(nested_struct_params.MatchType(nested_struct_type));
+  EXPECT_FALSE(nested_struct_params.MatchType(child_struct_type));
 }
 
 }  // namespace

@@ -67,9 +67,10 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/scripting/parsed_script.h"
 #include "absl/base/casts.h"
-#include "zetasql/base/cleanup.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
@@ -86,9 +87,29 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+namespace {
+bool CompatibleForClone(const ResolvedColumn& c1, const ResolvedColumn& c2) {
+  return c1.name_id().CaseEquals(c2.name_id()) && c1.type()->Equals(c2.type());
+}
+
+zetasql_base::StatusOr<const Table*> ExtractCloneSourceTable(const ResolvedScan& scan) {
+  switch (scan.node_kind()) {
+    case RESOLVED_TABLE_SCAN:
+      return scan.GetAs<ResolvedTableScan>()->table();
+    case RESOLVED_FILTER_SCAN:
+      return ExtractCloneSourceTable(
+          *scan.GetAs<ResolvedFilterScan>()->input_scan());
+    default:
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Invalid scan table from clone data source: "
+             << scan.node_kind_string();
+  }
+}
+}  // namespace
 
 // These are constant identifiers used mostly for generated column or table
 // names.  We use a single IdString for each so we never have to allocate
@@ -257,6 +278,13 @@ absl::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_ALTER_ENTITY_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveAlterEntityStatement(
             statement->GetAsOrDie<ASTAlterEntityStatement>(), &stmt));
+      }
+      break;
+
+    case AST_CLONE_DATA_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_CLONE_DATA_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCloneDataStatement(
+            statement->GetAsOrDie<ASTCloneDataStatement>(), &stmt));
       }
       break;
 
@@ -554,6 +582,12 @@ absl::Status Resolver::ResolveStatement(
             statement->GetAsOrDie<ASTCreateSchemaStatement>(), &stmt));
       }
       break;
+    case AST_ANALYZE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ANALYZE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAnalyzeStatement(
+            statement->GetAsOrDie<ASTAnalyzeStatement>(), &stmt));
+      }
+      break;
     case AST_ASSERT_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_ASSERT_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveAssertStatement(
@@ -661,9 +695,8 @@ absl::Status Resolver::ResolveCreateStatementLikeTableName(
         AnnotatedType(column->GetType(), column->GetTypeAnnotationMap()));
     column_definition_list->push_back(MakeResolvedColumnDefinition(
         column_name.ToString(), resolved_column.type(),
-        /* annotations = */ nullptr,
-        /* is_hidden = */ false, resolved_column,
-        /* generated_column_info = */ nullptr));
+        /*annotations=*/nullptr, /*is_hidden=*/false, resolved_column,
+        /*generated_column_info=*/nullptr, /*default_expression=*/nullptr));
   }
   *like_table = found_like_table;
   return absl::OkStatus();
@@ -752,14 +785,29 @@ absl::Status Resolver::ValidateColumnAttributeList(
   return absl::OkStatus();
 }
 
+static ResolvedGeneratedColumnInfoEnums::StoredMode ConvertStoredMode(
+    ASTGeneratedColumnInfo::StoredMode stored_mode) {
+  switch (stored_mode) {
+    case ASTGeneratedColumnInfo::NON_STORED:
+      return ResolvedGeneratedColumnInfoEnums::NON_STORED;
+    case ASTGeneratedColumnInfo::STORED:
+      return ResolvedGeneratedColumnInfoEnums::STORED;
+    case ASTGeneratedColumnInfo::STORED_VOLATILE:
+      return ResolvedGeneratedColumnInfoEnums::STORED_VOLATILE;
+  }
+}
+
 absl::Status Resolver::ResolveGeneratedColumnInfo(
     const ASTGeneratedColumnInfo* ast_generated_column,
     const NameList& column_name_list, const Type* opt_type,
     std::unique_ptr<ResolvedGeneratedColumnInfo>* output) {
   static constexpr char kComputedColumn[] = "computed column expression";
+  const ResolvedGeneratedColumnInfoEnums::StoredMode stored_mode =
+      ConvertStoredMode(ast_generated_column->stored_mode());
 
-  zetasql_base::VarSetter<bool> setter_func(&analyzing_stored_expression_columns_,
-                              ast_generated_column->is_stored());
+  zetasql_base::VarSetter<bool> setter_func(
+      &analyzing_nonvolatile_stored_expression_columns_,
+      stored_mode == ResolvedGeneratedColumnInfoEnums::STORED);
   std::unique_ptr<const ResolvedExpr> resolved_expression;
   const std::shared_ptr<const NameScope> target_scope =
       std::make_shared<NameScope>(column_name_list);
@@ -784,23 +832,61 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
                << opt_type->ShortTypeName(product_mode());
       } else {
         ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-            ast_generated_column, opt_type, /* scan = */ nullptr,
-            /* set_has_explicit_type = */ false,
-            /* return_null_on_error = */ false, &resolved_expression));
+            ast_generated_column, opt_type, /*format=*/nullptr,
+            /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+            /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+            &resolved_expression));
       }
     }
   }
 
-  if (ast_generated_column->is_stored() &&
-      ast_generated_column->is_on_write()) {
-    return MakeSqlErrorAt(ast_generated_column)
-           << "Generated columns cannot have both ON WRITE and STORED";
+  *output = MakeResolvedGeneratedColumnInfo(std::move(resolved_expression),
+                                            stored_mode);
+
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveColumnDefaultExpression(
+    const ASTExpression* ast_column_default, const NameList& column_name_list,
+    const Type* opt_type, std::unique_ptr<const ResolvedExpr>* output) {
+  static constexpr char kComputedColumn[] = "a column default expression";
+
+  const std::shared_ptr<const NameScope> target_scope =
+      std::make_shared<NameScope>(column_name_list);
+
+  ZETASQL_RET_CHECK_EQ(column_default_expression_validator_.has_value(), true);
+  std::unique_ptr<const ResolvedExpr> resolved_expression;
+  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_column_default,
+                                    /*name_scope=*/target_scope.get(),
+                                    kComputedColumn, &resolved_expression));
+
+  if (opt_type == nullptr) {
+    return MakeSqlErrorAt(ast_column_default)
+           << "A column with default expression must have an explicit type.";
   }
 
-  *output = MakeResolvedGeneratedColumnInfo(
-      std::move(resolved_expression), ast_generated_column->is_stored(),
-      ast_generated_column->is_on_write());
+  // Compare the declared type with the type of the expression
+  SignatureMatchResult result;
+  const InputArgumentType input_argument_type =
+      GetInputArgumentTypeForExpr(resolved_expression.get());
+  // Add coercion if necessary
+  if (!input_argument_type.type()->Equals(opt_type)) {
+    if (!coercer_.AssignableTo(input_argument_type, opt_type,
+                               /*is_explicit=*/false, &result)) {
+      return MakeSqlErrorAt(ast_column_default)
+             << "Column default expression has type "
+             << input_argument_type.UserFacingName(product_mode())
+             << " which cannot be assigned to column type "
+             << opt_type->ShortTypeName(product_mode());
+    }
+    ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
+        ast_column_default, opt_type, /*format=*/nullptr,
+        /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+        &resolved_expression));
+  }
 
+  *output = std::move(resolved_expression);
   return absl::OkStatus();
 }
 
@@ -814,11 +900,12 @@ absl::Status Resolver::ResolveColumnDefinitionList(
 
   std::unordered_map<IdString, const ASTColumnDefinition*, IdStringHash>
       id_to_column_definition_map;
-  std::unordered_map<IdString, std::unique_ptr<const ResolvedColumnDefinition>,
-                     IdStringHash>
+  absl::node_hash_map<IdString, std::unique_ptr<const ResolvedColumnDefinition>,
+                      IdStringHash>
       id_to_column_def_map;
 
   std::vector<const ASTColumnDefinition*> columns_with_expressions;
+  std::vector<const ASTColumnDefinition*> columns_with_default_expressions;
   for (const auto& column : ast_column_definitions) {
     const IdString column_name = column->name()->GetAsIdString();
     zetasql_base::InsertIfNotPresent(&id_to_column_definition_map, column_name, column);
@@ -828,24 +915,47 @@ absl::Status Resolver::ResolveColumnDefinitionList(
              << "Duplicate column name " << column_name << " in CREATE TABLE";
     }
 
-    // Resolve all columns without expressions, saving the remaining ones for
-    // later. This is an optimization to make column resolution for generated
-    // columns require a smaller number of retries.
-    if (column->schema()->generated_column_info() == nullptr) {
+    if (column->schema()->generated_column_info() != nullptr) {
+      columns_with_expressions.push_back(column);
+    } else if (column->schema()->default_expression() != nullptr) {
+      columns_with_default_expressions.push_back(column);
+    } else {
+      // Resolve all non-generated columns, saving the remaining ones for later.
+      // This is an optimization to make column resolution for generated columns
+      // require a smaller number of retries.
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<const ResolvedColumnDefinition> column_definition,
           ResolveColumnDefinitionNoCache(column, table_name_id_string,
                                          &column_name_list));
+
       ZETASQL_RET_CHECK(id_to_column_def_map
                     .emplace(column_name, std::move(column_definition))
                     .second)
           << column_name;
-    } else {
-      columns_with_expressions.push_back(column);
     }
   }
 
-  // Resolve all columns with expressions.
+  // Resolve all columns with default expressions.
+  for (const auto& column : columns_with_default_expressions) {
+    const IdString column_name = column->name()->GetAsIdString();
+    zetasql_base::VarSetter<absl::optional<std::function<bool(const IdString&)>>> setter_func(
+        &column_default_expression_validator_,
+        [&id_to_column_definition_map](const IdString& column_name) {
+          return zetasql_base::ContainsKey(id_to_column_definition_map, column_name);
+        });
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedColumnDefinition> column_definition,
+        ResolveColumnDefinitionNoCache(column, table_name_id_string,
+                                       &column_name_list));
+
+    ZETASQL_RET_CHECK(column_definition->default_expression() != nullptr);
+    ZETASQL_RET_CHECK(
+        id_to_column_def_map.emplace(column_name, std::move(column_definition))
+            .second)
+        << column_name;
+  }
+
+  // Resolve generated columns.
   for (const auto& column : columns_with_expressions) {
     ColumnCycleDetector generated_column_cycle_detector(column);
     zetasql_base::VarSetter<ColumnCycleDetector*> setter_cycle_detector(
@@ -872,9 +982,9 @@ absl::Status Resolver::ResolveColumnDefinitionList(
 absl::Status Resolver::ResolveColumnDefinition(
     const std::unordered_map<IdString, const ASTColumnDefinition*,
                              IdStringHash>& id_to_column_definition_map,
-    std::unordered_map<IdString,
-                       std::unique_ptr<const ResolvedColumnDefinition>,
-                       IdStringHash>* id_to_column_def_map,
+    absl::node_hash_map<IdString,
+                        std::unique_ptr<const ResolvedColumnDefinition>,
+                        IdStringHash>* id_to_column_def_map,
     const ASTColumnDefinition* column, const IdString& table_name_id_string,
     NameList* column_name_list) {
   ZETASQL_RET_CHECK(generated_column_cycle_detector_ != nullptr);
@@ -890,7 +1000,7 @@ absl::Status Resolver::ResolveColumnDefinition(
 
     ZETASQL_RETURN_IF_ERROR(
         generated_column_cycle_detector_->VisitNewColumn(column_name));
-    auto finish_current_col = zetasql_base::MakeCleanup([this, &finish_column_status] {
+    auto finish_current_col = absl::MakeCleanup([this, &finish_column_status] {
       finish_column_status.Update(
           generated_column_cycle_detector_->FinishCurrentColumn());
     });
@@ -954,9 +1064,10 @@ Resolver::ResolveColumnDefinitionNoCache(const ASTColumnDefinition* column,
   const Type* type = nullptr;
   std::unique_ptr<const ResolvedColumnAnnotations> annotations;
   std::unique_ptr<ResolvedGeneratedColumnInfo> generated_column_info;
-  ZETASQL_RETURN_IF_ERROR(ResolveColumnSchema(column->schema(), *column_name_list,
-                                      &type, &annotations,
-                                      &generated_column_info));
+  std::unique_ptr<const ResolvedExpr> column_default_expr;
+  ZETASQL_RETURN_IF_ERROR(ResolveColumnSchema(
+      column->schema(), *column_name_list, &type, &annotations,
+      &generated_column_info, &column_default_expr));
 
   // Update column_name_list so that it can be used by the
   // ResolveGeneratedColumnInfo().
@@ -970,7 +1081,8 @@ Resolver::ResolveColumnDefinitionNoCache(const ASTColumnDefinition* column,
       MakeResolvedColumnDefinition(
           column_name.ToString(), type, std::move(annotations),
           column->schema()->ContainsAttribute(AST_HIDDEN_COLUMN_ATTRIBUTE),
-          defined_column, std::move(generated_column_info));
+          defined_column, std::move(generated_column_info),
+          std::move(column_default_expr));
   return resolved_column;
 }
 
@@ -978,7 +1090,8 @@ absl::Status Resolver::ResolveColumnSchema(
     const ASTColumnSchema* schema, const NameList& column_name_list,
     const Type** resolved_type,
     std::unique_ptr<const ResolvedColumnAnnotations>* annotations,
-    std::unique_ptr<ResolvedGeneratedColumnInfo>* generated_column_info) {
+    std::unique_ptr<ResolvedGeneratedColumnInfo>* generated_column_info,
+    std::unique_ptr<const ResolvedExpr>* default_expression) {
   const ASTColumnAttributeList* attributes = schema->attributes();
   if (annotations == nullptr) {
     if (attributes != nullptr) {
@@ -1025,7 +1138,7 @@ absl::Status Resolver::ResolveColumnSchema(
       ZETASQL_RETURN_IF_ERROR(ResolveColumnSchema(
           array_schema->element_schema(), NameList(), &resolved_element_type,
           enable_nested_annotations ? &element_annotations : nullptr,
-          /*generated_column_info=*/nullptr));
+          /*generated_column_info=*/nullptr, /*default_expression=*/nullptr));
 
       if (resolved_element_type->IsArray()) {
         return MakeSqlErrorAt(array_schema)
@@ -1050,7 +1163,8 @@ absl::Status Resolver::ResolveColumnSchema(
         ZETASQL_RETURN_IF_ERROR(ResolveColumnSchema(
             struct_field->schema(), NameList(), &field_type,
             enable_nested_annotations ? &field_annotations : nullptr,
-            /*generated_column_info=*/nullptr));
+            /*generated_column_info=*/nullptr,
+            /*default_expression=*/nullptr));
 
         struct_fields.emplace_back(
             struct_field->name() != nullptr ?
@@ -1108,6 +1222,7 @@ absl::Status Resolver::ResolveColumnSchema(
   }
 
   if (schema->generated_column_info() != nullptr) {
+    ZETASQL_RET_CHECK(schema->default_expression() == nullptr);
     ZETASQL_RET_CHECK(generated_column_info != nullptr);
     if (!language().LanguageFeatureEnabled(FEATURE_V_1_2_GENERATED_COLUMNS)) {
       return MakeSqlErrorAt(schema->generated_column_info())
@@ -1122,8 +1237,22 @@ absl::Status Resolver::ResolveColumnSchema(
     }
   }
 
+  if (schema->default_expression() != nullptr) {
+    ZETASQL_RET_CHECK(schema->generated_column_info() == nullptr);
+    ZETASQL_RET_CHECK(default_expression != nullptr);
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+      return MakeSqlErrorAt(schema->generated_column_info())
+             << "Column DEFAULT value is not supported";
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveColumnDefaultExpression(
+        schema->default_expression(), column_name_list, *resolved_type,
+        default_expression));
+  }
+
   const bool not_null =
       schema->ContainsAttribute(AST_NOT_NULL_COLUMN_ATTRIBUTE);
+
   if (not_null || !resolved_column_options.empty() ||
       !child_annotation_list.empty() || !resolved_type_parameters.IsEmpty()) {
     ZETASQL_RET_CHECK(annotations != nullptr);
@@ -1733,7 +1862,8 @@ absl::Status Resolver::ResolveCreateIndexStatement(
 
   std::vector<std::unique_ptr<const ResolvedExpr>> resolved_index_storing_items;
   if (ast_statement->optional_index_storing_expressions() != nullptr) {
-    zetasql_base::VarSetter<bool> setter_func(&analyzing_stored_expression_columns_, true);
+    zetasql_base::VarSetter<bool> setter_func(
+        &analyzing_nonvolatile_stored_expression_columns_, true);
     zetasql_base::VarSetter<absl::string_view> setter(
         &disallowing_query_parameters_with_error_,
         "Query parameters cannot be used inside expressions of CREATE INDEX "
@@ -2453,8 +2583,8 @@ absl::Status Resolver::ResolveQueryAndOutputColumns(
                                     named_column.column.type());
       column_definition_list->push_back(MakeResolvedColumnDefinition(
           output_column_list->at(i)->name(), named_column.column.type(),
-          /* annotations = */ nullptr, /* is_hidden = */ false, defined_column,
-          /* generated_column_info = */ nullptr));
+          /*annotations=*/nullptr, /*is_hidden=*/false, defined_column,
+          /*generated_column_info=*/nullptr, /*default_expression=*/nullptr));
     }
   }
   return absl::OkStatus();
@@ -2999,8 +3129,10 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
                              /*is_explicit=*/false, &result)) {
         ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
             sql_function_body->expression(), return_type,
-            nullptr /* scan */, false /* set_has_explicit_type */,
-            false /* return_null_on_error */, &resolved_expr));
+            /*format=*/nullptr,
+            /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+            /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+            &resolved_expr));
       } else {
         return MakeSqlErrorAt(ast_statement->return_type())
                << "Function declared to return "
@@ -3118,9 +3250,11 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
       ResolveFunctionDeclaration(ast_statement->function_declaration(),
                                  ResolveFunctionDeclarationType::TABLE_FUNCTION,
                                  &function_name, arg_info.get()));
+  const bool has_explicit_return_schema =
+      ast_statement->return_tvf_schema() != nullptr;
   TVFRelation return_tvf_relation({});
   bool has_return_tvf_relation = false;
-  if (ast_statement->return_tvf_schema() != nullptr) {
+  if (has_explicit_return_schema) {
     ZETASQL_RETURN_IF_ERROR(ResolveTVFSchema(
         ast_statement->return_tvf_schema(),
         ResolveTVFSchemaCheckPropertiesType::INVALID_OUTPUT_SCHEMA,
@@ -3210,7 +3344,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
     // section against the implicit output schema from the output column list of
     // the function's SQL body, returning an error if they are not compatible or
     // inserting a ResolvedProjectScan if they are coercible but not equal.
-    if (ast_statement->return_tvf_schema() != nullptr) {
+    if (has_explicit_return_schema) {
       ZETASQL_RETURN_IF_ERROR(CheckSQLBodyReturnTypesAndCoerceIfNeeded(
           ast_statement, return_tvf_relation, tvf_body_name_list.get(),
           &resolved_query, &resolved_output_column_list));
@@ -3290,8 +3424,9 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
   }
   *output = MakeResolvedCreateTableFunctionStmt(
       function_name, create_scope, create_mode, arg_info->ArgumentNames(),
-      signature, std::move(resolved_options), language_string, code_string,
-      std::move(resolved_query), std::move(resolved_output_column_list),
+      signature, has_explicit_return_schema, std::move(resolved_options),
+      language_string, code_string, std::move(resolved_query),
+      std::move(resolved_output_column_list),
       return_tvf_relation.is_value_table(), sql_security);
   MaybeRecordParseLocation(ast_statement->function_declaration()->name(),
                            output->get());
@@ -4102,6 +4237,95 @@ absl::Status Resolver::ResolveAlterAllRowAccessPoliciesStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveCloneDataStatement(
+    const ASTCloneDataStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  if (!language().LanguageFeatureEnabled(FEATURE_CLONE_DATA)) {
+    return MakeSqlErrorAt(ast_statement) << "CLONE DATA not supported";
+  }
+  std::shared_ptr<const NameList> output_name_list;
+  std::unique_ptr<const ResolvedTableScan> target_table;
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      ast_statement->target_path(),
+      GetAliasForExpression(ast_statement->target_path()),
+      /*has_explicit_alias=*/false, ast_statement->target_path(),
+      /*hints=*/nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(), &target_table,
+      &output_name_list));
+  ZETASQL_RET_CHECK_NE(ast_statement->data_source_list(), nullptr);
+  ZETASQL_RET_CHECK_GT(ast_statement->data_source_list()->data_sources().size(), 0);
+  std::vector<std::unique_ptr<const ResolvedScan>> scans;
+  scans.reserve(ast_statement->data_source_list()->data_sources().size());
+  absl::flat_hash_set<std::string> source_table_names;
+  for (const ASTCloneDataSource* data_source :
+       ast_statement->data_source_list()->data_sources()) {
+    std::unique_ptr<const ResolvedScan> scan;
+    ZETASQL_RETURN_IF_ERROR(ResolveCloneDataSource(data_source, &scan));
+    ZETASQL_ASSIGN_OR_RETURN(const Table* source_table, ExtractCloneSourceTable(*scan));
+    if (source_table->Name() == target_table->table()->Name()) {
+        return MakeSqlErrorAt(data_source)
+               << "Source table cannot be the same as destination table";
+    }
+    if (!source_table_names.insert(source_table->Name()).second) {
+        return MakeSqlErrorAt(data_source)
+               << "Cannot clone from the same source table twice";
+    }
+    if (scan->column_list().size() != target_table->column_list().size()) {
+      return MakeSqlErrorAt(data_source)
+             << "Source table "
+             << data_source->path_expr()->ToIdentifierPathString()
+             << " has different number of columns than destination table "
+             << ast_statement->target_path()->ToIdentifierPathString()
+             << ": " << scan->column_list().size() << " vs. "
+             << target_table->column_list().size();
+    }
+    for (int i = 0; i < scan->column_list().size(); i++) {
+      if (!CompatibleForClone(scan->column_list()[i],
+                              target_table->column_list()[i])) {
+        return MakeSqlErrorAt(data_source)
+               << "Incompatible column "
+               << ast_statement->target_path()->ToIdentifierPathString() << "."
+               << target_table->column_list()[i].name() << " ("
+               << target_table->column_list()[i].type()->ShortTypeName(
+                      PRODUCT_EXTERNAL)
+               << ") vs. " << data_source->path_expr()->ToIdentifierPathString()
+               << "." << scan->column_list()[i].name() << " ("
+               << scan->column_list()[i].type()->ShortTypeName(PRODUCT_EXTERNAL)
+               << ")";
+      }
+    }
+    scans.push_back(std::move(scan));
+  }
+  if (scans.size() == 1) {
+    *output =
+        MakeResolvedCloneDataStmt(std::move(target_table), std::move(scans[0]));
+  } else {
+    // Clone the column list so that the columns in the inner set operation used
+    // for the non-recursive term have unique ids.
+    const IdString output_table_name =
+        MakeIdString(target_table->table()->Name());
+    std::vector<ResolvedColumn> output_columns;
+    for (const auto& column : scans[0]->column_list()) {
+      output_columns.push_back(ResolvedColumn(
+          AllocateColumnId(), output_table_name,
+          column.name_id(), column.type()));
+    }
+    std::vector<std::unique_ptr<ResolvedSetOperationItem>> set_items;
+    set_items.reserve(scans.size());
+    for (auto& scan : scans) {
+      std::vector<ResolvedColumn> column_list = scan->column_list();
+      set_items.push_back(
+          MakeResolvedSetOperationItem(std::move(scan), column_list));
+    }
+    *output = MakeResolvedCloneDataStmt(
+        std::move(target_table),
+        MakeResolvedSetOperationScan(output_columns,
+                                     ResolvedSetOperationScan::UNION_ALL,
+                                     std::move(set_items)));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveExportDataStatement(
     const ASTExportDataStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -4209,11 +4433,14 @@ absl::Status Resolver::ResolveCallStatement(
 
   std::vector<const ASTNode*> arg_locations =
       ToLocations(ast_call->arguments());
-  if (!function_resolver.SignatureMatches(
+  ZETASQL_ASSIGN_OR_RETURN(
+      const bool is_match,
+      function_resolver.SignatureMatches(
           arg_locations, input_arg_types, signature,
           /* allow_argument_coercion=*/true, /*name_scope=*/nullptr,
           &result_signature, &signature_match_result,
-          /*arg_overrides=*/nullptr)) {
+          /*arg_overrides=*/nullptr));
+  if (!is_match) {
     return MakeSqlErrorAt(ast_call->procedure_name())
            << Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
                   absl::StrCat("procedure ", name_string), input_arg_types,
@@ -4229,8 +4456,9 @@ absl::Status Resolver::ResolveCallStatement(
     const Type* target_type = result_signature->ConcreteArgumentType(i);
     if (resolved_args_exprs[i]->type()->Equals(target_type)) continue;
     ZETASQL_RETURN_IF_ERROR(function_resolver.AddCastOrConvertLiteral(
-        ast_call->arguments()[i], target_type, nullptr /* scan */,
-        false /* set_has_explicit_type */, false /* return_null_on_error */,
+        ast_call->arguments()[i], target_type, /*format=*/nullptr,
+        /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
         &resolved_args_exprs[i]));
   }
 
@@ -4785,6 +5013,23 @@ absl::Status Resolver::ResolveRevokeStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveAnalyzeStatement(
+    const ASTAnalyzeStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveOptionsList(ast_statement->options_list(), &resolved_options));
+  std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>
+      resolved_table_and_column_info_list;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveTableAndColumnInfoList(ast_statement->table_and_column_info_list(),
+                                    &resolved_table_and_column_info_list));
+  *output =
+      MakeResolvedAnalyzeStmt(std::move(resolved_options),
+                              std::move(resolved_table_and_column_info_list));
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveAssertStatement(
     const ASTAssertStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -4890,11 +5135,12 @@ absl::Status Resolver::ResolveCreateEntityStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(), &options));
   std::string entity_body_json;
   if (ast_statement->json_body() != nullptr) {
-    entity_body_json = ast_statement->json_body()->string_value();
+    ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(ast_statement->json_body()->image(),
+                                       &entity_body_json));
   }
   auto resolved_stmt = MakeResolvedCreateEntityStmt(
       ast_statement->name()->ToIdentifierVector(), create_scope, create_mode,
-      ast_statement->type()->GetAsString(), entity_body_json,
+      ast_statement->type()->GetAsString(), std::move(entity_body_json),
       std::move(options));
   *output = std::move(resolved_stmt);
   return absl::OkStatus();

@@ -21,11 +21,6 @@ contact_email: "matthewbr@google.com"
 
 known_errors {
   mode: ALLOW_ERROR
-  reason: "to_json_string not yet open source b/171901626"
-  label: ".*to_json_string.*"
-}
-known_errors {
-  mode: ALLOW_ERROR
   reason: "base32 not yet open source b/171902145"
   label: ".*:to_base32.*"
   label: ".*from_base32.*"

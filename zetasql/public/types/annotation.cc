@@ -16,6 +16,7 @@
 
 #include "zetasql/public/types/annotation.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 

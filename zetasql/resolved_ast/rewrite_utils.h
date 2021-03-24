@@ -61,9 +61,13 @@ zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
 
 // Fills column_refs with a copy of all ResolvedColumnRef nodes under 'node'
 // which are not below a subquery.
+//
+// If `correlate` is true, the column refs are correlated regardless of whether
+// or not they are in the original node tree.
 absl::Status CollectColumnRefs(
     const ResolvedNode& node,
-    std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs);
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
+    bool correlate = false);
 
 }  // namespace zetasql
 

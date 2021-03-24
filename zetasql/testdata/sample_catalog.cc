@@ -16,6 +16,7 @@
 
 #include "zetasql/testdata/sample_catalog.h"
 
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,6 +49,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testdata/ambiguous_has.pb.h"
 #include "zetasql/testdata/test_proto3.pb.h"
+#include "zetasql/testdata/tvf_with_user_id.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "zetasql/base/statusor.h"
@@ -141,7 +143,7 @@ static zetasql_base::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfTyp
   ZETASQL_RET_CHECK(!value.is_null());
   const absl::string_view type_name = value.string_value();
   const TypeKind type_kind =
-      Type::GetTypeKindIfSimple(type_name, language_options);
+      Type::ResolveBuiltinTypeNameToKindIfSimple(type_name, language_options);
   if (type_kind == TYPE_UNKNOWN) {
     return MakeSqlError() << "Type not implemented for NULL_OF_TYPE: "
                           << ToStringLiteral(absl::AsciiStrToUpper(type_name));
@@ -177,7 +179,7 @@ static zetasql_base::StatusOr<const Type*> ComputeResultTypeFromStringArgumentVa
     ZETASQL_RET_CHECK(!value.is_null());
     type_name = value.string_value();
     const TypeKind type_kind =
-        Type::GetTypeKindIfSimple(type_name, language_options);
+        Type::ResolveBuiltinTypeNameToKindIfSimple(type_name, language_options);
     if (type_kind != TYPE_UNKNOWN) {
       return type_factory->MakeSimpleType(type_kind);
     }
@@ -269,14 +271,17 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadProtoTables();
   LoadNestedCatalogs();
   LoadFunctions();
+  LoadFunctionsWithDefaultArguments();
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
   LoadTableValuedFunctions2();
+  LoadTableValuedFunctionsWithStructArgs();
   LoadTVFWithExtraColumns();
   LoadDescriptorTableValuedFunctions();
   LoadConnectionTableValuedFunctions();
   LoadTableValuedFunctionsWithDeprecationWarnings();
   LoadTemplatedSQLTableValuedFunctions();
+  LoadTableValuedFunctionsWithAnonymizationUid();
   LoadProcedures();
   LoadConstants();
   LoadWellKnownLambdaArgFunctions();
@@ -296,10 +301,14 @@ void SampleCatalog::LoadTypes() {
   proto_CivilTimeTypesSinkPB_ =
       GetProtoType(zetasql_test::CivilTimeTypesSinkPB::descriptor());
   proto_TestExtraPB_ = GetProtoType(zetasql_test::TestExtraPB::descriptor());
+  proto_abPB_ = GetProtoType(zetasql_test::TestAbPB::descriptor());
+  proto_bcPB_ = GetProtoType(zetasql_test::TestBcPB::descriptor());
   proto_EmptyMessage_ =
       GetProtoType(zetasql_test::EmptyMessage::descriptor());
   proto3_KitchenSinkPB_ =
       GetProtoType(zetasql_test::Proto3KitchenSink::descriptor());
+  proto3_MessageWithInvalidMap_ =
+      GetProtoType(zetasql_test::MessageWithInvalidMap::descriptor());
   proto_field_formats_proto_ =
       GetProtoType(zetasql_test::FieldFormatsProto::descriptor());
   proto_MessageWithMapField_ =
@@ -360,6 +369,9 @@ void SampleCatalog::LoadTypes() {
       {{"Key", types_->get_int64()}, {"Value", types_->get_string()}},
       &name_conflict_type));
   catalog_->AddType("NameConflictType", name_conflict_type);
+
+  // Add a simple type for testing alias type from engine catalog
+  catalog_->AddType("INT64AliasType", types_->get_int64());
 }
 
 namespace {
@@ -434,6 +446,7 @@ void SampleCatalog::LoadTables() {
   AddOwnedTable(key_value_table);
   key_value_table_ = key_value_table;
 
+
   SimpleTable* multiple_columns_table =
       new SimpleTable("MultipleColumns", {{"int_a", types_->get_int64()},
                                           {"string_a", types_->get_string()},
@@ -443,11 +456,25 @@ void SampleCatalog::LoadTables() {
                                           {"int_d", types_->get_int64()}});
   AddOwnedTable(multiple_columns_table);
 
+  SimpleTable* ab_table = new SimpleTable(
+      "abTable",
+      {{"a", types_->get_int64()}, {"b", types_->get_string()}});
+  AddOwnedTable(ab_table);
+  SimpleTable* bc_table = new SimpleTable(
+      "bcTable",
+      {{"b", types_->get_int64()}, {"c", types_->get_string()}});
+  AddOwnedTable(bc_table);
+
   SimpleTable* key_value_table_read_time_ignored =
       new SimpleTableWithReadTimeIgnored(
           "KeyValueReadTimeIgnored",
           {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
   AddOwnedTable(key_value_table_read_time_ignored);
+
+  SimpleTable* another_key_value = new SimpleTable(
+      "AnotherKeyValue",
+      {{"Key", types_->get_int64()}, {"value", types_->get_string()}});
+  AddOwnedTable(another_key_value);
 
   const SimpleModel* one_double_model =
       new SimpleModel("OneDoubleModel", {{"a", types_->get_double()}},
@@ -740,6 +767,11 @@ void SampleCatalog::LoadProtoTables() {
       "Proto3Table", {{"key", types_->get_int32()},
                       {"Proto3KitchenSink", proto3_KitchenSinkPB_}}));
 
+  AddOwnedTable(new SimpleTable(
+      "Proto3InvalidMapTable",
+      {{"key", types_->get_int32()},
+       {"MessageWithInvalidMap", proto3_MessageWithInvalidMap_}}));
+
   // This table only has pseudo-columns.
   AddOwnedTable(new SimpleTable(
       "AllPseudoColumns",
@@ -835,6 +867,12 @@ void SampleCatalog::LoadProtoTables() {
 
   catalog_->AddOwnedTable(
       new SimpleTable("TestExtraPBValueTable", proto_TestExtraPB_));
+
+  catalog_->AddOwnedTable(
+      new SimpleTable("TestAbPBValueTable", proto_abPB_));
+
+  catalog_->AddOwnedTable(
+      new SimpleTable("TestBcPBValueTable", proto_bcPB_));
 
   // TestExtraValueTable also has pseudo-columns Filename and RowID.
   SimpleTable* extra_value_table;
@@ -1348,7 +1386,7 @@ void SampleCatalog::LoadFunctions() {
       },
       FunctionOptions());
   catalog_->AddOwnedFunction(function);
-  ZETASQL_CHECK_OK(function->signatures()[0].IsValid());
+  ZETASQL_CHECK_OK(function->signatures()[0].IsValid(ProductMode::PRODUCT_EXTERNAL));
 
   // Adds an aggregate function that takes no argument but supports order by.
   function = new Function(
@@ -1449,6 +1487,15 @@ void SampleCatalog::LoadFunctions() {
   deprecation_warning_signature.SetAdditionalDeprecationWarnings(
       {CreateDeprecationWarning(/*id=*/1)});
   function->AddSignature(deprecation_warning_signature);
+  catalog_->AddOwnedFunction(function);
+
+  function = new Function("deprecation_warning2", "sample_functions",
+                          Function::SCALAR);
+  FunctionSignature deprecation_warning2_signature(
+      types::Int64Type(), /*arguments=*/{}, /*context_id=*/-1);
+  deprecation_warning2_signature.SetAdditionalDeprecationWarnings(
+      {CreateDeprecationWarning(/*id=*/2)});
+  function->AddSignature(deprecation_warning2_signature);
   catalog_->AddOwnedFunction(function);
 
   // Add a function that triggers two deprecation warnings with the same kind.
@@ -1774,6 +1821,352 @@ void SampleCatalog::LoadFunctions() {
   catalog_->AddOwnedFunction(function);
 }
 
+void SampleCatalog::LoadFunctionsWithDefaultArguments() {
+  // Adds an scalar function that takes multiple optional named arguments with
+  // some of them having default values.
+  Function* function = new Function(
+      "fn_optional_named_default_args", "sample_functions", Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("a0")
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("o0")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("o1")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("o1_default"))},
+               {types_->get_double(),
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("o2")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::Double(0.2))},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+
+  // Similar to the one above, but the optional arguments are templated.
+  function = new Function(
+      "fn_optional_named_default_args_templated", "sample_functions",
+      Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("a0")
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {ARG_TYPE_ANY_1,
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("o0")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {ARG_TYPE_ANY_2,
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("o1")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("o1_default"))},
+               {ARG_TYPE_ANY_1,
+                FunctionArgumentTypeOptions()
+                    .set_argument_name("o2")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::Int32(2))},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+
+  // Adds an scalar function that takes multiple unnamed optional arguments with
+  // some of them having default values.
+  function = new Function(
+      "fn_optional_unnamed_default_args", "sample_functions", Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {types_->get_string(),
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("o1_default"))},
+               {types_->get_double(),
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::Double(0.3))},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+
+  // Similar to the one above, but the optional arguments are templated.
+  function = new Function(
+      "fn_optional_unnamed_default_args_templated", "sample_functions",
+      Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                FunctionArgumentTypeOptions().set_cardinality(
+                    FunctionArgumentType::REQUIRED)},
+               {ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_cardinality(
+                                    FunctionArgumentType::OPTIONAL)},
+               {ARG_TYPE_ANY_2,
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("o1_default"))},
+               {ARG_TYPE_ANY_1,
+                FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::Int32(5))},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+
+  // A scalar function with both named and unnamed optional arguments plus the
+  // last argument with a default value.
+  function = new Function(
+      "fn_req_opt_unnamed_named_default", "sample_functions", Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("o1")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("o2")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)
+                    .set_default(values::String("dv"))},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  ZETASQL_CHECK_OK(function->signatures()[0].IsValid(ProductMode::PRODUCT_EXTERNAL));
+  catalog_->AddOwnedFunction(function);
+
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_optional_named_default_args"},
+      FunctionSignature(
+          /*result_type=*/ARG_TYPE_RELATION,
+          /*arguments=*/
+          {
+              {ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("relation")
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_bool(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("r1")
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o0")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+              {types_->get_double(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o1")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Double(3.14))},
+              {types_->get_uint32(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o2")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Uint32(10086))},
+          },
+          /*context_id=*/-1)));
+
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_optional_named_default_args_templated"},
+      FunctionSignature(
+          /*result_type=*/ARG_TYPE_RELATION,
+          /*arguments=*/
+          {
+              {ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("relation")
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_bool(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("r1")
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {ARG_TYPE_ANY_1,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o0")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+              {ARG_TYPE_ANY_2,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o1")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Double(3.14))},
+              {ARG_TYPE_ANY_1,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o2")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::String("abc"))},
+          },
+          /*context_id=*/-1)));
+
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_optional_unnamed_default_args"},
+      FunctionSignature(
+          /*result_type=*/ARG_TYPE_RELATION,
+          /*arguments=*/
+          {
+              {ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_bool(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+              {types_->get_float(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Float(0.618))},
+              {types_->get_uint32(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Uint32(168))},
+          },
+          /*context_id=*/-1)));
+
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_optional_unnamed_default_args_templated"},
+      FunctionSignature(
+          /*result_type=*/ARG_TYPE_RELATION,
+          /*arguments=*/
+          {
+              {ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_bool(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {ARG_TYPE_ANY_1,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+              {ARG_TYPE_ANY_2,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::String("xyz"))},
+              {ARG_TYPE_ANY_1,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Int32(-1))},
+          },
+          /*context_id=*/-1)));
+
+  // A TVF with a combined of named and unnamed optional arguments.
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_optional_unnamed_named"},
+      FunctionSignature(
+          /*result_type=*/ARG_TYPE_RELATION,
+          /*arguments=*/
+          {
+              {ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_bool(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::REQUIRED)},
+              {types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+              {types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o1")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+          },
+          /*context_id=*/-1)));
+
+  // A TVF with a combined of named and unnamed optional arguments plus a
+  // default argument at last.
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_optional_unnamed_named_default"},
+      FunctionSignature(
+          /*result_type=*/ARG_TYPE_RELATION,
+          /*arguments=*/
+          {
+              {ARG_TYPE_RELATION, FunctionArgumentTypeOptions().set_cardinality(
+                                      FunctionArgumentType::REQUIRED)},
+              {types_->get_bool(),
+               FunctionArgumentTypeOptions().set_cardinality(
+                   FunctionArgumentType::REQUIRED)},
+              {types_->get_string(),
+               FunctionArgumentTypeOptions().set_cardinality(
+                   FunctionArgumentType::OPTIONAL)},
+              {types_->get_string(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o1")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)},
+              {types_->get_int32(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("o2")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)
+                   .set_default(values::Int32(314))},
+          },
+          /*context_id=*/-1)));
+
+  // A scalar function with both unnamed and named optional arguments.
+  function = new Function(
+      "fn_req_opt_unnamed_named", "sample_functions", Function::SCALAR,
+      /*function_signatures=*/
+      {
+          {/*result_type=*/types_->get_int64(),
+           /*arguments=*/
+           {
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::REQUIRED)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+               {types_->get_string(),
+                zetasql::FunctionArgumentTypeOptions()
+                    .set_argument_name("o1")
+                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
+           },
+           /*context_id=*/-1},
+      },
+      FunctionOptions());
+  catalog_->AddOwnedFunction(function);
+  ZETASQL_CHECK_OK(function->signatures()[0].IsValid(ProductMode::PRODUCT_EXTERNAL));
+}
+
 void SampleCatalog::LoadTemplatedSQLUDFs() {
   // Return an empty struct as the result type for now.
   // The function resolver will dynamically compute a different result type at
@@ -2073,11 +2466,14 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
   FunctionArgumentType int64_not_aggregate_arg_type(types::Int64Type(),
                                                     agg_options);
 
+  FunctionOptions fn_opts_allow_null_handling;
+  fn_opts_allow_null_handling.set_supports_null_handling_modifier(true);
+
   catalog_->AddOwnedFunction(new TemplatedSQLFunction(
       {"uda_valid_templated_return_sum_int64_arg"},
       FunctionSignature(result_type, {int64_aggregate_arg_type}, context_id++),
       /*argument_names=*/{"x"}, ParseResumeLocation::FromString("sum(x)"),
-      Function::AGGREGATE));
+      Function::AGGREGATE, fn_opts_allow_null_handling));
 
   // Add a SQL UDA with a valid templated SQL body that refers to a NOT
   // AGGREGATE argument only.
@@ -2943,6 +3339,44 @@ void SampleCatalog::LoadTableValuedFunctions2() {
       output_schema_two_types));
 }
 
+void SampleCatalog::LoadTableValuedFunctionsWithStructArgs() {
+  const std::vector<OutputColumn> kOutputColumnsAllTypes =
+      GetOutputColumnsForAllTypes(types_);
+  TVFRelation output_schema_two_types =
+      GetOutputSchemaWithTwoTypes(kOutputColumnsAllTypes);
+
+  const Type* array_string_type = nullptr;
+  ZETASQL_CHECK_OK(types_->MakeArrayType(types_->get_string(), &array_string_type));
+
+  const Type* struct_type1 = nullptr;
+  ZETASQL_CHECK_OK(types_->MakeStructType({{"field1", array_string_type},
+                                   {"field2", array_string_type}},
+                                  &struct_type1));
+  const Type* struct_type2 = nullptr;
+  ZETASQL_CHECK_OK(types_->MakeStructType({{"field1", array_string_type},
+                                   {"field2", array_string_type},
+                                   {"field3", array_string_type}},
+                                  &struct_type2));
+
+  const auto named_struct_arg1 = zetasql::FunctionArgumentType(
+      struct_type1, zetasql::FunctionArgumentTypeOptions().set_argument_name(
+                        "struct_arg1"));
+  const auto named_struct_arg2 = zetasql::FunctionArgumentType(
+      struct_type2, zetasql::FunctionArgumentTypeOptions().set_argument_name(
+                        "struct_arg2"));
+
+  // A TVF with struct args.
+  auto tvf = absl::make_unique<FixedOutputSchemaTVF>(
+      std::vector<std::string>{"tvf_named_struct_args"},
+      FunctionSignature{FunctionArgumentType::RelationWithSchema(
+                            output_schema_two_types,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {named_struct_arg1, named_struct_arg2},
+                        /*context_id=*/-1},
+      output_schema_two_types);
+  catalog_->AddOwnedTableValuedFunction(tvf.release());
+}
+
 void SampleCatalog::LoadTVFWithExtraColumns() {
   int64_t context_id = 0;
 
@@ -3619,6 +4053,47 @@ void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {
       signature_return_key_int64_and_value_string_cols,
       /*arg_name_list=*/{"key", "value"},
       ParseResumeLocation::FromString("select value, key, 42 as x")));
+}
+
+void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
+  // Generate an output schema that returns every possible type.
+  const std::vector<OutputColumn> output_columns =
+      GetOutputColumnsForAllTypes(types_);
+  TVFRelation::ColumnList columns;
+  columns.reserve(output_columns.size());
+  for (const auto& kv : output_columns) {
+    columns.emplace_back(kv.name, kv.type);
+  }
+  TVFRelation output_schema_all_types(columns);
+
+  int context_id = 0;
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+      {"tvf_no_args_with_anonymization_uid"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_all_types,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        FunctionArgumentTypeList(), context_id++),
+      output_schema_all_types, "column_int64"));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+      {"tvf_one_relation_arg_with_anonymization_uid"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_all_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_RELATION)}),
+          context_id++),
+      output_schema_all_types, "column_int64"));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+      {"tvf_one_templated_arg_with_anonymization_uid"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_all_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_ARBITRARY)}),
+          context_id++),
+      output_schema_all_types, "column_int64"));
 }
 
 void SampleCatalog::AddProcedureWithArgumentType(std::string type_name,

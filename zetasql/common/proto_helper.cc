@@ -16,6 +16,7 @@
 
 #include "zetasql/common/proto_helper.h"
 
+#include <cstdint>
 #include <string>
 
 #include "zetasql/base/logging.h"

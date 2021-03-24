@@ -1,0 +1,462 @@
+# Tests for the REPLACE_FIELDS function.
+
+select replace_fields(some_proto, 0 as int32_field)
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-51]
+        SelectColumn [7-51]
+          ReplaceFieldsExpression [7-51]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-50]
+              IntLiteral(0) [34-35]
+              PathExpression [39-50]
+                Identifier(int32_field) [39-50]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS int32_field)
+==
+
+select replace_fields(some_proto, 0 AS nested.int32_field)
+--
+QueryStatement [0-58]
+  Query [0-58]
+    Select [0-58]
+      SelectList [7-58]
+        SelectColumn [7-58]
+          ReplaceFieldsExpression [7-58]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-57]
+              IntLiteral(0) [34-35]
+              PathExpression [39-57]
+                Identifier(nested) [39-45]
+                Identifier(int32_field) [46-57]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS nested.int32_field)
+==
+
+select replace_fields(some_proto, 0 AS (nested.int32_field))
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-60]
+        SelectColumn [7-60]
+          ReplaceFieldsExpression [7-60]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-59]
+              IntLiteral(0) [34-35]
+              PathExpression [40-58]
+                Identifier(nested) [40-46]
+                Identifier(int32_field) [47-58]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS (nested.int32_field))
+==
+
+select replace_fields(some_proto, 0 AS (nested.int32_field).other_field)
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-72]
+        SelectColumn [7-72]
+          ReplaceFieldsExpression [7-72]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-71]
+              IntLiteral(0) [34-35]
+              DotIdentifier [59-71]
+                PathExpression [40-58]
+                  Identifier(nested) [40-46]
+                  Identifier(int32_field) [47-58]
+                Identifier(other_field) [60-71]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS (nested.int32_field).other_field)
+==
+
+select replace_fields(some_proto, 0 AS nested.(extension_field))
+--
+QueryStatement [0-64]
+  Query [0-64]
+    Select [0-64]
+      SelectList [7-64]
+        SelectColumn [7-64]
+          ReplaceFieldsExpression [7-64]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-63]
+              IntLiteral(0) [34-35]
+              DotGeneralizedField [45-63]
+                PathExpression [39-45]
+                  Identifier(nested) [39-45]
+                PathExpression [47-62]
+                  Identifier(extension_field) [47-62]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS nested.(extension_field))
+==
+
+select replace_fields(some_proto, 0 AS nested.(extension_field).extension_field)
+--
+QueryStatement [0-80]
+  Query [0-80]
+    Select [0-80]
+      SelectList [7-80]
+        SelectColumn [7-80]
+          ReplaceFieldsExpression [7-80]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-79]
+              IntLiteral(0) [34-35]
+              DotIdentifier [63-79]
+                DotGeneralizedField [45-63]
+                  PathExpression [39-45]
+                    Identifier(nested) [39-45]
+                  PathExpression [47-62]
+                    Identifier(extension_field) [47-62]
+                Identifier(extension_field) [64-79]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS nested.(extension_field).extension_field)
+==
+
+select replace_fields(some_proto, 0 as int32_field, "string" as string_field)
+--
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-77]
+        SelectColumn [7-77]
+          ReplaceFieldsExpression [7-77]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-50]
+              IntLiteral(0) [34-35]
+              PathExpression [39-50]
+                Identifier(int32_field) [39-50]
+            ReplaceFieldsArg [52-76]
+              StringLiteral("string") [52-60]
+              PathExpression [64-76]
+                Identifier(string_field) [64-76]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS int32_field, "string" AS string_field)
+==
+
+select
+  replace_fields(some_proto, 0 as int32_field, "string" as (path.to.extension))
+--
+QueryStatement [0-86]
+  Query [0-86]
+    Select [0-86]
+      SelectList [9-86]
+        SelectColumn [9-86]
+          ReplaceFieldsExpression [9-86]
+            PathExpression [24-34]
+              Identifier(some_proto) [24-34]
+            ReplaceFieldsArg [36-52]
+              IntLiteral(0) [36-37]
+              PathExpression [41-52]
+                Identifier(int32_field) [41-52]
+            ReplaceFieldsArg [54-85]
+              StringLiteral("string") [54-62]
+              PathExpression [67-84]
+                Identifier(path) [67-71]
+                Identifier(`to`) [72-74]
+                Identifier(extension) [75-84]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS int32_field, "string" AS (path.`to`.extension))
+==
+
+select
+  replace_fields(
+    some_proto, 0 as int32_field, "string" as string_field, 2.5 as double_field
+  )
+--
+QueryStatement [0-108]
+  Query [0-108]
+    Select [0-108]
+      SelectList [9-108]
+        SelectColumn [9-108]
+          ReplaceFieldsExpression [9-108]
+            PathExpression [29-39]
+              Identifier(some_proto) [29-39]
+            ReplaceFieldsArg [41-57]
+              IntLiteral(0) [41-42]
+              PathExpression [46-57]
+                Identifier(int32_field) [46-57]
+            ReplaceFieldsArg [59-83]
+              StringLiteral("string") [59-67]
+              PathExpression [71-83]
+                Identifier(string_field) [71-83]
+            ReplaceFieldsArg [85-104]
+              FloatLiteral(2.5) [85-88]
+              PathExpression [92-104]
+                Identifier(double_field) [92-104]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS int32_field, "string" AS string_field, 2.5 AS double_field)
+==
+
+select replace_fields(STRUCT(32 as int_field), 0 as int_field)
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-62]
+        SelectColumn [7-62]
+          ReplaceFieldsExpression [7-62]
+            StructConstructorWithKeyword [22-45]
+              StructConstructorArg [29-44]
+                IntLiteral(32) [29-31]
+                Alias [32-44]
+                  Identifier(int_field) [35-44]
+            ReplaceFieldsArg [47-61]
+              IntLiteral(0) [47-48]
+              PathExpression [52-61]
+                Identifier(int_field) [52-61]
+--
+SELECT
+  REPLACE_FIELDS(STRUCT(32 AS int_field), 0 AS int_field)
+==
+
+select replace_fields(some_proto.nested_message, 0 as nested_int32_field)
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-73]
+      SelectList [7-73]
+        SelectColumn [7-73]
+          ReplaceFieldsExpression [7-73]
+            PathExpression [22-47]
+              Identifier(some_proto) [22-32]
+              Identifier(nested_message) [33-47]
+            ReplaceFieldsArg [49-72]
+              IntLiteral(0) [49-50]
+              PathExpression [54-72]
+                Identifier(nested_int32_field) [54-72]
+--
+SELECT
+  REPLACE_FIELDS(some_proto.nested_message, 0 AS nested_int32_field)
+==
+
+# REPLACE_FIELDS() cannot be used with path expressions that index array fields.
+# This will be enforced in the resolver.
+select replace_fields(some_proto, 0 as repeated_field[offset(0)])
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-65]
+        SelectColumn [7-65]
+          ReplaceFieldsExpression [7-65]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-64]
+              IntLiteral(0) [34-35]
+              ArrayElement [53-64]
+                PathExpression [39-53]
+                  Identifier(repeated_field) [39-53]
+                FunctionCall [54-63]
+                  PathExpression [54-60]
+                    Identifier(offset) [54-60]
+                  IntLiteral(0) [61-62]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS repeated_field[offset(0)])
+==
+
+select replace_fields(some_proto, NULL as field_to_clear)
+--
+QueryStatement [0-57]
+  Query [0-57]
+    Select [0-57]
+      SelectList [7-57]
+        SelectColumn [7-57]
+          ReplaceFieldsExpression [7-57]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-56]
+              NullLiteral(NULL) [34-38]
+              PathExpression [42-56]
+                Identifier(field_to_clear) [42-56]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, NULL AS field_to_clear)
+==
+
+select replace_fields(some_proto, ARRAY<INT32>[] as repeated_field)
+--
+QueryStatement [0-67]
+  Query [0-67]
+    Select [0-67]
+      SelectList [7-67]
+        SelectColumn [7-67]
+          ReplaceFieldsExpression [7-67]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-66]
+              ArrayConstructor [34-48]
+                ArrayType [34-46]
+                  SimpleType [40-45]
+                    PathExpression [40-45]
+                      Identifier(INT32) [40-45]
+              PathExpression [52-66]
+                Identifier(repeated_field) [52-66]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, ARRAY< INT32 >[] AS repeated_field)
+==
+
+select replace_fields(some_proto, [1, 2, 3] as repeated_field)
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-62]
+        SelectColumn [7-62]
+          ReplaceFieldsExpression [7-62]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-61]
+              ArrayConstructor [34-43]
+                IntLiteral(1) [35-36]
+                IntLiteral(2) [38-39]
+                IntLiteral(3) [41-42]
+              PathExpression [47-61]
+                Identifier(repeated_field) [47-61]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, ARRAY[1, 2, 3] AS repeated_field)
+==
+
+select replace_fields(some_proto, some_function(input) as some_field)
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-69]
+        SelectColumn [7-69]
+          ReplaceFieldsExpression [7-69]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-68]
+              FunctionCall [34-54]
+                PathExpression [34-47]
+                  Identifier(some_function) [34-47]
+                PathExpression [48-53]
+                  Identifier(input) [48-53]
+              PathExpression [58-68]
+                Identifier(some_field) [58-68]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, some_function(input) AS some_field)
+==
+
+select some_function(replace_fields(some_proto, 0 as int32_field))
+--
+QueryStatement [0-66]
+  Query [0-66]
+    Select [0-66]
+      SelectList [7-66]
+        SelectColumn [7-66]
+          FunctionCall [7-66]
+            PathExpression [7-20]
+              Identifier(some_function) [7-20]
+            ReplaceFieldsExpression [21-65]
+              PathExpression [36-46]
+                Identifier(some_proto) [36-46]
+              ReplaceFieldsArg [48-64]
+                IntLiteral(0) [48-49]
+                PathExpression [53-64]
+                  Identifier(int32_field) [53-64]
+--
+SELECT
+  some_function(REPLACE_FIELDS(some_proto, 0 AS int32_field))
+==
+
+select replace_fields()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:23]
+select replace_fields()
+                      ^
+==
+
+select replace_fields(some_proto)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:33]
+select replace_fields(some_proto)
+                                ^
+==
+
+select replace_fields(some_proto, modified_value)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:49]
+select replace_fields(some_proto, modified_value)
+                                                ^
+==
+
+select replace_fields(some_proto, modified_value as)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:52]
+select replace_fields(some_proto, modified_value as)
+                                                   ^
+==
+
+select replace_fields(some_proto, (path.to.field))
+--
+ERROR: Syntax error: Unexpected ")" [at 1:50]
+select replace_fields(some_proto, (path.to.field))
+                                                 ^
+==
+
+select replace_fields(some_proto, as (path.to.field))
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:35]
+select replace_fields(some_proto, as (path.to.field))
+                                  ^
+==
+
+select replace_fields(some_proto, as modified_field)
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:35]
+select replace_fields(some_proto, as modified_field)
+                                  ^
+==
+
+select replace_fields(, 0 as int32_field)
+--
+ERROR: Syntax error: Unexpected "," [at 1:23]
+select replace_fields(, 0 as int32_field)
+                      ^
+==
+
+select replace_fields(some_proto, 0 as int32_field), some_proto
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-63]
+        SelectColumn [7-51]
+          ReplaceFieldsExpression [7-51]
+            PathExpression [22-32]
+              Identifier(some_proto) [22-32]
+            ReplaceFieldsArg [34-50]
+              IntLiteral(0) [34-35]
+              PathExpression [39-50]
+                Identifier(int32_field) [39-50]
+        SelectColumn [53-63]
+          PathExpression [53-63]
+            Identifier(some_proto) [53-63]
+--
+SELECT
+  REPLACE_FIELDS(some_proto, 0 AS int32_field),
+  some_proto

@@ -4,6 +4,138 @@
 
 ZetaSQL supports the following bit functions.
 
+### BIT_CAST_TO_INT32
+
+```sql
+BIT_CAST_TO_INT32(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to INT32. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ INT32
++ UINT32
+
+**Return Data Type**
+
+INT32
+
+**Examples**
+
+```sql
+SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UINT32(-1)) as bit_cast_value;
+
++---------------+----------------------+
+| UINT32_value  | bit_cast_value       |
++---------------+----------------------+
+| 4294967295    | -1                   |
++---------------+----------------------+
+```
+
+### BIT_CAST_TO_INT64
+
+```sql
+BIT_CAST_TO_INT64(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to INT64. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ INT64
++ UINT64
+
+**Return Data Type**
+
+INT64
+
+**Example**
+
+```sql
+SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UINT64(-1)) as bit_cast_value;
+
++-----------------------+----------------------+
+| UINT64_value          | bit_cast_value       |
++-----------------------+----------------------+
+| 18446744073709551615  | -1                   |
++-----------------------+----------------------+
+```
+
+### BIT_CAST_TO_UINT32
+
+```sql
+BIT_CAST_TO_UINT32(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to UINT32. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ INT32
++ UINT32
+
+**Return Data Type**
+
+UINT32
+
+**Examples**
+
+```sql
+SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
+
++--------------+----------------------+
+| UINT32_value | bit_cast_value       |
++--------------+----------------------+
+| -1           | -4294967295          |
++--------------+----------------------+
+```
+
+### BIT_CAST_TO_UINT64
+
+```sql
+BIT_CAST_TO_UINT64(value)
+```
+
+**Description**
+
+ZetaSQL supports bit casting to UINT64. A bit
+cast is a cast in which the order of bits is preserved instead of the value
+those bytes represent.
+
+The `value` parameter can represent:
+
++ INT64
++ UINT64
+
+**Return Data Type**
+
+UINT64
+
+**Example**
+
+```sql
+SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
+
++--------------+----------------------+
+| INT64_value  | bit_cast_value       |
++--------------+----------------------+
+| -1           | 18446744073709551615 |
++--------------+----------------------+
+```
+
 ### BIT_COUNT
 ```
 BIT_COUNT(expression)

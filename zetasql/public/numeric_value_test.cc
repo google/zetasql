@@ -20,6 +20,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <functional>
 #include <initializer_list>
 #include <limits>
@@ -118,7 +119,8 @@ void VerifyVarianceAggregator(const T& agg,
 
 template <typename T>
 void VerifyCovariance(const T& agg, absl::optional<double> expect_covar_pop,
-                      absl::optional<double> expect_covar_samp, uint64_t count) {
+                      absl::optional<double> expect_covar_samp,
+                      uint64_t count) {
   VerifyVariance(expect_covar_pop, agg.GetPopulationCovariance(count));
   VerifyVariance(expect_covar_samp, agg.GetSamplingCovariance(count));
 }
@@ -2437,8 +2439,8 @@ template <typename T>
 void TestSqrtWithRandomIntegerValue(uint64_t max_integer_value,
                                     absl::BitGen* random) {
   for (int i = 0; i < 10000; ++i) {
-    uint64_t x_sqrt = absl::Uniform<uint64_t>(absl::IntervalClosedClosed, *random,
-                                          0, max_integer_value);
+    uint64_t x_sqrt = absl::Uniform<uint64_t>(absl::IntervalClosedClosed,
+                                              *random, 0, max_integer_value);
     T expected_result(x_sqrt);
     ZETASQL_ASSERT_OK_AND_ASSIGN(T x_value, expected_result.Multiply(expected_result));
     ZETASQL_ASSERT_OK_AND_ASSIGN(T result, x_value.Sqrt());

@@ -411,6 +411,9 @@ void ResolvedCast::CollectDebugStringFields(
   if (time_zone_ != nullptr) {
     fields->emplace_back("time_zone", time_zone_.get());
   }
+  if (!type_parameters_.IsEmpty()) {
+    fields->emplace_back("type_parameters", type_parameters_.DebugString());
+  }
 }
 
 std::string ResolvedCast::GetNameForDebugString() const {

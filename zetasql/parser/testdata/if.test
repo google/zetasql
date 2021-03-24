@@ -1,0 +1,1394 @@
+# if with single statement
+[default mode=script]
+if x > y then
+  select 1;
+end if;
+--
+Script [0-34]
+  StatementList [0-34]
+    IfStatement [0-32]
+      BinaryExpression(>) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-26]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+--
+IF x > y THEN
+  SELECT
+    1
+  ;
+END IF ;
+==
+
+# if with different case and formatting
+If
+x > y   THEN select
+
+1; EnD
+
+iF
+--
+Script [0-34]
+  StatementList [0-34]
+    IfStatement [0-34]
+      BinaryExpression(>) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-27]
+        QueryStatement [16-25]
+          Query [16-25]
+            Select [16-25]
+              SelectList [24-25]
+                SelectColumn [24-25]
+                  IntLiteral(1) [24-25]
+--
+IF x > y THEN
+  SELECT
+    1
+  ;
+END IF ;
+==
+
+# if with multiple statements
+if x > y then
+  select 1;
+  create table t as select a, b from t2;
+  drop table t;
+end if;
+--
+Script [0-91]
+  StatementList [0-91]
+    IfStatement [0-89]
+      BinaryExpression(>) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-83]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+        CreateTableStatement [28-65]
+          PathExpression [41-42]
+            Identifier(t) [41-42]
+          Query [46-65]
+            Select [46-65]
+              SelectList [53-57]
+                SelectColumn [53-54]
+                  PathExpression [53-54]
+                    Identifier(a) [53-54]
+                SelectColumn [56-57]
+                  PathExpression [56-57]
+                    Identifier(b) [56-57]
+              FromClause [58-65]
+                TablePathExpression [63-65]
+                  PathExpression [63-65]
+                    Identifier(t2) [63-65]
+        DropStatement TABLE [69-81]
+          PathExpression [80-81]
+            Identifier(t) [80-81]
+--
+IF x > y THEN
+  SELECT
+    1
+  ;
+  CREATE TABLE t AS
+  SELECT
+    a,
+    b
+  FROM
+    t2
+  ;
+  DROP TABLE t ;
+END IF ;
+==
+
+# if with nested if
+if x > y then
+  select 1;
+  create table t as select a, b from t2;
+  if (select count(*) from t) = 0 then
+    drop table t;
+  end if;
+end if;
+--
+Script [0-142]
+  StatementList [0-142]
+    IfStatement [0-140]
+      BinaryExpression(>) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-134]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+        CreateTableStatement [28-65]
+          PathExpression [41-42]
+            Identifier(t) [41-42]
+          Query [46-65]
+            Select [46-65]
+              SelectList [53-57]
+                SelectColumn [53-54]
+                  PathExpression [53-54]
+                    Identifier(a) [53-54]
+                SelectColumn [56-57]
+                  PathExpression [56-57]
+                    Identifier(b) [56-57]
+              FromClause [58-65]
+                TablePathExpression [63-65]
+                  PathExpression [63-65]
+                    Identifier(t2) [63-65]
+        IfStatement [69-132]
+          BinaryExpression(=) [72-100]
+            ExpressionSubquery [72-96]
+              Query [73-95]
+                Select [73-95]
+                  SelectList [80-88]
+                    SelectColumn [80-88]
+                      FunctionCall [80-88]
+                        PathExpression [80-85]
+                          Identifier(count) [80-85]
+                        Star(*) [86-87]
+                  FromClause [89-95]
+                    TablePathExpression [94-95]
+                      PathExpression [94-95]
+                        Identifier(t) [94-95]
+            IntLiteral(0) [99-100]
+          StatementList [110-126]
+            DropStatement TABLE [110-122]
+              PathExpression [121-122]
+                Identifier(t) [121-122]
+--
+IF x > y THEN
+  SELECT
+    1
+  ;
+  CREATE TABLE t AS
+  SELECT
+    a,
+    b
+  FROM
+    t2
+  ;
+  IF(
+    SELECT
+      count(*)
+    FROM
+      t
+  ) = 0 THEN
+    DROP TABLE t ;
+  END IF ;
+END IF ;
+==
+
+# if with else
+if x > y then
+  select 1;
+else
+  select 2;
+end if;
+--
+Script [0-51]
+  StatementList [0-51]
+    IfStatement [0-49]
+      BinaryExpression(>) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-26]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+      StatementList [33-43]
+        QueryStatement [33-41]
+          Query [33-41]
+            Select [33-41]
+              SelectList [40-41]
+                SelectColumn [40-41]
+                  IntLiteral(2) [40-41]
+--
+IF x > y THEN
+  SELECT
+    1
+  ;
+ELSE
+  SELECT
+    2
+  ;
+END IF ;
+==
+
+# multiple levels of if/else
+if x > y then
+  select 1;
+  if true then
+    create table t (x int64, y string);
+    if false then
+      drop table t;
+    else
+      drop table t2;
+      create view v as select 1 as x;
+    end if;
+  end if;
+else
+  if true then
+    if false then
+      if b then
+        select 2;
+        select 3;
+      else
+        select 4;
+        select 5;
+        select 6;
+      end if;
+    end if;
+  end if;
+end if
+--
+Script [0-406]
+  StatementList [0-406]
+    IfStatement [0-406]
+      BinaryExpression(>) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-209]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+        IfStatement [28-207]
+          BooleanLiteral(true) [31-35]
+          StatementList [45-201]
+            CreateTableStatement [45-79]
+              PathExpression [58-59]
+                Identifier(t) [58-59]
+              TableElementList [60-79]
+                ColumnDefinition [61-68]
+                  Identifier(x) [61-62]
+                  SimpleColumnSchema [63-68]
+                    PathExpression [63-68]
+                      Identifier(int64) [63-68]
+                ColumnDefinition [70-78]
+                  Identifier(y) [70-71]
+                  SimpleColumnSchema [72-78]
+                    PathExpression [72-78]
+                      Identifier(string) [72-78]
+            IfStatement [85-197]
+              BooleanLiteral(false) [88-93]
+              StatementList [105-123]
+                DropStatement TABLE [105-117]
+                  PathExpression [116-117]
+                    Identifier(t) [116-117]
+              StatementList [134-191]
+                DropStatement TABLE [134-147]
+                  PathExpression [145-147]
+                    Identifier(t2) [145-147]
+                CreateViewStatement [155-185]
+                  PathExpression [167-168]
+                    Identifier(v) [167-168]
+                  Query [172-185]
+                    Select [172-185]
+                      SelectList [179-185]
+                        SelectColumn [179-185]
+                          IntLiteral(1) [179-180]
+                          Alias [181-185]
+                            Identifier(x) [184-185]
+      StatementList [216-400]
+        IfStatement [216-398]
+          BooleanLiteral(true) [219-223]
+          StatementList [233-392]
+            IfStatement [233-388]
+              BooleanLiteral(false) [236-241]
+              StatementList [253-382]
+                IfStatement [253-376]
+                  PathExpression [256-257]
+                    Identifier(b) [256-257]
+                  StatementList [271-305]
+                    QueryStatement [271-279]
+                      Query [271-279]
+                        Select [271-279]
+                          SelectList [278-279]
+                            SelectColumn [278-279]
+                              IntLiteral(2) [278-279]
+                    QueryStatement [289-297]
+                      Query [289-297]
+                        Select [289-297]
+                          SelectList [296-297]
+                            SelectColumn [296-297]
+                              IntLiteral(3) [296-297]
+                  StatementList [318-370]
+                    QueryStatement [318-326]
+                      Query [318-326]
+                        Select [318-326]
+                          SelectList [325-326]
+                            SelectColumn [325-326]
+                              IntLiteral(4) [325-326]
+                    QueryStatement [336-344]
+                      Query [336-344]
+                        Select [336-344]
+                          SelectList [343-344]
+                            SelectColumn [343-344]
+                              IntLiteral(5) [343-344]
+                    QueryStatement [354-362]
+                      Query [354-362]
+                        Select [354-362]
+                          SelectList [361-362]
+                            SelectColumn [361-362]
+                              IntLiteral(6) [361-362]
+--
+IF x > y THEN
+  SELECT
+    1
+  ;
+  IF true THEN
+    CREATE TABLE t
+    (
+      x int64,
+      y string
+    ) ;
+    IF false THEN
+      DROP TABLE t ;
+    ELSE
+      DROP TABLE t2 ;
+      CREATE VIEW v AS
+      SELECT
+        1 AS x
+      ;
+    END IF ;
+  END IF ;
+ELSE
+  IF true THEN
+    IF false THEN
+      IF b THEN
+        SELECT
+          2
+        ;
+        SELECT
+          3
+        ;
+      ELSE
+        SELECT
+          4
+        ;
+        SELECT
+          5
+        ;
+        SELECT
+          6
+        ;
+      END IF ;
+    END IF ;
+  END IF ;
+END IF ;
+==
+
+# if with if inside condition
+if if(cond, x, y) then
+  select 1;
+else
+  select 2;
+end if;
+--
+
+Script [0-60]
+  StatementList [0-60]
+    IfStatement [0-58]
+      FunctionCall [3-17]
+        PathExpression [3-5]
+          Identifier(`if`) [3-5]
+        PathExpression [6-10]
+          Identifier(cond) [6-10]
+        PathExpression [12-13]
+          Identifier(x) [12-13]
+        PathExpression [15-16]
+          Identifier(y) [15-16]
+      StatementList [25-35]
+        QueryStatement [25-33]
+          Query [25-33]
+            Select [25-33]
+              SelectList [32-33]
+                SelectColumn [32-33]
+                  IntLiteral(1) [32-33]
+      StatementList [42-52]
+        QueryStatement [42-50]
+          Query [42-50]
+            Select [42-50]
+              SelectList [49-50]
+                SelectColumn [49-50]
+                  IntLiteral(2) [49-50]
+--
+IF `if`(cond, x, y) THEN
+  SELECT
+    1
+  ;
+ELSE
+  SELECT
+    2
+  ;
+END IF ;
+==
+
+# if with case/when inside condition
+if case when x then y end then
+  select 1;
+  if true then
+    create table t (x int64, y string);
+    if false then
+      drop table t;
+    else
+      drop table t2;
+      create view v as select 1 as x;
+    end if;
+  end if;
+else
+  select 2;
+end if;
+--
+Script [0-251]
+  StatementList [0-251]
+    IfStatement [0-249]
+      CaseNoValueExpression [3-25]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [20-21]
+          Identifier(y) [20-21]
+      StatementList [33-226]
+        QueryStatement [33-41]
+          Query [33-41]
+            Select [33-41]
+              SelectList [40-41]
+                SelectColumn [40-41]
+                  IntLiteral(1) [40-41]
+        IfStatement [45-224]
+          BooleanLiteral(true) [48-52]
+          StatementList [62-218]
+            CreateTableStatement [62-96]
+              PathExpression [75-76]
+                Identifier(t) [75-76]
+              TableElementList [77-96]
+                ColumnDefinition [78-85]
+                  Identifier(x) [78-79]
+                  SimpleColumnSchema [80-85]
+                    PathExpression [80-85]
+                      Identifier(int64) [80-85]
+                ColumnDefinition [87-95]
+                  Identifier(y) [87-88]
+                  SimpleColumnSchema [89-95]
+                    PathExpression [89-95]
+                      Identifier(string) [89-95]
+            IfStatement [102-214]
+              BooleanLiteral(false) [105-110]
+              StatementList [122-140]
+                DropStatement TABLE [122-134]
+                  PathExpression [133-134]
+                    Identifier(t) [133-134]
+              StatementList [151-208]
+                DropStatement TABLE [151-164]
+                  PathExpression [162-164]
+                    Identifier(t2) [162-164]
+                CreateViewStatement [172-202]
+                  PathExpression [184-185]
+                    Identifier(v) [184-185]
+                  Query [189-202]
+                    Select [189-202]
+                      SelectList [196-202]
+                        SelectColumn [196-202]
+                          IntLiteral(1) [196-197]
+                          Alias [198-202]
+                            Identifier(x) [201-202]
+      StatementList [233-243]
+        QueryStatement [233-241]
+          Query [233-241]
+            Select [233-241]
+              SelectList [240-241]
+                SelectColumn [240-241]
+                  IntLiteral(2) [240-241]
+--
+IF
+CASE
+  WHEN x THEN y
+END THEN
+  SELECT
+    1
+  ;
+  IF true THEN
+    CREATE TABLE t
+    (
+      x int64,
+      y string
+    ) ;
+    IF false THEN
+      DROP TABLE t ;
+    ELSE
+      DROP TABLE t2 ;
+      CREATE VIEW v AS
+      SELECT
+        1 AS x
+      ;
+    END IF ;
+  END IF ;
+ELSE
+  SELECT
+    2
+  ;
+END IF ;
+==
+
+# if with various expressions
+if {{if(a, b, c)|exists (select 1)|case when x then y end|extract(date from ts)}} then
+  select 1;
+end if
+--
+ALTERNATION GROUP: if(a, b, c)
+--
+Script [0-38]
+  StatementList [0-38]
+    IfStatement [0-38]
+      FunctionCall [3-14]
+        PathExpression [3-5]
+          Identifier(`if`) [3-5]
+        PathExpression [6-7]
+          Identifier(a) [6-7]
+        PathExpression [9-10]
+          Identifier(b) [9-10]
+        PathExpression [12-13]
+          Identifier(c) [12-13]
+      StatementList [22-32]
+        QueryStatement [22-30]
+          Query [22-30]
+            Select [22-30]
+              SelectList [29-30]
+                SelectColumn [29-30]
+                  IntLiteral(1) [29-30]
+--
+IF `if`(a, b, c) THEN
+  SELECT
+    1
+  ;
+END IF ;
+--
+ALTERNATION GROUP: exists (select 1)
+--
+Script [0-44]
+  StatementList [0-44]
+    IfStatement [0-44]
+      ExpressionSubquery(modifier=EXISTS) [3-20]
+        Query [11-19]
+          Select [11-19]
+            SelectList [18-19]
+              SelectColumn [18-19]
+                IntLiteral(1) [18-19]
+      StatementList [28-38]
+        QueryStatement [28-36]
+          Query [28-36]
+            Select [28-36]
+              SelectList [35-36]
+                SelectColumn [35-36]
+                  IntLiteral(1) [35-36]
+--
+IF EXISTS(
+  SELECT
+    1
+) THEN
+  SELECT
+    1
+  ;
+END IF ;
+--
+ALTERNATION GROUP: case when x then y end
+--
+Script [0-49]
+  StatementList [0-49]
+    IfStatement [0-49]
+      CaseNoValueExpression [3-25]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [20-21]
+          Identifier(y) [20-21]
+      StatementList [33-43]
+        QueryStatement [33-41]
+          Query [33-41]
+            Select [33-41]
+              SelectList [40-41]
+                SelectColumn [40-41]
+                  IntLiteral(1) [40-41]
+--
+IF
+CASE
+  WHEN x THEN y
+END THEN
+  SELECT
+    1
+  ;
+END IF ;
+--
+ALTERNATION GROUP: extract(date from ts)
+--
+Script [0-48]
+  StatementList [0-48]
+    IfStatement [0-48]
+      ExtractExpression [3-24]
+        PathExpression [11-15]
+          Identifier(date) [11-15]
+        PathExpression [21-23]
+          Identifier(ts) [21-23]
+      StatementList [32-42]
+        QueryStatement [32-40]
+          Query [32-40]
+            Select [32-40]
+              SelectList [39-40]
+                SelectColumn [39-40]
+                  IntLiteral(1) [39-40]
+--
+IF EXTRACT(date FROM ts) THEN
+  SELECT
+    1
+  ;
+END IF ;
+==
+
+# if with hint (not allowed)
+@{hint_name=5} if true then
+  select 1;
+end if
+--
+ERROR: Syntax error: Unexpected keyword IF [at 1:16]
+@{hint_name=5} if true then
+               ^
+==
+
+# if with hint on inner statement
+if true then
+  @{hint_name=5} select 1;
+end if
+--
+Script [0-46]
+  StatementList [0-46]
+    IfStatement [0-46]
+      BooleanLiteral(true) [3-7]
+      StatementList [15-40]
+        HintedStatement [15-38]
+          Hint [15-29]
+            HintEntry [17-28]
+              Identifier(hint_name) [17-26]
+              IntLiteral(5) [27-28]
+          QueryStatement [30-38]
+            Query [30-38]
+              Select [30-38]
+                SelectList [37-38]
+                  SelectColumn [37-38]
+                    IntLiteral(1) [37-38]
+--
+IF true THEN
+  @{ hint_name = 5 }
+  SELECT
+    1
+  ;
+END IF ;
+==
+
+# if with empty statement list
+if x < y then
+end if
+--
+Script [0-20]
+  StatementList [0-20]
+    IfStatement [0-20]
+      BinaryExpression(<) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [13-13]
+--
+IF x < y THEN
+END IF ;
+==
+
+# else with empty statement list
+if x < y then
+  select 1;
+else
+end if
+--
+Script [0-37]
+  StatementList [0-37]
+    IfStatement [0-37]
+      BinaryExpression(<) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [16-26]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+      StatementList [30-30]
+--
+IF x < y THEN
+  SELECT
+    1
+  ;
+ELSE
+END IF ;
+==
+
+# then and else with empty statement list
+if x < y then
+else
+end if
+--
+Script [0-25]
+  StatementList [0-25]
+    IfStatement [0-25]
+      BinaryExpression(<) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        PathExpression [7-8]
+          Identifier(y) [7-8]
+      StatementList [13-13]
+      StatementList [18-18]
+--
+IF x < y THEN
+ELSE
+END IF ;
+==
+
+
+# unterminated statement in statement list
+if x < y then
+  select 1
+end if
+--
+ERROR: Syntax error: Expected ";" but got keyword END [at 3:1]
+end if
+^
+==
+
+# unterminated statement in statement list with no end if
+if x < y then
+  select 1
+--
+ERROR: Syntax error: Expected ";" but got end of script [at 2:11]
+  select 1
+          ^
+==
+
+# else without if
+else
+  select 2;
+end if
+--
+ERROR: Syntax error: Expected end of input but got keyword ELSE [at 1:1]
+else
+^
+==
+
+# end if without if
+end if
+--
+ERROR: Syntax error: Expected end of input but got keyword END [at 1:1]
+end if
+^
+==
+
+# if/else without end if
+if x < y then
+  select 1;
+else
+  select 2;
+--
+ERROR: Syntax error: Expected END IF [at 5:1]
+
+^
+==
+
+# if/else without end if, with multiple lines at the end
+if x < y then
+  select 1;
+else
+  select 2;
+
+
+
+--
+ERROR: Syntax error: Expected END IF [at 5:1]
+
+^
+==
+
+# invalid statement inside if
+IF true THEN
+  SELECT 1;
+  SELECT 2 a b
+  SELECT 3;
+END IF;
+--
+ERROR: Syntax error: Expected ";" but got identifier "b" [at 3:14]
+  SELECT 2 a b
+             ^
+==
+
+# misspelled keyword in statement inside if
+IF true THEN
+  SELECT 1;
+  SSSELECT 1;
+  SELECT 1;
+END IF;
+--
+ERROR: Syntax error: Expected END IF [at 3:3]
+  SSSELECT 1;
+  ^
+==
+
+# nested end if without a trailing semicolon
+IF true
+THEN
+  IF true THEN SELECT 1; END IF
+  select 1;
+END IF
+--
+ERROR: Syntax error: Expected ";" but got keyword SELECT [at 4:3]
+  select 1;
+  ^
+==
+
+# various incorrect "end if" forms
+if x < y then
+  select 1;
+{{|end|if|end else|end drop}}
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected END IF [at 4:1]
+
+^
+--
+ALTERNATION GROUP: end
+--
+ERROR: Syntax error: Expected END IF [at 3:1]
+end
+^
+--
+ALTERNATION GROUP: if
+--
+ERROR: Syntax error: Unexpected end of script [at 3:3]
+if
+  ^
+--
+ALTERNATION GROUP: end else
+--
+ERROR: Syntax error: Expected END IF [at 3:1]
+end else
+^
+--
+ALTERNATION GROUP: end drop
+--
+ERROR: Syntax error: Expected END IF [at 3:1]
+end drop
+^
+==
+
+# Simple if/elseif/elseif
+IF x = 2 THEN
+  SELECT 1;
+  SELECT 2;
+ELSEIF x = 3 THEN
+  SELECT 3;
+  SELECT 4;
+ELSEIF x = 4 THEN
+  SELECT 5;
+  SELECT 6;
+END IF;
+--
+Script [0-130]
+  StatementList [0-130]
+    IfStatement [0-128]
+      BinaryExpression(=) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        IntLiteral(2) [7-8]
+      StatementList [16-38]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+        QueryStatement [28-36]
+          Query [28-36]
+            Select [28-36]
+              SelectList [35-36]
+                SelectColumn [35-36]
+                  IntLiteral(2) [35-36]
+      ElseIfList [38-122]
+        ElseIf [38-80]
+          BinaryExpression(=) [45-50]
+            PathExpression [45-46]
+              Identifier(x) [45-46]
+            IntLiteral(3) [49-50]
+          StatementList [58-80]
+            QueryStatement [58-66]
+              Query [58-66]
+                Select [58-66]
+                  SelectList [65-66]
+                    SelectColumn [65-66]
+                      IntLiteral(3) [65-66]
+            QueryStatement [70-78]
+              Query [70-78]
+                Select [70-78]
+                  SelectList [77-78]
+                    SelectColumn [77-78]
+                      IntLiteral(4) [77-78]
+        ElseIf [80-122]
+          BinaryExpression(=) [87-92]
+            PathExpression [87-88]
+              Identifier(x) [87-88]
+            IntLiteral(4) [91-92]
+          StatementList [100-122]
+            QueryStatement [100-108]
+              Query [100-108]
+                Select [100-108]
+                  SelectList [107-108]
+                    SelectColumn [107-108]
+                      IntLiteral(5) [107-108]
+            QueryStatement [112-120]
+              Query [112-120]
+                Select [112-120]
+                  SelectList [119-120]
+                    SelectColumn [119-120]
+                      IntLiteral(6) [119-120]
+--
+IF x = 2 THEN
+  SELECT
+    1
+  ;
+  SELECT
+    2
+  ;
+ELSEIF x = 3 THEN
+  SELECT
+    3
+  ;
+  SELECT
+    4
+  ;
+ELSEIF x = 4 THEN
+  SELECT
+    5
+  ;
+  SELECT
+    6
+  ;
+END IF ;
+==
+
+# Simple if/elseif/else
+IF x = 2 THEN
+  SELECT 1;
+  SELECT 2;
+ELSEIF x = 3 THEN
+  SELECT 3;
+  SELECT 4;
+ELSE
+  SELECT 5;
+  SELECT 6;
+END IF;
+--
+Script [0-117]
+  StatementList [0-117]
+    IfStatement [0-115]
+      BinaryExpression(=) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        IntLiteral(2) [7-8]
+      StatementList [16-38]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+        QueryStatement [28-36]
+          Query [28-36]
+            Select [28-36]
+              SelectList [35-36]
+                SelectColumn [35-36]
+                  IntLiteral(2) [35-36]
+      ElseIfList [38-80]
+        ElseIf [38-80]
+          BinaryExpression(=) [45-50]
+            PathExpression [45-46]
+              Identifier(x) [45-46]
+            IntLiteral(3) [49-50]
+          StatementList [58-80]
+            QueryStatement [58-66]
+              Query [58-66]
+                Select [58-66]
+                  SelectList [65-66]
+                    SelectColumn [65-66]
+                      IntLiteral(3) [65-66]
+            QueryStatement [70-78]
+              Query [70-78]
+                Select [70-78]
+                  SelectList [77-78]
+                    SelectColumn [77-78]
+                      IntLiteral(4) [77-78]
+      StatementList [87-109]
+        QueryStatement [87-95]
+          Query [87-95]
+            Select [87-95]
+              SelectList [94-95]
+                SelectColumn [94-95]
+                  IntLiteral(5) [94-95]
+        QueryStatement [99-107]
+          Query [99-107]
+            Select [99-107]
+              SelectList [106-107]
+                SelectColumn [106-107]
+                  IntLiteral(6) [106-107]
+--
+IF x = 2 THEN
+  SELECT
+    1
+  ;
+  SELECT
+    2
+  ;
+ELSEIF x = 3 THEN
+  SELECT
+    3
+  ;
+  SELECT
+    4
+  ;
+ELSE
+  SELECT
+    5
+  ;
+  SELECT
+    6
+  ;
+END IF ;
+==
+
+# elseif with empty body
+IF x = 2 THEN
+  SELECT 1;
+  SELECT 2;
+ELSEIF x = 3 THEN
+ELSE
+  SELECT 5;
+  SELECT 6;
+END IF;
+--
+Script [0-93]
+  StatementList [0-93]
+    IfStatement [0-91]
+      BinaryExpression(=) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        IntLiteral(2) [7-8]
+      StatementList [16-38]
+        QueryStatement [16-24]
+          Query [16-24]
+            Select [16-24]
+              SelectList [23-24]
+                SelectColumn [23-24]
+                  IntLiteral(1) [23-24]
+        QueryStatement [28-36]
+          Query [28-36]
+            Select [28-36]
+              SelectList [35-36]
+                SelectColumn [35-36]
+                  IntLiteral(2) [35-36]
+      ElseIfList [38-55]
+        ElseIf [38-55]
+          BinaryExpression(=) [45-50]
+            PathExpression [45-46]
+              Identifier(x) [45-46]
+            IntLiteral(3) [49-50]
+          StatementList [55-55]
+      StatementList [63-85]
+        QueryStatement [63-71]
+          Query [63-71]
+            Select [63-71]
+              SelectList [70-71]
+                SelectColumn [70-71]
+                  IntLiteral(5) [70-71]
+        QueryStatement [75-83]
+          Query [75-83]
+            Select [75-83]
+              SelectList [82-83]
+                SelectColumn [82-83]
+                  IntLiteral(6) [82-83]
+--
+IF x = 2 THEN
+  SELECT
+    1
+  ;
+  SELECT
+    2
+  ;
+ELSEIF x = 3 THEN
+ELSE
+  SELECT
+    5
+  ;
+  SELECT
+    6
+  ;
+END IF ;
+==
+
+# elseif, then, and else, all with empty body
+IF x = 2 THEN
+ELSEIF x = 3 THEN
+ELSE
+END IF;
+--
+Script [0-45]
+  StatementList [0-45]
+    IfStatement [0-43]
+      BinaryExpression(=) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        IntLiteral(2) [7-8]
+      StatementList [13-13]
+      ElseIfList [14-31]
+        ElseIf [14-31]
+          BinaryExpression(=) [21-26]
+            PathExpression [21-22]
+              Identifier(x) [21-22]
+            IntLiteral(3) [25-26]
+          StatementList [31-31]
+      StatementList [36-36]
+--
+IF x = 2 THEN
+ELSEIF x = 3 THEN
+ELSE
+END IF ;
+==
+
+# Nested if/elseif statements
+IF x = 2 THEN
+ELSEIF x = 3 THEN
+  IF y = 3 THEN
+  ELSEIF y = 4 THEN
+  ELSEIF y = 5 THEN
+    IF z = 6 THEN SELECT 6;
+    ELSEIF z = 7 THEN SELECT 7;
+    ELSEIF z = 8 THEN SELECT 8;
+    END IF;
+  END IF;
+END IF;
+--
+Script [0-210]
+  StatementList [0-210]
+    IfStatement [0-208]
+      BinaryExpression(=) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        IntLiteral(2) [7-8]
+      StatementList [13-13]
+      ElseIfList [14-202]
+        ElseIf [14-202]
+          BinaryExpression(=) [21-26]
+            PathExpression [21-22]
+              Identifier(x) [21-22]
+            IntLiteral(3) [25-26]
+          StatementList [34-202]
+            IfStatement [34-200]
+              BinaryExpression(=) [37-42]
+                PathExpression [37-38]
+                  Identifier(y) [37-38]
+                IntLiteral(3) [41-42]
+              StatementList [47-47]
+              ElseIfList [50-194]
+                ElseIf [50-67]
+                  BinaryExpression(=) [57-62]
+                    PathExpression [57-58]
+                      Identifier(y) [57-58]
+                    IntLiteral(4) [61-62]
+                  StatementList [67-67]
+                ElseIf [70-194]
+                  BinaryExpression(=) [77-82]
+                    PathExpression [77-78]
+                      Identifier(y) [77-78]
+                    IntLiteral(5) [81-82]
+                  StatementList [92-194]
+                    IfStatement [92-190]
+                      BinaryExpression(=) [95-100]
+                        PathExpression [95-96]
+                          Identifier(z) [95-96]
+                        IntLiteral(6) [99-100]
+                      StatementList [106-120]
+                        QueryStatement [106-114]
+                          Query [106-114]
+                            Select [106-114]
+                              SelectList [113-114]
+                                SelectColumn [113-114]
+                                  IntLiteral(6) [113-114]
+                      ElseIfList [120-184]
+                        ElseIf [120-152]
+                          BinaryExpression(=) [127-132]
+                            PathExpression [127-128]
+                              Identifier(z) [127-128]
+                            IntLiteral(7) [131-132]
+                          StatementList [138-152]
+                            QueryStatement [138-146]
+                              Query [138-146]
+                                Select [138-146]
+                                  SelectList [145-146]
+                                    SelectColumn [145-146]
+                                      IntLiteral(7) [145-146]
+                        ElseIf [152-184]
+                          BinaryExpression(=) [159-164]
+                            PathExpression [159-160]
+                              Identifier(z) [159-160]
+                            IntLiteral(8) [163-164]
+                          StatementList [170-184]
+                            QueryStatement [170-178]
+                              Query [170-178]
+                                Select [170-178]
+                                  SelectList [177-178]
+                                    SelectColumn [177-178]
+                                      IntLiteral(8) [177-178]
+--
+IF x = 2 THEN
+ELSEIF x = 3 THEN IF y = 3 THEN
+  ELSEIF y = 4 THEN
+  ELSEIF y = 5 THEN IF z = 6 THEN
+      SELECT
+        6
+      ;
+    ELSEIF z = 7 THEN
+      SELECT
+        7
+      ;
+    ELSEIF z = 8 THEN
+      SELECT
+        8
+      ;
+    END IF ;
+  END IF ;
+END IF ;
+==
+
+# ERROR: Missing then keyword
+IF TRUE THEN
+ELSEIF TRUE SELECT 1;
+END IF;
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 2:13]
+ELSEIF TRUE SELECT 1;
+            ^
+==
+
+# ERROR: Missing elseif condition
+IF TRUE THEN
+ELSEIF THEN SELECT 1;
+END IF;
+--
+ERROR: Syntax error: Unexpected keyword THEN [at 2:8]
+ELSEIF THEN SELECT 1;
+       ^
+==
+
+# ERROR: Missing end if with elseif
+IF TRUE THEN
+ELSEIF TRUE THEN SELECT 1;
+--
+ERROR: Syntax error: Expected END IF [at 3:1]
+
+^
+==
+
+# Use of elseif as normal identifier
+DECLARE ELSEIF INT64 DEFAULT 3;
+IF ELSEIF THEN SELECT 1;
+ELSEIF ELSEIF THEN SELECT 2;
+ELSE SELECT ELSEIF;
+END IF;
+--
+Script [0-114]
+  StatementList [0-114]
+    VariableDeclaration [0-30]
+      IdentifierList [8-14]
+        Identifier(ELSEIF) [8-14]
+      SimpleType [15-20]
+        PathExpression [15-20]
+          Identifier(INT64) [15-20]
+      IntLiteral(3) [29-30]
+    IfStatement [32-112]
+      PathExpression [35-41]
+        Identifier(ELSEIF) [35-41]
+      StatementList [47-57]
+        QueryStatement [47-55]
+          Query [47-55]
+            Select [47-55]
+              SelectList [54-55]
+                SelectColumn [54-55]
+                  IntLiteral(1) [54-55]
+      ElseIfList [57-86]
+        ElseIf [57-86]
+          PathExpression [64-70]
+            Identifier(ELSEIF) [64-70]
+          StatementList [76-86]
+            QueryStatement [76-84]
+              Query [76-84]
+                Select [76-84]
+                  SelectList [83-84]
+                    SelectColumn [83-84]
+                      IntLiteral(2) [83-84]
+      StatementList [91-106]
+        QueryStatement [91-104]
+          Query [91-104]
+            Select [91-104]
+              SelectList [98-104]
+                SelectColumn [98-104]
+                  PathExpression [98-104]
+                    Identifier(ELSEIF) [98-104]
+--
+DECLARE ELSEIF INT64 DEFAULT 3 ;
+IF ELSEIF THEN
+  SELECT
+    1
+  ;
+ELSEIF ELSEIF THEN
+  SELECT
+    2
+  ;
+ELSE
+  SELECT
+    ELSEIF
+  ;
+END IF ;

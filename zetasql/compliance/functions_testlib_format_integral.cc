@@ -18,6 +18,7 @@
 // with "functions_testlib_" because an optimized compile with ASAN of the
 // original single file timed out at 900 seconds.
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/net.h"
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -144,10 +145,10 @@ TEST_P(NetTest, Testlib) {
                             args[0].int64_value());
   } else if (function == "net.parse_ip") {
     TestFunction<BaseType<int64_t>>(&ParseIP, param.params,
-                                   args[0].string_value());
+                                    args[0].string_value());
   } else if (function == "net.ipv4_to_int64") {
     TestFunction<BaseType<int64_t>>(&IPv4ToInt64, param.params,
-                                   args[0].bytes_value());
+                                    args[0].bytes_value());
   } else if (function == "net.format_packed_ip") {
     TestFunction<StringType>(&FormatPackedIP, param.params,
                              args[0].bytes_value());

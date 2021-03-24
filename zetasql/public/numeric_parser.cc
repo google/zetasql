@@ -16,6 +16,8 @@
 
 #include "zetasql/public/numeric_parser.h"
 
+#include <cstdint>
+
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_constants.h"
 #include "absl/status/status.h"

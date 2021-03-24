@@ -16,6 +16,8 @@
 
 #include "zetasql/public/interval_value.h"
 
+#include <cstdint>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/interval_value_test_util.h"
@@ -42,15 +44,31 @@ using interval_testing::Seconds;
 using interval_testing::Years;
 using interval_testing::YMDHMS;
 
+using functions::DAY;
+using functions::HOUR;
+using functions::MICROSECOND;
+using functions::MILLISECOND;
+using functions::MINUTE;
+using functions::MONTH;
+using functions::NANOSECOND;
+using functions::QUARTER;
+using functions::SECOND;
+using functions::WEEK;
+using functions::YEAR;
+
+IntervalValue Interval(absl::string_view str) {
+  return *IntervalValue::ParseFromString(str);
+}
+
 TEST(IntervalValueTest, Months) {
   IntervalValue interval;
   std::vector<int64_t> values{IntervalValue::kMinMonths,
-                            IntervalValue::kMaxMonths,
-                            0,
-                            -1,
-                            12,
-                            -55,
-                            7654};
+                              IntervalValue::kMaxMonths,
+                              0,
+                              -1,
+                              12,
+                              -55,
+                              7654};
   for (int64_t value : values) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::FromMonths(value));
     EXPECT_EQ(value, interval.get_months());
@@ -78,14 +96,14 @@ TEST(IntervalValueTest, Days) {
 TEST(IntervalValueTest, Micros) {
   IntervalValue interval;
   std::vector<int64_t> values{IntervalValue::kMinMicros,
-                            IntervalValue::kMaxMicros,
-                            IntervalValue::kMinMicros + 1,
-                            IntervalValue::kMaxMicros - 1,
-                            0,
-                            1,
-                            -1000,
-                            1000000,
-                            -123456789};
+                              IntervalValue::kMaxMicros,
+                              IntervalValue::kMinMicros + 1,
+                              IntervalValue::kMaxMicros - 1,
+                              0,
+                              1,
+                              -1000,
+                              1000000,
+                              -123456789};
   for (int64_t value : values) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::FromMicros(value));
     EXPECT_EQ(value, interval.get_micros());
@@ -133,11 +151,11 @@ TEST(IntervalValueTest, MonthsDaysMicros) {
 
   for (int i = 0; i < 10000; i++) {
     int64_t month = absl::Uniform<int64_t>(random_, IntervalValue::kMinMonths,
-                                       IntervalValue::kMaxMonths);
+                                           IntervalValue::kMaxMonths);
     int64_t day = absl::Uniform<int64_t>(random_, IntervalValue::kMinDays,
-                                     IntervalValue::kMaxDays);
+                                         IntervalValue::kMaxDays);
     int64_t micros = absl::Uniform<int64_t>(random_, IntervalValue::kMinMicros,
-                                        IntervalValue::kMaxMicros);
+                                            IntervalValue::kMaxMicros);
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         interval, IntervalValue::FromMonthsDaysMicros(month, day, micros));
     EXPECT_EQ(month, interval.get_months());
@@ -170,11 +188,11 @@ TEST(IntervalValueTest, MonthsDaysNanos) {
 
   for (int i = 0; i < 10000; i++) {
     int64_t month = absl::Uniform<int64_t>(random_, IntervalValue::kMinMonths,
-                                       IntervalValue::kMaxMonths);
+                                           IntervalValue::kMaxMonths);
     int64_t day = absl::Uniform<int64_t>(random_, IntervalValue::kMinDays,
-                                     IntervalValue::kMaxDays);
+                                         IntervalValue::kMaxDays);
     int64_t micros = absl::Uniform<int64_t>(random_, IntervalValue::kMinMicros,
-                                        IntervalValue::kMaxMicros);
+                                            IntervalValue::kMaxMicros);
     int64_t nano_fractions = absl::Uniform<int64_t>(
         random_, -IntervalValue::kNanosInMicro, IntervalValue::kNanosInMicro);
     __int128 nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
@@ -225,8 +243,8 @@ TEST(IntervalValueTest, FromYMDHMS) {
   EXPECT_EQ("0-0 0 10:19:35", YMDHMS(0, 0, 0, 10, 20, -25).ToString());
   EXPECT_EQ("1-2 3 4:5:6", YMDHMS(1, 2, 3, 4, 5, 6).ToString());
 
-  EXPECT_THAT(IntervalValue::FromYMDHMS(std::numeric_limits<int64_t>::max(), 0, 0,
-                                        0, 0, 0),
+  EXPECT_THAT(IntervalValue::FromYMDHMS(std::numeric_limits<int64_t>::max(), 0,
+                                        0, 0, 0, 0),
               StatusIs(absl::StatusCode::kOutOfRange));
   EXPECT_THAT(
       IntervalValue::FromYMDHMS(IntervalValue::kMaxYears, 1, 0, 0, 0, 0),
@@ -431,11 +449,11 @@ TEST(IntervalValueTest, UnaryMinus) {
   absl::BitGen gen;
   for (int i = 0; i < 10000; i++) {
     int64_t months = absl::Uniform(gen, IntervalValue::kMinMonths,
-                                 IntervalValue::kMaxMonths);
+                                   IntervalValue::kMaxMonths);
     int64_t days =
         absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
     int64_t micros = absl::Uniform(gen, IntervalValue::kMinMicros,
-                                 IntervalValue::kMaxMicros);
+                                   IntervalValue::kMaxMicros);
     int64_t nano_fractions = absl::Uniform(gen, -999, 999);
     __int128 nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
 
@@ -445,6 +463,270 @@ TEST(IntervalValueTest, UnaryMinus) {
     EXPECT_EQ(-interval1, interval2);
     EXPECT_EQ(-(-interval1), interval1);
   }
+}
+
+void ExpectPlus(const IntervalValue& op1, const IntervalValue& op2,
+                const IntervalValue& result) {
+  EXPECT_EQ(result, *(op1 + op2));
+  EXPECT_EQ(result, *(op2 + op1));
+  EXPECT_EQ(-result, *(-op1 - op2));
+  EXPECT_EQ(-result, *(-op2 - op1));
+  EXPECT_EQ(op1, *(result - op2));
+  EXPECT_EQ(op2, *(result - op1));
+  EXPECT_EQ(result, *(op2 - (-op1)));
+  EXPECT_EQ(result, *(op1 - (-op2)));
+}
+
+void ExpectPlusFail(const IntervalValue& op1, const IntervalValue& op2) {
+  EXPECT_THAT(op1 + op2, StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(op2 + op1, StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(op1 - (-op2), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(op2 - (-op1), StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+template <typename T>
+void ExpectEqStatusOr(const zetasql_base::StatusOr<T>& expected,
+                      const zetasql_base::StatusOr<T>& actual) {
+  EXPECT_EQ(expected.status(), actual.status());
+  if (expected.ok() && actual.ok()) {
+    EXPECT_EQ(*expected, *actual);
+  }
+}
+
+TEST(IntervalValueTest, BinaryPlusMinus) {
+  ExpectPlus(Years(1), Years(2), Years(3));
+  ExpectPlus(Months(1), Months(2), Months(3));
+  ExpectPlus(Days(1), Days(2), Days(3));
+  ExpectPlus(Hours(1), Hours(2), Hours(3));
+  ExpectPlus(Minutes(1), Minutes(2), Minutes(3));
+  ExpectPlus(Seconds(1), Seconds(2), Seconds(3));
+  ExpectPlus(Micros(1), Micros(2), Micros(3));
+  ExpectPlus(Nanos(1), Nanos(2), Nanos(3));
+  ExpectPlus(Years(1), Months(2), Interval("1-2 0 0:0:0"));
+  ExpectPlus(Years(1), Days(2), Interval("1-0 2 0:0:0"));
+  ExpectPlus(Years(1), Hours(2), Interval("1-0 0 2:0:0"));
+  ExpectPlus(Years(1), Minutes(2), Interval("1-0 0 0:2:0"));
+  ExpectPlus(Years(1), Seconds(2), Interval("1-0 0 0:0:2"));
+  ExpectPlus(Years(1), Micros(2), Interval("1-0 0 0:0:0.000002"));
+  ExpectPlus(Years(1), Nanos(2), Interval("1-0 0 0:0:0.000000002"));
+
+  ExpectPlus(Years(10000), Days(3660000), Interval("10000-0 3660000 0:0:0"));
+  ExpectPlus(Years(10000), Hours(87840000), Interval("10000-0 0 87840000:0:0"));
+  ExpectPlus(Days(3660000), Hours(87840000),
+             Interval("0-0 3660000 87840000:0:0"));
+  ExpectPlus(YMDHMS(1, 2, 3, 4, 5, 6), YMDHMS(1, 1, 1, 1, 1, 1),
+             YMDHMS(2, 3, 4, 5, 6, 7));
+  ExpectPlus(YMDHMS(1, -2, 3, -4, 5, -6), YMDHMS(-1, 2, -3, 4, -5, 6), Days(0));
+
+  ExpectPlusFail(Years(10000), Months(1));
+  ExpectPlusFail(Years(-10000), -Months(1));
+  ExpectPlusFail(Days(3660000), Days(1));
+  ExpectPlusFail(Days(-1), -Days(3660000));
+  ExpectPlusFail(Hours(87840000), Micros(1));
+  ExpectPlusFail(Hours(87840000), Nanos(1));
+  ExpectPlusFail(-Hours(87840000), Micros(-1));
+  ExpectPlusFail(-Hours(87840000), Nanos(-1));
+
+  absl::BitGen gen;
+  for (int i = 0; i < 10000; i++) {
+    int64_t months = absl::Uniform(gen, IntervalValue::kMinMonths,
+                                   IntervalValue::kMaxMonths);
+    int64_t days =
+        absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
+    int64_t micros = absl::Uniform(gen, IntervalValue::kMinMicros,
+                                   IntervalValue::kMaxMicros);
+    int64_t nano_fractions = absl::Uniform(gen, -999, 999);
+    __int128 nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
+
+    IntervalValue interval1 = MonthsDaysNanos(months, days, nanos);
+
+    months = absl::Uniform(gen, IntervalValue::kMinMonths,
+                           IntervalValue::kMaxMonths);
+    days = absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
+    micros = absl::Uniform(gen, IntervalValue::kMinMicros,
+                           IntervalValue::kMaxMicros);
+    nano_fractions = absl::Uniform(gen, -999, 999);
+    nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
+
+    IntervalValue interval2 = MonthsDaysNanos(months, days, nanos);
+
+    // Note that the result of + and - is StatusOr<IntervalValue>, and therefore
+    // we verify that equivalent expressions either both fail with same error,
+    // or both succeed and give same result.
+    ExpectEqStatusOr(interval1 + interval2, interval2 + interval1);
+    ExpectEqStatusOr(interval1 + interval2, interval1 - (-interval2));
+    ExpectEqStatusOr(interval2 - interval1, -interval1 + interval2);
+  }
+}
+
+TEST(IntervalValueTest, Extract) {
+  EXPECT_EQ(0, *Years(0).Extract(YEAR));
+  EXPECT_EQ(0, *Days(10000).Extract(YEAR));
+  EXPECT_EQ(0, *Hours(1000000).Extract(YEAR));
+  EXPECT_EQ(0, *Nanos(1).Extract(YEAR));
+  EXPECT_EQ(5, *Years(5).Extract(YEAR));
+  EXPECT_EQ(-5, *Years(-5).Extract(YEAR));
+  EXPECT_EQ(0, *Months(11).Extract(YEAR));
+  EXPECT_EQ(0, *Months(-11).Extract(YEAR));
+  EXPECT_EQ(1, *Months(12).Extract(YEAR));
+  EXPECT_EQ(-1, *Months(-12).Extract(YEAR));
+  EXPECT_EQ(1, *Months(13).Extract(YEAR));
+  EXPECT_EQ(-1, *Months(-13).Extract(YEAR));
+  EXPECT_EQ(10000, *Years(10000).Extract(YEAR));
+  EXPECT_EQ(-10000, *Years(-10000).Extract(YEAR));
+  EXPECT_EQ(9, *YMDHMS(10, -1, 5000, 1000, 20, 30).Extract(YEAR));
+  EXPECT_EQ(-9, *YMDHMS(-10, 1, -5000, -1000, -20, -30).Extract(YEAR));
+
+  EXPECT_EQ(0, *Hours(0).Extract(HOUR));
+  EXPECT_EQ(1, *Hours(1).Extract(HOUR));
+  EXPECT_EQ(-1, *Hours(-1).Extract(HOUR));
+  EXPECT_EQ(25, *Hours(25).Extract(HOUR));
+  EXPECT_EQ(-25, *Hours(-25).Extract(HOUR));
+  EXPECT_EQ(0, *Minutes(59).Extract(HOUR));
+  EXPECT_EQ(0, *Minutes(-59).Extract(HOUR));
+  EXPECT_EQ(1, *Minutes(60).Extract(HOUR));
+  EXPECT_EQ(-1, *Minutes(-60).Extract(HOUR));
+  EXPECT_EQ(1, *Minutes(61).Extract(HOUR));
+  EXPECT_EQ(-1, *Minutes(-61).Extract(HOUR));
+  EXPECT_EQ(87840000, *Hours(87840000).Extract(HOUR));
+  EXPECT_EQ(-87840000, *Hours(-87840000).Extract(HOUR));
+  EXPECT_EQ(1000, *YMDHMS(10, -1, 5000, 1000, 20, 30).Extract(HOUR));
+  EXPECT_EQ(-1000, *YMDHMS(-10, 1, -5000, -1000, -20, -30).Extract(HOUR));
+
+  EXPECT_EQ(0, *Minutes(0).Extract(MINUTE));
+  EXPECT_EQ(1, *Minutes(1).Extract(MINUTE));
+  EXPECT_EQ(-1, *Minutes(-1).Extract(MINUTE));
+  EXPECT_EQ(0, *Seconds(59).Extract(MINUTE));
+  EXPECT_EQ(0, *Seconds(-59).Extract(MINUTE));
+  EXPECT_EQ(1, *Seconds(60).Extract(MINUTE));
+  EXPECT_EQ(-1, *Seconds(-60).Extract(MINUTE));
+  EXPECT_EQ(1, *Seconds(61).Extract(MINUTE));
+  EXPECT_EQ(-1, *Seconds(-61).Extract(MINUTE));
+  EXPECT_EQ(0, *Micros(59999999).Extract(MINUTE));
+  EXPECT_EQ(0, *Micros(-59999999).Extract(MINUTE));
+  EXPECT_EQ(1, *Micros(60000001).Extract(MINUTE));
+  EXPECT_EQ(-1, *Micros(-60000001).Extract(MINUTE));
+  EXPECT_EQ(0, *Nanos(59999999999).Extract(MINUTE));
+  EXPECT_EQ(0, *Nanos(-59999999999).Extract(MINUTE));
+  EXPECT_EQ(1, *Nanos(60000000001).Extract(MINUTE));
+  EXPECT_EQ(-1, *Nanos(-60000000001).Extract(MINUTE));
+  EXPECT_EQ(58, *Seconds(3539).Extract(MINUTE));
+  EXPECT_EQ(-58, *Seconds(-3539).Extract(MINUTE));
+  EXPECT_EQ(59, *Seconds(3599).Extract(MINUTE));
+  EXPECT_EQ(-59, *Seconds(-3599).Extract(MINUTE));
+  EXPECT_EQ(0, *Seconds(3600).Extract(MINUTE));
+  EXPECT_EQ(0, *Seconds(-3600).Extract(MINUTE));
+  EXPECT_EQ(0, *Seconds(3601).Extract(MINUTE));
+  EXPECT_EQ(0, *Seconds(-3601).Extract(MINUTE));
+  EXPECT_EQ(1, *Seconds(3660).Extract(MINUTE));
+  EXPECT_EQ(-1, *Seconds(-3660).Extract(MINUTE));
+  EXPECT_EQ(1, *Seconds(3661).Extract(MINUTE));
+  EXPECT_EQ(-1, *Seconds(-3661).Extract(MINUTE));
+  EXPECT_EQ(0, *Minutes(5270400000).Extract(MINUTE));
+  EXPECT_EQ(0, *Minutes(-5270400000).Extract(MINUTE));
+  EXPECT_EQ(20, *YMDHMS(10, -1, 5000, 1000, 20, 30).Extract(MINUTE));
+  EXPECT_EQ(-20, *YMDHMS(-10, 1, -5000, -1000, -20, -30).Extract(MINUTE));
+
+  EXPECT_EQ(0, *Seconds(0).Extract(SECOND));
+  EXPECT_EQ(1, *Seconds(1).Extract(SECOND));
+  EXPECT_EQ(-1, *Seconds(-1).Extract(SECOND));
+  EXPECT_EQ(0, *Micros(999999).Extract(SECOND));
+  EXPECT_EQ(0, *Micros(-999999).Extract(SECOND));
+  EXPECT_EQ(1, *Micros(1000000).Extract(SECOND));
+  EXPECT_EQ(-1, *Micros(-1000000).Extract(SECOND));
+  EXPECT_EQ(1, *Micros(1000001).Extract(SECOND));
+  EXPECT_EQ(-1, *Micros(-1000001).Extract(SECOND));
+  EXPECT_EQ(0, *Nanos(999999999).Extract(SECOND));
+  EXPECT_EQ(0, *Nanos(-999999999).Extract(SECOND));
+  EXPECT_EQ(1, *Nanos(1000000000).Extract(SECOND));
+  EXPECT_EQ(-1, *Nanos(-1000000000).Extract(SECOND));
+  EXPECT_EQ(1, *Nanos(1000000001).Extract(SECOND));
+  EXPECT_EQ(-1, *Nanos(-1000000001).Extract(SECOND));
+
+  EXPECT_EQ(0, *Seconds(111).Extract(MILLISECOND));
+  EXPECT_EQ(0, *Micros(-999).Extract(MILLISECOND));
+  EXPECT_EQ(0, *Micros(999).Extract(MILLISECOND));
+  EXPECT_EQ(0, *Micros(-999).Extract(MILLISECOND));
+  EXPECT_EQ(1, *Micros(1000).Extract(MILLISECOND));
+  EXPECT_EQ(-1, *Micros(-1000).Extract(MILLISECOND));
+  EXPECT_EQ(1, *Micros(1001).Extract(MILLISECOND));
+  EXPECT_EQ(-1, *Micros(-1001).Extract(MILLISECOND));
+  EXPECT_EQ(1, *Micros(1001).Extract(MILLISECOND));
+  EXPECT_EQ(-1, *Micros(-1001).Extract(MILLISECOND));
+  EXPECT_EQ(2, *Micros(1002003).Extract(MILLISECOND));
+  EXPECT_EQ(-2, *Micros(-1002003).Extract(MILLISECOND));
+  EXPECT_EQ(999, *Nanos(999999999).Extract(MILLISECOND));
+  EXPECT_EQ(-999, *Nanos(-999999999).Extract(MILLISECOND));
+
+  EXPECT_EQ(0, *Seconds(5).Extract(MICROSECOND));
+  EXPECT_EQ(0, *Seconds(-3).Extract(MICROSECOND));
+  EXPECT_EQ(0, *Nanos(999).Extract(MICROSECOND));
+  EXPECT_EQ(0, *Nanos(-999).Extract(MICROSECOND));
+  EXPECT_EQ(1, *Micros(1).Extract(MICROSECOND));
+  EXPECT_EQ(-1, *Micros(-1).Extract(MICROSECOND));
+  EXPECT_EQ(1000, *Micros(1000).Extract(MICROSECOND));
+  EXPECT_EQ(-1000, *Micros(-1000).Extract(MICROSECOND));
+  EXPECT_EQ(1001, *Micros(1001).Extract(MICROSECOND));
+  EXPECT_EQ(-1001, *Micros(-1001).Extract(MICROSECOND));
+  EXPECT_EQ(999999, *Nanos(999999999).Extract(MICROSECOND));
+  EXPECT_EQ(-999999, *Nanos(-999999999).Extract(MICROSECOND));
+
+  EXPECT_EQ(0, *Seconds(123).Extract(NANOSECOND));
+  EXPECT_EQ(0, *Seconds(-123).Extract(NANOSECOND));
+  EXPECT_EQ(1, *Nanos(1).Extract(NANOSECOND));
+  EXPECT_EQ(-1, *Nanos(-1).Extract(NANOSECOND));
+  EXPECT_EQ(999, *Nanos(999).Extract(NANOSECOND));
+  EXPECT_EQ(-999, *Nanos(-999).Extract(NANOSECOND));
+  EXPECT_EQ(1000, *Micros(1).Extract(NANOSECOND));
+  EXPECT_EQ(-1000, *Micros(-1).Extract(NANOSECOND));
+  EXPECT_EQ(1001, *Nanos(1001).Extract(NANOSECOND));
+  EXPECT_EQ(-1001, *Nanos(-1001).Extract(NANOSECOND));
+  EXPECT_EQ(999999999, *Nanos(999999999).Extract(NANOSECOND));
+  EXPECT_EQ(-999999999, *Nanos(-999999999).Extract(NANOSECOND));
+
+  EXPECT_EQ(1, *Interval("1-2 3 4:5:6.123456789").Extract(YEAR));
+  EXPECT_EQ(2, *Interval("1-2 3 4:5:6.123456789").Extract(MONTH));
+  EXPECT_EQ(3, *Interval("1-2 3 4:5:6.123456789").Extract(DAY));
+  EXPECT_EQ(4, *Interval("1-2 3 4:5:6.123456789").Extract(HOUR));
+  EXPECT_EQ(5, *Interval("1-2 3 4:5:6.123456789").Extract(MINUTE));
+  EXPECT_EQ(6, *Interval("1-2 3 4:5:6.123456789").Extract(SECOND));
+  EXPECT_EQ(123, *Interval("1-2 3 4:5:6.123456789").Extract(MILLISECOND));
+  EXPECT_EQ(123456, *Interval("1-2 3 4:5:6.123456789").Extract(MICROSECOND));
+  EXPECT_EQ(123456789, *Interval("1-2 3 4:5:6.123456789").Extract(NANOSECOND));
+
+  EXPECT_EQ(-1, *Interval("-1-2 -3 -4:5:6.123456789").Extract(YEAR));
+  EXPECT_EQ(-2, *Interval("-1-2 -3 -4:5:6.123456789").Extract(MONTH));
+  EXPECT_EQ(-3, *Interval("-1-2 -3 -4:5:6.123456789").Extract(DAY));
+  EXPECT_EQ(-4, *Interval("-1-2 -3 -4:5:6.123456789").Extract(HOUR));
+  EXPECT_EQ(-5, *Interval("-1-2 -3 -4:5:6.123456789").Extract(MINUTE));
+  EXPECT_EQ(-6, *Interval("-1-2 -3 -4:5:6.123456789").Extract(SECOND));
+  EXPECT_EQ(-123, *Interval("-1-2 -3 -4:5:6.123456789").Extract(MILLISECOND));
+  EXPECT_EQ(-123456,
+            *Interval("-1-2 -3 -4:5:6.123456789").Extract(MICROSECOND));
+  EXPECT_EQ(-123456789,
+            *Interval("-1-2 -3 -4:5:6.123456789").Extract(NANOSECOND));
+
+  EXPECT_THAT(Years(0).Extract(WEEK), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(Years(0).Extract(QUARTER),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalValueTest, SumAggregator) {
+  IntervalValue::SumAggregator agg;
+  // Max years
+  agg.Add(Years(10000));
+  // Adding other date parts doesn't cause overflow
+  agg.Add(Days(100));
+  agg.Add(Minutes(10));
+  ZETASQL_ASSERT_OK(agg.GetSum());
+  EXPECT_EQ(YMDHMS(10000, 0, 100, 0, 10, 0), *agg.GetSum());
+  // But adding months causes overflow
+  agg.Add(Months(1));
+  EXPECT_THAT(agg.GetSum(), StatusIs(absl::StatusCode::kOutOfRange));
+  // But aggregator is still valid, and allows additional Adds
+  agg.Add(-Months(2));
+  ZETASQL_ASSERT_OK(agg.GetSum());
+  EXPECT_EQ(YMDHMS(9999, 11, 100, 0, 10, 0), *agg.GetSum());
 }
 
 TEST(IntervalValueTest, ToString) {
@@ -507,8 +789,8 @@ TEST(IntervalValueTest, ToString) {
   EXPECT_EQ("0-0 0 1:0:0", Micros(IntervalValue::kMicrosInHour).ToString());
   EXPECT_EQ("0-0 0 -1:0:0", Micros(-IntervalValue::kMicrosInHour).ToString());
   int64_t micros_123 = IntervalValue::kMicrosInHour +
-                     2 * IntervalValue::kMicrosInMinute +
-                     3 * IntervalValue::kMicrosInSecond;
+                       2 * IntervalValue::kMicrosInMinute +
+                       3 * IntervalValue::kMicrosInSecond;
   EXPECT_EQ("0-0 0 1:2:3", Micros(micros_123).ToString());
   EXPECT_EQ("0-0 0 -1:2:3", Micros(-micros_123).ToString());
   int64_t micros_123456 =
@@ -548,15 +830,6 @@ void ExpectParseError(absl::string_view input,
   EXPECT_THAT(IntervalValue::ParseFromString(input, part),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
-
-using functions::DAY;
-using functions::HOUR;
-using functions::MINUTE;
-using functions::MONTH;
-using functions::QUARTER;
-using functions::SECOND;
-using functions::WEEK;
-using functions::YEAR;
 
 TEST(IntervalValueTest, ParseFromString1) {
   EXPECT_EQ("0-0 0 0:0:0", ParseToString("0", YEAR));
@@ -1305,6 +1578,104 @@ TEST(IntervalValueTest, ParseFromString) {
   // Unexpected number of spaces/colons/dashes
   ExpectParseError("1-2 1:2:3");
   ExpectParseError("1-2-3");
+}
+
+void ExpectToISO8601(absl::string_view expected, IntervalValue interval) {
+  EXPECT_EQ(expected, interval.ToISO8601());
+  // TODO: Once parsing is implemented, parse back and compare with
+  // the original interval.
+}
+
+TEST(IntervalValueTest, ToISO8601) {
+  ExpectToISO8601("P0Y", Years(0));
+  ExpectToISO8601("P0Y", Days(0));
+  ExpectToISO8601("P0Y", Nanos(0));
+
+  ExpectToISO8601("P1Y", Years(1));
+  ExpectToISO8601("P-1Y", Years(-1));
+  ExpectToISO8601("P999Y", Years(999));
+  ExpectToISO8601("P-999Y", Years(-999));
+  ExpectToISO8601("P10000Y", Years(10000));
+  ExpectToISO8601("P-10000Y", Years(-10000));
+  ExpectToISO8601("P11M", Months(11));
+  ExpectToISO8601("P-11M", Months(-11));
+  ExpectToISO8601("P1D", Days(1));
+  ExpectToISO8601("P-1D", Days(-1));
+  ExpectToISO8601("P3660000D", Days(3660000));
+  ExpectToISO8601("P-3660000D", Days(-3660000));
+  ExpectToISO8601("PT1H", Hours(1));
+  ExpectToISO8601("PT-1H", Hours(-1));
+  ExpectToISO8601("PT87840000H", Hours(87840000));
+  ExpectToISO8601("PT-87840000H", Hours(-87840000));
+  ExpectToISO8601("PT1M", Minutes(1));
+  ExpectToISO8601("PT-1M", Minutes(-1));
+  ExpectToISO8601("PT59M", Minutes(59));
+  ExpectToISO8601("PT-59M", Minutes(-59));
+  ExpectToISO8601("PT1S", Seconds(1));
+  ExpectToISO8601("PT-1S", Seconds(-1));
+  ExpectToISO8601("PT59S", Seconds(59));
+  ExpectToISO8601("PT-59S", Seconds(-59));
+
+  ExpectToISO8601("PT0.1S", Nanos(100000000));
+  ExpectToISO8601("PT0.01S", Nanos(10000000));
+  ExpectToISO8601("PT0.001S", Nanos(1000000));
+  ExpectToISO8601("PT0.0001S", Nanos(100000));
+  ExpectToISO8601("PT0.00001S", Nanos(10000));
+  ExpectToISO8601("PT0.000001S", Nanos(1000));
+  ExpectToISO8601("PT0.0000001S", Nanos(100));
+  ExpectToISO8601("PT0.00000001S", Nanos(10));
+  ExpectToISO8601("PT0.000000001S", Nanos(1));
+
+  ExpectToISO8601("PT-0.1S", Nanos(-100000000));
+  ExpectToISO8601("PT-0.01S", Nanos(-10000000));
+  ExpectToISO8601("PT-0.001S", Nanos(-1000000));
+  ExpectToISO8601("PT-0.0001S", Nanos(-100000));
+  ExpectToISO8601("PT-0.00001S", Nanos(-10000));
+  ExpectToISO8601("PT-0.000001S", Nanos(-1000));
+  ExpectToISO8601("PT-0.0000001S", Nanos(-100));
+  ExpectToISO8601("PT-0.00000001S", Nanos(-10));
+  ExpectToISO8601("PT-0.000000001S", Nanos(-1));
+
+  ExpectToISO8601("PT0.000000001S", Nanos(1));
+  ExpectToISO8601("PT0.000000021S", Nanos(21));
+  ExpectToISO8601("PT0.000000321S", Nanos(321));
+  ExpectToISO8601("PT0.000004321S", Nanos(4321));
+  ExpectToISO8601("PT0.000054321S", Nanos(54321));
+  ExpectToISO8601("PT0.000654321S", Nanos(654321));
+  ExpectToISO8601("PT0.007654321S", Nanos(7654321));
+  ExpectToISO8601("PT0.087654321S", Nanos(87654321));
+  ExpectToISO8601("PT0.987654321S", Nanos(987654321));
+
+  ExpectToISO8601("PT-0.000000001S", Nanos(-1));
+  ExpectToISO8601("PT-0.000000021S", Nanos(-21));
+  ExpectToISO8601("PT-0.000000321S", Nanos(-321));
+  ExpectToISO8601("PT-0.000004321S", Nanos(-4321));
+  ExpectToISO8601("PT-0.000054321S", Nanos(-54321));
+  ExpectToISO8601("PT-0.000654321S", Nanos(-654321));
+  ExpectToISO8601("PT-0.007654321S", Nanos(-7654321));
+  ExpectToISO8601("PT-0.087654321S", Nanos(-87654321));
+  ExpectToISO8601("PT-0.987654321S", Nanos(-987654321));
+
+  ExpectToISO8601("P1Y2M3DT4H5M6S", Interval("1-2 3 4:5:6"));
+  ExpectToISO8601("P1Y2M3DT4H5M6.7S", Interval("1-2 3 4:5:6.7"));
+  ExpectToISO8601("P1Y2M3DT4H5M6.789S", Interval("1-2 3 4:5:6.789"));
+  ExpectToISO8601("P1Y2M3DT4H5M6.78912S", Interval("1-2 3 4:5:6.78912"));
+  ExpectToISO8601("P1Y2M3DT4H5M6.789123S", Interval("1-2 3 4:5:6.789123"));
+  ExpectToISO8601("P1Y2M3DT4H5M6.7891234S", Interval("1-2 3 4:5:6.7891234"));
+  ExpectToISO8601("P1Y2M3DT4H5M6.789123456S",
+                  Interval("1-2 3 4:5:6.789123456"));
+
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6S", Interval("-1-2 -3 -4:5:6"));
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.7S", Interval("-1-2 -3 -4:5:6.7"));
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.789S", Interval("-1-2 -3 -4:5:6.789"));
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.78912S",
+                  Interval("-1-2 -3 -4:5:6.78912"));
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.789123S",
+                  Interval("-1-2 -3 -4:5:6.789123"));
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.7891234S",
+                  Interval("-1-2 -3 -4:5:6.7891234"));
+  ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.789123456S",
+                  Interval("-1-2 -3 -4:5:6.789123456"));
 }
 
 std::vector<IntervalValue>* kInterestingIntervals =

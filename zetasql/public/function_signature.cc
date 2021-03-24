@@ -16,6 +16,7 @@
 
 #include "zetasql/public/function_signature.h"
 
+#include <cstdint>
 #include <memory>
 #include <set>
 
@@ -25,6 +26,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
@@ -613,7 +615,7 @@ absl::Status FunctionArgumentType::CheckLambdaArgType(
   return absl::OkStatus();
 }
 
-absl::Status FunctionArgumentType::IsValid() const {
+absl::Status FunctionArgumentType::IsValid(ProductMode product_mode) const {
   switch (cardinality()) {
     case REPEATED:
       if (IsConcrete()) {
@@ -653,7 +655,9 @@ absl::Status FunctionArgumentType::IsValid() const {
         if (type() != nullptr && !GetDefault().value().type()->Equals(type())) {
           return MakeSqlError()
                  << "Default value type does not match the argument type: "
-                 << DebugString();
+                 << type()->ShortTypeName(product_mode) << " vs "
+                 << GetDefault().value().type()->ShortTypeName(product_mode)
+                 << "; " << DebugString();
         }
       }
       break;
@@ -845,7 +849,7 @@ FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
       num_repeated_arguments_(ComputeNumRepeatedArguments()),
       num_optional_arguments_(ComputeNumOptionalArguments()),
       context_ptr_(context_ptr), options_(FunctionSignatureOptions()) {
-  ZETASQL_DCHECK_OK(IsValid());
+  ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
   ComputeConcreteArgumentTypes();
 }
 
@@ -865,7 +869,7 @@ FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
       num_optional_arguments_(ComputeNumOptionalArguments()),
       context_id_(context_id),
       options_(options) {
-  ZETASQL_DCHECK_OK(IsValid());
+  ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
   ComputeConcreteArgumentTypes();
 }
 
@@ -1119,7 +1123,7 @@ bool FunctionArgumentType::TemplatedKindIsRelated(SignatureArgumentKind kind)
   return false;
 }
 
-absl::Status FunctionSignature::IsValid() const {
+absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
   if (result_type_.repeated() || result_type_.optional()) {
     return MakeSqlError() << "Result type cannot be repeated or optional";
   }
@@ -1150,18 +1154,26 @@ absl::Status FunctionSignature::IsValid() const {
   // Optional arguments must be at the end of the argument list, and repeated
   // arguments must be consecutive.  Arguments must themselves be valid.
   bool saw_optional = false;
+  bool saw_default_value = false;
   bool after_repeated_block = false;
   bool in_repeated_block = false;
   absl::flat_hash_set<SignatureArgumentKind> templated_kind_used_by_lambda;
   for (int arg_index = 0; arg_index < arguments().size(); arg_index++) {
     const auto& arg = arguments()[arg_index];
-    ZETASQL_RETURN_IF_ERROR(arg.IsValid());
+    ZETASQL_RETURN_IF_ERROR(arg.IsValid(product_mode));
     if (arg.IsVoid()) {
       return MakeSqlError()
              << "Arguments cannot have type VOID: " << DebugString();
     }
     if (arg.optional()) {
       saw_optional = true;
+      if (arg.HasDefault()) {
+        saw_default_value = true;
+      } else if (saw_default_value) {
+        return MakeSqlError() << "Optional arguments with default values must "
+                                 "be at the end of the argument list: "
+                              << DebugString();
+      }
     } else if (saw_optional) {
       return MakeSqlError()
              << "Optional arguments must be at the end of the argument list: "

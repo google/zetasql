@@ -16,6 +16,8 @@
 
 #include "zetasql/public/anonymization_utils.h"
 
+#include <cstdint>
+
 #include "zetasql/public/type.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"

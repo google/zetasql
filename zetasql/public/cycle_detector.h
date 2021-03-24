@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_CYCLE_DETECTOR_H_
 #define ZETASQL_PUBLIC_CYCLE_DETECTOR_H_
 
+#include <cstdint>
 #include <deque>
 #include <set>
 #include <string>
@@ -98,9 +99,7 @@ class CycleDetector {
   ABSL_MUST_USE_RESULT bool IsEmpty() const { return object_deque_.empty(); }
 
   // Returns the number of objects the CycleDetector is tracking.
-  int32_t Size() const {
-    return object_deque_.size();
-  }
+  int32_t Size() const { return object_deque_.size(); }
 
   // Returns the deque of objects in the CycleDetector, where the deque
   // order matches the order in which the objects were added to the

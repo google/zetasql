@@ -1,0 +1,248 @@
+alter table foo set options(opt_t = 1), add constraint a_is_positive check(a > 0), alter constraint bar enforced, alter constraint baz set options(opt_a = true);
+--
+AlterTableStatement [0-160]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-160]
+    SetOptionsOperation [16-38]
+      OptionsList [27-38]
+        OptionsEntry [28-37]
+          Identifier(opt_t) [28-33]
+          IntLiteral(1) [36-37]
+    AddConstraintAction [40-81]
+      CheckConstraint(ENFORCED) [55-81]
+        BinaryExpression(>) [75-80]
+          PathExpression [75-76]
+            Identifier(a) [75-76]
+          IntLiteral(0) [79-80]
+        Identifier(a_is_positive) [55-68]
+    AlterConstraintEnforcementAction [83-112]
+      Identifier(bar) [100-103]
+    AlterConstraintSetOptionsAction [114-160]
+      Identifier(baz) [131-134]
+      OptionsList [146-160]
+        OptionsEntry [147-159]
+          Identifier(opt_a) [147-152]
+          BooleanLiteral(true) [155-159]
+--
+ALTER TABLE foo SET OPTIONS(opt_t = 1), ADD CONSTRAINT a_is_positive CHECK(a > 0) ENFORCED, ALTER CONSTRAINT bar ENFORCED,
+  ALTER CONSTRAINT baz SET OPTIONS(opt_a = true)
+==
+
+alter table foo set options (opt_a = true), add check(a>0);
+--
+AlterTableStatement [0-58]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-58]
+    SetOptionsOperation [16-42]
+      OptionsList [28-42]
+        OptionsEntry [29-41]
+          Identifier(opt_a) [29-34]
+          BooleanLiteral(true) [37-41]
+    AddConstraintAction [44-58]
+      CheckConstraint(ENFORCED) [48-58]
+        BinaryExpression(>) [54-57]
+          PathExpression [54-55]
+            Identifier(a) [54-55]
+          IntLiteral(0) [56-57]
+--
+ALTER TABLE foo SET OPTIONS(opt_a = true), ADD CHECK(a > 0) ENFORCED
+==
+
+alter table foo set options (opt_a = true), alter constraint bar not enforced;
+--
+AlterTableStatement [0-77]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-77]
+    SetOptionsOperation [16-42]
+      OptionsList [28-42]
+        OptionsEntry [29-41]
+          Identifier(opt_a) [29-34]
+          BooleanLiteral(true) [37-41]
+    AlterConstraintEnforcementAction [44-77]
+      Identifier(bar) [61-64]
+--
+ALTER TABLE foo SET OPTIONS(opt_a = true), ALTER CONSTRAINT bar NOT ENFORCED
+==
+
+alter table foo set options (opt_a = true), alter constraint bar set options(opt_b = 1);
+--
+AlterTableStatement [0-87]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-87]
+    SetOptionsOperation [16-42]
+      OptionsList [28-42]
+        OptionsEntry [29-41]
+          Identifier(opt_a) [29-34]
+          BooleanLiteral(true) [37-41]
+    AlterConstraintSetOptionsAction [44-87]
+      Identifier(bar) [61-64]
+      OptionsList [76-87]
+        OptionsEntry [77-86]
+          Identifier(opt_b) [77-82]
+          IntLiteral(1) [85-86]
+--
+ALTER TABLE foo SET OPTIONS(opt_a = true), ALTER CONSTRAINT bar SET OPTIONS(opt_b = 1)
+==
+
+alter table foo add check(a > 0), alter constraint bar not enforced;
+--
+AlterTableStatement [0-67]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-67]
+    AddConstraintAction [16-32]
+      CheckConstraint(ENFORCED) [20-32]
+        BinaryExpression(>) [26-31]
+          PathExpression [26-27]
+            Identifier(a) [26-27]
+          IntLiteral(0) [30-31]
+    AlterConstraintEnforcementAction [34-67]
+      Identifier(bar) [51-54]
+--
+ALTER TABLE foo ADD CHECK(a > 0) ENFORCED, ALTER CONSTRAINT bar NOT ENFORCED
+==
+
+alter table foo add check(a > 0), alter constraint set options(opt_a = 1);
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:52]
+alter table foo add check(a > 0), alter constraint set options(opt_a = 1);
+                                                   ^
+==
+
+alter table foo alter constraint bar not enforced, alter constraint bar set options (opt_a = 1);
+--
+AlterTableStatement [0-95]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-95]
+    AlterConstraintEnforcementAction [16-49]
+      Identifier(bar) [33-36]
+    AlterConstraintSetOptionsAction [51-95]
+      Identifier(bar) [68-71]
+      OptionsList [84-95]
+        OptionsEntry [85-94]
+          Identifier(opt_a) [85-90]
+          IntLiteral(1) [93-94]
+--
+ALTER TABLE foo ALTER CONSTRAINT bar NOT ENFORCED, ALTER CONSTRAINT bar SET OPTIONS(opt_a = 1)
+==
+
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B), add check(col_a > 0);
+--
+AlterTableStatement [0-72]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-72]
+    AddConstraintAction [16-50]
+      ForeignKey [20-50]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-50]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [50-50]
+    AddConstraintAction [52-72]
+      CheckConstraint(ENFORCED) [56-72]
+        BinaryExpression(>) [62-71]
+          PathExpression [62-67]
+            Identifier(col_a) [62-67]
+          IntLiteral(0) [70-71]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED,
+  ADD CHECK(col_a > 0) ENFORCED
+==
+
+ALTER TABLE foo ADD CONSTRAINT fk_A FOREIGN KEY(A) REFERENCES T(B), alter constraint a_gt_zero not enforced;
+--
+AlterTableStatement [0-107]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-107]
+    AddConstraintAction [16-66]
+      ForeignKey [31-66]
+        ColumnList [47-50]
+          Identifier(A) [48-49]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [51-66]
+          PathExpression [62-63]
+            Identifier(T) [62-63]
+          ColumnList [63-66]
+            Identifier(B) [64-65]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [66-66]
+        Identifier(fk_A) [31-35]
+    AlterConstraintEnforcementAction [68-107]
+      Identifier(a_gt_zero) [85-94]
+--
+ALTER TABLE foo ADD CONSTRAINT fk_A FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED,
+  ALTER CONSTRAINT a_gt_zero NOT ENFORCED
+==
+
+ALTER TABLE foo ADD CONSTRAINT fk_A FOREIGN KEY(A) REFERENCES T(B), drop constraint a_gt_zero;
+--
+AlterTableStatement [0-93]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-93]
+    AddConstraintAction [16-66]
+      ForeignKey [31-66]
+        ColumnList [47-50]
+          Identifier(A) [48-49]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [51-66]
+          PathExpression [62-63]
+            Identifier(T) [62-63]
+          ColumnList [63-66]
+            Identifier(B) [64-65]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [66-66]
+        Identifier(fk_A) [31-35]
+    DropConstraintAction [68-93]
+      Identifier(a_gt_zero) [84-93]
+--
+ALTER TABLE foo ADD CONSTRAINT fk_A FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED,
+  DROP CONSTRAINT a_gt_zero
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+alter table foo-bar-123.baz set options(opt_t = 1), add constraint a_is_positive check(a > 0), alter constraint bar enforced, alter constraint baz set options(opt_a = true);
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar-123.baz` [at 1:13]
+alter table foo-bar-123.baz set options(opt_t = 1), add constraint a_is_posit...
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-172]
+  PathExpression [12-27]
+    Identifier(`foo-bar-123`) [12-27]
+    Identifier(baz) [12-27]
+  AlterActionList [28-172]
+    SetOptionsOperation [28-50]
+      OptionsList [39-50]
+        OptionsEntry [40-49]
+          Identifier(opt_t) [40-45]
+          IntLiteral(1) [48-49]
+    AddConstraintAction [52-93]
+      CheckConstraint(ENFORCED) [67-93]
+        BinaryExpression(>) [87-92]
+          PathExpression [87-88]
+            Identifier(a) [87-88]
+          IntLiteral(0) [91-92]
+        Identifier(a_is_positive) [67-80]
+    AlterConstraintEnforcementAction [95-124]
+      Identifier(bar) [112-115]
+    AlterConstraintSetOptionsAction [126-172]
+      Identifier(baz) [143-146]
+      OptionsList [158-172]
+        OptionsEntry [159-171]
+          Identifier(opt_a) [159-164]
+          BooleanLiteral(true) [167-171]
+--
+ALTER TABLE `foo-bar-123`.baz SET OPTIONS(opt_t = 1), ADD CONSTRAINT a_is_positive CHECK(a > 0) ENFORCED,
+  ALTER CONSTRAINT bar ENFORCED, ALTER CONSTRAINT baz SET OPTIONS(opt_a = true)

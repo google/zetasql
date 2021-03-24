@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/regexp.h"
 
+#include <cstdint>
 #include <utility>
 
 #include "zetasql/compliance/functions_testlib.h"

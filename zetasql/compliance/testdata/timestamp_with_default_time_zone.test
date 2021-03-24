@@ -24,7 +24,7 @@
 [load_enum_names=zetasql_test.TestEnum]
 
 [prepare_database]
-CREATE TABLE Table1 AS
+CREATE TABLE TzTable1 AS
 SELECT timestamp '2014-12-01' as timestamp_val
 --
 ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 00:00:00+00}]
@@ -49,7 +49,7 @@ ARRAY<STRUCT<
 ==
 
 [prepare_database]
-CREATE TABLE Table2 AS
+CREATE TABLE TzTable2 AS
 SELECT timestamp '1970-01-01 00:00:00.000000+00' as timestamp_val
 union all
 SELECT timestamp '1970-01-01 00:00:00.000001+00' as timestamp_val
@@ -86,7 +86,7 @@ ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 00:00:00+00}]
 
 [name=timestamp_type_2]
 SELECT timestamp_val
-FROM Table1
+FROM TzTable1
 --
 ARRAY<STRUCT<timestamp_val TIMESTAMP>>[{2014-12-01 00:00:00+00}]
 ==
@@ -154,7 +154,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 
 [name=timestamp_to_string_3]
 select cast(timestamp_val as string)
-from Table2
+from TzTable2
 --
 ARRAY<STRUCT<STRING>>[
   {"1970-01-01 00:00:00.000001+00"},

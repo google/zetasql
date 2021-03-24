@@ -610,17 +610,119 @@ Use the `UPDATE` statement when you want to update existing rows within a table.
 
 <pre>
 UPDATE target_name
-SET update_item [, update_item]*
-WHERE condition<br>[ASSERT_ROWS_MODIFIED n]<br/>
+SET set_clause
+[FROM from_clause]
+WHERE condition [ASSERT_ROWS_MODIFIED n]
+
+set_clause ::= update_item[, ...]
+
 update_item ::= path_expression = expression
               | path_expression = DEFAULT
-              | (dml_stmt)<br/>
+              | (dml_stmt)
+
 dml_stmt ::= insert_statement | update_statement | delete_statement
 </pre>
 
 **Note**: `UPDATE` statements must comply with all
 [statement rules](#statement-rules) and use
 [compatible types](#compatible-types).
+
+### FROM keyword
+
+An `UPDATE` statement can optionally include a `FROM` clause.
+
+You can use the `FROM` clause to specify the rows to update in the target table.
+You can also use columns from joined tables in a `SET` clause or `WHERE`
+condition.
+
+The `FROM` clause join can be a cross join if no condition is specified in the
+`WHERE` clause, otherwise it is an inner join. In either case, rows from the
+target table can join with at most one row from the `FROM` clause.
+
+To specify the join predicate between the table to be updated and tables in
+the `FROM` clause, use the `WHERE` clause.
+
+Caveats:
+
++ The `SET` clause can reference columns from a target table and columns from
+  any `FROM` item in the `FROM` clause. If there is a name collision,
+  unqualified references are treated as ambiguous.
++ If the target table is present in the `FROM` clause as a table name, it
+  must have an alias if you would like to perform a self-join.
++ If a row in the table to be updated joins with zero rows from the `FROM`
+  clause, then the row isn't updated.
++ If a row in the table to be updated joins with exactly one row from the `FROM`
+  clause, then the row is updated.
++ If a row in the table to be updated joins with more than one row from the
+  `FROM` clause, then the query generates a runtime error.
+
+The following example generates a table with inventory totals that include
+existing inventory and inventory from the `NewArrivals` table, and
+marks `supply_constrained` as false.
+
+```sql
+UPDATE dataset.Inventory
+SET quantity = quantity +
+  (SELECT quantity FROM dataset.NewArrivals
+   WHERE Inventory.product = NewArrivals.product),
+    supply_constrained = false
+WHERE product IN (SELECT product FROM dataset.NewArrivals)
+```
+
+Alternately, you can join the tables.
+
+```sql
+UPDATE dataset.Inventory i
+SET quantity = i.quantity + n.quantity,
+    supply_constrained = false
+FROM dataset.NewArrivals n
+WHERE i.product = n.product
+```
+
+Note: The join predicate between `Inventory` and `NewArrivals` is specified
+using the `WHERE` clause.
+
+Before:
+
+```sql
+Inventory
++-------------------+----------+--------------------+
+|      product      | quantity | supply_constrained |
++-------------------+----------+--------------------+
+| dishwasher        |       30 |               NULL |
+| dryer             |       30 |               NULL |
+| front load washer |       20 |               NULL |
+| microwave         |       20 |               NULL |
+| oven              |        5 |               NULL |
+| refrigerator      |       10 |               NULL |
+| top load washer   |       10 |               NULL |
++-------------------+----------+--------------------+
+
+NewArrivals
++-----------------+----------+--------------+
+|     product     | quantity |  warehouse   |
++-----------------+----------+--------------+
+| dryer           |      200 | warehouse #2 |
+| oven            |      300 | warehouse #3 |
+| top load washer |      100 | warehouse #1 |
++-----------------+----------+--------------+
+```
+
+After:
+
+```sql
++-------------------+----------+--------------------+
+|      product      | quantity | supply_constrained |
++-------------------+----------+--------------------+
+| dishwasher        |       30 |               NULL |
+| dryer             |      230 |              false |
+| front load washer |       20 |               NULL |
+| microwave         |       20 |               NULL |
+| oven              |      305 |              false |
+| refrigerator      |       10 |               NULL |
+| top load washer   |      110 |              false |
++-------------------+----------+--------------------+
+```
 
 ### WHERE keyword
 
@@ -1009,6 +1111,8 @@ SET
     (INSERT AlbumTitles VALUES ("The Sloth and the Tiger"));
 ```
 
+[from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
+
 ## MERGE statement
 
 Use the `MERGE` statement when you want to merge rows from a source table or
@@ -1171,6 +1275,9 @@ Inventory
 | top load washer   |       20 |
 +-------------------+----------+
 ```
+
+[from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
+[join-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
 
 [coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
 [functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md

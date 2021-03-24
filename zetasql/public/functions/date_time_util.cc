@@ -34,16 +34,17 @@
 #include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/common/utf_util.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/strings/substitute.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "zetasql/base/general_trie.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -96,26 +97,6 @@ static bool IsValidDay(absl::civil_year_t year, int month, int day) {
   absl::CivilDay civil_day(year, month, day);
   return civil_day.year() == year && civil_day.month() == month &&
          civil_day.day() == day;
-}
-
-// 1==Sun, ..., 7=Sat
-static int DayOfWeekIntegerSunToSat1To7(absl::Weekday weekday) {
-  switch (weekday) {
-    case absl::Weekday::sunday:
-      return 1;
-    case absl::Weekday::monday:
-      return 2;
-    case absl::Weekday::tuesday:
-      return 3;
-    case absl::Weekday::wednesday:
-      return 4;
-    case absl::Weekday::thursday:
-      return 5;
-    case absl::Weekday::friday:
-      return 6;
-    case absl::Weekday::saturday:
-      return 7;
-  }
 }
 
 absl::string_view DateTimestampPartToSQL(DateTimestampPart date_part) {
@@ -205,9 +186,8 @@ static bool ParseStringToDateParts(absl::string_view str, int* idx, int* year,
          *idx >= static_cast<int64_t>(str.length());
 }
 
-static const int64_t powers_of_ten[] = {1, 10, 100, 1000, 10000, 100000, 1000000,
-                                      10000000, 100000000, 1000000000};
-
+static const int64_t powers_of_ten[] = {
+    1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 // Parse <str> starting at offset <idx> into <hour>, <minute>, <second> and
 // <subsecond> parts, incrementing <idx> for parsed digits. <scale> indicates
 // the number of subsecond digits requested. The subsecond part is normalized to
@@ -479,7 +459,8 @@ static bool ParseTimeZoneOffsetFormat(absl::string_view timezone_string,
 
 // Maps time zone sign, hour, and minute to a total offset in <scale> units.
 // Returns success or failure.
-static bool TimeZonePartsToOffset(const char timezone_sign, int64_t timezone_hour,
+static bool TimeZonePartsToOffset(const char timezone_sign,
+                                  int64_t timezone_hour,
                                   int64_t timezone_minute, TimestampScale scale,
                                   int64_t* timezone_offset) {
   if (!IsValidTimeZoneParts(timezone_sign, timezone_hour, timezone_minute)) {
@@ -638,8 +619,8 @@ static absl::Status ConvertTimestampInterval(int64_t interval,
     case FCT(kMilliseconds, kNanoseconds):
     case FCT(kMicroseconds, kNanoseconds):
       if (Multiply<int64_t>(interval,
-                          powers_of_ten[output_scale - interval_scale], output,
-                          kNoError)) {
+                            powers_of_ten[output_scale - interval_scale],
+                            output, kNoError)) {
         return absl::OkStatus();
       }
       break;
@@ -788,7 +769,7 @@ static bool AddAtLeastDaysToCivilTime(DateTimestampPart part, int32_t interval,
       int year;
       // cast is safe, given method contract.
       if (!Add<int32_t>(static_cast<int32_t>(cs.year()), interval, &year,
-                      kNoError)) {
+                        kNoError)) {
         return false;
       }
       int month = cs.month();
@@ -864,9 +845,10 @@ static bool AddAtLeastDaysToCivilTime(DateTimestampPart part, int32_t interval,
 // share the logic for adding DAY and larger intervals with the legacy
 // timestamp implementation.  We should consider a more native
 // implementation to avoid two conversions, if possible.
-static bool AddAtLeastDaysToDatetime(
-    const DatetimeValue& datetime, DateTimestampPart part, int64_t interval_in,
-    DatetimeValue* output) {
+static bool AddAtLeastDaysToDatetime(const DatetimeValue& datetime,
+                                     DateTimestampPart part,
+                                     int64_t interval_in,
+                                     DatetimeValue* output) {
   int32_t interval = interval_in;
   if (interval != interval_in) {
     // The interval overflowed an int32_t, for DAY or greater granularity the
@@ -934,8 +916,8 @@ static absl::Status AddDuration(absl::Time timestamp, int64_t interval,
 // absl::Time is out of range.
 static absl::Status AddTimestampInternal(absl::Time timestamp,
                                          absl::TimeZone timezone,
-                                         DateTimestampPart part, int64_t interval,
-                                         absl::Time* output,
+                                         DateTimestampPart part,
+                                         int64_t interval, absl::Time* output,
                                          bool* had_overflow) {
   ZETASQL_RETURN_IF_ERROR(CheckValidAddTimestampPart(part, false /* is_legacy */));
   if (part == DAY) {
@@ -961,10 +943,11 @@ static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
 // The caller must verify that the input timestamp is valid.
 // Returns error status if the output timestamp is out of range or overflow
 // occurs during computation.
-static absl::Status AddTimestampInternal(int64_t timestamp, TimestampScale scale,
+static absl::Status AddTimestampInternal(int64_t timestamp,
+                                         TimestampScale scale,
                                          absl::TimeZone timezone,
-                                         DateTimestampPart part, int64_t interval,
-                                         int64_t* output) {
+                                         DateTimestampPart part,
+                                         int64_t interval, int64_t* output) {
   // Expected invariant.
   ZETASQL_DCHECK(IsValidTimestamp(timestamp, scale));
 
@@ -999,15 +982,15 @@ static absl::Status AddTimestampInternal(int64_t timestamp, TimestampScale scale
     case SECOND: {
       if (part == HOUR) {
         if (!Multiply<int64_t>(interval, kNaiveNumSecondsPerHour, &new_interval,
-                             kNoError)) {
+                               kNoError)) {
           return MakeEvalError() << "TIMESTAMP_ADD interval value  " << interval
                                  << " at " << DateTimestampPart_Name(part)
                                  << " precision causes overflow";
         }
       }
       if (part == MINUTE) {
-        if (!Multiply<int64_t>(interval, kNaiveNumSecondsPerMinute, &new_interval,
-                             kNoError)) {
+        if (!Multiply<int64_t>(interval, kNaiveNumSecondsPerMinute,
+                               &new_interval, kNoError)) {
           return MakeEvalError() << "TIMESTAMP_ADD interval value  " << interval
                                  << " at " << DateTimestampPart_Name(part)
                                  << " precision causes overflow";
@@ -1076,7 +1059,8 @@ static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
   return absl::OkStatus();
 }
 
-static void NarrowTimestampIfPossible(int64_t* timestamp, TimestampScale* scale) {
+static void NarrowTimestampIfPossible(int64_t* timestamp,
+                                      TimestampScale* scale) {
   while (*timestamp % 1000 == 0) {
     switch (*scale) {
       case kSeconds:
@@ -1096,23 +1080,6 @@ static void NarrowTimestampIfPossible(int64_t* timestamp, TimestampScale* scale)
   }
 }
 
-// Returns <timezone> if the timezone offset for (<base_time>, <timezone>)
-// is minute aligned.  Otherwise returns a fixed-offset timezone using that
-// offset truncated to a minute boundary (i.e., eliminating the non-zero
-// seconds part of the offset).
-//
-// ZetaSQL does not support rendering numeric timezones with sub-minute
-// offsets (neither do ISO6801 or RFC3339).  If the timezone has a sub-minute
-// offset like -07:52:58 (which happens for the America/Los_Angeles time zone
-// in years before 1884), we instead treat it (and display it) as -07:52.
-static absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
-                                            absl::TimeZone timezone) {
-  const int timezone_offset = timezone.At(base_time).offset;
-  if (const int seconds_offset = timezone_offset % 60)
-    return absl::FixedTimeZone(timezone_offset - seconds_offset);
-  return timezone;
-}
-
 static absl::Status FormatTimestampToStringInternal(
     absl::string_view format_string, absl::Time base_time,
     absl::TimeZone timezone, bool truncate_tz, bool expand_quarter,
@@ -1123,7 +1090,7 @@ static absl::Status FormatTimestampToStringInternal(
   }
   output->clear();
   absl::TimeZone normalized_timezone =
-      GetNormalizedTimeZone(base_time, timezone);
+      internal_functions::GetNormalizedTimeZone(base_time, timezone);
   std::string updated_format_string;
   // We handle %Z and %Q here instead of passing them through to FormatTime()
   // because ZetaSQL behavior is different than FormatTime() behavior.
@@ -1202,7 +1169,8 @@ static absl::Status ExtractFromTimestampInternal(DateTimestampPart part,
       *output = info.cs.day();
       break;
     case DAYOFWEEK:
-      *output = DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(info.cs));
+      *output = internal_functions::DayOfWeekIntegerSunToSat1To7(
+          absl::GetWeekday(info.cs));
       break;
     case DAYOFYEAR:
       *output = absl::GetYearDay(absl::CivilDay(info.cs));
@@ -1288,14 +1256,16 @@ static absl::Status ExtractFromTimestampInternal(DateTimestampPart part,
   return absl::OkStatus();
 }
 
-static absl::Status MakeAddDateOverflowError(int32_t date, DateTimestampPart part,
+static absl::Status MakeAddDateOverflowError(int32_t date,
+                                             DateTimestampPart part,
                                              int64_t interval) {
   return MakeEvalError() << "Adding " << interval << " "
                          << DateTimestampPart_Name(part) << " to date "
                          << DateErrorString(date) << " causes overflow";
 }
 
-static absl::Status MakeSubDateOverflowError(int32_t date, DateTimestampPart part,
+static absl::Status MakeSubDateOverflowError(int32_t date,
+                                             DateTimestampPart part,
                                              int64_t interval) {
   return MakeEvalError() << "Subtracting " << interval << " "
                          << DateTimestampPart_Name(part) << " from date "
@@ -1333,8 +1303,8 @@ static std::string MakeInvalidTimestampStrErrorMsg(
   return MakeInvalidTypedStrErrorMsg("timestamp", timestamp_str, scale);
 }
 
-static absl::Status TruncateDateImpl(
-    int32_t date, DateTimestampPart part, bool enforce_range, int32_t* output) {
+static absl::Status TruncateDateImpl(int32_t date, DateTimestampPart part,
+                                     bool enforce_range, int32_t* output) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
@@ -1393,7 +1363,8 @@ static absl::Status TruncateDateImpl(
   return absl::OkStatus();
 }
 
-absl::Status LastDayOfDate(int32_t date, DateTimestampPart part, int32_t* output) {
+absl::Status LastDayOfDate(int32_t date, DateTimestampPart part,
+                           int32_t* output) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
@@ -1604,7 +1575,8 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
 static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
                                        NewOrLegacyTimestampType timestamp_type,
                                        absl::TimeZone timezone,
-                                       DateTimestampPart part, int64_t* output) {
+                                       DateTimestampPart part,
+                                       int64_t* output) {
   if (!IsValidTimestamp(timestamp, scale)) {
     return MakeEvalError() << "Invalid timestamp value: " << timestamp;
   }
@@ -1785,7 +1757,8 @@ bool FromTime(absl::Time base_time, TimestampScale scale, int64_t* output) {
     case kNanoseconds: {
       if (base_time <
               absl::FromUnixNanos(std::numeric_limits<int64_t>::lowest()) ||
-          base_time > absl::FromUnixNanos(std::numeric_limits<int64_t>::max())) {
+          base_time >
+              absl::FromUnixNanos(std::numeric_limits<int64_t>::max())) {
         return false;
       }
       *output = absl::ToUnixNanos(base_time);
@@ -1840,7 +1813,8 @@ absl::Status ConvertTimestampMicrosToStringWithTruncation(
   if (ABSL_PREDICT_FALSE(!IsValidTime(time))) {
     return MakeEvalError() << "Invalid timestamp value: " << timestamp;
   }
-  absl::TimeZone normalized_timezone = GetNormalizedTimeZone(time, timezone);
+  absl::TimeZone normalized_timezone =
+      internal_functions::GetNormalizedTimeZone(time, timezone);
 
   absl::TimeZone::CivilInfo info = normalized_timezone.At(time);
 
@@ -1901,16 +1875,17 @@ absl::Status ConvertTimestampMicrosToStringWithTruncation(
     }
   }
 
-  // Write timezone offset using HH:mm format
-  int32_t second_offset = info.offset;
-  if (info.offset >= 0) {
+  bool positive_offset;
+  int32_t hour_offset;
+  int32_t minute_offset;
+  internal_functions::GetSignHourAndMinuteTimeZoneOffset(
+      info, &positive_offset, &hour_offset, &minute_offset);
+  if (positive_offset) {
     data[pos++] = '+';
   } else {
     data[pos++] = '-';
-    second_offset = -second_offset;
   }
-  int32_t hour_offset = second_offset / 60 / 60;
-  int32_t minute_offset = (second_offset / 60) % 60;
+  // Write timezone offset using HH:mm format
   data[pos++] = hour_offset / 10 + '0';
   data[pos++] = hour_offset % 10 + '0';
   if (minute_offset > 0) {
@@ -1970,7 +1945,7 @@ absl::Status ConvertDatetimeToString(DatetimeValue datetime,
                            << datetime.DebugString();
   }
   int64_t fraction_second = (scale == kMicroseconds ? datetime.Microseconds()
-                                                  : datetime.Nanoseconds());
+                                                    : datetime.Nanoseconds());
   NarrowTimestampIfPossible(&fraction_second, &scale);
   auto format =
       absl::ParsedFormat<'d', 'd', 'd', 'd', 'd', 'd', 'd'>::
@@ -2269,7 +2244,8 @@ zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day) 
 
 absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
-                                      TimestampScale scale, int64_t* timestamp) {
+                                      TimestampScale scale,
+                                      int64_t* timestamp) {
   return ConvertStringToTimestamp(str, default_timezone, scale, true,
                                   timestamp);
 }
@@ -2277,7 +2253,8 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
 absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::TimeZone default_timezone,
                                       TimestampScale scale,
-                                      bool allow_tz_in_str, int64_t* timestamp) {
+                                      bool allow_tz_in_str,
+                                      int64_t* timestamp) {
   absl::Time base_time;
   ZETASQL_RETURN_IF_ERROR(ConvertStringToTimestamp(str, default_timezone, scale,
                                            allow_tz_in_str, &base_time));
@@ -2293,7 +2270,8 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
 absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::string_view default_timezone_string,
                                       TimestampScale scale,
-                                      bool allow_tz_in_str, int64_t* timestamp) {
+                                      bool allow_tz_in_str,
+                                      int64_t* timestamp) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ConvertStringToTimestamp(str, timezone, scale,
@@ -2302,7 +2280,8 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
 
 absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       absl::string_view default_timezone_string,
-                                      TimestampScale scale, int64_t* timestamp) {
+                                      TimestampScale scale,
+                                      int64_t* timestamp) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ConvertStringToTimestamp(str, timezone, scale, timestamp);
@@ -2555,7 +2534,8 @@ absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
       *output = GetIsoWeek(day);
       break;
     case DAYOFWEEK:
-      *output = DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(day));
+      *output = internal_functions::DayOfWeekIntegerSunToSat1To7(
+          absl::GetWeekday(day));
       break;
     case DAYOFYEAR:
       *output = absl::GetYearDay(day);
@@ -2628,7 +2608,8 @@ absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
 }
 
 absl::Status ExtractFromDatetime(DateTimestampPart part,
-                                 const DatetimeValue& datetime, int32_t* output) {
+                                 const DatetimeValue& datetime,
+                                 int32_t* output) {
   ZETASQL_RET_CHECK(part != TIME)
       << "Use ExtractTimeFromDatetime() for extracting time from datetime";
   if (!datetime.IsValid()) {
@@ -2671,8 +2652,9 @@ absl::Status ExtractFromDatetime(DateTimestampPart part,
                                     datetime.Day(), output));
       break;
     case DAYOFWEEK:
-      *output = DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(
-          absl::CivilDay(datetime.Year(), datetime.Month(), datetime.Day())));
+      *output = internal_functions::DayOfWeekIntegerSunToSat1To7(
+          absl::GetWeekday(absl::CivilDay(datetime.Year(), datetime.Month(),
+                                          datetime.Day())));
       break;
     case DAYOFYEAR:
       *output = absl::GetYearDay(
@@ -2932,7 +2914,8 @@ absl::Status ConvertProto3DateToDate(const google::type::Date& input,
   return ConstructDate(input.year(), input.month(), input.day(), output);
 }
 
-absl::Status ConvertDateToProto3Date(int32_t input, google::type::Date* output) {
+absl::Status ConvertDateToProto3Date(int32_t input,
+                                     google::type::Date* output) {
   if (!IsValidDate(input)) {
     return MakeEvalError() << "Input is outside of Proto3 Date range: "
                            << input;
@@ -2956,8 +2939,9 @@ absl::Status ConvertBetweenTimestamps(int64_t input_timestamp,
                                           output_scale, output);
 }
 
-absl::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32_t interval,
-                             int32_t* output, bool* had_overflow) {
+absl::Status AddDateOverflow(int32_t date, DateTimestampPart part,
+                             int32_t interval, int32_t* output,
+                             bool* had_overflow) {
   *had_overflow = false;
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
@@ -3052,6 +3036,14 @@ absl::Status AddDate(int32_t date, DateTimestampPart part, int64_t interval,
   return absl::OkStatus();
 }
 
+absl::Status AddDate(int32_t date, zetasql::IntervalValue interval,
+                     DatetimeValue* output) {
+  DatetimeValue datetime;
+  ZETASQL_RETURN_IF_ERROR(ConstructDatetime(date, TimeValue(), &datetime));
+  ZETASQL_RETURN_IF_ERROR(AddDatetime(datetime, interval, output));
+  return absl::OkStatus();
+}
+
 absl::Status SubDate(int32_t date, DateTimestampPart part, int64_t interval,
                      int32_t* output) {
   // The negation of std::numeric_limits<int64_t>::lowest() is undefined, so
@@ -3109,7 +3101,7 @@ absl::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart part,
         case ISOYEAR:
           // cast is safe because dates are severely restricted by IsValidDate.
           *output = static_cast<int32_t>(GetIsoYear(civil_day1) -
-                                       GetIsoYear(civil_day2));
+                                         GetIsoYear(civil_day2));
           break;
         case MONTH:
           *output = (y1 - y2) * 12 + (m1 - m2);
@@ -3377,6 +3369,50 @@ absl::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPart part,
   return AddDatetimeInternal(datetime, part, -interval, output, error_maker);
 }
 
+absl::Status AddDatetime(DatetimeValue datetime,
+                         zetasql::IntervalValue interval,
+                         DatetimeValue* output) {
+  if (interval.get_months() != 0) {
+    ZETASQL_RETURN_IF_ERROR(
+        AddDatetime(datetime, MONTH, interval.get_months(), &datetime));
+  }
+  if (interval.get_days() != 0) {
+    ZETASQL_RETURN_IF_ERROR(AddDatetime(datetime, DAY, interval.get_days(), &datetime));
+  }
+  bool had_overflow = false;
+  if (interval.get_micros() != 0) {
+    // AddDatetimeInternal allows to pass custom lambda function which is called
+    // in case of overflow. But the 'datetime' is not updated when overflow
+    // happens. This can happen in valid cases, because IntervalValue is
+    // normalized to always have positive nano_fractions. So -1 nanosecond is
+    // encoded as -1 microsecond and +999 nanoseconds. The -1 microsecond may
+    // cause overflow but it will be later compensated by +999 nanoseconds. So
+    // we opportunistically add 1 extra microsecond in the hope that overflow
+    // won't happen with it, and later remember to subtract it from final
+    // result.
+    ZETASQL_RETURN_IF_ERROR(AddDatetimeInternal(datetime, MICROSECOND,
+                                        interval.get_micros(), &datetime,
+                                        [&had_overflow] {
+                                          had_overflow = true;
+                                          return absl::OkStatus();
+                                        }));
+    if (had_overflow) {
+      ZETASQL_RETURN_IF_ERROR(AddDatetime(datetime, MICROSECOND,
+                                  interval.get_micros() + 1, &datetime));
+    }
+  }
+  if (interval.get_nano_fractions() != 0) {
+    ZETASQL_RETURN_IF_ERROR(AddDatetime(datetime, NANOSECOND,
+                                interval.get_nano_fractions(), &datetime));
+  }
+  if (had_overflow) {
+    ZETASQL_RETURN_IF_ERROR(AddDatetime(datetime, MICROSECOND, -1, &datetime));
+  }
+
+  *output = datetime;
+  return absl::OkStatus();
+}
+
 absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
                           absl::TimeZone timezone, DateTimestampPart part,
                           int64_t interval, int64_t* output) {
@@ -3420,6 +3456,45 @@ absl::Status AddTimestamp(absl::Time timestamp,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return AddTimestamp(timestamp, timezone, part, interval, output);
+}
+
+absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
+                          zetasql::IntervalValue interval,
+                          absl::Time* output) {
+  if (interval.get_months() != 0) {
+    return MakeEvalError() << "TIMESTAMP +/- INTERVAL is not supported for "
+                              "intervals with non-zero MONTH part.";
+  }
+  if (interval.get_days() != 0) {
+    ZETASQL_RETURN_IF_ERROR(AddTimestamp(timestamp, timezone, DAY, interval.get_days(),
+                                 &timestamp));
+  }
+  bool had_overflow = false;
+  if (interval.get_micros() != 0) {
+    // AddTimestampInternal returns OUT_OF_RANGE only when there is overflow in
+    // the operation. The 'timestamp' is still updated, but outside of allowed
+    // range of values, and 'had_overflow' is set to true.
+    // This can happen in valid cases, because IntervalValue is normalized to
+    // always have positive nano_fractions. So -1 nanosecond is encoded as
+    // -1 microsecond and +999 nanoseconds. The -1 microsecond may cause
+    // overflow but it will be later compensated by +999 nanoseconds, so we
+    // ignore error here and check for valid result at the end.
+    AddTimestampInternal(timestamp, timezone, MICROSECOND,
+                         interval.get_micros(), &timestamp, &had_overflow)
+        .IgnoreError();
+  }
+  if (interval.get_nano_fractions() != 0) {
+    ZETASQL_RETURN_IF_ERROR(AddTimestamp(timestamp, timezone, NANOSECOND,
+                                 interval.get_nano_fractions(), &timestamp));
+  }
+  if (ABSL_PREDICT_FALSE(had_overflow)) {
+    if (!IsValidTime(timestamp)) {
+      return MakeAddTimestampOverflowError(timestamp, MICROSECOND,
+                                           interval.get_micros(), timezone);
+    }
+  }
+  *output = timestamp;
+  return absl::OkStatus();
 }
 
 absl::Status AddTimestampOverflow(absl::Time timestamp, absl::TimeZone timezone,
@@ -3494,7 +3569,8 @@ absl::Status SubTimestamp(absl::Time timestamp,
 // the input <field> is smaller than <radix>, there is no risk of overflow.
 //
 // Requires that <radix> is positive, and <*field> is in range [0, <radix>).
-static void AddOnField(int64_t interval, int64_t radix, int* field, int64_t* carry) {
+static void AddOnField(int64_t interval, int64_t radix, int* field,
+                       int64_t* carry) {
   // Expected invariants.
   ZETASQL_DCHECK_LE(0, *field);
   ZETASQL_DCHECK_LT(*field, radix);
@@ -3617,8 +3693,8 @@ absl::Status AddTime(const TimeValue& time, DateTimestampPart part,
 absl::Status SubTime(const TimeValue& time, DateTimestampPart part,
                      int64_t interval, TimeValue* output) {
   if (interval == std::numeric_limits<int64_t>::lowest()) {
-    ZETASQL_RETURN_IF_ERROR(
-        AddTimeInternal(time, part, std::numeric_limits<int64_t>::max(), output));
+    ZETASQL_RETURN_IF_ERROR(AddTimeInternal(
+        time, part, std::numeric_limits<int64_t>::max(), output));
     return AddTimeInternal(*output, part, 1, output);
   }
   return AddTimeInternal(time, part, -interval, output);
@@ -3730,7 +3806,8 @@ absl::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
   return absl::OkStatus();
 }
 
-absl::Status TruncateDate(int32_t date, DateTimestampPart part, int32_t* output) {
+absl::Status TruncateDate(int32_t date, DateTimestampPart part,
+                          int32_t* output) {
   return TruncateDateImpl(date, part, /*enforce_range=*/true, output);
 }
 
@@ -3740,7 +3817,8 @@ absl::Status TimestampTrunc(int64_t timestamp, absl::TimeZone timezone,
                             timezone, part, output);
 }
 
-absl::Status TimestampTrunc(int64_t timestamp, absl::string_view timezone_string,
+absl::Status TimestampTrunc(int64_t timestamp,
+                            absl::string_view timezone_string,
                             DateTimestampPart part, int64_t* output) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
@@ -3867,8 +3945,8 @@ absl::Status TruncateDatetime(const DatetimeValue& datetime,
 }
 
 absl::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
-                           TimestampScale scale,
-                           DateTimestampPart part, int64_t* output) {
+                           TimestampScale scale, DateTimestampPart part,
+                           int64_t* output) {
   absl::Time base_time1 = MakeTime(timestamp1, scale);
   absl::Time base_time2 = MakeTime(timestamp2, scale);
   return TimestampDiff(base_time1, base_time2, part, output);
@@ -3964,8 +4042,8 @@ int DateTimestampPart_FromName(absl::string_view name) {
 // some to support more field types and more encodings, particularly once
 // we start supporting NWP wrappers.
 absl::Status DecodeFormattedDate(int64_t input_formatted_date,
-                                 FieldFormat::Format format, int32_t* output_date,
-                                 bool* output_is_null) {
+                                 FieldFormat::Format format,
+                                 int32_t* output_date, bool* output_is_null) {
   // Check for int64_t values that don't fit in int32_t.
   if (static_cast<int32_t>(input_formatted_date) != input_formatted_date) {
     return MakeEvalError() << "Invalid non-int32_t date: "
@@ -4005,9 +4083,8 @@ absl::Status DecodeFormattedDate(int64_t input_formatted_date,
   return absl::OkStatus();
 }
 
-absl::Status EncodeFormattedDate(
-    int32_t input_date, FieldFormat::Format format,
-    int32_t* output_formatted_date) {
+absl::Status EncodeFormattedDate(int32_t input_date, FieldFormat::Format format,
+                                 int32_t* output_formatted_date) {
   switch (format) {
     case FieldFormat::DATE:
       *output_formatted_date = input_date;
@@ -4062,140 +4139,6 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
     // return narrowed scale;
     *scale = narrowed_scale;
   }
-}
-
-absl::Status CastFormatDateToString(absl::string_view format_string, int32_t date,
-                                    std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  if (!IsValidDate(date)) {
-    return MakeEvalError() << "Invalid date value: " << date;
-  }
-
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<internal_functions::FormatElement> format_elements,
-      internal_functions::GetFormatElements(format_string));
-  ZETASQL_RETURN_IF_ERROR(internal_functions::ValidateDateFormatElementsForFormatting(
-      format_elements));
-  // Treats it as a timestamp at midnight on that date and invokes the
-  // format_timestamp function.
-  int64_t date_timestamp = static_cast<int64_t>(date) * kNaiveNumMicrosPerDay;
-  ZETASQL_ASSIGN_OR_RETURN(*out,
-                   internal_functions::FromCastFormatTimestampToStringInternal(
-                       format_elements, MakeTime(date_timestamp, kMicroseconds),
-                       absl::UTCTimeZone()));
-  return absl::OkStatus();
-}
-
-absl::Status CastFormatDatetimeToString(absl::string_view format_string,
-                                        const DatetimeValue& datetime,
-                                        std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  if (!datetime.IsValid()) {
-    return MakeEvalError() << "Invalid datetime value: "
-                           << datetime.DebugString();
-  }
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<internal_functions::FormatElement> format_elements,
-      internal_functions::GetFormatElements(format_string));
-  ZETASQL_RETURN_IF_ERROR(
-      internal_functions::ValidateDatetimeFormatElementsForFormatting(
-          format_elements));
-  absl::Time datetime_in_utc =
-      absl::UTCTimeZone().At(datetime.ConvertToCivilSecond()).pre;
-  datetime_in_utc += absl::Nanoseconds(datetime.Nanoseconds());
-
-  ZETASQL_ASSIGN_OR_RETURN(*out,
-                   internal_functions::FromCastFormatTimestampToStringInternal(
-                       format_elements, datetime_in_utc, absl::UTCTimeZone()));
-  return absl::OkStatus();
-}
-
-absl::Status CastFormatTimeToString(absl::string_view format_string,
-                                    const TimeValue& time, std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  if (!time.IsValid()) {
-    return MakeEvalError() << "Invalid time value: " << time.DebugString();
-  }
-
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<internal_functions::FormatElement> format_elements,
-      internal_functions::GetFormatElements(format_string));
-  ZETASQL_RETURN_IF_ERROR(internal_functions::ValidateTimeFormatElementsForFormatting(
-      format_elements));
-
-  absl::Time time_in_epoch_day =
-      absl::UTCTimeZone()
-          .At(absl::CivilSecond(1970, 1, 1, time.Hour(), time.Minute(),
-                                time.Second()))
-          .pre;
-  time_in_epoch_day += absl::Nanoseconds(time.Nanoseconds());
-
-  ZETASQL_ASSIGN_OR_RETURN(
-      *out, internal_functions::FromCastFormatTimestampToStringInternal(
-                format_elements, time_in_epoch_day, absl::UTCTimeZone()));
-  return absl::OkStatus();
-}
-
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         int64_t timestamp_micros,
-                                         absl::TimeZone timezone,
-                                         std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  return CastFormatTimestampToString(
-      format_string, MakeTime(timestamp_micros, kMicroseconds), timezone, out);
-}
-
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         int64_t timestamp_micros,
-                                         absl::string_view timezone_string,
-                                         std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  if (!IsWellFormedUTF8(timezone_string)) {
-    return MakeEvalError() << "Timezone string is not a valid UTF-8 string.";
-  }
-  absl::TimeZone timezone;
-  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
-  return CastFormatTimestampToString(format_string, timestamp_micros, timezone,
-                                     out);
-}
-
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         absl::Time timestamp,
-                                         absl::string_view timezone_string,
-                                         std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  absl::TimeZone timezone;
-  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
-
-  return CastFormatTimestampToString(format_string, timestamp, timezone, out);
-}
-
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         absl::Time timestamp,
-                                         absl::TimeZone timezone,
-                                         std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<internal_functions::FormatElement> format_elements,
-      internal_functions::GetFormatElements(format_string));
-  ZETASQL_ASSIGN_OR_RETURN(*out,
-                   internal_functions::FromCastFormatTimestampToStringInternal(
-                       format_elements, timestamp, timezone));
-  return absl::OkStatus();
 }
 
 namespace internal_functions {
@@ -4278,476 +4221,58 @@ absl::Status ExpandPercentZQ(absl::string_view format_string,
   return absl::OkStatus();
 }
 
-inline std::string FormatElementTypeString(const FormatElementType& type) {
-  switch (type) {
-    case FORMAT_ELEMENT_TYPE_UNSPECIFIED:
-      return "FORMAT_ELEMENT_TYPE_UNSPECIFIED";
-    case LITERAL:
-      return "LITERAL";
-    case DOUBLE_QUOTED_LITERAL:
-      return "DOUBLE_QUOTED_LITERAL";
-    case YEAR:
-      return "YEAR";
-    case MONTH:
-      return "MONTH";
-    case DAY:
-      return "DAY";
-    case HOUR:
-      return "HOUR";
-    case MINUTE:
-      return "MINUTE";
-    case SECOND:
-      return "SECOND";
-    case MERIDIAN_INDICATOR:
-      return "MERIDIAN_INDICATOR";
-    case TIME_ZONE:
-      return "TIME_ZONE";
-    case CENTURY:
-      return "CENTURY";
-    case QUARTER:
-      return "QUARTER";
-    case WEEK:
-      return "WEEK";
-    case ERA_INDICATOR:
-      return "ERA_INDICATOR";
-    case MISC:
-      return "MISC";
+int DayOfWeekIntegerSunToSat1To7(absl::Weekday weekday) {
+  switch (weekday) {
+    case absl::Weekday::sunday:
+      return 1;
+    case absl::Weekday::monday:
+      return 2;
+    case absl::Weekday::tuesday:
+      return 3;
+    case absl::Weekday::wednesday:
+      return 4;
+    case absl::Weekday::thursday:
+      return 5;
+    case absl::Weekday::friday:
+      return 6;
+    case absl::Weekday::saturday:
+      return 7;
   }
 }
 
-static const FormatElementType kFormatElementTypeNullValue =
-    FormatElementType::FORMAT_ELEMENT_TYPE_UNSPECIFIED;
-using FormatElementTypeTrie =
-    zetasql_base::GeneralTrie<FormatElementType, kFormatElementTypeNullValue>;
-
-const FormatElementTypeTrie* InitializeFormatElementTrie() {
-  FormatElementTypeTrie* trie = new FormatElementTypeTrie();
-  /*Literals*/
-  trie->Insert("-", LITERAL);
-  trie->Insert(".", LITERAL);
-  trie->Insert("/", LITERAL);
-  trie->Insert(",", LITERAL);
-  trie->Insert("'", LITERAL);
-  trie->Insert(";", LITERAL);
-  trie->Insert(":", LITERAL);
-  trie->Insert(" ", LITERAL);
-
-  /*Double Quoted Literal*/
-  // For the format element '\"xxxxx\"' (arbitrary text enclosed by ""), we
-  // would match '\"' in the trie and then manually search the end of the
-  // format element
-  trie->Insert("\"", DOUBLE_QUOTED_LITERAL);
-
-  /*Year*/
-  trie->Insert("YYYY", YEAR);
-  trie->Insert("YYY", YEAR);
-  trie->Insert("YY", YEAR);
-  trie->Insert("Y", YEAR);
-  trie->Insert("RRRR", YEAR);
-  trie->Insert("RR", YEAR);
-  trie->Insert("Y,YYY", YEAR);
-  trie->Insert("IYYY", YEAR);
-  trie->Insert("IYY", YEAR);
-  trie->Insert("IY", YEAR);
-  trie->Insert("I", YEAR);
-  trie->Insert("SYYYY", YEAR);
-  trie->Insert("YEAR", YEAR);
-  trie->Insert("SYEAR", YEAR);
-
-  /*Month*/
-  trie->Insert("MM", MONTH);
-  trie->Insert("MON", MONTH);
-  trie->Insert("MONTH", MONTH);
-  trie->Insert("RM", MONTH);
-
-  /*Day*/
-  trie->Insert("DDD", DAY);
-  trie->Insert("DD", DAY);
-  trie->Insert("D", DAY);
-  trie->Insert("DAY", DAY);
-  trie->Insert("DY", DAY);
-  trie->Insert("J", DAY);
-
-  /*Hour*/
-  trie->Insert("HH", HOUR);
-  trie->Insert("HH12", HOUR);
-  trie->Insert("HH24", HOUR);
-
-  /*Minute*/
-  trie->Insert("MI", MINUTE);
-
-  /*Second*/
-  trie->Insert("SS", SECOND);
-  trie->Insert("SSSSS", SECOND);
-  // FF1~FF9
-  for (int i = 1; i < 10; ++i) {
-    trie->Insert(absl::StrCat("FF", i), SECOND);
+// Returns the timezone sign, hour and minute.
+void GetSignHourAndMinuteTimeZoneOffset(const absl::TimeZone::CivilInfo& info,
+                                        bool* positive_offset,
+                                        int32_t* hour_offset,
+                                        int32_t* minute_offset) {
+  int32_t second_offset = info.offset;
+  if (info.offset >= 0) {
+    *positive_offset = true;
+  } else {
+    *positive_offset = false;
+    second_offset = -second_offset;
   }
 
-  /*Meridian indicator*/
-  trie->Insert("A.M.", MERIDIAN_INDICATOR);
-  trie->Insert("AM", MERIDIAN_INDICATOR);
-  trie->Insert("P.M.", MERIDIAN_INDICATOR);
-  trie->Insert("PM", MERIDIAN_INDICATOR);
-
-  /*Time zone*/
-  trie->Insert("TZH", TIME_ZONE);
-  trie->Insert("TZM", TIME_ZONE);
-
-  /*Century*/
-  trie->Insert("CC", CENTURY);
-  trie->Insert("SCC", CENTURY);
-
-  /*Quarter*/
-  trie->Insert("Q", QUARTER);
-
-  /*Week*/
-  trie->Insert("IW", WEEK);
-  trie->Insert("WW", WEEK);
-  trie->Insert("W", WEEK);
-
-  /*Era Indicator*/
-  trie->Insert("AD", ERA_INDICATOR);
-  trie->Insert("BC", ERA_INDICATOR);
-  trie->Insert("A.D.", ERA_INDICATOR);
-  trie->Insert("B.C.", ERA_INDICATOR);
-
-  /*Misc*/
-  trie->Insert("SP", MISC);
-  trie->Insert("TH", MISC);
-  trie->Insert("SPTH", MISC);
-  trie->Insert("THSP", MISC);
-  trie->Insert("FM", MISC);
-
-  return trie;
+  *hour_offset = second_offset / 60 / 60;
+  *minute_offset = (second_offset / 60) % 60;
 }
 
-const FormatElementTypeTrie& GetFormatElementTrie() {
-  static const FormatElementTypeTrie* format_element_trie =
-      InitializeFormatElementTrie();
-  return *format_element_trie;
+// Returns <timezone> if the timezone offset for (<base_time>, <timezone>)
+// is minute aligned.  Otherwise returns a fixed-offset timezone using that
+// offset truncated to a minute boundary (i.e., eliminating the non-zero
+// seconds part of the offset).
+//
+// ZetaSQL does not support rendering numeric timezones with sub-minute
+// offsets (neither do ISO6801 or RFC3339).  If the timezone has a sub-minute
+// offset like -07:52:58 (which happens for the America/Los_Angeles time zone
+// in years before 1884), we instead treat it (and display it) as -07:52.
+absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
+                                     absl::TimeZone timezone) {
+  const int timezone_offset = timezone.At(base_time).offset;
+  if (const int seconds_offset = timezone_offset % 60)
+    return absl::FixedTimeZone(timezone_offset - seconds_offset);
+  return timezone;
 }
-
-// We need the upper <format_str> to do the search in prefix tree since matching
-// are case-sensitive and we need the original <format_str> to extract the
-// original_str for the format element object.
-zetasql_base::StatusOr<FormatElement> GetNextFormatElement(
-    absl::string_view format_str, absl::string_view upper_format_str,
-    size_t* matched_len) {
-  FormatElement format_element;
-  int matched_len_int;
-  const FormatElementTypeTrie& format_element_trie = GetFormatElementTrie();
-  const FormatElementType& type = format_element_trie.GetDataForMaximalPrefix(
-      upper_format_str, &matched_len_int, /*is_terminator = */ nullptr);
-  if (type == kFormatElementTypeNullValue) {
-    return MakeEvalError() << "Cannot find matched format element";
-  }
-  *matched_len = static_cast<size_t>(matched_len_int);
-  format_element.type = type;
-  if (type != DOUBLE_QUOTED_LITERAL) {
-    format_element.original_str =
-        std::string(format_str.substr(0, (*matched_len)));
-    return format_element;
-  }
-
-  // if the matched type is DOUBLE_QUOTED_LITERAL, we search for the end
-  // manually and do the unescaping in this process.
-  format_element.original_str = "";
-  size_t ind_to_check = 1;
-  bool is_escaped = false;
-  bool stop_search = false;
-
-  while (ind_to_check < format_str.length() && !stop_search) {
-    // include the char at position ind_to_check
-    (*matched_len)++;
-    char char_to_check = format_str[ind_to_check];
-    ind_to_check++;
-    if (is_escaped) {
-      if (char_to_check == '\\' || char_to_check == '\"') {
-        is_escaped = false;
-      } else {
-        return MakeEvalError() << "Unsupported escape sequence \\"
-                               << char_to_check << " in text";
-      }
-    } else if (char_to_check == '\\') {
-      is_escaped = true;
-      continue;
-    } else if (char_to_check == '\"') {
-      stop_search = true;
-      break;
-    }
-    format_element.original_str.push_back(char_to_check);
-  }
-  if (!stop_search) {
-    return MakeEvalError() << "Cannot find matching \" for quoted literal";
-  }
-  return format_element;
-}
-
-// We need the upper format_str to do the search in prefix tree since matching
-// are case-sensitive and we need the original format_str to extract the
-// original_str for the format element object.
-zetasql_base::StatusOr<std::vector<FormatElement>> GetFormatElements(
-    absl::string_view format_str) {
-  std::vector<FormatElement> format_elements;
-  size_t processed_len = 0;
-  std::string upper_format_str_temp = absl::AsciiStrToUpper(format_str);
-  absl::string_view upper_format_str = upper_format_str_temp;
-  while (processed_len < format_str.size()) {
-    size_t matched_len;
-    auto res = GetNextFormatElement(format_str.substr(processed_len),
-                                    upper_format_str.substr(processed_len),
-                                    &matched_len);
-    if (res.ok()) {
-      FormatElement& format_element = res.value();
-      format_elements.push_back(format_element);
-      processed_len += matched_len;
-    } else {
-      return MakeEvalError()
-             << res.status().message() << " at " << processed_len;
-    }
-  }
-
-  return format_elements;
-}
-
-bool CheckSupportedFormatYearElement(absl::string_view upper_format_string) {
-  if (upper_format_string.empty() || upper_format_string.size() > 4) {
-    return false;
-  }
-  // Currently the only supported format year strings are Y, YY, YYY, YYYY,
-  // RR or RRRR.
-  const char first_char = upper_format_string[0];
-  if (first_char != 'Y' && first_char != 'R') {
-    return false;
-  }
-  for (const char& c : upper_format_string) {
-    if (c != first_char) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// Takes a format model vector and rewrites it to be a format element string
-// that can be correctly formatted by FormatTime. Any elements that are not
-// supported by FormatTime will be formatted manually in this function. Any
-// elements that output strings will be outputted with the first letter
-// capitalized and all subsequent letters will be lowercase.
-zetasql_base::StatusOr<std::string> FromFormatElementToFormatString(
-    const FormatElement& format_element, const absl::TimeZone::CivilInfo info) {
-  const std::string upper_format =
-      absl::AsciiStrToUpper(format_element.original_str);
-  switch (format_element.type) {
-    case LITERAL:
-    case DOUBLE_QUOTED_LITERAL:
-      return format_element.original_str;
-    case YEAR: {
-      if (CheckSupportedFormatYearElement(upper_format)) {
-        // YYYY will output the whole year regardless of how many digits are in
-        // the year.
-        // FormatTime does not support the year with the last 3 digits.
-        int trunc_year = static_cast<int>(info.cs.year()) %
-                         powers_of_ten[format_element.original_str.size()];
-        return absl::StrFormat(
-            "%0*d", format_element.original_str.size(),
-            (upper_format.size() == 4 ? info.cs.year() : trunc_year));
-      }
-      break;
-    }
-    case MONTH: {
-      if (upper_format == "MM")
-        return "%m";
-      else if (upper_format == "MON")
-        return "%b";
-      else if (upper_format == "MONTH")
-        return "%B";
-      break;
-    }
-    case DAY: {
-      if (upper_format == "D")
-        //  FormatTime returns 0 as Sunday.
-        return std::to_string(
-            DayOfWeekIntegerSunToSat1To7(absl::GetWeekday(info.cs)));
-      else if (upper_format == "DD")
-        return "%d";
-      else if (upper_format == "DDD")
-        return "%j";
-      else if (upper_format == "DAY")
-        return "%A";
-      else if (upper_format == "DY")
-        return "%a";
-      break;
-    }
-    case HOUR: {
-      if (upper_format == "HH" || upper_format == "HH12")
-        return "%I";
-      else if (upper_format == "HH24")
-        return "%H";
-      break;
-    }
-    case MINUTE:
-      return "%M";
-    case SECOND: {
-      if (upper_format == "SS") {
-        return "%S";
-      } else if (upper_format == "SSSSS") {
-        // FormatTime does not support having 5 digit second of the day.
-        int second_of_day = info.cs.hour() * kNaiveNumSecondsPerHour +
-                            info.cs.minute() * kNaiveNumSecondsPerMinute +
-                            info.cs.second();
-        return absl::StrFormat("%05d", second_of_day);
-      } else if (absl::StartsWith(upper_format, "FF")) {
-        // TODO : FormatTime does not round fractional seconds.
-        return absl::StrCat("%E", format_element.original_str.substr(2), "f");
-      }
-      break;
-    }
-    case MERIDIAN_INDICATOR: {
-      if (absl::StrContains(format_element.original_str, ".")) {
-        if (info.cs.hour() > 12) {
-          return "P.M.";
-        } else {
-          return "A.M.";
-        }
-      } else {
-        if (info.cs.hour() > 12) {
-          return "PM";
-        } else {
-          return "AM";
-        }
-      }
-    }
-    case TIME_ZONE:
-      return MakeEvalError() << "TODO: Implement TZH and TZM";
-    default:
-      return MakeEvalError() << "Unsupported format_element type.";
-  }
-  return MakeEvalError() << "Unsupported format: "
-                         << format_element.original_str;
-}
-
-zetasql_base::StatusOr<std::string> ResolveFormatString(
-    const FormatElement& format_element, absl::Time base_time,
-    absl::TimeZone timezone) {
-  const absl::TimeZone::CivilInfo info = timezone.At(base_time);
-  ZETASQL_ASSIGN_OR_RETURN(const std::string format_string,
-                   FromFormatElementToFormatString(format_element, info));
-  if (format_element.type == LITERAL) {
-    return format_string;
-  }
-
-  // The following resolves casing for format elements.
-  std::string resolved_string =
-      absl::FormatTime(format_string, base_time, timezone);
-  // All of the format elements that are only one character long are numbers and
-  // so do not need it's casing changed.
-  if (format_element.original_str.size() < 2) {
-    return resolved_string;
-  }
-  // If the first letter of the element is lowercase, then all the letters in
-  // the output are lowercase.
-  if (format_element.original_str[0] ==
-      absl::ascii_tolower(format_element.original_str[0])) {
-    return absl::AsciiStrToLower(resolved_string);
-  }
-
-  // For AM/PM only the first letter indicates the overall casing.
-  if (format_element.type == MERIDIAN_INDICATOR) {
-    return absl::AsciiStrToUpper(resolved_string);
-  }
-  // If the first letter is upper case and the second letter is lowercase, then
-  // the first letter of each word in the output is capitalized and the other
-  // letters are lowercase.
-  if (format_element.original_str[0] ==
-          absl::ascii_toupper(format_element.original_str[0]) &&
-      format_element.original_str[1] ==
-          absl::ascii_tolower(format_element.original_str[1])) {
-    return resolved_string;
-  }
-  // If the first two letters of the element are both upper case, the output is
-  // capitalized.
-  return absl::AsciiStrToUpper(resolved_string);
-}
-
-// Checks to see if the format elements are valid for the date or time type.
-absl::Status ValidateDateFormatElementsForFormatting(
-    absl::Span<const FormatElement> format_elements) {
-  for (const FormatElement& element : format_elements) {
-    switch (element.type) {
-      case LITERAL:
-      case DOUBLE_QUOTED_LITERAL:
-      case YEAR:
-      case MONTH:
-      case DAY:
-        continue;
-      default:
-        return MakeEvalError()
-               << "DATE does not support " << element.original_str;
-    }
-  }
-  return absl::OkStatus();
-}
-
-absl::Status ValidateTimeFormatElementsForFormatting(
-    absl::Span<const FormatElement> format_elements) {
-  for (const FormatElement& element : format_elements) {
-    switch (element.type) {
-      case LITERAL:
-      case DOUBLE_QUOTED_LITERAL:
-      case HOUR:
-      case MINUTE:
-      case SECOND:
-      case MERIDIAN_INDICATOR:
-        continue;
-      default:
-        return MakeEvalError()
-               << "TIME does not support " << element.original_str;
-    }
-  }
-  return absl::OkStatus();
-}
-
-absl::Status ValidateDatetimeFormatElementsForFormatting(
-    absl::Span<const FormatElement> format_elements) {
-  for (const FormatElement& element : format_elements) {
-    switch (element.type) {
-      case LITERAL:
-      case DOUBLE_QUOTED_LITERAL:
-      case YEAR:
-      case MONTH:
-      case DAY:
-      case HOUR:
-      case MINUTE:
-      case SECOND:
-      case MERIDIAN_INDICATOR:
-        continue;
-      default:
-        return MakeEvalError()
-               << "DATETIME does not support " << element.original_str;
-    }
-  }
-  return absl::OkStatus();
-}
-
-// TODO: Refactor FormatTimestampToString to be able to use either
-// CastFormat or FormatString.
-zetasql_base::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
-    absl::Span<const FormatElement> format_elements, absl::Time base_time,
-    absl::TimeZone timezone) {
-  if (!IsValidTime(base_time)) {
-    return MakeEvalError() << "Invalid timestamp value: "
-                           << absl::ToUnixMicros(base_time);
-  }
-  std::string updated_format_string;
-  for (const FormatElement& format_element : format_elements) {
-    ZETASQL_ASSIGN_OR_RETURN(std::string str_format,
-                     ResolveFormatString(format_element, base_time, timezone));
-    absl::StrAppend(&updated_format_string, str_format);
-  }
-  return updated_format_string;
-}
-
 }  // namespace internal_functions
 }  // namespace functions
 }  // namespace zetasql

@@ -1,0 +1,49 @@
+START BATCH
+--
+StartBatchStatement [0-11]
+--
+START BATCH
+==
+
+Start BAtch dDL
+--
+StartBatchStatement [0-15]
+  Identifier(dDL) [12-15]
+--
+START BATCH dDL
+==
+
+START BATCH ddl extra
+--
+ERROR: Syntax error: Expected end of input but got identifier "extra" [at 1:17]
+START BATCH ddl extra
+                ^
+==
+
+RUN BATCH
+--
+RunBatchStatement [0-9]
+--
+RUN BATCH
+==
+
+RUN BATCH extra
+--
+ERROR: Syntax error: Expected end of input but got identifier "extra" [at 1:11]
+RUN BATCH extra
+          ^
+==
+
+ABORT BATCH
+--
+AbortBatchStatement [0-11]
+--
+ABORT BATCH
+==
+
+ABORT BATCH extra
+--
+ERROR: Syntax error: Expected end of input but got identifier "extra" [at 1:13]
+ABORT BATCH extra
+            ^
+==

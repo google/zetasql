@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_PARSE_DATE_TIME_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_PARSE_DATE_TIME_H_
 
+#include <cstdint>
 #include <string>
 
 #include "zetasql/public/civil_time.h"
@@ -41,6 +42,9 @@ namespace functions {
 //
 // The supported format elements and their semantics are defined in:
 //   (broken link)
+//
+// Note: The methods in cast_date_time.h, such as CastStringToTimestamp use a
+// different format style.
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
@@ -75,8 +79,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 // Requires that the string_view arguments are UTF8.  The last byte of the
 // string_view can be (but is not required to be) a null-byte.
 absl::Status ParseStringToDate(absl::string_view format_string,
-                               absl::string_view date_string,
-                               int32_t* date);
+                               absl::string_view date_string, int32_t* date);
 
 // Parses an input <time_string> with the given input <format_string>, and
 // produces the appropriate TIME as output. Time parts that are unspecified in

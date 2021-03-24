@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_NUMERIC_PARSER_H_
 #define ZETASQL_PUBLIC_NUMERIC_PARSER_H_
 
+#include <cstdint>
+
 #include "zetasql/common/multiprecision_int.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"

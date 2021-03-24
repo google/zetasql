@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -27,8 +28,10 @@
 
 
 #include <cstdint>  
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 
 namespace zetasql {
 
@@ -228,6 +231,8 @@ class JSONValueRef : public JSONValueConstRef {
   JSONValueRef& operator=(const JSONValueRef&) = default;
   JSONValueRef& operator=(JSONValueRef&&) = default;
 
+  // Sets the JSON value to null.
+  void SetNull();
   // Sets the JSON value to the given int64_t value.
   void SetInt64(int64_t value);
   // Sets the JSON value to the given uin64 value.
@@ -238,6 +243,8 @@ class JSONValueRef : public JSONValueConstRef {
   void SetString(absl::string_view value);
   // Sets the JSON value to the given boolean value.
   void SetBoolean(bool value);
+  // Sets the JSON value to the given json value.
+  void Set(JSONValue json_value);
   // Sets the JSON value to an empty object.
   void SetToEmptyObject();
   // Sets the JSON value to an empty array.
@@ -277,6 +284,52 @@ class JSONValueRef : public JSONValueConstRef {
 
   friend class JSONValue;
 };
+
+namespace internal {
+
+// Returns absl::OkStatus() if the number in string 'lhs' is numerically
+// equivalent to the number in the string created by serializing a JSON document
+// containing 'val' to a string. Returns an error status otherwise.
+//
+// Restrictions:
+//   - Input string ('lhs') can be at most 1500 characters in length.
+//   - Numbers represented by 'lhs' and 'val' can have at most 1074 significant
+//   fractional decimal digits, and at most 1500 significant digits.
+//
+// To understand the restrictions above, we must consider the following:
+//
+//  1) The 64-bit IEEE 754 double only guarantees roundtripping from text ->
+//  double -> text for numbers that have 15 significant digits at most. Values
+//  with more significant digits than 15 may or may not round-trip.
+//
+//  2) The conversion of double -> text -> double will produce the exact same
+//  double value if at least 17 significant digits are used in serialization of
+//  the double value to text (e.g. "10.000000000000001" -> double and
+//  "10.0000000000000019" -> double return the same double value).
+//
+// The implication of the above two facts might suggest that numbers with more
+// than 17 significant digits should be rejected for round-tripping. However,
+// there are 2 categories of numbers that can exceed 17 significant digits but
+// still round-trip. The first category consists of very large whole numbers
+// with a continuous sequence of trailing zeros before the decimal point
+// (e.g. 1e+200). The second category consists of very small purely fractional
+// numbers with a continuous sequence of leading zeros after the decimal point
+// (e.g. 1e-200).
+//
+// To ensure that the numbers in these additional categories are correctly
+// considered for round-tripping, we allow for a maximum of 1074 significant
+// fractional digits and a maximum total string length of 1500 characters.
+//
+// For ASCII decimal input strings, this allows for a maximum of 424 significant
+// whole decimal digits, which exceeds the number of significant whole digits
+// for the maximum value of double (~1.7976931348623157E+308), while still
+// capturing the maximum number of fractional digits for a double (1074).
+// Scientific notation input strings can potentially express more than 424
+// significant decimal digits, while still being constrained to 1074 significant
+// fractional decimal digits.
+absl::Status CheckNumberRoundtrip(absl::string_view lhs, double val);
+
+}  // namespace internal
 
 }  // namespace zetasql
 

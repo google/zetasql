@@ -19,7 +19,9 @@
 
 #include <stddef.h>
 #include <string.h>
+
 #include <algorithm>
+#include <cstdint>
 #include <iosfwd>
 #include <memory>
 #include <new>
@@ -31,6 +33,8 @@
 
 #include "zetasql/base/arena.h"
 #include "absl/base/attributes.h"
+#include "absl/base/const_init.h"
+#include <cstdint>
 #include "absl/base/thread_annotations.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
@@ -112,7 +116,8 @@ class IdString {
     other.CheckAlive();
     if (value_ == other.value_) return true;
     if (size() != other.size()) return false;
-    const int64_t* str_words = reinterpret_cast<const int64_t*>(value_->str.data());
+    const int64_t* str_words =
+        reinterpret_cast<const int64_t*>(value_->str.data());
     const int64_t* other_str_words =
         reinterpret_cast<const int64_t*>(other.value_->str.data());
     return WordsEqual(str_words, other_str_words, value_->size_words);
@@ -122,7 +127,8 @@ class IdString {
     CheckAlive();
     other.CheckAlive();
     if (value_ == other.value_) return false;
-    const int64_t* str_words = reinterpret_cast<const int64_t*>(value_->str.data());
+    const int64_t* str_words =
+        reinterpret_cast<const int64_t*>(value_->str.data());
     const int64_t* other_str_words =
         reinterpret_cast<const int64_t*>(other.value_->str.data());
     int64_t min_size_words =
@@ -247,7 +253,8 @@ class IdString {
 
   // Returns true if the first num_words values pointed to by 'lhs' and 'rhs'
   // are equal.
-  static bool WordsEqual(const int64_t* lhs, const int64_t* rhs, int64_t num_words) {
+  static bool WordsEqual(const int64_t* lhs, const int64_t* rhs,
+                         int64_t num_words) {
     switch (num_words) {
       case 1:
         return lhs[0] == rhs[0];
@@ -484,7 +491,7 @@ class IdStringPool {
 
 inline IdString IdStringPool::MakeGlobal(absl::string_view str) {
   static IdStringPool* global_pool = new IdStringPool;
-  static absl::Mutex global_pool_mutex;
+  ABSL_CONST_INIT static absl::Mutex global_pool_mutex(absl::kConstInit);
   absl::MutexLock lock(&global_pool_mutex);
   return global_pool->Make(str);
 }

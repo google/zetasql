@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_FUNCTIONS_MATH_H_
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 
@@ -36,11 +37,11 @@ namespace functions {
 template <typename T> inline bool Abs(T in, T *out, absl::Status* error);
 template <typename T> inline bool Sign(T in, T *out, absl::Status* error);
 template <typename T> inline bool Round(T in, T *out, absl::Status* error);
-template <typename T> bool RoundDecimal(T in, int64_t digits, T *out,
-                                        absl::Status* error);
+template <typename T>
+bool RoundDecimal(T in, int64_t digits, T* out, absl::Status* error);
 template <typename T> inline bool Trunc(T in, T *out, absl::Status* error);
-template <typename T> bool TruncDecimal(T in, int64_t digits, T *out,
-                                        absl::Status* error);
+template <typename T>
+bool TruncDecimal(T in, int64_t digits, T* out, absl::Status* error);
 template <typename T> inline bool Ceil(T in, T *out, absl::Status* error);
 template <typename T> inline bool Floor(T in, T *out, absl::Status* error);
 template <typename T> inline bool IsInf(T in, bool* out, absl::Status* error);
@@ -158,13 +159,13 @@ inline bool Abs(double in, double *out, absl::Status* error) {
 }
 
 template <>
-inline bool Abs(uint32_t in, uint32_t *out, absl::Status* error) {
+inline bool Abs(uint32_t in, uint32_t* out, absl::Status* error) {
   *out = in;
   return true;
 }
 
 template <>
-inline bool Abs(uint64_t in, uint64_t *out, absl::Status* error) {
+inline bool Abs(uint64_t in, uint64_t* out, absl::Status* error) {
   *out = in;
   return true;
 }
@@ -415,7 +416,7 @@ bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error);
 template <>
 bool Round(NumericValue in, NumericValue *out, absl::Status* error);
 template <>
-bool RoundDecimal(NumericValue in, int64_t digits, NumericValue *out,
+bool RoundDecimal(NumericValue in, int64_t digits, NumericValue* out,
                   absl::Status* error);
 template <>
 bool Trunc(NumericValue in, NumericValue *out, absl::Status* error);

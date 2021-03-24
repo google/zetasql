@@ -1,0 +1,624 @@
+# MODULE related tests, including:
+#   IMPORT statement
+#   MODULE statement
+
+# Module with various length path names.
+import module foo
+--
+ImportStatement [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+IMPORT MODULE foo
+==
+
+import module foo.bar
+--
+ImportStatement [0-21]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+--
+IMPORT MODULE foo.bar
+==
+
+import module foo.bar.baz
+--
+ImportStatement [0-25]
+  PathExpression [14-25]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+    Identifier(baz) [22-25]
+--
+IMPORT MODULE foo.bar.baz
+==
+
+# Module with alias
+import module foo.bar as alias
+--
+ImportStatement [0-30]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  Alias [22-30]
+    Identifier(alias) [25-30]
+--
+IMPORT MODULE foo.bar AS alias
+==
+
+import module foo.bar as `bar.baz`
+--
+ImportStatement [0-34]
+  PathExpression [14-21]
+    Identifier(foo) [14-17]
+    Identifier(bar) [18-21]
+  Alias [22-34]
+    Identifier(`bar.baz`) [25-34]
+--
+IMPORT MODULE foo.bar AS `bar.baz`
+==
+
+# aliases require 'as'
+import module foo bar;
+--
+ERROR: Syntax error: Expected end of input but got identifier "bar" [at 1:19]
+import module foo bar;
+                  ^
+==
+
+# missing module alias
+import module foo as;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+import module foo as;
+                    ^
+==
+
+# Module with options
+import module foo OPTIONS (a=1);
+--
+ImportStatement [0-31]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  OptionsList [26-31]
+    OptionsEntry [27-30]
+      Identifier(a) [27-28]
+      IntLiteral(1) [29-30]
+--
+IMPORT MODULE foo OPTIONS(a = 1)
+==
+
+# Alternations with all the clauses, to ensure that we capture every
+# combination of clauses.
+import module {{|a.}}foo {{|as foo}} {{|OPTIONS (a=1)}};
+--
+ALTERNATION GROUP: <empty>
+--
+ImportStatement [0-17]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+--
+IMPORT MODULE foo
+--
+ALTERNATION GROUP: OPTIONS (a=1)
+--
+ImportStatement [0-32]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  OptionsList [27-32]
+    OptionsEntry [28-31]
+      Identifier(a) [28-29]
+      IntLiteral(1) [30-31]
+--
+IMPORT MODULE foo OPTIONS(a = 1)
+--
+ALTERNATION GROUP: as foo,
+--
+ImportStatement [0-24]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Alias [18-24]
+    Identifier(foo) [21-24]
+--
+IMPORT MODULE foo AS foo
+--
+ALTERNATION GROUP: as foo,OPTIONS (a=1)
+--
+ImportStatement [0-38]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Alias [18-24]
+    Identifier(foo) [21-24]
+  OptionsList [33-38]
+    OptionsEntry [34-37]
+      Identifier(a) [34-35]
+      IntLiteral(1) [36-37]
+--
+IMPORT MODULE foo AS foo OPTIONS(a = 1)
+--
+ALTERNATION GROUP: a.,,
+--
+ImportStatement [0-19]
+  PathExpression [14-19]
+    Identifier(a) [14-15]
+    Identifier(foo) [16-19]
+--
+IMPORT MODULE a.foo
+--
+ALTERNATION GROUP: a.,,OPTIONS (a=1)
+--
+ImportStatement [0-34]
+  PathExpression [14-19]
+    Identifier(a) [14-15]
+    Identifier(foo) [16-19]
+  OptionsList [29-34]
+    OptionsEntry [30-33]
+      Identifier(a) [30-31]
+      IntLiteral(1) [32-33]
+--
+IMPORT MODULE a.foo OPTIONS(a = 1)
+--
+ALTERNATION GROUP: a.,as foo,
+--
+ImportStatement [0-26]
+  PathExpression [14-19]
+    Identifier(a) [14-15]
+    Identifier(foo) [16-19]
+  Alias [20-26]
+    Identifier(foo) [23-26]
+--
+IMPORT MODULE a.foo AS foo
+--
+ALTERNATION GROUP: a.,as foo,OPTIONS (a=1)
+--
+ImportStatement [0-40]
+  PathExpression [14-19]
+    Identifier(a) [14-15]
+    Identifier(foo) [16-19]
+  Alias [20-26]
+    Identifier(foo) [23-26]
+  OptionsList [35-40]
+    OptionsEntry [36-39]
+      Identifier(a) [36-37]
+      IntLiteral(1) [38-39]
+--
+IMPORT MODULE a.foo AS foo OPTIONS(a = 1)
+==
+
+# The alias must be an identifier, not a path
+import module foo.bar.baz as foo.baz;
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:33]
+import module foo.bar.baz as foo.baz;
+                                ^
+==
+
+# The module name is a reserved keyword.
+import module select;
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:15]
+import module select;
+              ^
+==
+
+# The module name is an unreserved keyword.
+import module module;
+--
+ImportStatement [0-20]
+  PathExpression [14-20]
+    Identifier(module) [14-20]
+--
+IMPORT MODULE module
+==
+
+# The module name is a reserved keyword that can be used in general path
+# expressions
+import module all;
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:15]
+import module all;
+              ^
+==
+
+import module module.all;
+--
+ImportStatement [0-24]
+  PathExpression [14-24]
+    Identifier(module) [14-20]
+    Identifier(`all`) [21-24]
+--
+IMPORT MODULE module.`all`
+==
+
+# Importing anything except MODULE does not work.
+# Import reserved keyword.
+import select foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got keyword SELECT [at 1:8]
+import select foo;
+       ^
+==
+
+# Import non-reserved keyword.
+import table foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got keyword TABLE [at 1:8]
+import table foo;
+       ^
+==
+
+# Import identifier
+import non_keyword foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got identifier "non_keyword" [at 1:8]
+import non_keyword foo;
+       ^
+==
+
+# import path expression
+import a.b foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got identifier "a" [at 1:8]
+import a.b foo;
+       ^
+==
+
+# import path expression
+import module.b foo;
+--
+ERROR: Syntax error: Unexpected "." [at 1:14]
+import module.b foo;
+             ^
+==
+
+# import path expression
+import a.module foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got identifier "a" [at 1:8]
+import a.module foo;
+       ^
+==
+
+# Import literal
+import 123 foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got integer literal "123" [at 1:8]
+import 123 foo;
+       ^
+==
+
+# Import literal
+import '123' foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got string literal '123' [at 1:8]
+import '123' foo;
+       ^
+==
+
+import module foo as 'bar';
+--
+ERROR: Syntax error: Unexpected string literal 'bar' [at 1:22]
+import module foo as 'bar';
+                     ^
+==
+
+import module foo as select 1;
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:22]
+import module foo as select 1;
+                     ^
+==
+
+# Reserved keywords and those allowed in generalized identifiers
+# are invalid as aliases.
+import module foo as STRUCT;
+--
+ERROR: Syntax error: Unexpected keyword STRUCT [at 1:22]
+import module foo as STRUCT;
+                     ^
+==
+
+import module foo as ARRAY;
+--
+ERROR: Syntax error: Unexpected keyword ARRAY [at 1:22]
+import module foo as ARRAY;
+                     ^
+==
+
+import module foo as PROTO;
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:22]
+import module foo as PROTO;
+                     ^
+==
+
+import module foo as ALL;
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:22]
+import module foo as ALL;
+                     ^
+==
+
+# Unreserved keywords as aliases parse ok.
+import module foo as TABLE;
+--
+ImportStatement [0-26]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Alias [18-26]
+    Identifier(TABLE) [21-26]
+--
+IMPORT MODULE foo AS TABLE
+==
+
+# Type names are just identifiers, so they parse ok.
+import module foo as string
+--
+ImportStatement [0-27]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Alias [18-27]
+    Identifier(string) [21-27]
+--
+IMPORT MODULE foo AS string
+==
+
+import module foo as INT64
+--
+ImportStatement [0-26]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Alias [18-26]
+    Identifier(INT64) [21-26]
+--
+IMPORT MODULE foo AS INT64
+==
+
+# Non-supported clause.
+import or replace module foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got keyword OR [at 1:8]
+import or replace module foo;
+       ^
+==
+
+import if not exists module foo;
+--
+ERROR: Syntax error: Expected keyword MODULE or keyword PROTO but got keyword IF [at 1:8]
+import if not exists module foo;
+       ^
+==
+
+import module foo if not exists;
+--
+ERROR: Syntax error: Expected end of input but got keyword IF [at 1:19]
+import module foo if not exists;
+                  ^
+==
+
+# Extra stuff off the end is not allowed.
+import module foo as bar with
+--
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 1:26]
+import module foo as bar with
+                         ^
+==
+
+import module foo as bar select
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 1:26]
+import module foo as bar select
+                         ^
+==
+
+import module foo as bar 123
+--
+ERROR: Syntax error: Expected end of input but got integer literal "123" [at 1:26]
+import module foo as bar 123
+                         ^
+==
+
+module foo;
+--
+ModuleStatement [0-10]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+--
+MODULE foo
+==
+
+module foo.bar.baz;
+--
+ModuleStatement [0-18]
+  PathExpression [7-18]
+    Identifier(foo) [7-10]
+    Identifier(bar) [11-14]
+    Identifier(baz) [15-18]
+--
+MODULE foo.bar.baz
+==
+
+module foo.bar OPTIONS (a=1);
+--
+ModuleStatement [0-28]
+  PathExpression [7-14]
+    Identifier(foo) [7-10]
+    Identifier(bar) [11-14]
+  OptionsList [23-28]
+    OptionsEntry [24-27]
+      Identifier(a) [24-25]
+      IntLiteral(1) [26-27]
+--
+MODULE foo.bar OPTIONS(a = 1)
+==
+
+# Unreserved keywords as modules names is ok.
+module import
+--
+ModuleStatement [0-13]
+  PathExpression [7-13]
+    Identifier(import) [7-13]
+--
+MODULE import
+==
+
+module module
+--
+ModuleStatement [0-13]
+  PathExpression [7-13]
+    Identifier(module) [7-13]
+--
+MODULE module
+==
+
+module options
+--
+ModuleStatement [0-14]
+  PathExpression [7-14]
+    Identifier(options) [7-14]
+--
+MODULE options
+==
+
+module import.module.options options(a=1);
+--
+ModuleStatement [0-41]
+  PathExpression [7-28]
+    Identifier(import) [7-13]
+    Identifier(module) [14-20]
+    Identifier(options) [21-28]
+  OptionsList [36-41]
+    OptionsEntry [37-40]
+      Identifier(a) [37-38]
+      IntLiteral(1) [39-40]
+--
+MODULE import.module.options OPTIONS(a = 1)
+==
+
+# Reserved keywords like `all` are ok if they can be used inside identifiers,
+# but they have to be back-ticked if they start the path expression.
+module all;
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:8]
+module all;
+       ^
+==
+
+module module.all;
+--
+ModuleStatement [0-17]
+  PathExpression [7-17]
+    Identifier(module) [7-13]
+    Identifier(`all`) [14-17]
+--
+MODULE module.`all`
+==
+
+module `all`;
+--
+ModuleStatement [0-12]
+  PathExpression [7-12]
+    Identifier(`all`) [7-12]
+--
+MODULE `all`
+==
+
+module module.`all`;
+--
+ModuleStatement [0-19]
+  PathExpression [7-19]
+    Identifier(module) [7-13]
+    Identifier(`all`) [14-19]
+--
+MODULE module.`all`
+==
+
+# Other reserved keywords are not ok.
+module select;
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:8]
+module select;
+       ^
+==
+
+# More negative tests.
+module import foo;
+--
+ERROR: Syntax error: Expected end of input but got identifier "foo" [at 1:15]
+module import foo;
+              ^
+==
+
+module foo.bar options;
+--
+ERROR: Syntax error: Expected "(" but got ";" [at 1:23]
+module foo.bar options;
+                      ^
+==
+
+module foo.bar options("abc");
+--
+ERROR: Syntax error: Unexpected string literal "abc" [at 1:24]
+module foo.bar options("abc");
+                       ^
+==
+
+module foo if not exists;
+--
+ERROR: Syntax error: Expected end of input but got keyword IF [at 1:12]
+module foo if not exists;
+           ^
+==
+
+module table foo;
+--
+ERROR: Syntax error: Expected end of input but got identifier "foo" [at 1:14]
+module table foo;
+             ^
+==
+
+create module foo;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword MODULE [at 1:8]
+create module foo;
+       ^
+==
+
+create or replace module foo;
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword MODULE [at 1:19]
+create or replace module foo;
+                  ^
+==
+
+# Invalid statement due to expecting path expression but successfully parsed
+import module "file.proto";
+--
+ImportStatement [0-26]
+  StringLiteral("file.proto") [14-26]
+--
+IMPORT MODULE "file.proto"
+==
+
+# The parser supports IMPORT MODULE with INTO, but the statements fail
+# in the analyzer.
+IMPORT MODULE name.path INTO a;
+--
+ImportStatement [0-30]
+  PathExpression [14-23]
+    Identifier(name) [14-18]
+    Identifier(path) [19-23]
+  IntoAlias [24-30]
+    Identifier(a) [29-30]
+--
+IMPORT MODULE name.path INTO a
+==
+
+IMPORT MODULE 'name/path' INTO a;
+--
+ImportStatement [0-32]
+  StringLiteral('name/path') [14-25]
+  IntoAlias [26-32]
+    Identifier(a) [31-32]
+--
+IMPORT MODULE 'name/path' INTO a

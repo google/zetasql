@@ -85,10 +85,12 @@ bool InputArgumentType::operator!=(const InputArgumentType& type) const {
   return !(*this == type);
 }
 
-InputArgumentType::InputArgumentType(const Value& literal_value)
+InputArgumentType::InputArgumentType(const Value& literal_value,
+                                     bool is_default_argument_value)
     : category_(kTypedLiteral),
       type_(literal_value.type()),
-      literal_value_(literal_value) {
+      literal_value_(literal_value),
+      is_default_argument_value_(is_default_argument_value) {
   if (literal_value.type()->IsStruct()) {
     if (literal_value.is_null()) {
       // This is a NULL struct, so its field InputArgumentTypes are the

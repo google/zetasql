@@ -1,0 +1,381 @@
+# This file includes tests for standalone types, outside of queries.
+[default mode=type]
+int32
+--
+SimpleType [0-5]
+  PathExpression [0-5]
+    Identifier(int32) [0-5]
+--
+int32
+==
+
+a.b.c
+--
+SimpleType [0-5]
+  PathExpression [0-5]
+    Identifier(a) [0-1]
+    Identifier(b) [2-3]
+    Identifier(c) [4-5]
+--
+a.b.c
+==
+
+`a.b.c`
+--
+SimpleType [0-7]
+  PathExpression [0-7]
+    Identifier(`a.b.c`) [0-7]
+--
+`a.b.c`
+==
+
+proto<`a.b.c`>
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:1]
+proto<`a.b.c`>
+^
+==
+
+enum<a.b.c>
+--
+ERROR: Syntax error: Unexpected keyword ENUM [at 1:1]
+enum<a.b.c>
+^
+==
+
+# Parse fails on extra stuff after the type.
+int32 xxx
+--
+ERROR: Syntax error: Expected end of input but got identifier "xxx" [at 1:7]
+int32 xxx
+      ^
+==
+
+struct
+--
+ERROR: Syntax error: Expected "<" but got end of type [at 1:7]
+struct
+      ^
+==
+
+struct<
+--
+ERROR: Syntax error: Unexpected end of type [at 1:8]
+struct<
+       ^
+==
+
+struct<x int32, y string>
+--
+StructType [0-25]
+  StructField [7-14]
+    Identifier(x) [7-8]
+    SimpleType [9-14]
+      PathExpression [9-14]
+        Identifier(int32) [9-14]
+  StructField [16-24]
+    Identifier(y) [16-17]
+    SimpleType [18-24]
+      PathExpression [18-24]
+        Identifier(string) [18-24]
+--
+STRUCT< x int32, y string >
+==
+
+ARRAY< # comment
+int32/* comment
+xxxx
+*/>
+--
+ArrayType [0-41]
+  SimpleType [17-22]
+    PathExpression [17-22]
+      Identifier(int32) [17-22]
+--
+ARRAY< int32 >
+==
+
+# Empty struct is allowed.
+struct<>
+--
+StructType [0-8]
+--
+STRUCT< >
+==
+
+proto<>
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:1]
+proto<>
+^
+==
+
+timestamp_micros
+--
+SimpleType [0-16]
+  PathExpression [0-16]
+    Identifier(timestamp_micros) [0-16]
+--
+timestamp_micros
+==
+
+# Parameterized types are only supported in CAST expression, script variable,
+# and DDL. See (broken link) for language spec.
+timestamp(0)
+--
+SimpleType [0-12]
+  PathExpression [0-9]
+    Identifier(timestamp) [0-9]
+  TypeParameterList [9-11]
+    IntLiteral(0) [10-11]
+--
+timestamp(0)
+==
+
+numeric(MAX, 5)
+--
+SimpleType [0-15]
+  PathExpression [0-7]
+    Identifier(numeric) [0-7]
+  TypeParameterList [7-14]
+    MaxLiteral() [8-11]
+    IntLiteral(5) [13-14]
+--
+numeric(MAX, 5)
+==
+
+numeric(MAX, MAX)
+--
+SimpleType [0-17]
+  PathExpression [0-7]
+    Identifier(numeric) [0-7]
+  TypeParameterList [7-16]
+    MaxLiteral() [8-11]
+    MaxLiteral() [13-16]
+--
+numeric(MAX, MAX)
+==
+
+namespace.typename(1, 2, 3, 4, 5, MAX)
+--
+SimpleType [0-38]
+  PathExpression [0-18]
+    Identifier(namespace) [0-9]
+    Identifier(typename) [10-18]
+  TypeParameterList [18-37]
+    IntLiteral(1) [19-20]
+    IntLiteral(2) [22-23]
+    IntLiteral(3) [25-26]
+    IntLiteral(4) [28-29]
+    IntLiteral(5) [31-32]
+    MaxLiteral() [34-37]
+--
+namespace.typename(1, 2, 3, 4, 5, MAX)
+==
+
+struct<a string(100), b numeric(MAX, 10)>
+--
+StructType [0-41]
+  StructField [7-20]
+    Identifier(a) [7-8]
+    SimpleType [9-20]
+      PathExpression [9-15]
+        Identifier(string) [9-15]
+      TypeParameterList [15-19]
+        IntLiteral(100) [16-19]
+  StructField [22-40]
+    Identifier(b) [22-23]
+    SimpleType [24-40]
+      PathExpression [24-31]
+        Identifier(numeric) [24-31]
+      TypeParameterList [31-39]
+        MaxLiteral() [32-35]
+        IntLiteral(10) [37-39]
+
+--
+STRUCT< a string(100), b numeric(MAX, 10) >
+==
+
+struct<x int64>(10)
+--
+StructType [0-19]
+  StructField [7-14]
+    Identifier(x) [7-8]
+    SimpleType [9-14]
+      PathExpression [9-14]
+        Identifier(int64) [9-14]
+  TypeParameterList [15-18]
+    IntLiteral(10) [16-18]
+
+--
+STRUCT< x int64 > (10)
+==
+
+array<string>(200)
+--
+ArrayType [0-18]
+  SimpleType [6-12]
+    PathExpression [6-12]
+      Identifier(string) [6-12]
+  TypeParameterList [13-17]
+    IntLiteral(200) [14-17]
+
+--
+ARRAY< string > (200)
+==
+
+array<string(100)>
+
+--
+ArrayType [0-18]
+  SimpleType [6-17]
+    PathExpression [6-12]
+      Identifier(string) [6-12]
+    TypeParameterList [12-16]
+      IntLiteral(100) [13-16]
+
+--
+ARRAY< string(100) >
+
+==
+
+struct<a array<string(100)>, b struct<f1 numeric(MAX, 5)>>
+
+--
+StructType [0-58]
+  StructField [7-27]
+    Identifier(a) [7-8]
+    ArrayType [9-27]
+      SimpleType [15-26]
+        PathExpression [15-21]
+          Identifier(string) [15-21]
+        TypeParameterList [21-25]
+          IntLiteral(100) [22-25]
+  StructField [29-57]
+    Identifier(b) [29-30]
+    StructType [31-57]
+      StructField [38-56]
+        Identifier(f1) [38-40]
+        SimpleType [41-56]
+          PathExpression [41-48]
+            Identifier(numeric) [41-48]
+          TypeParameterList [48-55]
+            MaxLiteral() [49-52]
+            IntLiteral(5) [54-55]
+
+--
+STRUCT< a ARRAY< string(100) >, b STRUCT< f1 numeric(MAX, 5) > >
+
+==
+
+# Float literal parameter
+numeric(1.1)
+--
+SimpleType [0-12]
+  PathExpression [0-7]
+    Identifier(numeric) [0-7]
+  TypeParameterList [7-11]
+    FloatLiteral(1.1) [8-11]
+--
+numeric(1.1)
+==
+
+# String literal parameter
+numeric("MAX")
+--
+SimpleType [0-14]
+  PathExpression [0-7]
+    Identifier(numeric) [0-7]
+  TypeParameterList [7-13]
+    StringLiteral("MAX") [8-13]
+--
+numeric("MAX")
+==
+
+# Bytes literal parameter
+string(B"abc")
+--
+SimpleType [0-14]
+  PathExpression [0-6]
+    Identifier(string) [0-6]
+  TypeParameterList [6-13]
+    BytesLiteral(B"abc") [7-13]
+--
+string(B"abc")
+==
+
+# Boolean literal parameter
+string(TRUE)
+--
+SimpleType [0-12]
+  PathExpression [0-6]
+    Identifier(string) [0-6]
+  TypeParameterList [6-11]
+    BooleanLiteral(TRUE) [7-11]
+--
+string(TRUE)
+==
+
+# Mix of int and string literal parameters
+money(20, 6, 'USD')
+--
+SimpleType [0-19]
+  PathExpression [0-5]
+    Identifier(money) [0-5]
+  TypeParameterList [5-18]
+    IntLiteral(20) [6-8]
+    IntLiteral(6) [10-11]
+    StringLiteral('USD') [13-18]
+--
+money(20, 6, 'USD')
+==
+
+# Invalid parameterized types
+timestamp(0,1,)
+--
+ERROR: Syntax error: Trailing comma in type parameter list is not allowed. [at 1:14]
+timestamp(0,1,)
+             ^
+==
+
+# Type parameter can not be a expression.
+string(10 + 20)
+
+--
+ERROR: Syntax error: Expected ")" or "," but got "+" [at 1:11]
+string(10 + 20)
+          ^
+==
+
+# Type parameter can not be a expression with MAX().
+numeric(MAX(), 10)
+
+--
+ERROR: Syntax error: Expected ")" or "," but got "(" [at 1:12]
+numeric(MAX(), 10)
+           ^
+==
+
+# Empty string as input.
+[strip_trailing_newline]
+--
+ERROR: Syntax error: Unexpected end of type [at 1:1]
+
+^
+==
+
+# Empty statement - just comments.
+/* comment */
+--
+ERROR: Syntax error: Unexpected end of type [at 1:14]
+/* comment */
+             ^
+==
+
+# Empty statement - just whitespace.
+  
+
+--
+ERROR: Syntax error: Unexpected end of type [at 1:1]
+
+^

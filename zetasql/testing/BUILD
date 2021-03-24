@@ -132,7 +132,7 @@ cc_library(
         "//zetasql/public:value",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/types:span",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -186,6 +186,7 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public/types",
+        "//zetasql/testdata:test_proto3_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",

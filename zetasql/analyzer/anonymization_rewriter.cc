@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/anonymization_rewriter.h"
 
+#include <cstdint>
 #include <memory>
 
 #include "zetasql/base/atomic_sequence_num.h"
@@ -30,6 +31,7 @@
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -416,13 +418,49 @@ bool JoinExprIncludesUid(const ResolvedExpr* join_expr,
   return false;
 }
 
+// This class is used by VisitResolvedTVFScan to validate that none of the TVF
+// argument trees contain nodes that could possibly contain a nested
+// table/TVF/anonymization node.
+//
+// Eventually we want to allow relation TVF arguments containing table/TVF
+// references, but that's left to future work.
+class NoTableDataValidatorVisitor : public ResolvedASTVisitor {
+ public:
+  explicit NoTableDataValidatorVisitor(const std::string& tvf_name)
+      : tvf_name_(tvf_name) {}
+
+  absl::Status VisitResolvedAnonymizedAggregateScan(
+      const ResolvedAnonymizedAggregateScan* node) override {
+    return absl::InvalidArgumentError(
+        "Nested SELECT WITH ANONYMIZATION queries are not supported");
+  }
+
+  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "A TVF inside a SELECT WITH ANONYMIZATION query may not reference "
+        "a table in that TVF's arguments, but found table ",
+        node->table()->FullName(), " in arguments of TVF ", tvf_name_));
+  }
+
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "A TVF inside a SELECT WITH ANONYMIZATION query may not reference "
+        "another TVF in that TVF's arguments, but found TVF ",
+        node->tvf()->FullName(), " in arguments of TVF ", tvf_name_));
+  }
+
+ private:
+  const std::string tvf_name_;
+};
+
 // Rewrites the rest of the per-user scan, propagating the AnonymizationInfo()
 // userid (aka $uid column) from the base private table scan to the top node
 // returned.
-// Generates an error if:
-// 1. No table scan over a private table (Table::SupportsAnonymization) was
-//    found
-// 2. An unsupported scan was found
+//
+// This visitor may only be invoked on a scan that is a transitive child of a
+// ResolvedAnonymizedAggregateScan. uid_column() will return an error if the
+// subtree represented by that scan does not contain a table or TVF that
+// contains user data (AnonymizationInfo).
 class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit PerUserRewriterVisitor(
@@ -656,6 +694,101 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
           MakeNodeVector(std::move(projected_userid_column)),
           ConsumeTopOfStack<ResolvedScan>()));
     }
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
+    {
+      ResolvedASTDeepCopyVisitor copy_visitor;
+      ZETASQL_RETURN_IF_ERROR(node->Accept(&copy_visitor));
+      ZETASQL_ASSIGN_OR_RETURN(auto copy,
+                       copy_visitor.ConsumeRootNode<ResolvedTVFScan>());
+      PushNodeToStack(std::move(copy));
+    }
+    ResolvedTVFScan* copy = GetUnownedTopOfStack<ResolvedTVFScan>();
+
+    for (const std::unique_ptr<const ResolvedFunctionArgument>& arg :
+         node->argument_list()) {
+      NoTableDataValidatorVisitor visitor(node->tvf()->FullName());
+      ZETASQL_RETURN_IF_ERROR(arg->Accept(&visitor));
+    }
+
+    // The TVF doesn't produce user data or an anonymization userid column, so
+    // we can return early.
+    if (!copy->signature()->SupportsAnonymization()) {
+      return absl::OkStatus();
+    }
+
+    // Since we got to here, the TVF produces a userid column so we must ensure
+    // that the column is projected for use in the anonymized aggregation.
+    const std::string& userid_column_name = copy->signature()
+                                                ->GetAnonymizationInfo()
+                                                ->GetUserIdInfo()
+                                                .get_column_name();
+
+    // Check if the $uid column is already being projected.
+    for (int i = 0; i < copy->column_list_size(); ++i) {
+      // Look up the schema column name in the index list.
+      const std::string& result_column_name =
+          copy->signature()
+              ->result_schema()
+              .column(copy->column_index_list(i))
+              .name;
+      if (result_column_name == userid_column_name) {
+        // Already projected, we're done.
+        current_uid_column_ = copy->column_list(i);
+        uid_qualifier_ = copy->alias();
+        return absl::OkStatus();
+      }
+    }
+
+    // We need to project the $uid column. Look it up by name in the TVF schema
+    // to get type information and record it in column_index_list.
+    int tvf_userid_column_index = -1;
+    for (int i = 0; i < copy->signature()->result_schema().num_columns(); ++i) {
+      if (userid_column_name ==
+          copy->signature()->result_schema().column(i).name) {
+        tvf_userid_column_index = i;
+        break;
+      }
+    }
+    ZETASQL_RET_CHECK_NE(tvf_userid_column_index, -1)
+        << "Failed to find tvf column " << userid_column_name << " in TVF "
+        << copy->tvf()->FullName();
+
+    // Create and project the new $uid column.
+    ResolvedColumn uid_column =
+        allocator_->MakeCol(copy->tvf()->Name(), userid_column_name,
+                            copy->signature()
+                                ->result_schema()
+                                .column(tvf_userid_column_index)
+                                .type);
+
+    // Per the ResolvedTVFScan contract:
+    //   <column_list> is a set of ResolvedColumns created by this scan.
+    //   These output columns match positionally with the columns in the output
+    //   schema of <signature>
+    // To satisfy this contract we must also insert the $uid column
+    // positionally. The target location is at the first value in
+    // column_index_list that is greater than tvf_userid_column_index (because
+    // it is positional the indices must be ordered).
+    int userid_column_insertion_index = 0;
+    for (int i = 0; i < copy->column_index_list_size(); ++i) {
+      if (copy->column_index_list(i) > tvf_userid_column_index) {
+        userid_column_insertion_index = i;
+        break;
+      }
+    }
+
+    copy->mutable_column_list()->insert(
+        copy->column_list().begin() + userid_column_insertion_index,
+        uid_column);
+    copy->mutable_column_index_list()->insert(
+        copy->column_index_list().begin() + userid_column_insertion_index,
+        tvf_userid_column_index);
+    current_uid_column_ = uid_column;
+    uid_qualifier_ = copy->alias();
+
     return absl::OkStatus();
   }
 
@@ -990,7 +1123,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   UNSUPPORTED(ResolvedWithRefScan);
   UNSUPPORTED(ResolvedAnalyticScan);
   UNSUPPORTED(ResolvedSampleScan);
-  UNSUPPORTED(ResolvedTVFScan);
   UNSUPPORTED(ResolvedWithScan);
   UNSUPPORTED(ResolvedRelationArgumentScan);
 #undef UNSUPPORTED

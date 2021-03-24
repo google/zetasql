@@ -1,0 +1,314 @@
+# ALTER TABLE to add unnamed foreign key constraint.
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) options();
+--
+AlterTableStatement [0-60]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-60]
+    AddConstraintAction [16-60]
+      ForeignKey [20-60]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-50]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [50-50]
+        OptionsList [58-60]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED OPTIONS()
+==
+
+# ALTER TABLE to add unnamed explicitly enforced foreign key constraint.
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) ENFORCED;
+--
+AlterTableStatement [0-59]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-59]
+    AddConstraintAction [16-59]
+      ForeignKey [20-59]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-50]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [50-50]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add unnamed not-enforced foreign key constraint.
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) NOT ENFORCED;
+--
+AlterTableStatement [0-63]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-63]
+    AddConstraintAction [16-63]
+      ForeignKey [20-63]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE NOT ENFORCED) [35-50]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [50-50]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION NOT ENFORCED
+==
+
+# ALTER TABLE to add named foreign key constraint.
+ALTER TABLE foo ADD CONSTRAINT bar FOREIGN KEY(A) REFERENCES T(B) ENFORCED;
+--
+AlterTableStatement [0-74]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-74]
+    AddConstraintAction [16-74]
+      ForeignKey [31-74]
+        ColumnList [46-49]
+          Identifier(A) [47-48]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [50-65]
+          PathExpression [61-62]
+            Identifier(T) [61-62]
+          ColumnList [62-65]
+            Identifier(B) [63-64]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [65-65]
+        Identifier(bar) [31-34]
+--
+ALTER TABLE foo ADD CONSTRAINT bar FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key constraint named foreign.
+ALTER TABLE foo ADD CONSTRAINT foreign FOREIGN KEY(A) REFERENCES T(B) ENFORCED;
+--
+AlterTableStatement [0-78]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-78]
+    AddConstraintAction [16-78]
+      ForeignKey [31-78]
+        ColumnList [50-53]
+          Identifier(A) [51-52]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [54-69]
+          PathExpression [65-66]
+            Identifier(T) [65-66]
+          ColumnList [66-69]
+            Identifier(B) [67-68]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [69-69]
+        Identifier(foreign) [31-38]
+--
+ALTER TABLE foo ADD CONSTRAINT foreign FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add multi keys foreign key constraint.
+ALTER TABLE foo ADD FOREIGN KEY(A, B) REFERENCES T(A, B) ENFORCED;
+--
+AlterTableStatement [0-65]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-65]
+    AddConstraintAction [16-65]
+      ForeignKey [20-65]
+        ColumnList [31-37]
+          Identifier(A) [32-33]
+          Identifier(B) [35-36]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [38-56]
+          PathExpression [49-50]
+            Identifier(T) [49-50]
+          ColumnList [50-56]
+            Identifier(A) [51-52]
+            Identifier(B) [54-55]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [56-56]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A, B) REFERENCES T(A, B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key with on delete cascade
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) on delete cascade;
+--
+
+AlterTableStatement [0-68]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-68]
+    AddConstraintAction [16-68]
+      ForeignKey [20-68]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-68]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE CASCADE) [51-68]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE ENFORCED
+==
+
+# ALTER TABLE to add foreign key with on delete no action
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) on delete no action;
+--
+
+AlterTableStatement [0-70]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-70]
+    AddConstraintAction [16-70]
+      ForeignKey [20-70]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-70]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [51-70]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key with match simple
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) match simple;
+--
+
+AlterTableStatement [0-63]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-63]
+    AddConstraintAction [16-63]
+      ForeignKey [20-63]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-63]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [63-63]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key with match full
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) match full;
+--
+
+AlterTableStatement [0-61]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-61]
+    AddConstraintAction [16-61]
+      ForeignKey [20-61]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH FULL ENFORCED) [35-61]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [61-61]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH FULL ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key with on update no action
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) on update no action;
+--
+
+AlterTableStatement [0-70]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-70]
+    AddConstraintAction [16-70]
+      ForeignKey [20-70]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-70]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [51-70]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key with on update cascade
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) on update cascade;
+--
+
+AlterTableStatement [0-68]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-68]
+    AddConstraintAction [16-68]
+      ForeignKey [20-68]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [35-68]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE CASCADE ON DELETE NO ACTION) [51-68]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE CASCADE ON DELETE NO ACTION ENFORCED
+==
+
+# ALTER TABLE to add foreign key with multiple attributes
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) match full on update cascade on delete cascade;
+--
+
+AlterTableStatement [0-97]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-97]
+    AddConstraintAction [16-97]
+      ForeignKey [20-97]
+        ColumnList [31-34]
+          Identifier(A) [32-33]
+        ForeignKeyReference(MATCH FULL ENFORCED) [35-97]
+          PathExpression [46-47]
+            Identifier(T) [46-47]
+          ColumnList [47-50]
+            Identifier(B) [48-49]
+          ForeignKeyActions(ON UPDATE CASCADE ON DELETE CASCADE) [62-97]
+--
+ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) MATCH FULL ON UPDATE CASCADE ON DELETE CASCADE ENFORCED
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+ALTER TABLE foo-bar-123.baz ADD FOREIGN KEY (A) REFERENCES T(B);
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar-123.baz` [at 1:13]
+ALTER TABLE foo-bar-123.baz ADD FOREIGN KEY (A) REFERENCES T(B);
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-63]
+  PathExpression [12-27]
+    Identifier(`foo-bar-123`) [12-27]
+    Identifier(baz) [12-27]
+  AlterActionList [28-63]
+    AddConstraintAction [28-63]
+      ForeignKey [32-63]
+        ColumnList [44-47]
+          Identifier(A) [45-46]
+        ForeignKeyReference(MATCH SIMPLE ENFORCED) [48-63]
+          PathExpression [59-60]
+            Identifier(T) [59-60]
+          ColumnList [60-63]
+            Identifier(B) [61-62]
+          ForeignKeyActions(ON UPDATE NO ACTION ON DELETE NO ACTION) [63-63]
+--
+ALTER TABLE `foo-bar-123`.baz ADD FOREIGN KEY(A) REFERENCES T(B) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED

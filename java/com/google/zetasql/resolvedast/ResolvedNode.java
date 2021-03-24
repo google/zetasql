@@ -70,6 +70,9 @@ public abstract class ResolvedNode implements Serializable {
   /** Accepts a visitor, which can process the node and optionally redispatch to children. */
   public abstract void accept(ResolvedNodes.Visitor visitor);
 
+  /** Accepts a visitor, which can return a replacement node. */
+  public abstract ResolvedNode accept(RewritingVisitor visitor);
+
   /**
    * Accepts a visitor, dispatching to the children of this node.
    *

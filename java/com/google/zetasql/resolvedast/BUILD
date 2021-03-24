@@ -27,9 +27,11 @@ gen_resolved_ast_files(
     name = "run_gen_resolved_ast_java",
     srcs = [
         "ResolvedNodes.java.template",
+        "RewritingVisitor.java.template",
     ],
     outs = [
         "ResolvedNodes.java",
+        "RewritingVisitor.java",
     ],
 )
 
@@ -41,6 +43,7 @@ java_library(
         "ResolvedColumn.java",
         "ResolvedNode.java",
         "ResolvedNodes.java",
+        "RewritingVisitor.java",
     ],
     deps = [
         "//java/com/google/zetasql:client",

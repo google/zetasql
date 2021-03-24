@@ -17,6 +17,7 @@
 #ifndef ZETASQL_COMMON_PROTO_HELPER_H_
 #define ZETASQL_COMMON_PROTO_HELPER_H_
 
+#include <cstdint>
 #include <set>
 
 #include "google/protobuf/compiler/importer.h"

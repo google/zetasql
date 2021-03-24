@@ -16,6 +16,7 @@
 
 #include "zetasql/compliance/functions_testlib_common.h"
 
+#include <cstdint>
 #include <string>
 
 #include "google/protobuf/timestamp.pb.h"
@@ -200,7 +201,8 @@ Value Proto3LatLng(double latitude, double longitude) {
   return ProtoToValue(Proto3LatLngType(), lat_lng);
 }
 
-Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds, int32_t nanos) {
+Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
+                      int32_t nanos) {
   google::type::TimeOfDay proto3_time;
   proto3_time.set_hours(hour);
   proto3_time.set_minutes(minute);
@@ -363,6 +365,17 @@ QueryParamsWithResult WrapResultForBigNumeric(
   QueryParamsWithResult::ResultMap result_map;
   result_map.emplace(bignumeric_feature_set, QueryParamsWithResult::Result(
                                                  result.result, result.status));
+  return QueryParamsWithResult(params, result_map);
+}
+
+QueryParamsWithResult WrapResultForInterval(
+    const std::vector<ValueConstructor>& params,
+    const QueryParamsWithResult::Result& result) {
+  QueryParamsWithResult::FeatureSet interval_feature_set;
+  interval_feature_set.insert(FEATURE_INTERVAL_TYPE);
+  QueryParamsWithResult::ResultMap result_map;
+  result_map.emplace(interval_feature_set, QueryParamsWithResult::Result(
+                                               result.result, result.status));
   return QueryParamsWithResult(params, result_map);
 }
 

@@ -24,6 +24,8 @@
 
 #include <stddef.h>
 #include <string.h>
+
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -258,9 +260,7 @@ inline Value Value::Bytes(const char (&str)[N]) {
   return Value::Bytes(std::string(str, N - 1));
 }
 
-inline Value Value::Date(int32_t v) {
-  return Value(TYPE_DATE, v);
-}
+inline Value Value::Date(int32_t v) { return Value(TYPE_DATE, v); }
 inline Value Value::Timestamp(absl::Time t) { return Value(t); }
 inline Value Value::Time(TimeValue time) {
   return Value(time);
@@ -539,7 +539,7 @@ H AbslHashValue(H h, const Value& v) {
 template <typename H>
 H Value::HashValueInternal(H h) const {
   // This code is picked arbitrarily.
-  static constexpr uint64_t kNullHashCode =      0xCBFD5377B126E80Dull;
+  static constexpr uint64_t kNullHashCode = 0xCBFD5377B126E80Dull;
 
   // If we use TypeKind instead of int16_t here,
   // VerifyTypeImplementsAbslHashCorrectly finds collisions between NULL(INT)
@@ -591,10 +591,22 @@ H Value::HashValueInternal(H h) const {
   }
 }
 
-template <> inline int32_t Value::Get<int32_t>() const { return int32_value(); }
-template <> inline int64_t Value::Get<int64_t>() const { return int64_value(); }
-template <> inline uint32_t Value::Get<uint32_t>() const { return uint32_value(); }
-template <> inline uint64_t Value::Get<uint64_t>() const { return uint64_value(); }
+template <>
+inline int32_t Value::Get<int32_t>() const {
+  return int32_value();
+}
+template <>
+inline int64_t Value::Get<int64_t>() const {
+  return int64_value();
+}
+template <>
+inline uint32_t Value::Get<uint32_t>() const {
+  return uint32_value();
+}
+template <>
+inline uint64_t Value::Get<uint64_t>() const {
+  return uint64_value();
+}
 template <> inline bool Value::Get<bool>() const { return bool_value(); }
 template <> inline float Value::Get<float>() const { return float_value(); }
 template <> inline double Value::Get<double>() const { return double_value(); }

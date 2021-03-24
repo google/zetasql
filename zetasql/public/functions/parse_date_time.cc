@@ -20,6 +20,7 @@
 #include <time.h>
 
 #include <cctype>
+#include <cstdint>
 #include <limits>
 #include <string>
 
@@ -27,6 +28,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/parse_date_time_utils.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include <cstdint>
@@ -46,6 +48,10 @@ namespace functions {
 
 namespace {
 
+using parse_date_time_utils::ConvertTimeToTimestamp;
+using parse_date_time_utils::ParseInt;
+using parse_date_time_utils::ParseSubSeconds;
+
 constexpr int64_t kNumMillisPerSecond = 1000;
 
 static std::string TimeZoneOffsetToString(int minutes_offset) {
@@ -56,73 +62,6 @@ static std::string TimeZoneOffsetToString(int minutes_offset) {
                         (minutes_offset < 0 ? '-' : '+'), timezone_hour,
                         timezone_minute);
   return offset_string;
-}
-
-// Converts Time to int64_t microseconds and validates the value is within
-// the supported ZetaSQL range.
-static bool ConvertTimeToTimestamp(absl::Time time, int64_t* timestamp) {
-  *timestamp = absl::ToUnixMicros(time);
-  return IsValidTimestamp(*timestamp, kMicroseconds);
-}
-
-static const char kDigits[] = "0123456789";
-
-// The input const char* 'dp' must be not nullptr and it must be smaller than
-// 'end_of_data'. Otherwise, nullptr will be returned.
-// The returned const char* can be nullptr or an address that in
-// ['dp', 'end_of_data']. When it is in ('dp', 'end_of_data'], which means the
-// integer is parsed successfully. Especially, when the returned const char* is
-// 'end_of_data', it means that all the 'timestamp_string' is parsed.
-template <typename T>
-static const char* ParseInt(const char* dp, const char* end_of_data,
-                            int max_width, T min, T max, T* vp) {
-  if (dp == nullptr || dp >= end_of_data) {
-    return nullptr;
-  }
-
-  const T kmin = std::numeric_limits<T>::min();
-  bool neg = false;
-  T value = 0;
-  if (*dp == '-') {
-    neg = true;
-    if (max_width <= 0 || --max_width != 0) {
-      ++dp;
-    } else {
-      return nullptr;  // max_width was 1
-    }
-  }
-  if (const char* const bp = dp) {
-    const char* cp;
-    while (dp < end_of_data && (cp = strchr(kDigits, *dp))) {
-      int d = static_cast<int>(cp - kDigits);
-      if (d >= 10) break;
-      if (ABSL_PREDICT_FALSE(value < kmin / 10)) {
-        return nullptr;
-      }
-      value *= 10;
-      if (ABSL_PREDICT_FALSE(value < kmin + d)) {
-        return nullptr;
-      }
-      value -= d;
-      dp += 1;
-      if (max_width > 0 && --max_width == 0) break;
-    }
-    if (dp != bp && (neg || value != kmin)) {
-      if (!neg || value != 0) {
-        if (!neg) value = -value;  // make positive
-        if (min <= value && value <= max) {
-          *vp = value;
-        } else {
-          return nullptr;
-        }
-      } else {
-        return nullptr;
-      }
-    } else {
-      return nullptr;
-    }
-  }
-  return dp;
 }
 
 // Verify that the <data> is exactly equal to <chr> and increment past it;
@@ -172,51 +111,18 @@ static const char* ParseZone(const char* dp, std::string* zone,
   return dp;
 }
 
-static const int64_t powers_of_ten[] = {1, 10, 100, 1000, 10000, 100000, 1000000,
-                                      10000000, 100000000, 1000000000};
-
-// Parses up to <max_digits> (0 means unbounded), and returns a Duration
-// (digits beyond the given precision are truncated).
-static const char* ParseSubSeconds(const char* dp, const char* end_of_data,
-                                   int max_digits, TimestampScale scale,
-                                   absl::Duration* subseconds) {
-  if (dp != nullptr) {
-    if (dp < end_of_data && *dp == '.') {
-      int64_t parsed_value = 0;
-      int64_t num_digits = 0;
-      const char* const bp = ++dp;
-      const char* cp;
-      while (dp < end_of_data &&
-             (cp = strchr(kDigits, *dp)) &&
-             (max_digits == 0 || num_digits < max_digits)) {
-        int d = static_cast<int>(cp - kDigits);
-        if (d < 0 || d >= 10) break;  // Not a digit.
-        ++dp;
-        if (num_digits >= scale) {
-          // Consume but ignore digits beyond the given precision.
-          continue;
-        }
-        parsed_value *= 10;
-        parsed_value += d;
-        num_digits++;
-      }
-      if (dp != bp) {
-        if (num_digits < scale) {
-          // We consumed less than precision digits, so widen parsed_value to
-          // given precision.
-          parsed_value *= powers_of_ten[scale - num_digits];
-        }
-        if (scale == kMicroseconds) {
-          *subseconds = absl::Microseconds(parsed_value);
-        } else {
-          // NANO precision.
-          *subseconds = absl::Nanoseconds(parsed_value);
-        }
-      } else {
-        dp = nullptr;
-      }
-    }
+// Only parses up to <max_digits>, and ignores digits beyond <scale>.  Stops
+// parsing if a non-digit character is encountered.
+static const char* ParseSubSecondsIfStartingWithPoint(
+    const char* dp, const char* end_of_data, int max_digits,
+    TimestampScale scale, absl::Duration* subseconds) {
+  if (dp == nullptr) {
+    return nullptr;
+  } else if (end_of_data > dp && *dp == '.') {
+    // Start to parse the integer part from dp + 1
+    return ParseSubSeconds(dp + 1, end_of_data, max_digits, scale, subseconds);
   }
+
   return dp;
 }
 
@@ -571,8 +477,8 @@ static absl::Status ParseTime(absl::string_view format,
         }
         if (fmt + 1 < end_of_fmt && *fmt == '*' && *(fmt + 1) == 'S') {
           data = ParseInt(data, end_of_data, 2, 0, 60, &tm.tm_sec);
-          data = ParseSubSeconds(data, end_of_data, 0 /* max_digits */, scale,
-                                 &subseconds);
+          data = ParseSubSecondsIfStartingWithPoint(
+              data, end_of_data, 0 /* max_digits */, scale, &subseconds);
           fmt += 2;
           continue;
         }
@@ -600,8 +506,8 @@ static absl::Status ParseTime(absl::string_view format,
             if (*np++ == 'S') {
               data = ParseInt(data, end_of_data, 2, 0, 60, &tm.tm_sec);
               if (n > 0) {
-                data = ParseSubSeconds(data, end_of_data, n, scale,
-                                       &subseconds);
+                data = ParseSubSecondsIfStartingWithPoint(data, end_of_data, n,
+                                                          scale, &subseconds);
               }
               fmt = np;
               continue;

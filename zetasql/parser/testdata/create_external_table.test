@@ -1,0 +1,840 @@
+create external table t1
+options (a=b, c="def")
+--
+CreateExternalTableStatement [0-47]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  OptionsList [33-47]
+    OptionsEntry [34-37]
+      Identifier(a) [34-35]
+      PathExpression [36-37]
+        Identifier(b) [36-37]
+    OptionsEntry [39-46]
+      Identifier(c) [39-40]
+      StringLiteral("def") [41-46]
+--
+CREATE EXTERNAL TABLE t1 OPTIONS(a = b, c = "def")
+==
+
+create {{temp|temporary|public|private}} external table a.b.c.t1
+options (size=10)
+--
+ALTERNATION GROUP: temp
+--
+CreateExternalTableStatement(is_temp) [0-53]
+  PathExpression [27-35]
+    Identifier(a) [27-28]
+    Identifier(b) [29-30]
+    Identifier(c) [31-32]
+    Identifier(t1) [33-35]
+  OptionsList [44-53]
+    OptionsEntry [45-52]
+      Identifier(size) [45-49]
+      IntLiteral(10) [50-52]
+--
+CREATE TEMP EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
+--
+ALTERNATION GROUP: temporary
+--
+CreateExternalTableStatement(is_temp) [0-58]
+  PathExpression [32-40]
+    Identifier(a) [32-33]
+    Identifier(b) [34-35]
+    Identifier(c) [36-37]
+    Identifier(t1) [38-40]
+  OptionsList [49-58]
+    OptionsEntry [50-57]
+      Identifier(size) [50-54]
+      IntLiteral(10) [55-57]
+--
+CREATE TEMP EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
+--
+ALTERNATION GROUP: public
+--
+CreateExternalTableStatement(is_public) [0-55]
+  PathExpression [29-37]
+    Identifier(a) [29-30]
+    Identifier(b) [31-32]
+    Identifier(c) [33-34]
+    Identifier(t1) [35-37]
+  OptionsList [46-55]
+    OptionsEntry [47-54]
+      Identifier(size) [47-51]
+      IntLiteral(10) [52-54]
+--
+CREATE PUBLIC EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
+--
+ALTERNATION GROUP: private
+--
+CreateExternalTableStatement(is_private) [0-56]
+  PathExpression [30-38]
+    Identifier(a) [30-31]
+    Identifier(b) [32-33]
+    Identifier(c) [34-35]
+    Identifier(t1) [36-38]
+  OptionsList [47-56]
+    OptionsEntry [48-55]
+      Identifier(size) [48-52]
+      IntLiteral(10) [53-55]
+--
+CREATE PRIVATE EXTERNAL TABLE a.b.c.t1 OPTIONS(size = 10)
+==
+
+create temp external table a.b.c.t1
+(size=10)
+--
+ERROR: Syntax error: Unexpected "=" [at 2:6]
+(size=10)
+     ^
+==
+
+create {{|or replace}} {{|temporary|temp}} external table {{|if not exists}} T
+options ()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-37]
+  PathExpression [25-26]
+    Identifier(T) [25-26]
+  OptionsList [35-37]
+--
+CREATE EXTERNAL TABLE T OPTIONS()
+--
+ALTERNATION GROUP: if not exists
+--
+CreateExternalTableStatement(is_if_not_exists) [0-50]
+  PathExpression [38-39]
+    Identifier(T) [38-39]
+  OptionsList [48-50]
+--
+CREATE EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
+--
+ALTERNATION GROUP: temporary,
+--
+CreateExternalTableStatement(is_temp) [0-46]
+  PathExpression [34-35]
+    Identifier(T) [34-35]
+  OptionsList [44-46]
+--
+CREATE TEMP EXTERNAL TABLE T OPTIONS()
+--
+ALTERNATION GROUP: temporary,if not exists
+--
+CreateExternalTableStatement(is_temp, is_if_not_exists) [0-59]
+  PathExpression [47-48]
+    Identifier(T) [47-48]
+  OptionsList [57-59]
+--
+CREATE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
+--
+ALTERNATION GROUP: temp,
+--
+CreateExternalTableStatement(is_temp) [0-41]
+  PathExpression [29-30]
+    Identifier(T) [29-30]
+  OptionsList [39-41]
+--
+CREATE TEMP EXTERNAL TABLE T OPTIONS()
+--
+ALTERNATION GROUP: temp,if not exists
+--
+CreateExternalTableStatement(is_temp, is_if_not_exists) [0-54]
+  PathExpression [42-43]
+    Identifier(T) [42-43]
+  OptionsList [52-54]
+--
+CREATE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
+--
+ALTERNATION GROUP: or replace,,
+--
+CreateExternalTableStatement(is_or_replace) [0-47]
+  PathExpression [35-36]
+    Identifier(T) [35-36]
+  OptionsList [45-47]
+--
+CREATE OR REPLACE EXTERNAL TABLE T OPTIONS()
+--
+ALTERNATION GROUP: or replace,,if not exists
+--
+CreateExternalTableStatement(is_or_replace, is_if_not_exists) [0-60]
+  PathExpression [48-49]
+    Identifier(T) [48-49]
+  OptionsList [58-60]
+--
+CREATE OR REPLACE EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
+--
+ALTERNATION GROUP: or replace,temporary,
+--
+CreateExternalTableStatement(is_temp, is_or_replace) [0-56]
+  PathExpression [44-45]
+    Identifier(T) [44-45]
+  OptionsList [54-56]
+--
+CREATE OR REPLACE TEMP EXTERNAL TABLE T OPTIONS()
+--
+ALTERNATION GROUP: or replace,temporary,if not exists
+--
+CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-69]
+  PathExpression [57-58]
+    Identifier(T) [57-58]
+  OptionsList [67-69]
+--
+CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
+--
+ALTERNATION GROUP: or replace,temp,
+--
+CreateExternalTableStatement(is_temp, is_or_replace) [0-51]
+  PathExpression [39-40]
+    Identifier(T) [39-40]
+  OptionsList [49-51]
+--
+CREATE OR REPLACE TEMP EXTERNAL TABLE T OPTIONS()
+--
+ALTERNATION GROUP: or replace,temp,if not exists
+--
+CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-64]
+  PathExpression [52-53]
+    Identifier(T) [52-53]
+  OptionsList [62-64]
+--
+CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS T OPTIONS()
+==
+
+# The error is a bit strange here because of the lookahead we need to use.
+create temporary or replace external table t
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword OR [at 1:18]
+create temporary or replace external table t
+                 ^
+==
+
+create external table t1
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:25]
+create external table t1
+                        ^
+==
+
+create external table t1
+as select 1
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:25]
+create external table t1
+                        ^
+==
+
+create external table t1
+options ()
+as select 1
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 3:1]
+as select 1
+^
+==
+
+create external table T if not exists options () as select 1
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:24]
+create external table T if not exists options () as select 1
+                       ^
+==
+
+# CREATE EXTERNAL TABLE FUNCTION.
+# strange error throws since parser is parsing for EXTERNAL TABLE FUNCTION
+# (AMBIGUOUS CASE 4 in parser documentation)
+# and assumes options is the name of the function so () should be a valid
+# opt_table_element_list
+create external table function options();
+--
+ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
+create external table function options();
+       ^
+==
+
+create external table `function` options();
+--
+CreateExternalTableStatement [0-42]
+  PathExpression [22-32]
+    Identifier(`function`) [22-32]
+  OptionsList [40-42]
+--
+CREATE EXTERNAL TABLE `function` OPTIONS()
+==
+
+create external table function() options();
+--
+ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
+create external table function() options();
+       ^
+==
+
+create external table function(x int64) options();
+--
+ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
+create external table function(x int64) options();
+       ^
+==
+
+# CREATE EXTERNAL TABLE FUNCTION is not supported.
+create external table function option as select 1;
+--
+ERROR: Syntax error: CREATE EXTERNAL TABLE FUNCTION is not supported [at 1:8]
+create external table function option as select 1;
+       ^
+==
+
+create external table `function` options();
+--
+CreateExternalTableStatement [0-42]
+  PathExpression [22-32]
+    Identifier(`function`) [22-32]
+  OptionsList [40-42]
+--
+CREATE EXTERNAL TABLE `function` OPTIONS()
+==
+
+create {{|temp|temporary|public|private}} external table t(x int64)
+options ()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-44]
+  PathExpression [23-24]
+    Identifier(t) [23-24]
+  TableElementList [24-33]
+    ColumnDefinition [25-32]
+      Identifier(x) [25-26]
+      SimpleColumnSchema [27-32]
+        PathExpression [27-32]
+          Identifier(int64) [27-32]
+  OptionsList [42-44]
+--
+CREATE EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: temp
+--
+CreateExternalTableStatement(is_temp) [0-48]
+  PathExpression [27-28]
+    Identifier(t) [27-28]
+  TableElementList [28-37]
+    ColumnDefinition [29-36]
+      Identifier(x) [29-30]
+      SimpleColumnSchema [31-36]
+        PathExpression [31-36]
+          Identifier(int64) [31-36]
+  OptionsList [46-48]
+--
+CREATE TEMP EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: temporary
+--
+CreateExternalTableStatement(is_temp) [0-53]
+  PathExpression [32-33]
+    Identifier(t) [32-33]
+  TableElementList [33-42]
+    ColumnDefinition [34-41]
+      Identifier(x) [34-35]
+      SimpleColumnSchema [36-41]
+        PathExpression [36-41]
+          Identifier(int64) [36-41]
+  OptionsList [51-53]
+--
+CREATE TEMP EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: public
+--
+CreateExternalTableStatement(is_public) [0-50]
+  PathExpression [29-30]
+    Identifier(t) [29-30]
+  TableElementList [30-39]
+    ColumnDefinition [31-38]
+      Identifier(x) [31-32]
+      SimpleColumnSchema [33-38]
+        PathExpression [33-38]
+          Identifier(int64) [33-38]
+  OptionsList [48-50]
+--
+CREATE PUBLIC EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: private
+--
+CreateExternalTableStatement(is_private) [0-51]
+  PathExpression [30-31]
+    Identifier(t) [30-31]
+  TableElementList [31-40]
+    ColumnDefinition [32-39]
+      Identifier(x) [32-33]
+      SimpleColumnSchema [34-39]
+        PathExpression [34-39]
+          Identifier(int64) [34-39]
+  OptionsList [49-51]
+--
+CREATE PRIVATE EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+==
+
+create {{|or replace}} {{|temp}} external table {{|if not exists}} t(x int64)
+options ()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-46]
+  PathExpression [25-26]
+    Identifier(t) [25-26]
+  TableElementList [26-35]
+    ColumnDefinition [27-34]
+      Identifier(x) [27-28]
+      SimpleColumnSchema [29-34]
+        PathExpression [29-34]
+          Identifier(int64) [29-34]
+  OptionsList [44-46]
+--
+CREATE EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: if not exists
+--
+CreateExternalTableStatement(is_if_not_exists) [0-59]
+  PathExpression [38-39]
+    Identifier(t) [38-39]
+  TableElementList [39-48]
+    ColumnDefinition [40-47]
+      Identifier(x) [40-41]
+      SimpleColumnSchema [42-47]
+        PathExpression [42-47]
+          Identifier(int64) [42-47]
+  OptionsList [57-59]
+--
+CREATE EXTERNAL TABLE IF NOT EXISTS t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: temp,
+--
+CreateExternalTableStatement(is_temp) [0-50]
+  PathExpression [29-30]
+    Identifier(t) [29-30]
+  TableElementList [30-39]
+    ColumnDefinition [31-38]
+      Identifier(x) [31-32]
+      SimpleColumnSchema [33-38]
+        PathExpression [33-38]
+          Identifier(int64) [33-38]
+  OptionsList [48-50]
+--
+CREATE TEMP EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: temp,if not exists
+--
+CreateExternalTableStatement(is_temp, is_if_not_exists) [0-63]
+  PathExpression [42-43]
+    Identifier(t) [42-43]
+  TableElementList [43-52]
+    ColumnDefinition [44-51]
+      Identifier(x) [44-45]
+      SimpleColumnSchema [46-51]
+        PathExpression [46-51]
+          Identifier(int64) [46-51]
+  OptionsList [61-63]
+--
+CREATE TEMP EXTERNAL TABLE IF NOT EXISTS t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: or replace,,
+--
+CreateExternalTableStatement(is_or_replace) [0-56]
+  PathExpression [35-36]
+    Identifier(t) [35-36]
+  TableElementList [36-45]
+    ColumnDefinition [37-44]
+      Identifier(x) [37-38]
+      SimpleColumnSchema [39-44]
+        PathExpression [39-44]
+          Identifier(int64) [39-44]
+  OptionsList [54-56]
+--
+CREATE OR REPLACE EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: or replace,,if not exists
+--
+CreateExternalTableStatement(is_or_replace, is_if_not_exists) [0-69]
+  PathExpression [48-49]
+    Identifier(t) [48-49]
+  TableElementList [49-58]
+    ColumnDefinition [50-57]
+      Identifier(x) [50-51]
+      SimpleColumnSchema [52-57]
+        PathExpression [52-57]
+          Identifier(int64) [52-57]
+  OptionsList [67-69]
+--
+CREATE OR REPLACE EXTERNAL TABLE IF NOT EXISTS t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: or replace,temp,
+--
+CreateExternalTableStatement(is_temp, is_or_replace) [0-60]
+  PathExpression [39-40]
+    Identifier(t) [39-40]
+  TableElementList [40-49]
+    ColumnDefinition [41-48]
+      Identifier(x) [41-42]
+      SimpleColumnSchema [43-48]
+        PathExpression [43-48]
+          Identifier(int64) [43-48]
+  OptionsList [58-60]
+--
+CREATE OR REPLACE TEMP EXTERNAL TABLE t
+(
+  x int64
+) OPTIONS()
+--
+ALTERNATION GROUP: or replace,temp,if not exists
+--
+CreateExternalTableStatement(is_temp, is_or_replace, is_if_not_exists) [0-73]
+  PathExpression [52-53]
+    Identifier(t) [52-53]
+  TableElementList [53-62]
+    ColumnDefinition [54-61]
+      Identifier(x) [54-55]
+      SimpleColumnSchema [56-61]
+        PathExpression [56-61]
+          Identifier(int64) [56-61]
+  OptionsList [71-73]
+--
+CREATE OR REPLACE TEMP EXTERNAL TABLE IF NOT EXISTS t
+(
+  x int64
+) OPTIONS()
+==
+
+create external table t1(element1 bool, element2 string)
+options (a='{"jsonkey": "jsonvalue"}', c="def")
+--
+CreateExternalTableStatement [0-104]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  TableElementList [24-56]
+    ColumnDefinition [25-38]
+      Identifier(element1) [25-33]
+      SimpleColumnSchema [34-38]
+        PathExpression [34-38]
+          Identifier(bool) [34-38]
+    ColumnDefinition [40-55]
+      Identifier(element2) [40-48]
+      SimpleColumnSchema [49-55]
+        PathExpression [49-55]
+          Identifier(string) [49-55]
+  OptionsList [65-104]
+    OptionsEntry [66-94]
+      Identifier(a) [66-67]
+      StringLiteral('{"jsonkey": "jsonvalue"}') [68-94]
+    OptionsEntry [96-103]
+      Identifier(c) [96-97]
+      StringLiteral("def") [98-103]
+--
+CREATE EXTERNAL TABLE t1
+(
+  element1 bool,
+  element2 string
+) OPTIONS(a = '{"jsonkey": "jsonvalue"}', c = "def")
+==
+
+create external table t1(x int64)
+
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:34]
+create external table t1(x int64)
+                                 ^
+==
+
+create external table t1(x int64 NOT NULL)
+options(a=b)
+--
+CreateExternalTableStatement [0-55]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  TableElementList [24-42]
+    ColumnDefinition [25-41]
+      Identifier(x) [25-26]
+      SimpleColumnSchema [27-41]
+        PathExpression [27-32]
+          Identifier(int64) [27-32]
+        ColumnAttributeList [33-41]
+          NotNullColumnAttribute [33-41]
+  OptionsList [50-55]
+    OptionsEntry [51-54]
+      Identifier(a) [51-52]
+      PathExpression [53-54]
+        Identifier(b) [53-54]
+--
+CREATE EXTERNAL TABLE t1
+(
+  x int64 NOT NULL
+) OPTIONS(a = b)
+==
+
+create external table projectid.datasetid.tablename(x int64, PRIMARY KEY(x))
+options (a=b)
+--
+CreateExternalTableStatement [0-90]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  TableElementList [51-76]
+    ColumnDefinition [52-59]
+      Identifier(x) [52-53]
+      SimpleColumnSchema [54-59]
+        PathExpression [54-59]
+          Identifier(int64) [54-59]
+    PrimaryKey [61-75]
+      ColumnList [72-75]
+        Identifier(x) [73-74]
+  OptionsList [85-90]
+    OptionsEntry [86-89]
+      Identifier(a) [86-87]
+      PathExpression [88-89]
+        Identifier(b) [88-89]
+--
+
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64,
+  PRIMARY KEY(x)
+) OPTIONS(a = b)
+==
+
+create external table projectid.datasetid.tablename
+partition by (key)
+options (a=b)
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:52]
+create external table projectid.datasetid.tablename
+                                                   ^
+==
+
+create external table projectid.datasetid.tablename
+cluster by y
+options ()
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:52]
+create external table projectid.datasetid.tablename
+                                                   ^
+==
+
+create external table projectid.datasetid.tablename(x int64, y int64)
+partitioned by x
+options ()
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:70]
+create external table projectid.datasetid.tablename(x int64, y int64)
+                                                                     ^
+==
+
+create external table a.b.c.T()
+options ()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:31]
+create external table a.b.c.T()
+                              ^
+==
+
+create external table T
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:24]
+create external table T
+                       ^
+==
+
+create external table a.b.c.T(x int64)
+clustered by x
+options ()
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 1:39]
+create external table a.b.c.T(x int64)
+                                      ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+create external table t1-2
+options (a=b, c="def")
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `t1-2` [at 1:23]
+create external table t1-2
+                      ^
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-49]
+  PathExpression [22-26]
+    Identifier(`t1-2`) [22-26]
+  OptionsList [35-49]
+    OptionsEntry [36-39]
+      Identifier(a) [36-37]
+      PathExpression [38-39]
+        Identifier(b) [38-39]
+    OptionsEntry [41-48]
+      Identifier(c) [41-42]
+      StringLiteral("def") [43-48]
+--
+CREATE EXTERNAL TABLE `t1-2` OPTIONS(a = b, c = "def")
+==
+
+create external table projectid.datasetid.tablename
+with partition columns
+options ()
+--
+CreateExternalTableStatement [0-85]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  WithPartitionColumnsClause [52-74]
+  OptionsList [83-85]
+--
+
+CREATE EXTERNAL TABLE projectid.datasetid.tablename WITH PARTITION COLUMNS OPTIONS()
+==
+
+create external table projectid.datasetid.tablename(x int64)
+with partition columns (y int64, z string)
+options ()
+--
+CreateExternalTableStatement [0-114]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  TableElementList [51-60]
+    ColumnDefinition [52-59]
+      Identifier(x) [52-53]
+      SimpleColumnSchema [54-59]
+        PathExpression [54-59]
+          Identifier(int64) [54-59]
+  WithPartitionColumnsClause [61-103]
+    TableElementList [84-103]
+      ColumnDefinition [85-92]
+        Identifier(y) [85-86]
+        SimpleColumnSchema [87-92]
+          PathExpression [87-92]
+            Identifier(int64) [87-92]
+      ColumnDefinition [94-102]
+        Identifier(z) [94-95]
+        SimpleColumnSchema [96-102]
+          PathExpression [96-102]
+            Identifier(string) [96-102]
+  OptionsList [112-114]
+--
+
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64
+) WITH PARTITION COLUMNS(
+  y int64,
+  z string
+) OPTIONS()
+==
+
+create external table projectid.datasetid.tablename
+with partition columns (y int64, PRIMARY KEY(y))
+options ()
+--
+CreateExternalTableStatement [0-111]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  WithPartitionColumnsClause [52-100]
+    TableElementList [75-100]
+      ColumnDefinition [76-83]
+        Identifier(y) [76-77]
+        SimpleColumnSchema [78-83]
+          PathExpression [78-83]
+            Identifier(int64) [78-83]
+      PrimaryKey [85-99]
+        ColumnList [96-99]
+          Identifier(y) [97-98]
+  OptionsList [109-111]
+--
+
+CREATE EXTERNAL TABLE projectid.datasetid.tablename WITH PARTITION COLUMNS(
+  y int64,
+  PRIMARY KEY(y)
+) OPTIONS()
+==
+
+create external table projectid.datasetid.tablename(x int64, PRIMARY KEY(x))
+with partition column (CHECK(x > 0))
+options ()
+--
+ERROR: Syntax error: Expected keyword COLUMNS but got keyword COLUMN [at 2:16]
+with partition column (CHECK(x > 0))
+               ^
+==
+
+create external table projectid.datasetid.tablename(x int64, PRIMARY KEY(x))
+with partition columns (CHECK(x > 0))
+options ()
+--
+CreateExternalTableStatement [0-125]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  TableElementList [51-76]
+    ColumnDefinition [52-59]
+      Identifier(x) [52-53]
+      SimpleColumnSchema [54-59]
+        PathExpression [54-59]
+          Identifier(int64) [54-59]
+    PrimaryKey [61-75]
+      ColumnList [72-75]
+        Identifier(x) [73-74]
+  WithPartitionColumnsClause [77-114]
+    TableElementList [100-114]
+      CheckConstraint(ENFORCED) [101-113]
+        BinaryExpression(>) [107-112]
+          PathExpression [107-108]
+            Identifier(x) [107-108]
+          IntLiteral(0) [111-112]
+  OptionsList [123-125]
+--
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64,
+  PRIMARY KEY(x)
+) WITH PARTITION COLUMNS(
+  CHECK(x > 0) ENFORCED
+) OPTIONS()
+==

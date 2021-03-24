@@ -127,8 +127,6 @@ constexpr char ::zetasql::parser::ZetaSqlFlexTokenizer::kEofSentinelInput[];
    below.
 */
 
-bit_shift_op                <<|>>
-comparison_op               =|<=|>=|<|>|<>|!=
 decimal_digit               [0-9]
 decimal_digits              {decimal_digit}+
 opt_decimal_digits          {decimal_digit}*
@@ -478,6 +476,7 @@ immediate { return BisonParserImpl::token::KW_IMMEDIATE; }
 immutable { return BisonParserImpl::token::KW_IMMUTABLE; }
 import { return BisonParserImpl::token::KW_IMPORT; }
 in { return BisonParserImpl::token::KW_IN; }
+include { return BisonParserImpl::token::KW_INCLUDE; }
 inout { return BisonParserImpl::token::KW_INOUT; }
 index { return BisonParserImpl::token::KW_INDEX; }
 inner { return BisonParserImpl::token::KW_INNER; }

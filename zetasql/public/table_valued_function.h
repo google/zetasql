@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_TABLE_VALUED_FUNCTION_H_
 
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -629,6 +630,20 @@ class TVFSignature {
       }
     }
     return ret;
+  }
+
+  // Returns AnonymizationInfo related to a resolved call of this TVF.
+  // For further details, see:
+  //
+  // (broken link).
+  //
+  // This method only returns AnonymizationInfo for TVFs that produce private
+  // user data and that support anonymization queries.
+  virtual std::optional<const AnonymizationInfo> GetAnonymizationInfo() const {
+    return std::nullopt;
+  }
+  bool SupportsAnonymization() const {
+    return GetAnonymizationInfo().has_value();
   }
 
   std::string DebugString() const { return DebugString(/*verbose=*/false); }

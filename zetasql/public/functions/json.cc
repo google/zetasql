@@ -15,6 +15,7 @@
 
 #include "zetasql/public/functions/json.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>

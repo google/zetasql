@@ -18,6 +18,8 @@
 #define ZETASQL_LOCAL_SERVICE_LOCAL_SERVICE_H_
 
 #include <stddef.h>
+
+#include <cstdint>
 #include <memory>
 
 #include "zetasql/local_service/local_service.pb.h"
@@ -34,6 +36,8 @@ namespace local_service {
 
 class PreparedExpressionPool;
 class PreparedExpressionState;
+class RegisteredDescriptorPoolState;
+class RegisteredDescriptorPoolPool;
 class RegisteredCatalogPool;
 class RegisteredCatalogState;
 
@@ -68,13 +72,19 @@ class ZetaSqlLocalServiceImpl {
   absl::Status Analyze(const AnalyzeRequest& request,
                        AnalyzeResponse* response);
 
-  absl::Status AnalyzeImpl(const AnalyzeRequest& request,
-                           RegisteredCatalogState* catalog_state,
-                           AnalyzeResponse* response);
+  absl::Status AnalyzeImpl(
+      const AnalyzeRequest& request,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      // Analyzer requires a non-const catalog, however
+      // is not mutated in practice.
+      Catalog* catalog, AnalyzeResponse* response);
 
-  absl::Status AnalyzeExpressionImpl(const AnalyzeRequest& request,
-                                     RegisteredCatalogState* catalog_state,
-                                     AnalyzeResponse* response);
+  absl::Status AnalyzeExpressionImpl(
+      const AnalyzeRequest& request,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      // Analyzer requires a non-const catalog, however
+      // is not mutated in practice.
+      Catalog* catalog, AnalyzeResponse* response);
 
   absl::Status BuildSql(const BuildSqlRequest& request,
                         BuildSqlResponse* response);
@@ -89,10 +99,10 @@ class ZetaSqlLocalServiceImpl {
       const ExtractTableNamesFromNextStatementRequest& request,
       ExtractTableNamesFromNextStatementResponse* response);
 
-  absl::Status SerializeResolvedOutput(const AnalyzerOutput* output,
-                                       absl::string_view statement,
-                                       AnalyzeResponse* response,
-                                       RegisteredCatalogState* state);
+  absl::Status SerializeResolvedOutput(
+      const AnalyzerOutput* output,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      absl::string_view statement, AnalyzeResponse* response);
 
   absl::Status FormatSql(const FormatSqlRequest& request,
                          FormatSqlResponse* response);
@@ -109,6 +119,18 @@ class ZetaSqlLocalServiceImpl {
                                   AnalyzerOptionsProto* response);
 
  private:
+  absl::Status GetDescriptorPools(
+      const DescriptorPoolListProto& descriptor_pool_list,
+      std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>&
+          pool_states_out);
+
+  template <typename RequestProto>
+  absl::Status GetCatalogState(
+      const RequestProto& request,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      std::shared_ptr<RegisteredCatalogState>& state);
+
+  std::unique_ptr<RegisteredDescriptorPoolPool> registered_descriptor_pools_;
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
 

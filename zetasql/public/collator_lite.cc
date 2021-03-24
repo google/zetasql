@@ -14,8 +14,11 @@
 // limitations under the License.
 //
 
+#include <cstdint>
+
 #include "zetasql/public/collator.h"
 #include "absl/base/thread_annotations.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
@@ -29,7 +32,7 @@ class CaseSensitiveUnicodeCollator : public ZetaSqlCollator {
   CaseSensitiveUnicodeCollator() {}
 
   int64_t CompareUtf8(absl::string_view s1, absl::string_view s2,
-                    absl::Status* error) const override {
+                      absl::Status* error) const override {
     const int result = s1.compare(s2);
     return result < 0 ? -1 : (result > 0 ? 1 : 0);
   }
@@ -40,7 +43,8 @@ class CaseSensitiveUnicodeCollator : public ZetaSqlCollator {
 class CollatorRegistration {
  public:
   using CreateFromCollationNameFn =
-      std::function<zetasql_base::StatusOr<ZetaSqlCollator*>(absl::string_view)>;
+      std::function<zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>(
+          absl::string_view collation_name)>;
 
   CollatorRegistration() {
     registered_fn_ = &CollatorRegistration::DefaultCreateFromCollationNameFn;
@@ -58,8 +62,8 @@ class CollatorRegistration {
     registered_fn_ = fn;
   }
 
-  zetasql_base::StatusOr<ZetaSqlCollator*> CreateFromCollationName(
-      absl::string_view collation_name) {
+  zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+  CreateFromCollationName(absl::string_view collation_name) {
     absl::MutexLock lock(&mu_);
     return registered_fn_(collation_name);
   }
@@ -67,15 +71,16 @@ class CollatorRegistration {
   // This default function returns a basic case-sensitive Unicode collator
   // if that's what is requested, and fails otherwise. The ICU
   // implementation is needed for any more complex collations.
-  static zetasql_base::StatusOr<ZetaSqlCollator*> DefaultCreateFromCollationNameFn(
-      absl::string_view collation_name) {
+  static zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+  DefaultCreateFromCollationNameFn(absl::string_view collation_name) {
     if (collation_name == "unicode" || collation_name == "unicode:cs") {
-      return new CaseSensitiveUnicodeCollator();
+      return absl::make_unique<CaseSensitiveUnicodeCollator>();
     }
-    return zetasql_base::UnimplementedErrorBuilder()
-           << "The requested collation name \"" << collation_name
-           << "\" requires a collator implementation that has not been "
-              "registered in this binary.";
+    // Should match zetasql::MakeEvalError(), but we want to avoid pulling
+    // in those dependencies.
+    return ::zetasql_base::OutOfRangeErrorBuilder()
+           << "Invalid collation_string '" << collation_name << "': "
+           << " collator is not registered in this binary";
   }
 
  private:
@@ -90,9 +95,8 @@ class CollatorRegistration {
 // has a dependency on :collator_lite).
 ZetaSqlCollator::~ZetaSqlCollator() {}
 
-zetasql_base::StatusOr<ZetaSqlCollator*>
-ZetaSqlCollator::CreateFromCollationNameLite(
-    const std::string& collation_name) {
+zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollatorLite(
+    absl::string_view collation_name) {
   return CollatorRegistration::GetInstance()->CreateFromCollationName(
       collation_name);
 }
@@ -104,10 +108,24 @@ void RegisterDefaultCollatorImpl() {
 }
 
 void RegisterIcuCollatorImpl(
-    std::function<zetasql_base::StatusOr<ZetaSqlCollator*>(absl::string_view)>
+    std::function<zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>(
+        absl::string_view)>
         create_fn) {
   CollatorRegistration::GetInstance()->SetCreateFromCollationNameFn(create_fn);
 }
 }  // namespace internal
+
+// static
+zetasql_base::StatusOr<ZetaSqlCollator*>
+ZetaSqlCollator::CreateFromCollationNameLite(
+    const std::string& collation_name) {
+  zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator =
+      MakeSqlCollatorLite(collation_name);
+  if (collator.ok()) {
+    return const_cast<ZetaSqlCollator*>(collator->release());
+  } else {
+    return collator.status();
+  }
+}
 
 }  // namespace zetasql

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/string.h"
 
+#include <cstdint>
 #include <limits>
 
 #include "zetasql/base/logging.h"
@@ -134,10 +135,10 @@ TEST_P(StringTemplateTest, Testlib) {
   if (function == "strpos") {
     if (args[0].type_kind() == TYPE_STRING) {
       TestFunction<int64_t>(&StrposUtf8, param.params, args[0].string_value(),
-                          args[1].string_value());
+                            args[1].string_value());
     } else {
       TestFunction<int64_t>(&StrposBytes, param.params, args[0].bytes_value(),
-                          args[1].bytes_value());
+                            args[1].bytes_value());
     }
   } else if (function == "length") {
     if (args[0].type_kind() == TYPE_STRING) {
@@ -349,7 +350,7 @@ TEST_P(StringUnicodeTest, Testlib) {
   const std::vector<Value>& args = param.params.params();
   if (args[0].is_null()) return;
   TestFunction<int64_t>(&FirstCharToCodePoint, param.params,
-                      args[0].string_value());
+                        args[0].string_value());
 }
 
 INSTANTIATE_TEST_SUITE_P(String, StringUnicodeTest,
@@ -382,12 +383,12 @@ TEST_P(InstrTemplateTest, Testlib) {
 
   if (args[0].type_kind() == TYPE_STRING) {
     TestFunction<int64_t>(&StrPosOccurrenceUtf8, param.params,
-                        args[0].string_value(), args[1].string_value(), pos,
-                        occurrence);
+                          args[0].string_value(), args[1].string_value(), pos,
+                          occurrence);
   } else {
     TestFunction<int64_t>(&StrPosOccurrenceBytes, param.params,
-                        args[0].bytes_value(), args[1].bytes_value(), pos,
-                        occurrence);
+                          args[0].bytes_value(), args[1].bytes_value(), pos,
+                          occurrence);
   }
 }
 
@@ -869,7 +870,8 @@ INSTANTIATE_TEST_SUITE_P(String, ReverseTest,
 TEST(RepeatTest, OutputSizeTest) {
   absl::Status status;
   std::string output;
-  absl::string_view simulate_large_text("a", std::numeric_limits<int64_t>::max());
+  absl::string_view simulate_large_text("a",
+                                        std::numeric_limits<int64_t>::max());
 
   // large text and small rep_size
   EXPECT_FALSE(Repeat(simulate_large_text, 1, &output, &status));
@@ -991,10 +993,10 @@ TEST_P(CodePointsTemplateTest, Testlib) {
   if (function == "to_code_points") {
     if (arg.type()->IsBytes()) {
       TestArrayFunction<int64_t>(&BytesToCodePoints, param.params,
-                               arg.bytes_value());
+                                 arg.bytes_value());
     } else if (arg.type()->IsString()) {
       TestArrayFunction<int64_t>(&StringToCodePoints, param.params,
-                               arg.string_value());
+                                 arg.string_value());
     }
   } else {
     std::vector<int64_t> codepoints;

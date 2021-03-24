@@ -16,6 +16,7 @@
 
 #include <math.h>
 
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <utility>
@@ -466,11 +467,15 @@ std::vector<QueryParamsWithResult> GetFunctionTestsSubtract() {
       {{uint64max, 0ull}, NullInt64(), OUT_OF_RANGE},
       {{uint64max, uint64max - 1u}, 1ll},
       {{static_cast<uint64_t>(int64max), 0ull}, int64max},
-      {{static_cast<uint64_t>(int64max) + 1ull, 0ull}, NullInt64(), OUT_OF_RANGE},
+      {{static_cast<uint64_t>(int64max) + 1ull, 0ull},
+       NullInt64(),
+       OUT_OF_RANGE},
       {{0ull, 1ull}, -1ll},
       {{0ull, uint64max}, NullInt64(), OUT_OF_RANGE},
       {{0ull, static_cast<uint64_t>(int64max) + 1ull}, int64min},
-      {{0ull, static_cast<uint64_t>(int64max) + 2ull}, NullInt64(), OUT_OF_RANGE},
+      {{0ull, static_cast<uint64_t>(int64max) + 2ull},
+       NullInt64(),
+       OUT_OF_RANGE},
       {{uint64max - 1u, uint64max}, -1ll},
 
       // double

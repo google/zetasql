@@ -17,6 +17,7 @@
 #ifndef ZETASQL_RESOLVED_AST_SQL_BUILDER_H_
 #define ZETASQL_RESOLVED_AST_SQL_BUILDER_H_
 
+#include <cstdint>
 #include <deque>
 #include <map>
 #include <memory>
@@ -151,6 +152,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedArgumentDef* node) override;
   absl::Status VisitResolvedArgumentRef(
       const ResolvedArgumentRef* node) override;
+  absl::Status VisitResolvedCloneDataStmt(
+      const ResolvedCloneDataStmt* node) override;
   absl::Status VisitResolvedExportDataStmt(
       const ResolvedExportDataStmt* node) override;
   absl::Status VisitResolvedExportModelStmt(
@@ -218,6 +221,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedRenameStmt* node) override;
   absl::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
   absl::Status VisitResolvedModuleStmt(const ResolvedModuleStmt* node) override;
+  absl::Status VisitResolvedAnalyzeStmt(
+      const ResolvedAnalyzeStmt* node) override;
   absl::Status VisitResolvedAssertStmt(const ResolvedAssertStmt* node) override;
   absl::Status VisitResolvedAssignmentStmt(
       const ResolvedAssignmentStmt* node) override;
@@ -252,6 +257,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedColumnHolder* node) override;
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override;
+  absl::Status VisitResolvedTableAndColumnInfo(
+      const ResolvedTableAndColumnInfo* node) override;
   absl::Status VisitResolvedOption(const ResolvedOption* node) override;
   absl::Status VisitResolvedParameter(const ResolvedParameter* node) override;
   absl::Status VisitResolvedSystemVariable(
@@ -316,6 +323,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
+  absl::Status VisitResolvedGroupRowsScan(
+      const ResolvedGroupRowsScan* node) override;
 
   // Visit methods for analytic functions related nodes.
   absl::Status VisitResolvedAnalyticFunctionGroup(
@@ -414,10 +423,13 @@ class SQLBuilder : public ResolvedASTVisitor {
       const Type* type, bool is_hidden,
       const ResolvedColumnAnnotations* annotations,
       const ResolvedGeneratedColumnInfo* generated_column_info,
-      std::string* text);
+      const ResolvedExpr* default_expression, std::string* text);
 
   zetasql_base::StatusOr<std::string> GetHintListString(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
+
+  absl::Status AppendCloneDataSource(const ResolvedScan* source,
+                                     std::string* sql);
 
   // Always append a (possibly empty) OPTIONS clause.
   absl::Status AppendOptions(
@@ -490,6 +502,13 @@ class SQLBuilder : public ResolvedASTVisitor {
   // including the "PARTITION BY " or "CLUSTER BY " prefix.
   absl::Status GetPartitionByListString(
       const std::vector<std::unique_ptr<const ResolvedExpr>>& partition_by_list,
+      std::string* sql);
+
+  // Helper function to get corresponding SQL for a list of TableAndColumnInfo
+  // to be analyzed in ANALYZE STATEMENT.
+  absl::Status GetTableAndColumnInfoList(
+      const std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>&
+          table_and_column_info_list,
       std::string* sql);
 
   static std::string GetOptionalObjectType(const std::string& object_type);
@@ -724,6 +743,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   // the <from> string if necessary.
   virtual std::string GetTableAliasForVisitResolvedTableScan(
       const ResolvedTableScan& node, std::string* from);
+
+  // Returns a new unique alias name. The default implementation generates the
+  // name as "a_<id>".
+  virtual std::string GenerateUniqueAliasName();
 };
 
 }  // namespace zetasql

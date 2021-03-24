@@ -17,6 +17,7 @@
 #include "zetasql/parser/bison_parser.h"
 
 #include <cctype>
+#include <cstdint>
 #include <set>
 #include <string>
 #include <utility>
@@ -27,7 +28,7 @@
 #include "zetasql/parser/keywords.h"
 #include "zetasql/public/id_string.h"
 #include <cstdint>
-#include "zetasql/base/cleanup.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
@@ -137,7 +138,8 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
   // original. The net effect is that all narrowed literals have the same
   // length in bytes, but we'll let some literals through that are just over
   // the limit.
-  if (excerpt_size > static_cast<int64_t>(literal.size()) - num_end_quotes - 4) {
+  if (excerpt_size >
+      static_cast<int64_t>(literal.size()) - num_end_quotes - 4) {
     return std::string(literal);
   }
   return absl::StrCat(
@@ -336,7 +338,7 @@ absl::Status BisonParser::Parse(
   allocated_ast_nodes_ =
       absl::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
   auto clean_up_allocated_ast_nodes =
-      zetasql_base::MakeCleanup([&] { allocated_ast_nodes_.reset(); });
+      absl::MakeCleanup([&] { allocated_ast_nodes_.reset(); });
   // We must have the filename outlive the <resume_location>, since the
   // parse tree ASTNodes will reference it in their ParseLocationRanges.
   // So we allocate a new filename from the ParserOptions IdStringPool,

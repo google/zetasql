@@ -38,20 +38,20 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls    (NextId: 276)
+  // 0002-0999 Non-standard function calls    (NextId: 291)
   // 1000-1099 String functions               (NextId: 1082)
   // 1100-1199 Control flow functions         (NextId: 1104)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
-  // 1400-1499 Aggregate functions            (NextId: 1489)
+  // 1400-1499 Aggregate functions            (NextId: 1490)
   // 1500-1599 Analytic functions             (NextId: 1513)
-  // 1600-1699 Misc functions                 (NextId: 1697)
+  // 1600-1699 Misc functions                 (NextId: 1698)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1845)
+  // 1800-1899 More time functions            (NextId: 1858)
   // 1900-1999 Hashing/encryption functions   (NextId: 1928)
   // 2000-2199 Geography functions            (NextId: 2068)
   // 2200-2299 Anonymization functions        (NextId: 2208)
-  // 2300-2499 More math functions            (NextId: 2314)
+  // 2300-2499 Numeric & more math functions  (NextId: 2316)
   // 2500-2599 Array and proto map functions  (NextId: 2510)
 
   // enum value                       // Related function name
@@ -63,6 +63,13 @@ enum FunctionSignatureId {
   FN_ADD_BIGNUMERIC = 261;                 // $add
   FN_ADD_DATE_INT64 = 266;                 // $add
   FN_ADD_INT64_DATE = 267;                 // $add
+  FN_ADD_TIMESTAMP_INTERVAL = 280;         // $add
+  FN_ADD_INTERVAL_TIMESTAMP = 281;         // $add
+  FN_ADD_DATE_INTERVAL = 282;              // $add
+  FN_ADD_INTERVAL_DATE = 283;              // $add
+  FN_ADD_DATETIME_INTERVAL = 284;          // $add
+  FN_ADD_INTERVAL_DATETIME = 285;          // $add
+  FN_ADD_INTERVAL_INTERVAL = 289;          // $add
   FN_AND = 5;                              // $and
   FN_CASE_NO_VALUE = 6;                    // $case_no_value
   FN_CASE_WITH_VALUE = 7;                  // $case_with_value
@@ -118,6 +125,10 @@ enum FunctionSignatureId {
   FN_SUBTRACT_TIMESTAMP = 277;             // $subtract
   FN_SUBTRACT_DATETIME = 278;              // $subtract
   FN_SUBTRACT_TIME = 279;                  // $subtract
+  FN_SUBTRACT_TIMESTAMP_INTERVAL = 286;    // $subtract
+  FN_SUBTRACT_DATE_INTERVAL = 287;         // $subtract
+  FN_SUBTRACT_DATETIME_INTERVAL = 288;     // $subtract
+  FN_SUBTRACT_INTERVAL_INTERVAL = 290;     // $subtract
 
   FN_UNARY_MINUS_INT32 = 83;        // $unary_minus
   FN_UNARY_MINUS_INT64 = 84;        // $unary_minus
@@ -362,6 +373,7 @@ enum FunctionSignatureId {
   FN_EXTRACT_FROM_DATETIME = 1806;   // $extract
   FN_EXTRACT_FROM_TIME = 1807;       // $extract
   FN_EXTRACT_FROM_TIMESTAMP = 1275;  // $extract
+  FN_EXTRACT_FROM_INTERVAL = 1857;   // $extract
 
   // Signatures specific to extracting the DATE date part from a DATETIME or a
   // TIMESTAMP.
@@ -389,6 +401,7 @@ enum FunctionSignatureId {
   FN_LAST_DAY_DATETIME = 1844;  // last_day datetime
 
   FN_INTERVAL_CONSTRUCTOR = 1855;  // $interval
+  FN_MAKE_INTERVAL = 1856;         // make_interval
 
   // Math functions
   FN_ABS_INT32 = 1300;        // abs
@@ -496,6 +509,8 @@ enum FunctionSignatureId {
   FN_LOGARITHM_DOUBLE = 1327;              // log
   FN_LOGARITHM_NUMERIC = 2312;             // log(numeric, numeric) -> numeric
   FN_LOGARITHM_BIGNUMERIC = 2313;  // log(bignumeric, bignumeric) -> bignumeric
+  FN_PARSE_NUMERIC = 2314;         // parse_numeric(string) -> numeric
+  FN_PARSE_BIGNUMERIC = 2315;      // parse_bignumeric(string) -> bignumeric
 
   FN_COS_DOUBLE = 1328;    // cos
   FN_COSH_DOUBLE = 1329;   // cosh
@@ -533,6 +548,7 @@ enum FunctionSignatureId {
   FN_SUM_DOUBLE = 1412;               // sum
   FN_SUM_NUMERIC = 1467;              // sum
   FN_SUM_BIGNUMERIC = 1478;           // sum
+  FN_SUM_INTERVAL = 1489;             // sum
   FN_BIT_AND_INT32 = 1415;            // bit_and
   FN_BIT_AND_INT64 = 1416;            // bit_and
   FN_BIT_AND_UINT32 = 1417;           // bit_and
@@ -688,6 +704,7 @@ enum FunctionSignatureId {
   FN_JSON_SUBSCRIPT_INT64 = 1689;   // $subscript(json,int64)-> json
   FN_JSON_SUBSCRIPT_STRING = 1690;  // $subscript(json,string)-> json
   FN_TO_JSON_STRING = 1622;         // to_json_string(any[, bool]) -> string
+  FN_TO_JSON = 1697;                // to_json(any[, bool]) -> json
   FN_JSON_QUERY = 1623;             // json_query(string, string) -> string
   FN_JSON_QUERY_JSON = 1686;        // json_query(json, string) -> json
   FN_JSON_VALUE = 1624;             // json_value(string, string) -> string

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_REGEXP_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_REGEXP_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -85,8 +86,8 @@ class RegExp {
   // Note: Both `position` and `occurrence_index` are one-based indices rather
   // than zero-based indices.
   bool Extract(absl::string_view str, PositionUnit position_unit,
-               int64_t position, int64_t occurrence_index, absl::string_view* out,
-               bool* is_null, absl::Status* error);
+               int64_t position, int64_t occurrence_index,
+               absl::string_view* out, bool* is_null, absl::Status* error);
 
   inline bool Extract(absl::string_view str, absl::string_view* out,
                       bool* is_null, absl::Status* error) {

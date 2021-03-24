@@ -1,0 +1,178 @@
+# Empty argument list.
+call myprocedure()
+--
+CallStatement [0-18]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+--
+CALL myprocedure()
+==
+
+# Name path.
+call schema.myprocedure()
+--
+CallStatement [0-25]
+  PathExpression [5-23]
+    Identifier(schema) [5-11]
+    Identifier(myprocedure) [12-23]
+--
+CALL schema.myprocedure()
+==
+
+# Various expressions as parameters.
+call myprocedure(1 + 2, "a", cast(NULL as string))
+--
+CallStatement [0-50]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-22]
+    BinaryExpression(+) [17-22]
+      IntLiteral(1) [17-18]
+      IntLiteral(2) [21-22]
+  TVFArgument [24-27]
+    StringLiteral("a") [24-27]
+  TVFArgument [29-49]
+    CastExpression [29-49]
+      NullLiteral(NULL) [34-38]
+      SimpleType [42-48]
+        PathExpression [42-48]
+          Identifier(string) [42-48]
+--
+CALL myprocedure(1 + 2, "a", CAST(NULL AS string))
+==
+
+# Model-typed parameters.
+call myprocedure(MODEL my.model)
+--
+CallStatement [0-32]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-31]
+    ModelClause [17-31]
+      PathExpression [23-31]
+        Identifier(my) [23-25]
+        Identifier(model) [26-31]
+--
+CALL myprocedure(MODEL my.model)
+==
+
+# Connection-typed parameters.
+call myprocedure(CONNECTION my.connection)
+--
+CallStatement [0-42]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-41]
+    ConnectionClause [17-41]
+      PathExpression [28-41]
+        Identifier(my) [28-30]
+        Identifier(connection) [31-41]
+--
+CALL myprocedure(CONNECTION my.connection)
+==
+
+# Table-typed parameters.
+call myprocedure(TABLE my.table, (SELECT * FROM my.another_table), mytvf(1, 2))
+--
+CallStatement [0-79]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-31]
+    TableClause [17-31]
+      PathExpression [23-31]
+        Identifier(my) [23-25]
+        Identifier(table) [26-31]
+  TVFArgument [33-65]
+    ExpressionSubquery [33-65]
+      Query [34-64]
+        Select [34-64]
+          SelectList [41-42]
+            SelectColumn [41-42]
+              Star(*) [41-42]
+          FromClause [43-64]
+            TablePathExpression [48-64]
+              PathExpression [48-64]
+                Identifier(my) [48-50]
+                Identifier(another_table) [51-64]
+  TVFArgument [67-78]
+    FunctionCall [67-78]
+      PathExpression [67-72]
+        Identifier(mytvf) [67-72]
+      IntLiteral(1) [73-74]
+      IntLiteral(2) [76-77]
+--
+CALL myprocedure(TABLE my.table, (
+  SELECT
+    *
+  FROM
+    my.another_table
+), mytvf(1, 2))
+==
+
+# Testing that query parameters work.
+call myprocedure(@test_param_bool)
+--
+CallStatement [0-34]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-33]
+    ParameterExpr [17-33]
+      Identifier(test_param_bool) [18-33]
+--
+CALL myprocedure(@test_param_bool)
+==
+
+# Testing that system variables work.
+call myprocedure(@@sysvar)
+--
+CallStatement [0-26]
+  PathExpression [5-16]
+    Identifier(myprocedure) [5-16]
+  TVFArgument [17-25]
+    SystemVariableExpr [17-25]
+      PathExpression [19-25]
+        Identifier(sysvar) [19-25]
+--
+CALL myprocedure(@@sysvar)
+==
+
+# Error case, without parenthesis.
+call myprocedure
+--
+ERROR: Syntax error: Expected "(" or "." but got end of statement [at 1:17]
+call myprocedure
+                ^
+==
+
+# CALL arguments are expressions, not parameters.
+CALL fn(x NOT AGGREGATE)
+--
+ERROR: Syntax error: Expected ")" or "," but got keyword NOT [at 1:11]
+CALL fn(x NOT AGGREGATE)
+          ^
+
+==
+
+# CALL statements can have placeholders.
+CALL fn({{?|@x}})
+--
+ALTERNATION GROUP: ?
+--
+CallStatement [0-10]
+  PathExpression [5-7]
+    Identifier(fn) [5-7]
+  TVFArgument [8-9]
+    ParameterExpr(1) [8-9]
+--
+CALL fn(?)
+--
+ALTERNATION GROUP: @x
+--
+CallStatement [0-11]
+  PathExpression [5-7]
+    Identifier(fn) [5-7]
+  TVFArgument [8-10]
+    ParameterExpr [8-10]
+      Identifier(x) [9-10]
+--
+CALL fn(@x)

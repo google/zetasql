@@ -549,7 +549,7 @@ void Unparser::visitASTCreateEntityStatement(
   }
   if (node->json_body() != nullptr) {
     println();
-    print("AS JSON");
+    print("AS ");
     node->json_body()->Accept(this, data);
   }
 }
@@ -1126,8 +1126,8 @@ void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
 }
 
 void Unparser::visitASTSetAsAction(const ASTSetAsAction* node, void* data) {
-  print("SET AS JSON");
-  node->body()->Accept(this, data);
+  print("SET AS ");
+  node->json_body()->Accept(this, data);
 }
 
 void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
@@ -1872,7 +1872,19 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
   if (node->hint() != nullptr) {
     node->hint()->Accept(this, data);
   }
+  if (node->with_group_rows() != nullptr) {
+    node->with_group_rows()->Accept(this, data);
+  }
   PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTWithGroupRows(const ASTWithGroupRows* node, void* data) {
+  print("WITH GROUP_ROWS (");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->subquery()->Accept(this, data);
+  }
+  print(")");
 }
 
 void Unparser::visitASTArrayElement(const ASTArrayElement* node, void* data) {
@@ -2014,16 +2026,11 @@ void Unparser::visitASTStructColumnSchema(const ASTStructColumnSchema* node,
 
 void Unparser::visitASTGeneratedColumnInfo(const ASTGeneratedColumnInfo* node,
                                            void* data) {
-  if (node->is_on_write()) {
-    print("GENERATED ON WRITE");
-  }
   print("AS (");
   ZETASQL_DCHECK(node->expression() != nullptr);
   node->expression()->Accept(this, data);
   print(")");
-  if (node->is_stored()) {
-    print("STORED");
-  }
+  print(node->GetSqlForStoredMode());
 }
 
 void Unparser::visitASTStructColumnField(const ASTStructColumnField* node,
@@ -2037,6 +2044,10 @@ void Unparser::UnparseColumnSchema(const ASTColumnSchema* node, void* data) {
   }
   if (node->generated_column_info() != nullptr) {
     node->generated_column_info()->Accept(this, data);
+  }
+  if (node->default_expression() != nullptr) {
+    print("DEFAULT ");
+    node->default_expression()->Accept(this, data);
   }
   if (node->attributes() != nullptr) {
     node->attributes()->Accept(this, data);
@@ -2624,8 +2635,16 @@ void Unparser::visitASTUnpivotInItemList(const ASTUnpivotInItemList* node,
   print(")");
 }
 
+void Unparser::visitASTUnpivotInItemLabel(const ASTUnpivotInItemLabel* node,
+                                          void* data) {
+  node->label()->Accept(this, data);
+}
+
 void Unparser::visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) {
   print("UNPIVOT");
+  print(node->GetSQLForNullFilter().empty()
+            ? ""
+            : absl::StrCat(node->GetSQLForNullFilter(), " "));
   print("(");
   if (node->unpivot_output_value_columns()->path_expression_list().size() > 1) {
     print("(");
@@ -2832,14 +2851,30 @@ void Unparser::visitASTDropColumnAction(const ASTDropColumnAction* node,
 void Unparser::visitASTAlterColumnOptionsAction(
     const ASTAlterColumnOptionsAction* node, void* data) {
   print("ALTER COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
   node->column_name()->Accept(this, data);
   print("SET OPTIONS");
   node->options_list()->Accept(this, data);
 }
 
+void Unparser::visitASTAlterColumnDropNotNullAction(
+    const ASTAlterColumnDropNotNullAction* node, void* data) {
+  print("ALTER COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->column_name()->Accept(this, data);
+  print("DROP NOT NULL");
+}
+
 void Unparser::visitASTAlterColumnTypeAction(
     const ASTAlterColumnTypeAction* node, void* data) {
   print("ALTER COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
   node->column_name()->Accept(this, data);
   print("SET DATA TYPE");
   node->schema()->Accept(this, data);
@@ -3144,6 +3179,23 @@ void Unparser::visitASTRepeatStatement(const ASTRepeatStatement* node,
   println();
   print("END");
   print("REPEAT");
+}
+
+void Unparser::visitASTForInStatement(const ASTForInStatement* node,
+                                      void* data) {
+  print("FOR");
+  node->variable()->Accept(this, data);
+  print("IN");
+  print("(");
+  node->query()->Accept(this, data);
+  println(")");
+  println("DO");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->body()->Accept(this, data);
+  }
+  print("END");
+  print("FOR");
 }
 
 void Unparser::visitASTScript(const ASTScript* node, void* data) {

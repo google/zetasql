@@ -1,0 +1,1145 @@
+
+# Valid rename to action succeeds.
+alter row access policy p1 on t1 rename to p2;
+--
+AlterRowAccessPolicyStatement [0-45]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-45]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2
+==
+
+# Valid grant action succeeds.
+alter row access policy p1 on t1 grant to ('foo@google.com');
+--
+AlterRowAccessPolicyStatement [0-60]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-60]
+    GrantToClause [33-60]
+      GranteeList [43-59]
+        StringLiteral('foo@google.com') [43-59]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ('foo@google.com')
+==
+
+# Valid filter using action succeeds.
+alter row access policy p1 on t1 filter using(c1 > 0);
+--
+AlterRowAccessPolicyStatement [0-53]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-53]
+    FilterUsingClause [33-53]
+      BinaryExpression(>) [46-52]
+        PathExpression [46-48]
+          Identifier(c1) [46-48]
+        IntLiteral(0) [51-52]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (c1 > 0)
+==
+
+# Valid revoke from action succeeds.
+alter row access policy p1 on t1 revoke from ('bar@google.com');
+--
+AlterRowAccessPolicyStatement [0-63]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-63]
+    RevokeFromClause [33-63]
+      GranteeList [46-62]
+        StringLiteral('bar@google.com') [46-62]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ('bar@google.com')
+==
+
+# Valid revoke from all action succeeds.
+alter row access policy p1 on t1 revoke from all;
+--
+AlterRowAccessPolicyStatement [0-48]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-48]
+    RevokeFromClause(is_revoke_from_all) [33-48]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL
+==
+
+# Test multiple actions 1.
+alter row access policy p1 on t1 {{rename to p2,|}} {{grant to ("foo@google.com"),|}}
+{{revoke from ("bar@google.com"),|revoke from all,|}} filter using (c = "foo");
+--
+ALTERNATION GROUP: rename to p2,,grant to ("foo@google.com"),,revoke from ("bar@google.com"),
+--
+AlterRowAccessPolicyStatement [0-132]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-132]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+    GrantToClause [47-74]
+      GranteeList [57-73]
+        StringLiteral("foo@google.com") [57-73]
+    RevokeFromClause [76-106]
+      GranteeList [89-105]
+        StringLiteral("bar@google.com") [89-105]
+    FilterUsingClause [108-132]
+      BinaryExpression(=) [122-131]
+        PathExpression [122-123]
+          Identifier(c) [122-123]
+        StringLiteral("foo") [126-131]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, GRANT TO ("foo@google.com"), REVOKE FROM ("bar@google.com"),
+  FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: rename to p2,,grant to ("foo@google.com"),,revoke from all,
+--
+AlterRowAccessPolicyStatement [0-117]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-117]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+    GrantToClause [47-74]
+      GranteeList [57-73]
+        StringLiteral("foo@google.com") [57-73]
+    RevokeFromClause(is_revoke_from_all) [76-91]
+    FilterUsingClause [93-117]
+      BinaryExpression(=) [107-116]
+        PathExpression [107-108]
+          Identifier(c) [107-108]
+        StringLiteral("foo") [111-116]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, GRANT TO ("foo@google.com"), REVOKE FROM ALL, FILTER USING (c =
+  "foo")
+--
+ALTERNATION GROUP: rename to p2,,grant to ("foo@google.com"),,
+--
+AlterRowAccessPolicyStatement [0-101]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-101]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+    GrantToClause [47-74]
+      GranteeList [57-73]
+        StringLiteral("foo@google.com") [57-73]
+    FilterUsingClause [77-101]
+      BinaryExpression(=) [91-100]
+        PathExpression [91-92]
+          Identifier(c) [91-92]
+        StringLiteral("foo") [95-100]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, GRANT TO ("foo@google.com"), FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: rename to p2,,,revoke from ("bar@google.com"),
+--
+AlterRowAccessPolicyStatement [0-104]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-104]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+    RevokeFromClause [48-78]
+      GranteeList [61-77]
+        StringLiteral("bar@google.com") [61-77]
+    FilterUsingClause [80-104]
+      BinaryExpression(=) [94-103]
+        PathExpression [94-95]
+          Identifier(c) [94-95]
+        StringLiteral("foo") [98-103]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, REVOKE FROM ("bar@google.com"), FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: rename to p2,,,revoke from all,
+--
+AlterRowAccessPolicyStatement [0-89]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-89]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+    RevokeFromClause(is_revoke_from_all) [48-63]
+    FilterUsingClause [65-89]
+      BinaryExpression(=) [79-88]
+        PathExpression [79-80]
+          Identifier(c) [79-80]
+        StringLiteral("foo") [83-88]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, REVOKE FROM ALL, FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: rename to p2,,,
+--
+AlterRowAccessPolicyStatement [0-73]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-73]
+    RenameToClause [33-45]
+      PathExpression [43-45]
+        Identifier(p2) [43-45]
+    FilterUsingClause [49-73]
+      BinaryExpression(=) [63-72]
+        PathExpression [63-64]
+          Identifier(c) [63-64]
+        StringLiteral("foo") [67-72]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: grant to ("foo@google.com"),,revoke from ("bar@google.com"),
+--
+AlterRowAccessPolicyStatement [0-119]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [34-119]
+    GrantToClause [34-61]
+      GranteeList [44-60]
+        StringLiteral("foo@google.com") [44-60]
+    RevokeFromClause [63-93]
+      GranteeList [76-92]
+        StringLiteral("bar@google.com") [76-92]
+    FilterUsingClause [95-119]
+      BinaryExpression(=) [109-118]
+        PathExpression [109-110]
+          Identifier(c) [109-110]
+        StringLiteral("foo") [113-118]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ("foo@google.com"), REVOKE FROM ("bar@google.com"), FILTER USING (c =
+  "foo")
+--
+ALTERNATION GROUP: grant to ("foo@google.com"),,revoke from all,
+--
+AlterRowAccessPolicyStatement [0-104]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [34-104]
+    GrantToClause [34-61]
+      GranteeList [44-60]
+        StringLiteral("foo@google.com") [44-60]
+    RevokeFromClause(is_revoke_from_all) [63-78]
+    FilterUsingClause [80-104]
+      BinaryExpression(=) [94-103]
+        PathExpression [94-95]
+          Identifier(c) [94-95]
+        StringLiteral("foo") [98-103]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ("foo@google.com"), REVOKE FROM ALL, FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: grant to ("foo@google.com"),,
+--
+AlterRowAccessPolicyStatement [0-88]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [34-88]
+    GrantToClause [34-61]
+      GranteeList [44-60]
+        StringLiteral("foo@google.com") [44-60]
+    FilterUsingClause [64-88]
+      BinaryExpression(=) [78-87]
+        PathExpression [78-79]
+          Identifier(c) [78-79]
+        StringLiteral("foo") [82-87]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ("foo@google.com"), FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: revoke from ("bar@google.com"),
+--
+AlterRowAccessPolicyStatement [0-91]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [35-91]
+    RevokeFromClause [35-65]
+      GranteeList [48-64]
+        StringLiteral("bar@google.com") [48-64]
+    FilterUsingClause [67-91]
+      BinaryExpression(=) [81-90]
+        PathExpression [81-82]
+          Identifier(c) [81-82]
+        StringLiteral("foo") [85-90]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: revoke from all,
+--
+AlterRowAccessPolicyStatement [0-76]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [35-76]
+    RevokeFromClause(is_revoke_from_all) [35-50]
+    FilterUsingClause [52-76]
+      BinaryExpression(=) [66-75]
+        PathExpression [66-67]
+          Identifier(c) [66-67]
+        StringLiteral("foo") [70-75]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, FILTER USING (c = "foo")
+--
+ALTERNATION GROUP: <empty>
+--
+AlterRowAccessPolicyStatement [0-60]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [36-60]
+    FilterUsingClause [36-60]
+      BinaryExpression(=) [50-59]
+        PathExpression [50-51]
+          Identifier(c) [50-51]
+        StringLiteral("foo") [54-59]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (c = "foo")
+==
+
+# Test multiple actions 2.
+alter row access policy p1 on t1
+{{revoke from ("bar@google.com"),|revoke from all,|}} {{rename to p2,|}}
+{{filter using (c = "foo"),}} grant to ("foo@google.com");
+--
+ALTERNATION GROUP: revoke from ("bar@google.com"),,rename to p2,,filter using (c = "foo"),
+--
+AlterRowAccessPolicyStatement [0-132]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-132]
+    RevokeFromClause [33-63]
+      GranteeList [46-62]
+        StringLiteral("bar@google.com") [46-62]
+    RenameToClause [65-77]
+      PathExpression [75-77]
+        Identifier(p2) [75-77]
+    FilterUsingClause [79-103]
+      BinaryExpression(=) [93-102]
+        PathExpression [93-94]
+          Identifier(c) [93-94]
+        StringLiteral("foo") [97-102]
+    GrantToClause [105-132]
+      GranteeList [115-131]
+        StringLiteral("foo@google.com") [115-131]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), RENAME TO p2, FILTER USING (c = "foo"),
+  GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: revoke from ("bar@google.com"),,,filter using (c = "foo"),
+--
+AlterRowAccessPolicyStatement [0-119]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-119]
+    RevokeFromClause [33-63]
+      GranteeList [46-62]
+        StringLiteral("bar@google.com") [46-62]
+    FilterUsingClause [66-90]
+      BinaryExpression(=) [80-89]
+        PathExpression [80-81]
+          Identifier(c) [80-81]
+        StringLiteral("foo") [84-89]
+    GrantToClause [92-119]
+      GranteeList [102-118]
+        StringLiteral("foo@google.com") [102-118]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: revoke from all,,rename to p2,,filter using (c = "foo"),
+--
+AlterRowAccessPolicyStatement [0-117]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-117]
+    RevokeFromClause(is_revoke_from_all) [33-48]
+    RenameToClause [50-62]
+      PathExpression [60-62]
+        Identifier(p2) [60-62]
+    FilterUsingClause [64-88]
+      BinaryExpression(=) [78-87]
+        PathExpression [78-79]
+          Identifier(c) [78-79]
+        StringLiteral("foo") [82-87]
+    GrantToClause [90-117]
+      GranteeList [100-116]
+        StringLiteral("foo@google.com") [100-116]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, RENAME TO p2, FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: revoke from all,,,filter using (c = "foo"),
+--
+AlterRowAccessPolicyStatement [0-104]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-104]
+    RevokeFromClause(is_revoke_from_all) [33-48]
+    FilterUsingClause [51-75]
+      BinaryExpression(=) [65-74]
+        PathExpression [65-66]
+          Identifier(c) [65-66]
+        StringLiteral("foo") [69-74]
+    GrantToClause [77-104]
+      GranteeList [87-103]
+        StringLiteral("foo@google.com") [87-103]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: rename to p2,,filter using (c = "foo"),
+--
+AlterRowAccessPolicyStatement [0-101]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [34-101]
+    RenameToClause [34-46]
+      PathExpression [44-46]
+        Identifier(p2) [44-46]
+    FilterUsingClause [48-72]
+      BinaryExpression(=) [62-71]
+        PathExpression [62-63]
+          Identifier(c) [62-63]
+        StringLiteral("foo") [66-71]
+    GrantToClause [74-101]
+      GranteeList [84-100]
+        StringLiteral("foo@google.com") [84-100]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: filter using (c = "foo"),
+--
+AlterRowAccessPolicyStatement [0-88]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [35-88]
+    FilterUsingClause [35-59]
+      BinaryExpression(=) [49-58]
+        PathExpression [49-50]
+          Identifier(c) [49-50]
+        StringLiteral("foo") [53-58]
+    GrantToClause [61-88]
+      GranteeList [71-87]
+        StringLiteral("foo@google.com") [71-87]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+==
+
+# ROW ACCESS POLICY keywords must be present.
+alter {{row|}} {{access|}} {{policy|}} p1 on t1 filter using(true);
+--
+ALTERNATION GROUP: row,access,policy
+--
+AlterRowAccessPolicyStatement [0-51]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-51]
+    FilterUsingClause [33-51]
+      BooleanLiteral(true) [46-50]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (true)
+--
+ALTERNATION GROUP: row,access,
+--
+ERROR: Syntax error: Expected keyword POLICY but got identifier "p1" [at 1:19]
+alter row access  p1 on t1 filter using(true);
+                  ^
+--
+ALTERNATION GROUP: row,,policy
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1 on t1 filter using(true);
+           ^
+--
+ALTERNATION GROUP: row,,
+--
+ERROR: Syntax error: Expected keyword ACCESS but got identifier "p1" [at 1:13]
+alter row   p1 on t1 filter using(true);
+            ^
+--
+ALTERNATION GROUP: access,policy
+--
+ERROR: Syntax error: Unexpected keyword ACCESS [at 1:8]
+alter  access policy p1 on t1 filter using(true);
+       ^
+--
+ALTERNATION GROUP: access,
+--
+ERROR: Syntax error: Unexpected keyword ACCESS [at 1:8]
+alter  access  p1 on t1 filter using(true);
+       ^
+--
+ALTERNATION GROUP: policy
+--
+ERROR: Syntax error: Unexpected keyword POLICY [at 1:9]
+alter   policy p1 on t1 filter using(true);
+        ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: p1 is not a supported object type [at 1:10]
+alter    p1 on t1 filter using(true);
+         ^
+==
+
+# If exists is supported.
+alter row access policy if exists t1 on t2 revoke from all;
+--
+AlterRowAccessPolicyStatement(is_if_exists) [0-58]
+  Identifier(t1) [34-36]
+  PathExpression [40-42]
+    Identifier(t2) [40-42]
+  AlterActionList [43-58]
+    RevokeFromClause(is_revoke_from_all) [43-58]
+--
+ALTER ROW ACCESS POLICY IF EXISTS t1 ON t2 REVOKE FROM ALL
+==
+
+# Temp is not supported.
+alter temp row access policy p1 on t1 rename to p2;
+--
+ERROR: Syntax error: Unexpected keyword TEMP [at 1:7]
+alter temp row access policy p1 on t1 rename to p2;
+      ^
+==
+
+# Hint is not supported.
+alter row access policy p1 on t1 @{a=1} filter using(true);
+--
+ERROR: Syntax error: Unexpected "@" [at 1:34]
+alter row access policy p1 on t1 @{a=1} filter using(true);
+                                 ^
+==
+
+# Old syntax is not supported.
+alter row {{access|}} policy p1 {{rename to p2|}} on t1 {{grant|}} to {{"foo@google.com"|("foo@google.com"),}}
+{{filter|}} using (c1 = 1);
+--
+ALTERNATION GROUPS:
+    access,rename to p2,grant,"foo@google.com",filter
+    access,rename to p2,grant,"foo@google.com",
+--
+ERROR: Syntax error: Expected keyword ON but got keyword RENAME [at 1:28]
+alter row access policy p1 rename to p2 on t1 grant to "foo@google.com"
+                           ^
+--
+ALTERNATION GROUPS:
+    access,rename to p2,grant,("foo@google.com"),,filter
+    access,rename to p2,grant,("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword ON but got keyword RENAME [at 1:28]
+alter row access policy p1 rename to p2 on t1 grant to ("foo@google.com"),
+                           ^
+--
+ALTERNATION GROUPS:
+    access,rename to p2,,"foo@google.com",filter
+    access,rename to p2,,"foo@google.com",
+--
+ERROR: Syntax error: Expected keyword ON but got keyword RENAME [at 1:28]
+alter row access policy p1 rename to p2 on t1  to "foo@google.com"
+                           ^
+--
+ALTERNATION GROUPS:
+    access,rename to p2,,("foo@google.com"),,filter
+    access,rename to p2,,("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword ON but got keyword RENAME [at 1:28]
+alter row access policy p1 rename to p2 on t1  to ("foo@google.com"),
+                           ^
+--
+ALTERNATION GROUPS:
+    access,,grant,"foo@google.com",filter
+    access,,grant,"foo@google.com",
+--
+ERROR: Syntax error: Expected "(" but got string literal "foo@google.com" [at 1:44]
+alter row access policy p1  on t1 grant to "foo@google.com"
+                                           ^
+--
+ALTERNATION GROUP: access,,grant,("foo@google.com"),,filter
+--
+AlterRowAccessPolicyStatement [0-84]
+  Identifier(p1) [24-26]
+  PathExpression [31-33]
+    Identifier(t1) [31-33]
+  AlterActionList [34-84]
+    GrantToClause [34-61]
+      GranteeList [44-60]
+        StringLiteral("foo@google.com") [44-60]
+    FilterUsingClause [63-84]
+      BinaryExpression(=) [77-83]
+        PathExpression [77-79]
+          Identifier(c1) [77-79]
+        IntLiteral(1) [82-83]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ("foo@google.com"), FILTER USING (c1 = 1)
+--
+ALTERNATION GROUP: access,,grant,("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword FILTER or keyword GRANT or keyword RENAME or keyword REVOKE but got keyword USING [at 2:2]
+ using (c1 = 1);
+ ^
+--
+ALTERNATION GROUPS:
+    access,,,"foo@google.com",filter
+    access,,,"foo@google.com",
+--
+ERROR: Syntax error: Unexpected keyword TO [at 1:36]
+alter row access policy p1  on t1  to "foo@google.com"
+                                   ^
+--
+ALTERNATION GROUPS:
+    access,,,("foo@google.com"),,filter
+    access,,,("foo@google.com"),,
+--
+ERROR: Syntax error: Unexpected keyword TO [at 1:36]
+alter row access policy p1  on t1  to ("foo@google.com"),
+                                   ^
+--
+ALTERNATION GROUPS:
+    rename to p2,grant,"foo@google.com",filter
+    rename to p2,grant,"foo@google.com",
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1 rename to p2 on t1 grant to "foo@google.com"
+           ^
+--
+ALTERNATION GROUPS:
+    rename to p2,grant,("foo@google.com"),,filter
+    rename to p2,grant,("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1 rename to p2 on t1 grant to ("foo@google.com"),
+           ^
+--
+ALTERNATION GROUPS:
+    rename to p2,,"foo@google.com",filter
+    rename to p2,,"foo@google.com",
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1 rename to p2 on t1  to "foo@google.com"
+           ^
+--
+ALTERNATION GROUPS:
+    rename to p2,,("foo@google.com"),,filter
+    rename to p2,,("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1 rename to p2 on t1  to ("foo@google.com"),
+           ^
+--
+ALTERNATION GROUPS:
+    grant,"foo@google.com",filter
+    grant,"foo@google.com",
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1  on t1 grant to "foo@google.com"
+           ^
+--
+ALTERNATION GROUPS:
+    grant,("foo@google.com"),,filter
+    grant,("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1  on t1 grant to ("foo@google.com"),
+           ^
+--
+ALTERNATION GROUPS:
+    "foo@google.com",filter
+    "foo@google.com",
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1  on t1  to "foo@google.com"
+           ^
+--
+ALTERNATION GROUPS:
+    ("foo@google.com"),,filter
+    ("foo@google.com"),,
+--
+ERROR: Syntax error: Expected keyword ACCESS but got keyword POLICY [at 1:12]
+alter row  policy p1  on t1  to ("foo@google.com"),
+           ^
+==
+
+# Comma is required between actions.
+alter row access policy p1 on t1 revoke from ("foo@google.com") filter using (true);
+
+--
+ERROR: Syntax error: Expected end of input but got keyword FILTER [at 1:65]
+...policy p1 on t1 revoke from ("foo@google.com") filter using (true);
+                                                  ^
+==
+
+# Namespaced row access policy names are invalid.
+alter row access policy namespace.p1 on t1 filter using(true);
+--
+ERROR: Syntax error: Expected keyword ON but got "." [at 1:34]
+alter row access policy namespace.p1 on t1 filter using(true);
+                                 ^
+==
+
+# Missing row access policy identifier is invalid.
+alter row access policy on n1.t1 filter using(true);
+--
+ERROR: Syntax error: Unexpected keyword ON [at 1:25]
+alter row access policy on n1.t1 filter using(true);
+                        ^
+==
+
+# ON keyword is required.
+alter row access policy p1 n1.t1 grant to ("foo@google.com");
+
+--
+ERROR: Syntax error: Expected keyword ON but got identifier "n1" [at 1:28]
+alter row access policy p1 n1.t1 grant to ("foo@google.com");
+                           ^
+==
+
+# Namespaced table identifier is valid.
+alter row access policy p1 on n1.t1 grant to ('foo@google.com', 'mdbgroup/bar');
+--
+AlterRowAccessPolicyStatement [0-79]
+  Identifier(p1) [24-26]
+  PathExpression [30-35]
+    Identifier(n1) [30-32]
+    Identifier(t1) [33-35]
+  AlterActionList [36-79]
+    GrantToClause [36-79]
+      GranteeList [46-78]
+        StringLiteral('foo@google.com') [46-62]
+        StringLiteral('mdbgroup/bar') [64-78]
+--
+ALTER ROW ACCESS POLICY p1 ON n1.t1 GRANT TO ('foo@google.com', 'mdbgroup/bar')
+==
+
+# Missing table identifier is invalid.
+alter row access policy p1 grant to ('mdbuser/foo');
+--
+ERROR: Syntax error: Expected keyword ON but got keyword GRANT [at 1:28]
+alter row access policy p1 grant to ('mdbuser/foo');
+                           ^
+==
+
+# Action list cannot be empty.
+alter row access policy p1 on t1;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:33]
+alter row access policy p1 on t1;
+                                ^
+==
+
+# Table identifier must be provided.
+alter row access policy p1 on filter using(true);
+--
+ERROR: Syntax error: Unexpected keyword USING [at 1:38]
+alter row access policy p1 on filter using(true);
+                                     ^
+==
+
+# Table identifier must be provided.
+alter row access policy p1 on grant to ('bar');
+--
+ERROR: Syntax error: Unexpected keyword TO [at 1:37]
+alter row access policy p1 on grant to ('bar');
+                                    ^
+==
+
+# Grant to: accepts multiple grantees.
+alter row access policy p1 on t1 grant to ('foo@google.com', "mdbuser/bar");
+--
+AlterRowAccessPolicyStatement [0-75]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-75]
+    GrantToClause [33-75]
+      GranteeList [43-74]
+        StringLiteral('foo@google.com') [43-59]
+        StringLiteral("mdbuser/bar") [61-74]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ('foo@google.com', "mdbuser/bar")
+==
+
+# Grant to: invalid null grantee.
+alter row access policy p1 on t1 grant to (null);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got keyword NULL [at 1:44]
+alter row access policy p1 on t1 grant to (null);
+                                           ^
+==
+
+# Grant to: grantee strings must be quoted.
+alter row access policy p1 on t1 grant to (user);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "user" [at 1:44]
+alter row access policy p1 on t1 grant to (user);
+                                           ^
+==
+
+# Grant to: invalid numerical grantee.
+alter row access policy p1 on t1 grant to (123);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got integer literal "123" [at 1:44]
+alter row access policy p1 on t1 grant to (123);
+                                           ^
+==
+
+# Grant to: parameters are valid.
+alter row access policy p1 on t1 grant to (@param_user);
+--
+AlterRowAccessPolicyStatement [0-55]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-55]
+    GrantToClause [33-55]
+      GranteeList [43-54]
+        ParameterExpr [43-54]
+          Identifier(param_user) [44-54]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO (@param_user)
+==
+
+alter row access policy p1 on t1 grant to (@@sysvar);
+--
+AlterRowAccessPolicyStatement [0-52]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-52]
+    GrantToClause [33-52]
+      GranteeList [43-51]
+        SystemVariableExpr [43-51]
+          PathExpression [45-51]
+            Identifier(sysvar) [45-51]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO (@@sysvar)
+==
+
+# Grant to: invalid function grantee.
+alter row access policy p1 on t1 grant to (concat("mdbuser/", "foo")), filter using(true);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "concat" [at 1:44]
+alter row access policy p1 on t1 grant to (concat("mdbuser/", "foo")), filter...
+                                           ^
+==
+
+# Grant to: missing grantee list is invalid.
+alter row access policy p1 on t1 grant to;
+--
+ERROR: Syntax error: Expected "(" but got ";" [at 1:42]
+alter row access policy p1 on t1 grant to;
+                                         ^
+==
+
+# Grant to: grantees must be in parentheses.
+alter row access policy p1 on t1 grant to "foo", filter using(true);
+--
+ERROR: Syntax error: Expected "(" but got string literal "foo" [at 1:43]
+alter row access policy p1 on t1 grant to "foo", filter using(true);
+                                          ^
+==
+
+# Grant to: grantee list cannot be empty.
+alter row access policy p1 on t1 grant to (), filter using (true);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got ")" [at 1:44]
+alter row access policy p1 on t1 grant to (), filter using (true);
+                                           ^
+==
+
+# Filter using: string literal.
+alter row access policy p1 on t1 filter using(c1 = 'foo');
+--
+AlterRowAccessPolicyStatement [0-57]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-57]
+    FilterUsingClause [33-57]
+      BinaryExpression(=) [46-56]
+        PathExpression [46-48]
+          Identifier(c1) [46-48]
+        StringLiteral('foo') [51-56]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (c1 = 'foo')
+==
+
+# Filter using must have parentheses.
+alter row access policy p1 on t1 filter using true;
+--
+ERROR: Syntax error: Expected "(" but got keyword TRUE [at 1:47]
+alter row access policy p1 on t1 filter using true;
+                                              ^
+==
+
+# Rename to: namespaced identifier on row access policy name is invalid.
+alter row access policy p1 on t1 rename to namespace.p2;
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:53]
+alter row access policy p1 on t1 rename to namespace.p2;
+                                                    ^
+==
+
+# Revoke from: accepts multiple grantees.
+alter row access policy p1 on t1 revoke from ('foo@google.com', "mdbuser/bar");
+--
+AlterRowAccessPolicyStatement [0-78]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-78]
+    RevokeFromClause [33-78]
+      GranteeList [46-77]
+        StringLiteral('foo@google.com') [46-62]
+        StringLiteral("mdbuser/bar") [64-77]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ('foo@google.com', "mdbuser/bar")
+==
+
+# Revoke from: invalid null revokee.
+alter row access policy p1 on t1 revoke from (null);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got keyword NULL [at 1:47]
+alter row access policy p1 on t1 revoke from (null);
+                                              ^
+==
+
+# Revoke from: invalid non-string-literal revokee.
+alter row access policy p1 on t1 revoke from (user);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "user" [at 1:47]
+alter row access policy p1 on t1 revoke from (user);
+                                              ^
+==
+
+# Revoke from: invalid numerical revokee.
+alter row access policy p1 on t1 revoke from (123);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got integer literal "123" [at 1:47]
+alter row access policy p1 on t1 revoke from (123);
+                                              ^
+==
+
+# Revoke from: Parameters are valid.
+alter row access policy p1 on t1 revoke from (@param_user);
+--
+AlterRowAccessPolicyStatement [0-58]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-58]
+    RevokeFromClause [33-58]
+      GranteeList [46-57]
+        ParameterExpr [46-57]
+          Identifier(param_user) [47-57]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM (@param_user)
+==
+
+# Revoke from: invalid function revokee.
+alter row access policy p1 on t1 revoke from (concat("mdbuser/", "foo")), filter using(true);
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "concat" [at 1:47]
+alter row access policy p1 on t1 revoke from (concat("mdbuser/", "foo")), fil...
+                                              ^
+==
+
+# Revoke from: missing revokee list.
+alter row access policy p1 on t1 revoke from;
+--
+ERROR: Syntax error: Expected "(" or keyword ALL but got ";" [at 1:45]
+alter row access policy p1 on t1 revoke from;
+                                            ^
+==
+
+# Revoke from: revokees must be in parentheses.
+alter row access policy p1 on t1 revoke from "foo", rename to p2;
+--
+ERROR: Syntax error: Expected "(" or keyword ALL but got string literal "foo" [at 1:46]
+alter row access policy p1 on t1 revoke from "foo", rename to p2;
+                                             ^
+==
+
+# Revoke from: revokee list cannot be empty.
+alter row access policy p1 on t1 revoke from (), grant to ("foo@google.com");
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got ")" [at 1:47]
+alter row access policy p1 on t1 revoke from (), grant to ("foo@google.com");
+                                              ^
+==
+
+# Set options are not supported.
+alter row access policy p1 on t1 set options (a = 2);
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:34]
+alter row access policy p1 on t1 set options (a = 2);
+                                 ^
+==
+
+# Constraints are not supported.
+alter row access policy p1 on t1 {{add|drop|alter}} constraint c1;
+--
+ALTERNATION GROUP: add
+--
+ERROR: Syntax error: Unexpected keyword ADD [at 1:34]
+alter row access policy p1 on t1 add constraint c1;
+                                 ^
+--
+ALTERNATION GROUP: drop
+--
+ERROR: Syntax error: Unexpected keyword DROP [at 1:34]
+alter row access policy p1 on t1 drop constraint c1;
+                                 ^
+--
+ALTERNATION GROUP: alter
+--
+ERROR: Syntax error: Unexpected keyword ALTER [at 1:34]
+alter row access policy p1 on t1 alter constraint c1;
+                                 ^
+==
+
+# Columns are not supported.
+alter row access policy p1 on t1 {{add|drop|alter}} column;
+--
+ALTERNATION GROUP: add
+--
+ERROR: Syntax error: Unexpected keyword ADD [at 1:34]
+alter row access policy p1 on t1 add column;
+                                 ^
+--
+ALTERNATION GROUP: drop
+--
+ERROR: Syntax error: Unexpected keyword DROP [at 1:34]
+alter row access policy p1 on t1 drop column;
+                                 ^
+--
+ALTERNATION GROUP: alter
+--
+ERROR: Syntax error: Unexpected keyword ALTER [at 1:34]
+alter row access policy p1 on t1 alter column;
+                                 ^
+==
+
+# Grant to action not supported on alter table.
+alter table t1 grant to ('foo@google.com');
+--
+ERROR: Syntax error: Unexpected keyword GRANT [at 1:16]
+alter table t1 grant to ('foo@google.com');
+               ^
+==
+
+# Revoke from action not supported on alter table.
+alter table t1 revoke from ('bar@google.com');
+
+--
+ERROR: Syntax error: Unexpected keyword REVOKE [at 1:16]
+alter table t1 revoke from ('bar@google.com');
+               ^
+==
+
+# Revoke from action not supported on alter table.
+alter table t1 revoke from all;
+
+--
+ERROR: Syntax error: Unexpected keyword REVOKE [at 1:16]
+alter table t1 revoke from all;
+               ^
+==
+
+# Filter using action not supported on alter table.
+alter table t1 filter using (region = "us");
+
+--
+ERROR: Syntax error: Unexpected keyword FILTER [at 1:16]
+alter table t1 filter using (region = "us");
+               ^
+==
+
+# Multple row access policy actions not supported in alter table.
+alter table t1 grant to ('foo@google.com', "bar@google.com"),
+revoke from ('baz@google.com'), filter using (true), rename to t2;
+--
+ERROR: Syntax error: Unexpected keyword GRANT [at 1:16]
+alter table t1 grant to ('foo@google.com', "bar@google.com"),
+               ^
+==
+
+# ALTER ALL with multiple revokees.
+alter all row access policies on t1
+revoke from ("foo@google.com", "bar@google.com");
+--
+AlterAllRowAccessPoliciesStatement [0-84]
+  PathExpression [33-35]
+    Identifier(t1) [33-35]
+  RevokeFromClause [36-84]
+    GranteeList [49-83]
+      StringLiteral("foo@google.com") [49-65]
+      StringLiteral("bar@google.com") [67-83]
+--
+ALTER ALL ROW ACCESS POLICIES ON t1 REVOKE FROM ("foo@google.com", "bar@google.com")
+==
+
+# ALTER ALL with revoke all.
+alter all row access policies on t1 revoke from all;
+--
+AlterAllRowAccessPoliciesStatement [0-51]
+  PathExpression [33-35]
+    Identifier(t1) [33-35]
+  RevokeFromClause(is_revoke_from_all) [36-51]
+--
+ALTER ALL ROW ACCESS POLICIES ON t1 REVOKE FROM ALL
+==
+
+# ALTER ALL with table name as path.
+alter all row access policies on namespace.`all`.t1
+revoke from ("foo@google.com");
+--
+AlterAllRowAccessPoliciesStatement [0-82]
+  PathExpression [33-51]
+    Identifier(namespace) [33-42]
+    Identifier(`all`) [43-48]
+    Identifier(t1) [49-51]
+  RevokeFromClause [52-82]
+    GranteeList [65-81]
+      StringLiteral("foo@google.com") [65-81]
+--
+ALTER ALL ROW ACCESS POLICIES ON namespace.`all`.t1 REVOKE FROM ("foo@google.com")
+==
+
+# ALTER ALL with missing table name.
+alter all row access policies
+revoke from ("foo@google.com");
+--
+ERROR: Syntax error: Expected keyword ON but got keyword REVOKE [at 2:1]
+revoke from ("foo@google.com");
+^
+==
+
+# ALTER ALL with empty grantee list.
+alter all row access policies on KeyValue revoke from ();
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got ")" [at 1:56]
+alter all row access policies on KeyValue revoke from ();
+                                                       ^

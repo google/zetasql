@@ -582,7 +582,7 @@ CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
     customer_type ads.boulder.schema.CustomerType)
   AS
     SELECT * FROM CustomerRange(MinId, MaxId)
-    WHERE Info.type = customer_type;
+    WHERE type = customer_type;
 ```
 
 #### Templated SQL TVF parameters
@@ -619,20 +619,19 @@ CREATE TEMP TABLE FUNCTION MyFunction(
 
 The following function accepts two integers and a table with any set of columns
 and returns rows from the table where the predicate evaluates to true. The input
-table `selected_customers` must contain a column named `Info` that has a field
-named `creation_time`, and `creation_time` must be a numeric type, or the
-function will return an error.
+table `selected_customers` must contain a column named `creation_time`, and
+`creation_time` must be a numeric type, or the function will return an error.
 
 ```sql
-CREATE TEMP TABLE FUNCTION CustomerInfoProtoCreationTimeRange(
+CREATE TEMP TABLE FUNCTION CustomerCreationTimeRange(
     min_creation_time INT64,
     max_creation_time INT64,
     selected_customers ANY TABLE)
   AS
     SELECT *
     FROM selected_customers
-    WHERE Info.creation_time >= min_creation_time
-    AND Info.creation_time <= max_creation_time;
+    WHERE creation_time >= min_creation_time
+    AND creation_time <= max_creation_time;
 ```
 
 ### Calling TVFs
@@ -640,7 +639,11 @@ CREATE TEMP TABLE FUNCTION CustomerInfoProtoCreationTimeRange(
 To call a TVF, use the function call in place of the table name in a `FROM`
 clause.
 
-**Example**
+There are two ways to pass a table as an argument to a TVF. You can use a
+subquery for the table argument, or you can use the name of a table, preceded by
+the keyword `TABLE`.
+
+**Examples**
 
 The following query calls the `CustomerRangeWithCustomerType` function to
 return a table with rows for customers with a CustomerId between 100
@@ -649,6 +652,34 @@ and 200.
 ```sql
 SELECT CustomerId, Info
 FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
+```
+
+The following query calls the `CustomerCreationTimeRange` function defined
+previously, passing the result of a subquery as the table argument.
+
+```sql
+SELECT *
+FROM
+  CustomerCreationTimeRange(
+    1577836800,  -- 2020-01-01 00:00:00 UTC
+    1609459199,  -- 2020-12-31 23:59:59 UTC
+    (
+      SELECT customer_id, customer_name, creation_time
+      FROM MyCustomerTable
+      WHERE customer_name LIKE '%Hernández'
+    ))
+```
+
+The following query calls `CustomerCreationTimeRange`, passing the table
+`MyCustomerTable` as an argument.
+
+```sql
+SELECT *
+FROM
+  CustomerCreationTimeRange(
+    1577836800,  -- 2020-01-01 00:00:00 UTC
+    1609459199,  -- 2020-12-31 23:59:59 UTC
+    TABLE MyCustomerTable)
 ```
 
 [table-valued function]: #tvfs

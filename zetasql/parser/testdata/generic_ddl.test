@@ -1,0 +1,233 @@
+[default supported_generic_entity_types=RESERVATION,SUPPORTED_ENTITY]
+
+CREATE {{RESERVATION|reSERVAtion|SUPPORTED_ENTITY}} myProject.myReservation
+--
+ALTERNATION GROUP: RESERVATION
+--
+CreateEntityStatement [0-42]
+  Identifier(RESERVATION) [7-18]
+  PathExpression [19-42]
+    Identifier(myProject) [19-28]
+    Identifier(myReservation) [29-42]
+--
+CREATE RESERVATION myProject.myReservation
+--
+ALTERNATION GROUP: reSERVAtion
+--
+CreateEntityStatement [0-42]
+  Identifier(reSERVAtion) [7-18]
+  PathExpression [19-42]
+    Identifier(myProject) [19-28]
+    Identifier(myReservation) [29-42]
+--
+CREATE reSERVAtion myProject.myReservation
+--
+ALTERNATION GROUP: SUPPORTED_ENTITY
+--
+CreateEntityStatement [0-47]
+  Identifier(SUPPORTED_ENTITY) [7-23]
+  PathExpression [24-47]
+    Identifier(myProject) [24-33]
+    Identifier(myReservation) [34-47]
+--
+CREATE SUPPORTED_ENTITY myProject.myReservation
+==
+
+# Generic CREATE with all optional clauses
+CREATE OR REPLACE RESERVATION IF NOT EXISTS myProject.myReservation
+OPTIONS(a=b, c=d)
+AS JSON '{"key": "value"}';
+--
+CreateEntityStatement(is_or_replace, is_if_not_exists) [0-112]
+  Identifier(RESERVATION) [18-29]
+  PathExpression [44-67]
+    Identifier(myProject) [44-53]
+    Identifier(myReservation) [54-67]
+  OptionsList [75-85]
+    OptionsEntry [76-79]
+      Identifier(a) [76-77]
+      PathExpression [78-79]
+        Identifier(b) [78-79]
+    OptionsEntry [81-84]
+      Identifier(c) [81-82]
+      PathExpression [83-84]
+        Identifier(d) [83-84]
+  JSONLiteral('{"key": "value"}') [89-112]
+--
+CREATE OR REPLACE RESERVATION IF NOT EXISTS myProject.myReservation
+OPTIONS(a = b, c = d)
+AS JSON '{"key": "value"}'
+==
+
+# Generic CREATE doesn't support multi-parts entity type
+CREATE {{foo|RESERVATION}}.bar myProject.myReservation
+--
+ALTERNATION GROUP: foo
+--
+ERROR: foo is not a supported object type [at 1:8]
+CREATE foo.bar myProject.myReservation
+       ^
+--
+ALTERNATION GROUP: RESERVATION
+--
+ERROR: Syntax error: Unexpected "." [at 1:19]
+CREATE RESERVATION.bar myProject.myReservation
+                  ^
+==
+
+CREATE SOME_TYPE IF NOT EXISTS
+--
+ERROR: SOME_TYPE is not a supported object type [at 1:8]
+CREATE SOME_TYPE IF NOT EXISTS
+       ^
+==
+
+CREATE SOME_TYPE
+--
+ERROR: SOME_TYPE is not a supported object type [at 1:8]
+CREATE SOME_TYPE
+       ^
+==
+
+# Generic CREATE doesn't work with keywords
+CREATE OPTIONS myProject.myReservation
+--
+ERROR: Syntax error: Expected keyword FUNCTION but got keyword OPTIONS [at 1:8]
+CREATE OPTIONS myProject.myReservation
+       ^
+==
+
+# Generic ALTER statement
+ALTER RESERVATION myProject.myReservation SET OPTIONS (a=b)
+--
+AlterEntityStatement [0-59]
+  Identifier(RESERVATION) [6-17]
+  PathExpression [18-41]
+    Identifier(myProject) [18-27]
+    Identifier(myReservation) [28-41]
+  AlterActionList [42-59]
+    SetOptionsOperation [42-59]
+      OptionsList [54-59]
+        OptionsEntry [55-58]
+          Identifier(a) [55-56]
+          PathExpression [57-58]
+            Identifier(b) [57-58]
+--
+ALTER RESERVATION myProject.myReservation SET OPTIONS(a = b)
+==
+
+ALTER RESERVATION myProject.myReservation SET AS JSON r'{"k\n1" : "v"}';
+--
+AlterEntityStatement [0-71]
+  Identifier(RESERVATION) [6-17]
+  PathExpression [18-41]
+    Identifier(myProject) [18-27]
+    Identifier(myReservation) [28-41]
+  AlterActionList [42-71]
+    SetAsOperation [42-71]
+      JSONLiteral(r'{"k\n1" : "v"}') [49-71]
+--
+ALTER RESERVATION myProject.myReservation SET AS JSON r'{"k\n1" : "v"}'
+==
+
+ALTER RESERVATION myProject.myReservation
+  SET OPTIONS (a=b),
+  SET AS JSON '{"key": "value"}';
+--
+AlterEntityStatement [0-95]
+  Identifier(RESERVATION) [6-17]
+  PathExpression [18-41]
+    Identifier(myProject) [18-27]
+    Identifier(myReservation) [28-41]
+  AlterActionList [44-95]
+    SetOptionsOperation [44-61]
+      OptionsList [56-61]
+        OptionsEntry [57-60]
+          Identifier(a) [57-58]
+          PathExpression [59-60]
+            Identifier(b) [59-60]
+    SetAsOperation [65-95]
+      JSONLiteral('{"key": "value"}') [72-95]
+--
+ALTER RESERVATION myProject.myReservation SET OPTIONS(a = b), SET AS JSON '{"key": "value"}'
+==
+
+# Incomplete generic ALTER statement
+ALTER RESERVATION myProject.myReservation
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:42]
+ALTER RESERVATION myProject.myReservation
+                                         ^
+==
+
+ALTER UNSUPPORTED myProject.myReservation
+--
+ERROR: UNSUPPORTED is not a supported object type [at 1:7]
+ALTER UNSUPPORTED myProject.myReservation
+      ^
+==
+
+DROP RESERVATION myProject.myReservation
+--
+DropEntityStatement [0-40]
+  Identifier(RESERVATION) [5-16]
+  PathExpression [17-40]
+    Identifier(myProject) [17-26]
+    Identifier(myReservation) [27-40]
+--
+DROP RESERVATION myProject.myReservation
+==
+
+DROP RESERVATION IF EXISTS myProject.myReservation
+--
+DropEntityStatement(is_if_exists) [0-50]
+  Identifier(RESERVATION) [5-16]
+  PathExpression [27-50]
+    Identifier(myProject) [27-36]
+    Identifier(myReservation) [37-50]
+--
+DROP RESERVATION IF EXISTS myProject.myReservation
+==
+
+DROP RESERVATION
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:17]
+DROP RESERVATION
+                ^
+==
+
+DROP RESERVATION my_res IF EXISTS;
+--
+ERROR: Syntax error: Expected end of input but got keyword IF [at 1:25]
+DROP RESERVATION my_res IF EXISTS;
+                        ^
+==
+
+DROP UNSUPPORTED myProject.myReservation
+--
+ERROR: UNSUPPORTED is not a supported object type [at 1:6]
+DROP UNSUPPORTED myProject.myReservation
+     ^
+==
+
+[supported_generic_entity_types=]
+
+CREATE {{RESERVATION|reSERVAtion|SUPPORTED_ENTITY}} myProject.myReservation
+--
+ALTERNATION GROUP: RESERVATION
+--
+ERROR: RESERVATION is not a supported object type [at 1:8]
+CREATE RESERVATION myProject.myReservation
+       ^
+--
+ALTERNATION GROUP: reSERVAtion
+--
+ERROR: reSERVAtion is not a supported object type [at 1:8]
+CREATE reSERVAtion myProject.myReservation
+       ^
+--
+ALTERNATION GROUP: SUPPORTED_ENTITY
+--
+ERROR: SUPPORTED_ENTITY is not a supported object type [at 1:8]
+CREATE SUPPORTED_ENTITY myProject.myReservation
+       ^

@@ -1,0 +1,297 @@
+# PARTITION BY with multiple columns and expressions
+create materialized view mv
+partition by c1, c2 + cast(c3 as int64)
+as select c1, c2, c3, c4 from t2
+--
+CreateMaterializedViewStatement [0-100]
+  PathExpression [25-27]
+    Identifier(mv) [25-27]
+  PartitionBy [28-67]
+    PathExpression [41-43]
+      Identifier(c1) [41-43]
+    BinaryExpression(+) [45-67]
+      PathExpression [45-47]
+        Identifier(c2) [45-47]
+      CastExpression [50-67]
+        PathExpression [55-57]
+          Identifier(c3) [55-57]
+        SimpleType [61-66]
+          PathExpression [61-66]
+            Identifier(int64) [61-66]
+  Query [71-100]
+    Select [71-100]
+      SelectList [78-92]
+        SelectColumn [78-80]
+          PathExpression [78-80]
+            Identifier(c1) [78-80]
+        SelectColumn [82-84]
+          PathExpression [82-84]
+            Identifier(c2) [82-84]
+        SelectColumn [86-88]
+          PathExpression [86-88]
+            Identifier(c3) [86-88]
+        SelectColumn [90-92]
+          PathExpression [90-92]
+            Identifier(c4) [90-92]
+      FromClause [93-100]
+        TablePathExpression [98-100]
+          PathExpression [98-100]
+            Identifier(t2) [98-100]
+--
+CREATE MATERIALIZED VIEW mv PARTITION BY c1, c2 + CAST(c3 AS int64) AS
+SELECT
+  c1,
+  c2,
+  c3,
+  c4
+FROM
+  t2
+==
+
+# PARTITION BY with multiple columns and expressions and select(*)
+create materialized view mv
+partition by c1, c2 + cast(c3 as int64)
+as select * from t2
+--
+CreateMaterializedViewStatement [0-87]
+  PathExpression [25-27]
+    Identifier(mv) [25-27]
+  PartitionBy [28-67]
+    PathExpression [41-43]
+      Identifier(c1) [41-43]
+    BinaryExpression(+) [45-67]
+      PathExpression [45-47]
+        Identifier(c2) [45-47]
+      CastExpression [50-67]
+        PathExpression [55-57]
+          Identifier(c3) [55-57]
+        SimpleType [61-66]
+          PathExpression [61-66]
+            Identifier(int64) [61-66]
+  Query [71-87]
+    Select [71-87]
+      SelectList [78-79]
+        SelectColumn [78-79]
+          Star(*) [78-79]
+      FromClause [80-87]
+        TablePathExpression [85-87]
+          PathExpression [85-87]
+            Identifier(t2) [85-87]
+--
+CREATE MATERIALIZED VIEW mv PARTITION BY c1, c2 + CAST(c3 AS int64) AS
+SELECT
+  *
+FROM
+  t2
+==
+
+# PARTITION BY with OPTIONS
+create materialized view mv
+partition by c1, c2 + cast(c3 as int64)
+options (foo=true)
+as select * from t2
+--
+CreateMaterializedViewStatement [0-106]
+  PathExpression [25-27]
+    Identifier(mv) [25-27]
+  PartitionBy [28-67]
+    PathExpression [41-43]
+      Identifier(c1) [41-43]
+    BinaryExpression(+) [45-67]
+      PathExpression [45-47]
+        Identifier(c2) [45-47]
+      CastExpression [50-67]
+        PathExpression [55-57]
+          Identifier(c3) [55-57]
+        SimpleType [61-66]
+          PathExpression [61-66]
+            Identifier(int64) [61-66]
+  OptionsList [76-86]
+    OptionsEntry [77-85]
+      Identifier(foo) [77-80]
+      BooleanLiteral(true) [81-85]
+  Query [90-106]
+    Select [90-106]
+      SelectList [97-98]
+        SelectColumn [97-98]
+          Star(*) [97-98]
+      FromClause [99-106]
+        TablePathExpression [104-106]
+          PathExpression [104-106]
+            Identifier(t2) [104-106]
+--
+CREATE MATERIALIZED VIEW mv PARTITION BY c1, c2 + CAST(c3 AS int64) OPTIONS(foo = true) AS
+SELECT
+  *
+FROM
+  t2
+==
+
+# PARTITION BY and CLUSTER BY with multiple columns and expressions
+create materialized view mv
+partition by c1, c2 + cast(c3 as int64)
+cluster by mod(c1, 2)
+as select * from t2
+--
+CreateMaterializedViewStatement [0-109]
+  PathExpression [25-27]
+    Identifier(mv) [25-27]
+  PartitionBy [28-67]
+    PathExpression [41-43]
+      Identifier(c1) [41-43]
+    BinaryExpression(+) [45-67]
+      PathExpression [45-47]
+        Identifier(c2) [45-47]
+      CastExpression [50-67]
+        PathExpression [55-57]
+          Identifier(c3) [55-57]
+        SimpleType [61-66]
+          PathExpression [61-66]
+            Identifier(int64) [61-66]
+  ClusterBy [68-89]
+    FunctionCall [79-89]
+      PathExpression [79-82]
+        Identifier(mod) [79-82]
+      PathExpression [83-85]
+        Identifier(c1) [83-85]
+      IntLiteral(2) [87-88]
+  Query [93-109]
+    Select [93-109]
+      SelectList [100-101]
+        SelectColumn [100-101]
+          Star(*) [100-101]
+      FromClause [102-109]
+        TablePathExpression [107-109]
+          PathExpression [107-109]
+            Identifier(t2) [107-109]
+--
+CREATE MATERIALIZED VIEW mv PARTITION BY c1, c2 + CAST(c3 AS int64) CLUSTER BY mod(c1, 2) AS
+SELECT
+  *
+FROM
+  t2
+==
+
+# CLUSTER BY without PARTITION BY
+create materialized view mv
+cluster by c1
+as select * from t2
+--
+CreateMaterializedViewStatement [0-61]
+  PathExpression [25-27]
+    Identifier(mv) [25-27]
+  ClusterBy [28-41]
+    PathExpression [39-41]
+      Identifier(c1) [39-41]
+  Query [45-61]
+    Select [45-61]
+      SelectList [52-53]
+        SelectColumn [52-53]
+          Star(*) [52-53]
+      FromClause [54-61]
+        TablePathExpression [59-61]
+          PathExpression [59-61]
+            Identifier(t2) [59-61]
+--
+CREATE MATERIALIZED VIEW mv CLUSTER BY c1 AS
+SELECT
+  *
+FROM
+  t2
+==
+
+# PARTITION BY and CLUSTER BY in wrong order
+create materialized view mv
+cluster by mod(c1, 2)
+partition by c1, c2 + cast(c3 as int64)
+as select * from t2
+--
+ERROR: Syntax error: Expected keyword AS but got keyword PARTITION [at 3:1]
+partition by c1, c2 + cast(c3 as int64)
+^
+==
+
+# PARTITION BY with hints - disallowed
+create materialized view mv
+partition @{hint_name=5} by c1, c2 + cast(c3 as int64);
+as select * from t2
+--
+ERROR: Syntax error: Expected keyword BY but got "@" [at 2:11]
+partition @{hint_name=5} by c1, c2 + cast(c3 as int64);
+          ^
+==
+
+# CLUSTER BY with hints - disallowed
+create materialized view mv
+cluster @{hint_name=5} by c1
+as select * from t2
+--
+ERROR: Syntax error: Expected keyword BY but got "@" [at 2:9]
+cluster @{hint_name=5} by c1
+        ^
+==
+
+# PARTITION BY without expression
+create materialized view mv
+partition by
+as select * from t2
+--
+ERROR: Syntax error: Unexpected keyword AS [at 3:1]
+as select * from t2
+^
+==
+
+# CLUSTER BY without expression
+create materialized view mv
+cluster by
+as select * from t2
+--
+ERROR: Syntax error: Unexpected keyword AS [at 3:1]
+as select * from t2
+^
+==
+
+create materialized view mv
+partition by c1
+cluster by c2
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+CreateMaterializedViewStatement [0-127]
+  PathExpression [25-27]
+    Identifier(mv) [25-27]
+  PartitionBy [28-43]
+    PathExpression [41-43]
+      Identifier(c1) [41-43]
+  ClusterBy [44-57]
+    PathExpression [55-57]
+      Identifier(c2) [55-57]
+  Query [61-127]
+    Select [61-127]
+      SelectList [68-110]
+        SelectColumn [68-83]
+          PathExpression [68-77]
+            Identifier(timestamp) [68-77]
+          Alias [78-83]
+            Identifier(c1) [81-83]
+        SelectColumn [85-97]
+          PathExpression [85-91]
+            Identifier(string) [85-91]
+          Alias [92-97]
+            Identifier(c2) [95-97]
+        SelectColumn [99-110]
+          PathExpression [99-104]
+            Identifier(int32) [99-104]
+          Alias [105-110]
+            Identifier(c3) [108-110]
+      FromClause [111-127]
+        TablePathExpression [116-127]
+          PathExpression [116-127]
+            Identifier(SimpleTypes) [116-127]
+--
+CREATE MATERIALIZED VIEW mv PARTITION BY c1 CLUSTER BY c2 AS
+SELECT
+  timestamp AS c1,
+  string AS c2,
+  int32 AS c3
+FROM
+  SimpleTypes

@@ -49,7 +49,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   // b/111212209
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
-      "Checking the presence of scalar field .* is not supported by proto3"));
+      "Checking the presence of scalar field .* is not supported for proto3"));
   // The RQG can produce assignments to repeated proto values that contain
   // NULL.
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
@@ -62,10 +62,16 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kInternal,
       "functions::IsValidDate(decoded_date_value) Invalid date"));
-  // TODO
+  // b/173659202
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
-      "Unsupported built-in function: contains_key"));
+      absl::StatusCode::kOutOfRange,
+      "Cannot execute a nested (DELETE|INSERT|UPDATE) statement on a "
+      "NULL array value"));
+  // b/182819630
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Attempted to modify an array element with multiple nested UPDATE "
+      "statements"));
   return absl::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

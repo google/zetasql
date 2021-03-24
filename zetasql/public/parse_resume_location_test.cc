@@ -16,6 +16,7 @@
 
 #include "zetasql/public/parse_resume_location.h"
 
+#include <cstdint>
 #include <string>
 
 #include "google/protobuf/descriptor.h"

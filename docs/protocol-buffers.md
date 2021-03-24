@@ -849,6 +849,6 @@ FROM
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 
-[link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#safe_casting
+[link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#safe_casting
 [proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_extract
 

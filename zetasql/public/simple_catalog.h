@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_SIMPLE_CATALOG_H_
 #define ZETASQL_PUBLIC_SIMPLE_CATALOG_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>

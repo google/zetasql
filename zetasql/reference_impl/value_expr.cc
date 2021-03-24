@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -53,7 +54,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include <cstdint>
-#include "zetasql/base/cleanup.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -1562,7 +1563,8 @@ absl::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
   ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> primary_key_indexes,
                    GetPrimaryKeyColumnIndexes(context));
   *has_primary_key = primary_key_indexes.has_value();
-  for (int64_t row_number = 0; row_number < original_rows.size(); ++row_number) {
+  for (int64_t row_number = 0; row_number < original_rows.size();
+       ++row_number) {
     // It is expensive to call this for every row, but this code is only used
     // for compliance testing, so it's ok.
     ZETASQL_RETURN_IF_ERROR(context->VerifyNotAborted());
@@ -2433,7 +2435,7 @@ absl::Status DMLUpdateValueExpr::AddToUpdateMap(
   prefix_components->insert(prefix_components->end(), new_components.begin(),
                             new_components.end());
   auto new_components_cleanup =
-      zetasql_base::MakeCleanup([prefix_components, &new_components] {
+      absl::MakeCleanup([prefix_components, &new_components] {
         for (int i = 0; i < new_components.size(); ++i) {
           prefix_components->pop_back();
         }
@@ -2468,7 +2470,7 @@ absl::Status DMLUpdateValueExpr::AddToUpdateMap(
 
     prefix_components->emplace_back(/*is_struct_field_index=*/false,
                                     offset_int64);
-    auto cleanup = zetasql_base::MakeCleanup(
+    auto cleanup = absl::MakeCleanup(
         [prefix_components] { prefix_components->pop_back(); });
 
     ResolvedColumn update_array_target_column;

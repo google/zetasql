@@ -142,6 +142,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <iterator>
 #include <limits>
 #include <string>
@@ -1098,11 +1099,13 @@ class FixedInt final {
   }
 
   template <uint32_t divisor>
-  FixedInt& DivAndRoundAwayFromZero(std::integral_constant<uint32_t, divisor> x) {
+  FixedInt& DivAndRoundAwayFromZero(
+      std::integral_constant<uint32_t, divisor> x) {
     return InternalDivMod<DivRoundOp, true>(x);
   }
   template <int32_t divisor>
-  FixedInt& DivAndRoundAwayFromZero(std::integral_constant<int32_t, divisor> x) {
+  FixedInt& DivAndRoundAwayFromZero(
+      std::integral_constant<int32_t, divisor> x) {
     return InternalDivMod<DivRoundOp, true>(x);
   }
   FixedInt& DivAndRoundAwayFromZero(UnsignedWord x) {

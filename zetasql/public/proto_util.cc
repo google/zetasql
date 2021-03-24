@@ -16,6 +16,7 @@
 
 #include "zetasql/public/proto_util.h"
 
+#include <cstdint>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -46,6 +47,7 @@
 #include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -158,7 +160,8 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
         break;
       case google::protobuf::FieldDescriptor::TYPE_UINT64:
         if ( type->kind() == TYPE_TIMESTAMP) {
-          datetime_value = absl::bit_cast<int64_t>(field->default_value_uint64());
+          datetime_value =
+              absl::bit_cast<int64_t>(field->default_value_uint64());
           break;
         }
         ABSL_FALLTHROUGH_INTENDED;
@@ -327,16 +330,19 @@ absl::Status GetProtoFieldTypeAndDefault(
 }
 
 static absl::Status Int64ToAdjustedTimestampInt64(FieldFormat::Format format,
-                                                  int64_t s, int64_t* adjusted_s) {
+                                                  int64_t s,
+                                                  int64_t* adjusted_s) {
   absl::Status status;
   switch (format) {
     case FieldFormat::TIMESTAMP_SECONDS:
-      if (!functions::Multiply<int64_t>(s, int64_t{1000000}, adjusted_s, &status)) {
+      if (!functions::Multiply<int64_t>(s, int64_t{1000000}, adjusted_s,
+                                        &status)) {
         return status;
       }
       break;
     case FieldFormat::TIMESTAMP_MILLIS:
-      if (!functions::Multiply<int64_t>(s, int64_t{1000}, adjusted_s, &status)) {
+      if (!functions::Multiply<int64_t>(s, int64_t{1000}, adjusted_s,
+                                        &status)) {
         return status;
       }
       break;
@@ -1075,54 +1081,9 @@ bool IsProtoMap(const Type* type) {
   return element->AsProto()->descriptor()->options().map_entry();
 }
 
-// Returns the key of the message, which must be a map entry proto.
-//
-// The whole set of valid map keys in proto are enums, bools, integral values,
-// and strings. We'll return false if the message isn't a map entry or if
-// the field doesn't match our expectations.
-bool GetMapKey(const google::protobuf::Message& message, MapKeyVariant& ret) {
-  ZETASQL_DCHECK(message.GetDescriptor()->options().map_entry())
-      << message.GetDescriptor()->DebugString();
-  const google::protobuf::Reflection& reflection = *message.GetReflection();
-  // This descriptor is the key descriptor. The version of protobuf we use
-  // in ZetaSQL does not have the map_key() function yet.
-  const google::protobuf::FieldDescriptor* map_key_descriptor =
-      message.GetDescriptor()->field(0);
-  ZETASQL_DCHECK_EQ(map_key_descriptor->name(), "key");
-  if (map_key_descriptor == nullptr) return false;
-  switch (map_key_descriptor->cpp_type()) {
-    case google::protobuf::FieldDescriptor::CPPTYPE_BOOL:
-      ret = reflection.GetBool(message, map_key_descriptor);
-      return true;
-    case google::protobuf::FieldDescriptor::CPPTYPE_STRING:
-      ret = reflection.GetString(message, map_key_descriptor);
-      return true;
-    case google::protobuf::FieldDescriptor::CPPTYPE_ENUM:
-      ret = static_cast<int64_t>(
-          reflection.GetEnumValue(message, map_key_descriptor));
-      return true;
-    case google::protobuf::FieldDescriptor::CPPTYPE_INT32:
-      ret =
-          static_cast<int64_t>(reflection.GetInt32(message, map_key_descriptor));
-      return true;
-    case google::protobuf::FieldDescriptor::CPPTYPE_INT64:
-      ret = reflection.GetInt64(message, map_key_descriptor);
-      return true;
-    case google::protobuf::FieldDescriptor::CPPTYPE_UINT32:
-      ret = static_cast<uint64_t>(
-          reflection.GetUInt32(message, map_key_descriptor));
-      return true;
-    case google::protobuf::FieldDescriptor::CPPTYPE_UINT64:
-      ret = reflection.GetUInt64(message, map_key_descriptor);
-      return true;
-    default:
-      return false;
-  }
-}
-
 absl::Status ParseProtoMap(const Value& array_of_map_entry,
-                           google::protobuf::DynamicMessageFactory& factory,
-                           absl::flat_hash_map<MapKeyVariant, Value>& output) {
+                           const Type* key_type, const Type* value_type,
+                           std::vector<std::pair<Value, Value>>& output) {
   if (!IsProtoMap(array_of_map_entry.type())) {
     return absl::InvalidArgumentError(
         absl::StrCat("Expected a proto map and got ",
@@ -1131,29 +1092,49 @@ absl::Status ParseProtoMap(const Value& array_of_map_entry,
   if (array_of_map_entry.is_null()) {
     return absl::OkStatus();
   }
-  const google::protobuf::Message& prototype =
-      *factory.GetPrototype(array_of_map_entry.type()
-                                ->AsArray()
-                                ->element_type()
-                                ->AsProto()
-                                ->descriptor());
-  std::unique_ptr<google::protobuf::Message> message(prototype.New());
-  for (const Value& value : array_of_map_entry.elements()) {
-    if (value.is_null()) continue;
-    absl::Cord cord = value.ToCord();
-    absl::string_view cord_view = cord.Flatten();
-    if (!message->ParseFromArray(cord_view.data(), cord_view.size())) {
-      return absl::InvalidArgumentError(
-          "Failed to parse a proto message that resides in a compared value");
+  const ProtoType* entry_type =
+      array_of_map_entry.type()->AsArray()->element_type()->AsProto();
+
+  auto MakeInfo = [](const Type* type,
+                     const google::protobuf::FieldDescriptor* descriptor) {
+    ProtoFieldInfo info;
+    info.default_value = Value::Null(type);
+    info.type = type;
+    info.descriptor = descriptor;
+    info.format = FieldFormat::DEFAULT_FORMAT;
+    info.get_has_bit = false;
+    return info;
+  };
+
+  ProtoFieldInfo key_info;
+  ProtoFieldInfo value_info;
+  std::vector<ProtoFieldInfo*> info_pointers;
+  info_pointers.reserve(2);
+  if (key_type != nullptr) {
+    key_info = MakeInfo(key_type, entry_type->map_key());
+    info_pointers.push_back(&key_info);
+  }
+  if (value_type != nullptr) {
+    value_info = MakeInfo(value_type, entry_type->map_value());
+    info_pointers.push_back(&value_info);
+  }
+
+  ProtoFieldValueList value_list;
+  output.reserve(array_of_map_entry.elements().size());
+  for (const Value& element : array_of_map_entry.elements()) {
+    if (element.is_null()) continue;
+    ZETASQL_RETURN_IF_ERROR(
+        ReadProtoFields(info_pointers, element.ToCord(), &value_list));
+    std::pair<Value, Value> element_parsed;
+    int i = 0;
+    if (key_type != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(element_parsed.first, value_list[i++]);
     }
-    MapKeyVariant key;
-    if (!GetMapKey(*message, key)) {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Map entry of type ", message->GetDescriptor()->full_name(),
-          " had an unsupported map key type"));
+    if (value_type != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(element_parsed.second, value_list[i]);
     }
-    output[key] = value;
-    message->Clear();
+    output.push_back(std::move(element_parsed));
+    value_list.clear();
   }
   return absl::OkStatus();
 }

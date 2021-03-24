@@ -120,7 +120,9 @@ class DebugStrings {
   }
 
   static boolean isDefaultValue(TypeParameters typeParameters) {
-    return typeParameters.isEmpty();
+    // TODO: Modify once type parameters are made non-optional in the resolved AST and
+    // the default value is an empty type parameters object.
+    return (typeParameters == null || typeParameters.isEmpty());
   }
 
   static boolean isDefaultValue(Table table) {
@@ -379,6 +381,9 @@ class DebugStrings {
    }
    if (node.getTimeZone() != null) {
       fields.add(new DebugStringField("time_zone", node.getTimeZone()));
+   }
+   if (node.getTypeParameters() != null && !node.getTypeParameters().isEmpty()) {
+     fields.add(new DebugStringField("type_parameters", node.getTypeParameters().debugString()));
    }
   }
 

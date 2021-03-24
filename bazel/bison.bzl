@@ -39,9 +39,10 @@ def _genyacc_impl(ctx):
         executable = ctx.executable._bison,
         env = {
             "M4": ctx.executable._m4.path,
+            "BISON_PKGDATADIR": ctx.files._bison_data[0].dirname,
         },
         arguments = [args],
-        inputs = ctx.files.src,
+        inputs = ctx.files._bison_data + ctx.files.src,
         tools = [ctx.executable._m4],
         outputs = outputs,
         mnemonic = "Yacc",
@@ -78,6 +79,7 @@ genyacc = rule(
             doc = "A list of extra options to pass to Bison.  These are " +
                   "subject to $(location ...) expansion.",
         ),
+        "_bison_data": attr.label(default = "@bison//:bison_runtime_data"),
         "_bison": attr.label(
             default = Label("//bazel:bison_bin"),
             executable = True,

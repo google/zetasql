@@ -17,7 +17,10 @@
 #ifndef ZETASQL_PUBLIC_INTERVAL_VALUE_H_
 #define ZETASQL_PUBLIC_INTERVAL_VALUE_H_
 
+#include <cstdint>
+
 #include "zetasql/common/errors.h"
+#include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include <cstdint>
 #include "absl/status/status.h"
@@ -60,9 +63,9 @@ class IntervalValue final {
   // This allows single canonical representation of nanos, i.e. for nanos=-1,
   // it will be stored as micros=-1 and nano_fractions=999.
   static const uint32_t kMonthSignMask = 0x80000000;
-  static const uint32_t kMonthsMask    = 0x7FFFE000;
+  static const uint32_t kMonthsMask = 0x7FFFE000;
   static const uint32_t kMonthsShift = 13;
-  static const uint32_t kNanosMask     = 0x000003FF;
+  static const uint32_t kNanosMask = 0x000003FF;
   static const uint32_t kNanosShift = 0;
 
  public:
@@ -108,7 +111,8 @@ class IntervalValue final {
   // and [S]econds.
   static zetasql_base::StatusOr<IntervalValue> FromYMDHMS(int64_t years, int64_t months,
                                                   int64_t days, int64_t hours,
-                                                  int64_t minutes, int64_t seconds);
+                                                  int64_t minutes,
+                                                  int64_t seconds);
 
   static zetasql_base::StatusOr<IntervalValue> FromMonthsDaysMicros(int64_t months,
                                                             int64_t days,
@@ -146,6 +150,14 @@ class IntervalValue final {
   static zetasql_base::StatusOr<IntervalValue> FromNanos(__int128 nanos) {
     ZETASQL_RETURN_IF_ERROR(ValidateNanos(nanos));
     return IntervalValue(0, 0, nanos);
+  }
+
+  static IntervalValue MaxValue() {
+    return IntervalValue(kMaxMonths, kMaxDays, kMaxNanos);
+  }
+
+  static IntervalValue MinValue() {
+    return IntervalValue(kMinMonths, kMinDays, kMinNanos);
   }
 
   // Default constructor, constructs a zero value.
@@ -233,11 +245,43 @@ class IntervalValue final {
     return IntervalValue(-months, -days, -nanos);
   }
 
+  // Binary plus operator
+  zetasql_base::StatusOr<IntervalValue> operator+(const IntervalValue& v) const {
+    return IntervalValue::FromMonthsDaysNanos(get_months() + v.get_months(),
+                                              get_days() + v.get_days(),
+                                              get_nanos() + v.get_nanos());
+  }
+
+  // Binary minus operator
+  zetasql_base::StatusOr<IntervalValue> operator-(const IntervalValue& v) const {
+    return IntervalValue::FromMonthsDaysNanos(get_months() - v.get_months(),
+                                              get_days() - v.get_days(),
+                                              get_nanos() - v.get_nanos());
+  }
+
+  // Aggregates multiple INTERVAL values and produces sum and average of all
+  // values. This class handles a temporary overflow while adding values.
+  // OUT_OF_RANGE error is generated only when retrieving the sum and only if
+  // the final sum is outside of the valid INTERVAL range.
+  class SumAggregator final {
+   public:
+    // Adds a INTERVAL value to the sum.
+    void Add(IntervalValue value);
+    // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
+    zetasql_base::StatusOr<IntervalValue> GetSum() const;
+
+   private:
+    __int128 months_ = 0;
+    __int128 days_ = 0;
+    FixedInt<64, 3> nanos_;
+  };
   // Returns hash code for the value.
   size_t HashCode() const;
 
   template <typename H>
   friend H AbslHashValue(H h, const IntervalValue& v);
+
+  zetasql_base::StatusOr<int64_t> Extract(functions::DateTimestampPart part) const;
 
   // Serialization and deserialization methods for interval values.
   void SerializeAndAppendToBytes(std::string* bytes) const;
@@ -251,6 +295,9 @@ class IntervalValue final {
 
   // Builds fully expanded string representation of interval.
   std::string ToString() const;
+
+  // Builds ISO 8601 Duration compliant string representation of interval.
+  std::string ToISO8601() const;
 
   // Parses interval from string, automatically detects datetime fields.
   static zetasql_base::StatusOr<IntervalValue> ParseFromString(absl::string_view input);

@@ -20,6 +20,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include <cstdint>
+
 #include "zetasql/base/bits.h"
 #include "zetasql/base/status.h"
 
@@ -69,8 +71,8 @@ bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
   return true;
 }
 
-bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
-                            absl::Status* error) {
+bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2,
+                            std::string* out, absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 < 0)) {
     internal::UpdateError(error, "Bitwise shift by negative offset.");
     return false;
@@ -91,7 +93,7 @@ bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, std::string* out
     } else {
       uint c = 0;
       for (uint8_t* out_end = out_data + bytes_to_copy; out_data < out_end;
-          ++out_data, ++in_data, c <<= 8) {
+           ++out_data, ++in_data, c <<= 8) {
         c |= *in_data;
         *out_data = static_cast<uint8_t>(c >> shift_bits_across_bytes);
       }

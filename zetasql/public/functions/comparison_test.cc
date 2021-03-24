@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/comparison.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <random>
 
@@ -77,7 +78,8 @@ TEST(Compare64Test, Values) {
   EXPECT_LT(Compare64(0, std::numeric_limits<int64_t>::max()), 0);
   EXPECT_GT(Compare64(std::numeric_limits<int64_t>::max(), 0), 0);
   EXPECT_LT(
-      Compare64(0, static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1),
+      Compare64(0,
+                static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1),
       0);
   EXPECT_LT(Compare64(0, std::numeric_limits<uint64_t>::max() - 1), 0);
   EXPECT_LT(Compare64(0, std::numeric_limits<uint64_t>::max()), 0);

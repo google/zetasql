@@ -163,6 +163,7 @@
 //     statement.Execute().value();
 //   ... Iterate over `result` (which lists deleted rows) ...
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>

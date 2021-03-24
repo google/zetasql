@@ -30,16 +30,7 @@ void EnableFullEvaluatorFeatures() {
   static absl::once_flag once;
   absl::call_once(once, []() {
     RegisterAllOptionalBuiltinFunctions();
-    RegisterIcuCollatorImpl([](absl::string_view collation_name)
-                                -> zetasql_base::StatusOr<ZetaSqlCollator*> {
-      ZetaSqlCollator* collator = ZetaSqlCollator::CreateFromCollationName(
-          std::string(collation_name));
-      if (!collator) {
-        return zetasql_base::OutOfRangeErrorBuilder()
-               << "COLLATE has invalid collation name";
-      }
-      return collator;
-    });
+    RegisterIcuCollatorImpl(&zetasql::MakeSqlCollator);
   });
 }
 

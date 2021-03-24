@@ -29,6 +29,7 @@
 #ifndef ZETASQL_PUBLIC_TYPES_ANNOTATION_H_
 #define ZETASQL_PUBLIC_TYPES_ANNOTATION_H_
 
+#include <cstdint>
 #include <memory>
 
 #include "zetasql/public/annotation.pb.h"

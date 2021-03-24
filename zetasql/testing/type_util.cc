@@ -27,6 +27,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/base/status.h"
 
@@ -93,6 +94,7 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
 
 std::vector<std::string> ZetaSqlTestProtoFilepaths() {
   return {"zetasql/testdata/test_schema.proto",
+          "zetasql/testdata/test_proto3.proto",
           "google/protobuf/timestamp.proto",
           "google/protobuf/wrappers.proto",
           "google/type/latlng.proto",
@@ -106,6 +108,11 @@ std::vector<std::string> ZetaSqlTestProtoNames() {
           "zetasql_test.MessageWithMapField.StringInt32MapEntry",
           "zetasql_test.CivilTimeTypesSinkPB",
           "zetasql_test.RecursiveMessage",
+          "zetasql_test.Proto3KitchenSink",
+          "zetasql_test.Proto3KitchenSink.Nested",
+          "zetasql_test.Proto3MessageWithNulls",
+          "zetasql_test.EmptyMessage",
+          "zetasql_test.Proto3TestExtraPB",
           "google.protobuf.Timestamp",
           "google.type.Date",
           "google.type.TimeOfDay",

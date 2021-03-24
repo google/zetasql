@@ -18,6 +18,7 @@
 // warrant their own files.
 
 #include <algorithm>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <queue>

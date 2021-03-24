@@ -16,6 +16,8 @@
 
 #include "zetasql/public/types/struct_type.h"
 
+#include <cstdint>
+
 #include "zetasql/common/errors.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
@@ -209,11 +211,26 @@ zetasql_base::StatusOr<std::string> StructType::TypeNameWithParameters(
 }
 
 zetasql_base::StatusOr<TypeParameters> StructType::ValidateAndResolveTypeParameters(
-    const std::vector<TypeParameterValue>& resolved_type_parameters,
+    const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   return MakeSqlError() << ShortTypeName(mode)
                         << " type cannot have type parameters by itself, it "
                            "can only have type parameters on its struct fields";
+}
+
+absl::Status StructType::ValidateResolvedTypeParameters(
+    const TypeParameters& type_parameters, ProductMode mode) const {
+  // type_parameters must be empty or has the same number of children as struct.
+  if (type_parameters.IsEmpty()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK(type_parameters.IsStructOrArrayParameters());
+  ZETASQL_RET_CHECK_EQ(type_parameters.num_children(), num_fields());
+  for (int i = 0; i < num_fields(); ++i) {
+    ZETASQL_RETURN_IF_ERROR(fields_[i].type->ValidateResolvedTypeParameters(
+        type_parameters.child(i), mode));
+  }
+  return absl::OkStatus();
 }
 
 const StructType::StructField* StructType::FindField(absl::string_view name,

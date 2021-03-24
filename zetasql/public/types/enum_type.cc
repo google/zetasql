@@ -16,13 +16,18 @@
 
 #include "zetasql/public/types/enum_type.h"
 
+#include <cstdint>
+
+#include "google/protobuf/repeated_field.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/algorithm/container.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 
@@ -32,8 +37,11 @@ static int32_t GetEnumValue(const ValueContent& value) {
 }
 
 EnumType::EnumType(const TypeFactory* factory,
-                   const google::protobuf::EnumDescriptor* enum_descr)
-    : Type(factory, TYPE_ENUM), enum_descriptor_(enum_descr) {
+                   const google::protobuf::EnumDescriptor* enum_descr,
+                   const internal::CatalogName* catalog_name)
+    : Type(factory, TYPE_ENUM),
+      enum_descriptor_(enum_descr),
+      catalog_name_(catalog_name) {
   ZETASQL_CHECK(enum_descriptor_ != nullptr);
 }
 
@@ -48,6 +56,10 @@ bool EnumType::EqualsForSameKind(const Type* that, bool equivalent) const {
 
 void EnumType::DebugStringImpl(bool details, TypeOrStringVector* stack,
                                std::string* debug_string) const {
+  if (catalog_name_ != nullptr) {
+    absl::StrAppend(debug_string, *catalog_name_->path_string, ".");
+  }
+
   absl::StrAppend(debug_string, "ENUM<", enum_descriptor_->full_name());
   if (details) {
     absl::StrAppend(debug_string,
@@ -77,11 +89,24 @@ absl::Status EnumType::SerializeToProtoAndDistinctFileDescriptorsImpl(
   if (set_index != 0) {
     enum_type_proto->set_file_descriptor_set_index(set_index);
   }
+
+  if (catalog_name_ != nullptr) {
+    absl::c_copy(catalog_name_->path,
+                 google::protobuf::RepeatedFieldBackInserter(
+                     enum_type_proto->mutable_catalog_name_path()));
+  }
+
   return absl::OkStatus();
 }
 
 std::string EnumType::TypeName() const {
-  return ToIdentifierLiteral(enum_descriptor_->full_name());
+  std::string catalog_name_path;
+  if (catalog_name_ != nullptr) {
+    absl::StrAppend(&catalog_name_path, *catalog_name_->path_string, ".");
+  }
+
+  return absl::StrCat(catalog_name_path,
+                      ToIdentifierLiteral(enum_descriptor_->full_name()));
 }
 
 std::string EnumType::ShortTypeName(ProductMode mode_unused) const {
@@ -95,7 +120,15 @@ std::string EnumType::ShortTypeName(ProductMode mode_unused) const {
       "zetasql.functions.NormalizeMode") {
     return "NORMALIZE_MODE";
   }
-  return enum_descriptor_->full_name();
+
+  std::string catalog_name_path;
+  if (catalog_name_ != nullptr) {
+    absl::StrAppend(&catalog_name_path, *catalog_name_->path_string, ".");
+  }
+
+  absl::StrAppend(&catalog_name_path, enum_descriptor_->full_name());
+
+  return catalog_name_path;
 }
 
 std::string EnumType::TypeName(ProductMode mode_unused) const {
@@ -113,6 +146,14 @@ bool EnumType::FindName(int number, const std::string** name) const {
   return true;
 }
 
+absl::Span<const std::string> EnumType::CatalogNamePath() const {
+  if (catalog_name_ == nullptr) {
+    return {};
+  } else {
+    return catalog_name_->path;
+  }
+}
+
 bool EnumType::FindNumber(const std::string& name, int* number) const {
   const google::protobuf::EnumValueDescriptor* value_descr =
       enum_descriptor_->FindValueByName(name);
@@ -126,9 +167,19 @@ bool EnumType::FindNumber(const std::string& name, int* number) const {
 
 bool EnumType::EqualsImpl(const EnumType* const type1,
                           const EnumType* const type2, bool equivalent) {
-  if (type1->enum_descriptor() == type2->enum_descriptor()) {
+  const internal::CatalogName* catalog_name1 = type1->catalog_name_;
+  const internal::CatalogName* catalog_name2 = type2->catalog_name_;
+  const bool catalogs_are_empty =
+      catalog_name1 == nullptr && catalog_name2 == nullptr;
+  const bool catalogs_are_equal =
+      catalog_name1 != nullptr && catalog_name2 != nullptr &&
+      *catalog_name1->path_string == *catalog_name2->path_string;
+
+  if (type1->enum_descriptor() == type2->enum_descriptor() &&
+      (catalogs_are_empty || catalogs_are_equal)) {
     return true;
   }
+
   if (equivalent &&
       type1->enum_descriptor()->full_name() ==
       type2->enum_descriptor()->full_name()) {

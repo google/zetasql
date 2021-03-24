@@ -1,0 +1,56 @@
+# ALTER TABLE to rename.
+ALTER TABLE foo RENAME TO bar;
+--
+AlterTableStatement [0-29]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-29]
+    RenameToClause [16-29]
+      PathExpression [26-29]
+        Identifier(bar) [26-29]
+--
+ALTER TABLE foo RENAME TO bar
+==
+
+# ALTER TABLE that might not exist to rename.
+ALTER TABLE IF EXISTS foo RENAME TO bar;
+--
+AlterTableStatement(is_if_exists) [0-39]
+  PathExpression [22-25]
+    Identifier(foo) [22-25]
+  AlterActionList [26-39]
+    RenameToClause [26-39]
+      PathExpression [36-39]
+        Identifier(bar) [36-39]
+--
+ALTER TABLE IF EXISTS foo RENAME TO bar
+==
+
+# The new name is a path expression
+ALTER TABLE foo RENAME TO {{foo.bar|`foo.bar`}};
+--
+ALTERNATION GROUP: foo.bar
+--
+AlterTableStatement [0-33]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-33]
+    RenameToClause [16-33]
+      PathExpression [26-33]
+        Identifier(foo) [26-29]
+        Identifier(bar) [30-33]
+--
+ALTER TABLE foo RENAME TO foo.bar
+--
+ALTERNATION GROUP: `foo.bar`
+--
+AlterTableStatement [0-35]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-35]
+    RenameToClause [16-35]
+      PathExpression [26-35]
+        Identifier(`foo.bar`) [26-35]
+--
+ALTER TABLE foo RENAME TO `foo.bar`
+==

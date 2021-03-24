@@ -100,6 +100,16 @@ message TestExtraPB {
   repeated string str_value = 3;
 }
 
+message TestAbPB {
+  optional int32 a = 1;
+  optional string b = 2;
+}
+
+message TestBcPB {
+  optional int32 b = 1;
+  optional string c = 2;
+}
+
 message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
@@ -856,4 +866,14 @@ message NullableIntWithIsHidden {
 
   optional int32 value = 1
       [(zetasql.use_defaults) = false, (zetasql.is_hidden_column) = true];
+}
+
+message IteratorProto {
+  message Row {
+    optional int32 key = 1;
+    optional string name = 2;
+    repeated string tag = 3;
+  }
+
+  repeated Row row = 1;
 }

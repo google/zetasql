@@ -1,0 +1,275 @@
+# Simple raise
+[default mode=script]
+BEGIN EXCEPTION WHEN ERROR THEN
+{{raise|RAISE}};
+END;
+--
+Script [0-44]
+  StatementList [0-44]
+    BeginEndBlock [0-42]
+      StatementList [5-5]
+      ExceptionHandlerList [6-15]
+        ExceptionHandler [16-20]
+          StatementList [32-39]
+            Raise [32-37]
+--
+BEGIN
+EXCEPTION
+WHEN ERROR THEN RAISE ;
+END
+;
+==
+
+# Invalid raise outside of error handler
+RAISE{{;|}}
+--
+ALTERNATION GROUP: ;
+--
+Script [0-7]
+  StatementList [0-7]
+    Raise [0-5]
+--
+RAISE ;
+--
+ALTERNATION GROUP: <empty>
+--
+Script [0-5]
+  StatementList [0-5]
+    Raise [0-5]
+--
+RAISE ;
+==
+
+# Invalid raise after error handler terminates
+BEGIN EXCEPTION WHEN ERROR THEN END;
+RAISE;
+--
+Script [0-44]
+  StatementList [0-44]
+    BeginEndBlock [0-35]
+      StatementList [5-5]
+      ExceptionHandlerList [6-15]
+        ExceptionHandler [16-20]
+          StatementList [31-31]
+    Raise [37-42]
+--
+BEGIN
+EXCEPTION
+WHEN ERROR THEN
+END
+;
+RAISE ;
+==
+
+# raises in nested exception handlers
+BEGIN EXCEPTION WHEN ERROR THEN
+  BEGIN EXCEPTION WHEN ERROR THEN
+    RAISE;
+  END;
+  RAISE;
+END;
+--
+Script [0-98]
+  StatementList [0-98]
+    BeginEndBlock [0-96]
+      StatementList [5-5]
+      ExceptionHandlerList [6-15]
+        ExceptionHandler [16-20]
+          StatementList [34-93]
+            BeginEndBlock [34-82]
+              StatementList [39-39]
+              ExceptionHandlerList [40-49]
+                ExceptionHandler [50-54]
+                  StatementList [70-79]
+                    Raise [70-75]
+            Raise [86-91]
+--
+BEGIN
+EXCEPTION
+WHEN ERROR THEN BEGIN
+  EXCEPTION
+  WHEN ERROR THEN RAISE ;
+  END
+  ;
+  RAISE ;
+END
+;
+==
+
+# raise with literal message
+{{raise|RAISE}} {{using|USING}} {{message|MESSAGE}} = 'test'{{;|}}
+--
+ALTERNATION GROUPS:
+    raise,using,message,;
+    raise,using,MESSAGE,;
+    raise,USING,message,;
+    raise,USING,MESSAGE,;
+    RAISE,using,message,;
+    RAISE,using,MESSAGE,;
+    RAISE,USING,message,;
+    RAISE,USING,MESSAGE,;
+--
+Script [0-30]
+  StatementList [0-30]
+    Raise [0-28]
+      StringLiteral('test') [22-28]
+--
+RAISE USING MESSAGE = 'test' ;
+--
+ALTERNATION GROUPS:
+    raise,using,message,
+    raise,using,MESSAGE,
+    raise,USING,message,
+    raise,USING,MESSAGE,
+    RAISE,using,message,
+    RAISE,using,MESSAGE,
+    RAISE,USING,message,
+    RAISE,USING,MESSAGE,
+--
+Script [0-28]
+  StatementList [0-28]
+    Raise [0-28]
+      StringLiteral('test') [22-28]
+--
+RAISE USING MESSAGE = 'test' ;
+==
+
+# raise with nonliteral message
+raise using message = CONCAT('test', '_', 'foo');
+--
+Script [0-50]
+  StatementList [0-50]
+    Raise [0-48]
+      FunctionCall [22-48]
+        PathExpression [22-28]
+          Identifier(CONCAT) [22-28]
+        StringLiteral('test') [29-35]
+        StringLiteral('_') [37-40]
+        StringLiteral('foo') [42-47]
+--
+RAISE USING MESSAGE = CONCAT('test', '_', 'foo') ;
+==
+
+# raise with variable, system variable, and query param
+raise using message = {{a|@a|@@a}};
+--
+ALTERNATION GROUP: a
+--
+Script [0-25]
+  StatementList [0-25]
+    Raise [0-23]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+--
+RAISE USING MESSAGE = a ;
+--
+ALTERNATION GROUP: @a
+--
+Script [0-26]
+  StatementList [0-26]
+    Raise [0-24]
+      ParameterExpr [22-24]
+        Identifier(a) [23-24]
+--
+RAISE USING MESSAGE = @a ;
+--
+ALTERNATION GROUP: @@a
+--
+Script [0-27]
+  StatementList [0-27]
+    Raise [0-25]
+      SystemVariableExpr [22-25]
+        PathExpression [24-25]
+          Identifier(a) [24-25]
+--
+RAISE USING MESSAGE = @@a ;
+==
+
+# Raise statement in a larger script
+IF x < 0 THEN
+  RAISE using message = 'x is negative';
+END IF;
+--
+Script [0-63]
+  StatementList [0-63]
+    IfStatement [0-61]
+      BinaryExpression(<) [3-8]
+        PathExpression [3-4]
+          Identifier(x) [3-4]
+        IntLiteral(0) [7-8]
+      StatementList [16-55]
+        Raise [16-53]
+          StringLiteral('x is negative') [38-53]
+--
+IF x < 0 THEN
+  RAISE USING MESSAGE = 'x is negative' ;
+END IF ;
+==
+
+# raise keywords used as identifiers (except for USING, which is reserved).
+SELECT RAISE, MESSAGE FROM t;
+--
+Script [0-30]
+  StatementList [0-30]
+    QueryStatement [0-28]
+      Query [0-28]
+        Select [0-28]
+          SelectList [7-21]
+            SelectColumn [7-12]
+              PathExpression [7-12]
+                Identifier(RAISE) [7-12]
+            SelectColumn [14-21]
+              PathExpression [14-21]
+                Identifier(MESSAGE) [14-21]
+          FromClause [22-28]
+            TablePathExpression [27-28]
+              PathExpression [27-28]
+                Identifier(t) [27-28]
+--
+SELECT
+  RAISE,
+  MESSAGE
+FROM
+  t
+;
+==
+
+# ERROR: missing message
+RAISE USING MESSAGE;
+--
+ERROR: Syntax error: Expected "=" but got ";" [at 1:20]
+RAISE USING MESSAGE;
+                   ^
+==
+
+# ERROR: missing USING keyword
+RAISE MESSAGE = 'foo';
+--
+ERROR: Syntax error: Expected end of input but got keyword MESSAGE [at 1:7]
+RAISE MESSAGE = 'foo';
+      ^
+==
+
+# ERROR: missing "="
+RAISE USING MESSAGE 'foo';
+--
+ERROR: Syntax error: Expected "=" but got string literal 'foo' [at 1:21]
+RAISE USING MESSAGE 'foo';
+                    ^
+==
+
+# ERROR: USING MESSAGE =
+RAISE 'foo';
+--
+ERROR: Syntax error: Expected end of input but got string literal 'foo' [at 1:7]
+RAISE 'foo';
+      ^
+==
+
+# ERROR: Raise used as standalone statement, outside of a script
+[mode=statement]
+RAISE;
+--
+ERROR: Syntax error: Unexpected keyword RAISE [at 1:1]
+RAISE;
+^

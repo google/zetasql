@@ -1,0 +1,227 @@
+select new x()
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          NewConstructor [7-14]
+            SimpleType [11-12]
+              PathExpression [11-12]
+                Identifier(x) [11-12]
+--
+SELECT
+  NEW x()
+==
+
+select new a.b.c.d(5)
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-21]
+          NewConstructor [7-21]
+            SimpleType [11-18]
+              PathExpression [11-18]
+                Identifier(a) [11-12]
+                Identifier(b) [13-14]
+                Identifier(c) [15-16]
+                Identifier(d) [17-18]
+            NewConstructorArg [19-20]
+              IntLiteral(5) [19-20]
+--
+SELECT
+  NEW a.b.c.d(5)
+==
+
+select new a.b(x+y, @p, @@sysvar)
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-33]
+          NewConstructor [7-33]
+            SimpleType [11-14]
+              PathExpression [11-14]
+                Identifier(a) [11-12]
+                Identifier(b) [13-14]
+            NewConstructorArg [15-18]
+              BinaryExpression(+) [15-18]
+                PathExpression [15-16]
+                  Identifier(x) [15-16]
+                PathExpression [17-18]
+                  Identifier(y) [17-18]
+            NewConstructorArg [20-22]
+              ParameterExpr [20-22]
+                Identifier(p) [21-22]
+            NewConstructorArg [24-32]
+              SystemVariableExpr [24-32]
+                PathExpression [26-32]
+                  Identifier(sysvar) [26-32]
+--
+SELECT
+  NEW a.b(x + y, @p, @@sysvar)
+==
+
+select new a.b(1 as x, y as z)
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectList [7-30]
+        SelectColumn [7-30]
+          NewConstructor [7-30]
+            SimpleType [11-14]
+              PathExpression [11-14]
+                Identifier(a) [11-12]
+                Identifier(b) [13-14]
+            NewConstructorArg [15-21]
+              IntLiteral(1) [15-16]
+              Identifier(x) [20-21]
+            NewConstructorArg [23-29]
+              PathExpression [23-24]
+                Identifier(y) [23-24]
+              Identifier(z) [28-29]
+--
+SELECT
+  NEW a.b(1 AS x, y AS z)
+==
+
+# AS is required if there is an alias.
+select new a.b(1 as x, y z)
+--
+ERROR: Syntax error: Expected ")" or "," but got identifier "z" [at 1:26]
+select new a.b(1 as x, y z)
+                         ^
+==
+
+# Path expressions must be parenthesized.
+select new a.b(1 as x, y as foo.bar)
+--
+ERROR: Syntax error: Expected ")" or "," but got "." [at 1:32]
+select new a.b(1 as x, y as foo.bar)
+                               ^
+==
+
+select new a.b(1 as x, y as (foo))
+--
+QueryStatement [0-34]
+  Query [0-34]
+    Select [0-34]
+      SelectList [7-34]
+        SelectColumn [7-34]
+          NewConstructor [7-34]
+            SimpleType [11-14]
+              PathExpression [11-14]
+                Identifier(a) [11-12]
+                Identifier(b) [13-14]
+            NewConstructorArg [15-21]
+              IntLiteral(1) [15-16]
+              Identifier(x) [20-21]
+            NewConstructorArg [23-33]
+              PathExpression [23-24]
+                Identifier(y) [23-24]
+              PathExpression [29-32]
+                Identifier(foo) [29-32]
+--
+SELECT
+  NEW a.b(1 AS x, y AS (foo))
+==
+
+select new a.b(1 as x, y as (foo.bar))
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-38]
+        SelectColumn [7-38]
+          NewConstructor [7-38]
+            SimpleType [11-14]
+              PathExpression [11-14]
+                Identifier(a) [11-12]
+                Identifier(b) [13-14]
+            NewConstructorArg [15-21]
+              IntLiteral(1) [15-16]
+              Identifier(x) [20-21]
+            NewConstructorArg [23-37]
+              PathExpression [23-24]
+                Identifier(y) [23-24]
+              PathExpression [29-36]
+                Identifier(foo) [29-32]
+                Identifier(bar) [33-36]
+--
+SELECT
+  NEW a.b(1 AS x, y AS (foo.bar))
+
+==
+
+select 1 + new `x y`().field
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          BinaryExpression(+) [7-28]
+            IntLiteral(1) [7-8]
+            DotIdentifier [22-28]
+              NewConstructor [11-22]
+                SimpleType [15-20]
+                  PathExpression [15-20]
+                    Identifier(`x y`) [15-20]
+              Identifier(field) [23-28]
+--
+SELECT
+  1 + NEW `x y`().field
+==
+
+select new abc
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:15]
+select new abc
+              ^
+==
+
+select new abc.
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:16]
+select new abc.
+               ^
+==
+
+select new abc.(
+--
+ERROR: Syntax error: Unexpected "(" [at 1:16]
+select new abc.(
+               ^
+==
+
+select new
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:11]
+select new
+          ^
+==
+
+# Only named types are allowed.
+select new array<int32>(5)
+--
+ERROR: Syntax error: Unexpected keyword ARRAY [at 1:12]
+select new array<int32>(5)
+           ^
+==
+
+select new struct<int32>(6)
+--
+ERROR: Syntax error: Unexpected keyword STRUCT [at 1:12]
+select new struct<int32>(6)
+           ^
+==
+
+select new struct(5)
+--
+ERROR: Syntax error: Unexpected keyword STRUCT [at 1:12]
+select new struct(5)
+           ^

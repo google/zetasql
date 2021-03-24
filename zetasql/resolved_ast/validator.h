@@ -58,7 +58,10 @@ class Validator {
       const ResolvedCreateModelStmt* stmt);
   absl::Status ValidateResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* stmt);
-  absl::Status ValidateResolvedCloneDataSource(const ResolvedScan* source);
+  absl::Status ValidateResolvedCloneDataSource(const ResolvedScan* source,
+                                               const Table* target = nullptr);
+  absl::Status ValidateSingleCloneDataSource(const ResolvedScan* source,
+                                             const Table* target);
   absl::Status ValidateResolvedGeneratedColumnInfo(
       const ResolvedColumnDefinition* column_definition,
       const std::set<ResolvedColumn>& visible_columns);
@@ -84,6 +87,8 @@ class Validator {
       const ResolvedCreateEntityStmt* stmt);
   absl::Status ValidateResolvedAlterEntityStmt(
       const ResolvedAlterEntityStmt* stmt);
+  absl::Status ValidateResolvedCloneDataStmt(
+      const ResolvedCloneDataStmt* stmt);
   absl::Status ValidateResolvedExportDataStmt(
       const ResolvedExportDataStmt* stmt);
   absl::Status ValidateResolvedExportModelStmt(
@@ -135,6 +140,7 @@ class Validator {
   absl::Status ValidateResolvedRenameStmt(const ResolvedRenameStmt* stmt);
   absl::Status ValidateResolvedImportStmt(const ResolvedImportStmt* stmt);
   absl::Status ValidateResolvedModuleStmt(const ResolvedModuleStmt* stmt);
+  absl::Status ValidateResolvedAnalyzeStmt(const ResolvedAnalyzeStmt* stmt);
   absl::Status ValidateResolvedAssertStmt(const ResolvedAssertStmt* stmt);
   absl::Status ValidateResolvedAssignmentStmt(
       const ResolvedAssignmentStmt* stmt);
@@ -256,6 +262,8 @@ class Validator {
   absl::Status ValidateResolvedWithScan(
       const ResolvedWithScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateGroupRowsScan(const ResolvedGroupRowsScan* scan);
 
   absl::Status ValidateResolvedReturningClause(
       const ResolvedReturningClause* returning,
@@ -383,6 +391,13 @@ class Validator {
 
   absl::Status ValidateHintList(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
+
+  absl::Status ValidateResolvedTableAndColumnInfo(
+      const ResolvedTableAndColumnInfo* table_and_column_info);
+
+  absl::Status ValidateResolvedTableAndColumnInfoList(
+      const std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>&
+          table_and_column_info_list);
 
   absl::Status ValidateColumnAnnotations(
       const ResolvedColumnAnnotations* annotations);
@@ -538,6 +553,11 @@ class Validator {
   // term of. Used to ensure that each ResolvedRecursiveRefScan matches up
   // with a ResolvedRecursiveScan.
   std::vector<RecursiveScanInfo> nested_recursive_scans_;
+
+  // Pre-aggregation columns, reflecting the columns available from the related
+  // FROM clause. Captured by WITH GROUP_ROWS expression, to be used by
+  // GROUP_ROWS() function in it.
+  std::optional<std::set<ResolvedColumn>> input_columns_for_group_rows_;
 
   // List of column ids seen so far. Used to ensure that every unique column
   // has a distinct id.

@@ -76,8 +76,8 @@ import com.google.zetasql.{{node.proto_field_type}};
 # for node in nodes|sort_by_name
 import com.google.zetasql.{{node.proto_type}};
 # endfor
-
 import java.util.List;
+import javax.annotation.Nullable;
 {{ blank_line }}
 
 /**
@@ -427,7 +427,9 @@ public final class ResolvedNodes {
       public Builder set{{field.name|upper_camel_case}}({{field.full_java_type}} v) {
         this.{{field.name|lower_camel_case}} = v;
         {% if field.full_java_type == field.nullable_java_type %}
+        {% if field.is_constructor_arg and not field.is_optional_constructor_arg and field.is_not_ignorable %}
         Preconditions.checkNotNull(v, "{{field.name|lower_camel_case}} must not be null");
+        {% endif %}
         {% endif %}
         {% if field.propagate_order %}
         {# Perform the action on set, not on build, because users may wish to
@@ -626,6 +628,15 @@ public final class ResolvedNodes {
     public void accept(Visitor visitor) {
       visitor.visit(this);
     }
+  {{ blank_line }}
+    @Override
+    public {{node.name}} accept(RewritingVisitor visitor) {
+      return visitor.visit(this);
+    }
+  # else
+  {{ blank_line }}
+    @Override
+    public abstract {{node.name}} accept(RewritingVisitor visitor);
   # endif
   {{ blank_line }}
     @Override

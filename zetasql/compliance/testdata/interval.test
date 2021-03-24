@@ -68,6 +68,53 @@ SELECT CAST(NULL AS INTERVAL)
 --
 ARRAY<STRUCT<INTERVAL>>[{NULL}]
 ==
+[required_features=INTERVAL_TYPE,NAMED_ARGUMENTS]
+[name=make_interval]
+select
+  make_interval(year => 1),
+  make_interval(second => -6),
+  make_interval(),
+  make_interval(1,-2,3,-4,5,-6),
+  make_interval(second=>-6, minute=>5, hour=>-4, day=>3, month=>-2, year=>1),
+  make_interval(1,-2,3),
+  make_interval(hour=>-4, minute=>5),
+  make_interval(second=>-6, month=>-2),
+  make_interval(1, day=>3),
+  make_interval(NULL),
+  make_interval(1, 2, 3, 4, 5, NULL),
+  make_interval(year => 1, minute => NULL),
+--
+ARRAY<STRUCT<INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL,
+             INTERVAL>>
+[{1-0 0 0:0:0,
+  0-0 0 -0:0:6,
+  0-0 0 0:0:0,
+  0-10 3 -3:55:6,
+  0-10 3 -3:55:6,
+  0-10 3 0:0:0,
+  0-0 0 -3:55:0,
+  -0-2 0 -0:0:6,
+  1-0 3 0:0:0,
+  NULL,
+  NULL,
+  NULL}]
+==
+[required_features=INTERVAL_TYPE,NAMED_ARGUMENTS]
+[name=make_interval_overflow]
+select make_interval(year => 10000, month => 1)
+--
+ERROR: generic::out_of_range: Interval field months '120001' is out of range -120000 to 120000
+==
 [required_features=INTERVAL_TYPE]
 [name=cmp_scalar]
 SELECT
@@ -95,6 +142,130 @@ SELECT
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, NULL, false}]
 ==
+[required_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[name=add_interval]
+SELECT
+  DATE '2010-10-10' + INTERVAL '10 20:20:20' DAY TO SECOND,
+  INTERVAL '24' HOUR + DATE '1999-12-31',
+  DATETIME  '1970-01-02 03:04:05.678' + INTERVAL '1-1 1 1:1:1.1111' YEAR TO SECOND,
+  INTERVAL 1 YEAR + DATETIME '0201-02-02 02:02:02',
+  TIMESTAMP '1970-01-01 02:03:04.567' + INTERVAL '1 1:1:1.1111' DAY TO SECOND,
+  INTERVAL 1 SECOND + TIMESTAMP '1999-12-31 23:59:59',
+--
+ARRAY<STRUCT<DATETIME, DATETIME, DATETIME, DATETIME, TIMESTAMP, TIMESTAMP>>[
+  {
+    2010-10-20 20:20:20,
+    2000-01-01 00:00:00,
+    1971-02-03 04:05:06.789100,
+    0202-02-02 02:02:02,
+    1970-01-02 11:04:05.678100+00,
+    2000-01-01 08:00:00+00
+  }
+]
+==
+[required_features=INTERVAL_TYPE,V_1_2_CIVIL_TIME]
+[name=subtract_interval]
+SELECT
+  DATE '2010-10-10' - INTERVAL '10 1:1:1' DAY TO SECOND,
+  DATETIME  '1970-01-02 03:04:05.678' - INTERVAL '1-1 1 1:1:1.111' YEAR TO SECOND,
+  TIMESTAMP '1970-01-01 02:03:04.567' - INTERVAL '1 1:1:1.111' DAY TO SECOND,
+--
+ARRAY<STRUCT<DATETIME, DATETIME, TIMESTAMP>>[
+  {
+    2010-09-29 22:58:59,
+    1968-12-01 02:03:04.567,
+    1969-12-31 09:02:03.456+00
+  }
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=count_distinct]
+SELECT COUNT(*) num_rows, COUNT(value) num_values, COUNT(DISTINCT value) num_uniques FROM Intervals
+--
+ARRAY<STRUCT<num_rows INT64, num_values INT64, num_uniques INT64>>[
+  {12, 11, 9}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=min_max]
+SELECT MIN(value) min, MAX(value) max FROM Intervals
+--
+ARRAY<STRUCT<min INTERVAL, max INTERVAL>>[{0-0 0 -0:0:1, 10000-0 0 0:0:0}]
+==
+[required_features=INTERVAL_TYPE]
+[name=sum]
+SELECT SUM(i) sum FROM UNNEST([
+  interval 1 year, interval 2 month, interval 3 day, NULL,
+  interval 4 hour, interval 5 minute, interval '6.789' second, NULL
+]) i
+--
+ARRAY<STRUCT<sum INTERVAL>>[{1-2 3 4:5:6.789}]
+==
+[required_features=INTERVAL_TYPE]
+[name=sum_all_nulls]
+SELECT SUM(i) sum FROM UNNEST([CAST(NULL AS INTERVAL), NULL, NULL]) i
+--
+ARRAY<STRUCT<sum INTERVAL>>[{NULL}]
+==
+[required_features=INTERVAL_TYPE]
+[name=sum_overflow]
+SELECT SUM(i) sum FROM UNNEST([
+  interval 10000 year, interval '1' month
+]) i
+--
+ERROR: generic::out_of_range: Interval field months '120001' is out of range -120000 to 120000
+==
+[required_features=INTERVAL_TYPE]
+[name=sum_handles_intermediate_overflow]
+SELECT SUM(i) sum FROM UNNEST([
+  interval '10000' year,
+  interval '10000' year,
+  interval '10000' year,
+  interval '-120000' month,
+  interval '-120000' month
+]) i
+--
+ARRAY<STRUCT<sum INTERVAL>>[{10000-0 0 0:0:0}]
+==
+[required_features=INTERVAL_TYPE]
+[name=any_value]
+SELECT ANY_VALUE(i) FROM UNNEST([interval 1 day, interval 1 day]) i
+--
+ARRAY<STRUCT<INTERVAL>>[{0-0 1 0:0:0}]
+==
+[required_features=INTERVAL_TYPE]
+[name=array_agg]
+SELECT ARRAY_AGG(i) FROM UNNEST([interval 1 day, interval 1 day]) i
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INTERVAL>[0-0 1 0:0:0, 0-0 1 0:0:0]}]
+==
+[required_features=INTERVAL_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=array_agg_orderby]
+SELECT ARRAY_AGG(value ORDER BY value, id) FROM Intervals
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<INTERVAL>[
+     NULL,
+     0-0 0 -0:0:1,
+     0-0 0 0:0:0,
+     0-0 0 0:0:0.000001,
+     0-0 0 1:0:0.000001,
+     0-0 0 1:59:59.999999,
+     0-0 0 2:0:0,
+     0-1 0 0:0:0,
+     0-0 30 0:0:0,
+     0-0 0 720:0:0,
+     1-2 3 4:5:6.789,
+     10000-0 0 0:0:0
+   ]}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=approx_count_distinct]
+SELECT APPROX_COUNT_DISTINCT(value) approx_uniques FROM Intervals
+--
+ARRAY<STRUCT<approx_uniques INT64>>[{9}]
+==
 [required_features=INTERVAL_TYPE]
 [name=orderby]
 SELECT id, value FROM Intervals ORDER BY value DESC, id ASC
@@ -114,3 +285,75 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
   {1, NULL}
 ]
 ==
+# Different interval values can compare equal (1 month = 30 days), so the are
+# manually normalized since test harness compares string representations.
+[required_features=INTERVAL_TYPE]
+[name=groupby]
+SELECT IF(value = interval 1 month, '1 month', cast(value as string)) value, cnt FROM
+(SELECT value, COUNT(id) cnt FROM Intervals GROUP BY value)
+ORDER BY cnt DESC, value ASC
+--
+ARRAY<STRUCT<value STRING, cnt INT64>>[
+  {"1 month", 3},
+  {NULL, 1},
+  {"0-0 0 -0:0:1", 1},
+  {"0-0 0 0:0:0", 1},
+  {"0-0 0 0:0:0.000001", 1},
+  {"0-0 0 1:0:0.000001", 1},
+  {
+    "0-0 0 1:59:59.999999",
+    1
+  },
+  {"0-0 0 2:0:0", 1},
+  {"1-2 3 4:5:6.789", 1},
+  {"10000-0 0 0:0:0", 1}
+]
+==
+# Different interval values can compare equal (1 month = 30 days), so the are
+# manually normalized since test harness compares string representations.
+[required_features=INTERVAL_TYPE]
+[name=distinct]
+SELECT IF(value = interval 1 month, '1 month', cast(value as string)) value FROM
+(SELECT DISTINCT value FROM Intervals)
+ORDER BY value
+--
+ARRAY<STRUCT<value STRING>>[
+  {NULL},
+  {"0-0 0 -0:0:1"},
+  {"0-0 0 0:0:0"},
+  {"0-0 0 0:0:0.000001"},
+  {"0-0 0 1:0:0.000001"},
+  {"0-0 0 1:59:59.999999"},
+  {"0-0 0 2:0:0"},
+  {"1 month"},
+  {"1-2 3 4:5:6.789"},
+  {"10000-0 0 0:0:0"}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=join]
+SELECT id, value, i FROM Intervals
+INNER JOIN
+(SELECT i FROM UNNEST([interval 1 month, interval 31 day, interval 2 hour]) i)
+ON value = i
+ORDER BY id ASC
+--
+ARRAY<STRUCT<id INT64, value INTERVAL, i INTERVAL>>[
+  {5, 0-1 0 0:0:0, 0-1 0 0:0:0},
+  {6, 0-0 30 0:0:0, 0-1 0 0:0:0},
+  {7, 0-0 0 720:0:0, 0-1 0 0:0:0},
+  {10, 0-0 0 2:0:0, 0-0 0 2:0:0}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=in_semijoin]
+SELECT id, value FROM Intervals
+WHERE value IN (SELECT i FROM UNNEST([interval -1 second, interval 31 day, interval 30 day]) i)
+ORDER BY id ASC
+--
+ARRAY<STRUCT<id INT64, value INTERVAL>>[
+  {4, 0-0 0 -0:0:1},
+  {5, 0-1 0 0:0:0},
+  {6, 0-0 30 0:0:0},
+  {7, 0-0 0 720:0:0}
+]

@@ -356,12 +356,12 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
 //
 // AMBIGUOUS CASE 8: CREATE TABLE GENERATED
 // -------------------------------------------------------------
-// The GENERATED column is a non-reserved keyword, so when a generated column
-// is defined with "<name> [<type>] GENERATED [ON WRITE] AS ()", we have a
-// shift/reduce conflict, not knowing whether the word GENERATED is an
-// identifier from <type> or the keyword GENERATED because <type> is missing.
-// By default, Bison chooses "shift", treating GENERATED as a keyword. To use it
-// as an identifier, it needs to be escaped with backticks.
+// The GENERATED keyword is non-reserved, so when a generated column is defined
+// with "<name> [<type>] GENERATED AS ()", we have a shift/reduce conflict, not
+// knowing whether the word GENERATED is an identifier from <type> or the
+// keyword GENERATED because <type> is missing. By default, Bison chooses
+// "shift", treating GENERATED as a keyword. To use it as an identifier, it
+// needs to be escaped with backticks.
 //
 // AMBIGUOUS CASE 9: WITH ANONYMIZATION opt_options_list
 // -------------------------------------------------------------
@@ -425,6 +425,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTSampleSize::Unit sample_size_unit;
   zetasql::ASTInsertStatement::InsertMode insert_mode;
   zetasql::ASTNodeKind ast_node_kind;
+  zetasql::ASTUnpivotClause::NullFilter opt_unpivot_nulls_filter;
   NotKeywordPresence not_keyword_presence;
   AllOrDistinctKeyword all_or_distinct_keyword;
   zetasql::SchemaObjectKind schema_object_kind_keyword;
@@ -439,6 +440,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTForeignKeyActions::Action foreign_key_action;
   zetasql::ASTFunctionParameter::ProcedureParameterMode parameter_mode;
   zetasql::ASTCreateFunctionStmtBase::DeterminismLevel determinism_level;
+  zetasql::ASTGeneratedColumnInfo::StoredMode stored_mode;
   zetasql::ASTOrderingExpression::OrderingSpec ordering_spec;
 
   // Not owned. The allocated nodes are all owned by the parser.
@@ -469,6 +471,10 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTNode* qualify;
     zetasql::ASTNode* window;
   } clauses_following_from;
+  struct {
+    zetasql::ASTExpression* default_expression;
+    zetasql::ASTGeneratedColumnInfo* generated_column_info;
+  } generated_or_default_column_info;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -822,6 +828,7 @@ using zetasql::ASTDropStatement;
 %token KW_IMMEDIATE "IMMEDIATE"
 %token KW_IMMUTABLE "IMMUTABLE"
 %token KW_IMPORT "IMPORT"
+%token KW_INCLUDE "INCLUDE"
 %token KW_INDEX "INDEX"
 %token KW_INOUT "INOUT"
 %token KW_INSERT "INSERT"
@@ -1048,6 +1055,7 @@ using zetasql::ASTDropStatement;
 %type <node> while_statement
 %type <node> until_clause
 %type <node> repeat_statement
+%type <node> for_in_statement
 %type <node> import_statement
 %type <node> variable_declaration
 %type <node> opt_default_expression
@@ -1099,7 +1107,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_as_alias
 %type <node> opt_as_alias_with_required_as
 %type <node> opt_as_or_into_alias
-%type <node> opt_as_string
+%type <node> opt_as_string_or_integer
 %type <node> opt_as_query
 %type <node> opt_as_query_or_string
 %type <node> opt_as_sql_function_body_or_string
@@ -1338,6 +1346,8 @@ using zetasql::ASTDropStatement;
 
 %type <import_type> import_type
 
+%type <stored_mode> stored_mode
+
 %type <table_or_table_function_keywords> table_or_table_function
 %type <boolean> opt_access
 %type <boolean> opt_aggregate
@@ -1349,7 +1359,6 @@ using zetasql::ASTDropStatement;
 %type <boolean> opt_not_aggregate
 %type <boolean> opt_or_replace
 %type <boolean> opt_recursive
-%type <boolean> opt_stored
 %type <boolean> opt_unique
 %type <boolean> opt_search
 %type <node> opt_with_anonymization
@@ -1359,15 +1368,19 @@ using zetasql::ASTDropStatement;
 %type <node> column_attribute
 %type <node> column_attributes
 %type <node> generated_column_info
+%type <boolean> invalid_generated_column
+%type <node> default_column_info
+%type <boolean> invalid_default_column
+%type <generated_or_default_column_info> opt_column_info
 %type <node> opt_column_attributes
 %type <node> opt_field_attributes
-%type <node> opt_generated_column_info
 %type <node> raise_statement
 
 %type <binary_op> additive_operator
 %type <binary_op> comparative_operator
 %type <join_hint> join_hint
 %type <join_type> join_type
+%type <opt_unpivot_nulls_filter> opt_unpivot_nulls_filter
 %type <binary_op> multiplicative_operator
 %type <ast_node_kind> next_statement_kind
 %type <ast_node_kind> next_statement_kind_parenthesized_select
@@ -1401,7 +1414,6 @@ using zetasql::ASTDropStatement;
 %type <node> with_partition_columns_clause
 %type <node> opt_with_partition_columns_clause
 %type <pivot_or_unpivot_clause_and_alias> opt_pivot_or_unpivot_clause_and_alias
-%type <expression> is_distinct_from_expression
 
 %start start_mode
 %%
@@ -1479,6 +1491,7 @@ unterminated_script_statement:
     | while_statement
     | loop_statement
     | repeat_statement
+    | for_in_statement
     | break_statement
     | continue_statement
     | return_statement
@@ -1604,13 +1617,23 @@ alter_action:
         node->set_is_if_exists($3);
         $$ = node;
       }
-    | "ALTER" "COLUMN" identifier "SET" "DATA" "TYPE" column_schema_inner
+    | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DATA" "TYPE" column_schema_inner
       {
-        $$ = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$3, $7});
+        auto* node = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$4, $8});
+        node->set_is_if_exists($3);
+        $$ = node;
       }
-    | "ALTER" "COLUMN" identifier "SET" "OPTIONS" options_list
+    | "ALTER" "COLUMN" opt_if_exists identifier "SET" "OPTIONS" options_list
       {
-        $$ = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$3, $6});
+        auto* node = MAKE_NODE(ASTAlterColumnOptionsAction, @$, {$4, $7});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
+    | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "NOT" "NULL"
+      {
+        auto* node = MAKE_NODE(ASTAlterColumnDropNotNullAction, @$, {$4});
+        node->set_is_if_exists($3);
+        $$ = node;
       }
     | "RENAME" "TO" path_expression
       {
@@ -2481,11 +2504,10 @@ generic_entity_type:
       }
     ;
 
-// TODO: add string literal body after JSON type is implemented.
 generic_entity_body:
-    "JSON" string_literal
+    json_literal
       {
-        $$ = $string_literal;
+        $$ = $json_literal;
       }
     ;
 
@@ -2602,9 +2624,17 @@ table_column_definition:
     ;
 
 table_column_schema:
-    column_schema_inner opt_generated_column_info
+    column_schema_inner opt_column_info
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        if ($2.generated_column_info != nullptr) {
+          $$ = WithEndLocation(
+              WithExtraChildren($1, {$2.generated_column_info,
+                                     /*default_expression=*/nullptr}), @$);
+        } else if ($2.default_expression != nullptr) {
+          $$ = WithEndLocation(
+              WithExtraChildren($1, {/*generated_column_info=*/nullptr,
+                                     $2.default_expression}), @$);
+        }
       }
     | generated_column_info
       {
@@ -2694,8 +2724,37 @@ column_schema_inner:
       $$ = WithExtraChildren(WithEndLocation($1, @2), {$2});
     };
 
-opt_stored:
-  "STORED"
+generated_as_keywords:
+  "GENERATED" "AS"
+  | "AS"
+  ;
+
+stored_mode:
+  "STORED" "VOLATILE"
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::StoredMode::STORED_VOLATILE;
+    }
+  | "STORED"
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::StoredMode::STORED;
+    }
+  | /* nothing */
+    {
+      $$ = zetasql::ASTGeneratedColumnInfo::StoredMode::NON_STORED;
+    }
+  ;
+
+generated_column_info:
+  generated_as_keywords "(" expression ")" stored_mode
+    {
+      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$3});
+      column->set_stored_mode($5);
+      $$ = column;
+    }
+  ;
+
+invalid_generated_column:
+  generated_column_info
     {
       $$ = true;
     }
@@ -2705,36 +2764,55 @@ opt_stored:
     }
   ;
 
-generated_column_info:
-  "AS" "(" expression ")" opt_stored
+default_column_info:
+  "DEFAULT" expression
     {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$3});
-      column->set_is_stored($5);
-      $$ = column;
-    }
-    // Since GENERATED is not a reserved keyword, this rule causes a
-    // shift/reduce conflict with keyword_as_identifier. See more detailed
-    // explanation at the "AMBIGUOUS CASES" section at the top of this file.
-  | "GENERATED" "AS" "(" expression ")" opt_stored
-    {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$4});
-      column->set_is_stored($6);
-      $$ = column;
-    }
-    // Explicitly writing ON WRITE here, because if we wrote a separate
-    // opt_on_write grammar rule, we'd get a reduce/reduce conflict.
-  | "GENERATED" "ON" "WRITE" "AS" "(" expression ")" opt_stored
-    {
-      auto* column = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$6});
-      column->set_is_stored($8);
-      column->set_is_on_write(true);
-      $$ = column;
+      if (parser->language_options() != nullptr &&
+          parser->language_options()->LanguageFeatureEnabled(
+             zetasql::FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+        $$ = $2;
+      } else {
+        YYERROR_AND_ABORT_AT(@2, "Column DEFAULT value is not supported.");
+      }
     }
   ;
 
-opt_generated_column_info:
-  generated_column_info
-  | /* nothing */ { $$ = nullptr;}
+invalid_default_column:
+  default_column_info
+    {
+      $$ = true;
+    }
+  | /* nothing */
+    {
+      $$ = false;
+    }
+  ;
+
+opt_column_info:
+  generated_column_info invalid_default_column
+    {
+      if ($2) {
+        YYERROR_AND_ABORT_AT(@2, "Syntax error: \"DEFAULT\" and \"GENERATED "
+            "ALWAYS AS\" clauses must not be both provided for the column");
+      }
+      $$.generated_column_info =
+          static_cast<zetasql::ASTGeneratedColumnInfo*>($1);
+      $$.default_expression = nullptr;
+    }
+  | default_column_info invalid_generated_column
+    {
+      if ($2) {
+        YYERROR_AND_ABORT_AT(@2, "Syntax error: \"DEFAULT\" and \"GENERATED "
+            "ALWAYS AS\" clauses must not be both provided for the column");
+      }
+      $$.generated_column_info = nullptr;
+      $$.default_expression = static_cast<zetasql::ASTExpression*>($1);
+    }
+  | /* nothing */
+    {
+      $$.generated_column_info = nullptr;
+      $$.default_expression = nullptr;
+    }
   ;
 
 field_schema: column_schema_inner opt_field_attributes opt_options_list
@@ -4060,9 +4138,12 @@ pivot_clause:
       $$ = MAKE_NODE(ASTPivotClause, @$, {$3, $5, $8});
   };
 
-opt_as_string:
+opt_as_string_or_integer:
   opt_as string_literal{
-    $$ = $2;
+    $$ = MAKE_NODE(ASTUnpivotInItemLabel, @$, {$2});
+  }
+  | opt_as integer_literal{
+    $$ = MAKE_NODE(ASTUnpivotInItemLabel, @$, {$2})
   }
   | /* Nothing */ { $$ = nullptr; };
 
@@ -4086,7 +4167,7 @@ path_expression_list_with_opt_parens:
  };
 
 unpivot_in_item:
-  path_expression_list_with_opt_parens opt_as_string {
+  path_expression_list_with_opt_parens opt_as_string_or_integer {
     $$ = MAKE_NODE(ASTUnpivotInItem, @$, {$1, $2});
   };
 
@@ -4103,12 +4184,19 @@ unpivot_in_item_list:
     $$ = WithEndLocation($1, @$);
   } ;
 
-// TODO: add optional null handling modifier.
+opt_unpivot_nulls_filter:
+    "EXCLUDE" "NULLS" { $$ = zetasql::ASTUnpivotClause::kExclude; }
+    | "INCLUDE" "NULLS" { $$ = zetasql::ASTUnpivotClause::kInclude; }
+    | /* Nothing */ { $$ = zetasql::ASTUnpivotClause::kUnspecified; }
+    ;
+
 unpivot_clause:
-   "UNPIVOT" "("
+   "UNPIVOT" opt_unpivot_nulls_filter "("
    path_expression_list_with_opt_parens
    "FOR" path_expression "IN" unpivot_in_item_list ")" {
-    $$ = MAKE_NODE(ASTUnpivotClause, @$, {$3, $5, $7});
+    auto* unpivot_clause = MAKE_NODE(ASTUnpivotClause, @$, {$4, $6, $8});
+    unpivot_clause->set_null_filter($2);
+    $$ = unpivot_clause;
    } ;
 
 // Ideally, we would have an 'opt_pivot_or_unpivot_clause' rule that covers
@@ -4183,6 +4271,9 @@ table_subquery:
     "(" query ")" opt_pivot_or_unpivot_clause_and_alias opt_sample_clause
       {
         zetasql::ASTQuery* query = $2;
+        if ($4.pivot_clause != nullptr) {
+          query->set_is_pivot_input(true);
+        }
         query->set_is_nested(true);
         $$ = MAKE_NODE(ASTTableSubquery, @$, {
             $2, $4.alias, $4.pivot_clause, $4.unpivot_clause, $5});
@@ -6526,13 +6617,13 @@ function_call_expression_with_clauses:
           current_expression->AddChild($2);
         }
         if ($3 != nullptr) {
-          if (parser->language_options() == nullptr ||
+          if (parser->language_options() != nullptr &&
               !parser->language_options()->LanguageFeatureEnabled(
                   zetasql::FEATURE_V_1_3_WITH_GROUP_ROWS)) {
             YYERROR_AND_ABORT_AT(@3, "WITH GROUP_ROWS is not supported");
           }
-          current_expression = MAKE_NODE(ASTFunctionCallWithGroupRows, @$,
-              {current_expression, $3});
+          auto* with_group_rows = MAKE_NODE(ASTWithGroupRows, @$, {$3});
+          current_expression->AddChild(with_group_rows);
         }
         if ($4 != nullptr) {
           current_expression = MAKE_NODE(ASTAnalyticFunctionCall, @$,
@@ -7024,6 +7115,7 @@ keyword_as_identifier:
     | "IMMEDIATE"
     | "IMMUTABLE"
     | "IMPORT"
+    | "INCLUDE"
     | "INDEX"
     | "INSERT"
     | "INOUT"
@@ -8243,6 +8335,18 @@ repeat_statement:
         YYERROR_AND_ABORT_AT(@1, "REPEAT is not supported");
       }
       $$ = MAKE_NODE(ASTRepeatStatement, @$, {$2, $3});
+    }
+    ;
+
+for_in_statement:
+    "FOR" identifier "IN" "(" query ")" "DO" statement_list "END" "FOR"
+    {
+     if (parser->language_options() != nullptr &&
+         !parser->language_options()->LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_3_FOR_IN)) {
+        YYERROR_AND_ABORT_AT(@1, "FOR...IN is not supported");
+      }
+      $$ = MAKE_NODE(ASTForInStatement, @$, {$2, $5, $8});
     }
     ;
 

@@ -1072,6 +1072,17 @@ void GetJSONFunctions(TypeFactory* type_factory,
         FunctionOptions()
             .set_supports_safe_error_mode(false)
             .set_get_sql_callback(&SubscriptFunctionSQL));
+
+    InsertFunction(functions, options, "to_json", SCALAR,
+                   {{json_type,
+                     {ARG_TYPE_ANY_1,
+                      {bool_type, FunctionArgumentTypeOptions()
+                                      .set_cardinality(FunctionEnums::OPTIONAL)
+                                      .set_argument_name(
+                                          std::string("stringify_wide_numbers"))
+                                      .set_argument_name_is_mandatory(true)
+                                      .set_default(values::Bool(false))}},
+                     FN_TO_JSON}});
   }
 
   InsertFunction(functions, options, "json_extract", SCALAR,
@@ -1130,6 +1141,7 @@ void GetNumericFunctions(TypeFactory* type_factory,
   const Type* double_type = type_factory->get_double();
   const Type* numeric_type = type_factory->get_numeric();
   const Type* bignumeric_type = type_factory->get_bignumeric();
+  const Type* string_type = type_factory->get_string();
 
   const Function::Mode SCALAR = Function::SCALAR;
   const FunctionArgumentType::ArgumentCardinality REPEATED =
@@ -1425,6 +1437,11 @@ void GetNumericFunctions(TypeFactory* type_factory,
                    {bignumeric_type},
                    FN_DECIMAL_LOGARITHM_BIGNUMERIC,
                    has_bignumeric_type_argument}});
+
+  InsertFunction(functions, options, "parse_numeric", SCALAR,
+                 {{numeric_type, {string_type}, FN_PARSE_NUMERIC}});
+  InsertFunction(functions, options, "parse_bignumeric", SCALAR,
+                 {{bignumeric_type, {string_type}, FN_PARSE_BIGNUMERIC}});
 }
 
 void GetTrigonometricFunctions(TypeFactory* type_factory,

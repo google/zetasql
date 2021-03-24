@@ -1,0 +1,195 @@
+show ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:6]
+show ;
+     ^
+==
+
+show TABLES adwords;
+--
+ERROR: Syntax error: Expected end of input but got identifier "adwords" [at 1:13]
+show TABLES adwords;
+            ^
+==
+
+show catalog.tables
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:13]
+show catalog.tables
+            ^
+==
+
+show TABLES;
+--
+ShowStatement [0-11]
+  Identifier(TABLES) [5-11]
+--
+SHOW TABLES
+==
+
+show TABLES from;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:17]
+show TABLES from;
+                ^
+==
+
+show TABLES from adwords;
+--
+ShowStatement [0-24]
+  Identifier(TABLES) [5-11]
+  PathExpression [17-24]
+    Identifier(adwords) [17-24]
+--
+SHOW TABLES FROM adwords
+==
+
+show TABLES from catalog.adwords;
+--
+ShowStatement [0-32]
+  Identifier(TABLES) [5-11]
+  PathExpression [17-32]
+    Identifier(catalog) [17-24]
+    Identifier(adwords) [25-32]
+--
+SHOW TABLES FROM catalog.adwords
+==
+
+show TABLES from adwords like;
+--
+ERROR: Syntax error: Expected string literal but got ";" [at 1:30]
+show TABLES from adwords like;
+                             ^
+==
+
+show TABLES like 'KitchenSync%';
+--
+ShowStatement [0-31]
+  Identifier(TABLES) [5-11]
+  StringLiteral('KitchenSync%') [17-31]
+--
+SHOW TABLES LIKE 'KitchenSync%'
+==
+
+show COLUMNS from KitchenSync;
+--
+ShowStatement [0-29]
+  Identifier(COLUMNS) [5-12]
+  PathExpression [18-29]
+    Identifier(KitchenSync) [18-29]
+--
+SHOW COLUMNS FROM KitchenSync
+==
+
+show INDEXES from myschema.MyTable;
+--
+ShowStatement [0-34]
+  Identifier(INDEXES) [5-12]
+  PathExpression [18-34]
+    Identifier(myschema) [18-26]
+    Identifier(MyTable) [27-34]
+--
+SHOW INDEXES FROM myschema.MyTable
+==
+
+show STATUS;
+--
+ShowStatement [0-11]
+  Identifier(STATUS) [5-11]
+--
+SHOW STATUS
+==
+
+show VARIABLES like 'server_name';
+--
+ShowStatement [0-33]
+  Identifier(VARIABLES) [5-14]
+  StringLiteral('server_name') [20-33]
+--
+SHOW VARIABLES LIKE 'server_name'
+==
+
+show TABLES from adwords like b'abc%';
+--
+ERROR: Syntax error: Expected string literal but got bytes literal b'abc%' [at 1:31]
+show TABLES from adwords like b'abc%';
+                              ^
+==
+
+show TABLES from adwords like 5;
+--
+ERROR: Syntax error: Expected string literal but got integer literal "5" [at 1:31]
+show TABLES from adwords like 5;
+                              ^
+==
+
+show TABLES from catalog.adwords like 'KitchenSync%';
+--
+ShowStatement [0-52]
+  Identifier(TABLES) [5-11]
+  PathExpression [17-32]
+    Identifier(catalog) [17-24]
+    Identifier(adwords) [25-32]
+  StringLiteral('KitchenSync%') [38-52]
+--
+SHOW TABLES FROM catalog.adwords LIKE 'KitchenSync%'
+==
+
+SHOW MATERIALIZED VIEWS;
+--
+ShowStatement [0-23]
+  Identifier(`MATERIALIZED VIEWS`) [5-23]
+--
+SHOW `MATERIALIZED VIEWS`
+==
+
+SHOW `MATERIALIZED VIEWS`;
+--
+ShowStatement [0-25]
+  Identifier(`MATERIALIZED VIEWS`) [5-25]
+--
+SHOW `MATERIALIZED VIEWS`
+==
+
+SHOW MATERIALIZED VIEWS like 'KitchenSync%';
+--
+ShowStatement [0-43]
+  Identifier(`MATERIALIZED VIEWS`) [5-23]
+  StringLiteral('KitchenSync%') [29-43]
+--
+SHOW `MATERIALIZED VIEWS` LIKE 'KitchenSync%'
+==
+
+SHOW MATERIALIZED VIEWS from KitchenSync;
+--
+ShowStatement [0-40]
+  Identifier(`MATERIALIZED VIEWS`) [5-23]
+  PathExpression [29-40]
+    Identifier(KitchenSync) [29-40]
+--
+SHOW `MATERIALIZED VIEWS` FROM KitchenSync
+==
+
+SHOW MATERIALIZED VIEWS from KitchenSync like '%foo%';
+--
+ShowStatement [0-53]
+  Identifier(`MATERIALIZED VIEWS`) [5-23]
+  PathExpression [29-40]
+    Identifier(KitchenSync) [29-40]
+  StringLiteral('%foo%') [46-53]
+--
+SHOW `MATERIALIZED VIEWS` FROM KitchenSync LIKE '%foo%'
+==
+
+SHOW MATERIALIZED TABLES
+--
+ERROR: Syntax error: Expected end of input but got identifier "TABLES" [at 1:19]
+SHOW MATERIALIZED TABLES
+                  ^
+==
+
+SHOW MATERIALIZED TABLES from KitchenSync
+--
+ERROR: Syntax error: Expected end of input but got identifier "TABLES" [at 1:19]
+SHOW MATERIALIZED TABLES from KitchenSync
+                  ^

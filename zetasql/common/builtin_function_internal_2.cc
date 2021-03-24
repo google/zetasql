@@ -67,6 +67,7 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
   const Type* int64_type = type_factory->get_int64();
   const Type* datepart_type = types::DatePartEnumType();
   const Type* string_type = type_factory->get_string();
+  const Type* interval_type = type_factory->get_interval();
 
   const Function::Mode SCALAR = Function::SCALAR;
   const FunctionArgumentType::ArgumentCardinality OPTIONAL =
@@ -82,7 +83,8 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
         {timestamp_type, datepart_type, {string_type, OPTIONAL}},
         FN_EXTRACT_FROM_TIMESTAMP},
        {extract_type, {datetime_type, datepart_type}, FN_EXTRACT_FROM_DATETIME},
-       {extract_type, {time_type, datepart_type}, FN_EXTRACT_FROM_TIME}},
+       {extract_type, {time_type, datepart_type}, FN_EXTRACT_FROM_TIME},
+       {int64_type, {interval_type, datepart_type}, FN_EXTRACT_FROM_INTERVAL}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_pre_resolution_argument_constraint(
@@ -843,6 +845,26 @@ void GetIntervalFunctions(TypeFactory* type_factory,
       functions, options, "$interval", SCALAR,
       {{interval_type, {int64_type, datepart_type}, FN_INTERVAL_CONSTRUCTOR}},
       FunctionOptions().set_get_sql_callback(&IntervalConstructorSQL));
+
+  auto with_name = [](const std::string& name) {
+    return FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+        .set_default(Value::Int64(0))
+        .set_argument_name(name);
+  };
+
+  InsertFunction(
+      functions, options, "make_interval", SCALAR,
+      {{interval_type,
+        {
+            {int64_type, with_name("year")},
+            {int64_type, with_name("month")},
+            {int64_type, with_name("day")},
+            {int64_type, with_name("hour")},
+            {int64_type, with_name("minute")},
+            {int64_type, with_name("second")},
+        },
+        FN_MAKE_INTERVAL}},
+      FunctionOptions().add_required_language_feature(FEATURE_INTERVAL_TYPE));
 }
 
 void GetArithmeticFunctions(TypeFactory* type_factory,
@@ -877,6 +899,9 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
   FunctionSignatureOptions interval_options =
       FunctionSignatureOptions().add_required_language_feature(
           FEATURE_INTERVAL_TYPE);
+  FunctionSignatureOptions civil_time_options =
+      FunctionSignatureOptions().add_required_language_feature(
+          FEATURE_V_1_2_CIVIL_TIME);
 
   // Note that the '$' prefix is used in function names for those that do not
   // support function call syntax.  Otherwise, syntax like ADD(<op1>, <op2>)
@@ -909,6 +934,29 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
                       {int64_type, date_type},
                       FN_ADD_INT64_DATE,
                       date_arithmetics_options},
+                     {timestamp_type,
+                      {timestamp_type, interval_type},
+                      FN_ADD_TIMESTAMP_INTERVAL},
+                     {timestamp_type,
+                      {interval_type, timestamp_type},
+                      FN_ADD_INTERVAL_TIMESTAMP},
+                     {datetime_type,
+                      {date_type, interval_type},
+                      FN_ADD_DATE_INTERVAL,
+                      civil_time_options},
+                     {datetime_type,
+                      {interval_type, date_type},
+                      FN_ADD_INTERVAL_DATE,
+                      civil_time_options},
+                     {datetime_type,
+                      {datetime_type, interval_type},
+                      FN_ADD_DATETIME_INTERVAL},
+                     {datetime_type,
+                      {interval_type, datetime_type},
+                      FN_ADD_INTERVAL_DATETIME},
+                     {interval_type,
+                      {interval_type, interval_type},
+                      FN_ADD_INTERVAL_INTERVAL},
                  },
                  FunctionOptions()
                      .set_supports_safe_error_mode(false)
@@ -952,6 +1000,19 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
            {time_type, time_type},
            FN_SUBTRACT_TIME,
            interval_options},
+          {timestamp_type,
+           {timestamp_type, interval_type},
+           FN_SUBTRACT_TIMESTAMP_INTERVAL},
+          {datetime_type,
+           {date_type, interval_type},
+           FN_SUBTRACT_DATE_INTERVAL,
+           civil_time_options},
+          {datetime_type,
+           {datetime_type, interval_type},
+           FN_SUBTRACT_DATETIME_INTERVAL},
+         {interval_type,
+          {interval_type, interval_type},
+          FN_SUBTRACT_INTERVAL_INTERVAL},
       },
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -1130,11 +1191,21 @@ void GetAggregateFunctions(TypeFactory* type_factory,
   const Type* bool_type = type_factory->get_bool();
   const Type* numeric_type = type_factory->get_numeric();
   const Type* bignumeric_type = type_factory->get_bignumeric();
+  const Type* interval_type = type_factory->get_interval();
 
   FunctionSignatureOptions has_numeric_type_argument;
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
   has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+  FunctionSignatureOptions ignore_nulls;
+  ignore_nulls.set_default_null_handling(
+      DefaultNullHandlingBehavior::kIgnoreNulls);
+  FunctionSignatureOptions has_numeric_type_argument_and_ignores_nulls =
+      FunctionSignatureOptions(has_numeric_type_argument)
+          .set_default_null_handling(DefaultNullHandlingBehavior::kIgnoreNulls);
+  FunctionSignatureOptions has_bignumeric_type_argument_and_ignores_nulls =
+      FunctionSignatureOptions(has_bignumeric_type_argument)
+          .set_default_null_handling(DefaultNullHandlingBehavior::kIgnoreNulls);
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
@@ -1142,7 +1213,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                  {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ANY_VALUE}});
 
   InsertFunction(functions, options, "count", AGGREGATE,
-                 {{int64_type, {ARG_TYPE_ANY_1}, FN_COUNT}});
+                 {{int64_type, {ARG_TYPE_ANY_1}, FN_COUNT, ignore_nulls}});
 
   InsertFunction(functions, options, "$count_star", AGGREGATE,
                  {{int64_type, {}, FN_COUNT_STAR}},
@@ -1151,68 +1222,73 @@ void GetAggregateFunctions(TypeFactory* type_factory,
                      .set_get_sql_callback(&CountStarFunctionSQL));
 
   InsertFunction(functions, options, "countif", AGGREGATE,
-                 {{int64_type, {bool_type}, FN_COUNTIF}});
+                 {{int64_type, {bool_type}, FN_COUNTIF, ignore_nulls}});
 
   // Let INT32 -> INT64, UINT32 -> UINT64, and FLOAT -> DOUBLE.
-  InsertFunction(functions, options, "sum", AGGREGATE,
-                 {{int64_type, {int64_type}, FN_SUM_INT64},
-                  {uint64_type, {uint64_type}, FN_SUM_UINT64},
-                  {double_type, {double_type}, FN_SUM_DOUBLE},
-                  {numeric_type,
-                   {numeric_type},
-                   FN_SUM_NUMERIC,
-                   has_numeric_type_argument},
-                  {bignumeric_type,
-                   {bignumeric_type},
-                   FN_SUM_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+  InsertFunction(
+      functions, options, "sum", AGGREGATE,
+      {{int64_type, {int64_type}, FN_SUM_INT64, ignore_nulls},
+       {uint64_type, {uint64_type}, FN_SUM_UINT64, ignore_nulls},
+       {double_type, {double_type}, FN_SUM_DOUBLE, ignore_nulls},
+       {numeric_type,
+        {numeric_type},
+        FN_SUM_NUMERIC,
+        has_numeric_type_argument_and_ignores_nulls},
+       {bignumeric_type,
+        {bignumeric_type},
+        FN_SUM_BIGNUMERIC,
+        has_bignumeric_type_argument_and_ignores_nulls},
+       {interval_type, {interval_type}, FN_SUM_INTERVAL, ignore_nulls}});
 
   InsertFunction(functions, options, "avg", AGGREGATE,
-                 {{double_type, {int64_type}, FN_AVG_INT64},
-                  {double_type, {uint64_type}, FN_AVG_UINT64},
-                  {double_type, {double_type}, FN_AVG_DOUBLE},
+                 {{double_type, {int64_type}, FN_AVG_INT64, ignore_nulls},
+                  {double_type, {uint64_type}, FN_AVG_UINT64, ignore_nulls},
+                  {double_type, {double_type}, FN_AVG_DOUBLE, ignore_nulls},
                   {numeric_type,
                    {numeric_type},
                    FN_AVG_NUMERIC,
-                   has_numeric_type_argument},
+                   has_numeric_type_argument_and_ignores_nulls},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_AVG_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+                   has_bignumeric_type_argument_and_ignores_nulls}});
 
-  InsertFunction(functions, options, "bit_and", AGGREGATE,
-                 {{int32_type, {int32_type}, FN_BIT_AND_INT32},
-                  {int64_type, {int64_type}, FN_BIT_AND_INT64},
-                  {uint32_type, {uint32_type}, FN_BIT_AND_UINT32},
-                  {uint64_type, {uint64_type}, FN_BIT_AND_UINT64}});
+  InsertFunction(
+      functions, options, "bit_and", AGGREGATE,
+      {{int32_type, {int32_type}, FN_BIT_AND_INT32, ignore_nulls},
+       {int64_type, {int64_type}, FN_BIT_AND_INT64, ignore_nulls},
+       {uint32_type, {uint32_type}, FN_BIT_AND_UINT32, ignore_nulls},
+       {uint64_type, {uint64_type}, FN_BIT_AND_UINT64, ignore_nulls}});
 
-  InsertFunction(functions, options, "bit_or", AGGREGATE,
-                 {{int32_type, {int32_type}, FN_BIT_OR_INT32},
-                  {int64_type, {int64_type}, FN_BIT_OR_INT64},
-                  {uint32_type, {uint32_type}, FN_BIT_OR_UINT32},
-                  {uint64_type, {uint64_type}, FN_BIT_OR_UINT64}});
+  InsertFunction(
+      functions, options, "bit_or", AGGREGATE,
+      {{int32_type, {int32_type}, FN_BIT_OR_INT32, ignore_nulls},
+       {int64_type, {int64_type}, FN_BIT_OR_INT64, ignore_nulls},
+       {uint32_type, {uint32_type}, FN_BIT_OR_UINT32, ignore_nulls},
+       {uint64_type, {uint64_type}, FN_BIT_OR_UINT64, ignore_nulls}});
 
-  InsertFunction(functions, options, "bit_xor", AGGREGATE,
-                 {{int32_type, {int32_type}, FN_BIT_XOR_INT32},
-                  {int64_type, {int64_type}, FN_BIT_XOR_INT64},
-                  {uint32_type, {uint32_type}, FN_BIT_XOR_UINT32},
-                  {uint64_type, {uint64_type}, FN_BIT_XOR_UINT64}});
+  InsertFunction(
+      functions, options, "bit_xor", AGGREGATE,
+      {{int32_type, {int32_type}, FN_BIT_XOR_INT32, ignore_nulls},
+       {int64_type, {int64_type}, FN_BIT_XOR_INT64, ignore_nulls},
+       {uint32_type, {uint32_type}, FN_BIT_XOR_UINT32, ignore_nulls},
+       {uint64_type, {uint64_type}, FN_BIT_XOR_UINT64, ignore_nulls}});
 
   InsertFunction(functions, options, "logical_and", AGGREGATE,
-                 {{bool_type, {bool_type}, FN_LOGICAL_AND}});
+                 {{bool_type, {bool_type}, FN_LOGICAL_AND, ignore_nulls}});
 
   InsertFunction(functions, options, "logical_or", AGGREGATE,
-                 {{bool_type, {bool_type}, FN_LOGICAL_OR}});
+                 {{bool_type, {bool_type}, FN_LOGICAL_OR, ignore_nulls}});
 
   // Resolution will verify that argument types are valid (not proto, struct,
   // or array).
   InsertFunction(functions, options, "min", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MIN}},
+                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MIN, ignore_nulls}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      bind_front(&CheckMinMaxGreatestLeastArguments, "MIN")));
 
   InsertFunction(functions, options, "max", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MAX}},
+                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MAX, ignore_nulls}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      bind_front(&CheckMinMaxGreatestLeastArguments, "MAX")));
 
@@ -1222,17 +1298,19 @@ void GetAggregateFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "string_agg", AGGREGATE,
-      {{string_type, {string_type}, FN_STRING_AGG_STRING},
+      {{string_type, {string_type}, FN_STRING_AGG_STRING, ignore_nulls},
        // Resolution will verify that the second argument must be a literal.
        {string_type,
         {string_type, {string_type, non_null_non_agg}},
-        FN_STRING_AGG_DELIM_STRING},
+        FN_STRING_AGG_DELIM_STRING,
+        ignore_nulls},
        // Bytes inputs
        {bytes_type, {bytes_type}, FN_STRING_AGG_BYTES},
        // Resolution will verify that the second argument must be a literal.
        {bytes_type,
         {bytes_type, {bytes_type, non_null_non_agg}},
-        FN_STRING_AGG_DELIM_BYTES}},
+        FN_STRING_AGG_DELIM_BYTES,
+        ignore_nulls}},
       FunctionOptions().set_supports_order_by(true).set_supports_limit(true));
 
   InsertFunction(
@@ -1622,34 +1700,35 @@ void GetBooleanFunctions(TypeFactory* type_factory,
               &NoMatchingSignatureForComparisonOperator)
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "!=")));
 
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_V_1_3_IS_DISTINCT)) {
-    InsertFunction(
-        functions, options, "$is_distinct_from", SCALAR,
-        {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_DISTINCT},
-         {bool_type, {int64_type, uint64_type}, FN_DISTINCT_INT64_UINT64},
-         {bool_type, {uint64_type, int64_type}, FN_DISTINCT_UINT64_INT64}},
-        FunctionOptions()
-            .set_sql_name("IS DISTINCT FROM")
-            .set_get_sql_callback(
-                bind_front(&InfixFunctionSQL, "IS DISTINCT FROM"))
-            .set_supports_safe_error_mode(false)
-            .set_post_resolution_argument_constraint(
-                bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
+  // Add $is_distinct_from/$is_not_distinct_from functions to the catalog
+  // unconditionally so that rewriters can generate calls to them, even if the
+  // IS NOT DISTINCT FROM syntax is not supported at the query level. The pivot
+  // rewriter makes use of this.
+  InsertFunction(
+      functions, options, "$is_distinct_from", SCALAR,
+      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_DISTINCT},
+       {bool_type, {int64_type, uint64_type}, FN_DISTINCT_INT64_UINT64},
+       {bool_type, {uint64_type, int64_type}, FN_DISTINCT_UINT64_INT64}},
+      FunctionOptions()
+          .set_sql_name("IS DISTINCT FROM")
+          .set_get_sql_callback(
+              bind_front(&InfixFunctionSQL, "IS DISTINCT FROM"))
+          .set_supports_safe_error_mode(false)
+          .set_post_resolution_argument_constraint(
+              bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
-    InsertFunction(
-        functions, options, "$is_not_distinct_from", SCALAR,
-        {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_DISTINCT},
-         {bool_type, {int64_type, uint64_type}, FN_NOT_DISTINCT_INT64_UINT64},
-         {bool_type, {uint64_type, int64_type}, FN_NOT_DISTINCT_UINT64_INT64}},
-        FunctionOptions()
-            .set_sql_name("IS NOT DISTINCT FROM")
-            .set_get_sql_callback(
-                bind_front(&InfixFunctionSQL, "IS NOT DISTINCT FROM"))
-            .set_supports_safe_error_mode(false)
-            .set_post_resolution_argument_constraint(
-                bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
-  }
+  InsertFunction(
+      functions, options, "$is_not_distinct_from", SCALAR,
+      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_DISTINCT},
+       {bool_type, {int64_type, uint64_type}, FN_NOT_DISTINCT_INT64_UINT64},
+       {bool_type, {uint64_type, int64_type}, FN_NOT_DISTINCT_UINT64_INT64}},
+      FunctionOptions()
+          .set_sql_name("IS NOT DISTINCT FROM")
+          .set_get_sql_callback(
+              bind_front(&InfixFunctionSQL, "IS NOT DISTINCT FROM"))
+          .set_supports_safe_error_mode(false)
+          .set_post_resolution_argument_constraint(
+              bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
   InsertFunction(
       functions, options, "$less", SCALAR,

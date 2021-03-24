@@ -21,6 +21,7 @@
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/message.h"
 #include "gtest/gtest.h"
+#include "absl/flags/flag.h"
 #include "absl/strings/cord.h"
 
 namespace zetasql {
@@ -56,7 +57,17 @@ CreateProtoSourceTree() {
   auto source_tree = absl::make_unique<google::protobuf::compiler::DiskSourceTree>();
   // Support both sides of --noincompatible_generated_protos_in_virtual_imports.
   for (std::string vproto :
-      {"descriptor_proto", "timestamp_proto", "wrappers_proto"}) {
+       {"any_proto",
+        "api_proto",
+        "descriptor_proto",
+        "duration_proto",
+        "empty_proto",
+        "field_mask_proto",
+        "source_context_proto",
+        "struct_proto",
+        "timestamp_proto",
+        "type_proto",
+        "wrappers_proto"}) {
     source_tree->MapPath("",
       zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
                              "_virtual_imports", vproto));

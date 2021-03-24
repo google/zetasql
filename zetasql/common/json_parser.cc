@@ -16,6 +16,8 @@
 
 #include "zetasql/common/json_parser.h"
 
+#include <cstdint>
+
 #include "zetasql/base/logging.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"

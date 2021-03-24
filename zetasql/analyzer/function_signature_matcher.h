@@ -70,6 +70,18 @@ bool FunctionSignatureMatches(
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides);
 
+// Similar as above, but also exposes internal errors with a status.
+zetasql_base::StatusOr<bool> FunctionSignatureMatchesWithStatus(
+    const LanguageOptions& language_options, const Coercer& coercer,
+    const std::vector<const ASTNode*>& arg_ast_nodes,
+    const std::vector<InputArgumentType>& input_arguments,
+    const FunctionSignature& signature, bool allow_argument_coercion,
+    TypeFactory* type_factory,
+    const ResolveLambdaCallback* resolve_lambda_callback,
+    std::unique_ptr<FunctionSignature>* result_signature,
+    SignatureMatchResult* signature_match_result,
+    std::vector<FunctionArgumentOverride>* arg_overrides);
+
 // Determines if the argument list count matches signature, returning the number
 // of times each repeated argument repeats and the number of optional arguments
 // present if true.

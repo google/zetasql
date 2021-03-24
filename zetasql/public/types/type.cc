@@ -16,6 +16,8 @@
 
 #include "zetasql/public/types/type.h"
 
+#include <cstdint>
+
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.pb.h"
@@ -24,10 +26,12 @@
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -160,6 +164,16 @@ TypeKind Type::GetTypeKindIfSimple(absl::string_view type_name,
   return SimpleType::GetTypeKindIfSimple(
       type_name, language_options.product_mode(),
       &language_options.GetEnabledLanguageFeatures());
+}
+
+TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(absl::string_view type_name,
+                                                    ProductMode mode) {
+  return Type::GetTypeKindIfSimple(type_name, mode);
+}
+
+TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(
+    absl::string_view type_name, const LanguageOptions& language_options) {
+  return Type::GetTypeKindIfSimple(type_name, language_options);
 }
 
 std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
@@ -496,10 +510,17 @@ size_t TypeHash::operator()(const Type* const type) const {
 }
 
 zetasql_base::StatusOr<TypeParameters> Type::ValidateAndResolveTypeParameters(
-    const std::vector<TypeParameterValue>& resolved_type_parameters,
+    const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
-  return MakeSqlError() << "Type " << TypeName(mode)
+  return MakeSqlError() << "Type " << ShortTypeName(mode)
                         << "does not support type parameters";
+}
+
+absl::Status Type::ValidateResolvedTypeParameters(
+    const TypeParameters& type_parameters, ProductMode mode) const {
+  ZETASQL_RET_CHECK(type_parameters.IsEmpty())
+      << "Type " << ShortTypeName(mode) << "does not support type parameters";
+  return absl::OkStatus();
 }
 
 }  // namespace zetasql

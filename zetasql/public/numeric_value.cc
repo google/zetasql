@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -72,8 +73,8 @@ constexpr FixedUint<64, 1> NumericScalingFactorSquared() {
 
 constexpr FixedUint<64, 4> BigNumericScalingFactorSquared() {
   return FixedUint<64, 4>(std::array<uint64_t, 4>{0ULL, 0x7775a5f171951000ULL,
-                                                0x0764b4abe8652979ULL,
-                                                0x161bcca7119915b5ULL});
+                                                  0x0764b4abe8652979ULL,
+                                                  0x161bcca7119915b5ULL});
 }
 
 template <int n>
@@ -1747,8 +1748,8 @@ zetasql_base::StatusOr<FixedInt<64, 4>> FixedIntFromScaledValue(
     remainder = 0;
     VarUintRef<32> var_int_ref(dividend);
     if (scale_down_digits >= 9) {
-      remainder =
-          var_int_ref.DivMod(std::integral_constant<uint32_t, internal::k1e9>());
+      remainder = var_int_ref.DivMod(
+          std::integral_constant<uint32_t, internal::k1e9>());
     } else {
       divisor = FixedUint<32, 1>::PowerOf10(scale_down_digits).number()[0];
       remainder = var_int_ref.DivMod(divisor);
@@ -1943,7 +1944,8 @@ NumericValue::CovarianceAggregator::GetPopulationCovariance(
 }
 
 absl::optional<double>
-NumericValue::CovarianceAggregator::GetSamplingCovariance(uint64_t count) const {
+NumericValue::CovarianceAggregator::GetSamplingCovariance(
+    uint64_t count) const {
   if (count > 1) {
     return GetCovariance(sum_x_, sum_y_, sum_product_,
                          NumericScalingFactorSquared(), count, 1);
@@ -1992,8 +1994,8 @@ void NumericValue::CorrelationAggregator::Subtract(NumericValue x,
   sum_square_y_ -= FixedInt<64, 5>(ExtendAndMultiply(y_num, y_num));
 }
 
-absl::optional<double>
-NumericValue::CorrelationAggregator::GetCorrelation(uint64_t count) const {
+absl::optional<double> NumericValue::CorrelationAggregator::GetCorrelation(
+    uint64_t count) const {
   if (count > 1) {
     FixedInt<64, 6> numerator = GetScaledCovarianceNumerator(
         cov_agg_.sum_x_, cov_agg_.sum_y_, cov_agg_.sum_product_, count);
@@ -2186,14 +2188,14 @@ double BigNumericValue::RemoveScaleAndConvertToDouble(
       binary_scaling_factor = static_cast<double>(__int128{1} << 38);
   }
   uint32_t remainder_bits;
-  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(), &abs_value,
-                   &remainder_bits);
+  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(),
+                   &abs_value, &remainder_bits);
   uint32_t remainder;
-  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(), &abs_value,
-                   &remainder);
+  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[13]>(),
+                   &abs_value, &remainder);
   remainder_bits |= remainder;
-  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[12]>(), &abs_value,
-                   &remainder);
+  abs_value.DivMod(std::integral_constant<uint32_t, kPowersOf5[12]>(),
+                   &abs_value, &remainder);
   remainder_bits |= remainder;
   std::array<uint64_t, 4> n = abs_value.number();
   n[0] |= (remainder_bits != 0);
@@ -2485,9 +2487,10 @@ zetasql_base::StatusOr<BigNumericValue> BigNumericValue::SumAggregator::GetAvera
 
   FixedInt<64, 5> dividend = sum_;
   dividend.DivAndRoundAwayFromZero(count);
-  if (ABSL_PREDICT_TRUE(dividend.number()[4] ==
-                        static_cast<uint64_t>(
-                            static_cast<int64_t>(dividend.number()[3]) >> 63))) {
+  if (ABSL_PREDICT_TRUE(
+          dividend.number()[4] ==
+          static_cast<uint64_t>(static_cast<int64_t>(dividend.number()[3]) >>
+                                63))) {
     FixedInt<64, 4> dividend_trunc(dividend);
     return BigNumericValue(dividend_trunc);
   }
@@ -2523,7 +2526,8 @@ void BigNumericValue::VarianceAggregator::Subtract(BigNumericValue value) {
 }
 
 absl::optional<double>
-BigNumericValue::VarianceAggregator::GetPopulationVariance(uint64_t count) const {
+BigNumericValue::VarianceAggregator::GetPopulationVariance(
+    uint64_t count) const {
   if (count > 0) {
     return GetCovariance(sum_, sum_, sum_square_,
                          BigNumericScalingFactorSquared(), count, 0);

@@ -150,6 +150,7 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
                        offset * 2 + 1))
             FROM (SELECT offset FROM UNNEST(modifications) WITH OFFSET offset
                   WHERE key IS NULL)) THEN NULL
+        WHEN original_map IS NULL THEN NULL
         ELSE ARRAY(
           -- Select all the entries from orig that haven't been replaced.
           -- We retain the offset in the subquery to allow us to keep everything

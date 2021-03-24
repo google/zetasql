@@ -15,6 +15,7 @@
 //
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <memory>
@@ -36,14 +37,17 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
@@ -120,30 +124,36 @@ std::vector<FunctionTestCall> GetFunctionTestsDateAdd() {
        NullDate()},
       // Tests for regression of b/19829778
       date_add_error("2000-01-01",
-                     static_cast<int64_t>(std::numeric_limits<int32_t>::max()) << 1,
+                     static_cast<int64_t>(std::numeric_limits<int32_t>::max())
+                         << 1,
                      "YEAR"),
       date_add_error(
           "2000-01-01",
-          -((-static_cast<int64_t>(std::numeric_limits<int32_t>::lowest())) << 1),
+          -((-static_cast<int64_t>(std::numeric_limits<int32_t>::lowest()))
+            << 1),
           "YEAR"),
       // This set of tests exercises each of the internal arithmetic overflow
       // checks in the shared AddDate function in zetasql/public/functions
-      date_add_error("2001-01-01", std::numeric_limits<int32_t>::max() + int64_t{1},
-                     "DAY"),
       date_add_error("2001-01-01",
-                     std::numeric_limits<int32_t>::lowest() - int64_t{1}, "DAY"),
-      date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(), "DAY"),
+                     std::numeric_limits<int32_t>::max() + int64_t{1}, "DAY"),
+      date_add_error("2001-01-01",
+                     std::numeric_limits<int32_t>::lowest() - int64_t{1},
+                     "DAY"),
+      date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(),
+                     "DAY"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(),
                      "WEEK"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(),
                      "MONTH"),
-      date_add_error("0001-01-01", std::numeric_limits<int32_t>::max(), "MONTH"),
+      date_add_error("0001-01-01", std::numeric_limits<int32_t>::max(),
+                     "MONTH"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(),
                      "QUARTER"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::lowest(),
                      "YEAR"),
       date_add_error("0001-01-01", std::numeric_limits<int32_t>::max(), "YEAR"),
-      date_add_error("2001-01-01", std::numeric_limits<int64_t>::lowest(), "DAY"),
+      date_add_error("2001-01-01", std::numeric_limits<int64_t>::lowest(),
+                     "DAY"),
       date_add_error("2001-01-01", std::numeric_limits<int64_t>::lowest(),
                      "WEEK"),
       date_add_error("2001-01-01", std::numeric_limits<int64_t>::lowest(),
@@ -620,7 +630,8 @@ std::vector<CivilTimeTestCase> GetFunctionTestsDatetimeAdd() {
        datetime_micros},
       // Year 2038 does not affect anything
       {{{DatetimeMicros(1970, 1, 1, 0, 0, 0, 0),
-         Int64(std::numeric_limits<int32_t>::max()), Enum(part_enum, "SECOND")}},
+         Int64(std::numeric_limits<int32_t>::max()),
+         Enum(part_enum, "SECOND")}},
        DatetimeMicros(2038, 1, 19, 3, 14, 7, 0)},
   });
 
@@ -3737,7 +3748,7 @@ static std::vector<FormatDateTimestampCommonTest>
 
 struct FormatTimestampTest {
   std::string format_string;  // format string
-  int64_t timestamp;         // int64_t timestamp (micros) value to format
+  int64_t timestamp;          // int64_t timestamp (micros) value to format
   std::string timezone;    // time zone to use for formatting
   std::string expected_result;  // expected output string
 };
@@ -5860,8 +5871,6 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
                                                     "parse_datetime");
 }
 
-#undef EXPECT_ERROR
-
 static std::vector<ParseTimestampTest> GetParseTimestampTests() {
   return ConcatTests<ParseTimestampTest>({
       GetParseNanoTimestampSensitiveTests(),
@@ -5896,45 +5905,57 @@ static std::vector<ParseDateTest> GetParseDateTests() {
   return tests;
 }
 
+static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
+    const QueryParamsWithResult::Result& micro_result,
+    const QueryParamsWithResult::Result& nano_result) {
+  std::set<LanguageFeature> features;
+  std::set<LanguageFeature> empty_features;
+  features.insert(FEATURE_TIMESTAMP_NANOS);
+
+  return {{empty_features, micro_result}, {features, nano_result}};
+}
+
+static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
+    const ParseTimestampTest& test) {
+  std::unique_ptr<QueryParamsWithResult::Result> micro_result;
+  std::unique_ptr<QueryParamsWithResult::Result> nano_result;
+  if (test.expected_result().empty()) {
+    micro_result = absl::make_unique<QueryParamsWithResult::Result>(
+        NullTimestamp(), OUT_OF_RANGE);
+  } else {
+    absl::Time timestamp;
+    absl::TimeZone zone;
+    ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
+    ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+        test.expected_result(), zone, kNanoseconds, true, &timestamp));
+    micro_result = absl::make_unique<QueryParamsWithResult::Result>(
+        Value::Timestamp(timestamp));
+  }
+
+  if (test.nano_expected_result().empty()) {
+    nano_result = absl::make_unique<QueryParamsWithResult::Result>(
+        NullTimestamp(), OUT_OF_RANGE);
+  } else {
+    absl::Time timestamp;
+    absl::TimeZone zone;
+    ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
+    ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+        test.nano_expected_result(), zone, kNanoseconds, true, &timestamp));
+    nano_result = absl::make_unique<QueryParamsWithResult::Result>(
+        Value::Timestamp(timestamp));
+  }
+  return GetResultMapWithMicroAndNanoResults(*micro_result, *nano_result);
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
   std::vector<FunctionTestCall> tests;
   for (const ParseTimestampTest& test : GetParseTimestampTests()) {
-    std::set<LanguageFeature> features;
-    std::set<LanguageFeature> empty_features;
-    features.insert(FEATURE_TIMESTAMP_NANOS);
-    std::unique_ptr<QueryParamsWithResult::Result> micro_result;
-    std::unique_ptr<QueryParamsWithResult::Result> nano_result;
-    if (test.expected_result().empty()) {
-      micro_result = absl::make_unique<QueryParamsWithResult::Result>(
-          NullTimestamp(), OUT_OF_RANGE);
-    } else {
-      absl::Time timestamp;
-      absl::TimeZone zone;
-      ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
-      ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-          test.expected_result(), zone, kNanoseconds, true, &timestamp));
-      micro_result = absl::make_unique<QueryParamsWithResult::Result>(
-          Value::Timestamp(timestamp));
-    }
-
-    if (test.nano_expected_result().empty()) {
-      nano_result = absl::make_unique<QueryParamsWithResult::Result>(
-          NullTimestamp(), OUT_OF_RANGE);
-    } else {
-      absl::Time timestamp;
-      absl::TimeZone zone;
-      ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
-      ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
-          test.nano_expected_result(), zone, kNanoseconds, true, &timestamp));
-      nano_result = absl::make_unique<QueryParamsWithResult::Result>(
-          Value::Timestamp(timestamp));
-    }
-
-    tests.push_back(
-        {"parse_timestamp",
-         {String(test.format()), String(test.timestamp_string()),
-          String(test.default_time_zone())},
-         {{empty_features, *micro_result}, {features, *nano_result}}});
+    QueryParamsWithResult::ResultMap micro_and_nano_results =
+        GetResultMapWithMicroAndNanoResults(test);
+    tests.push_back({"parse_timestamp",
+                     {String(test.format()), String(test.timestamp_string()),
+                      String(test.default_time_zone())},
+                     micro_and_nano_results});
   }
 
   // Adds PARSE_DATE() tests.
@@ -5962,6 +5983,291 @@ std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
   for (const FunctionTestCall& test : GetFunctionTestsParseTime()) {
     tests.push_back(test);
   }
+
+  return tests;
+}
+
+// This struct is the same as ParseDateTimestampCommonTest except that it has
+// an additional field <current_date> to construct <current_date> or
+// <current_timestamp> arguments for test cases.
+struct CastStringToDateTimestampCommonTest : ParseDateTimestampCommonTest {
+  int32_t current_date;
+  CastStringToDateTimestampCommonTest(const std::string& format_string_in,
+                                      TestFormatDateTimeParts parts_in,
+                                      const std::string& input_string_in,
+                                      int32_t current_date_in,
+                                      const std::string& expected_result_in)
+      : ParseDateTimestampCommonTest{format_string_in, parts_in,
+                                     input_string_in, expected_result_in},
+        current_date(current_date_in) {}
+
+  CastStringToDateTimestampCommonTest(const std::string& format_string_in,
+                                      TestFormatDateTimeParts parts_in,
+                                      const std::string& input_string_in,
+                                      const std::string& expected_result_in)
+      : ParseDateTimestampCommonTest{format_string_in, parts_in,
+                                     input_string_in, expected_result_in} {
+    // Sets value of <current_date> to 1970-1-1 if not provided in constructor
+    // arguments.
+    ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &current_date));
+  }
+};
+
+// For the test cases returned by this function, they will have microsecond
+// precision if the subsecond part is relevant.
+static std::vector<CastStringToDateTimestampCommonTest>
+GetCastStringToDateTimestampCommonTests() {
+  const char kTestExpected19700101[] = "1970-01-01";
+  const char* kTestExpectedDefault = kTestExpected19700101;
+  const char* dummy_input_timestamp = "1";
+  int32_t date_2002_1_1, date_2002_2_2;
+  ZETASQL_CHECK_OK(functions::ConstructDate(2002, 1, 1, &date_2002_1_1));
+  ZETASQL_CHECK_OK(functions::ConstructDate(2002, 2, 2, &date_2002_2_2));
+
+  std::vector<CastStringToDateTimestampCommonTest> tests({
+      // Any unspecified field is initialized from
+      // current_year(from <current_date>)-current_month(from <current_date>)-01
+      // 00:00:00 in the default time zone. Value of <current_date> is set to
+      // 1970-1-1 when it is not present.
+      {"", TEST_FORMAT_ANY, "", kTestExpectedDefault},
+      {"", TEST_FORMAT_DATE, "", date_2002_2_2, "2002-02-01 00:00:00"},
+
+      // Elements of "kLiteral" type.
+      {"-", TEST_FORMAT_ANY, "-", kTestExpectedDefault},
+      {"-", TEST_FORMAT_ANY, "--", EXPECT_ERROR},
+      {"-", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+      {".", TEST_FORMAT_ANY, ".", kTestExpectedDefault},
+      {".", TEST_FORMAT_ANY, "..", EXPECT_ERROR},
+      {".", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+      {"/", TEST_FORMAT_ANY, "/", kTestExpectedDefault},
+      {"/", TEST_FORMAT_ANY, "//", EXPECT_ERROR},
+      {"/", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+      {",", TEST_FORMAT_ANY, ",", kTestExpectedDefault},
+      {",", TEST_FORMAT_ANY, ",,", EXPECT_ERROR},
+      {",", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+      {"'", TEST_FORMAT_ANY, "'", kTestExpectedDefault},
+      {"'", TEST_FORMAT_ANY, "''", EXPECT_ERROR},
+      {"'", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+      {";", TEST_FORMAT_ANY, ";", kTestExpectedDefault},
+      {";", TEST_FORMAT_ANY, ";;", EXPECT_ERROR},
+      {";", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+      {":", TEST_FORMAT_ANY, ":", kTestExpectedDefault},
+      {":", TEST_FORMAT_ANY, "::", EXPECT_ERROR},
+      {":", TEST_FORMAT_ANY, "?", EXPECT_ERROR},
+
+      // Elements of "kWhitespace" type match one or more consecutive Unicode
+      // whitespace characters. "\u1680" refers to a Unicode space "U+1680".
+      {"- -", TEST_FORMAT_ANY, "- \n\t\u1680-", kTestExpectedDefault},
+      {"- -", TEST_FORMAT_ANY, "- ?\t\u1680-", EXPECT_ERROR},
+      {"- -", TEST_FORMAT_ANY, "- \n\t\u1680\u1680\n\t -",
+       kTestExpectedDefault},
+      {"-  -", TEST_FORMAT_ANY, "- \n\t\u1680-", kTestExpectedDefault},
+      {"-                -", TEST_FORMAT_ANY, "- \n\t\u1680-",
+       kTestExpectedDefault},
+      {"- -", TEST_FORMAT_ANY, "--", EXPECT_ERROR},
+      // A Sequence of whitespace characters other than ' ' (ASCII 32) will not
+      // be parsed as an elemenet of "kWhitespace" type, therefore cannot match
+      // any Unicode whitespace characters.
+      {"-\n\r\t\u1680-", TEST_FORMAT_ANY, "-\n\r\t\u1680-", EXPECT_ERROR},
+
+      // Elements of "kDoubleQuotedLiteral" type.
+      {R"("abc")", TEST_FORMAT_ANY, "abc", kTestExpectedDefault},
+      {R"("")", TEST_FORMAT_ANY, "", kTestExpectedDefault},
+      // Escape sequences inside the format element of "kDoubleQuotedLiteral"
+      // type.
+      {R"("abc\\")", TEST_FORMAT_ANY, R"(abc\)", kTestExpectedDefault},
+      {R"("abc\"")", TEST_FORMAT_ANY, R"(abc")", kTestExpectedDefault},
+      // Only "\\" and "\"" escape sequences are supported inside format
+      // elements of "kDoubleQuotedLiteral" type.
+      {R"("abc\t")", TEST_FORMAT_ANY, "abc\t", EXPECT_ERROR},
+      // Missing the ending '"' to close the format element of
+      // "kDoubleQuotedLiteral" type.
+      {R"("abc)", TEST_FORMAT_ANY, "abc", EXPECT_ERROR},
+      {R"("abc\")", TEST_FORMAT_ANY, "abc\"", EXPECT_ERROR},
+      {R"("%ыфщыфщ")", TEST_FORMAT_ANY, "%ыфщыфщ", kTestExpectedDefault},
+      // Consecutive space characters (ASCII 32) inside format element of
+      // "kDoubleQuotedLiteral" type can only match the same number of space
+      // characters.
+      {R"(-"  "-)", TEST_FORMAT_ANY, "-  -", kTestExpectedDefault},
+      {R"(-"  "-)", TEST_FORMAT_ANY, "- -", EXPECT_ERROR},
+      {R"(-"  "-)", TEST_FORMAT_ANY, "- \n-", EXPECT_ERROR},
+      {R"(-"  "-)", TEST_FORMAT_ANY, "- \u1680-", EXPECT_ERROR},
+      {R"(-./,';: "abc")", TEST_FORMAT_ANY, "-./,';:\n\t\u1680abc",
+       kTestExpectedDefault},
+
+      // Leading and trailing whitespaces in timestamp string.
+      {"-,", TEST_FORMAT_ANY, "\u1680  -,   \u1680", kTestExpectedDefault},
+      // Trailing empty format elements in the format string.
+      {"--.\"\"\"\"", TEST_FORMAT_ANY, "--.", kTestExpectedDefault},
+
+      // Error cases.
+      // Returns error if input strings are not valid UTF-8.
+      {"£\xff£", TEST_FORMAT_ANY, "£\xff£", EXPECT_ERROR},
+      // Unrecognized format element.
+      {"invalid_element", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      // Format elements not supported for parsing yet.
+      {"IYYY", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"IYY", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"IY", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"I", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"SYYYY", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"YEAR", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"SYEAR", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"RM", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"D", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"DAY", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"DY", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"J", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"CC", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"SCC", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"Q", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"IW", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"WW", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"W", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"AD", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"BC", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"A.D.", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"B.C.", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"SP", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"TH", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"SPTH", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"THSP", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      {"FM", TEST_FORMAT_ANY, dummy_input_timestamp, EXPECT_ERROR},
+      // Format strings are missing specific format elements or contain
+      // format elements that cannot be present simultaneously.
+      {"Mi MI", TEST_FORMAT_ANY, "50 50", EXPECT_ERROR},
+      {"fF2 Ff2", TEST_FORMAT_ANY, "50 50", EXPECT_ERROR},
+      {"YYYY RR", TEST_FORMAT_ANY, "1950 50", EXPECT_ERROR},
+      {"Month MM", TEST_FORMAT_ANY, "FEBRUARY 11", EXPECT_ERROR},
+      {"DDD Dd", TEST_FORMAT_ANY, "170 11", EXPECT_ERROR},
+      {"HH24 HHAM", TEST_FORMAT_ANY, "13 11AM", EXPECT_ERROR},
+      {"HH24 hh12AM", TEST_FORMAT_ANY, "13 11AM", EXPECT_ERROR},
+      {"MonDDD", TEST_FORMAT_ANY, "FEB170", EXPECT_ERROR},
+      {"hh", TEST_FORMAT_ANY, "11", EXPECT_ERROR},
+      {"Hh12", TEST_FORMAT_ANY, "11", EXPECT_ERROR},
+      {"AM", TEST_FORMAT_ANY, "AM", EXPECT_ERROR},
+      {"P.M.", TEST_FORMAT_ANY, "A.M.", EXPECT_ERROR},
+      {"SSSSS HH12AM", TEST_FORMAT_ANY, "3601 11AM", EXPECT_ERROR},
+      {"SSSSS Mi", TEST_FORMAT_ANY, "3601 50", EXPECT_ERROR},
+      {"Ss SSSSS", TEST_FORMAT_ANY, "50 3601", EXPECT_ERROR},
+  });
+
+  return tests;
+}
+
+class CastStringToTimestampTest : public ParseTimestampTest {
+ public:
+  CastStringToTimestampTest(const std::string& format,
+                            const std::string& timestamp_string,
+                            const std::string& default_time_zone,
+                            absl::Time current_timestamp,
+                            const std::string& expected_result)
+      : ParseTimestampTest(format, timestamp_string, default_time_zone,
+                           expected_result),
+        current_timestamp_(current_timestamp) {}
+
+  CastStringToTimestampTest(const std::string& format,
+                            const std::string& timestamp_string,
+                            const std::string& default_time_zone,
+                            absl::Time current_timestamp,
+                            const std::string& expected_result,
+                            const std::string& nano_expected_result)
+      : ParseTimestampTest(format, timestamp_string, default_time_zone,
+                           expected_result, nano_expected_result),
+        current_timestamp_(current_timestamp) {}
+
+  ~CastStringToTimestampTest() {}
+
+  const absl::Time current_timestamp() const { return current_timestamp_; }
+
+ private:
+  // Current date value to reflect current year and month.
+  absl::Time current_timestamp_;
+};
+
+static std::vector<CastStringToTimestampTest>
+GetCastStringToTimestampCommonTests() {
+  std::vector<CastStringToTimestampTest> tests;
+
+  // Add common test cases.
+  for (const CastStringToDateTimestampCommonTest& common_test :
+       GetCastStringToDateTimestampCommonTests()) {
+    absl::Time current_timestamp;
+    ZETASQL_CHECK_OK(functions::ConvertDateToTimestamp(common_test.current_date, "UTC",
+                                               &current_timestamp));
+    tests.push_back({common_test.format_string, common_test.input_string,
+                     "UTC", current_timestamp, common_test.expected_result});
+    // TODO: Add '1970-01-01' as date part when dealing with cases
+    // where common_test.parts == TEST_FORMAT_TIME.
+  }
+
+  return tests;
+}
+
+static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
+  absl::Time ts_1970_1_1_utc;
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "1970-01-01", absl::UTCTimeZone(), kNanoseconds, true, &ts_1970_1_1_utc));
+  std::vector<CastStringToTimestampTest> tests({
+      // Invalid default time zones.
+      {"", "", "£\xff£", ts_1970_1_1_utc, EXPECT_ERROR},
+      {"", "", "", ts_1970_1_1_utc, EXPECT_ERROR},
+      {"", "", "random_timezone", ts_1970_1_1_utc, EXPECT_ERROR},
+  });
+
+  // Add common tests.
+  for (const CastStringToTimestampTest& test :
+       GetCastStringToTimestampCommonTests()) {
+    tests.push_back(test);
+  }
+
+  return tests;
+}
+
+#undef EXPECT_ERROR
+
+static QueryParamsWithResult::ResultMap
+GetResultMapWithNullMicroAndNanoResults() {
+  return GetResultMapWithMicroAndNanoResults(
+      QueryParamsWithResult::Result(NullTimestamp()),
+      QueryParamsWithResult::Result(NullTimestamp()));
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
+  std::vector<FunctionTestCall> tests;
+
+  // Adds CAST_STRING_TO_TIMESTAMP() tests.
+  for (const CastStringToTimestampTest& test :
+       GetCastStringToTimestampTests()) {
+    QueryParamsWithResult::ResultMap micro_and_nano_results =
+        GetResultMapWithMicroAndNanoResults(test);
+
+    tests.push_back({"cast_string_to_timestamp",
+                     {String(test.format()), String(test.timestamp_string()),
+                      String(test.default_time_zone()),
+                      Timestamp(test.current_timestamp())},
+                     micro_and_nano_results});
+  }
+
+  // Null arguments handling.
+  absl::Time ts_1970_1_1_utc;
+  ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
+      "1970-01-01", absl::UTCTimeZone(), kNanoseconds, true, &ts_1970_1_1_utc));
+  tests.push_back(
+      {"cast_string_to_timestamp",
+       {NullString(), String(""), String("UTC"), Timestamp(ts_1970_1_1_utc)},
+       GetResultMapWithNullMicroAndNanoResults()});
+  tests.push_back(
+      {"cast_string_to_timestamp",
+       {String(""), NullString(), String("UTC"), Timestamp(ts_1970_1_1_utc)},
+       GetResultMapWithNullMicroAndNanoResults()});
+  tests.push_back(
+      {"cast_string_to_timestamp",
+       {String(""), String(""), NullString(), Timestamp(ts_1970_1_1_utc)},
+       GetResultMapWithNullMicroAndNanoResults()});
+  tests.push_back({"cast_string_to_timestamp",
+                   {String(""), String(""), String("UTC"), NullTimestamp()},
+                   GetResultMapWithNullMicroAndNanoResults()});
 
   return tests;
 }
@@ -6329,10 +6635,11 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
                                    Int64(week_number), &required_feature_set);
 
         // No timezone because EXTRACT from DATE does not support AT TIME ZONE.
-        tests.push_back({"extract",
-                         {Date(static_cast<int32_t>(day - absl::CivilDay(1970))),
-                          part_enum_value},
-                         result_map});
+        tests.push_back(
+            {"extract",
+             {Date(static_cast<int32_t>(day - absl::CivilDay(1970))),
+              part_enum_value},
+             result_map});
 
         tests.push_back({"extract",
                          {Timestamp(absl::FromCivil(day, absl::UTCTimeZone())),
@@ -6798,7 +7105,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampFromDate() {
   using zetasql::types::kDateMin;
   using zetasql::types::kTimestampMax;
   using zetasql::types::kTimestampMin;
-  constexpr int64_t kNaiveNumMicrosPerDay = 24ll * 60ll * 60ll * 1000ll * 1000ll;
+  constexpr int64_t kNaiveNumMicrosPerDay =
+      24ll * 60ll * 60ll * 1000ll * 1000ll;
 
   return {
       // NULL handling
@@ -7312,7 +7620,6 @@ static std::vector<FormatTimestampTest> GetCastFormatTimestampTests() {
       {"HH24", timestamp, "America/Los_Angeles", "01"},
       {"HH24", timestamp, "Asia/Rangoon", "14"},
       {"HH24", timestamp, "UTC", "08"},
-      // TODO: Add timezone tests.
   };
 
   for (const auto& literal_test : GetCastFormatLiteralTests()) {
@@ -7331,17 +7638,32 @@ static std::vector<FormatTimestampTest> GetCastFormatTimestampTests() {
   // Timestamp range boundary testing.
   ZETASQL_CHECK_OK(ConvertStringToTimestamp("0001-01-01 00:00:00.000000", "UTC",
                                     kMicroseconds, &timestamp));
-  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, "UTC",
-                   "0001-01-01 00:00:00.000000"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp, "UTC",
+                   "0001-01-01 00:00:00.000000+00:00"});
 
   ZETASQL_CHECK_OK(ConvertStringToTimestamp("9999-12-31 23:59:59.999999", "UTC",
                                     kMicroseconds, &timestamp));
-  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, "UTC",
-                   "9999-12-31 23:59:59.999999"});
-  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, timezone,
-                   "9999-12-31 15:59:59.999999"});
-  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6", timestamp, "Asia/Rangoon",
-                   "10000-01-01 06:29:59.999999"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp, "UTC",
+                   "9999-12-31 23:59:59.999999+00:00"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp, timezone,
+                   "9999-12-31 15:59:59.999999-08:00"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", timestamp,
+                   "Asia/Rangoon", "10000-01-01 06:29:59.999999+06:30"});
+
+  // Check that CastFormatTimestamp removes subsecond timezone offset
+  // (before 1884 PST timezone had offset of 7h 52m 58s, but FormatTimestamp
+  // should only use 7h 52m).
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp("1812-09-07 07:52:01", "UTC", kMicroseconds,
+                                    &timestamp));
+  tests.push_back({"YYYY-MM-DD HH24:MI:SS", timestamp, "America/Los_Angeles",
+                   "1812-09-07 00:00:01"});
+  tests.push_back({"YYYY-MM-DD HH24:MI:SSTZHTZM", timestamp,
+                   "America/Los_Angeles", "1812-09-07 00:00:01-0752"});
+  tests.push_back({"YYYYMMDD", timestamp, "America/Los_Angeles", "18120907"});
+  tests.push_back({"HH24:MI:SS", timestamp, "America/Los_Angeles", "00:00:01"});
+  tests.push_back({"Dy Mon  DD HH24:MI:SS YYYY", timestamp,
+                   "America/Los_Angeles", "Mon Sep  07 00:00:01 1812"});
+
   return tests;
 }
 
@@ -7424,13 +7746,13 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
   for (const auto& test : GetCastFormatTimestampTests()) {
     if (IsExpectedError(test.expected_result)) {
       tests.push_back({"cast_format_timestamp",
-                       {String(test.format_string), Timestamp(test.timestamp),
+                       {Timestamp(test.timestamp), String(test.format_string),
                         String(test.timezone)},
                        NullString(),
                        OUT_OF_RANGE});
     } else {
       tests.push_back({"cast_format_timestamp",
-                       {String(test.format_string), Timestamp(test.timestamp),
+                       {Timestamp(test.timestamp), String(test.format_string),
                         String(test.timezone)},
                        String(test.expected_result)});
     }
@@ -7438,36 +7760,36 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
   for (const auto& test : GetCastFormatDateTests()) {
     if (IsExpectedError(test.expected_result)) {
       tests.push_back({"cast_format_date",
-                       {String(test.format_string), DateFromStr(test.date)},
+                       {DateFromStr(test.date), String(test.format_string)},
                        NullString(),
                        OUT_OF_RANGE});
     } else {
       tests.push_back({"cast_format_date",
-                       {String(test.format_string), DateFromStr(test.date)},
+                       {DateFromStr(test.date), String(test.format_string)},
                        String(test.expected_result)});
     }
   }
   for (const auto& test : GetCastFormatDatetimeTests()) {
     if (IsExpectedError(test.expected_result)) {
       tests.push_back({"cast_format_datetime",
-                       {String(test.format_string), test.value},
+                       {test.value, String(test.format_string)},
                        NullString(),
                        OUT_OF_RANGE});
     } else {
       tests.push_back({"cast_format_datetime",
-                       {String(test.format_string), test.value},
+                       {test.value, String(test.format_string)},
                        String(test.expected_result)});
     }
   }
   for (const auto& test : GetCastFormatTimeTests()) {
     if (IsExpectedError(test.expected_result)) {
       tests.push_back({"cast_format_time",
-                       {String(test.format_string), test.value},
+                       {test.value, String(test.format_string)},
                        NullString(),
                        OUT_OF_RANGE});
     } else {
       tests.push_back({"cast_format_time",
-                       {String(test.format_string), test.value},
+                       {test.value, String(test.format_string)},
                        String(test.expected_result)});
     }
   }

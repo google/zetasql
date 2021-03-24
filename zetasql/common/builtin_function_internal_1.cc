@@ -1408,7 +1408,7 @@ std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
 bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
   return arg_type->IsBool() || arg_type->IsNumerical() ||
          arg_type->IsTimestamp() || arg_type->IsCivilDateOrTimeType() ||
-        arg_type->IsProto() || arg_type->IsEnum();
+         arg_type->IsInterval() || arg_type->IsProto() || arg_type->IsEnum();
 }
 
 // Returns true if an arithmetic operation has a floating point type as its

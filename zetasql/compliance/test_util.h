@@ -20,14 +20,16 @@
 #define ZETASQL_COMPLIANCE_TEST_UTIL_H_
 
 #include <stddef.h>
+
+#include <cstdint>
 #include <map>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <cstdint>
 #include "google/protobuf/descriptor.h"
+#include <cstdint>
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 

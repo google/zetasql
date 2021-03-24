@@ -1,0 +1,1770 @@
+# Tests for the FROM clause, including all join varieties and combinations.
+select a as c, b as d from Table1 as T1 inner join Table2 T2 on(T1.c = T2.c);
+--
+QueryStatement [0-76]
+  Query [0-76]
+    Select [0-76]
+      SelectList [7-21]
+        SelectColumn [7-13]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+          Alias [9-13]
+            Identifier(c) [12-13]
+        SelectColumn [15-21]
+          PathExpression [15-16]
+            Identifier(b) [15-16]
+          Alias [17-21]
+            Identifier(d) [20-21]
+      FromClause [22-76]
+        Join(INNER) [40-76]
+          TablePathExpression [27-39]
+            PathExpression [27-33]
+              Identifier(Table1) [27-33]
+            Alias [34-39]
+              Identifier(T1) [37-39]
+          TablePathExpression [51-60]
+            PathExpression [51-57]
+              Identifier(Table2) [51-57]
+            Alias [58-60]
+              Identifier(T2) [58-60]
+          OnClause [61-76]
+            BinaryExpression(=) [64-75]
+              PathExpression [64-68]
+                Identifier(T1) [64-66]
+                Identifier(c) [67-68]
+              PathExpression [71-75]
+                Identifier(T2) [71-73]
+                Identifier(c) [74-75]
+--
+SELECT
+  a AS c,
+  b AS d
+FROM
+  Table1 AS T1
+  INNER JOIN
+  Table2 AS T2
+  ON (T1.c = T2.c)
+==
+
+select T1.a as a, T2.b as b from Table1 as T1 left join Table2 T2 using (c, d);
+--
+QueryStatement [0-78]
+  Query [0-78]
+    Select [0-78]
+      SelectList [7-27]
+        SelectColumn [7-16]
+          PathExpression [7-11]
+            Identifier(T1) [7-9]
+            Identifier(a) [10-11]
+          Alias [12-16]
+            Identifier(a) [15-16]
+        SelectColumn [18-27]
+          PathExpression [18-22]
+            Identifier(T2) [18-20]
+            Identifier(b) [21-22]
+          Alias [23-27]
+            Identifier(b) [26-27]
+      FromClause [28-78]
+        Join(LEFT) [46-78]
+          TablePathExpression [33-45]
+            PathExpression [33-39]
+              Identifier(Table1) [33-39]
+            Alias [40-45]
+              Identifier(T1) [43-45]
+          TablePathExpression [56-65]
+            PathExpression [56-62]
+              Identifier(Table2) [56-62]
+            Alias [63-65]
+              Identifier(T2) [63-65]
+          UsingClause [66-78]
+            Identifier(c) [73-74]
+            Identifier(d) [76-77]
+--
+SELECT
+  T1.a AS a,
+  T2.b AS b
+FROM
+  Table1 AS T1
+  LEFT JOIN
+  Table2 AS T2
+  USING(c, d)
+==
+
+select a as x, b as y from Table1 as T1 inner join
+    Table2 T2 on T2.x = T3.y join Table3 as T3 using(c);
+--
+QueryStatement [0-106]
+  Query [0-106]
+    Select [0-106]
+      SelectList [7-21]
+        SelectColumn [7-13]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+          Alias [9-13]
+            Identifier(x) [12-13]
+        SelectColumn [15-21]
+          PathExpression [15-16]
+            Identifier(b) [15-16]
+          Alias [17-21]
+            Identifier(y) [20-21]
+      FromClause [22-106]
+        Join [80-106]
+          Join(INNER) [40-79]
+            TablePathExpression [27-39]
+              PathExpression [27-33]
+                Identifier(Table1) [27-33]
+              Alias [34-39]
+                Identifier(T1) [37-39]
+            TablePathExpression [55-64]
+              PathExpression [55-61]
+                Identifier(Table2) [55-61]
+              Alias [62-64]
+                Identifier(T2) [62-64]
+            OnClause [65-79]
+              BinaryExpression(=) [68-79]
+                PathExpression [68-72]
+                  Identifier(T2) [68-70]
+                  Identifier(x) [71-72]
+                PathExpression [75-79]
+                  Identifier(T3) [75-77]
+                  Identifier(y) [78-79]
+          TablePathExpression [85-97]
+            PathExpression [85-91]
+              Identifier(Table3) [85-91]
+            Alias [92-97]
+              Identifier(T3) [95-97]
+          UsingClause [98-106]
+            Identifier(c) [104-105]
+--
+SELECT
+  a AS x,
+  b AS y
+FROM
+  Table1 AS T1
+  INNER JOIN
+  Table2 AS T2
+  ON T2.x = T3.y
+  JOIN
+  Table3 AS T3
+  USING(c)
+==
+
+select T3.a as x, b as y from Table1 as T1 cross join
+    Table2 T2 full outer join Table3 as T3 using(c);
+--
+QueryStatement [0-105]
+  Query [0-105]
+    Select [0-105]
+      SelectList [7-24]
+        SelectColumn [7-16]
+          PathExpression [7-11]
+            Identifier(T3) [7-9]
+            Identifier(a) [10-11]
+          Alias [12-16]
+            Identifier(x) [15-16]
+        SelectColumn [18-24]
+          PathExpression [18-19]
+            Identifier(b) [18-19]
+          Alias [20-24]
+            Identifier(y) [23-24]
+      FromClause [25-105]
+        Join(FULL) [68-105]
+          Join(CROSS) [43-67]
+            TablePathExpression [30-42]
+              PathExpression [30-36]
+                Identifier(Table1) [30-36]
+              Alias [37-42]
+                Identifier(T1) [40-42]
+            TablePathExpression [58-67]
+              PathExpression [58-64]
+                Identifier(Table2) [58-64]
+              Alias [65-67]
+                Identifier(T2) [65-67]
+          TablePathExpression [84-96]
+            PathExpression [84-90]
+              Identifier(Table3) [84-90]
+            Alias [91-96]
+              Identifier(T3) [94-96]
+          UsingClause [97-105]
+            Identifier(c) [103-104]
+--
+SELECT
+  T3.a AS x,
+  b AS y
+FROM
+  Table1 AS T1
+  CROSS JOIN
+  Table2 AS T2
+  FULL JOIN
+  Table3 AS T3
+  USING(c)
+==
+
+select a as a, b as b from Table1 as T1 inner join
+    (Table2 T2 full join Table3 as T3 on T2.x = T3.y and T2.c = T3.c) using(c);
+--
+QueryStatement [0-129]
+  Query [0-129]
+    Select [0-129]
+      SelectList [7-21]
+        SelectColumn [7-13]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+          Alias [9-13]
+            Identifier(a) [12-13]
+        SelectColumn [15-21]
+          PathExpression [15-16]
+            Identifier(b) [15-16]
+          Alias [17-21]
+            Identifier(b) [20-21]
+      FromClause [22-129]
+        Join(INNER) [40-129]
+          TablePathExpression [27-39]
+            PathExpression [27-33]
+              Identifier(Table1) [27-33]
+            Alias [34-39]
+              Identifier(T1) [37-39]
+          ParenthesizedJoin [55-120]
+            Join(FULL) [66-119]
+              TablePathExpression [56-65]
+                PathExpression [56-62]
+                  Identifier(Table2) [56-62]
+                Alias [63-65]
+                  Identifier(T2) [63-65]
+              TablePathExpression [76-88]
+                PathExpression [76-82]
+                  Identifier(Table3) [76-82]
+                Alias [83-88]
+                  Identifier(T3) [86-88]
+              OnClause [89-119]
+                AndExpr [92-119]
+                  BinaryExpression(=) [92-103]
+                    PathExpression [92-96]
+                      Identifier(T2) [92-94]
+                      Identifier(x) [95-96]
+                    PathExpression [99-103]
+                      Identifier(T3) [99-101]
+                      Identifier(y) [102-103]
+                  BinaryExpression(=) [108-119]
+                    PathExpression [108-112]
+                      Identifier(T2) [108-110]
+                      Identifier(c) [111-112]
+                    PathExpression [115-119]
+                      Identifier(T3) [115-117]
+                      Identifier(c) [118-119]
+          UsingClause [121-129]
+            Identifier(c) [127-128]
+--
+SELECT
+  a AS a,
+  b AS b
+FROM
+  Table1 AS T1
+  INNER JOIN
+  (
+    Table2 AS T2
+    FULL JOIN
+    Table3 AS T3
+    ON T2.x = T3.y AND T2.c = T3.c
+  )
+  USING(c)
+==
+
+select T1.a as a, T2.b as b from Table1 T1 cross join Table2 as T2;
+--
+QueryStatement [0-66]
+  Query [0-66]
+    Select [0-66]
+      SelectList [7-27]
+        SelectColumn [7-16]
+          PathExpression [7-11]
+            Identifier(T1) [7-9]
+            Identifier(a) [10-11]
+          Alias [12-16]
+            Identifier(a) [15-16]
+        SelectColumn [18-27]
+          PathExpression [18-22]
+            Identifier(T2) [18-20]
+            Identifier(b) [21-22]
+          Alias [23-27]
+            Identifier(b) [26-27]
+      FromClause [28-66]
+        Join(CROSS) [43-66]
+          TablePathExpression [33-42]
+            PathExpression [33-39]
+              Identifier(Table1) [33-39]
+            Alias [40-42]
+              Identifier(T1) [40-42]
+          TablePathExpression [54-66]
+            PathExpression [54-60]
+              Identifier(Table2) [54-60]
+            Alias [61-66]
+              Identifier(T2) [64-66]
+--
+SELECT
+  T1.a AS a,
+  T2.b AS b
+FROM
+  Table1 AS T1
+  CROSS JOIN
+  Table2 AS T2
+==
+
+select T1.a as a, T2.b as b from Table1 T1, Table2 as T2, Table3, Table4;
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-27]
+        SelectColumn [7-16]
+          PathExpression [7-11]
+            Identifier(T1) [7-9]
+            Identifier(a) [10-11]
+          Alias [12-16]
+            Identifier(a) [15-16]
+        SelectColumn [18-27]
+          PathExpression [18-22]
+            Identifier(T2) [18-20]
+            Identifier(b) [21-22]
+          Alias [23-27]
+            Identifier(b) [26-27]
+      FromClause [28-72]
+        Join(COMMA) [64-72]
+          Join(COMMA) [56-64]
+            Join(COMMA) [42-56]
+              TablePathExpression [33-42]
+                PathExpression [33-39]
+                  Identifier(Table1) [33-39]
+                Alias [40-42]
+                  Identifier(T1) [40-42]
+              TablePathExpression [44-56]
+                PathExpression [44-50]
+                  Identifier(Table2) [44-50]
+                Alias [51-56]
+                  Identifier(T2) [54-56]
+            TablePathExpression [58-64]
+              PathExpression [58-64]
+                Identifier(Table3) [58-64]
+          TablePathExpression [66-72]
+            PathExpression [66-72]
+              Identifier(Table4) [66-72]
+--
+SELECT
+  T1.a AS a,
+  T2.b AS b
+FROM
+  Table1 AS T1,
+  Table2 AS T2,
+  Table3,
+  Table4
+==
+
+select T1.a as a, T2.b as b
+from Table1 T1,
+     (Table2 as T2 full join Table3 T3 on(T1.x = T3.y));
+--
+QueryStatement [0-99]
+  Query [0-99]
+    Select [0-99]
+      SelectList [7-27]
+        SelectColumn [7-16]
+          PathExpression [7-11]
+            Identifier(T1) [7-9]
+            Identifier(a) [10-11]
+          Alias [12-16]
+            Identifier(a) [15-16]
+        SelectColumn [18-27]
+          PathExpression [18-22]
+            Identifier(T2) [18-20]
+            Identifier(b) [21-22]
+          Alias [23-27]
+            Identifier(b) [26-27]
+      FromClause [28-99]
+        Join(COMMA) [42-99]
+          TablePathExpression [33-42]
+            PathExpression [33-39]
+              Identifier(Table1) [33-39]
+            Alias [40-42]
+              Identifier(T1) [40-42]
+          ParenthesizedJoin [49-99]
+            Join(FULL) [63-98]
+              TablePathExpression [50-62]
+                PathExpression [50-56]
+                  Identifier(Table2) [50-56]
+                Alias [57-62]
+                  Identifier(T2) [60-62]
+              TablePathExpression [73-82]
+                PathExpression [73-79]
+                  Identifier(Table3) [73-79]
+                Alias [80-82]
+                  Identifier(T3) [80-82]
+              OnClause [83-98]
+                BinaryExpression(=) [86-97]
+                  PathExpression [86-90]
+                    Identifier(T1) [86-88]
+                    Identifier(x) [89-90]
+                  PathExpression [93-97]
+                    Identifier(T3) [93-95]
+                    Identifier(y) [96-97]
+--
+SELECT
+  T1.a AS a,
+  T2.b AS b
+FROM
+  Table1 AS T1,
+  (
+    Table2 AS T2
+    FULL JOIN
+    Table3 AS T3
+    ON (T1.x = T3.y)
+  )
+==
+
+select x, y from Table1 T1, Table2 T2 join Table3 T3 using (x);
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-11]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+        SelectColumn [10-11]
+          PathExpression [10-11]
+            Identifier(y) [10-11]
+      FromClause [12-62]
+        Join [38-62]
+          Join(COMMA) [26-37]
+            TablePathExpression [17-26]
+              PathExpression [17-23]
+                Identifier(Table1) [17-23]
+              Alias [24-26]
+                Identifier(T1) [24-26]
+            TablePathExpression [28-37]
+              PathExpression [28-34]
+                Identifier(Table2) [28-34]
+              Alias [35-37]
+                Identifier(T2) [35-37]
+          TablePathExpression [43-52]
+            PathExpression [43-49]
+              Identifier(Table3) [43-49]
+            Alias [50-52]
+              Identifier(T3) [50-52]
+          UsingClause [53-62]
+            Identifier(x) [60-61]
+--
+SELECT
+  x,
+  y
+FROM
+  Table1 AS T1,
+  Table2 AS T2
+  JOIN
+  Table3 AS T3
+  USING(x)
+==
+
+select x, y from Table1 T1 right join Table2 T2 on(T1.x = T2.y), Table3 T3
+--
+QueryStatement [0-74]
+  Query [0-74]
+    Select [0-74]
+      SelectList [7-11]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+        SelectColumn [10-11]
+          PathExpression [10-11]
+            Identifier(y) [10-11]
+      FromClause [12-74]
+        Join(COMMA) [63-74]
+          Join(RIGHT) [27-63]
+            TablePathExpression [17-26]
+              PathExpression [17-23]
+                Identifier(Table1) [17-23]
+              Alias [24-26]
+                Identifier(T1) [24-26]
+            TablePathExpression [38-47]
+              PathExpression [38-44]
+                Identifier(Table2) [38-44]
+              Alias [45-47]
+                Identifier(T2) [45-47]
+            OnClause [48-63]
+              BinaryExpression(=) [51-62]
+                PathExpression [51-55]
+                  Identifier(T1) [51-53]
+                  Identifier(x) [54-55]
+                PathExpression [58-62]
+                  Identifier(T2) [58-60]
+                  Identifier(y) [61-62]
+          TablePathExpression [65-74]
+            PathExpression [65-71]
+              Identifier(Table3) [65-71]
+            Alias [72-74]
+              Identifier(T3) [72-74]
+--
+SELECT
+  x,
+  y
+FROM
+  Table1 AS T1
+  RIGHT JOIN
+  Table2 AS T2
+  ON (T1.x = T2.y),
+  Table3 AS T3
+==
+
+select x, y from Table1 T1 natural left outer join Table2 T2 on T1.x = T2.y;
+--
+QueryStatement [0-75]
+  Query [0-75]
+    Select [0-75]
+      SelectList [7-11]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+        SelectColumn [10-11]
+          PathExpression [10-11]
+            Identifier(y) [10-11]
+      FromClause [12-75]
+        Join(NATURAL, LEFT) [27-75]
+          TablePathExpression [17-26]
+            PathExpression [17-23]
+              Identifier(Table1) [17-23]
+            Alias [24-26]
+              Identifier(T1) [24-26]
+          TablePathExpression [51-60]
+            PathExpression [51-57]
+              Identifier(Table2) [51-57]
+            Alias [58-60]
+              Identifier(T2) [58-60]
+          OnClause [61-75]
+            BinaryExpression(=) [64-75]
+              PathExpression [64-68]
+                Identifier(T1) [64-66]
+                Identifier(x) [67-68]
+              PathExpression [71-75]
+                Identifier(T2) [71-73]
+                Identifier(y) [74-75]
+--
+SELECT
+  x,
+  y
+FROM
+  Table1 AS T1
+  NATURAL LEFT JOIN
+  Table2 AS T2
+  ON T1.x = T2.y
+==
+
+select x + y, true FROM b join c, d join e;
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-18]
+        SelectColumn [7-12]
+          BinaryExpression(+) [7-12]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            PathExpression [11-12]
+              Identifier(y) [11-12]
+        SelectColumn [14-18]
+          BooleanLiteral(true) [14-18]
+      FromClause [19-42]
+        Join [36-42]
+          Join(COMMA) [32-35]
+            Join [26-32]
+              TablePathExpression [24-25]
+                PathExpression [24-25]
+                  Identifier(b) [24-25]
+              TablePathExpression [31-32]
+                PathExpression [31-32]
+                  Identifier(c) [31-32]
+            TablePathExpression [34-35]
+              PathExpression [34-35]
+                Identifier(d) [34-35]
+          TablePathExpression [41-42]
+            PathExpression [41-42]
+              Identifier(e) [41-42]
+--
+SELECT
+  x + y,
+  true
+FROM
+  b
+  JOIN
+  c,
+  d
+  JOIN
+  e
+==
+
+select x, y as z from ((a join b) join (c join d) join e);
+--
+QueryStatement [0-57]
+  Query [0-57]
+    Select [0-57]
+      SelectList [7-16]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+        SelectColumn [10-16]
+          PathExpression [10-11]
+            Identifier(y) [10-11]
+          Alias [12-16]
+            Identifier(z) [15-16]
+      FromClause [17-57]
+        ParenthesizedJoin [22-57]
+          Join [50-56]
+            Join [34-49]
+              ParenthesizedJoin [23-33]
+                Join [26-32]
+                  TablePathExpression [24-25]
+                    PathExpression [24-25]
+                      Identifier(a) [24-25]
+                  TablePathExpression [31-32]
+                    PathExpression [31-32]
+                      Identifier(b) [31-32]
+              ParenthesizedJoin [39-49]
+                Join [42-48]
+                  TablePathExpression [40-41]
+                    PathExpression [40-41]
+                      Identifier(c) [40-41]
+                  TablePathExpression [47-48]
+                    PathExpression [47-48]
+                      Identifier(d) [47-48]
+            TablePathExpression [55-56]
+              PathExpression [55-56]
+                Identifier(e) [55-56]
+--
+SELECT
+  x,
+  y AS z
+FROM
+  (
+    (
+      a
+      JOIN
+      b
+    )
+    JOIN
+    (
+      c
+      JOIN
+      d
+    )
+    JOIN
+    e
+  )
+==
+
+select * from (((t1)))
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:20]
+select * from (((t1)))
+                   ^
+==
+
+select * from (((select 1)))
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-28]
+        TableSubquery [14-28]
+          Query [15-27]
+            Query [16-26]
+              Query [17-25]
+                Select [17-25]
+                  SelectList [24-25]
+                    SelectColumn [24-25]
+                      IntLiteral(1) [24-25]
+--
+SELECT
+  *
+FROM
+  (((
+    SELECT
+      1
+    ))
+  )
+==
+
+select * from ( (((select 1))) join ( ((select 2)) join ((T)) ) )
+--
+ERROR: Syntax error: Expected keyword JOIN but got ")" [at 1:60]
+select * from ( (((select 1))) join ( ((select 2)) join ((T)) ) )
+                                                           ^
+==
+
+select 1
+from a LEFT OUTER JOIN b,
+     (c RIGHT JOIN d),
+     (e FULL JOIN f)
+--
+QueryStatement [0-78]
+  Query [0-78]
+    Select [0-78]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+      FromClause [9-78]
+        Join(COMMA) [56-78]
+          Join(COMMA) [33-56]
+            Join(LEFT) [16-33]
+              TablePathExpression [14-15]
+                PathExpression [14-15]
+                  Identifier(a) [14-15]
+              TablePathExpression [32-33]
+                PathExpression [32-33]
+                  Identifier(b) [32-33]
+            ParenthesizedJoin [40-56]
+              Join(RIGHT) [43-55]
+                TablePathExpression [41-42]
+                  PathExpression [41-42]
+                    Identifier(c) [41-42]
+                TablePathExpression [54-55]
+                  PathExpression [54-55]
+                    Identifier(d) [54-55]
+          ParenthesizedJoin [63-78]
+            Join(FULL) [66-77]
+              TablePathExpression [64-65]
+                PathExpression [64-65]
+                  Identifier(e) [64-65]
+              TablePathExpression [76-77]
+                PathExpression [76-77]
+                  Identifier(f) [76-77]
+--
+SELECT
+  1
+FROM
+  a
+  LEFT JOIN
+  b,
+  (
+    c
+    RIGHT JOIN
+    d
+  ),
+  (
+    e
+    FULL JOIN
+    f
+  )
+==
+
+# No comma join inside parentheses.
+select * from (A, B)
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 1:17]
+select * from (A, B)
+                ^
+==
+
+# No comma join inside parentheses.
+select * from A, B JOIN (C, D)
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 1:27]
+select * from A, B JOIN (C, D)
+                          ^
+==
+
+# RIGHT JOIN and FULL JOIN require parentheses when following a comma join.
+select * FROM A, B {{INNER|CROSS|LEFT|RIGHT|FULL}} JOIN C
+--
+ALTERNATION GROUP: INNER
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-31]
+        Join(INNER) [19-31]
+          Join(COMMA) [15-18]
+            TablePathExpression [14-15]
+              PathExpression [14-15]
+                Identifier(A) [14-15]
+            TablePathExpression [17-18]
+              PathExpression [17-18]
+                Identifier(B) [17-18]
+          TablePathExpression [30-31]
+            PathExpression [30-31]
+              Identifier(C) [30-31]
+--
+SELECT
+  *
+FROM
+  A,
+  B
+  INNER JOIN
+  C
+--
+ALTERNATION GROUP: CROSS
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-31]
+        Join(CROSS) [19-31]
+          Join(COMMA) [15-18]
+            TablePathExpression [14-15]
+              PathExpression [14-15]
+                Identifier(A) [14-15]
+            TablePathExpression [17-18]
+              PathExpression [17-18]
+                Identifier(B) [17-18]
+          TablePathExpression [30-31]
+            PathExpression [30-31]
+              Identifier(C) [30-31]
+--
+SELECT
+  *
+FROM
+  A,
+  B
+  CROSS JOIN
+  C
+--
+ALTERNATION GROUP: LEFT
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-30]
+        Join(LEFT) [19-30]
+          Join(COMMA) [15-18]
+            TablePathExpression [14-15]
+              PathExpression [14-15]
+                Identifier(A) [14-15]
+            TablePathExpression [17-18]
+              PathExpression [17-18]
+                Identifier(B) [17-18]
+          TablePathExpression [29-30]
+            PathExpression [29-30]
+              Identifier(C) [29-30]
+--
+SELECT
+  *
+FROM
+  A,
+  B
+  LEFT JOIN
+  C
+--
+ALTERNATION GROUP: RIGHT
+--
+ERROR: Syntax error: RIGHT JOIN must be parenthesized when following a comma join.  Also, if the preceding comma join is a correlated CROSS JOIN that unnests an array, then CROSS JOIN syntax must be used in place of the comma join [at 1:20]
+select * FROM A, B RIGHT JOIN C
+                   ^
+--
+ALTERNATION GROUP: FULL
+--
+ERROR: Syntax error: FULL JOIN must be parenthesized when following a comma join.  Also, if the preceding comma join is a correlated CROSS JOIN that unnests an array, then CROSS JOIN syntax must be used in place of the comma join [at 1:20]
+select * FROM A, B FULL JOIN C
+                   ^
+==
+
+# Comma join error happens even after chains of other joins.
+select * FROM A, B JOIN C FULL JOIN D
+--
+ERROR: Syntax error: FULL JOIN must be parenthesized when following a comma join.  Also, if the preceding comma join is a correlated CROSS JOIN that unnests an array, then CROSS JOIN syntax must be used in place of the comma join [at 1:27]
+select * FROM A, B JOIN C FULL JOIN D
+                          ^
+==
+
+# No RIGHT JOIN following a comma correlated CROSS JOIN that unnests an array.
+select * from A, A.B RIGHT JOIN C USING (key)
+--
+ERROR: Syntax error: RIGHT JOIN must be parenthesized when following a comma join.  Also, if the preceding comma join is a correlated CROSS JOIN that unnests an array, then CROSS JOIN syntax must be used in place of the comma join [at 1:22]
+select * from A, A.B RIGHT JOIN C USING (key)
+                     ^
+==
+
+# Fix by parenthesizing the FULL JOIN.
+select * FROM A, B JOIN (C FULL JOIN D)
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-39]
+        Join [19-39]
+          Join(COMMA) [15-18]
+            TablePathExpression [14-15]
+              PathExpression [14-15]
+                Identifier(A) [14-15]
+            TablePathExpression [17-18]
+              PathExpression [17-18]
+                Identifier(B) [17-18]
+          ParenthesizedJoin [24-39]
+            Join(FULL) [27-38]
+              TablePathExpression [25-26]
+                PathExpression [25-26]
+                  Identifier(C) [25-26]
+              TablePathExpression [37-38]
+                PathExpression [37-38]
+                  Identifier(D) [37-38]
+--
+SELECT
+  *
+FROM
+  A,
+  B
+  JOIN
+  (
+    C
+    FULL JOIN
+    D
+  )
+==
+
+# Fix by parenthesizing the COMMA - doesn't work because comma can't be
+# used inside parentheses.
+select * FROM (A, B JOIN C) FULL JOIN D
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 1:17]
+select * FROM (A, B JOIN C) FULL JOIN D
+                ^
+==
+
+# Comma join error happens even after chains of other joins.
+select * FROM A, B, C, D JOIN E LEFT JOIN F RIGHT JOIN G
+--
+ERROR: Syntax error: RIGHT JOIN must be parenthesized when following a comma join.  Also, if the preceding comma join is a correlated CROSS JOIN that unnests an array, then CROSS JOIN syntax must be used in place of the comma join [at 1:45]
+select * FROM A, B, C, D JOIN E LEFT JOIN F RIGHT JOIN G
+                                            ^
+==
+
+# Commas to the right of FULL/RIGHT join are okay.
+select * FROM A RIGHT JOIN B FULL JOIN C, D LEFT JOIN E
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-55]
+        Join(LEFT) [44-55]
+          Join(COMMA) [40-43]
+            Join(FULL) [29-40]
+              Join(RIGHT) [16-28]
+                TablePathExpression [14-15]
+                  PathExpression [14-15]
+                    Identifier(A) [14-15]
+                TablePathExpression [27-28]
+                  PathExpression [27-28]
+                    Identifier(B) [27-28]
+              TablePathExpression [39-40]
+                PathExpression [39-40]
+                  Identifier(C) [39-40]
+            TablePathExpression [42-43]
+              PathExpression [42-43]
+                Identifier(D) [42-43]
+          TablePathExpression [54-55]
+            PathExpression [54-55]
+              Identifier(E) [54-55]
+--
+SELECT
+  *
+FROM
+  A
+  RIGHT JOIN
+  B
+  FULL JOIN
+  C,
+  D
+  LEFT JOIN
+  E
+==
+
+select * from t1 LOOKUP JOIN t2
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-31]
+        Join(LOOKUP) [17-31]
+          TablePathExpression [14-16]
+            PathExpression [14-16]
+              Identifier(t1) [14-16]
+          TablePathExpression [29-31]
+            PathExpression [29-31]
+              Identifier(t2) [29-31]
+--
+SELECT
+  *
+FROM
+  t1
+  LOOKUP JOIN
+  t2
+==
+
+select * from t1 HASH JOIN t2
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-29]
+        Join(HASH) [17-29]
+          TablePathExpression [14-16]
+            PathExpression [14-16]
+              Identifier(t1) [14-16]
+          TablePathExpression [27-29]
+            PathExpression [27-29]
+              Identifier(t2) [27-29]
+--
+SELECT
+  *
+FROM
+  t1
+  HASH JOIN
+  t2
+==
+
+select * from t1 as a1 HASH JOIN t2
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-35]
+        Join(HASH) [23-35]
+          TablePathExpression [14-22]
+            PathExpression [14-16]
+              Identifier(t1) [14-16]
+            Alias [17-22]
+              Identifier(a1) [20-22]
+          TablePathExpression [33-35]
+            PathExpression [33-35]
+              Identifier(t2) [33-35]
+--
+SELECT
+  *
+FROM
+  t1 AS a1
+  HASH JOIN
+  t2
+==
+
+select * from t1 as a1 LOOKUP JOIN t2
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-37]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-37]
+        Join(LOOKUP) [23-37]
+          TablePathExpression [14-22]
+            PathExpression [14-16]
+              Identifier(t1) [14-16]
+            Alias [17-22]
+              Identifier(a1) [20-22]
+          TablePathExpression [35-37]
+            PathExpression [35-37]
+              Identifier(t2) [35-37]
+--
+SELECT
+  *
+FROM
+  t1 AS a1
+  LOOKUP JOIN
+  t2
+==
+
+
+# Table is a non-reserved keyword.
+select * from Table
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-19]
+        TablePathExpression [14-19]
+          PathExpression [14-19]
+            Identifier(Table) [14-19]
+--
+SELECT
+  *
+FROM
+  Table
+==
+
+# select is a reserved keyword.
+select * from `select`
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-22]
+        TablePathExpression [14-22]
+          PathExpression [14-22]
+            Identifier(`select`) [14-22]
+--
+SELECT
+  *
+FROM
+  `select`
+==
+
+select * from select
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:15]
+select * from select
+              ^
+==
+
+select * from `Table`
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-21]
+        TablePathExpression [14-21]
+          PathExpression [14-21]
+            Identifier(Table) [14-21]
+--
+SELECT
+  *
+FROM
+  Table
+==
+
+select * from pRoTo
+--
+ERROR: Syntax error: Unexpected keyword PROTO [at 1:15]
+select * from pRoTo
+              ^
+==
+
+select * from haSh
+--
+ERROR: Syntax error: Unexpected keyword HASH [at 1:15]
+select * from haSh
+              ^
+==
+
+select * from `pRoTo`
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-21]
+        TablePathExpression [14-21]
+          PathExpression [14-21]
+            Identifier(`pRoTo`) [14-21]
+--
+SELECT
+  *
+FROM
+  `pRoTo`
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from my-project.dataset.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project.dataset.table` [at 1:15]
+select * from my-project.dataset.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-38]
+        TablePathExpression [14-38]
+          PathExpression [14-38]
+            Identifier(`my-project`) [14-24]
+            Identifier(dataset) [25-32]
+            Identifier(table) [33-38]
+--
+SELECT
+  *
+FROM
+  `my-project`.dataset.table
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from  my   -project  .  dataset  .  table
+--
+ERROR: Syntax error: Unexpected "-" [at 1:21]
+select * from  my   -project  .  dataset  .  table
+                    ^
+
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from  my- project.dataset.table
+--
+ERROR: Syntax error: Unexpected "-" [at 1:18]
+select * from  my- project.dataset.table
+                 ^
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from my-project-.dataset.table
+--
+ERROR: Syntax error: Unexpected "." [at 1:26]
+select * from my-project-.dataset.table
+                         ^
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from  my - project.dataset.table
+--
+ERROR: Syntax error: Unexpected "-" [at 1:19]
+select * from  my - project.dataset.table
+                  ^
+
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from  myproject.data-set.table
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:30]
+select * from  myproject.data-set.table
+                             ^
+
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from  a-b.c.d-e.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `a-b.c.d` [at 1:16]
+select * from  a-b.c.d-e.table
+               ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:23]
+select * from  a-b.c.d-e.table
+                      ^
+
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from a-b.c-d.e.f.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `a-b.c` [at 1:15]
+select * from a-b.c-d.e.f.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Expected end of input but got "-" [at 1:20]
+select * from a-b.c-d.e.f.table
+                   ^
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from project-123.dataset.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-123.dataset.table` [at 1:15]
+select * from project-123.dataset.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-39]
+        TablePathExpression [14-39]
+          PathExpression [14-39]
+            Identifier(`project-123`) [14-33]
+            Identifier(dataset) [14-33]
+            Identifier(table) [34-39]
+--
+SELECT
+  *
+FROM
+  `project-123`.dataset.table
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from a-b-c-d-123.dataset.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `a-b-c-d-123.dataset.table` [at 1:15]
+select * from a-b-c-d-123.dataset.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-39]
+        TablePathExpression [14-39]
+          PathExpression [14-39]
+            Identifier(`a-b-c-d-123`) [14-33]
+            Identifier(dataset) [14-33]
+            Identifier(table) [34-39]
+--
+SELECT
+  *
+FROM
+  `a-b-c-d-123`.dataset.table
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from a-b-c-d-123.e-f-456.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `a-b-c-d-123.e-f-456.table` [at 1:15]
+select * from a-b-c-d-123.e-f-456.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-39]
+        TablePathExpression [14-39]
+          PathExpression [14-39]
+            Identifier(`a-b-c-d-123`) [14-39]
+            Identifier(`e-f-456`) [14-39]
+            Identifier(table) [14-39]
+--
+SELECT
+  *
+FROM
+  `a-b-c-d-123`.`e-f-456`.table
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from abc-123-xyz.dataset.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `abc-123-xyz.dataset.table` [at 1:15]
+select * from abc-123-xyz.dataset.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-39]
+        TablePathExpression [14-39]
+          PathExpression [14-39]
+            Identifier(`abc-123-xyz`) [14-25]
+            Identifier(dataset) [26-33]
+            Identifier(table) [34-39]
+--
+SELECT
+  *
+FROM
+  `abc-123-xyz`.dataset.table
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from abc-efg-123-xyz.dataset.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `abc-efg-123-xyz.dataset.table` [at 1:15]
+select * from abc-efg-123-xyz.dataset.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-43]
+        TablePathExpression [14-43]
+          PathExpression [14-43]
+            Identifier(`abc-efg-123-xyz`) [14-29]
+            Identifier(dataset) [30-37]
+            Identifier(table) [38-43]
+--
+SELECT
+  *
+FROM
+  `abc-efg-123-xyz`.dataset.table
+==
+
+# Name with dashes is broken into separate parse tokens
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+select * from abc-123-456.dataset.table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `abc-123-456.dataset.table` [at 1:15]
+select * from abc-123-456.dataset.table
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-39]
+        TablePathExpression [14-39]
+          PathExpression [14-39]
+            Identifier(`abc-123-456`) [14-33]
+            Identifier(dataset) [14-33]
+            Identifier(table) [34-39]
+--
+SELECT
+  *
+FROM
+  `abc-123-456`.dataset.table
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from `123`-project.dataset.abc
+--
+ERROR: Syntax error: Unexpected "-" [at 1:20]
+select * from `123`-project.dataset.abc
+                   ^
+==
+
+[{{no_|}}allow_dashed_table_names]
+select * from abc-`123`.dataset.abc
+--
+ERROR: Syntax error: Unexpected "-" [at 1:18]
+select * from abc-`123`.dataset.abc
+                 ^
+==
+
+[{{no_|}}allow_dashed_table_names]
+\-- We would've liked it to work, but it's too hard to implement.
+\-- 10e4 is resolved as floating point literal by lexer.
+select * from a-10e4.dataset.table
+--
+ERROR: Syntax error: Unexpected "." [at 3:21]
+select * from a-10e4.dataset.table
+                    ^
+==
+
+select a, from T1
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-9]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [10-17]
+        TablePathExpression [15-17]
+          PathExpression [15-17]
+            Identifier(T1) [15-17]
+--
+SELECT
+  a
+FROM
+  T1
+==
+
+select a, b, from T1
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-12]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+        SelectColumn [10-11]
+          PathExpression [10-11]
+            Identifier(b) [10-11]
+      FromClause [13-20]
+        TablePathExpression [18-20]
+          PathExpression [18-20]
+            Identifier(T1) [18-20]
+--
+SELECT
+  a,
+  b
+FROM
+  T1
+==
+
+select *, from T1
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-9]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [10-17]
+        TablePathExpression [15-17]
+          PathExpression [15-17]
+            Identifier(T1) [15-17]
+--
+SELECT
+  *
+FROM
+  T1
+==
+
+select * except(a), from T1
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-19]
+        SelectColumn [7-18]
+          StarWithModifiers [7-18]
+            StarModifiers [9-18]
+              StarExceptList [9-18]
+                Identifier(a) [16-17]
+      FromClause [20-27]
+        TablePathExpression [25-27]
+          PathExpression [25-27]
+            Identifier(T1) [25-27]
+--
+SELECT
+  * EXCEPT (a)
+FROM
+  T1
+==
+
+select * replace(a+1 as a), from T1
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-27]
+        SelectColumn [7-26]
+          StarWithModifiers [7-26]
+            StarModifiers [9-26]
+              StarReplaceItem [17-25]
+                BinaryExpression(+) [17-20]
+                  PathExpression [17-18]
+                    Identifier(a) [17-18]
+                  IntLiteral(1) [19-20]
+                Identifier(a) [24-25]
+      FromClause [28-35]
+        TablePathExpression [33-35]
+          PathExpression [33-35]
+            Identifier(T1) [33-35]
+--
+SELECT
+  * REPLACE (a + 1 AS a)
+FROM
+  T1
+==
+
+select a.*, from T1
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-11]
+        SelectColumn [7-10]
+          DotStar [8-10]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+      FromClause [12-19]
+        TablePathExpression [17-19]
+          PathExpression [17-19]
+            Identifier(T1) [17-19]
+--
+SELECT
+  a.*
+FROM
+  T1
+==
+
+select T1.a, T2.b, from T1 left join T2
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-18]
+        SelectColumn [7-11]
+          PathExpression [7-11]
+            Identifier(T1) [7-9]
+            Identifier(a) [10-11]
+        SelectColumn [13-17]
+          PathExpression [13-17]
+            Identifier(T2) [13-15]
+            Identifier(b) [16-17]
+      FromClause [19-39]
+        Join(LEFT) [27-39]
+          TablePathExpression [24-26]
+            PathExpression [24-26]
+              Identifier(T1) [24-26]
+          TablePathExpression [37-39]
+            PathExpression [37-39]
+              Identifier(T2) [37-39]
+--
+SELECT
+  T1.a,
+  T2.b
+FROM
+  T1
+  LEFT JOIN
+  T2
+==
+
+# No FROM clause with or without trailing comma
+select 1 a, 'foo' b {{|,}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-10]
+          IntLiteral(1) [7-8]
+          Alias [9-10]
+            Identifier(a) [9-10]
+        SelectColumn [12-19]
+          StringLiteral('foo') [12-17]
+          Alias [18-19]
+            Identifier(b) [18-19]
+--
+SELECT
+  1 AS a,
+  'foo' AS b
+--
+ALTERNATION GROUP: ,
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-10]
+          IntLiteral(1) [7-8]
+          Alias [9-10]
+            Identifier(a) [9-10]
+        SelectColumn [12-19]
+          StringLiteral('foo') [12-17]
+          Alias [18-19]
+            Identifier(b) [18-19]
+--
+SELECT
+  1 AS a,
+  'foo' AS b
+==
+
+# Empty SELECT list
+select {{|@{a=b}|ALL|DISTINCT|AS foo|@{a=b} DISTINCT AS foo}} from t
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:9]
+select  from t
+        ^
+--
+ALTERNATION GROUP: @{a=b}
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:15]
+select @{a=b} from t
+              ^
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:12]
+select ALL from t
+           ^
+--
+ALTERNATION GROUP: DISTINCT
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:17]
+select DISTINCT from t
+                ^
+--
+ALTERNATION GROUP: AS foo
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:15]
+select AS foo from t
+              ^
+--
+ALTERNATION GROUP: @{a=b} DISTINCT AS foo
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:31]
+select @{a=b} DISTINCT AS foo from t
+                              ^

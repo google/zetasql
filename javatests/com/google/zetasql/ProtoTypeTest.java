@@ -287,7 +287,7 @@ public class ProtoTypeTest {
             "The number of fields of ProtoTypeProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ProtoTypeProto.getDescriptor().getFields())
-        .hasSize(3);
+        .hasSize(4);
     assertWithMessage(
             "The number of fields in ProtoType class has changed, "
                 + "please also update the proto and serialization code accordingly.")

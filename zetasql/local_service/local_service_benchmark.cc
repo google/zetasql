@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#include <cstdint>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/local_service/local_service.h"

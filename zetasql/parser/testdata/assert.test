@@ -1,0 +1,294 @@
+# Assert can take an expression of any type.
+
+ASSERT TRUE;
+--
+
+AssertStatement [0-11]
+  BooleanLiteral(TRUE) [7-11]
+--
+ASSERT TRUE
+==
+
+ASSERT(5 + a);
+--
+AssertStatement [0-13]
+  BinaryExpression(+) [7-12]
+    IntLiteral(5) [7-8]
+    PathExpression [11-12]
+      Identifier(a) [11-12]
+--
+ASSERT(5 + a)
+==
+
+ASSERT (SELECT 1) = 1 {{|AS "simple test"}};
+--
+ALTERNATION GROUP: <empty>
+--
+AssertStatement [0-21]
+  BinaryExpression(=) [7-21]
+    ExpressionSubquery [7-17]
+      Query [8-16]
+        Select [8-16]
+          SelectList [15-16]
+            SelectColumn [15-16]
+              IntLiteral(1) [15-16]
+    IntLiteral(1) [20-21]
+--
+ASSERT(
+  SELECT
+    1
+) = 1
+--
+ALTERNATION GROUP: AS "simple test"
+--
+AssertStatement [0-38]
+  BinaryExpression(=) [7-21]
+    ExpressionSubquery [7-17]
+      Query [8-16]
+        Select [8-16]
+          SelectList [15-16]
+            SelectColumn [15-16]
+              IntLiteral(1) [15-16]
+    IntLiteral(1) [20-21]
+  StringLiteral("simple test") [25-38]
+--
+ASSERT(
+  SELECT
+    1
+) = 1 AS "simple test"
+==
+
+ASSERT NOT EXISTS(Select 1);
+--
+AssertStatement [0-27]
+  UnaryExpression(NOT) [7-27]
+    ExpressionSubquery(modifier=EXISTS) [11-27]
+      Query [18-26]
+        Select [18-26]
+          SelectList [25-26]
+            SelectColumn [25-26]
+              IntLiteral(1) [25-26]
+--
+ASSERT NOT EXISTS(
+  SELECT
+    1
+)
+==
+
+ASSERT @param = 1 AS "param test";
+--
+AssertStatement [0-33]
+  BinaryExpression(=) [7-17]
+    ParameterExpr [7-13]
+      Identifier(param) [8-13]
+    IntLiteral(1) [16-17]
+  StringLiteral("param test") [21-33]
+--
+ASSERT @param = 1 AS "param test"
+==
+
+ASSERT @@sysvar = 1 AS "sysvar test";
+--
+AssertStatement [0-36]
+  BinaryExpression(=) [7-19]
+    SystemVariableExpr [7-15]
+      PathExpression [9-15]
+        Identifier(sysvar) [9-15]
+    IntLiteral(1) [18-19]
+  StringLiteral("sysvar test") [23-36]
+--
+ASSERT @@sysvar = 1 AS "sysvar test"
+==
+
+ASSERT "123" IN ("123", "456");
+--
+AssertStatement [0-30]
+  InExpression(IN) [13-30]
+    StringLiteral("123") [7-12]
+    InList [17-29]
+      StringLiteral("123") [17-22]
+      StringLiteral("456") [24-29]
+--
+ASSERT "123" IN ("123", "456")
+==
+
+ASSERT IS_NAN(NULL) {{AND|OR}} ENDS_WITH("suffix", "fix") AS "abc";
+--
+ALTERNATION GROUP: AND
+--
+AssertStatement [0-59]
+  AndExpr [7-50]
+    FunctionCall [7-19]
+      PathExpression [7-13]
+        Identifier(IS_NAN) [7-13]
+      NullLiteral(NULL) [14-18]
+    FunctionCall [24-50]
+      PathExpression [24-33]
+        Identifier(ENDS_WITH) [24-33]
+      StringLiteral("suffix") [34-42]
+      StringLiteral("fix") [44-49]
+  StringLiteral("abc") [54-59]
+--
+ASSERT IS_NAN(NULL) AND ENDS_WITH("suffix", "fix") AS "abc"
+--
+ALTERNATION GROUP: OR
+--
+AssertStatement [0-58]
+  OrExpr [7-49]
+    FunctionCall [7-19]
+      PathExpression [7-13]
+        Identifier(IS_NAN) [7-13]
+      NullLiteral(NULL) [14-18]
+    FunctionCall [23-49]
+      PathExpression [23-32]
+        Identifier(ENDS_WITH) [23-32]
+      StringLiteral("suffix") [33-41]
+      StringLiteral("fix") [43-48]
+  StringLiteral("abc") [53-58]
+--
+ASSERT IS_NAN(NULL) OR ENDS_WITH("suffix", "fix") AS "abc"
+==
+
+ASSERT "123" IS NOT NULL;
+--
+AssertStatement [0-24]
+  BinaryExpression(IS NOT) [7-24]
+    StringLiteral("123") [7-12]
+    NullLiteral(NULL) [20-24]
+--
+ASSERT "123" IS NOT NULL
+==
+
+ASSERT CASE {{|TRUE}} WHEN TRUE THEN FALSE END;
+--
+
+ALTERNATION GROUP: <empty>
+--
+AssertStatement [0-37]
+  CaseNoValueExpression [7-37]
+    BooleanLiteral(TRUE) [18-22]
+    BooleanLiteral(FALSE) [28-33]
+--
+ASSERT
+CASE
+  WHEN TRUE THEN FALSE
+END
+--
+ALTERNATION GROUP: TRUE
+--
+AssertStatement [0-41]
+  CaseValueExpression [7-41]
+    BooleanLiteral(TRUE) [12-16]
+    BooleanLiteral(TRUE) [22-26]
+    BooleanLiteral(FALSE) [32-37]
+--
+ASSERT CASE TRUE
+  WHEN TRUE THEN FALSE
+END
+==
+
+ASSERT 123 BETWEEN 1 AND 456;
+--
+AssertStatement [0-28]
+  BetweenExpression(BETWEEN) [11-28]
+    IntLiteral(123) [7-10]
+    IntLiteral(1) [19-20]
+    IntLiteral(456) [25-28]
+--
+ASSERT 123 BETWEEN 1 AND 456
+==
+
+ASSERT (SELECT IS_NAN(NAN));
+--
+AssertStatement [0-27]
+  ExpressionSubquery [7-27]
+    Query [8-26]
+      Select [8-26]
+        SelectList [15-26]
+          SelectColumn [15-26]
+            FunctionCall [15-26]
+              PathExpression [15-21]
+                Identifier(IS_NAN) [15-21]
+              PathExpression [22-25]
+                Identifier(NAN) [22-25]
+--
+ASSERT(
+  SELECT
+    IS_NAN(NAN)
+)
+==
+
+# The inner ASSERT in this query is interpreted as a function call as opposed to
+# a seperate ASSERT statement.
+ASSERT (ASSERT((SELECT TRUE)));
+--
+AssertStatement [0-30]
+  FunctionCall [8-29]
+    PathExpression [8-14]
+      Identifier(ASSERT) [8-14]
+    ExpressionSubquery [15-28]
+      Query [16-27]
+        Select [16-27]
+          SelectList [23-27]
+            SelectColumn [23-27]
+              BooleanLiteral(TRUE) [23-27]
+--
+ASSERT(ASSERT((
+    SELECT
+      TRUE
+  )))
+==
+
+ASSERT;
+--
+
+ERROR: Syntax error: Unexpected ";" [at 1:7]
+ASSERT;
+      ^
+==
+
+ASSERT AS "no expression"
+--
+
+ERROR: Syntax error: Unexpected keyword AS [at 1:8]
+ASSERT AS "no expression"
+       ^
+==
+
+ASSERT SELECT TRUE;
+--
+
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:8]
+ASSERT SELECT TRUE;
+       ^
+==
+
+ASSERT (SELECT TRUE) "description";
+--
+
+ERROR: Syntax error: Expected end of input but got string literal "description" [at 1:22]
+ASSERT (SELECT TRUE) "description";
+                     ^
+==
+
+ASSERT (SELECT TRUE) AS;
+--
+ERROR: Syntax error: Expected string literal but got ";" [at 1:24]
+ASSERT (SELECT TRUE) AS;
+                       ^
+==
+
+ASSERT = (SELECT TRUE);
+--
+
+ERROR: Syntax error: Unexpected "=" [at 1:8]
+ASSERT = (SELECT TRUE);
+       ^
+==
+
+ASSERT (ASSERT(SELECT TRUE));
+--
+
+ERROR: Each function argument is an expression, not a query; to use a query as an expression, the query must be wrapped with additional parentheses to make it a scalar subquery expression [at 1:16]
+ASSERT (ASSERT(SELECT TRUE));
+               ^

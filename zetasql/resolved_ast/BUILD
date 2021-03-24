@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
@@ -30,6 +31,7 @@ py_binary(
         "@io_abseil_py//absl/logging",
         "@jinja//:jinja2",
         "@markupsafe//:markupsafe",
+        "//zetasql/parser:generator_utils",
     ],
 )
 
@@ -214,7 +216,9 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
@@ -264,6 +268,7 @@ cc_library(
         "//zetasql/public/functions:datetime_cc_proto",
         "//zetasql/public/functions:normalize_mode_cc_proto",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",

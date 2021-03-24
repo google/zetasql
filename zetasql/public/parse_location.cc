@@ -20,6 +20,7 @@
 #include "zetasql/public/parse_location.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 
 #include "zetasql/base/logging.h"
@@ -210,7 +211,7 @@ zetasql_base::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndCol
 
   // Find the offset corresponding to the line number.
   ZETASQL_RET_CHECK_LE(line, line_offsets_.size())
-      << "Query had " << line << " lines but line " << line_offsets_.size()
+      << "Query had " << line_offsets_.size() << " lines but line " << line
       << " was requested";
 
   ZETASQL_ASSIGN_OR_RETURN(absl::string_view current_line, GetLineText(line));

@@ -1,0 +1,584 @@
+# Tests for BETWEEN
+select col BETWEEN value1 AND value2
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-36]
+        SelectColumn [7-36]
+          BetweenExpression(BETWEEN) [11-36]
+            PathExpression [7-10]
+              Identifier(col) [7-10]
+            PathExpression [19-25]
+              Identifier(value1) [19-25]
+            PathExpression [30-36]
+              Identifier(value2) [30-36]
+--
+SELECT
+  col BETWEEN value1 AND value2
+==
+
+select x BETWEEN a AND b AND c AND D
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-36]
+        SelectColumn [7-36]
+          AndExpr [7-36]
+            BetweenExpression(BETWEEN) [9-24]
+              PathExpression [7-8]
+                Identifier(x) [7-8]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+            PathExpression [29-30]
+              Identifier(c) [29-30]
+            PathExpression [35-36]
+              Identifier(D) [35-36]
+--
+SELECT
+  x BETWEEN a AND b AND c AND D
+==
+
+select x BETWEEN (a AND b) AND (c AND D)
+--
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [7-40]
+        SelectColumn [7-40]
+          BetweenExpression(BETWEEN) [9-40]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            AndExpr [18-25]
+              PathExpression [18-19]
+                Identifier(a) [18-19]
+              PathExpression [24-25]
+                Identifier(b) [24-25]
+            AndExpr [32-39]
+              PathExpression [32-33]
+                Identifier(c) [32-33]
+              PathExpression [38-39]
+                Identifier(D) [38-39]
+--
+SELECT
+  x BETWEEN(a AND b) AND (c AND D)
+==
+
+# This is actually unambiguous in the Bison parser because the AND after the
+# nested BETWEEN can only associate with the nested BETWEEN. The Bison parser
+# has a special case error because this isn't allowed by the SQL standard. In
+# the JavaCC  parser, the nested productions for operator precedence disallow
+# BETWEEN directly inside BETWEEN.
+select x BETWEEN a BETWEEN b AND c AND d
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a BETWEEN b AND c AND d
+                 ^
+==
+
+# This is ambiguous: it could be (x BETWEEN a AND b) BETWEEN c AND d, or it
+# could be x BETWEEN a AND (b BETWEEN c AND d). JavaCC rejects it because of
+# its hierarchical expression rules, and Bison rejects it because BETWEEN is
+# not associative.
+select x BETWEEN a AND b BETWEEN c AND d
+
+--
+ERROR: Syntax error: Unexpected keyword BETWEEN [at 1:26]
+select x BETWEEN a AND b BETWEEN c AND d
+                         ^
+==
+
+select x BETWEEN (a BETWEEN b AND c) AND d
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          BetweenExpression(BETWEEN) [9-42]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BetweenExpression(BETWEEN) [20-35]
+              PathExpression [18-19]
+                Identifier(a) [18-19]
+              PathExpression [28-29]
+                Identifier(b) [28-29]
+              PathExpression [34-35]
+                Identifier(c) [34-35]
+            PathExpression [41-42]
+              Identifier(d) [41-42]
+--
+SELECT
+  x BETWEEN(a BETWEEN b AND c) AND d
+==
+
+# In the Bison parser, the AND keyword is only interpreted as belonging to
+# BETWEEN when a BETWEEN was seen, unless parentheses are used. That makes
+# this unambiguous, and NOT a AND b can't be interpreted as (NOT (a AND b)).
+# However, NOT cannot be nested in BETWEEN because it is lower precedence, so
+# the Bison parser generates an error in the rule logic.
+select col BETWEEN NOT a AND b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:20]
+select col BETWEEN NOT a AND b
+                   ^
+==
+
+select col BETWEEN a AND b IS NULL
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:28]
+select col BETWEEN a AND b IS NULL
+                           ^
+==
+
+select (col BETWEEN a AND b) IS NULL
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-36]
+        SelectColumn [7-36]
+          BinaryExpression(IS) [7-36]
+            BetweenExpression(BETWEEN) [12-27]
+              PathExpression [8-11]
+                Identifier(col) [8-11]
+              PathExpression [20-21]
+                Identifier(a) [20-21]
+              PathExpression [26-27]
+                Identifier(b) [26-27]
+            NullLiteral(NULL) [32-36]
+--
+SELECT
+  (col BETWEEN a AND b) IS NULL
+==
+
+select col BETWEEN x
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:21]
+select col BETWEEN x
+                    ^
+==
+
+select * from T where T.name BETWEEN 'A' AND 'B'
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+      WhereClause [16-48]
+        BetweenExpression(BETWEEN) [29-48]
+          PathExpression [22-28]
+            Identifier(T) [22-23]
+            Identifier(name) [24-28]
+          StringLiteral('A') [37-40]
+          StringLiteral('B') [45-48]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  T.name BETWEEN 'A' AND 'B'
+==
+
+select x BETWEEN y and z
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectList [7-24]
+        SelectColumn [7-24]
+          BetweenExpression(BETWEEN) [9-24]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            PathExpression [17-18]
+              Identifier(y) [17-18]
+            PathExpression [23-24]
+              Identifier(z) [23-24]
+--
+SELECT
+  x BETWEEN y AND z
+==
+
+# Test which operators can be included in the middle argument of BETWEEN.
+# Operators with equal or lower precedence than BETWEEN are not allowed.
+# That includes all comparison operators, and AND, OR and BETWEEN.
+select x BETWEEN {{a = b|a < b|a > b|a <= b|a >= b|a <> b |a !=b |a << b|a >> b |a & b|a ^ b|a AND b|a OR b|a LIKE b|a IN (b)|a IS FALSE|a BETWEEN b AND b}} AND c
+--
+ALTERNATION GROUP: a = b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a = b AND c
+                 ^
+--
+ALTERNATION GROUP: a < b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a < b AND c
+                 ^
+--
+ALTERNATION GROUP: a > b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a > b AND c
+                 ^
+--
+ALTERNATION GROUP: a <= b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a <= b AND c
+                 ^
+--
+ALTERNATION GROUP: a >= b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a >= b AND c
+                 ^
+--
+ALTERNATION GROUP: a <> b 
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a <> b  AND c
+                 ^
+--
+ALTERNATION GROUP: a !=b 
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a !=b  AND c
+                 ^
+--
+ALTERNATION GROUP: a << b
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-29]
+        SelectColumn [7-29]
+          BetweenExpression(BETWEEN) [9-29]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BitwiseShiftExpression(<<) [19-23]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [22-23]
+                Identifier(b) [22-23]
+            PathExpression [28-29]
+              Identifier(c) [28-29]
+--
+SELECT
+  x BETWEEN a << b AND c
+--
+ALTERNATION GROUP: a >> b 
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectList [7-30]
+        SelectColumn [7-30]
+          BetweenExpression(BETWEEN) [9-30]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BitwiseShiftExpression(>>) [19-23]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [22-23]
+                Identifier(b) [22-23]
+            PathExpression [29-30]
+              Identifier(c) [29-30]
+--
+SELECT
+  x BETWEEN a >> b AND c
+--
+ALTERNATION GROUP: a & b
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          BetweenExpression(BETWEEN) [9-28]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BinaryExpression(&) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            PathExpression [27-28]
+              Identifier(c) [27-28]
+--
+SELECT
+  x BETWEEN a & b AND c
+--
+ALTERNATION GROUP: a ^ b
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          BetweenExpression(BETWEEN) [9-28]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BinaryExpression(^) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            PathExpression [27-28]
+              Identifier(c) [27-28]
+--
+SELECT
+  x BETWEEN a ^ b AND c
+--
+ALTERNATION GROUP: a AND b
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectList [7-30]
+        SelectColumn [7-30]
+          AndExpr [7-30]
+            BetweenExpression(BETWEEN) [9-24]
+              PathExpression [7-8]
+                Identifier(x) [7-8]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+            PathExpression [29-30]
+              Identifier(c) [29-30]
+--
+SELECT
+  x BETWEEN a AND b AND c
+--
+ALTERNATION GROUP: a OR b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a OR b AND c
+                 ^
+--
+ALTERNATION GROUP: a LIKE b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a LIKE b AND c
+                 ^
+--
+ALTERNATION GROUP: a IN (b)
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a IN (b) AND c
+                 ^
+--
+ALTERNATION GROUP: a IS FALSE
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a IS FALSE AND c
+                 ^
+--
+ALTERNATION GROUP: a BETWEEN b AND b
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+select x BETWEEN a BETWEEN b AND b AND c
+                 ^
+==
+
+# Test that BETWEEN can contain |, which has precedence lower than additive
+# expressions. (Second and third arguments.)
+# Regression test for b/30131868.
+select x BETWEEN a | b AND c | d
+--
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          BetweenExpression(BETWEEN) [9-32]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BinaryExpression(|) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            BinaryExpression(|) [27-32]
+              PathExpression [27-28]
+                Identifier(c) [27-28]
+              PathExpression [31-32]
+                Identifier(d) [31-32]
+--
+SELECT
+  x BETWEEN a | b AND c | d
+==
+
+# (Same test as above, for the third argument.)
+# Test that BETWEEN can contain various types of expressions of precedence
+# lower than additive expressions. Note that = is disallowed here by both
+# Bison and JavaCC. It is ambiguous in Bison's operator precedence parsing
+# too because it is in an argument that is adjacent to the edge of the
+# operator.
+# Regression test for b/30131868.
+select x BETWEEN a AND b {{=|<<|>>|&|^}} c
+--
+ALTERNATION GROUP: =
+--
+ERROR: Syntax error: Unexpected "=" [at 1:26]
+select x BETWEEN a AND b = c
+                         ^
+--
+ALTERNATION GROUP: <<
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-29]
+        SelectColumn [7-29]
+          BetweenExpression(BETWEEN) [9-29]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            PathExpression [17-18]
+              Identifier(a) [17-18]
+            BitwiseShiftExpression(<<) [25-29]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+              PathExpression [28-29]
+                Identifier(c) [28-29]
+--
+SELECT
+  x BETWEEN a AND b << c
+--
+ALTERNATION GROUP: >>
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-29]
+        SelectColumn [7-29]
+          BetweenExpression(BETWEEN) [9-29]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            PathExpression [17-18]
+              Identifier(a) [17-18]
+            BitwiseShiftExpression(>>) [25-29]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+              PathExpression [28-29]
+                Identifier(c) [28-29]
+--
+SELECT
+  x BETWEEN a AND b >> c
+--
+ALTERNATION GROUP: &
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          BetweenExpression(BETWEEN) [9-28]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            PathExpression [17-18]
+              Identifier(a) [17-18]
+            BinaryExpression(&) [23-28]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+              PathExpression [27-28]
+                Identifier(c) [27-28]
+--
+SELECT
+  x BETWEEN a AND b & c
+--
+ALTERNATION GROUP: ^
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          BetweenExpression(BETWEEN) [9-28]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            PathExpression [17-18]
+              Identifier(a) [17-18]
+            BinaryExpression(^) [23-28]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+              PathExpression [27-28]
+                Identifier(c) [27-28]
+--
+SELECT
+  x BETWEEN a AND b ^ c
+==
+
+# Make sure that operators that include < and > are tokenized correctly inside
+# BETWEEN. These are covered by a tokenizer mode in the Bison parser, so they
+# should work in that mode as well. The operators are nonassociative and at
+# the same precedence level as BETWEEN, so the parser rule then still rejects
+# the result.
+SELECT x BETWEEN y {{<|>|<>|<<|>>}} 3 AND 9
+--
+ALTERNATION GROUP: <
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+SELECT x BETWEEN y < 3 AND 9
+                 ^
+--
+ALTERNATION GROUP: >
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+SELECT x BETWEEN y > 3 AND 9
+                 ^
+--
+ALTERNATION GROUP: <>
+--
+ERROR: Syntax error: Expression in BETWEEN must be parenthesized [at 1:18]
+SELECT x BETWEEN y <> 3 AND 9
+                 ^
+--
+ALTERNATION GROUP: <<
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-29]
+        SelectColumn [7-29]
+          BetweenExpression(BETWEEN) [9-29]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BitwiseShiftExpression(<<) [19-23]
+              PathExpression [17-18]
+                Identifier(y) [17-18]
+              IntLiteral(3) [22-23]
+            IntLiteral(9) [28-29]
+--
+SELECT
+  x BETWEEN y << 3 AND 9
+--
+ALTERNATION GROUP: >>
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-29]
+        SelectColumn [7-29]
+          BetweenExpression(BETWEEN) [9-29]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            BitwiseShiftExpression(>>) [19-23]
+              PathExpression [17-18]
+                Identifier(y) [17-18]
+              IntLiteral(3) [22-23]
+            IntLiteral(9) [28-29]
+--
+SELECT
+  x BETWEEN y >> 3 AND 9

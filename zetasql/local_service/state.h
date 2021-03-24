@@ -18,6 +18,8 @@
 #define ZETASQL_LOCAL_SERVICE_STATE_H_
 
 #include <stddef.h>
+
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <type_traits>
@@ -106,9 +108,7 @@ class GenericState {
   GenericState() : id_(-1) {}
   virtual ~GenericState() {}
 
-  int64_t GetId() const {
-    return id_;
-  }
+  int64_t GetId() const { return id_; }
 
  private:
   int64_t id_;

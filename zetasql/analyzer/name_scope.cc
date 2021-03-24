@@ -17,6 +17,7 @@
 #include "zetasql/analyzer/name_scope.h"
 
 #include <string.h>
+
 #include <memory>
 #include <utility>
 
@@ -26,9 +27,12 @@
 #include "zetasql/public/catalog_helper.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -1202,9 +1206,8 @@ absl::Status NameList::AddColumn(
 }
 
 absl::Status NameList::AddValueTableColumn(
-    IdString name, const ResolvedColumn& column,
-    const ASTNode* ast_location,
-    const IdStringSetCase& excluded_field_names,
+    IdString range_variable_name, const ResolvedColumn& column,
+    const ASTNode* ast_location, const IdStringSetCase& excluded_field_names,
     const NameListPtr& pseudo_columns_name_list) {
   if (pseudo_columns_name_list != nullptr) {
     // The only names present in pseudo_columns_name_list should be the
@@ -1243,21 +1246,21 @@ absl::Status NameList::AddValueTableColumn(
   }
   value_table_name_list->set_is_value_table(true);
 
-  if (HasRangeVariable(name)) {
+  if (HasRangeVariable(range_variable_name)) {
     return MakeSqlErrorAt(ast_location)
-           << "Duplicate alias " << name << " found";
+           << "Duplicate alias " << range_variable_name << " found";
   }
 
   // We put in an implicit column that will expand to the value table column
   // in select star.
-  columns_.emplace_back(name, column, false /* is_explicit */,
+  columns_.emplace_back(range_variable_name, column, false /* is_explicit */,
                         excluded_field_names);
 
-  if (!IsInternalAlias(name)) {
-    // And the value table column as a range variable in the NameScope.
+  if (!IsInternalAlias(range_variable_name)) {
+    // Add the value table column as a range variable in the NameScope.
     // We don't need to add a column because the column would always be
     // hidden by the range variable.
-    name_scope_.AddRangeVariable(name, value_table_name_list);
+    name_scope_.AddRangeVariable(range_variable_name, value_table_name_list);
   }
   // We need to also add it as a value table in the NameScope so we can find
   // implicit fields underneath it.
@@ -1419,6 +1422,57 @@ absl::Status NameList::MergeFromExceptColumns(
   return absl::OkStatus();
 }
 
+// static
+zetasql_base::StatusOr<std::shared_ptr<NameList>>
+NameList::AddRangeVariableInWrappingNameList(
+    IdString alias, const ASTNode* ast_location,
+    std::shared_ptr<const NameList> original_name_list) {
+  auto wrapper_name_list = std::make_shared<NameList>();
+  ZETASQL_RETURN_IF_ERROR(
+      wrapper_name_list->MergeFrom(*original_name_list, ast_location));
+  ZETASQL_RETURN_IF_ERROR(wrapper_name_list->AddRangeVariable(alias, original_name_list,
+                                                      ast_location));
+  return wrapper_name_list;
+}
+
+zetasql_base::StatusOr<std::shared_ptr<NameList>> NameList::CloneWithNewColumns(
+    const ASTNode* ast_location, absl::string_view value_table_error,
+    const ASTAlias* alias,
+    std::function<ResolvedColumn(const ResolvedColumn&)> clone_column,
+    IdStringPool* id_string_pool) const {
+  if (is_value_table()) {
+    return MakeSqlErrorAt(ast_location) << value_table_error;
+  }
+
+  // A new NameList pointing at the new ResolvedColumns.
+  auto cloned_name_list = std::make_shared<NameList>();
+
+  // Make a new ResolvedColumn for each column from the current list.
+  ResolvedColumnList column_list;
+  for (const NamedColumn& column : columns()) {
+    const ResolvedColumn resolved_col = clone_column(column.column);
+    column_list.emplace_back(resolved_col);
+    if (column.is_value_table_column) {
+      return MakeSqlErrorAt(ast_location) << value_table_error;
+    } else {
+      ZETASQL_RETURN_IF_ERROR(cloned_name_list->AddColumn(column.name, resolved_col,
+                                                  column.is_explicit));
+    }
+  }
+
+  if (alias != nullptr) {
+    // If alias is provided, add a range variable to the name list so that this
+    // alias can be referred to.
+    ZETASQL_ASSIGN_OR_RETURN(
+        cloned_name_list,
+        AddRangeVariableInWrappingNameList(
+            alias->GetAsIdString(), alias,
+            std::const_pointer_cast<const NameList>(cloned_name_list)));
+  }
+
+  return cloned_name_list;
+}
+
 std::vector<ResolvedColumn> NameList::GetResolvedColumns() const {
   std::vector<ResolvedColumn> ret;
   ret.reserve(columns_.size());
@@ -1491,17 +1545,18 @@ Type::HasFieldResult NameList::SelectStarHasColumn(IdString name) const {
   }
 }
 
-std::string NameList::DebugString() const {
+std::string NameList::DebugString(absl::string_view indent) const {
   std::string out;
   if (is_value_table()) {
-    absl::StrAppend(&out, "is_value_table = true");
+    absl::StrAppend(&out, indent, "is_value_table = true");
   }
   for (const NamedColumn& named_column : columns_) {
     if (!out.empty()) out += "\n";
-    absl::StrAppend(&out, "  ", named_column.DebugString());
+    absl::StrAppend(&out, indent, "  ", named_column.DebugString());
   }
   if (!out.empty()) out += "\n";
-  absl::StrAppend(&out, "Inline NameScope:\n", name_scope_.DebugString("  "));
+  absl::StrAppend(&out, indent, "Inline NameScope:\n",
+                  name_scope_.DebugString(absl::StrCat(indent, "  ")));
   return out;
 }
 

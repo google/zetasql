@@ -67,6 +67,12 @@ class ControlFlowEdge {
     // variables, as well as the details of the exception raised through the
     // standalone RAISE statement.
     int num_exception_handlers_exited = 0;
+
+    // The number of FOR...IN loops exited. This represents the number of
+    // times that the script executor will need to pop from its record of the
+    // "current" stack of FOR loops. This also allows FOR loops to be inspected
+    // through ScriptExecutor::DebugString(), which tests rely on.
+    int num_for_loops_exited = 0;
   };
 
   const ControlFlowGraph* graph() const { return graph_; }
@@ -138,10 +144,28 @@ std::string ControlFlowEdgeKindString(ControlFlowEdge::Kind kind);
 // associated with it.
 class ControlFlowNode {
  public:
+  // Used to disambiguate which node we have when multiple control flow nodes
+  // exist for the same ast node.
+  //
+  // Note: As these values are persisted in ScriptExecutorStateProto, the
+  // numerical enum values cannot be changed.
+  enum class Kind {
+    // This is the only control flow node possible for this AST node.
+    kDefault = 0,
+
+    // The initial iteration of a for-loop, responsible for creating the loop
+    // iterator.
+    kForInitial = 1,
+
+    // Subsequent iterations of a for-loop, advances the iterator rather than
+    // creating a new one.
+    kForAdvance = 2,
+  };
   using EdgeMap =
       absl::flat_hash_map<ControlFlowEdge::Kind, const ControlFlowEdge*>;
 
   const ASTNode* ast_node() const { return ast_node_; }
+  Kind kind() const { return kind_; }
   const ControlFlowGraph* graph() const { return graph_; }
   const EdgeMap& successors() const { return successors_; }
   const std::vector<const ControlFlowEdge*> predecessors() const {
@@ -159,12 +183,15 @@ class ControlFlowNode {
 
  private:
   friend class ControlFlowGraphBuilder;
-  ControlFlowNode(const ASTNode* ast_node, ControlFlowGraph* graph)
-      : ast_node_(ast_node), graph_(graph) {}
+  ControlFlowNode(const ASTNode* ast_node, Kind kind, ControlFlowGraph* graph)
+      : ast_node_(ast_node), kind_(kind), graph_(graph) {}
 
   // The AST node to execute. NULL for the sentinel node indicating the end of
   // the script.
   const ASTNode* ast_node_;
+
+  // Used to disambiguate which type of node this is, within the same AST node.
+  Kind kind_;
 
   // The control flow graph containing this node.  The lifetimes of all AST
   // nodes, control-flow nodes, and control-flow edges are owned here.
@@ -200,10 +227,17 @@ class ControlFlowGraph {
   // Control-flow nodes are generated for leaf statements and IF/ELSEIF/WHILE
   // conditions only.
   //
-  const ControlFlowNode* GetControlFlowNode(const ASTNode* ast_node) const;
+  const ControlFlowNode* GetControlFlowNode(const ASTNode* ast_node,
+                                            ControlFlowNode::Kind kind) const;
 
-  // Returns all reachable nodes in the script. Nodes are returned in the order
-  // that they appear in the script with <end_node()> last.
+  // Returns all reachable nodes in the script. Nodes are returned in an order
+  // which guarantees that, after ignoring back edges, each node appears after
+  // all of its predecessors.
+  //
+  // Note: Currently, this is equivelant to simply sorting nodes by the
+  // positions of their AST nodes, with the exception that the node to advance
+  // a for-loop comes after the body. This could change in the future as new
+  // scripting features get added.
   std::vector<const ControlFlowNode*> GetAllNodes() const;
 
   // The script used to generate this graph.
@@ -233,9 +267,10 @@ class ControlFlowGraph {
   // an unhandled exception, <end_node_> will be nullptr).
   std::unique_ptr<ControlFlowNode> end_node_;
 
-  // Maps each AST node to its corresponding ControlFlowNode, and owns the
-  // lifetime of all ControlFlowNode's.
-  absl::flat_hash_map<const ASTNode*, std::unique_ptr<ControlFlowNode>>
+  // Maps each AST node and node kind to its corresponding ControlFlowNode, and
+  // owns the lifetime of all ControlFlowNode's.
+  absl::flat_hash_map<std::pair<const ASTNode*, ControlFlowNode::Kind>,
+                      std::unique_ptr<ControlFlowNode>>
       node_map_;
 
   // Owns the lifetime of all ControlFlowEdge objects.  (The order of elements

@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
@@ -142,8 +144,10 @@ cc_library(
         "//zetasql/public:id_string",
         "//zetasql/public:strings",
         "//zetasql/public:type",
+        "//zetasql/public:value",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],
@@ -191,7 +195,6 @@ cc_library(
         ":lambda_util",
         ":name_scope",
         "//zetasql/base",
-        "//zetasql/base:cleanup",
         "//zetasql/base:general_trie",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
@@ -247,8 +250,10 @@ cc_library(
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
@@ -287,6 +292,7 @@ cc_library(
         "//zetasql/analyzer/rewriters:array_functions_rewriter",
         "//zetasql/analyzer/rewriters:flatten_rewriter",
         "//zetasql/analyzer/rewriters:map_function_rewriter",
+        "//zetasql/analyzer/rewriters:pivot_rewriter",
         "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/analyzer/rewriters:unpivot_rewriter",
     ],
@@ -307,6 +313,7 @@ cc_library(
     ],
     deps = [
         ":resolver",
+        ":rewrite_resolved_ast",
         "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/base:status",
         "//zetasql/common:errors",
@@ -350,6 +357,7 @@ cc_library(
         "//zetasql/public:analyzer_output",
         "//zetasql/public:anon_function",
         "//zetasql/public:catalog",
+        "//zetasql/public:function",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:strings",
@@ -559,5 +567,31 @@ cc_test(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/testing:test_catalog",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_library(
+    name = "rewrite_resolved_ast",
+    srcs = ["rewrite_resolved_ast.cc"],
+    hdrs = ["rewrite_resolved_ast.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/analyzer/rewriters:rewriter_interface",
+        "//zetasql/base:logging",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:catalog",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast:validator",
+        "@com_google_absl//absl/strings",
     ],
 )

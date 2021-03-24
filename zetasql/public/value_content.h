@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_VALUE_CONTENT_H_
 #define ZETASQL_PUBLIC_VALUE_CONTENT_H_
 
+#include <cstdint>
 #include <type_traits>
 
 #include <cstdint>

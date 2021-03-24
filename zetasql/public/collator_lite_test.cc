@@ -26,7 +26,7 @@ using ::zetasql_base::testing::StatusIs;
 namespace zetasql {
 namespace {
 
-TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCs) {
+TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCsDeprecated) {
   internal::RegisterDefaultCollatorImpl();
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -42,20 +42,34 @@ TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCs) {
   delete collator;
 }
 
+TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCs) {
+  internal::RegisterDefaultCollatorImpl();
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ZetaSqlCollator> collator,
+                       MakeSqlCollatorLite("unicode:cs"));
+
+  absl::Status error;
+  EXPECT_THAT(collator->CompareUtf8("a", "b", &error), Eq(-1));
+  EXPECT_THAT(error, IsOk());
+
+  EXPECT_THAT(collator->IsBinaryComparison(), Eq(true));
+}
+
 TEST(CreateFromCollationNameLite, DefaultImplDoesNotSupportEnUS) {
   internal::RegisterDefaultCollatorImpl();
 
-  EXPECT_THAT(ZetaSqlCollator::CreateFromCollationNameLite("en_US:ci"),
-              StatusIs(absl::StatusCode::kUnimplemented));
+  EXPECT_THAT(MakeSqlCollatorLite("en_US:ci"),
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(CreateFromCollationNameLite, UsesRegisteredImpl) {
-  internal::RegisterIcuCollatorImpl([](absl::string_view collation_name)
-                                        -> zetasql_base::StatusOr<ZetaSqlCollator*> {
-    return zetasql_base::InternalErrorBuilder() << "expected error";
-  });
+  internal::RegisterIcuCollatorImpl(
+      [](absl::string_view collation_name)
+          -> zetasql_base::StatusOr<std::unique_ptr<ZetaSqlCollator>> {
+        return zetasql_base::InternalErrorBuilder() << "expected error";
+      });
 
-  EXPECT_THAT(ZetaSqlCollator::CreateFromCollationNameLite("foo"),
+  EXPECT_THAT(MakeSqlCollatorLite("foo"),
               StatusIs(absl::StatusCode::kInternal, "expected error"));
 }
 

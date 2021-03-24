@@ -1,0 +1,260 @@
+analyze OPTIONS(p1=a1,p2=a2) T(a,b,c)
+--
+AnalyzeStatement [0-37]
+  OptionsList [15-28]
+    OptionsEntry [16-21]
+      Identifier(p1) [16-18]
+      PathExpression [19-21]
+        Identifier(a1) [19-21]
+    OptionsEntry [22-27]
+      Identifier(p2) [22-24]
+      PathExpression [25-27]
+        Identifier(a2) [25-27]
+  TableAndColumnInfoList [29-37]
+    TableAndColumnInfo [29-37]
+      PathExpression [29-30]
+        Identifier(T) [29-30]
+      ColumnList [30-37]
+        Identifier(a) [31-32]
+        Identifier(b) [33-34]
+        Identifier(c) [35-36]
+--
+ANALYZE OPTIONS(p1 = a1, p2 = a2) T(a, b, c)
+==
+
+analyze OPTIONS(p1=a1,p2=a2) T(a,b,c), T2(a,b,c)
+--
+AnalyzeStatement [0-48]
+  OptionsList [15-28]
+    OptionsEntry [16-21]
+      Identifier(p1) [16-18]
+      PathExpression [19-21]
+        Identifier(a1) [19-21]
+    OptionsEntry [22-27]
+      Identifier(p2) [22-24]
+      PathExpression [25-27]
+        Identifier(a2) [25-27]
+  TableAndColumnInfoList [29-37]
+    TableAndColumnInfo [29-37]
+      PathExpression [29-30]
+        Identifier(T) [29-30]
+      ColumnList [30-37]
+        Identifier(a) [31-32]
+        Identifier(b) [33-34]
+        Identifier(c) [35-36]
+    TableAndColumnInfo [39-48]
+      PathExpression [39-41]
+        Identifier(T2) [39-41]
+      ColumnList [41-48]
+        Identifier(a) [42-43]
+        Identifier(b) [44-45]
+        Identifier(c) [46-47]
+--
+ANALYZE OPTIONS(p1 = a1, p2 = a2) T(a, b, c), T2(a, b, c)
+==
+
+analyze OPTIONS(p1=a1,p2=a2) T(a,b,c) T2(a,b,c)
+--
+ERROR: Syntax error: Expected end of input but got identifier "T2" [at 1:39]
+analyze OPTIONS(p1=a1,p2=a2) T(a,b,c) T2(a,b,c)
+                                      ^
+==
+
+analyze OPTIONS(p1=a1,p2=a2) T, T2(a,b,c)
+--
+AnalyzeStatement [0-41]
+  OptionsList [15-28]
+    OptionsEntry [16-21]
+      Identifier(p1) [16-18]
+      PathExpression [19-21]
+        Identifier(a1) [19-21]
+    OptionsEntry [22-27]
+      Identifier(p2) [22-24]
+      PathExpression [25-27]
+        Identifier(a2) [25-27]
+  TableAndColumnInfoList [29-30]
+    TableAndColumnInfo [29-30]
+      PathExpression [29-30]
+        Identifier(T) [29-30]
+    TableAndColumnInfo [32-41]
+      PathExpression [32-34]
+        Identifier(T2) [32-34]
+      ColumnList [34-41]
+        Identifier(a) [35-36]
+        Identifier(b) [37-38]
+        Identifier(c) [39-40]
+--
+ANALYZE OPTIONS(p1 = a1, p2 = a2) T, T2(a, b, c)
+==
+
+analyze T(a,b,c)
+--
+AnalyzeStatement [0-16]
+  TableAndColumnInfoList [8-16]
+    TableAndColumnInfo [8-16]
+      PathExpression [8-9]
+        Identifier(T) [8-9]
+      ColumnList [9-16]
+        Identifier(a) [10-11]
+        Identifier(b) [12-13]
+        Identifier(c) [14-15]
+--
+ANALYZE T(a, b, c)
+==
+
+analyze T(a,b,c), T2(a)
+--
+AnalyzeStatement [0-23]
+  TableAndColumnInfoList [8-16]
+    TableAndColumnInfo [8-16]
+      PathExpression [8-9]
+        Identifier(T) [8-9]
+      ColumnList [9-16]
+        Identifier(a) [10-11]
+        Identifier(b) [12-13]
+        Identifier(c) [14-15]
+    TableAndColumnInfo [18-23]
+      PathExpression [18-20]
+        Identifier(T2) [18-20]
+      ColumnList [20-23]
+        Identifier(a) [21-22]
+--
+ANALYZE T(a, b, c), T2(a)
+==
+
+analyze T(a,b,c) T2(a)
+--
+ERROR: Syntax error: Expected end of input but got identifier "T2" [at 1:18]
+analyze T(a,b,c) T2(a)
+                 ^
+==
+
+analyze T()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:11]
+analyze T()
+          ^
+==
+
+analyze T
+--
+AnalyzeStatement [0-9]
+  TableAndColumnInfoList [8-9]
+    TableAndColumnInfo [8-9]
+      PathExpression [8-9]
+        Identifier(T) [8-9]
+--
+ANALYZE T
+==
+
+analyze T, T2
+--
+AnalyzeStatement [0-13]
+  TableAndColumnInfoList [8-9]
+    TableAndColumnInfo [8-9]
+      PathExpression [8-9]
+        Identifier(T) [8-9]
+    TableAndColumnInfo [11-13]
+      PathExpression [11-13]
+        Identifier(T2) [11-13]
+--
+ANALYZE T, T2
+==
+
+analyze OPTIONS()
+--
+AnalyzeStatement [0-17]
+  OptionsList [15-17]
+--
+ANALYZE OPTIONS()
+==
+
+analyze OPTIONS
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:16]
+analyze OPTIONS
+               ^
+==
+
+analyze OPTIONS, T
+--
+ERROR: Syntax error: Expected "(" but got "," [at 1:16]
+analyze OPTIONS, T
+               ^
+==
+
+# When the keyword as identifier OPTIONS is after a table name, we parser it as
+# another table name instead of a keyword. In this case, the options are null.
+analyze T, OPTIONS
+--
+AnalyzeStatement [0-18]
+  TableAndColumnInfoList [8-9]
+    TableAndColumnInfo [8-9]
+      PathExpression [8-9]
+        Identifier(T) [8-9]
+    TableAndColumnInfo [11-18]
+      PathExpression [11-18]
+        Identifier(OPTIONS) [11-18]
+--
+ANALYZE T, OPTIONS
+==
+
+analyze OPTIONS(a=b) Options(a,b,c)
+--
+AnalyzeStatement [0-35]
+  OptionsList [15-20]
+    OptionsEntry [16-19]
+      Identifier(a) [16-17]
+      PathExpression [18-19]
+        Identifier(b) [18-19]
+  TableAndColumnInfoList [21-35]
+    TableAndColumnInfo [21-35]
+      PathExpression [21-28]
+        Identifier(Options) [21-28]
+      ColumnList [28-35]
+        Identifier(a) [29-30]
+        Identifier(b) [31-32]
+        Identifier(c) [33-34]
+--
+ANALYZE OPTIONS(a = b) Options(a, b, c)
+==
+
+analyze T, OPTIONS(a, b, c)
+--
+AnalyzeStatement [0-27]
+  TableAndColumnInfoList [8-9]
+    TableAndColumnInfo [8-9]
+      PathExpression [8-9]
+        Identifier(T) [8-9]
+    TableAndColumnInfo [11-27]
+      PathExpression [11-18]
+        Identifier(OPTIONS) [11-18]
+      ColumnList [18-27]
+        Identifier(a) [19-20]
+        Identifier(b) [22-23]
+        Identifier(c) [25-26]
+--
+ANALYZE T, OPTIONS(a, b, c)
+==
+
+analyze OPTIONS(p1=a1,p2=a2)
+--
+AnalyzeStatement [0-28]
+  OptionsList [15-28]
+    OptionsEntry [16-21]
+      Identifier(p1) [16-18]
+      PathExpression [19-21]
+        Identifier(a1) [19-21]
+    OptionsEntry [22-27]
+      Identifier(p2) [22-24]
+      PathExpression [25-27]
+        Identifier(a2) [25-27]
+--
+ANALYZE OPTIONS(p1 = a1, p2 = a2)
+==
+
+analyze
+--
+AnalyzeStatement [0-7]
+--
+ANALYZE

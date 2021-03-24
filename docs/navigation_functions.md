@@ -547,7 +547,7 @@ NULLS` is present:
 
 + `value_expression` and `percentile` must have one of the following types:
    + `NUMERIC`
-
+   + `BIGNUMERIC`
    + `DOUBLE`
 + `percentile` must be a literal in the range `[0, 1]`.
 
@@ -559,13 +559,13 @@ table.
 
 <thead>
 <tr>
-<th>INPUT</th><th>NUMERIC</th><th>DOUBLE</th>
+<th>INPUT</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>DOUBLE</th>
 </tr>
 </thead>
 <tbody>
-<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
-
-<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>NUMERIC</th><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>BIGNUMERIC</th><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>DOUBLE</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
 
 </table>
@@ -630,7 +630,7 @@ This function ignores `NULL` values unless `RESPECT NULLS` is present.
 + `percentile` must be a literal in the range `[0, 1]`, with one of the
   following types:
    + `NUMERIC`
-
+   + `BIGNUMERIC`
    + `DOUBLE`
 
 **Return Data Type**

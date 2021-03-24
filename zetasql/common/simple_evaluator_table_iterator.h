@@ -20,6 +20,7 @@
 #ifndef ZETASQL_COMMON_SIMPLE_EVALUATOR_TABLE_ITERATOR_H_
 #define ZETASQL_COMMON_SIMPLE_EVALUATOR_TABLE_ITERATOR_H_
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>

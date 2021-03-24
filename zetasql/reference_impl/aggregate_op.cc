@@ -16,6 +16,7 @@
 
 // This file contains the code for evaluating aggregate functions.
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -68,15 +69,16 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
     const HavingModifierKind having_modifier_kind,
     std::vector<std::unique_ptr<KeyArg>> order_by_keys,
     std::unique_ptr<ValueExpr> limit,
-    ResolvedFunctionCallBase::ErrorMode error_mode) {
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    std::unique_ptr<ValueExpr> filter) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateFunctionCallExpr> aggregate_expr,
                    AggregateFunctionCallExpr::Create(std::move(function),
                                                      std::move(arguments)));
 
-  return absl::WrapUnique(
-      new AggregateArg(variable, std::move(aggregate_expr), distinct,
-                       std::move(having_expr), having_modifier_kind,
-                       std::move(order_by_keys), std::move(limit), error_mode));
+  return absl::WrapUnique(new AggregateArg(
+      variable, std::move(aggregate_expr), distinct, std::move(having_expr),
+      having_modifier_kind, std::move(order_by_keys), std::move(limit),
+      error_mode, std::move(filter)));
 }
 
 absl::Status AggregateArg::SetSchemasForEvaluation(
@@ -88,6 +90,11 @@ absl::Status AggregateArg::SetSchemasForEvaluation(
       having_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(mutable_having_expr()->SetSchemasForEvaluation(
         params_and_group_schemas));
+  }
+
+  if (filter() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        mutable_filter()->SetSchemasForEvaluation(params_and_group_schemas));
   }
 
   for (int i = 0; i < input_field_list_size(); ++i) {
@@ -103,7 +110,6 @@ absl::Status AggregateArg::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(
         mutable_parameter(i)->SetSchemasForEvaluation(params_schemas));
   }
-
   group_schema_ =
       absl::make_unique<const TupleSchema>(group_schema.variables());
   return absl::OkStatus();
@@ -617,6 +623,63 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
   EvaluationContext* context_;
 };
 
+// Accumulator which runs an inner accumulator on only the subset of rows for
+// which a filter expression evaluates to true.
+class FilteredArgAccumulator : public IntermediateAggregateAccumulator {
+ public:
+  FilteredArgAccumulator(
+      absl::Span<const TupleData* const> params,
+      std::unique_ptr<IntermediateAggregateAccumulator> accumulator,
+      const ValueExpr* filter, EvaluationContext* context)
+      : params_(params.begin(), params.end()),
+        accumulator_(std::move(accumulator)),
+        filter_(filter),
+        context_(context) {}
+
+  absl::Status Reset() override { return accumulator_->Reset(); }
+
+  bool Accumulate(const TupleData& input_row, const Value& input_value,
+                  bool* stop_accumulation, absl::Status* status) override {
+    *stop_accumulation = false;
+
+    TupleSlot slot;
+    if (!filter_->EvalSimple(
+            ConcatSpans(absl::Span<const TupleData* const>(params_),
+                        {&input_row}),
+            context_, &slot, status)) {
+      return false;
+    }
+    const Value& filter_value = slot.value();
+
+    if (filter_value.is_null() || !filter_value.bool_value()) {
+      // Row is skipped
+      return true;
+    }
+
+    return accumulator_->Accumulate(input_row, input_value, stop_accumulation,
+                                    status);
+  }
+
+  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+    return accumulator_->GetFinalResult(inputs_in_defined_order);
+  }
+
+ private:
+  const std::vector<const TupleData*> params_;
+
+  // Underlying accumulator that runs on input rows that satisfy the filter
+  std::unique_ptr<IntermediateAggregateAccumulator> accumulator_;
+
+  // Filter expression to be applied to each row. Must return BOOL type.
+  // A value of TRUE indicates that the row should be processed by
+  // <accumulator_>. A value of FALSE or NULL indicates that the row should be
+  // skipped.
+  const ValueExpr* filter_;
+
+  // EvaluationContext for evaluating the filter.
+  EvaluationContext* context_;
+};
+
 // Adapts IntermediateAggregateAccumulator to AggregateArgAccumulator.
 class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
  public:
@@ -795,6 +858,12 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
         params, having_expr(), use_max, std::move(accumulator), context);
   }
 
+  // Filter support
+  if (filter() != nullptr) {
+    accumulator = absl::make_unique<FilteredArgAccumulator>(
+        params, std::move(accumulator), filter(), context);
+  }
+
   // Adapt 'accumulator' to the AggregateArgAccumulator interface.
   std::vector<const ValueExpr*> input_fields;
   input_fields.reserve(input_field_list_size());
@@ -862,7 +931,10 @@ std::string AggregateArg::DebugInternal(const std::string& indent,
       limit_ != nullptr ? absl::StrCat(" LIMIT ", limit_->DebugInternal(
                                                       "" /* indent */, verbose))
                         : "",
-      !ignores_null() ? " [ignores_null = false]" : "");
+      !ignores_null() ? " [ignores_null = false]" : "",
+      filter_ != nullptr ? absl::StrCat(" FILTER ", filter_->DebugInternal(
+                                                        /*indent=*/"", verbose))
+                         : "");
   return result;
 }
 
@@ -885,7 +957,8 @@ AggregateArg::AggregateArg(const VariableId& variable,
                            const HavingModifierKind having_modifier_kind,
                            std::vector<std::unique_ptr<KeyArg>> order_by_keys,
                            std::unique_ptr<ValueExpr> limit,
-                           ResolvedFunctionCallBase::ErrorMode error_mode)
+                           ResolvedFunctionCallBase::ErrorMode error_mode,
+                           std::unique_ptr<ValueExpr> filter)
     : ExprArg(variable, std::move(function)),
       distinct_(distinct),
       having_expr_(std::move(having_expr)),
@@ -893,7 +966,8 @@ AggregateArg::AggregateArg(const VariableId& variable,
       order_by_keys_(ReleaseAllOrderKeys(std::move(order_by_keys))),
       order_by_keys_deleter_(&order_by_keys_),
       limit_(std::move(limit)),
-      error_mode_(error_mode) {}
+      error_mode_(error_mode),
+      filter_(std::move(filter)) {}
 
 const AggregateFunctionCallExpr* AggregateArg::aggregate_function() const {
   return static_cast<const AggregateFunctionCallExpr*>(value_expr());
@@ -943,6 +1017,9 @@ ValueExpr* AggregateArg::mutable_parameter(int i) {
       ->mutable_node()
       ->AsMutableValueExpr();
 }
+
+const ValueExpr* AggregateArg::filter() const { return filter_.get(); }
+ValueExpr* AggregateArg::mutable_filter() { return filter_.get(); }
 
 // -------------------------------------------------------
 // AggregateOp

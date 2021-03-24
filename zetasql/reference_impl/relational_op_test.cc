@@ -17,6 +17,7 @@
 // Tests of relational operators that don't warrant their own files.
 
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>

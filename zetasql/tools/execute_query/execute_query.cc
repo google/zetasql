@@ -83,15 +83,18 @@ int main(int argc, char* argv[]) {
   absl::Status status = InitializeExecuteQueryConfig(config);
 
   if (status.ok()) {
-    zetasql::ExecuteQueryStreamWriter writer{std::cout};
+    zetasql_base::StatusOr<std::unique_ptr<zetasql::ExecuteQueryWriter>> writer =
+        MakeWriterFromFlags(config, std::cout);
 
-    if (absl::GetFlag(FLAGS_interactive)) {
+    if (!writer.ok()) {
+      status = writer.status();
+    } else if (absl::GetFlag(FLAGS_interactive)) {
       ZETASQL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
     } else {
       const std::string sql = absl::StrJoin(args, " ");
       zetasql::ExecuteQuerySingleInput prompt{sql};
 
-      status = zetasql::ExecuteQueryLoop(prompt, config, writer);
+      status = zetasql::ExecuteQueryLoop(prompt, config, **writer);
     }
   }
 

@@ -1,0 +1,492 @@
+set a=3
+--
+SingleAssignment [0-7]
+  Identifier(a) [4-5]
+  IntLiteral(3) [6-7]
+--
+SET a = 3
+==
+
+set a = (((a + 1) + 1) + 1)
+--
+SingleAssignment [0-27]
+  Identifier(a) [4-5]
+  BinaryExpression(+) [9-26]
+    BinaryExpression(+) [10-21]
+      BinaryExpression(+) [11-16]
+        PathExpression [11-12]
+          Identifier(a) [11-12]
+        IntLiteral(1) [15-16]
+      IntLiteral(1) [20-21]
+    IntLiteral(1) [25-26]
+--
+SET a = (((a + 1) + 1) + 1)
+==
+
+set a=(SELECT x from T WHERE y=100);
+--
+SingleAssignment [0-35]
+  Identifier(a) [4-5]
+  ExpressionSubquery [6-35]
+    Query [7-34]
+      Select [7-34]
+        SelectList [14-15]
+          SelectColumn [14-15]
+            PathExpression [14-15]
+              Identifier(x) [14-15]
+        FromClause [16-22]
+          TablePathExpression [21-22]
+            PathExpression [21-22]
+              Identifier(T) [21-22]
+        WhereClause [23-34]
+          BinaryExpression(=) [29-34]
+            PathExpression [29-30]
+              Identifier(y) [29-30]
+            IntLiteral(100) [31-34]
+--
+SET a = (
+  SELECT
+    x
+  FROM
+    T
+  WHERE
+    y = 100
+)
+==
+
+set set=set
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:5]
+set set=set
+    ^
+==
+
+# Equals sign in expression, in addition to separator token
+set a = b = c;
+--
+SingleAssignment [0-13]
+  Identifier(a) [4-5]
+  BinaryExpression(=) [8-13]
+    PathExpression [8-9]
+      Identifier(b) [8-9]
+    PathExpression [12-13]
+      Identifier(c) [12-13]
+--
+SET a = b = c
+==
+
+# Struct assignment (one field)
+SET (a) = y;
+--
+AssignmentFromStruct [0-11]
+  IdentifierList [5-6]
+    Identifier(a) [5-6]
+  PathExpression [10-11]
+    Identifier(y) [10-11]
+--
+SET(a) = y
+==
+
+# Struct assignment (multiple fields)
+SET (a,b) = y;
+--
+AssignmentFromStruct [0-13]
+  IdentifierList [5-8]
+    Identifier(a) [5-6]
+    Identifier(b) [7-8]
+  PathExpression [12-13]
+    Identifier(y) [12-13]
+--
+SET(a, b) = y
+==
+
+# Struct assignment to struct expression
+SET (a,b) = (1 + 3, 'foo');
+--
+AssignmentFromStruct [0-26]
+  IdentifierList [5-8]
+    Identifier(a) [5-6]
+    Identifier(b) [7-8]
+  StructConstructorWithParens [12-26]
+    BinaryExpression(+) [13-18]
+      IntLiteral(1) [13-14]
+      IntLiteral(3) [17-18]
+    StringLiteral('foo') [20-25]
+--
+SET(a, b) = (1 + 3, 'foo')
+==
+
+# Struct assignment (empty)
+SET () = y;
+--
+ERROR: Parenthesized SET statement requires a variable list [at 1:6]
+SET () = y;
+     ^
+==
+
+# Error cases
+set;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:4]
+set;
+   ^
+==
+
+set x;
+--
+ERROR: Syntax error: Expected "," or "=" but got ";" [at 1:6]
+set x;
+     ^
+==
+
+set x =;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:8]
+set x =;
+       ^
+==
+
+# Struct assignment (missing equals sign)
+SET (a, b) y;
+--
+ERROR: Syntax error: Expected "=" but got identifier "y" [at 1:12]
+SET (a, b) y;
+           ^
+==
+
+# Struct assignment (missing both left and right parentheses)
+SET a,b = (4, 5);
+--
+ERROR: Using SET with multiple variables requires parentheses around the variable list [at 1:5]
+SET a,b = (4, 5);
+    ^
+==
+
+# Struct assignment (missing left parenthesis)
+SET a, b) = y;
+--
+ERROR: Syntax error: Expected "," or "=" but got ")" [at 1:9]
+SET a, b) = y;
+        ^
+==
+
+# Struct assignment (missing right parenthesis)
+SET (a, b = y;
+--
+ERROR: Syntax error: Expected ")" or "," but got "=" [at 1:11]
+SET (a, b = y;
+          ^
+==
+
+# Struct assignment (missing equals sign and expression)
+SET (a, b);
+--
+ERROR: Syntax error: Expected "=" but got ";" [at 1:11]
+SET (a, b);
+          ^
+==
+
+# Struct assignment (missing expression)
+SET (a, b) = ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:14]
+SET (a, b) = ;
+             ^
+==
+
+# Dangling comma in variable list
+SET (a,) = z;
+--
+ERROR: Syntax error: Unexpected ")" [at 1:8]
+SET (a,) = z;
+       ^
+==
+
+# Expressions in variable list
+SET (a, 1) = (3, 4);
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:9]
+SET (a, 1) = (3, 4);
+        ^
+==
+
+# Expressions in variable list
+SET (a + 1, 2) = (3, 4);
+--
+ERROR: Syntax error: Expected ")" or "," but got "+" [at 1:8]
+SET (a + 1, 2) = (3, 4);
+       ^
+==
+
+# Query Parameters
+
+# Base case - set a parameter to an integer literal.
+SET {{@|@@}}value = 1
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-14]
+  ParameterExpr [4-10]
+    Identifier(value) [5-10]
+  IntLiteral(1) [13-14]
+--
+SET @value = 1
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-15]
+  SystemVariableExpr [4-11]
+    PathExpression [6-11]
+      Identifier(value) [6-11]
+  IntLiteral(1) [14-15]
+--
+SET @@value = 1
+==
+
+# Base case 2 - set a parameter to a string literal.
+SET {{@|@@}}value="something"
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-22]
+  ParameterExpr [4-10]
+    Identifier(value) [5-10]
+  StringLiteral("something") [11-22]
+--
+SET @value = "something"
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-23]
+  SystemVariableExpr [4-11]
+    PathExpression [6-11]
+      Identifier(value) [6-11]
+  StringLiteral("something") [12-23]
+--
+SET @@value = "something"
+==
+
+# Use a parameter name that is a reserved keyword.
+SET {{@|@@}}AND="something"
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-20]
+  ParameterExpr [4-8]
+    Identifier(`AND`) [5-8]
+  StringLiteral("something") [9-20]
+--
+SET @`AND` = "something"
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-21]
+  SystemVariableExpr [4-9]
+    PathExpression [4-9]
+      Identifier(`AND`) [6-9]
+  StringLiteral("something") [10-21]
+--
+SET @@`AND` = "something"
+==
+
+# Use a parameter name that is an non-reserved keyword.
+SET {{@|@@}}ABORT="something"
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-22]
+  ParameterExpr [4-10]
+    Identifier(ABORT) [5-10]
+  StringLiteral("something") [11-22]
+--
+SET @ABORT = "something"
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-23]
+  SystemVariableExpr [4-11]
+    PathExpression [6-11]
+      Identifier(ABORT) [6-11]
+  StringLiteral("something") [12-23]
+--
+SET @@ABORT = "something"
+==
+
+# Set a parameter to a simple expression
+SET {{@|@@}}VAL=1 + 1
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-14]
+  ParameterExpr [4-8]
+    Identifier(VAL) [5-8]
+  BinaryExpression(+) [9-14]
+    IntLiteral(1) [9-10]
+    IntLiteral(1) [13-14]
+--
+SET @VAL = 1 + 1
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-15]
+  SystemVariableExpr [4-9]
+    PathExpression [6-9]
+      Identifier(VAL) [6-9]
+  BinaryExpression(+) [10-15]
+    IntLiteral(1) [10-11]
+    IntLiteral(1) [14-15]
+--
+SET @@VAL = 1 + 1
+==
+
+# Set a parameter to an expression containing a function
+SET {{@|@@}}VAL = CURRENT_TIMESTAMP() + 100
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-36]
+  ParameterExpr [4-8]
+    Identifier(VAL) [5-8]
+  BinaryExpression(+) [11-36]
+    FunctionCall [11-30]
+      PathExpression [11-28]
+        Identifier(`CURRENT_TIMESTAMP`) [11-28]
+    IntLiteral(100) [33-36]
+--
+SET @VAL = `CURRENT_TIMESTAMP`() + 100
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-37]
+  SystemVariableExpr [4-9]
+    PathExpression [6-9]
+      Identifier(VAL) [6-9]
+  BinaryExpression(+) [12-37]
+    FunctionCall [12-31]
+      PathExpression [12-29]
+        Identifier(`CURRENT_TIMESTAMP`) [12-29]
+    IntLiteral(100) [34-37]
+--
+SET @@VAL = `CURRENT_TIMESTAMP`() + 100
+==
+
+# Set a parameter to an expression with a SELECT statment
+SET {{@|@@}}VAL = (SELECT * FROM t)
+--
+ALTERNATION GROUP: @
+--
+ParameterAssignment [0-28]
+  ParameterExpr [4-8]
+    Identifier(VAL) [5-8]
+  ExpressionSubquery [11-28]
+    Query [12-27]
+      Select [12-27]
+        SelectList [19-20]
+          SelectColumn [19-20]
+            Star(*) [19-20]
+        FromClause [21-27]
+          TablePathExpression [26-27]
+            PathExpression [26-27]
+              Identifier(t) [26-27]
+--
+SET @VAL = (
+  SELECT
+    *
+  FROM
+    t
+)
+--
+ALTERNATION GROUP: @@
+--
+SystemVariableAssignment [0-29]
+  SystemVariableExpr [4-9]
+    PathExpression [6-9]
+      Identifier(VAL) [6-9]
+  ExpressionSubquery [12-29]
+    Query [13-28]
+      Select [13-28]
+        SelectList [20-21]
+          SelectColumn [20-21]
+            Star(*) [20-21]
+        FromClause [22-28]
+          TablePathExpression [27-28]
+            PathExpression [27-28]
+              Identifier(t) [27-28]
+--
+SET @@VAL = (
+  SELECT
+    *
+  FROM
+    t
+)
+==
+
+# Error cases
+
+# Does not work for setting a parameter to an invalid expression.
+SET {{@|@@}}VAL = SELECT * FROM t
+--
+ALTERNATION GROUP: @
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:12]
+SET @VAL = SELECT * FROM t
+           ^
+--
+ALTERNATION GROUP: @@
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:13]
+SET @@VAL = SELECT * FROM t
+            ^
+==
+
+set {{@|@@}};
+--
+ALTERNATION GROUP: @
+--
+ERROR: Syntax error: Unexpected ";" [at 1:6]
+set @;
+     ^
+--
+ALTERNATION GROUP: @@
+--
+ERROR: Syntax error: Unexpected ";" [at 1:7]
+set @@;
+      ^
+==
+
+set {{@|@@}}x;
+--
+ALTERNATION GROUP: @
+--
+ERROR: Syntax error: Expected "=" but got ";" [at 1:7]
+set @x;
+      ^
+--
+ALTERNATION GROUP: @@
+--
+ERROR: Syntax error: Expected "=" but got ";" [at 1:8]
+set @@x;
+       ^
+==
+
+set {{@|@@}}x =;
+--
+ALTERNATION GROUP: @
+--
+ERROR: Syntax error: Unexpected ";" [at 1:9]
+set @x =;
+        ^
+--
+ALTERNATION GROUP: @@
+--
+ERROR: Syntax error: Unexpected ";" [at 1:10]
+set @@x =;
+         ^
+==
+
+# Does not work for unnamed query parameters.
+set ? = 1;
+--
+ERROR: Syntax error: Unexpected "?" [at 1:5]
+set ? = 1;
+    ^

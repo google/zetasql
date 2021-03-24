@@ -46,11 +46,15 @@ class InputArgumentType {
   // Same as InputArgumentType::UntypedNull(). Consider using the latter.
   InputArgumentType() : category_(kUntypedNull), type_(types::Int64Type()) {}
 
-  // Constructor for literal arguments.  <literal_value> cannot be nullptr.
+  // Constructor for literal arguments. <literal_value> cannot be nullptr.
   // A Value can be either a NULL or non-NULL Value of any ZetaSQL Type.
   // The <literal_value> is not owned and must outlive all referencing
-  // InputArgumentTypes.
-  explicit InputArgumentType(const Value& literal_value);
+  // InputArgumentTypes. A true <is_default_argument_value> indicates that the
+  // related function call argument was unspecified by the user, and
+  // <literal_value> was injected as the default value for the unspecified
+  // argument.
+  explicit InputArgumentType(const Value& literal_value,
+                             bool is_default_argument_value = false);
 
   // Constructor for non-literal and parameter arguments.
   explicit InputArgumentType(const Type* type,
@@ -125,6 +129,10 @@ class InputArgumentType {
   bool is_model() const { return category_ == kModel; }
   bool is_connection() const { return category_ == kConnection; }
   bool is_lambda() const { return category_ == kLambda; }
+
+  bool is_default_argument_value() const {
+    return is_default_argument_value_;
+  }
 
   // Argument type name to be used in user facing text (i.e. error messages).
   std::string UserFacingName(ProductMode product_mode) const;
@@ -225,6 +233,10 @@ class InputArgumentType {
   Category category_ = kUntypedNull;
   const Type* type_ = nullptr;  // never nullptr, even for kUntyped categories
   absl::optional<Value> literal_value_;  // only set for kTypedLiteral.
+
+  // True if this InputArgumentType was constructed from a default function
+  // argument value.
+  bool is_default_argument_value_ = false;
 
   // Populated only for STRUCT type arguments. Stores the InputArgumentType of
   // the struct fields (in the same order). We need this for STRUCT coercion

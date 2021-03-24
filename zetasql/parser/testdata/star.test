@@ -1,0 +1,700 @@
+# Tests for *, with modifiers (EXCEPT and REPLACE), and .*.
+select * from t
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+--
+SELECT
+  *
+FROM
+  t
+==
+
+select * except (a) from t
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          StarWithModifiers [7-19]
+            StarModifiers [9-19]
+              StarExceptList [9-19]
+                Identifier(a) [17-18]
+      FromClause [20-26]
+        TablePathExpression [25-26]
+          PathExpression [25-26]
+            Identifier(t) [25-26]
+--
+SELECT
+  * EXCEPT (a)
+FROM
+  t
+==
+
+select * replace (a+1 as b) from t
+--
+QueryStatement [0-34]
+  Query [0-34]
+    Select [0-34]
+      SelectList [7-27]
+        SelectColumn [7-27]
+          StarWithModifiers [7-27]
+            StarModifiers [9-27]
+              StarReplaceItem [18-26]
+                BinaryExpression(+) [18-21]
+                  PathExpression [18-19]
+                    Identifier(a) [18-19]
+                  IntLiteral(1) [20-21]
+                Identifier(b) [25-26]
+      FromClause [28-34]
+        TablePathExpression [33-34]
+          PathExpression [33-34]
+            Identifier(t) [33-34]
+--
+SELECT
+  * REPLACE (a + 1 AS b)
+FROM
+  t
+==
+
+select 123, * except (a,b,c) replace (a+1 as b, b as c, 5 as d), 456
+--
+QueryStatement [0-68]
+  Query [0-68]
+    Select [0-68]
+      SelectList [7-68]
+        SelectColumn [7-10]
+          IntLiteral(123) [7-10]
+        SelectColumn [12-63]
+          StarWithModifiers [12-63]
+            StarModifiers [14-63]
+              StarExceptList [14-28]
+                Identifier(a) [22-23]
+                Identifier(b) [24-25]
+                Identifier(c) [26-27]
+              StarReplaceItem [38-46]
+                BinaryExpression(+) [38-41]
+                  PathExpression [38-39]
+                    Identifier(a) [38-39]
+                  IntLiteral(1) [40-41]
+                Identifier(b) [45-46]
+              StarReplaceItem [48-54]
+                PathExpression [48-49]
+                  Identifier(b) [48-49]
+                Identifier(c) [53-54]
+              StarReplaceItem [56-62]
+                IntLiteral(5) [56-57]
+                Identifier(d) [61-62]
+        SelectColumn [65-68]
+          IntLiteral(456) [65-68]
+--
+SELECT
+  123,
+  * EXCEPT (a, b, c) REPLACE (a + 1 AS b, b AS c, 5 AS d),
+  456
+==
+
+select * except ()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:18]
+select * except ()
+                 ^
+==
+
+select * except (1)
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:18]
+select * except (1)
+                 ^
+==
+
+select * except (a.b)
+--
+ERROR: Syntax error: Expected ")" or "," but got "." [at 1:19]
+select * except (a.b)
+                  ^
+==
+
+select * replace ()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:19]
+select * replace ()
+                  ^
+==
+
+select * replace (a as b) except (c)
+--
+ERROR: Syntax error: Expected end of input but got keyword EXCEPT [at 1:27]
+select * replace (a as b) except (c)
+                          ^
+==
+
+select * replace (a)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:20]
+select * replace (a)
+                   ^
+==
+
+select * replace (a b)
+--
+ERROR: Syntax error: Unexpected identifier "b" [at 1:21]
+select * replace (a b)
+                    ^
+==
+
+select a.* except (b)
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-21]
+          DotStarWithModifiers [8-21]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+            StarModifiers [11-21]
+              StarExceptList [11-21]
+                Identifier(b) [19-20]
+--
+SELECT
+  a.* EXCEPT (b)
+==
+
+select a.* replace (a as b)
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-27]
+        SelectColumn [7-27]
+          DotStarWithModifiers [8-27]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+            StarModifiers [11-27]
+              StarReplaceItem [20-26]
+                PathExpression [20-21]
+                  Identifier(a) [20-21]
+                Identifier(b) [25-26]
+--
+SELECT
+  a.* REPLACE (a AS b)
+==
+
+select func().x.* except(b) replace(1 as d), z.* except(Y)
+--
+QueryStatement [0-58]
+  Query [0-58]
+    Select [0-58]
+      SelectList [7-58]
+        SelectColumn [7-43]
+          DotStarWithModifiers [15-43]
+            DotIdentifier [13-15]
+              FunctionCall [7-13]
+                PathExpression [7-11]
+                  Identifier(func) [7-11]
+              Identifier(x) [14-15]
+            StarModifiers [18-43]
+              StarExceptList [18-27]
+                Identifier(b) [25-26]
+              StarReplaceItem [36-42]
+                IntLiteral(1) [36-37]
+                Identifier(d) [41-42]
+        SelectColumn [45-58]
+          DotStarWithModifiers [46-58]
+            PathExpression [45-46]
+              Identifier(z) [45-46]
+            StarModifiers [49-58]
+              StarExceptList [49-58]
+                Identifier(Y) [56-57]
+--
+SELECT
+  func().x.* EXCEPT (b) REPLACE (1 AS d),
+  z.* EXCEPT (Y)
+==
+
+select x.* replace(1+2 as b, 3+4 as d)
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-38]
+        SelectColumn [7-38]
+          DotStarWithModifiers [8-38]
+            PathExpression [7-8]
+              Identifier(x) [7-8]
+            StarModifiers [11-38]
+              StarReplaceItem [19-27]
+                BinaryExpression(+) [19-22]
+                  IntLiteral(1) [19-20]
+                  IntLiteral(2) [21-22]
+                Identifier(b) [26-27]
+              StarReplaceItem [29-37]
+                BinaryExpression(+) [29-32]
+                  IntLiteral(3) [29-30]
+                  IntLiteral(4) [31-32]
+                Identifier(d) [36-37]
+--
+SELECT
+  x.* REPLACE (1 + 2 AS b, 3 + 4 AS d)
+==
+
+select x.* except()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:19]
+select x.* except()
+                  ^
+==
+
+select x.* replace()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:20]
+select x.* replace()
+                   ^
+==
+
+select x.* replace(a as b) except(c)
+--
+ERROR: Syntax error: Expected end of input but got keyword EXCEPT [at 1:28]
+select x.* replace(a as b) except(c)
+                           ^
+==
+
+select a.*.b
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:11]
+select a.*.b
+          ^
+==
+
+select *.*
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:9]
+select *.*
+        ^
+==
+
+select *.* except (a)
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:9]
+select *.* except (a)
+        ^
+==
+
+select * replace (a+1 as a.b)
+--
+ERROR: Syntax error: Expected ")" or "," but got "." [at 1:27]
+select * replace (a+1 as a.b)
+                          ^
+==
+
+select * except (b) as c
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 1:21]
+select * except (b) as c
+                    ^
+==
+
+select * except (a,b)
+except all
+select * except (c)
+--
+QueryStatement [0-52]
+  Query [0-52]
+    SetOperation(EXCEPT ALL) [0-52]
+      Select [0-21]
+        SelectList [7-21]
+          SelectColumn [7-21]
+            StarWithModifiers [7-21]
+              StarModifiers [9-21]
+                StarExceptList [9-21]
+                  Identifier(a) [17-18]
+                  Identifier(b) [19-20]
+      Select [33-52]
+        SelectList [40-52]
+          SelectColumn [40-52]
+            StarWithModifiers [40-52]
+              StarModifiers [42-52]
+                StarExceptList [42-52]
+                  Identifier(c) [50-51]
+--
+SELECT
+  * EXCEPT (a, b)
+EXCEPT ALL
+SELECT
+  * EXCEPT (c)
+==
+
+select * replace (a+1 as b)
+except distinct
+select *
+--
+QueryStatement [0-52]
+  Query [0-52]
+    SetOperation(EXCEPT DISTINCT) [0-52]
+      Select [0-27]
+        SelectList [7-27]
+          SelectColumn [7-27]
+            StarWithModifiers [7-27]
+              StarModifiers [9-27]
+                StarReplaceItem [18-26]
+                  BinaryExpression(+) [18-21]
+                    PathExpression [18-19]
+                      Identifier(a) [18-19]
+                    IntLiteral(1) [20-21]
+                  Identifier(b) [25-26]
+      Select [44-52]
+        SelectList [51-52]
+          SelectColumn [51-52]
+            Star(*) [51-52]
+--
+SELECT
+  * REPLACE (a + 1 AS b)
+EXCEPT DISTINCT
+SELECT
+  *
+==
+
+select x.* replace(a as b)
+except all
+select x.*
+--
+QueryStatement [0-48]
+  Query [0-48]
+    SetOperation(EXCEPT ALL) [0-48]
+      Select [0-26]
+        SelectList [7-26]
+          SelectColumn [7-26]
+            DotStarWithModifiers [8-26]
+              PathExpression [7-8]
+                Identifier(x) [7-8]
+              StarModifiers [11-26]
+                StarReplaceItem [19-25]
+                  PathExpression [19-20]
+                    Identifier(a) [19-20]
+                  Identifier(b) [24-25]
+      Select [38-48]
+        SelectList [45-48]
+          SelectColumn [45-48]
+            DotStar [46-48]
+              PathExpression [45-46]
+                Identifier(x) [45-46]
+--
+SELECT
+  x.* REPLACE (a AS b)
+EXCEPT ALL
+SELECT
+  x.*
+==
+
+select x.* except(a)
+except distinct
+select x.*
+--
+QueryStatement [0-47]
+  Query [0-47]
+    SetOperation(EXCEPT DISTINCT) [0-47]
+      Select [0-20]
+        SelectList [7-20]
+          SelectColumn [7-20]
+            DotStarWithModifiers [8-20]
+              PathExpression [7-8]
+                Identifier(x) [7-8]
+              StarModifiers [11-20]
+                StarExceptList [11-20]
+                  Identifier(a) [18-19]
+      Select [37-47]
+        SelectList [44-47]
+          SelectColumn [44-47]
+            DotStar [45-47]
+              PathExpression [44-45]
+                Identifier(x) [44-45]
+--
+SELECT
+  x.* EXCEPT (a)
+EXCEPT DISTINCT
+SELECT
+  x.*
+==
+
+select count(* except (a))
+--
+ERROR: Syntax error: Expected ")" but got keyword EXCEPT [at 1:16]
+select count(* except (a))
+               ^
+==
+
+select anon_count(*, 0, 1 except (a))
+--
+ERROR: Syntax error: Expected ")" but got keyword EXCEPT [at 1:27]
+select anon_count(*, 0, 1 except (a))
+                          ^
+==
+
+select anon_count(* except (a), 0, 1)
+--
+ERROR: Syntax error: Expected ")" but got keyword EXCEPT [at 1:21]
+select anon_count(* except (a), 0, 1)
+                    ^
+==
+
+select a.b.c, a.*, (a).*, a.b.*, (a+b).*, f(a.b), f(a.b).c  from A;
+--
+QueryStatement [0-66]
+  Query [0-66]
+    Select [0-66]
+      SelectList [7-58]
+        SelectColumn [7-12]
+          PathExpression [7-12]
+            Identifier(a) [7-8]
+            Identifier(b) [9-10]
+            Identifier(c) [11-12]
+        SelectColumn [14-17]
+          DotStar [15-17]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+        SelectColumn [19-24]
+          DotStar [22-24]
+            PathExpression [20-21]
+              Identifier(a) [20-21]
+        SelectColumn [26-31]
+          DotStar [29-31]
+            PathExpression [26-29]
+              Identifier(a) [26-27]
+              Identifier(b) [28-29]
+        SelectColumn [33-40]
+          DotStar [38-40]
+            BinaryExpression(+) [34-37]
+              PathExpression [34-35]
+                Identifier(a) [34-35]
+              PathExpression [36-37]
+                Identifier(b) [36-37]
+        SelectColumn [42-48]
+          FunctionCall [42-48]
+            PathExpression [42-43]
+              Identifier(f) [42-43]
+            PathExpression [44-47]
+              Identifier(a) [44-45]
+              Identifier(b) [46-47]
+        SelectColumn [50-58]
+          DotIdentifier [56-58]
+            FunctionCall [50-56]
+              PathExpression [50-51]
+                Identifier(f) [50-51]
+              PathExpression [52-55]
+                Identifier(a) [52-53]
+                Identifier(b) [54-55]
+            Identifier(c) [57-58]
+      FromClause [60-66]
+        TablePathExpression [65-66]
+          PathExpression [65-66]
+            Identifier(A) [65-66]
+--
+SELECT
+  a.b.c,
+  a.*,
+  (a).*,
+  a.b.*,
+  (a + b).*,
+  f(a.b),
+  f(a.b).c
+FROM
+  A
+==
+
+# DotStar is only supported as select column expression.
+select a from a.*;
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:16]
+select a from a.*;
+               ^
+==
+
+select count(a.*);
+--
+ERROR: Syntax error: Expected ")" but got "." [at 1:15]
+select count(a.*);
+              ^
+==
+
+select anon_count(a.*, 0, 1);
+--
+ERROR: Syntax error: Expected ")" but got "." [at 1:20]
+select anon_count(a.*, 0, 1);
+                   ^
+==
+
+# Star and DotStar in the select list cannot have an alias.
+select * as star from t;
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 1:10]
+select * as star from t;
+         ^
+==
+
+select * star from t;
+--
+ERROR: Syntax error: Expected end of input but got identifier "star" [at 1:10]
+select * star from t;
+         ^
+==
+
+select a.* as astar from t;
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 1:12]
+select a.* as astar from t;
+           ^
+==
+
+select a.* astar from t;
+--
+ERROR: Syntax error: Expected end of input but got identifier "astar" [at 1:12]
+select a.* astar from t;
+           ^
+==
+
+# This is ambiguous if EXCEPT is treated as a separate keyword and only a
+# lookahead of one is used. Bison solves this by detecting the difference in
+# the tokenizer.
+SELECT * EXCEPT ALL SELECT 3
+--
+QueryStatement [0-28]
+  Query [0-28]
+    SetOperation(EXCEPT ALL) [0-28]
+      Select [0-8]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            Star(*) [7-8]
+      Select [20-28]
+        SelectList [27-28]
+          SelectColumn [27-28]
+            IntLiteral(3) [27-28]
+--
+SELECT
+  *
+EXCEPT ALL
+SELECT
+  3
+==
+
+SELECT a+b.* FROM Table
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          DotStar [10-12]
+            BinaryExpression(+) [7-10]
+              PathExpression [7-8]
+                Identifier(a) [7-8]
+              PathExpression [9-10]
+                Identifier(b) [9-10]
+      FromClause [13-23]
+        TablePathExpression [18-23]
+          PathExpression [18-23]
+            Identifier(Table) [18-23]
+--
+SELECT
+  a + b.*
+FROM
+  Table
+==
+
+SELECT (a+b).* FROM Table
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          DotStar [12-14]
+            BinaryExpression(+) [8-11]
+              PathExpression [8-9]
+                Identifier(a) [8-9]
+              PathExpression [10-11]
+                Identifier(b) [10-11]
+      FromClause [15-25]
+        TablePathExpression [20-25]
+          PathExpression [20-25]
+            Identifier(Table) [20-25]
+--
+SELECT
+  (a + b).*
+FROM
+  Table
+==
+
+SELECT foo(x).* FROM Table
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          DotStar [13-15]
+            FunctionCall [7-13]
+              PathExpression [7-10]
+                Identifier(foo) [7-10]
+              PathExpression [11-12]
+                Identifier(x) [11-12]
+      FromClause [16-26]
+        TablePathExpression [21-26]
+          PathExpression [21-26]
+            Identifier(Table) [21-26]
+--
+SELECT
+  foo(x).*
+FROM
+  Table
+==
+
+SELECT a.  * FROM b
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          DotStar [8-12]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+      FromClause [13-19]
+        TablePathExpression [18-19]
+          PathExpression [18-19]
+            Identifier(b) [18-19]
+--
+SELECT
+  a.*
+FROM
+  b
+==
+
+SELECT a. /* this is a comment */ * FROM b
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-35]
+        SelectColumn [7-35]
+          DotStar [8-35]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+      FromClause [36-42]
+        TablePathExpression [41-42]
+          PathExpression [41-42]
+            Identifier(b) [41-42]
+--
+SELECT
+  a.*
+FROM
+  b

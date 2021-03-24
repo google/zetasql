@@ -19,6 +19,7 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -90,7 +91,8 @@ struct FieldPathExpressionEqualsOperator {
 };
 
 struct OrderByItemInfo {
-  OrderByItemInfo(const ASTNode* ast_location_in, int64_t index, bool descending,
+  OrderByItemInfo(const ASTNode* ast_location_in, int64_t index,
+                  bool descending,
                   ResolvedOrderByItemEnums::NullOrderMode null_order)
       : ast_location(ast_location_in),
         select_list_index(index),
@@ -335,8 +337,8 @@ class QueryResolutionInfo {
     return &select_list_valid_field_info_map_;
   }
 
-  const std::map<const ASTFunctionCall*,
-      const ResolvedComputedColumn*>& aggregate_expr_map() {
+  const std::map<const ASTFunctionCall*, const ResolvedComputedColumn*>&
+  aggregate_expr_map() {
     return group_by_info_.aggregate_expr_map;
   }
 
@@ -458,6 +460,13 @@ class QueryResolutionInfo {
 
   bool HasHavingOrOrderBy() const { return has_having_ || has_order_by_; }
 
+  std::shared_ptr<const NameList> from_clause_name_list() const {
+    return from_clause_name_list_;
+  }
+  void set_from_clause_name_list(std::shared_ptr<const NameList> name_list) {
+    from_clause_name_list_ = name_list;
+  }
+
  private:
   // SELECT list information.
 
@@ -561,6 +570,11 @@ class QueryResolutionInfo {
   // for analytic functions while resolving expressions.
   // Always non-NULL.
   std::unique_ptr<AnalyticFunctionResolver> analytic_resolver_;
+
+  // The output NameList of the FROM clause of this query.  Currently used for
+  // WITH GROUP ROWS aggregate processing, as the GROUP_ROWS() TVF  within the
+  // GROUP ROWS subquery produces this NameList as its result.
+  std::shared_ptr<const NameList> from_clause_name_list_ = nullptr;
 };
 
 // A class for lazily identifying untyped literal expressions produced by

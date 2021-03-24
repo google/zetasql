@@ -28,11 +28,9 @@ import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
 import com.google.protobuf.Descriptors.EnumDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
-import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.protobuf.Descriptors.GenericDescriptor;
 import com.google.protobuf.Descriptors.OneofDescriptor;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.ExtensionRegistry.ExtensionInfo;
 import java.io.IOException;
@@ -86,7 +84,7 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
    * Imports a collection of {@code fileDescriptors} into the descriptor pool.
    *
    * @throws IllegalArgumentException if @{fileDescriptors} are not self-contained, i.e. have
-   * dependencies that are not within the collection.
+   *     dependencies that are not within the collection.
    */
   public void importFileDescriptors(Collection<FileDescriptorProto> fileDescriptors) {
     importFileDescriptorsInternal(fileDescriptors);
@@ -109,13 +107,12 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
 
   /**
    * Add the {@code FileDescriptor} of given {@code filename} into the pool. Dependencies will be
-   * added first if any. All {@code FileDescriptorProto}s of the specified file and its
-   * dependencies should be in the {@code filenameToFileDescriptorProtoMap}, indexed by
-   * {@code filename}.
+   * added first if any. All {@code FileDescriptorProto}s of the specified file and its dependencies
+   * should be in the {@code filenameToFileDescriptorProtoMap}, indexed by {@code filename}.
    *
    * @return the {@code FileDescriptor} of the specified {@code filename}
    * @throws IllegalArgumentException if {@code filenameToFileDescriptorProtoMap} is incomplete/has
-   * recursion/contains invalid descriptor
+   *     recursion/contains invalid descriptor
    */
   private FileDescriptor resolve(
       String filename, Map<String, FileDescriptorProto> filenameToFileDescriptorProtoMap) {
@@ -163,49 +160,8 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
     }
 
     fileDescriptorsByName.put(file.getFullName(), file);
-    for (EnumDescriptor enumDescriptor : file.getEnumTypes()) {
-      addEnum(enumDescriptor);
-    }
-    for (Descriptor message : file.getMessageTypes()) {
-      addMessage(message);
-    }
-    for (FieldDescriptor extension : file.getExtensions()) {
-      if (extension.getJavaType() == JavaType.MESSAGE) {
-        // We must handle MESSAGE type extensions differently since the Extension Registry requires
-        // a default instance. The ExtensionRegistry also maintains two versions of the registry
-        // (one for mutable extensions and one immutable extensions). It inspects the default
-        // instance passed to determine which copy this message is added to. It is also possible to
-        // call this again with the same dynamic message .mutableCopy() in order to provide a
-        // mutable entry in the registry. It doesn't matter at the moment, since the
-        // ZetaSQLDescriptorPool is only using this for structure navigation within protos and not
-        // for actually instantiating them.
-        extensionRegistry.add(
-            extension, DynamicMessage.getDefaultInstance(extension.getMessageType()));
-      } else {
-        extensionRegistry.add(extension);
-      }
-    }
-  }
-
-  private void addMessage(Descriptor descriptor) {
-    messagesByName.put(descriptor.getFullName(), descriptor);
-    for (Descriptor nestedDescriptor : descriptor.getNestedTypes()) {
-      addMessage(nestedDescriptor);
-    }
-    for (EnumDescriptor nestedEnum : descriptor.getEnumTypes()) {
-      addEnum(nestedEnum);
-    }
-    for (FieldDescriptor extension : descriptor.getExtensions()) {
-      if (extension.getJavaType() == JavaType.MESSAGE) {
-        extensionRegistry.add(extension, DynamicMessage.getDefaultInstance(descriptor));
-      } else {
-        extensionRegistry.add(extension);
-      }
-    }
-  }
-
-  private void addEnum(EnumDescriptor enumDescriptor) {
-    enumsByName.put(enumDescriptor.getFullName(), enumDescriptor);
+    ImmutableDescriptorPool.updateDescriptorMapsFromFileDescriptor(
+        file, enumsByName, messagesByName, extensionRegistry);
   }
 
   /**
@@ -248,7 +204,22 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
   }
 
   @Override
-  public ImmutableList<FileDescriptor> getAllFileDescriptors() {
+  @Nullable
+  public ZetaSQLFieldDescriptor findFieldByNumber(
+      DescriptorPool.ZetaSQLDescriptor descriptor, int number) {
+    FieldDescriptor field = descriptor.getDescriptor().findFieldByNumber(number);
+    if (field == null) {
+      ExtensionInfo info =
+          extensionRegistry.findImmutableExtensionByNumber(descriptor.getDescriptor(), number);
+      if (info != null) {
+        field = info.descriptor;
+      }
+    }
+    return new ZetaSQLFieldDescriptor(field, this);
+  }
+
+  @Override
+  public ImmutableList<FileDescriptor> getAllFileDescriptorsInDependencyOrder() {
     return ImmutableList.copyOf(fileDescriptorsByName.values());
   }
 
@@ -371,21 +342,6 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
       super(descriptor, pool);
     }
 
-    @Override
-    public ZetaSQLFieldDescriptor findFieldByNumber(int number) {
-      FieldDescriptor field = getDescriptor().findFieldByNumber(number);
-      if (field == null) {
-        ExtensionInfo info =
-            getZetaSQLDescriptorPool()
-                .extensionRegistry
-                .findExtensionByNumber(getDescriptor(), number);
-        if (info != null) {
-          field = info.descriptor;
-        }
-      }
-      return new ZetaSQLFieldDescriptor(field, getZetaSQLDescriptorPool());
-    }
-
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {
       out.defaultWriteObject();
       out.writeObject(descriptor.toProto());
@@ -474,8 +430,8 @@ public class ZetaSQLDescriptorPool implements DescriptorPool, Serializable {
     }
 
     @Override
-    public synchronized ImmutableList<FileDescriptor> getAllFileDescriptors() {
-      return super.getAllFileDescriptors();
+    public synchronized ImmutableList<FileDescriptor> getAllFileDescriptorsInDependencyOrder() {
+      return super.getAllFileDescriptorsInDependencyOrder();
     }
   }
 }

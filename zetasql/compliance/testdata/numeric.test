@@ -1,0 +1,12 @@
+[name=parse_numeric]
+[required_features=NUMERIC_TYPE]
+SELECT parse_numeric(' - 1,2.34 '), parse_numeric(' 12.34e-1  +');
+--
+ARRAY<STRUCT<NUMERIC, NUMERIC>>[{-12.34, 1.234}]
+==
+
+[name=parse_bignumeric]
+[required_features=BIGNUMERIC_TYPE]
+SELECT parse_bignumeric(' - 1,2.34 '), parse_bignumeric(' 12.34e-1  +');
+--
+ARRAY<STRUCT<BIGNUMERIC, BIGNUMERIC>>[{-12.34, 1.234}]

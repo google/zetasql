@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#include <cstdint>
+
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/numeric_value.h"
@@ -30,8 +32,10 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
   const Value empty_int64_array = Int64Array({});
   // Numeric values
   const Value numeric_zero = Value::Numeric(NumericValue());
-  const Value numeric_one = Value::Numeric(NumericValue(static_cast<int64_t>(1)));
-  const Value numeric_two = Value::Numeric(NumericValue(static_cast<int64_t>(2)));
+  const Value numeric_one =
+      Value::Numeric(NumericValue(static_cast<int64_t>(1)));
+  const Value numeric_two =
+      Value::Numeric(NumericValue(static_cast<int64_t>(2)));
   const Value numeric_three =
       Value::Numeric(NumericValue(static_cast<int64_t>(3)));
   const Value numeric_pi =

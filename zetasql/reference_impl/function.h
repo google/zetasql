@@ -178,6 +178,14 @@ enum class FunctionKind {
   kGenerateDateArray,
   kGenerateTimestampArray,
   kRangeBucket,
+
+  // Proto map functions. Like array functions, the map functions must use
+  // MaybeSetNonDeterministicArrayOutput.
+  kProtoMapAtKey,
+  kSafeProtoMapAtKey,
+  kContainsKey,
+  kModifyMap,
+
   kJsonExtract,
   kJsonExtractScalar,
   kJsonExtractArray,
@@ -186,6 +194,8 @@ enum class FunctionKind {
   kJsonValueArray,
   kJsonQuery,
   kJsonValue,
+  kToJson,
+  kToJsonString,
   // Proto functions
   kFromProto,
   kToProto,
@@ -292,6 +302,7 @@ enum class FunctionKind {
   kParseTimestamp,
   // Interval functions
   kIntervalCtor,
+  kMakeInterval,
   // Net functions
   kNetFormatIP,
   kNetParseIP,
@@ -324,6 +335,10 @@ enum class FunctionKind {
   kLag,
   kPercentileCont,
   kPercentileDisc,
+
+  // Numeric functions
+  kParseNumeric,
+  kParseBignumeric,
 
   // Random functions
   kRand,
@@ -553,6 +568,12 @@ class ArithmeticFunction : public BuiltinScalarFunction {
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
+
+ private:
+  // Helper function to add/subtract INTERVAL.
+  absl::Status AddIntervalHelper(const Value& arg,
+                                 const IntervalValue& interval, Value* result,
+                                 EvaluationContext* context) const;
 };
 
 class ComparisonFunction : public BuiltinScalarFunction {
@@ -774,6 +795,13 @@ class NetFunction : public BuiltinScalarFunction {
 };
 
 class StringFunction : public BuiltinScalarFunction {
+ public:
+  using BuiltinScalarFunction::BuiltinScalarFunction;
+  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, absl::Status* status) const override;
+};
+
+class NumericFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
   bool Eval(absl::Span<const Value> args, EvaluationContext* context,

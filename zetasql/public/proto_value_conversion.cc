@@ -16,6 +16,7 @@
 
 #include "zetasql/public/proto_value_conversion.h"
 
+#include <cstdint>
 #include <string>
 #include <vector>
 

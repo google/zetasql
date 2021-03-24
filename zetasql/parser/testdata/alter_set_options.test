@@ -1,0 +1,1130 @@
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo set OPTIONS
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:31]
+ALTER DATABASE foo set OPTIONS
+                              ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:29]
+ALTER SCHEMA foo set OPTIONS
+                            ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:28]
+ALTER TABLE foo set OPTIONS
+                           ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:27]
+ALTER VIEW foo set OPTIONS
+                          ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:40]
+ALTER MATERIALIZED VIEW foo set OPTIONS
+                                       ^
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo set timestamp;
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:24]
+ALTER DATABASE foo set timestamp;
+                       ^
+
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:22]
+ALTER SCHEMA foo set timestamp;
+                     ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:21]
+ALTER TABLE foo set timestamp;
+                    ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:20]
+ALTER VIEW foo set timestamp;
+                   ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:33]
+ALTER MATERIALIZED VIEW foo set timestamp;
+                                ^
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo drop;
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:24]
+ALTER DATABASE foo drop;
+                       ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:22]
+ALTER SCHEMA foo drop;
+                     ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:21]
+ALTER TABLE foo drop;
+                    ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:20]
+ALTER VIEW foo drop;
+                   ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:33]
+ALTER MATERIALIZED VIEW foo drop;
+                                ^
+==
+
+ALTER {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|SCHEMA|TABLE FUNCTION}};
+--
+ALTERNATION GROUP: AGGREGATE FUNCTION
+--
+ERROR: Syntax error: Unexpected ";" [at 1:25]
+ALTER AGGREGATE FUNCTION;
+                        ^
+--
+ALTERNATION GROUP: CONSTANT
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+ALTER CONSTANT;
+              ^
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+ALTER DATABASE;
+              ^
+--
+ALTERNATION GROUP: EXTERNAL TABLE
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+ALTER EXTERNAL TABLE;
+                    ^
+--
+ALTERNATION GROUP: FUNCTION
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+ALTER FUNCTION;
+              ^
+--
+ALTERNATION GROUP: INDEX
+--
+ERROR: Syntax error: Unexpected ";" [at 1:12]
+ALTER INDEX;
+           ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Unexpected ";" [at 1:24]
+ALTER MATERIALIZED VIEW;
+                       ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Unexpected ";" [at 1:12]
+ALTER MODEL;
+           ^
+--
+ALTERNATION GROUP: PROCEDURE
+--
+ERROR: Syntax error: Unexpected ";" [at 1:16]
+ALTER PROCEDURE;
+               ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Unexpected ";" [at 1:13]
+ALTER SCHEMA;
+            ^
+--
+ALTERNATION GROUP: TABLE FUNCTION
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+ALTER TABLE FUNCTION;
+                    ^
+==
+
+ALTER ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:7]
+ALTER ;
+      ^
+==
+
+ALTER {{Aggregate FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|SCHEMA|TABLE|TABLE FUNCTION}} adsdw.foo
+SET OPTIONS ();
+--
+ALTERNATION GROUP: Aggregate FUNCTION
+--
+ERROR: ALTER AGGREGATE FUNCTION is not supported [at 1:7]
+ALTER Aggregate FUNCTION adsdw.foo
+      ^
+--
+ALTERNATION GROUP: CONSTANT
+--
+ERROR: ALTER CONSTANT is not supported [at 1:7]
+ALTER CONSTANT adsdw.foo
+      ^
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-39]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-39]
+    SetOptionsOperation [25-39]
+      OptionsList [37-39]
+--
+ALTER DATABASE adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: EXTERNAL TABLE
+--
+ERROR: ALTER EXTERNAL TABLE is not supported [at 1:7]
+ALTER EXTERNAL TABLE adsdw.foo
+      ^
+--
+ALTERNATION GROUP: FUNCTION
+--
+ERROR: ALTER FUNCTION is not supported [at 1:7]
+ALTER FUNCTION adsdw.foo
+      ^
+--
+ALTERNATION GROUP: INDEX
+--
+ERROR: ALTER INDEX is not supported [at 1:7]
+ALTER INDEX adsdw.foo
+      ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-48]
+  PathExpression [24-33]
+    Identifier(adsdw) [24-29]
+    Identifier(foo) [30-33]
+  AlterActionList [34-48]
+    SetOptionsOperation [34-48]
+      OptionsList [46-48]
+--
+ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: ALTER MODEL is not supported [at 1:7]
+ALTER MODEL adsdw.foo
+      ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-37]
+  PathExpression [13-22]
+    Identifier(adsdw) [13-18]
+    Identifier(foo) [19-22]
+  AlterActionList [23-37]
+    SetOptionsOperation [23-37]
+      OptionsList [35-37]
+--
+ALTER SCHEMA adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-36]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-36]
+    SetOptionsOperation [22-36]
+      OptionsList [34-36]
+--
+ALTER TABLE adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: TABLE FUNCTION
+--
+ERROR: ALTER TABLE FUNCTION is not supported [at 1:7]
+ALTER TABLE FUNCTION adsdw.foo
+      ^
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (), SET OPTIONS (), SET OPTIONS ();
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-71]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-71]
+    SetOptionsOperation [25-39]
+      OptionsList [37-39]
+    SetOptionsOperation [41-55]
+      OptionsList [53-55]
+    SetOptionsOperation [57-71]
+      OptionsList [69-71]
+
+--
+ALTER DATABASE adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-69]
+  PathExpression [13-22]
+    Identifier(adsdw) [13-18]
+    Identifier(foo) [19-22]
+  AlterActionList [23-69]
+    SetOptionsOperation [23-37]
+      OptionsList [35-37]
+    SetOptionsOperation [39-53]
+      OptionsList [51-53]
+    SetOptionsOperation [55-69]
+      OptionsList [67-69]
+
+--
+ALTER SCHEMA adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-68]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-68]
+    SetOptionsOperation [22-36]
+      OptionsList [34-36]
+    SetOptionsOperation [38-52]
+      OptionsList [50-52]
+    SetOptionsOperation [54-68]
+      OptionsList [66-68]
+
+--
+ALTER TABLE adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-67]
+  PathExpression [11-20]
+    Identifier(adsdw) [11-16]
+    Identifier(foo) [17-20]
+  AlterActionList [21-67]
+    SetOptionsOperation [21-35]
+      OptionsList [33-35]
+    SetOptionsOperation [37-51]
+      OptionsList [49-51]
+    SetOptionsOperation [53-67]
+      OptionsList [65-67]
+--
+ALTER VIEW adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-80]
+  PathExpression [24-33]
+    Identifier(adsdw) [24-29]
+    Identifier(foo) [30-33]
+  AlterActionList [34-80]
+    SetOptionsOperation [34-48]
+      OptionsList [46-48]
+    SetOptionsOperation [50-64]
+      OptionsList [62-64]
+    SetOptionsOperation [66-80]
+      OptionsList [78-80]
+--
+ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(), SET OPTIONS(), SET OPTIONS()
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} IF EXISTS adsdw.foo SET OPTIONS ();
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement(is_if_exists) [0-49]
+  PathExpression [25-34]
+    Identifier(adsdw) [25-30]
+    Identifier(foo) [31-34]
+  AlterActionList [35-49]
+    SetOptionsOperation [35-49]
+      OptionsList [47-49]
+--
+ALTER DATABASE IF EXISTS adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement(is_if_exists) [0-47]
+  PathExpression [23-32]
+    Identifier(adsdw) [23-28]
+    Identifier(foo) [29-32]
+  AlterActionList [33-47]
+    SetOptionsOperation [33-47]
+      OptionsList [45-47]
+--
+ALTER SCHEMA IF EXISTS adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement(is_if_exists) [0-46]
+  PathExpression [22-31]
+    Identifier(adsdw) [22-27]
+    Identifier(foo) [28-31]
+  AlterActionList [32-46]
+    SetOptionsOperation [32-46]
+      OptionsList [44-46]
+--
+ALTER TABLE IF EXISTS adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement(is_if_exists) [0-45]
+  PathExpression [21-30]
+    Identifier(adsdw) [21-26]
+    Identifier(foo) [27-30]
+  AlterActionList [31-45]
+    SetOptionsOperation [31-45]
+      OptionsList [43-45]
+--
+ALTER VIEW IF EXISTS adsdw.foo SET OPTIONS()
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement(is_if_exists) [0-58]
+  PathExpression [34-43]
+    Identifier(adsdw) [34-39]
+    Identifier(foo) [40-43]
+  AlterActionList [44-58]
+    SetOptionsOperation [44-58]
+      OptionsList [56-58]
+--
+ALTER MATERIALIZED VIEW IF EXISTS adsdw.foo SET OPTIONS()
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (
+  quota_accounting_owner='adsdw-etl@google.com');
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-87]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-87]
+    SetOptionsOperation [25-87]
+      OptionsList [37-87]
+        OptionsEntry [41-86]
+          Identifier(quota_accounting_owner) [41-63]
+          StringLiteral('adsdw-etl@google.com') [64-86]
+
+--
+ALTER DATABASE adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-85]
+  PathExpression [13-22]
+    Identifier(adsdw) [13-18]
+    Identifier(foo) [19-22]
+  AlterActionList [23-85]
+    SetOptionsOperation [23-85]
+      OptionsList [35-85]
+        OptionsEntry [39-84]
+          Identifier(quota_accounting_owner) [39-61]
+          StringLiteral('adsdw-etl@google.com') [62-84]
+
+--
+ALTER SCHEMA adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-84]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-84]
+    SetOptionsOperation [22-84]
+      OptionsList [34-84]
+        OptionsEntry [38-83]
+          Identifier(quota_accounting_owner) [38-60]
+          StringLiteral('adsdw-etl@google.com') [61-83]
+
+--
+ALTER TABLE adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-83]
+  PathExpression [11-20]
+    Identifier(adsdw) [11-16]
+    Identifier(foo) [17-20]
+  AlterActionList [21-83]
+    SetOptionsOperation [21-83]
+      OptionsList [33-83]
+        OptionsEntry [37-82]
+          Identifier(quota_accounting_owner) [37-59]
+          StringLiteral('adsdw-etl@google.com') [60-82]
+--
+ALTER VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-96]
+  PathExpression [24-33]
+    Identifier(adsdw) [24-29]
+    Identifier(foo) [30-33]
+  AlterActionList [34-96]
+    SetOptionsOperation [34-96]
+      OptionsList [46-96]
+        OptionsEntry [50-95]
+          Identifier(quota_accounting_owner) [50-72]
+          StringLiteral('adsdw-etl@google.com') [73-95]
+--
+ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-55]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-55]
+    SetOptionsOperation [25-55]
+      OptionsList [37-55]
+        OptionsEntry [38-54]
+          Identifier(ttl_seconds) [38-49]
+          IntLiteral(3600) [50-54]
+--
+ALTER DATABASE adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-53]
+  PathExpression [13-22]
+    Identifier(adsdw) [13-18]
+    Identifier(foo) [19-22]
+  AlterActionList [23-53]
+    SetOptionsOperation [23-53]
+      OptionsList [35-53]
+        OptionsEntry [36-52]
+          Identifier(ttl_seconds) [36-47]
+          IntLiteral(3600) [48-52]
+--
+ALTER SCHEMA adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-52]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-52]
+    SetOptionsOperation [22-52]
+      OptionsList [34-52]
+        OptionsEntry [35-51]
+          Identifier(ttl_seconds) [35-46]
+          IntLiteral(3600) [47-51]
+--
+ALTER TABLE adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-51]
+  PathExpression [11-20]
+    Identifier(adsdw) [11-16]
+    Identifier(foo) [17-20]
+  AlterActionList [21-51]
+    SetOptionsOperation [21-51]
+      OptionsList [33-51]
+        OptionsEntry [34-50]
+          Identifier(ttl_seconds) [34-45]
+          IntLiteral(3600) [46-50]
+--
+ALTER VIEW adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-64]
+  PathExpression [24-33]
+    Identifier(adsdw) [24-29]
+    Identifier(foo) [30-33]
+  AlterActionList [34-64]
+    SetOptionsOperation [34-64]
+      OptionsList [46-64]
+        OptionsEntry [47-63]
+          Identifier(ttl_seconds) [47-58]
+          IntLiteral(3600) [59-63]
+--
+ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-55]
+  PathExpression [15-24]
+    Identifier(adsdw) [15-20]
+    Identifier(foo) [21-24]
+  AlterActionList [25-55]
+    SetOptionsOperation [25-55]
+      OptionsList [37-55]
+        OptionsEntry [38-54]
+          Identifier(ttl_seconds) [38-49]
+          NullLiteral(NULL) [50-54]
+--
+ALTER DATABASE adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-53]
+  PathExpression [13-22]
+    Identifier(adsdw) [13-18]
+    Identifier(foo) [19-22]
+  AlterActionList [23-53]
+    SetOptionsOperation [23-53]
+      OptionsList [35-53]
+        OptionsEntry [36-52]
+          Identifier(ttl_seconds) [36-47]
+          NullLiteral(NULL) [48-52]
+--
+ALTER SCHEMA adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-52]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-52]
+    SetOptionsOperation [22-52]
+      OptionsList [34-52]
+        OptionsEntry [35-51]
+          Identifier(ttl_seconds) [35-46]
+          NullLiteral(NULL) [47-51]
+--
+ALTER TABLE adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-51]
+  PathExpression [11-20]
+    Identifier(adsdw) [11-16]
+    Identifier(foo) [17-20]
+  AlterActionList [21-51]
+    SetOptionsOperation [21-51]
+      OptionsList [33-51]
+        OptionsEntry [34-50]
+          Identifier(ttl_seconds) [34-45]
+          NullLiteral(NULL) [46-50]
+--
+ALTER VIEW adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-64]
+  PathExpression [24-33]
+    Identifier(adsdw) [24-29]
+    Identifier(foo) [30-33]
+  AlterActionList [34-64]
+    SetOptionsOperation [34-64]
+      OptionsList [46-64]
+        OptionsEntry [47-63]
+          Identifier(ttl_seconds) [47-58]
+          NullLiteral(NULL) [59-63]
+--
+ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (
+  quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds=3600);
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-101]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+  AlterActionList [19-101]
+    SetOptionsOperation [19-101]
+      OptionsList [31-101]
+        OptionsEntry [35-82]
+          Identifier(quota_accounting_owner) [35-57]
+          StringLiteral('adsdw-etl@google.com') [60-82]
+        OptionsEntry [84-100]
+          Identifier(ttl_seconds) [84-95]
+          IntLiteral(3600) [96-100]
+--
+ALTER DATABASE foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-99]
+  PathExpression [13-16]
+    Identifier(foo) [13-16]
+  AlterActionList [17-99]
+    SetOptionsOperation [17-99]
+      OptionsList [29-99]
+        OptionsEntry [33-80]
+          Identifier(quota_accounting_owner) [33-55]
+          StringLiteral('adsdw-etl@google.com') [58-80]
+        OptionsEntry [82-98]
+          Identifier(ttl_seconds) [82-93]
+          IntLiteral(3600) [94-98]
+--
+ALTER SCHEMA foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-98]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-98]
+    SetOptionsOperation [16-98]
+      OptionsList [28-98]
+        OptionsEntry [32-79]
+          Identifier(quota_accounting_owner) [32-54]
+          StringLiteral('adsdw-etl@google.com') [57-79]
+        OptionsEntry [81-97]
+          Identifier(ttl_seconds) [81-92]
+          IntLiteral(3600) [93-97]
+--
+ALTER TABLE foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-97]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+  AlterActionList [15-97]
+    SetOptionsOperation [15-97]
+      OptionsList [27-97]
+        OptionsEntry [31-78]
+          Identifier(quota_accounting_owner) [31-53]
+          StringLiteral('adsdw-etl@google.com') [56-78]
+        OptionsEntry [80-96]
+          Identifier(ttl_seconds) [80-91]
+          IntLiteral(3600) [92-96]
+--
+ALTER VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-110]
+  PathExpression [24-27]
+    Identifier(foo) [24-27]
+  AlterActionList [28-110]
+    SetOptionsOperation [28-110]
+      OptionsList [40-110]
+        OptionsEntry [44-91]
+          Identifier(quota_accounting_owner) [44-66]
+          StringLiteral('adsdw-etl@google.com') [69-91]
+        OptionsEntry [93-109]
+          Identifier(ttl_seconds) [93-104]
+          IntLiteral(3600) [105-109]
+--
+ALTER MATERIALIZED VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds =
+    3600)
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (
+  quota_accounting_owner = 'adsdw-etl@google.com',
+  quota_accounting_owner = 'adsdw-etl@google.com');
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-134]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+  AlterActionList [19-134]
+    SetOptionsOperation [19-134]
+      OptionsList [31-134]
+        OptionsEntry [35-82]
+          Identifier(quota_accounting_owner) [35-57]
+          StringLiteral('adsdw-etl@google.com') [60-82]
+        OptionsEntry [86-133]
+          Identifier(quota_accounting_owner) [86-108]
+          StringLiteral('adsdw-etl@google.com') [111-133]
+--
+ALTER DATABASE foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', quota_accounting_owner =
+    'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-132]
+  PathExpression [13-16]
+    Identifier(foo) [13-16]
+  AlterActionList [17-132]
+    SetOptionsOperation [17-132]
+      OptionsList [29-132]
+        OptionsEntry [33-80]
+          Identifier(quota_accounting_owner) [33-55]
+          StringLiteral('adsdw-etl@google.com') [58-80]
+        OptionsEntry [84-131]
+          Identifier(quota_accounting_owner) [84-106]
+          StringLiteral('adsdw-etl@google.com') [109-131]
+--
+ALTER SCHEMA foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', quota_accounting_owner =
+    'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-131]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-131]
+    SetOptionsOperation [16-131]
+      OptionsList [28-131]
+        OptionsEntry [32-79]
+          Identifier(quota_accounting_owner) [32-54]
+          StringLiteral('adsdw-etl@google.com') [57-79]
+        OptionsEntry [83-130]
+          Identifier(quota_accounting_owner) [83-105]
+          StringLiteral('adsdw-etl@google.com') [108-130]
+--
+ALTER TABLE foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', quota_accounting_owner =
+    'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-130]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+  AlterActionList [15-130]
+    SetOptionsOperation [15-130]
+      OptionsList [27-130]
+        OptionsEntry [31-78]
+          Identifier(quota_accounting_owner) [31-53]
+          StringLiteral('adsdw-etl@google.com') [56-78]
+        OptionsEntry [82-129]
+          Identifier(quota_accounting_owner) [82-104]
+          StringLiteral('adsdw-etl@google.com') [107-129]
+--
+ALTER VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', quota_accounting_owner =
+    'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-143]
+  PathExpression [24-27]
+    Identifier(foo) [24-27]
+  AlterActionList [28-143]
+    SetOptionsOperation [28-143]
+      OptionsList [40-143]
+        OptionsEntry [44-91]
+          Identifier(quota_accounting_owner) [44-66]
+          StringLiteral('adsdw-etl@google.com') [69-91]
+        OptionsEntry [95-142]
+          Identifier(quota_accounting_owner) [95-117]
+          StringLiteral('adsdw-etl@google.com') [120-142]
+--
+ALTER MATERIALIZED VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', quota_accounting_owner =
+    'adsdw-etl@google.com')
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo
+SET OPTIONS (a = 'a', b = 1),
+SET OPTIONS (c = 'c'),
+SET OPTIONS (a = 'a', b = 1)
+;
+--
+ALTERNATION GROUP: DATABASE
+--
+AlterDatabaseStatement [0-100]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+  AlterActionList [19-100]
+    SetOptionsOperation [19-47]
+      OptionsList [31-47]
+        OptionsEntry [32-39]
+          Identifier(a) [32-33]
+          StringLiteral('a') [36-39]
+        OptionsEntry [41-46]
+          Identifier(b) [41-42]
+          IntLiteral(1) [45-46]
+    SetOptionsOperation [49-70]
+      OptionsList [61-70]
+        OptionsEntry [62-69]
+          Identifier(c) [62-63]
+          StringLiteral('c') [66-69]
+    SetOptionsOperation [72-100]
+      OptionsList [84-100]
+        OptionsEntry [85-92]
+          Identifier(a) [85-86]
+          StringLiteral('a') [89-92]
+        OptionsEntry [94-99]
+          Identifier(b) [94-95]
+          IntLiteral(1) [98-99]
+--
+ALTER DATABASE foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
+--
+ALTERNATION GROUP: SCHEMA
+--
+AlterSchemaStatement [0-98]
+  PathExpression [13-16]
+    Identifier(foo) [13-16]
+  AlterActionList [17-98]
+    SetOptionsOperation [17-45]
+      OptionsList [29-45]
+        OptionsEntry [30-37]
+          Identifier(a) [30-31]
+          StringLiteral('a') [34-37]
+        OptionsEntry [39-44]
+          Identifier(b) [39-40]
+          IntLiteral(1) [43-44]
+    SetOptionsOperation [47-68]
+      OptionsList [59-68]
+        OptionsEntry [60-67]
+          Identifier(c) [60-61]
+          StringLiteral('c') [64-67]
+    SetOptionsOperation [70-98]
+      OptionsList [82-98]
+        OptionsEntry [83-90]
+          Identifier(a) [83-84]
+          StringLiteral('a') [87-90]
+        OptionsEntry [92-97]
+          Identifier(b) [92-93]
+          IntLiteral(1) [96-97]
+--
+ALTER SCHEMA foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-97]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-97]
+    SetOptionsOperation [16-44]
+      OptionsList [28-44]
+        OptionsEntry [29-36]
+          Identifier(a) [29-30]
+          StringLiteral('a') [33-36]
+        OptionsEntry [38-43]
+          Identifier(b) [38-39]
+          IntLiteral(1) [42-43]
+    SetOptionsOperation [46-67]
+      OptionsList [58-67]
+        OptionsEntry [59-66]
+          Identifier(c) [59-60]
+          StringLiteral('c') [63-66]
+    SetOptionsOperation [69-97]
+      OptionsList [81-97]
+        OptionsEntry [82-89]
+          Identifier(a) [82-83]
+          StringLiteral('a') [86-89]
+        OptionsEntry [91-96]
+          Identifier(b) [91-92]
+          IntLiteral(1) [95-96]
+--
+ALTER TABLE foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-96]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+  AlterActionList [15-96]
+    SetOptionsOperation [15-43]
+      OptionsList [27-43]
+        OptionsEntry [28-35]
+          Identifier(a) [28-29]
+          StringLiteral('a') [32-35]
+        OptionsEntry [37-42]
+          Identifier(b) [37-38]
+          IntLiteral(1) [41-42]
+    SetOptionsOperation [45-66]
+      OptionsList [57-66]
+        OptionsEntry [58-65]
+          Identifier(c) [58-59]
+          StringLiteral('c') [62-65]
+    SetOptionsOperation [68-96]
+      OptionsList [80-96]
+        OptionsEntry [81-88]
+          Identifier(a) [81-82]
+          StringLiteral('a') [85-88]
+        OptionsEntry [90-95]
+          Identifier(b) [90-91]
+          IntLiteral(1) [94-95]
+--
+ALTER VIEW foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+AlterMaterializedViewStatement [0-109]
+  PathExpression [24-27]
+    Identifier(foo) [24-27]
+  AlterActionList [28-109]
+    SetOptionsOperation [28-56]
+      OptionsList [40-56]
+        OptionsEntry [41-48]
+          Identifier(a) [41-42]
+          StringLiteral('a') [45-48]
+        OptionsEntry [50-55]
+          Identifier(b) [50-51]
+          IntLiteral(1) [54-55]
+    SetOptionsOperation [58-79]
+      OptionsList [70-79]
+        OptionsEntry [71-78]
+          Identifier(c) [71-72]
+          StringLiteral('c') [75-78]
+    SetOptionsOperation [81-109]
+      OptionsList [93-109]
+        OptionsEntry [94-101]
+          Identifier(a) [94-95]
+          StringLiteral('a') [98-101]
+        OptionsEntry [103-108]
+          Identifier(b) [103-104]
+          IntLiteral(1) [107-108]
+--
+ALTER MATERIALIZED VIEW foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b =
+    1)
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}}
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:15]
+ALTER DATABASE
+              ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:13]
+ALTER SCHEMA
+            ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:12]
+ALTER TABLE
+           ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:11]
+ALTER VIEW
+          ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:24]
+ALTER MATERIALIZED VIEW
+                       ^
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo;
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Unexpected ";" [at 1:19]
+ALTER DATABASE foo;
+                  ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Unexpected ";" [at 1:17]
+ALTER SCHEMA foo;
+                ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Unexpected ";" [at 1:16]
+ALTER TABLE foo;
+               ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+ALTER VIEW foo;
+              ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Unexpected ";" [at 1:28]
+ALTER MATERIALIZED VIEW foo;
+                           ^
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (a = 'a', b = 1),
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:49]
+ALTER DATABASE foo SET OPTIONS (a = 'a', b = 1),
+                                                ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:47]
+ALTER SCHEMA foo SET OPTIONS (a = 'a', b = 1),
+                                              ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:46]
+ALTER TABLE foo SET OPTIONS (a = 'a', b = 1),
+                                             ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:45]
+ALTER VIEW foo SET OPTIONS (a = 'a', b = 1),
+                                            ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:58]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (a = 'a', b = 1),
+                                                         ^
+==
+
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (a = 'a', b = 1), SET
+--
+ALTERNATION GROUP: DATABASE
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:53]
+ALTER DATABASE foo SET OPTIONS (a = 'a', b = 1), SET
+                                                    ^
+--
+ALTERNATION GROUP: SCHEMA
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:51]
+ALTER SCHEMA foo SET OPTIONS (a = 'a', b = 1), SET
+                                                  ^
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:50]
+ALTER TABLE foo SET OPTIONS (a = 'a', b = 1), SET
+                                                 ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:49]
+ALTER VIEW foo SET OPTIONS (a = 'a', b = 1), SET
+                                                ^
+--
+ALTERNATION GROUP: MATERIALIZED VIEW
+--
+ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:62]
+ALTER MATERIALIZED VIEW foo SET OPTIONS (a = 'a', b = 1), SET
+                                                             ^

@@ -1,0 +1,64 @@
+# More system variable tests are in parameters.test
+
+select @@foo.bar.baz;
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-20]
+        SelectColumn [7-20]
+          SystemVariableExpr [7-20]
+            PathExpression [9-20]
+              Identifier(foo) [9-12]
+              Identifier(bar) [13-16]
+              Identifier(baz) [17-20]
+--
+SELECT
+  @@foo.bar.baz
+==
+
+select (@@foo.bar).baz;
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          DotIdentifier [18-22]
+            SystemVariableExpr [8-17]
+              PathExpression [10-17]
+                Identifier(foo) [10-13]
+                Identifier(bar) [14-17]
+            Identifier(baz) [19-22]
+--
+SELECT
+  (@@foo.bar).baz
+==
+
+select foo.@@bar.baz;
+--
+ERROR: Syntax error: Unexpected "@@" [at 1:12]
+select foo.@@bar.baz;
+           ^
+==
+
+select @@foo[OFFSET(0)]
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          ArrayElement [12-23]
+            SystemVariableExpr [7-12]
+              PathExpression [9-12]
+                Identifier(foo) [9-12]
+            FunctionCall [13-22]
+              PathExpression [13-19]
+                Identifier(OFFSET) [13-19]
+              IntLiteral(0) [20-21]
+--
+
+SELECT
+  @@foo[OFFSET(0)]
+

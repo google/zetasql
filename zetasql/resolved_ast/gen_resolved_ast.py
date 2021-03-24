@@ -32,6 +32,9 @@ from absl import flags
 from absl import logging
 import jinja2
 import markupsafe
+from zetasql.parser.generator_utils import CleanComment
+from zetasql.parser.generator_utils import ScalarType
+from zetasql.parser.generator_utils import Trim
 from zetasql.resolved_ast import resolved_ast_enums_pb2
 
 FLAGS = flags.FLAGS
@@ -64,100 +67,17 @@ IGNORABLE_DEFAULT = 2  # Field can be ignored if it has its default value.
 NODE_NAME_PREFIX = 'Resolved'
 ROOT_NODE_NAME = 'ResolvedNode'
 
-SCALAR_TYPES = {}
-
 # Disabling "Wrong hanging indentation" lint warnings because Field arrays
 # are not following correct indentation.
 # pylint: disable=bad-continuation
 
 
-class ScalarType(object):
-  """Class used for scalar types as Field ctype parameters."""
-
-  def __init__(self,
-               ctype,
-               proto_type=None,
-               java_type=None,
-               java_reference_type=None,
-               passed_by_reference=False,
-               has_proto_setter=False,
-               is_enum=False,
-               scoped_ctype=None,
-               java_default=None,
-               cpp_default=None,
-               not_serialize_if_default=None):
-    """Create a ScalarType.
-
-    Args:
-      ctype: C type name for this ScalarType
-      proto_type: The proto field type name used to store this field.  If not
-          set, this defaults to using the same name as ctype.
-      java_type: Java type name for this ScalarType. Defaults to ctype.
-      java_reference_type: Java type name when reference type is needed for this
-                           ScalarType. Defaults to java_type.
-      passed_by_reference: Specify whether this ScalarType should be passed by
-          value or by reference in constructors and getter methods. Types that
-          are really classes should be passed by reference. Real scalar types
-          (PODs) should be passed by value.
-      has_proto_setter: True if fields of this type have a set_X(value) method
-          in C++. For example, enum, int64, string, fields do. Message fields
-          don't. Always set to True if ctype == proto_type. Otherwise defaults
-          to False.
-      is_enum: True if this ScalarType represents an Enum normally persisted
-          as integers in proto form. This is used to generate serialization
-          logic that casts between the enum type and underlying int as
-          necessary.
-      scoped_ctype: C type, possibly with scope prepended as in the case of
-          inner types.  Useful for locally declared enums that need to be
-          referenced externally to that class.
-          If not set, this defaults to using the same name as ctype.
-      java_default: Non-Constructor args and optional constructor args require a
-          default value. While java field defaults match c++ (for PODS), it's
-          best practice to initialize them explicitly.
-      cpp_default: Non-Constructor args and optional constructor args require a
-          default value. This value could be set using this argument, otherwise
-          C++ default value is used.
-      not_serialize_if_default: Do not serialize this field when its value is in
-          the default value, and set to default value during deserialization
-          when its proto field is empty.
-    """
-    self.ctype = ctype
-    self.is_enum = is_enum
-    self.passed_by_reference = passed_by_reference
-    if java_type is None:
-      self.java_type = ctype
-    else:
-      self.java_type = java_type
-    if java_reference_type is None:
-      self.java_reference_type = self.java_type
-    else:
-      self.java_reference_type = java_reference_type
-    if proto_type is None:
-      self.proto_type = ctype
-      self.has_proto_setter = True
-    else:
-      self.proto_type = proto_type
-      self.has_proto_setter = has_proto_setter
-    if scoped_ctype is None:
-      self.scoped_ctype = ctype
-    else:
-      self.scoped_ctype = scoped_ctype
-    self.java_default = java_default
-    if cpp_default is None:
-      self.cpp_default = ''
-    else:
-      self.cpp_default = cpp_default
-    if not_serialize_if_default is None:
-      self.not_serialize_if_default = False
-    else:
-      self.not_serialize_if_default = not_serialize_if_default
-    assert ctype not in SCALAR_TYPES
-    SCALAR_TYPES[ctype] = self
-
-
 SCALAR_TYPE = ScalarType('const Type*', 'TypeProto', 'Type')
 SCALAR_TYPE_PARAMETERS = ScalarType(
-    'TypeParameters', 'TypeParametersProto', passed_by_reference=True)
+    'TypeParameters',
+    'TypeParametersProto',
+    java_default='null',
+    passed_by_reference=True)
 SCALAR_ANNOTATION_MAP = ScalarType(
     'const AnnotationMap*',
     'AnnotationMapProto',
@@ -282,14 +202,8 @@ SCALAR_FOREIGN_KEY_ACTION_OPERATION = EnumScalarType(
 SCALAR_SQL_SECURITY = EnumScalarType('SqlSecurity', 'ResolvedCreateStatement')
 SCALAR_DETERMINISM_LEVEL = EnumScalarType('DeterminismLevel',
                                           'ResolvedCreateStatement')
+SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ResolvedGeneratedColumnInfo')
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
-
-
-def _Trim(s):
-  """Remove double blank lines and trailing spaces from string."""
-  s = re.sub(r'  *\n', r'\n', s)
-  s = re.sub(r'\n\n\n*', r'\n\n', s)
-  return s
 
 
 def _JavaDoc(text, indent=0):
@@ -304,7 +218,7 @@ def _JavaDoc(text, indent=0):
   if not text:
     return text
   indent_text = ' ' * indent
-  content = _CleanComment(text, '%s * ' % indent_text)
+  content = CleanComment(text, '%s * ' % indent_text)
 
   # Prefix <p> to lines that start a new paragraph. The regex finds lines that
   # follow an empty line.
@@ -313,55 +227,6 @@ def _JavaDoc(text, indent=0):
 
   # Add the leading line (/**) and trailing line (*/)
   return '%s/**\n%s\n%s */' % (indent_text, content, indent_text)
-
-
-def _CleanComment(text, prefix=''):
-  """Remove extra indentation from comments.
-
-  This allows comments to be written as triple-quoted strings with natural
-  wrapping and the extra spaces will get stripped.
-
-  Args:
-    text: Comment text
-    prefix: will be added to the start of each line.
-
-  Returns:
-    Comment text with extra indentation removed.
-  """
-  if text:
-    text = text.strip()
-    lines = text.split('\n')
-
-    def NumLeadingSpaces(line):
-      num = 0
-      for c in line:
-        if c.isspace():
-          num += 1
-        else:
-          break
-      return num
-
-    # Compute the indentation we will strip off.  Do it by looking at the
-    # minimum indentation on non-empty lines after the first line.
-    # (The first line will have already been stripped.)
-    # This is assuming there is a uniform indentation on the left of the
-    # comment that we should strip off, but there could be additional
-    # indentation on some lines that we'd rather keep.
-    non_empty_lines = [line for line in lines[1:] if line.strip()]
-    if non_empty_lines:
-      leading_spaces = min(NumLeadingSpaces(line) for line in non_empty_lines)
-      strip_prefix = ' ' * leading_spaces
-    else:
-      strip_prefix = ''
-
-    def Unindent(line):
-      if line.startswith(strip_prefix):
-        line = line[len(strip_prefix):]
-      return line
-
-    # Remove leading spaces from each line and add prefix.
-    text = '\n'.join(prefix + Unindent(line.rstrip()) for line in lines)
-  return text
 
 
 def Field(name,
@@ -564,7 +429,7 @@ def Field(name,
       'tag_id': tag_id,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
-      'comment': _CleanComment(comment, prefix='  // '),
+      'comment': CleanComment(comment, prefix='  // '),
       'javadoc': _JavaDoc(comment, indent=4),
       'member_accessor': member_accessor,
       'member_type': member_type,
@@ -627,7 +492,9 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 175.
+
+          Next tag_id: 181
+
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -648,7 +515,6 @@ class TreeGenerator(object):
       assert name in ('ResolvedArgument', 'ResolvedExpr', 'ResolvedScan',
                       'ResolvedStatement'), name
     assert len(fields) <= 32, 'More than 32 fields not supported'
-    assert name not in SCALAR_TYPES
     fields = [field.copy() for field in fields]
     extra_enum_decls, extra_enum_defs = self._ResolveImportEnums(name)
 
@@ -714,7 +580,7 @@ class TreeGenerator(object):
         'is_abstract': is_abstract,
         'class_final': class_final,
         'override_or_final': override_or_final,
-        'comment': _CleanComment(comment, prefix='// '),
+        'comment': CleanComment(comment, prefix='// '),
         'javadoc': _JavaDoc(comment, indent=2),
         'fields': fields,
         'inherited_fields': inherited_fields,
@@ -814,12 +680,12 @@ class TreeGenerator(object):
     assert not self.root_child_nodes
 
     def TraverseToRoot(node):
-      """Count the number of leaf nodes existing as descendents of each node.
+      """Count the number of leaf nodes existing as descendants of each node.
 
       Traverses upwards from each leaf, incrementing a counter.
 
       Args:
-        node: Node to count descendents of.
+        node: Node to count descendants of.
       """
       node.setdefault('num_descendant_leaf_types', 0)
       node['num_descendant_leaf_types'] += 1
@@ -899,6 +765,16 @@ class TreeGenerator(object):
     jinja_env.filters['is_optional_constructor_arg'] = IsOptionalConstructorArg
     jinja_env.filters[
         'is_node_vector_constructor_arg'] = IsNodeVectorConstructorArg
+
+    # These can be used to filter a list of fields to only those that
+    # hold references to child nodes.
+    def IsNodePtr(field_list):
+      return [field for field in field_list if field['is_node_ptr']]
+    def IsNodeVector(field_list):
+      return [field for field in field_list if field['is_node_vector']]
+
+    jinja_env.filters['is_node_ptr'] = IsNodePtr
+    jinja_env.filters['is_node_vector'] = IsNodeVector
 
     # These can be used to make relative links and targets within a doc.
     # {{name|as_link}} will make emit name with a link to "#name".
@@ -993,7 +869,7 @@ class TreeGenerator(object):
 
       template = jinja_env.get_template(in_path)
       out = open(out_path, 'wt')
-      out.write(_Trim(template.render(context)))
+      out.write(Trim(template.render(context)))
       out.close()
 
 
@@ -1488,7 +1364,50 @@ def main(argv):
               comment="""
               Apply IGNORE/RESPECT NULLS filtering to the stream of input
               values.
-                      """)
+                      """),
+          Field(
+              'with_group_rows_subquery',
+              'ResolvedScan',
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False,
+              comment="""
+              Holds a table subquery defined in WITH GROUP_ROWS(...) that is
+              evaluated over the input rows of a ResolvedAggregateScan
+              corresponding to the current group. The function itself is
+              evaluated over the rows returned from the subquery.
+
+              The subquery should refer to a special TVF GROUP_ROWS(), which
+              resolves as ResolvedGroupRowsScan. The subquery will be run for
+              each group produced by ResolvedAggregateScan.
+
+              GROUP_ROWS() produces a row for each source row in the
+              ResolvedAggregateScan's input that matches current group.
+
+              The subquery cannot reference any ResolvedColumns from the outer
+              query except what comes in via <with_group_rows_parameter_list>,
+              and GROUP_ROWS().
+
+              The subquery can return more than one column, and these columns
+              can be referenced by the function.
+
+              The subquery can be correlated. In this case the
+              <with_group_rows_parameter_list> gives the set of ResolvedColumns
+              from outside the subquery that are used inside. The subuery cannot
+              refer to correlated columns that are used as aggregation input in
+              the immediate outer query. The same rules apply to
+              <with_group_rows_parameter_list> as in ResolvedSubqueryExpr.
+                      """),
+          Field(
+              'with_group_rows_parameter_list',
+              'ResolvedColumnRef',
+              tag_id=5,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False,
+              comment="""
+              Correlated parameters to <with_group_rows_subquery>
+                      """),
       ])
 
   gen.AddNode(
@@ -1660,6 +1579,29 @@ def main(argv):
               comment="""
               The time zone expression by the optional AT TIME ZONE clause. It
               is nullptr when the clause does not exist.
+                      """),
+          Field(
+              'type_parameters',
+              SCALAR_TYPE_PARAMETERS,
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True,
+              comment="""
+              Contains the TypeParametersProto, which stores the type parameters
+              if specified in a cast. If there are no type parameters, this
+              proto will be empty.
+
+              If type parameters are specified, the result of the cast should
+              conform to the type parameters. Engines are expected to enforce
+              type parameter constraints by erroring out or truncating the cast
+              result, depending on the output type.
+
+              For example:
+                CAST("ABC" as STRING(2)) should error out
+                CAST(1234 as NUMERIC(2)) should error out
+                CAST(1.234 as NUMERIC(2,1)) should return a NumericValue of 1.2
+
+              See (broken link) for more details.
                       """)
       ])
 
@@ -2811,25 +2753,19 @@ right.
         ResolvedColumnDefinitions in the enclosing statement.
         - The expression can never include a subquery.
 
-      <is_stored> indicates whether the value of the expression should be
-      pre-emptively computed to save work at read time. When is_stored is true,
-      <expression> cannot contain a volatile function (e.g. RAND).
-
-      <is_on_write> indicates that the value of this column should be calculated
-      at write time. As opposed to <is_stored> the <expression> can contain
-      volatile functions (e.g. RAND).
-
-      Only one of <is_stored> or <is_on_write> can be true.
-
-      See (broken link).""",
+      <stored_mode> is the mode of a generated column: Values are:
+        - 'NON_STORED': The <expression> must always be evaluated at read time.
+        - 'STORED': The <expression> should be pre-emptively computed at write
+             time (to save work at read time) and must not call any volatle
+             function (e.g. RAND).
+        - 'STORED_VOLATILE': The <expression> must be computed at write time and
+             may call volatile functions (e.g. RAND).
+      See (broken link) and
+      (broken link).""",
       fields=[
           Field('expression', 'ResolvedExpr', tag_id=2),
-          Field('is_stored', SCALAR_BOOL, tag_id=3),
           Field(
-              'is_on_write',
-              SCALAR_BOOL,
-              tag_id=4,
-              ignorable=IGNORABLE_DEFAULT)
+              'stored_mode', SCALAR_STORED_MODE, tag_id=5, ignorable=IGNORABLE),
       ])
 
   gen.AddNode(
@@ -2842,8 +2778,17 @@ right.
 
       if <is_hidden> is TRUE, then the column won't show up in SELECT * queries.
 
-      if <generated_column_info> is non-NULL, then this table column is a
-      generated column.
+      if <generated_column_info> is non-NULL, then this column is a generated
+      column.
+
+      if <default_expression> is non-NULL, then this column contains a default
+      value expression. The expression type should always match the column type.
+        - <default_expression> cannot contain any references to another column.
+        - <default_expression> cannot include a subquery, aggregation, or window
+          function.
+
+      <generated_column_info> and <default_expression> cannot both be set at the
+      same time.
 
       <column> defines an ID for the column, which may appear in expressions in
       the PARTITION BY, CLUSTER BY clause or <generated_column_info> if either
@@ -2871,6 +2816,11 @@ right.
               'generated_column_info',
               'ResolvedGeneratedColumnInfo',
               tag_id=7,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'default_expression',
+              'ResolvedExpr',
+              tag_id=8,
               ignorable=IGNORABLE_DEFAULT)
       ],
       extra_defs="""
@@ -3158,6 +3108,34 @@ right.
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT,
               is_optional_constructor_arg=True)
+      ])
+
+  gen.AddNode(
+      name='ResolvedGroupRowsScan',
+      tag_id=176,
+      parent='ResolvedScan',
+      emit_default_constructor=False,
+      comment="""
+      ResolvedGroupRowsScan represents a call to a special TVF GROUP_ROWS().
+      It can only show up inside WITH GROUP_ROWS clause, which is resolved as
+      the field with_group_rows_subquery in ResolvedNonScalarFunctionCallBase
+      ResolvedGroupRowsScan. This scan produces rows corresponding to the input
+      of ResolvedAggregateScan that belong to the current group.
+
+      <input_column_list> is a list of new columns created to store values
+      coming from the input of the aggregate scan. ResolvedComputedColumn can
+      only hold ResolvedColumnRef's and can reference anything from the
+      pre-aggregation scan.
+
+      <alias> is the alias of the scan or empty if none.
+              """,
+      fields=[
+          Field(
+              'input_column_list',
+              'ResolvedComputedColumn',
+              tag_id=2,
+              vector=True),
+          Field('alias', SCALAR_STRING, tag_id=3, ignorable=IGNORABLE),
       ])
 
   gen.AddNode(
@@ -5423,16 +5401,46 @@ right.
       tag_id=169,
       parent='ResolvedAlterAction',
       comment="""
-      ALTER COLUMN SET OPTIONS action for ALTER TABLE statement
+      This ALTER action:
+        ALTER COLUMN [IF EXISTS] <column> SET OPTIONS <options_list>
+
+      <is_if_exists> silently ignore the "<column> not found" error.
+      <column> the name of the column.
+      <options_list> has engine-specific directives that specify how to
+                     alter the metadata for a column.
               """,
       fields=[
-          Field('column', SCALAR_STRING, tag_id=2),
-          Field('option_list', 'ResolvedOption', tag_id=3, vector=True),
           Field(
-              'column_reference',
-              'ResolvedColumnRef',
-              tag_id=4,
-              ignorable=IGNORABLE),
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('column', SCALAR_STRING, tag_id=3),
+          Field('option_list', 'ResolvedOption', tag_id=4, vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterColumnDropNotNullAction',
+      tag_id=178,
+      parent='ResolvedAlterAction',
+      comment="""
+      This ALTER action:
+        ALTER COLUMN [IF EXISTS] <column> DROP NOT NULL
+
+      Removes the NOT NULL constraint from the given column.
+
+      <is_if_exists> silently ignore the "<column> not found" error.
+      <column> is the name of the column.
+              """,
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('column', SCALAR_STRING, tag_id=2),
       ])
 
   gen.AddNode(
@@ -5443,17 +5451,10 @@ right.
       DROP COLUMN action for ALTER TABLE statement
 
       <name> is the name of the column to drop.
-      <column_reference> references the column to be dropped, if it exists.
-             It might be missing if DROP IF EXISTS column does not exist.
               """,
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name', SCALAR_STRING, tag_id=3),
-          Field(
-              'column_reference',
-              'ResolvedColumnRef',
-              tag_id=4,
-              ignorable=IGNORABLE),
       ])
 
   gen.AddNode(
@@ -6034,6 +6035,7 @@ ResolvedArgumentRef(y)
                See (broken link).
         <sql_security> is the declared security mode for the function. Values
                include 'INVOKER', 'DEFINER'.
+        <has_explicit_return_schema> is true iff RETURNS clause is present.
 
       ----------------------
       Table-Valued Functions
@@ -6106,6 +6108,11 @@ ResolvedArgumentRef(y)
               tag_id=3,
               ignorable=IGNORABLE,
               to_string_method='ToStringVerbose'),
+          Field(
+              'has_explicit_return_schema',
+              SCALAR_BOOL,
+              tag_id=11,
+              ignorable=IGNORABLE),
           Field(
               'option_list',
               'ResolvedOption',
@@ -6946,6 +6953,98 @@ ResolvedArgumentRef(y)
               new <value_column_list> and the column group labels/names
               in the <label_column>.
                       """),
+          Field(
+              'include_nulls',
+              SCALAR_BOOL,
+              tag_id=7,
+              comment="""
+              Whether we need to include the rows from output where ALL columns
+              from <value_column_list> are null.
+                      """),
+      ])
+
+  gen.AddNode(
+      name='ResolvedCloneDataStmt',
+      tag_id=177,
+      parent='ResolvedStatement',
+      comment="""
+      CLONE DATA INTO <table_name> FROM ...
+
+      <target_table> the table to clone data into.
+      <clone_from> The source table(s) to clone data from.
+                   For a single table, the scan is TableScan, with an optional
+                       for_system_time_expr;
+                   If WHERE clause is present, the Scan is wrapped inside
+                       ResolvedFilterScan;
+                   When multiple sources are present, they are UNION'ed together
+                       in a ResolvedSetOperationScan.
+
+                   Constraints:
+                     The target_table must not be the same as any source table,
+                     and two sources cannot refer to the same table.
+                     All source tables and target table must have equal number
+                     of columns, with positionally identical column names and
+                     types.
+              """,
+      fields=[
+          Field('target_table', 'ResolvedTableScan', tag_id=2),
+          Field('clone_from', 'ResolvedScan', tag_id=3)
+      ])
+
+  gen.AddNode(
+      name='ResolvedTableAndColumnInfo',
+      tag_id=179,
+      parent='ResolvedArgument',
+      comment="""
+      Identifies the <table> and <column_index_list> (which can be empty) that
+      are targets of the ANALYZE statement.
+
+      <column_index_list> This list identifies the ordinals of columns to be
+      analyzed in the <table>'s column list.
+              """,
+      fields=[
+          Field(
+              'table',
+              SCALAR_TABLE,
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'column_index_list',
+              SCALAR_INT,
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              is_constructor_arg=False,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparatedForInt'),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAnalyzeStmt',
+      tag_id=180,
+      parent='ResolvedStatement',
+      comment="""
+      This represents the ANALYZE statement:
+      ANALYZE [OPTIONS (<option_list>)] [<table_and_column_index_list> [, ...]];
+
+      <option_list> is a list of options for ANALYZE.
+
+      <table_and_column_info_list> identifies a list of tables along with their
+      related columns that are the target of ANALYZE.
+              """,
+      fields=[
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'table_and_column_index_list',
+              'ResolvedTableAndColumnInfo',
+              tag_id=3,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

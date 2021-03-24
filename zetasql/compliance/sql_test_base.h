@@ -82,7 +82,7 @@
 #include "zetasql/reference_impl/reference_driver.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/cleanup.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/statusor.h"
@@ -470,7 +470,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   //
   auto MakeScopedLabel(std::vector<std::string> labels) {
     AddCodeBasedLabels(labels);
-    return zetasql_base::MakeCleanup(absl::bind_front(
+    return absl::MakeCleanup(absl::bind_front(
         &SQLTestBase::RemoveCodeBasedLabels, this, std::move(labels)));
   }
 

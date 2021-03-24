@@ -1,0 +1,187 @@
+define table t1 (a=1,b="a",c=1.4,d=true)
+--
+DefineTableStatement [0-40]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-40]
+    OptionsEntry [17-20]
+      Identifier(a) [17-18]
+      IntLiteral(1) [19-20]
+    OptionsEntry [21-26]
+      Identifier(b) [21-22]
+      StringLiteral("a") [23-26]
+    OptionsEntry [27-32]
+      Identifier(c) [27-28]
+      FloatLiteral(1.4) [29-32]
+    OptionsEntry [33-39]
+      Identifier(d) [33-34]
+      BooleanLiteral(true) [35-39]
+--
+DEFINE TABLE t1(a = 1, b = "a", c = 1.4, d = true)
+==
+
+define table a.`b`.`c 2` (x='''
+foo''',y="2011-10-22",z=@param,zz=@@sysvar)
+--
+DefineTableStatement [0-75]
+  PathExpression [13-24]
+    Identifier(a) [13-14]
+    Identifier(b) [15-18]
+    Identifier(`c 2`) [19-24]
+  OptionsList [25-75]
+    OptionsEntry [26-38]
+      Identifier(x) [26-27]
+      StringLiteral('''
+foo''') [28-38]
+    OptionsEntry [39-53]
+      Identifier(y) [39-40]
+      StringLiteral("2011-10-22") [41-53]
+    OptionsEntry [54-62]
+      Identifier(z) [54-55]
+      ParameterExpr [56-62]
+        Identifier(param) [57-62]
+    OptionsEntry [63-74]
+      Identifier(zz) [63-65]
+      SystemVariableExpr [66-74]
+        PathExpression [68-74]
+          Identifier(sysvar) [68-74]
+--
+DEFINE TABLE a.b.`c 2`(x = '''
+foo''', y = "2011-10-22", z = @param, zz = @@sysvar)
+==
+
+define table t1 (a=b)
+--
+DefineTableStatement [0-21]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-21]
+    OptionsEntry [17-20]
+      Identifier(a) [17-18]
+      PathExpression [19-20]
+        Identifier(b) [19-20]
+--
+DEFINE TABLE t1(a = b)
+==
+
+define table t1 ()
+--
+DefineTableStatement [0-18]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-18]
+--
+DEFINE TABLE t1()
+==
+
+define table t1 (a=b+1)
+--
+DefineTableStatement [0-23]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-23]
+    OptionsEntry [17-22]
+      Identifier(a) [17-18]
+      BinaryExpression(+) [19-22]
+        PathExpression [19-20]
+          Identifier(b) [19-20]
+        IntLiteral(1) [21-22]
+--
+DEFINE TABLE t1(a = b + 1)
+==
+
+define table t1 (x=y.z)
+--
+DefineTableStatement [0-23]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-23]
+    OptionsEntry [17-22]
+      Identifier(x) [17-18]
+      PathExpression [19-22]
+        Identifier(y) [19-20]
+        Identifier(z) [21-22]
+--
+DEFINE TABLE t1(x = y.z)
+==
+
+define table x.all(a=1)
+--
+DefineTableStatement [0-23]
+  PathExpression [13-18]
+    Identifier(x) [13-14]
+    Identifier(`all`) [15-18]
+  OptionsList [18-23]
+    OptionsEntry [19-22]
+      Identifier(a) [19-20]
+      IntLiteral(1) [21-22]
+--
+DEFINE TABLE x.`all`(a = 1)
+==
+
+define table t1 (x.y=5)
+--
+ERROR: Syntax error: Expected "=" but got "." [at 1:19]
+define table t1 (x.y=5)
+                  ^
+==
+
+define table t1
+--
+ERROR: Syntax error: Expected "(" or "." but got end of statement [at 1:16]
+define table t1
+               ^
+==
+
+define table t1 (x,y,z)
+--
+ERROR: Syntax error: Expected "=" but got "," [at 1:19]
+define table t1 (x,y,z)
+                  ^
+==
+
+define table t1 OPTIONS (x,y,z)
+--
+ERROR: Syntax error: Expected "(" or "." but got keyword OPTIONS [at 1:17]
+define table t1 OPTIONS (x,y,z)
+                ^
+==
+
+define table t1 (a=CAST(1 AS INT32))
+--
+DefineTableStatement [0-36]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-36]
+    OptionsEntry [17-35]
+      Identifier(a) [17-18]
+      CastExpression [19-35]
+        IntLiteral(1) [24-25]
+        SimpleType [29-34]
+          PathExpression [29-34]
+            Identifier(INT32) [29-34]
+--
+DEFINE TABLE t1(a = CAST(1 AS INT32))
+==
+
+define table t1 (PROTO="PROTO<foo>",hash="HASH")
+--
+DefineTableStatement [0-48]
+  PathExpression [13-15]
+    Identifier(t1) [13-15]
+  OptionsList [16-48]
+    OptionsEntry [17-35]
+      Identifier(`PROTO`) [17-22]
+      StringLiteral("PROTO<foo>") [23-35]
+    OptionsEntry [36-47]
+      Identifier(`hash`) [36-40]
+      StringLiteral("HASH") [41-47]
+--
+DEFINE TABLE t1(`PROTO` = "PROTO<foo>", `hash` = "HASH")
+==
+
+define table t1 (ARRAY="a")
+--
+ERROR: Syntax error: Unexpected keyword ARRAY [at 1:18]
+define table t1 (ARRAY="a")
+                 ^

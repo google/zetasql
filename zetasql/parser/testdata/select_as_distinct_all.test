@@ -1,0 +1,692 @@
+# Tests for everything that can directly follow SELECT, including DISTINCT,
+# ALL, AS STRUCT, AS VALUE, and AS <proto>.
+select
+  # ALL here means opposite of DISTINCT
+  ALL
+    # Regular column
+    x,
+    # 'all' as suffix for column name
+    y.all,
+    # 'all' in the middle of path expression
+    z.all.good,
+    # quoted identifier `all`
+    `all`,
+    # Only prefix needs to be quoted
+    `all`.all,
+    # all (no pun) magic suffixes together
+    x.123.all.y.2daysago.all
+from x.all;
+--
+QueryStatement [0-366]
+  Query [0-366]
+    Select [0-366]
+      SelectList [78-355]
+        SelectColumn [78-79]
+          PathExpression [78-79]
+            Identifier(x) [78-79]
+        SelectColumn [123-128]
+          PathExpression [123-128]
+            Identifier(y) [123-124]
+            Identifier(`all`) [125-128]
+        SelectColumn [179-189]
+          PathExpression [179-189]
+            Identifier(z) [179-180]
+            Identifier(`all`) [181-184]
+            Identifier(good) [185-189]
+        SelectColumn [225-230]
+          PathExpression [225-230]
+            Identifier(`all`) [225-230]
+        SelectColumn [273-282]
+          PathExpression [273-282]
+            Identifier(`all`) [273-278]
+            Identifier(`all`) [279-282]
+        SelectColumn [331-355]
+          PathExpression [331-355]
+            Identifier(x) [331-332]
+            Identifier(`123`) [333-336]
+            Identifier(`all`) [337-340]
+            Identifier(y) [341-342]
+            Identifier(`2daysago`) [343-351]
+            Identifier(`all`) [352-355]
+      FromClause [356-366]
+        TablePathExpression [361-366]
+          PathExpression [361-366]
+            Identifier(x) [361-362]
+            Identifier(`all`) [363-366]
+--
+SELECT
+  x,
+  y.`all`,
+  z.`all`.good,
+  `all`,
+  `all`.`all`,
+  x.`123`.`all`.y.`2daysago`.`all`
+FROM
+  x.`all`
+==
+
+select all from t;
+--
+ERROR: Syntax error: SELECT list must not be empty [at 1:12]
+select all from t;
+           ^
+==
+
+select 1, all from t;
+--
+ERROR: Syntax error: Expected end of input but got keyword ALL [at 1:11]
+select 1, all from t;
+          ^
+==
+
+select as struct 1, 2;
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectAs(as_mode=STRUCT) [7-16]
+      SelectList [17-21]
+        SelectColumn [17-18]
+          IntLiteral(1) [17-18]
+        SelectColumn [20-21]
+          IntLiteral(2) [20-21]
+--
+SELECT AS STRUCT
+  1,
+  2
+==
+
+select as struct 'abc' from T;
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectAs(as_mode=STRUCT) [7-16]
+      SelectList [17-22]
+        SelectColumn [17-22]
+          StringLiteral('abc') [17-22]
+      FromClause [23-29]
+        TablePathExpression [28-29]
+          PathExpression [28-29]
+            Identifier(T) [28-29]
+--
+SELECT AS STRUCT
+  'abc'
+FROM
+  T
+==
+
+select as MyProto 1,2,3;
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectAs [7-17]
+        PathExpression [10-17]
+          Identifier(MyProto) [10-17]
+      SelectList [18-23]
+        SelectColumn [18-19]
+          IntLiteral(1) [18-19]
+        SelectColumn [20-21]
+          IntLiteral(2) [20-21]
+        SelectColumn [22-23]
+          IntLiteral(3) [22-23]
+--
+SELECT AS MyProto
+  1,
+  2,
+  3
+==
+
+select as catalog.catalog.MyProto a,b from T
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectAs [7-33]
+        PathExpression [10-33]
+          Identifier(catalog) [10-17]
+          Identifier(catalog) [18-25]
+          Identifier(MyProto) [26-33]
+      SelectList [34-37]
+        SelectColumn [34-35]
+          PathExpression [34-35]
+            Identifier(a) [34-35]
+        SelectColumn [36-37]
+          PathExpression [36-37]
+            Identifier(b) [36-37]
+      FromClause [38-44]
+        TablePathExpression [43-44]
+          PathExpression [43-44]
+            Identifier(T) [43-44]
+--
+SELECT AS catalog.catalog.MyProto
+  a,
+  b
+FROM
+  T
+==
+
+# SELECT AS does not support extensions
+select as MyProto T.foo as (path.to.extension) from Table
+--
+ERROR: Syntax error: Unexpected "(" [at 1:28]
+select as MyProto T.foo as (path.to.extension) from Table
+                           ^
+==
+
+select 1, (select as struct 123), array(select as struct 4, 5)
+from (select as struct * from T1),
+     (select as struct z from y),
+     (select as a.b.c q from y)
+--
+QueryStatement [0-163]
+  Query [0-163]
+    Select [0-163]
+      SelectList [7-62]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+        SelectColumn [10-32]
+          ExpressionSubquery [10-32]
+            Query [11-31]
+              Select [11-31]
+                SelectAs(as_mode=STRUCT) [18-27]
+                SelectList [28-31]
+                  SelectColumn [28-31]
+                    IntLiteral(123) [28-31]
+        SelectColumn [34-62]
+          ExpressionSubquery(modifier=ARRAY) [34-62]
+            Query [40-61]
+              Select [40-61]
+                SelectAs(as_mode=STRUCT) [47-56]
+                SelectList [57-61]
+                  SelectColumn [57-58]
+                    IntLiteral(4) [57-58]
+                  SelectColumn [60-61]
+                    IntLiteral(5) [60-61]
+      FromClause [63-163]
+        Join(COMMA) [130-163]
+          Join(COMMA) [96-130]
+            TableSubquery [68-96]
+              Query [69-95]
+                Select [69-95]
+                  SelectAs(as_mode=STRUCT) [76-85]
+                  SelectList [86-87]
+                    SelectColumn [86-87]
+                      Star(*) [86-87]
+                  FromClause [88-95]
+                    TablePathExpression [93-95]
+                      PathExpression [93-95]
+                        Identifier(T1) [93-95]
+            TableSubquery [103-130]
+              Query [104-129]
+                Select [104-129]
+                  SelectAs(as_mode=STRUCT) [111-120]
+                  SelectList [121-122]
+                    SelectColumn [121-122]
+                      PathExpression [121-122]
+                        Identifier(z) [121-122]
+                  FromClause [123-129]
+                    TablePathExpression [128-129]
+                      PathExpression [128-129]
+                        Identifier(y) [128-129]
+          TableSubquery [137-163]
+            Query [138-162]
+              Select [138-162]
+                SelectAs [145-153]
+                  PathExpression [148-153]
+                    Identifier(a) [148-149]
+                    Identifier(b) [150-151]
+                    Identifier(c) [152-153]
+                SelectList [154-155]
+                  SelectColumn [154-155]
+                    PathExpression [154-155]
+                      Identifier(q) [154-155]
+                FromClause [156-162]
+                  TablePathExpression [161-162]
+                    PathExpression [161-162]
+                      Identifier(y) [161-162]
+--
+SELECT
+  1,
+  (
+    SELECT AS STRUCT
+      123
+  ),
+  ARRAY(
+    SELECT AS STRUCT
+      4,
+      5
+  )
+FROM
+  (
+    SELECT AS STRUCT
+      *
+    FROM
+      T1
+  ),
+  (
+    SELECT AS STRUCT
+      z
+    FROM
+      y
+  ),
+  (
+    SELECT AS a.b.c
+      q
+    FROM
+      y
+  )
+==
+
+select as struct 5 as five
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectAs(as_mode=STRUCT) [7-16]
+      SelectList [17-26]
+        SelectColumn [17-26]
+          IntLiteral(5) [17-18]
+          Alias [19-26]
+            Identifier(five) [22-26]
+--
+SELECT AS STRUCT
+  5 AS five
+==
+
+select as myproto 5 as myproto
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectAs [7-17]
+        PathExpression [10-17]
+          Identifier(myproto) [10-17]
+      SelectList [18-30]
+        SelectColumn [18-30]
+          IntLiteral(5) [18-19]
+          Alias [20-30]
+            Identifier(myproto) [23-30]
+--
+SELECT AS myproto
+  5 AS myproto
+==
+
+select as struct
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:17]
+select as struct
+                ^
+==
+
+select struct
+--
+ERROR: Syntax error: Expected "(" or "<" but got end of statement [at 1:14]
+select struct
+             ^
+==
+
+select 5 as struct
+--
+ERROR: Syntax error: Unexpected keyword STRUCT [at 1:13]
+select 5 as struct
+            ^
+==
+
+select as 5
+--
+ERROR: Syntax error: Unexpected integer literal "5" [at 1:11]
+select as 5
+          ^
+==
+
+select as MyProto
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:18]
+select as MyProto
+                 ^
+==
+
+select as MyProto, 5
+--
+ERROR: Syntax error: Unexpected "," [at 1:18]
+select as MyProto, 5
+                 ^
+==
+
+select distinct as struct a1, a2 from Table1
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select(distinct=true) [0-44]
+      SelectAs(as_mode=STRUCT) [16-25]
+      SelectList [26-32]
+        SelectColumn [26-28]
+          PathExpression [26-28]
+            Identifier(a1) [26-28]
+        SelectColumn [30-32]
+          PathExpression [30-32]
+            Identifier(a2) [30-32]
+      FromClause [33-44]
+        TablePathExpression [38-44]
+          PathExpression [38-44]
+            Identifier(Table1) [38-44]
+--
+SELECT DISTINCT AS STRUCT
+  a1,
+  a2
+FROM
+  Table1
+==
+
+select as struct distinct a1, a2 from Table
+--
+ERROR: Syntax error: Unexpected keyword DISTINCT [at 1:18]
+select as struct distinct a1, a2 from Table
+                 ^
+==
+
+select distinct * from Table1
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select(distinct=true) [0-29]
+      SelectList [16-17]
+        SelectColumn [16-17]
+          Star(*) [16-17]
+      FromClause [18-29]
+        TablePathExpression [23-29]
+          PathExpression [23-29]
+            Identifier(Table1) [23-29]
+--
+SELECT DISTINCT
+  *
+FROM
+  Table1
+==
+
+select distinct (select distinct * from Table1)
+--
+QueryStatement [0-47]
+  Query [0-47]
+    Select(distinct=true) [0-47]
+      SelectList [16-47]
+        SelectColumn [16-47]
+          ExpressionSubquery [16-47]
+            Query [17-46]
+              Select(distinct=true) [17-46]
+                SelectList [33-34]
+                  SelectColumn [33-34]
+                    Star(*) [33-34]
+                FromClause [35-46]
+                  TablePathExpression [40-46]
+                    PathExpression [40-46]
+                      Identifier(Table1) [40-46]
+--
+SELECT DISTINCT
+  (
+    SELECT DISTINCT
+      *
+    FROM
+      Table1
+  )
+==
+
+select all 5
+--
+QueryStatement [0-12]
+  Query [0-12]
+    Select [0-12]
+      SelectList [11-12]
+        SelectColumn [11-12]
+          IntLiteral(5) [11-12]
+--
+SELECT
+  5
+==
+
+select all * from (select all a,b from t)
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [11-12]
+        SelectColumn [11-12]
+          Star(*) [11-12]
+      FromClause [13-41]
+        TableSubquery [18-41]
+          Query [19-40]
+            Select [19-40]
+              SelectList [30-33]
+                SelectColumn [30-31]
+                  PathExpression [30-31]
+                    Identifier(a) [30-31]
+                SelectColumn [32-33]
+                  PathExpression [32-33]
+                    Identifier(b) [32-33]
+              FromClause [34-40]
+                TablePathExpression [39-40]
+                  PathExpression [39-40]
+                    Identifier(t) [39-40]
+--
+SELECT
+  *
+FROM
+  (
+    SELECT
+      a,
+      b
+    FROM
+      t
+  )
+==
+
+select all as struct 1,2
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectAs(as_mode=STRUCT) [11-20]
+      SelectList [21-24]
+        SelectColumn [21-22]
+          IntLiteral(1) [21-22]
+        SelectColumn [23-24]
+          IntLiteral(2) [23-24]
+--
+SELECT AS STRUCT
+  1,
+  2
+==
+
+select as struct all 1,2
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:18]
+select as struct all 1,2
+                 ^
+==
+
+select as value 5
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectAs(as_mode=VALUE) [7-15]
+      SelectList [16-17]
+        SelectColumn [16-17]
+          IntLiteral(5) [16-17]
+--
+SELECT AS VALUE
+  5
+==
+
+# TODO: The unparse result here is wrong. VALUE is used as an
+# identifier and not as a keyword and should be unparsed with backquotes so
+# that it does not get treated as a keyword here.
+[no_test_unparse][no_test_get_parse_tokens]
+select as `value` 5
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectAs [7-17]
+        PathExpression [10-17]
+          Identifier(value) [10-17]
+      SelectList [18-19]
+        SelectColumn [18-19]
+          IntLiteral(5) [18-19]
+==
+
+select as value x, y, z
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectAs(as_mode=VALUE) [7-15]
+      SelectList [16-23]
+        SelectColumn [16-17]
+          PathExpression [16-17]
+            Identifier(x) [16-17]
+        SelectColumn [19-20]
+          PathExpression [19-20]
+            Identifier(y) [19-20]
+        SelectColumn [22-23]
+          PathExpression [22-23]
+            Identifier(z) [22-23]
+--
+SELECT AS VALUE
+  x,
+  y,
+  z
+==
+
+select as value value as values
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectAs(as_mode=VALUE) [7-15]
+      SelectList [16-31]
+        SelectColumn [16-31]
+          PathExpression [16-21]
+            Identifier(value) [16-21]
+          Alias [22-31]
+            Identifier(values) [25-31]
+--
+SELECT AS VALUE
+  value AS values
+==
+
+select as value *
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectAs(as_mode=VALUE) [7-15]
+      SelectList [16-17]
+        SelectColumn [16-17]
+          Star(*) [16-17]
+--
+SELECT AS VALUE
+  *
+==
+
+select (select as value 1), (select as struct value)
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-52]
+        SelectColumn [7-26]
+          ExpressionSubquery [7-26]
+            Query [8-25]
+              Select [8-25]
+                SelectAs(as_mode=VALUE) [15-23]
+                SelectList [24-25]
+                  SelectColumn [24-25]
+                    IntLiteral(1) [24-25]
+        SelectColumn [28-52]
+          ExpressionSubquery [28-52]
+            Query [29-51]
+              Select [29-51]
+                SelectAs(as_mode=STRUCT) [36-45]
+                SelectList [46-51]
+                  SelectColumn [46-51]
+                    PathExpression [46-51]
+                      Identifier(value) [46-51]
+--
+SELECT
+  (
+    SELECT AS VALUE
+      1
+  ),
+  (
+    SELECT AS STRUCT
+      value
+  )
+==
+
+select distinct as value v1
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select(distinct=true) [0-27]
+      SelectAs(as_mode=VALUE) [16-24]
+      SelectList [25-27]
+        SelectColumn [25-27]
+          PathExpression [25-27]
+            Identifier(v1) [25-27]
+--
+SELECT DISTINCT AS VALUE
+  v1
+==
+
+select all distinct x from Table
+--
+ERROR: Syntax error: Unexpected keyword DISTINCT [at 1:12]
+select all distinct x from Table
+           ^
+==
+
+select distinct all x from Table
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:17]
+select distinct all x from Table
+                ^
+==
+
+select distinct distinct * from Table
+--
+ERROR: Syntax error: Unexpected keyword DISTINCT [at 1:17]
+select distinct distinct * from Table
+                ^
+==
+
+select 1, (select distinct * from Table1)
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+        SelectColumn [10-41]
+          ExpressionSubquery [10-41]
+            Query [11-40]
+              Select(distinct=true) [11-40]
+                SelectList [27-28]
+                  SelectColumn [27-28]
+                    Star(*) [27-28]
+                FromClause [29-40]
+                  TablePathExpression [34-40]
+                    PathExpression [34-40]
+                      Identifier(Table1) [34-40]
+--
+SELECT
+  1,
+  (
+    SELECT DISTINCT
+      *
+    FROM
+      Table1
+  )

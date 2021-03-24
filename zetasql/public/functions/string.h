@@ -42,6 +42,7 @@
 #define ZETASQL_PUBLIC_FUNCTIONS_STRING_H_
 
 #include <bitset>
+#include <cstdint>
 #include <memory>
 #include <set>
 #include <string>
@@ -335,8 +336,9 @@ bool RightPadBytes(absl::string_view input_str, int64_t output_size_bytes,
                    absl::Status* error);
 
 // RPAD(BYTES, INT64)
-bool RightPadBytesDefault(absl::string_view input_str, int64_t output_size_bytes,
-                          std::string* out, absl::Status* error);
+bool RightPadBytesDefault(absl::string_view input_str,
+                          int64_t output_size_bytes, std::string* out,
+                          absl::Status* error);
 
 // LPAD(STRING, INT64, STRING)
 bool LeftPadUtf8(absl::string_view input_str, int64_t output_size_chars,
@@ -419,7 +421,7 @@ bool FirstCharOfStringToASCII(absl::string_view str, int64_t* out,
 // Converts from the first byte of a bytes to extended ASCII values in the
 // range [0, 255]. Always return true.
 bool FirstByteOfBytesToASCII(absl::string_view str, int64_t* out,
-                              absl::Status* error);
+                             absl::Status* error);
 
 // Converts from the first Unicode char in a string to codepoint. Returns an
 // error if the first character of input is not a structurally valid UTF8 char.
@@ -428,7 +430,8 @@ bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
 
 // Converts from a codepoint to a UTF8 string. Returns an error if the input
 // is not a valid UTF8 codepoint.
-bool CodePointToString(int64_t codepoint, std::string* out, absl::Status* error);
+bool CodePointToString(int64_t codepoint, std::string* out,
+                       absl::Status* error);
 
 // Converts from a UTF8 string to codepoints. Returns an error if the input is
 // not a structurally valid UTF8 string.

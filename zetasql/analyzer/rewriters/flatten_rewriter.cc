@@ -54,6 +54,10 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // When 'order_results' is true, the generated scan ends with an OrderByScan
   // to retain order (using offsets from array scans).
   //
+  // 'in_subquery' should be set to indicate whether the resulting scan will be
+  // in a subquery or not. If it is, then column references need to be
+  // correlated to access the column outside the subquery it's in.
+  //
   // Note that the final OrderByScan is not needed for a case like
   // SELECT ... FROM t, UNNEST(t.a.b.c) since the UNNEST produces an unordered
   // relation. The final OrderByScan is needed for explicit FLATTEN(t.a.b.c) or
@@ -63,7 +67,8 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>> FlattenToScan(
       std::unique_ptr<ResolvedExpr> flatten_expr,
       const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
-      std::unique_ptr<ResolvedScan> input_scan, bool order_results);
+      std::unique_ptr<ResolvedScan> input_scan, bool order_results,
+      bool in_subquery);
 
   Catalog* catalog_;
   ColumnFactory* column_factory_;
@@ -102,10 +107,11 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedScan> scan,
         FlattenToScan(std::move(flatten_expr), flatten->get_field_list(),
-                      MakeResolvedSingleRowScan(), need_offset_column));
+                      MakeResolvedSingleRowScan(), need_offset_column,
+                      /*in_subquery=*/true));
 
     std::vector<std::unique_ptr<const ResolvedColumnRef>> column_refs;
-    ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*flatten->expr(), &column_refs));
+    ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*flatten, &column_refs));
     if (scan->column_list_size() > 1) {
       // Subquery must produce one value. Remove unneeded intermediary columns.
       // TODO: This can be removed if we avoid using subquery for joins.
@@ -130,7 +136,8 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedScan> scan,
       FlattenToScan(std::move(flatten_expr), flatten->get_field_list(),
-                    std::move(input_scan), /*order_results=*/false));
+                    std::move(input_scan), /*order_results=*/false,
+                    /*in_subquery=*/false));
 
   // Project the flatten result back to the expected output column.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
@@ -187,13 +194,17 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   column_refs.push_back(MakeResolvedColumnRef(flatten_expr_column.type(),
                                               flatten_expr_column,
                                               /*is_correlated=*/false));
+  for (const auto& get_field : node->get_field_list()) {
+    ZETASQL_RETURN_IF_ERROR(
+        CollectColumnRefs(*get_field, &column_refs, /*correlate=*/true));
+  }
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedScan> rewritten_flatten,
       FlattenToScan(
           MakeResolvedColumnRef(flatten_expr_column.type(), flatten_expr_column,
                                 /*is_correlated=*/true),
           node->get_field_list(), /*input_scan=*/nullptr,
-          /*order_results=*/true));
+          /*order_results=*/true, /*in_subquery=*/true));
   if_args.push_back(MakeResolvedSubqueryExpr(
       node->type(), ResolvedSubqueryExpr::ARRAY, std::move(column_refs),
       /*in_expr=*/nullptr, std::move(rewritten_flatten)));
@@ -213,7 +224,7 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   // Putting it all together, we use a subquery whose result is the result of
   // the if condition above, with a projection input of the flatten expression.
   column_refs.clear();
-  ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*node->expr(), &column_refs));
+  ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*node, &column_refs));
   PushNodeToStack(MakeResolvedSubqueryExpr(
       node->type(), ResolvedSubqueryExpr::SCALAR, std::move(column_refs),
       /*in_expr=*/nullptr,
@@ -226,7 +237,8 @@ zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>>
 FlattenRewriterVisitor::FlattenToScan(
     std::unique_ptr<ResolvedExpr> flatten_expr,
     const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
-    std::unique_ptr<ResolvedScan> input_scan, bool order_results) {
+    std::unique_ptr<ResolvedScan> input_scan, bool order_results,
+    bool in_subquery) {
   std::vector<ResolvedColumn> column_list;
   if (input_scan != nullptr) column_list = input_scan->column_list();
   ResolvedColumn column = column_factory_->MakeCol(
@@ -261,6 +273,9 @@ FlattenRewriterVisitor::FlattenToScan(
     }
     ResolvedExpr* to_set_input = get_field.get();
     if (get_field->Is<ResolvedFunctionCall>()) {
+      if (in_subquery) {
+        ZETASQL_ASSIGN_OR_RETURN(get_field, CorrelateColumnRefs(*get_field));
+      }
       ResolvedFunctionCall* call = get_field->GetAs<ResolvedFunctionCall>();
       ZETASQL_RET_CHECK_EQ(2, call->argument_list_size());
       to_set_input = const_cast<ResolvedExpr*>(

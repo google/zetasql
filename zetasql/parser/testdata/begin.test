@@ -1,0 +1,142 @@
+# Empty block, no terminating semi-colon
+[default mode=script]
+begin
+end
+--
+Script [0-9]
+  StatementList [0-9]
+    BeginEndBlock [0-9]
+      StatementList [5-5]
+--
+BEGIN
+END
+;
+==
+
+# Empty block, with terminating semi-colon
+begin
+end;
+--
+Script [0-11]
+  StatementList [0-11]
+    BeginEndBlock [0-9]
+      StatementList [5-5]
+--
+BEGIN
+END
+;
+==
+
+# Simple block
+begin
+  select 3;
+  select 4;
+end;
+--
+Script [0-35]
+  StatementList [0-35]
+    BeginEndBlock [0-33]
+      StatementList [8-30]
+        QueryStatement [8-16]
+          Query [8-16]
+            Select [8-16]
+              SelectList [15-16]
+                SelectColumn [15-16]
+                  IntLiteral(3) [15-16]
+        QueryStatement [20-28]
+          Query [20-28]
+            Select [20-28]
+              SelectList [27-28]
+                SelectColumn [27-28]
+                  IntLiteral(4) [27-28]
+--
+BEGIN
+  SELECT
+    3
+  ;
+  SELECT
+    4
+  ;
+END
+;
+==
+
+# Nested block
+begin
+  begin
+    select 3;
+    select 4;
+  end;
+  select 5;
+end;
+--
+Script [0-66]
+  StatementList [0-66]
+    BeginEndBlock [0-64]
+      StatementList [8-61]
+        BeginEndBlock [8-47]
+          StatementList [18-44]
+            QueryStatement [18-26]
+              Query [18-26]
+                Select [18-26]
+                  SelectList [25-26]
+                    SelectColumn [25-26]
+                      IntLiteral(3) [25-26]
+            QueryStatement [32-40]
+              Query [32-40]
+                Select [32-40]
+                  SelectList [39-40]
+                    SelectColumn [39-40]
+                      IntLiteral(4) [39-40]
+        QueryStatement [51-59]
+          Query [51-59]
+            Select [51-59]
+              SelectList [58-59]
+                SelectColumn [58-59]
+                  IntLiteral(5) [58-59]
+--
+BEGIN
+  BEGIN
+    SELECT
+      3
+    ;
+    SELECT
+      4
+    ;
+  END
+  ;
+  SELECT
+    5
+  ;
+END
+;
+==
+
+# Error (last statement in block missing terminating semi-colon)
+begin
+  select 3;
+  select 4
+end;
+--
+ERROR: Syntax error: Expected ";" but got keyword END [at 4:1]
+end;
+^
+==
+
+# Error (missing end)
+begin
+  select 3;
+--
+ERROR: Syntax error: Expected keyword END but got end of script [at 3:1]
+
+^
+==
+
+# Error (extra semi-colon after BEGIN)
+BEGIN;
+  SELECT 3;
+END;
+--
+ERROR: Syntax error: Expected end of input but got keyword END [at 3:1]
+END;
+^

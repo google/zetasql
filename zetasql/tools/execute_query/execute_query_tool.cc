@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/descriptor_database.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
@@ -34,6 +35,7 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/tools/execute_query/execute_query_proto_writer.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
@@ -58,7 +60,7 @@ ABSL_FLAG(std::string, table_spec, "",
           "comma-delimited list of strings of the form <table_name>=<spec>, "
           "where <spec> is of the form:"
           "\n    csv:<path> - csv file that is represented by a table whose "
-          "string-typed column names are determined from the header row).");
+          "string-typed column names are determined from the header row.");
 
 ABSL_FLAG(
     std::string, descriptor_pool,
@@ -69,6 +71,12 @@ ABSL_FLAG(
     "\n    'none'      - no protos are included (but syntax is still "
     "supported");
 // TODO: Support specifying proto files to parse.
+
+ABSL_FLAG(std::string, output_mode, "box",
+          "Format to use for query results. Available choices:"
+          "\nbox - Tabular format for human consumption"
+          "\njson - JSON serialization"
+          "\ntextproto - Protocol buffer text format");
 
 namespace zetasql {
 
@@ -104,8 +112,7 @@ absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config) {
     // Do nothing
     return absl::OkStatus();
   } else if (pool == "generated") {
-    config.mutable_catalog().SetDescriptorPool(
-        google::protobuf::DescriptorPool::generated_pool());
+    config.SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
     return absl::OkStatus();
   } else {
     return absl::Status(absl::StatusCode::kInvalidArgument,
@@ -168,7 +175,69 @@ absl::Status AddTablesFromFlags(ExecuteQueryConfig& config) {
   return absl::OkStatus();
 }
 
+zetasql_base::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
+    const ExecuteQueryConfig& config, std::ostream& output) {
+  const std::string mode = absl::GetFlag(FLAGS_output_mode);
+
+  if (mode.empty()) {
+    return zetasql_base::InvalidArgumentErrorBuilder() << "Must specify --output_mode";
+  }
+
+  if (mode == "box") {
+    return std::make_unique<ExecuteQueryStreamWriter>(output);
+  }
+
+  std::function<absl::Status(const google::protobuf::Message& msg, std::ostream&)>
+      proto_writer_func;
+
+  if (mode == "json") {
+    proto_writer_func = &ExecuteQueryWriteJson;
+  } else if (mode == "textproto") {
+    proto_writer_func = &ExecuteQueryWriteTextproto;
+  } else {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Unknown output mode " << mode;
+  }
+
+  ZETASQL_RET_CHECK(proto_writer_func != nullptr);
+
+  const google::protobuf::DescriptorPool* pool = config.descriptor_pool();
+
+  ZETASQL_RET_CHECK_NE(pool, nullptr);
+
+  return std::make_unique<ExecuteQueryStreamProtobufWriter>(
+      pool, [proto_writer_func, &output](const google::protobuf::Message& msg) {
+        return proto_writer_func(msg, output);
+      });
+}
+
 ExecuteQueryConfig::ExecuteQueryConfig() : catalog_("") {}
+
+void ExecuteQueryConfig::SetDescriptorPool(const google::protobuf::DescriptorPool* pool) {
+  ZETASQL_CHECK(descriptor_pool_ == nullptr) << __func__ << " can only be called once";
+  owned_descriptor_pool_.reset();
+  descriptor_pool_ = pool;
+  catalog_.SetDescriptorPool(pool);
+}
+
+void ExecuteQueryConfig::SetOwnedDescriptorPool(
+    std::unique_ptr<const google::protobuf::DescriptorPool> pool) {
+  ZETASQL_CHECK(descriptor_pool_ == nullptr) << __func__ << " can only be called once";
+  owned_descriptor_pool_ = std::move(pool);
+  descriptor_pool_ = owned_descriptor_pool_.get();
+  catalog_.SetDescriptorPool(descriptor_pool_);
+}
+
+void ExecuteQueryConfig::SetOwnedDescriptorDatabase(
+    std::unique_ptr<google::protobuf::DescriptorDatabase> db) {
+  ZETASQL_CHECK(descriptor_db_ == nullptr) << __func__ << " can only be called once";
+
+  // The descriptor database given to the pool needs to be owned locally.
+  descriptor_db_ = std::move(db);
+
+  SetOwnedDescriptorPool(
+      std::make_unique<const google::protobuf::DescriptorPool>(descriptor_db_.get()));
+}
 
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           ExecuteQueryWriter& writer) {
@@ -196,8 +265,11 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
       analyzer_output->resolved_statement();
 
   ZETASQL_RET_CHECK_NE(resolved_statement, nullptr);
-  if (config.examine_resolved_ast_callback() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(config.examine_resolved_ast_callback()(resolved_statement));
+
+  if (const ExecuteQueryConfig::ExamineResolvedASTCallback callback =
+          config.examine_resolved_ast_callback();
+      callback) {
+    ZETASQL_RETURN_IF_ERROR(callback(resolved_statement));
   }
 
   if (config.tool_mode() == ToolMode::kResolve) {
@@ -228,13 +300,6 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
       return absl::InternalError(absl::StrCat(
           "unknown tool mode: ", static_cast<int>(config.tool_mode())));
   }
-}
-
-// Runs the tool.
-absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
-                          std::ostream& out_stream) {
-  ExecuteQueryStreamWriter writer{out_stream};
-  return ExecuteQuery(sql, config, writer);
 }
 
 }  // namespace zetasql

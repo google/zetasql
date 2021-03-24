@@ -784,8 +784,10 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
     if (!(*resolved_offset_expr)->type()->IsInt64()) {
       ZETASQL_RETURN_IF_ERROR(resolver_->function_resolver_->AddCastOrConvertLiteral(
           ast_frame_expr->expression(), resolver_->type_factory_->get_int64(),
-          nullptr /* scan */, false /* set_has_explicit_type */,
-          false /* return_null_on_error */, resolved_offset_expr));
+          /*format=*/nullptr,
+          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+          resolved_offset_expr));
     }
   } else {
     ZETASQL_DCHECK_EQ(frame_unit, ResolvedWindowFrame::RANGE);
@@ -811,8 +813,9 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
       // Coerce the framing expression to match the target (ORDER BY) expression
       // type.
       ZETASQL_RETURN_IF_ERROR(resolver_->function_resolver_->AddCastOrConvertLiteral(
-          ast_frame_expr->expression(), ordering_expr_type, nullptr /* scan */,
-          false /* set_has_explicit_type */, false /* return_null_on_error */,
+          ast_frame_expr->expression(), ordering_expr_type, /*format=*/nullptr,
+          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
           resolved_offset_expr));
     }
   }

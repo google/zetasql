@@ -16,6 +16,8 @@
 
 #include "zetasql/tools/execute_query/output_query_result.h"
 
+#include <cstdint>
+
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/base/statusor.h"
@@ -59,10 +61,10 @@ zetasql_base::StatusOr<const Table*> GetTableForDMLStatement(
 //   full contents of the modified table after a DML statement.
 // - 'column_names' with the names of the columns of the rows in 'result_table'.
 absl::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
-                                   const Value& result,
-                                   absl::optional<int64_t>* num_rows_modified,
-                                   bool* is_value_table, Value* result_table,
-                                   std::vector<std::string>* column_names) {
+                                 const Value& result,
+                                 absl::optional<int64_t>* num_rows_modified,
+                                 bool* is_value_table, Value* result_table,
+                                 std::vector<std::string>* column_names) {
   switch (resolved_stmt->node_kind()) {
     case RESOLVED_QUERY_STMT: {
       const ResolvedQueryStmt* resolved_query =

@@ -16,6 +16,8 @@
 
 #include "zetasql/common/simple_evaluator_table_iterator.h"
 
+#include <cstdint>
+
 #include "absl/flags/flag.h"
 
 ABSL_FLAG(int64_t, zetasql_simple_iterator_call_time_now_rows_period, 1000,

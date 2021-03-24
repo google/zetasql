@@ -16,6 +16,7 @@
 
 #include "zetasql/public/types/internal_utils.h"
 
+#include <cstdint>
 #include <limits>
 
 #include "zetasql/common/proto_helper.h"

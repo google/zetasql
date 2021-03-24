@@ -17,6 +17,8 @@
 #include "zetasql/public/functions/convert_string.h"
 
 #include <math.h>
+
+#include <cstdint>
 #include <limits>
 #include <map>
 #include <type_traits>
@@ -161,21 +163,13 @@ TEST(Convert, TestBool) {
   TestAll<bool>();
 }
 
-TEST(Convert, TestInt32) {
-  TestAll<int32_t>();
-}
+TEST(Convert, TestInt32) { TestAll<int32_t>(); }
 
-TEST(Convert, TestInt64) {
-  TestAll<int64_t>();
-}
+TEST(Convert, TestInt64) { TestAll<int64_t>(); }
 
-TEST(Convert, TestUint32) {
-  TestAll<uint32_t>();
-}
+TEST(Convert, TestUint32) { TestAll<uint32_t>(); }
 
-TEST(Convert, TestUint64) {
-  TestAll<uint64_t>();
-}
+TEST(Convert, TestUint64) { TestAll<uint64_t>(); }
 
 TEST(Convert, TestFloat) {
   TestAll<float>();

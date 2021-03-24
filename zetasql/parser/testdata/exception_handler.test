@@ -1,0 +1,346 @@
+# Empty block, empty exception handler
+[default mode=script]
+begin
+EXCEPTION WHEN ERROR THEN
+end
+--
+Script [0-35]
+  StatementList [0-35]
+    BeginEndBlock [0-35]
+      StatementList [5-5]
+      ExceptionHandlerList [6-15]
+        ExceptionHandler [16-20]
+          StatementList [31-31]
+--
+BEGIN
+EXCEPTION
+WHEN ERROR THEN
+END
+;
+==
+
+# Non-empty block, empty handler
+BEGIN
+  SELECT 1;
+EXCEPTION WHEN ERROR THEN
+END;
+--
+Script [0-49]
+  StatementList [0-49]
+    BeginEndBlock [0-47]
+      StatementList [8-18]
+        QueryStatement [8-16]
+          Query [8-16]
+            Select [8-16]
+              SelectList [15-16]
+                SelectColumn [15-16]
+                  IntLiteral(1) [15-16]
+      ExceptionHandlerList [18-27]
+        ExceptionHandler [28-32]
+          StatementList [43-43]
+--
+BEGIN
+  SELECT
+    1
+  ;
+EXCEPTION
+WHEN ERROR THEN
+END
+;
+==
+
+# Empty block, non-empty handler
+BEGIN EXCEPTION WHEN ERROR THEN SELECT 1; END;
+--
+Script [0-47]
+  StatementList [0-47]
+    BeginEndBlock [0-45]
+      StatementList [5-5]
+      ExceptionHandlerList [6-15]
+        ExceptionHandler [16-20]
+          StatementList [32-42]
+            QueryStatement [32-40]
+              Query [32-40]
+                Select [32-40]
+                  SelectList [39-40]
+                    SelectColumn [39-40]
+                      IntLiteral(1) [39-40]
+--
+BEGIN
+EXCEPTION
+WHEN ERROR THEN
+  SELECT
+    1
+  ;
+END
+;
+==
+
+# Non-empty block, non-empty handler
+BEGIN
+  SELECT 1;
+  SELECT 2;
+EXCEPTION WHEN ERROR THEN
+  SELECT 3;
+  SELECT 4;
+END;
+--
+Script [0-85]
+  StatementList [0-85]
+    BeginEndBlock [0-83]
+      StatementList [8-30]
+        QueryStatement [8-16]
+          Query [8-16]
+            Select [8-16]
+              SelectList [15-16]
+                SelectColumn [15-16]
+                  IntLiteral(1) [15-16]
+        QueryStatement [20-28]
+          Query [20-28]
+            Select [20-28]
+              SelectList [27-28]
+                SelectColumn [27-28]
+                  IntLiteral(2) [27-28]
+      ExceptionHandlerList [30-39]
+        ExceptionHandler [40-44]
+          StatementList [58-80]
+            QueryStatement [58-66]
+              Query [58-66]
+                Select [58-66]
+                  SelectList [65-66]
+                    SelectColumn [65-66]
+                      IntLiteral(3) [65-66]
+            QueryStatement [70-78]
+              Query [70-78]
+                Select [70-78]
+                  SelectList [77-78]
+                    SelectColumn [77-78]
+                      IntLiteral(4) [77-78]
+--
+BEGIN
+  SELECT
+    1
+  ;
+  SELECT
+    2
+  ;
+EXCEPTION
+WHEN ERROR THEN
+  SELECT
+    3
+  ;
+  SELECT
+    4
+  ;
+END
+;
+==
+
+# Non-reserved keywords in exception handler syntax used as identifiers.
+# (Note that WHEN is a reserved keyword for CASE WHEN..., indepedent of
+#  exception handling).
+BEGIN
+  SELECT EXCEPTION, ERROR FROM Foo.Bar;
+EXCEPTION WHEN ERROR THEN
+  SELECT 3;
+  SELECT 4;
+END;
+--
+Script [0-101]
+  StatementList [0-101]
+    BeginEndBlock [0-99]
+      StatementList [8-46]
+        QueryStatement [8-44]
+          Query [8-44]
+            Select [8-44]
+              SelectList [15-31]
+                SelectColumn [15-24]
+                  PathExpression [15-24]
+                    Identifier(EXCEPTION) [15-24]
+                SelectColumn [26-31]
+                  PathExpression [26-31]
+                    Identifier(ERROR) [26-31]
+              FromClause [32-44]
+                TablePathExpression [37-44]
+                  PathExpression [37-44]
+                    Identifier(Foo) [37-40]
+                    Identifier(Bar) [41-44]
+      ExceptionHandlerList [46-55]
+        ExceptionHandler [56-60]
+          StatementList [74-96]
+            QueryStatement [74-82]
+              Query [74-82]
+                Select [74-82]
+                  SelectList [81-82]
+                    SelectColumn [81-82]
+                      IntLiteral(3) [81-82]
+            QueryStatement [86-94]
+              Query [86-94]
+                Select [86-94]
+                  SelectList [93-94]
+                    SelectColumn [93-94]
+                      IntLiteral(4) [93-94]
+--
+BEGIN
+  SELECT
+    EXCEPTION,
+    ERROR
+  FROM
+    Foo.Bar
+  ;
+EXCEPTION
+WHEN ERROR THEN
+  SELECT
+    3
+  ;
+  SELECT
+    4
+  ;
+END
+;
+==
+
+# Nested exception handlers
+BEGIN
+  SELECT 1;
+EXCEPTION WHEN ERROR THEN
+  BEGIN
+    SELECT foo;
+  EXCEPTION WHEN ERROR THEN
+    SELECT 2;
+  END;
+END;
+--
+Script [0-122]
+  StatementList [0-122]
+    BeginEndBlock [0-120]
+      StatementList [8-18]
+        QueryStatement [8-16]
+          Query [8-16]
+            Select [8-16]
+              SelectList [15-16]
+                SelectColumn [15-16]
+                  IntLiteral(1) [15-16]
+      ExceptionHandlerList [18-27]
+        ExceptionHandler [28-32]
+          StatementList [46-117]
+            BeginEndBlock [46-115]
+              StatementList [56-70]
+                QueryStatement [56-66]
+                  Query [56-66]
+                    Select [56-66]
+                      SelectList [63-66]
+                        SelectColumn [63-66]
+                          PathExpression [63-66]
+                            Identifier(foo) [63-66]
+              ExceptionHandlerList [70-79]
+                ExceptionHandler [80-84]
+                  StatementList [100-112]
+                    QueryStatement [100-108]
+                      Query [100-108]
+                        Select [100-108]
+                          SelectList [107-108]
+                            SelectColumn [107-108]
+                              IntLiteral(2) [107-108]
+--
+BEGIN
+  SELECT
+    1
+  ;
+EXCEPTION
+WHEN ERROR THEN BEGIN
+    SELECT
+      foo
+    ;
+  EXCEPTION
+  WHEN ERROR THEN
+    SELECT
+      2
+    ;
+  END
+  ;
+END
+;
+==
+
+# ERROR: Multiple exception handlers within a single block
+BEGIN
+  SELECT 1;
+EXCEPTION
+  WHEN ERROR THEN SELECT 1;
+  WHEN ERROR THEN SELECT 2;
+END;
+--
+ERROR: Syntax error: Expected keyword END but got keyword WHEN [at 5:3]
+  WHEN ERROR THEN SELECT 2;
+  ^
+==
+
+# ERROR: Multiple exception clauses within a single block
+BEGIN
+  SELECT 1;
+EXCEPTION
+  WHEN ERROR THEN SELECT 1;
+EXCEPTION
+  WHEN ERROR THEN SELECT 2;
+END;
+--
+ERROR: Syntax error: Expected keyword END but got keyword EXCEPTION [at 5:1]
+EXCEPTION
+^
+==
+
+# ERROR: Exception clause without a BEGIN block
+EXCEPTION
+  WHEN ERROR THEN SELECT 1;
+--
+ERROR: Syntax error: Expected end of input but got keyword EXCEPTION [at 1:1]
+EXCEPTION
+^
+==
+
+# ERROR: Exception clause without a handler
+BEGIN
+  SELECT 1;
+EXCEPTION
+END;
+--
+ERROR: Syntax error: Expected keyword WHEN but got keyword END [at 4:1]
+END;
+^
+==
+
+# ERROR: Missing 'ERROR' keyword
+BEGIN
+  SELECT 1;
+EXCEPTION
+  WHEN THEN SELECT 1;
+END;
+--
+ERROR: Syntax error: Expected keyword ERROR but got keyword THEN [at 4:8]
+  WHEN THEN SELECT 1;
+       ^
+==
+
+# ERROR: Missing 'THEN' keyword
+BEGIN
+  SELECT 1;
+EXCEPTION
+  WHEN ERROR SELECT 1;
+END;
+--
+ERROR: Syntax error: Expected keyword THEN but got keyword SELECT [at 4:14]
+  WHEN ERROR SELECT 1;
+             ^
+==
+
+# ERROR: Missing 'WHEN ERROR THEN' keywords
+BEGIN
+  SELECT 1;
+EXCEPTION
+  SELECT 1;
+END;
+--
+ERROR: Syntax error: Expected keyword WHEN but got keyword SELECT [at 4:3]
+  SELECT 1;
+  ^

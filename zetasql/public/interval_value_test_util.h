@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_INTERVAL_VALUE_TEST_UTIL_H_
 #define ZETASQL_PUBLIC_INTERVAL_VALUE_TEST_UTIL_H_
 
+#include <cstdint>
+
 #include "zetasql/public/interval_value.h"
 
 namespace zetasql {
@@ -39,23 +41,29 @@ inline IntervalValue Nanos(__int128 nanos) {
   return IntervalValue::FromNanos(nanos).ValueOrDie();
 }
 
-inline IntervalValue MonthsDaysMicros(int64_t months, int64_t days, int64_t micros) {
+inline IntervalValue MonthsDaysMicros(int64_t months, int64_t days,
+                                      int64_t micros) {
   return IntervalValue::FromMonthsDaysMicros(months, days, micros).ValueOrDie();
 }
 
-inline IntervalValue MonthsDaysNanos(int64_t months, int64_t days, __int128 nanos) {
+inline IntervalValue MonthsDaysNanos(int64_t months, int64_t days,
+                                     __int128 nanos) {
   return IntervalValue::FromMonthsDaysNanos(months, days, nanos).ValueOrDie();
 }
 
-inline IntervalValue YMDHMS(int64_t years, int64_t months, int64_t days, int64_t hours,
-                            int64_t minutes, int64_t seconds) {
+inline IntervalValue YMDHMS(int64_t years, int64_t months, int64_t days,
+                            int64_t hours, int64_t minutes, int64_t seconds) {
   return IntervalValue::FromYMDHMS(years, months, days, hours, minutes, seconds)
       .ValueOrDie();
 }
 
-inline IntervalValue Years(int64_t years) { return YMDHMS(years, 0, 0, 0, 0, 0); }
+inline IntervalValue Years(int64_t years) {
+  return YMDHMS(years, 0, 0, 0, 0, 0);
+}
 
-inline IntervalValue Hours(int64_t hours) { return YMDHMS(0, 0, 0, hours, 0, 0); }
+inline IntervalValue Hours(int64_t hours) {
+  return YMDHMS(0, 0, 0, hours, 0, 0);
+}
 
 inline IntervalValue Minutes(int64_t minutes) {
   return YMDHMS(0, 0, 0, 0, minutes, 0);

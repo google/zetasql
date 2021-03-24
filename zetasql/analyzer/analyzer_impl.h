@@ -66,16 +66,6 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
     const AnalyzerOptions& options, absl::Span<const Rewriter* const> rewriters,
     Catalog* catalog, TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output);
-
-// Rewrites the resolved AST using the Rewriter system. Note that the
-// <rewriters> will not necessarily be used. It depends on which
-// rewriters are enabled in <analyzer_options>.
-absl::Status InternalRewriteResolvedAst(
-    const AnalyzerOptions& analyzer_options,
-    absl::Span<const Rewriter* const> rewriters, absl::string_view sql,
-    Catalog* catalog, TypeFactory* type_factory,
-    AnalyzerOutput& analyzer_output);
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_ANALYZER_IMPL_H_

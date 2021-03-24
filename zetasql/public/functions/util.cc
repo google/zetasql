@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/util.h"
 
+#include <cstdint>
+
 #include "zetasql/common/utf_util.h"
 #include "zetasql/base/status.h"
 
@@ -43,7 +45,8 @@ bool UpdateError(absl::Status* status, absl::string_view msg) {
   return false;
 }
 
-absl::Status ValidatePositionAndOccurrence(int64_t position, int64_t occurrence) {
+absl::Status ValidatePositionAndOccurrence(int64_t position,
+                                           int64_t occurrence) {
   if (position < 1) {
     return absl::Status(absl::StatusCode::kOutOfRange,
                         "Position must be positive");

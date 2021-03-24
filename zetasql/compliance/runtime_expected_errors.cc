@@ -144,6 +144,21 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Position must be positive"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid return_position_after_match"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Cannot write NULL to key or value of map field"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Key not found in map"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "MODIFY_MAP: All key arguments must be non-NULL"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "MODIFY_MAP: Only one instance of each key is allowed"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid input to PARSE_NUMERIC"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid input to PARSE_BIGNUMERIC"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
@@ -333,6 +348,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kInvalidArgument,
       "ARRAY_IS_DISTINCT cannot be used on argument of type .* because the "
       "array's element type does not support grouping"));
+  // Due to the above expected errors, rqg could generate invalid expressions.
+  // An invalid lambda body manifests as "No matching signature".
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "No matching signature for function (ARRAY_FILTER|ARRAY_TRANSFORM) .*"));
 
   // HLL sketch format errors
   //

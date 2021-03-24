@@ -1,0 +1,439 @@
+create constant foo = 5;
+--
+CreateConstantStatement [0-23]
+  PathExpression [16-19]
+    Identifier(foo) [16-19]
+  IntLiteral(5) [22-23]
+--
+CREATE CONSTANT foo = 5
+==
+
+create constant a.b.c = 'str';
+--
+CreateConstantStatement [0-29]
+  PathExpression [16-21]
+    Identifier(a) [16-17]
+    Identifier(b) [18-19]
+    Identifier(c) [20-21]
+  StringLiteral('str') [24-29]
+--
+CREATE CONSTANT a.b.c = 'str'
+==
+
+# When back-ticking this identifier the round tripping through parse tokens
+# fails, because the resulting SQL does *not* contain the backticks and
+# therefore that SQL is actually valid and parses ok (even though the
+# original SQL did not parse ok).
+[no_test_get_parse_tokens]
+create `constant` a.b.c = 'str';
+--
+ERROR: `constant` is not a supported object type [at 1:8]
+create `constant` a.b.c = 'str';
+       ^
+==
+
+create constant d.e = a + b;
+--
+CreateConstantStatement [0-27]
+  PathExpression [16-19]
+    Identifier(d) [16-17]
+    Identifier(e) [18-19]
+  BinaryExpression(+) [22-27]
+    PathExpression [22-23]
+      Identifier(a) [22-23]
+    PathExpression [26-27]
+      Identifier(b) [26-27]
+--
+CREATE CONSTANT d.e = a + b
+==
+
+create constant d.e = @param;
+--
+CreateConstantStatement [0-28]
+  PathExpression [16-19]
+    Identifier(d) [16-17]
+    Identifier(e) [18-19]
+  ParameterExpr [22-28]
+    Identifier(param) [23-28]
+--
+CREATE CONSTANT d.e = @param
+==
+
+create constant d.e = @@sysvar;
+--
+CreateConstantStatement [0-30]
+  PathExpression [16-19]
+    Identifier(d) [16-17]
+    Identifier(e) [18-19]
+  SystemVariableExpr [22-30]
+    PathExpression [24-30]
+      Identifier(sysvar) [24-30]
+--
+CREATE CONSTANT d.e = @@sysvar
+==
+
+create constant d.e = NULL;
+--
+CreateConstantStatement [0-26]
+  PathExpression [16-19]
+    Identifier(d) [16-17]
+    Identifier(e) [18-19]
+  NullLiteral(NULL) [22-26]
+--
+CREATE CONSTANT d.e = NULL
+==
+
+create constant @@sysvar = 4;
+--
+ERROR: Syntax error: Unexpected "@@" [at 1:17]
+create constant @@sysvar = 4;
+                ^
+==
+
+create constant d.e = NULL;
+--
+CreateConstantStatement [0-26]
+  PathExpression [16-19]
+    Identifier(d) [16-17]
+    Identifier(e) [18-19]
+  NullLiteral(NULL) [22-26]
+--
+CREATE CONSTANT d.e = NULL
+==
+
+create constant d.e = cast(NULL as STRING);
+--
+CreateConstantStatement [0-42]
+  PathExpression [16-19]
+    Identifier(d) [16-17]
+    Identifier(e) [18-19]
+  CastExpression [22-42]
+    NullLiteral(NULL) [27-31]
+    SimpleType [35-41]
+      PathExpression [35-41]
+        Identifier(STRING) [35-41]
+--
+CREATE CONSTANT d.e = CAST(NULL AS STRING)
+==
+
+create constant a = (select 1 from foo);
+--
+CreateConstantStatement [0-39]
+  PathExpression [16-17]
+    Identifier(a) [16-17]
+  ExpressionSubquery [20-39]
+    Query [21-38]
+      Select [21-38]
+        SelectList [28-29]
+          SelectColumn [28-29]
+            IntLiteral(1) [28-29]
+        FromClause [30-38]
+          TablePathExpression [35-38]
+            PathExpression [35-38]
+              Identifier(foo) [35-38]
+--
+CREATE CONSTANT a = (
+  SELECT
+    1
+  FROM
+    foo
+)
+==
+
+create {{temp|temporary|public|private}} constant a = 0;
+--
+ALTERNATION GROUP: temp
+--
+CreateConstantStatement(is_temp) [0-26]
+  PathExpression [21-22]
+    Identifier(a) [21-22]
+  IntLiteral(0) [25-26]
+--
+CREATE TEMP CONSTANT a = 0
+--
+ALTERNATION GROUP: temporary
+--
+CreateConstantStatement(is_temp) [0-31]
+  PathExpression [26-27]
+    Identifier(a) [26-27]
+  IntLiteral(0) [30-31]
+--
+CREATE TEMP CONSTANT a = 0
+--
+ALTERNATION GROUP: public
+--
+CreateConstantStatement(is_public) [0-28]
+  PathExpression [23-24]
+    Identifier(a) [23-24]
+  IntLiteral(0) [27-28]
+--
+CREATE PUBLIC CONSTANT a = 0
+--
+ALTERNATION GROUP: private
+--
+CreateConstantStatement(is_private) [0-29]
+  PathExpression [24-25]
+    Identifier(a) [24-25]
+  IntLiteral(0) [28-29]
+--
+CREATE PRIVATE CONSTANT a = 0
+==
+
+create or replace constant constant = 1;
+--
+CreateConstantStatement(is_or_replace) [0-39]
+  PathExpression [27-35]
+    Identifier(constant) [27-35]
+  IntLiteral(1) [38-39]
+--
+CREATE OR REPLACE CONSTANT constant = 1
+==
+
+create constant if not exists foo = 1;
+--
+CreateConstantStatement(is_if_not_exists) [0-37]
+  PathExpression [30-33]
+    Identifier(foo) [30-33]
+  IntLiteral(1) [36-37]
+--
+CREATE CONSTANT IF NOT EXISTS foo = 1
+==
+
+# Test all combinations of the modifiers.  They all parse ok, although
+# OR REPLACE and IF NOT EXISTS are semantically exclusive.
+create {{|or replace}} {{temp|temporary|public|private}}
+constant {{|if not exists}} a = 0;
+--
+ALTERNATION GROUP: temp,
+--
+CreateConstantStatement(is_temp) [0-28]
+  PathExpression [23-24]
+    Identifier(a) [23-24]
+  IntLiteral(0) [27-28]
+--
+CREATE TEMP CONSTANT a = 0
+--
+ALTERNATION GROUP: temp,if not exists
+--
+CreateConstantStatement(is_temp, is_if_not_exists) [0-41]
+  PathExpression [36-37]
+    Identifier(a) [36-37]
+  IntLiteral(0) [40-41]
+--
+CREATE TEMP CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: temporary,
+--
+CreateConstantStatement(is_temp) [0-33]
+  PathExpression [28-29]
+    Identifier(a) [28-29]
+  IntLiteral(0) [32-33]
+--
+CREATE TEMP CONSTANT a = 0
+--
+ALTERNATION GROUP: temporary,if not exists
+--
+CreateConstantStatement(is_temp, is_if_not_exists) [0-46]
+  PathExpression [41-42]
+    Identifier(a) [41-42]
+  IntLiteral(0) [45-46]
+--
+CREATE TEMP CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: public,
+--
+CreateConstantStatement(is_public) [0-30]
+  PathExpression [25-26]
+    Identifier(a) [25-26]
+  IntLiteral(0) [29-30]
+--
+CREATE PUBLIC CONSTANT a = 0
+--
+ALTERNATION GROUP: public,if not exists
+--
+CreateConstantStatement(is_public, is_if_not_exists) [0-43]
+  PathExpression [38-39]
+    Identifier(a) [38-39]
+  IntLiteral(0) [42-43]
+--
+CREATE PUBLIC CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: private,
+--
+CreateConstantStatement(is_private) [0-31]
+  PathExpression [26-27]
+    Identifier(a) [26-27]
+  IntLiteral(0) [30-31]
+--
+CREATE PRIVATE CONSTANT a = 0
+--
+ALTERNATION GROUP: private,if not exists
+--
+CreateConstantStatement(is_private, is_if_not_exists) [0-44]
+  PathExpression [39-40]
+    Identifier(a) [39-40]
+  IntLiteral(0) [43-44]
+--
+CREATE PRIVATE CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: or replace,temp,
+--
+CreateConstantStatement(is_temp, is_or_replace) [0-38]
+  PathExpression [33-34]
+    Identifier(a) [33-34]
+  IntLiteral(0) [37-38]
+--
+CREATE OR REPLACE TEMP CONSTANT a = 0
+--
+ALTERNATION GROUP: or replace,temp,if not exists
+--
+CreateConstantStatement(is_temp, is_or_replace, is_if_not_exists) [0-51]
+  PathExpression [46-47]
+    Identifier(a) [46-47]
+  IntLiteral(0) [50-51]
+--
+CREATE OR REPLACE TEMP CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: or replace,temporary,
+--
+CreateConstantStatement(is_temp, is_or_replace) [0-43]
+  PathExpression [38-39]
+    Identifier(a) [38-39]
+  IntLiteral(0) [42-43]
+--
+CREATE OR REPLACE TEMP CONSTANT a = 0
+--
+ALTERNATION GROUP: or replace,temporary,if not exists
+--
+CreateConstantStatement(is_temp, is_or_replace, is_if_not_exists) [0-56]
+  PathExpression [51-52]
+    Identifier(a) [51-52]
+  IntLiteral(0) [55-56]
+--
+CREATE OR REPLACE TEMP CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: or replace,public,
+--
+CreateConstantStatement(is_public, is_or_replace) [0-40]
+  PathExpression [35-36]
+    Identifier(a) [35-36]
+  IntLiteral(0) [39-40]
+--
+CREATE OR REPLACE PUBLIC CONSTANT a = 0
+--
+ALTERNATION GROUP: or replace,public,if not exists
+--
+CreateConstantStatement(is_public, is_or_replace, is_if_not_exists) [0-53]
+  PathExpression [48-49]
+    Identifier(a) [48-49]
+  IntLiteral(0) [52-53]
+--
+CREATE OR REPLACE PUBLIC CONSTANT IF NOT EXISTS a = 0
+--
+ALTERNATION GROUP: or replace,private,
+--
+CreateConstantStatement(is_private, is_or_replace) [0-41]
+  PathExpression [36-37]
+    Identifier(a) [36-37]
+  IntLiteral(0) [40-41]
+--
+CREATE OR REPLACE PRIVATE CONSTANT a = 0
+--
+ALTERNATION GROUP: or replace,private,if not exists
+--
+CreateConstantStatement(is_private, is_or_replace, is_if_not_exists) [0-54]
+  PathExpression [49-50]
+    Identifier(a) [49-50]
+  IntLiteral(0) [53-54]
+--
+CREATE OR REPLACE PRIVATE CONSTANT IF NOT EXISTS a = 0
+==
+
+create constant function = 5;
+--
+CreateConstantStatement [0-28]
+  PathExpression [16-24]
+    Identifier(`function`) [16-24]
+  IntLiteral(5) [27-28]
+--
+CREATE CONSTANT `function` = 5
+==
+
+create constant table = 'a';
+--
+CreateConstantStatement [0-27]
+  PathExpression [16-21]
+    Identifier(table) [16-21]
+  StringLiteral('a') [24-27]
+--
+CREATE CONSTANT table = 'a'
+==
+
+create constant;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:16]
+create constant;
+               ^
+==
+
+create constant foo;
+--
+ERROR: Syntax error: Expected "." or "=" but got ";" [at 1:20]
+create constant foo;
+                   ^
+==
+
+create constant foo =;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:22]
+create constant foo =;
+                     ^
+==
+
+create constant = 42;
+--
+ERROR: Syntax error: Unexpected "=" [at 1:17]
+create constant = 42;
+                ^
+==
+
+create constant a 5;
+--
+ERROR: Syntax error: Expected "." or "=" but got integer literal "5" [at 1:19]
+create constant a 5;
+                  ^
+==
+
+create constant a as 5;
+--
+ERROR: Syntax error: Expected "." or "=" but got keyword AS [at 1:19]
+create constant a as 5;
+                  ^
+==
+
+create constant * = 5;
+--
+ERROR: Syntax error: Unexpected "*" [at 1:17]
+create constant * = 5;
+                ^
+==
+
+# Cannot create a constant without backticks whose name could be interpreted as
+# a system variable.
+create constant @@a = 1;
+--
+ERROR: Syntax error: Unexpected "@@" [at 1:17]
+create constant @@a = 1;
+                ^
+
+==
+
+# Can create a constant whose name could be interpreted as a system variable.
+create constant `@@a` = 1;
+--
+CreateConstantStatement [0-25]
+  PathExpression [16-21]
+    Identifier(`@@a`) [16-21]
+  IntLiteral(1) [24-25]
+--
+CREATE CONSTANT `@@a` = 1

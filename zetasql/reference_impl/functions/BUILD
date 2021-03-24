@@ -83,6 +83,8 @@ cc_library(
         "//zetasql/base:statusor",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public/functions:json",
+        "//zetasql/public/functions:json_format",
+        "//zetasql/public/functions:to_json",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
     ],

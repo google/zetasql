@@ -17,8 +17,12 @@
 
 package com.google.zetasql;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /** A table or table-like object visible in a ZetaSQL query. */
@@ -59,4 +63,31 @@ public interface Table extends Serializable {
   public boolean isValueTable();
 
   public long getId();
+
+  /**
+   * Generates the SQL name for this table type, which will be reparseable as part of a query.
+   * NOTE: Pseudo-columns such as _PARTITION_DATE are not included.
+   *
+   * <p>e.g. {@code TABLE<x INT64, y STRING>} for tables with named columns
+   *         {@code TABLE<INT64, STRING>} for tables with anonymous columns
+   */
+  public default String getTableTypeName(ProductMode productMode) {
+    List<String> strings = new ArrayList<>();
+    for (Column column : getColumnList()) {
+      // Skip pseudo-columns such as _PARTITION_DATE
+      if (column.isPseudoColumn()) {
+        continue;
+      }
+      if (!column.getName().isEmpty()) {
+        strings.add(
+            String.format(
+                "%s %s",
+                ZetaSQLStrings.toIdentifierLiteral(column.getName()),
+                column.getType().typeName(productMode)));
+      } else {
+        strings.add(column.getType().typeName(productMode));
+      }
+    }
+    return String.format("TABLE<%s>", Joiner.on(", ").join(strings));
+  };
 }

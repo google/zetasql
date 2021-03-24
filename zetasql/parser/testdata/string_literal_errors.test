@@ -1,0 +1,1975 @@
+# Test unclosed string.
+select {{'a|"a|`a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select 'a
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select "a
+       ^
+--
+ALTERNATION GROUP: `a
+--
+ERROR: Syntax error: Unclosed identifier literal [at 1:8]
+select `a
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a'
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a"
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a''
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a""
+       ^
+==
+
+# Test unclosed bytes.
+select b{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b'a
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b"a
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a'
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a"
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a''
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a""
+       ^
+==
+
+# Test unclosed raw string.
+select r{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'a
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r"a
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a'
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a"
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a''
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a""
+       ^
+==
+
+# Test unclosed raw bytes.
+select rb{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb'a
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb"a
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a'
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a"
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a''
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a""
+       ^
+==
+
+# Test unclosed raw bytes.
+select br{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br'a
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br"a
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a'
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a"
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a''
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a""
+       ^
+==
+
+# Test unclosed string with a trailing backslash.
+select {{'a|"a|`a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select 'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select "a\
+       ^
+--
+ALTERNATION GROUP: `a
+--
+ERROR: Syntax error: Unclosed identifier literal [at 1:8]
+select `a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a""\
+       ^
+==
+
+# Test unclosed bytes with a trailing backslash.
+select b{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a""\
+       ^
+==
+
+# Test unclosed raw string with a trailing backslash.
+select r{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a""\
+       ^
+==
+
+# Test unclosed raw bytes with a trailing backslash.
+select rb{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a""\
+       ^
+==
+
+# Test unclosed raw bytes with a trailing backslash.
+select br{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a""\
+       ^
+==
+
+# Test unclosed string with a trailing backslash and no newline.
+[strip_trailing_newline]
+select {{'a|"a|`a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select 'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select "a\
+       ^
+--
+ALTERNATION GROUP: `a
+--
+ERROR: Syntax error: Unclosed identifier literal [at 1:8]
+select `a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a""\
+       ^
+==
+
+# Test unclosed bytes with a trailing backslash and no newline.
+[strip_trailing_newline]
+select b{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a""\
+       ^
+==
+
+# Test unclosed raw string with a trailing backslash and no newline.
+[strip_trailing_newline]
+select r{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a""\
+       ^
+==
+
+# Test unclosed raw bytes with a trailing backslash and no newline.
+[strip_trailing_newline]
+select rb{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a""\
+       ^
+==
+
+# Test unclosed raw bytes with a trailing backslash and no newline.
+[strip_trailing_newline]
+select br{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br'a\
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br"a\
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a\
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a\
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a'\
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a"\
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a''\
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a""\
+       ^
+==
+
+# Test closed string with a trailing backslash and no newline.
+[strip_trailing_newline]
+select {{'a'|"a"|`a`|'''a'''||"""a"""}}\
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:11]
+select 'a'\
+          ^
+--
+ALTERNATION GROUP: "a"
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:11]
+select "a"\
+          ^
+--
+ALTERNATION GROUP: `a`
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:11]
+select `a`\
+          ^
+--
+ALTERNATION GROUP: '''a'''
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:15]
+select '''a'''\
+              ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:8]
+select \
+       ^
+--
+ALTERNATION GROUP: """a"""
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:15]
+select """a"""\
+              ^
+==
+
+# Test closed bytes with a trailing backslash and no newline.
+[strip_trailing_newline]
+select b{{'a'|"a"|'''a'''|"""a"""}}\
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+select b'a'\
+           ^
+--
+ALTERNATION GROUP: "a"
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+select b"a"\
+           ^
+--
+ALTERNATION GROUP: '''a'''
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+select b'''a'''\
+               ^
+--
+ALTERNATION GROUP: """a"""
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+select b"""a"""\
+               ^
+==
+
+# Test closed raw string with a trailing backlash and no newline.
+[strip_trailing_newline]
+select r{{'a'|"a"|'''a'''|"""a"""}}\
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+select r'a'\
+           ^
+--
+ALTERNATION GROUP: "a"
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:12]
+select r"a"\
+           ^
+--
+ALTERNATION GROUP: '''a'''
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+select r'''a'''\
+               ^
+--
+ALTERNATION GROUP: """a"""
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:16]
+select r"""a"""\
+               ^
+==
+
+# Test closed raw bytes with a trailing backlash and no newline.
+[strip_trailing_newline]
+select rb{{'a'|"a"|'''a'''|"""a"""}}\
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+select rb'a'\
+            ^
+--
+ALTERNATION GROUP: "a"
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+select rb"a"\
+            ^
+--
+ALTERNATION GROUP: '''a'''
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+select rb'''a'''\
+                ^
+--
+ALTERNATION GROUP: """a"""
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+select rb"""a"""\
+                ^
+==
+
+# Test closed raw bytes with a trailing backslash and no newline.
+[strip_trailing_newline]
+select br{{'a'|"a"|'''a'''|"""a"""}}\
+--
+ALTERNATION GROUP: 'a'
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+select br'a'\
+            ^
+--
+ALTERNATION GROUP: "a"
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:13]
+select br"a"\
+            ^
+--
+ALTERNATION GROUP: '''a'''
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+select br'''a'''\
+                ^
+--
+ALTERNATION GROUP: """a"""
+--
+ERROR: Syntax error: Illegal input character "\\" [at 1:17]
+select br"""a"""\
+                ^
+==
+
+# Test unclosed string with a trailing illegal escape.
+select {{'a|"a|`a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\e
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select 'a\e
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select "a\e
+       ^
+--
+ALTERNATION GROUP: `a
+--
+ERROR: Syntax error: Unclosed identifier literal [at 1:8]
+select `a\e
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a\e
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a\e
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a'\e
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a"\e
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''a''\e
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """a""\e
+       ^
+==
+
+# Test unclosed bytes with a trailing illegal escape.
+select b{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\e
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b'a\e
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b"a\e
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a\e
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a\e
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a'\e
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a"\e
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''a''\e
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""a""\e
+       ^
+==
+
+# Test unclosed raw string with a trailing illegal escape.
+select r{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\e
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'a\e
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r"a\e
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a\e
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a\e
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a'\e
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a"\e
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''a''\e
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""a""\e
+       ^
+==
+
+# Test unclosed raw bytes with a trailing illegal escape.
+select rb{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\e
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb'a\e
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb"a\e
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a\e
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a\e
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a'\e
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a"\e
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''a''\e
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""a""\e
+       ^
+==
+
+# Test unclosed raw bytes with a trailing illegal escape \e.
+select br{{'a|"a|'''a|"""a|'''a'|"""a"|'''a''|"""a""}}\e
+--
+ALTERNATION GROUP: 'a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br'a\e
+       ^
+--
+ALTERNATION GROUP: "a
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br"a\e
+       ^
+--
+ALTERNATION GROUP: '''a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a\e
+       ^
+--
+ALTERNATION GROUP: """a
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a\e
+       ^
+--
+ALTERNATION GROUP: '''a'
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a'\e
+       ^
+--
+ALTERNATION GROUP: """a"
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a"\e
+       ^
+--
+ALTERNATION GROUP: '''a''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''a''\e
+       ^
+--
+ALTERNATION GROUP: """a""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""a""\e
+       ^
+==
+
+# Some more cases of invalid quoting.
+select
+{{"|'|'''|"""|''''|""""|'''''|"""""|'''''''|"""""""|''''''''|""""""""|'''''''''|"""""""""}}
+--
+ALTERNATION GROUP: "
+--
+ERROR: Syntax error: Unclosed string literal [at 2:1]
+"
+^
+--
+ALTERNATION GROUP: '
+--
+ERROR: Syntax error: Unclosed string literal [at 2:1]
+'
+^
+--
+ALTERNATION GROUP: '''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:1]
+'''
+^
+--
+ALTERNATION GROUP: """
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:1]
+"""
+^
+--
+ALTERNATION GROUP: ''''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:1]
+''''
+^
+--
+ALTERNATION GROUP: """"
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:1]
+""""
+^
+--
+ALTERNATION GROUP: '''''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:1]
+'''''
+^
+--
+ALTERNATION GROUP: """""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:1]
+"""""
+^
+--
+ALTERNATION GROUP: '''''''
+--
+ERROR: Syntax error: Unclosed string literal [at 2:7]
+'''''''
+      ^
+--
+ALTERNATION GROUP: """""""
+--
+ERROR: Syntax error: Unclosed string literal [at 2:7]
+"""""""
+      ^
+--
+ALTERNATION GROUP: ''''''''
+--
+ERROR: Syntax error: Expected end of input but got string literal '' [at 2:7]
+''''''''
+      ^
+--
+ALTERNATION GROUP: """"""""
+--
+ERROR: Syntax error: Expected end of input but got string literal "" [at 2:7]
+""""""""
+      ^
+--
+ALTERNATION GROUP: '''''''''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:7]
+'''''''''
+      ^
+--
+ALTERNATION GROUP: """""""""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 2:7]
+"""""""""
+      ^
+==
+
+select {{"a"a"|""""a""""|"""a"""a"""|''a''|""a""}}
+--
+ALTERNATION GROUP: "a"a"
+--
+ERROR: Syntax error: Unclosed string literal [at 1:12]
+select "a"a"
+           ^
+--
+ALTERNATION GROUP: """"a""""
+--
+ERROR: Syntax error: Unclosed string literal [at 1:16]
+select """"a""""
+               ^
+--
+ALTERNATION GROUP: """a"""a"""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:16]
+select """a"""a"""
+               ^
+--
+ALTERNATION GROUP: ''a''
+--
+ERROR: Syntax error: Expected end of input but got string literal '' [at 1:11]
+select ''a''
+          ^
+--
+ALTERNATION GROUP: ""a""
+--
+ERROR: Syntax error: Expected end of input but got string literal "" [at 1:11]
+select ""a""
+          ^
+==
+
+# Illegal escape (\e) inside string literals.
+select
+{{'a\e'|'\ea'|"a\e"|"\ea"|`a\e`|`\ea`|'''a\e'''|'''\ea'''|"""a\e"""|"""\ea"""}}
+--
+ALTERNATION GROUP: 'a\e'
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:3]
+'a\e'
+  ^
+--
+ALTERNATION GROUP: '\ea'
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:2]
+'\ea'
+ ^
+--
+ALTERNATION GROUP: "a\e"
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:3]
+"a\e"
+  ^
+--
+ALTERNATION GROUP: "\ea"
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:2]
+"\ea"
+ ^
+--
+ALTERNATION GROUP: `a\e`
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:3]
+`a\e`
+  ^
+--
+ALTERNATION GROUP: `\ea`
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:2]
+`\ea`
+ ^
+--
+ALTERNATION GROUP: '''a\e'''
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:5]
+'''a\e'''
+    ^
+--
+ALTERNATION GROUP: '''\ea'''
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:4]
+'''\ea'''
+   ^
+--
+ALTERNATION GROUP: """a\e"""
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:5]
+"""a\e"""
+    ^
+--
+ALTERNATION GROUP: """\ea"""
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:4]
+"""\ea"""
+   ^
+==
+
+# Illegal escape (\e) inside byte literals.
+select
+b{{'a\e'|'\ea'|"a\e"|"\ea"|'''a\e'''|'''\ea'''|"""a\e"""|"""\ea"""}}
+--
+ALTERNATION GROUP: 'a\e'
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:4]
+b'a\e'
+   ^
+--
+ALTERNATION GROUP: '\ea'
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:3]
+b'\ea'
+  ^
+--
+ALTERNATION GROUP: "a\e"
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:4]
+b"a\e"
+   ^
+--
+ALTERNATION GROUP: "\ea"
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:3]
+b"\ea"
+  ^
+--
+ALTERNATION GROUP: '''a\e'''
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:6]
+b'''a\e'''
+     ^
+--
+ALTERNATION GROUP: '''\ea'''
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:5]
+b'''\ea'''
+    ^
+--
+ALTERNATION GROUP: """a\e"""
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:6]
+b"""a\e"""
+     ^
+--
+ALTERNATION GROUP: """\ea"""
+--
+ERROR: Syntax error: Illegal escape sequence: \e [at 2:5]
+b"""\ea"""
+    ^
+==
+
+# Illegal escape (\) inside string literals.
+select {{'\'|"\"|`\`|'''\'''|"""\"""}}
+--
+ALTERNATION GROUP: '\'
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select '\'
+       ^
+--
+ALTERNATION GROUP: "\"
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select "\"
+       ^
+--
+ALTERNATION GROUP: `\`
+--
+ERROR: Syntax error: Unclosed identifier literal [at 1:8]
+select `\`
+       ^
+--
+ALTERNATION GROUP: '''\'''
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select '''\'''
+       ^
+--
+ALTERNATION GROUP: """\"""
+--
+ERROR: Syntax error: Unclosed triple-quoted string literal [at 1:8]
+select """\"""
+       ^
+==
+
+# Illegal escape (\) inside byte literals.
+select b{{'\'|"\"|'''\'''|"""\"""}}
+--
+ALTERNATION GROUP: '\'
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b'\'
+       ^
+--
+ALTERNATION GROUP: "\"
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b"\"
+       ^
+--
+ALTERNATION GROUP: '''\'''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b'''\'''
+       ^
+--
+ALTERNATION GROUP: """\"""
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:8]
+select b"""\"""
+       ^
+==
+
+# Illegal escape (\) inside raw string literals.
+select r{{'\'|"\"|'''\'''|"""\"""}}
+--
+ALTERNATION GROUP: '\'
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'\'
+       ^
+--
+ALTERNATION GROUP: "\"
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r"\"
+       ^
+--
+ALTERNATION GROUP: '''\'''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r'''\'''
+       ^
+--
+ALTERNATION GROUP: """\"""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw string literal [at 1:8]
+select r"""\"""
+       ^
+==
+
+# Illegal escape (\) inside raw byte literals.
+select rb{{'\'|"\"|'''\'''|"""\"""}}
+--
+ALTERNATION GROUP: '\'
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb'\'
+       ^
+--
+ALTERNATION GROUP: "\"
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb"\"
+       ^
+--
+ALTERNATION GROUP: '''\'''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb'''\'''
+       ^
+--
+ALTERNATION GROUP: """\"""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select rb"""\"""
+       ^
+==
+
+# Illegal escape inside raw byte literals.
+select br{{'\'|"\"|'''\'''|"""\"""}}
+--
+ALTERNATION GROUP: '\'
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br'\'
+       ^
+--
+ALTERNATION GROUP: "\"
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br"\"
+       ^
+--
+ALTERNATION GROUP: '''\'''
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br'''\'''
+       ^
+--
+ALTERNATION GROUP: """\"""
+--
+ERROR: Syntax error: Unclosed triple-quoted raw bytes literal [at 1:8]
+select br"""\"""
+       ^
+==
+
+# No gap allowed among the prefix {b, r, rb, br} and the string content.
+select
+{{b 'a'|r 'a'|rb 'a'|br 'a'|b "a"|r "a"|rb "a"|br "a"|b '''a'''|r '''a'''|rb '''a'''|br '''a'''|b """a"""|r """a"""|rb """a"""|br """a"""}}
+--
+ALTERNATION GROUP: b 'a'
+--
+ERROR: Syntax error: Expected end of input but got string literal 'a' [at 2:3]
+b 'a'
+  ^
+--
+ALTERNATION GROUP: r 'a'
+--
+ERROR: Syntax error: Expected end of input but got string literal 'a' [at 2:3]
+r 'a'
+  ^
+--
+ALTERNATION GROUP: rb 'a'
+--
+ERROR: Syntax error: Expected end of input but got string literal 'a' [at 2:4]
+rb 'a'
+   ^
+--
+ALTERNATION GROUP: br 'a'
+--
+ERROR: Syntax error: Expected end of input but got string literal 'a' [at 2:4]
+br 'a'
+   ^
+--
+ALTERNATION GROUP: b "a"
+--
+ERROR: Syntax error: Expected end of input but got string literal "a" [at 2:3]
+b "a"
+  ^
+--
+ALTERNATION GROUP: r "a"
+--
+ERROR: Syntax error: Expected end of input but got string literal "a" [at 2:3]
+r "a"
+  ^
+--
+ALTERNATION GROUP: rb "a"
+--
+ERROR: Syntax error: Expected end of input but got string literal "a" [at 2:4]
+rb "a"
+   ^
+--
+ALTERNATION GROUP: br "a"
+--
+ERROR: Syntax error: Expected end of input but got string literal "a" [at 2:4]
+br "a"
+   ^
+--
+ALTERNATION GROUP: b '''a'''
+--
+ERROR: Syntax error: Expected end of input but got string literal '''a''' [at 2:3]
+b '''a'''
+  ^
+--
+ALTERNATION GROUP: r '''a'''
+--
+ERROR: Syntax error: Expected end of input but got string literal '''a''' [at 2:3]
+r '''a'''
+  ^
+--
+ALTERNATION GROUP: rb '''a'''
+--
+ERROR: Syntax error: Expected end of input but got string literal '''a''' [at 2:4]
+rb '''a'''
+   ^
+--
+ALTERNATION GROUP: br '''a'''
+--
+ERROR: Syntax error: Expected end of input but got string literal '''a''' [at 2:4]
+br '''a'''
+   ^
+--
+ALTERNATION GROUP: b """a"""
+--
+ERROR: Syntax error: Expected end of input but got string literal """a""" [at 2:3]
+b """a"""
+  ^
+--
+ALTERNATION GROUP: r """a"""
+--
+ERROR: Syntax error: Expected end of input but got string literal """a""" [at 2:3]
+r """a"""
+  ^
+--
+ALTERNATION GROUP: rb """a"""
+--
+ERROR: Syntax error: Expected end of input but got string literal """a""" [at 2:4]
+rb """a"""
+   ^
+--
+ALTERNATION GROUP: br """a"""
+--
+ERROR: Syntax error: Expected end of input but got string literal """a""" [at 2:4]
+br """a"""
+   ^
+==
+
+# Illegal newline in single quoted string literal.
+SELECT '
+'
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+SELECT '
+       ^
+==
+
+# Illegal newline in raw single quoted string literal.
+SELECT '
+'
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+SELECT '
+       ^
+==
+
+# Legal newline in triple single quoted string literal.
+SELECT '''
+'''
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          StringLiteral('''
+''') [7-14]
+--
+SELECT
+  '''
+'''
+==
+
+# Illegal newline in single quoted bytes literal.
+SELECT b'
+'
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+SELECT b'
+       ^
+==
+
+# Illegal newline in single quoted raw bytes literal.
+SELECT rb'
+'
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+SELECT rb'
+       ^
+==
+
+# Legal newline in triple single quoted bytes literal.
+SELECT b'''
+'''
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          BytesLiteral(b'''
+''') [7-15]
+--
+SELECT
+  b'''
+'''
+==
+
+# Illegal newline in double quoted string literal.
+SELECT "
+"
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+SELECT "
+       ^
+==
+
+# Illegal newline in raw double quoted string literal.
+SELECT "
+"
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+SELECT "
+       ^
+==
+
+# Legal newline in triple double quoted string literal.
+SELECT """
+"""
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          StringLiteral("""
+""") [7-14]
+--
+SELECT
+  """
+"""
+==
+
+# Illegal newline in double quoted bytes literal.
+SELECT b"
+"
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+SELECT b"
+       ^
+==
+
+# Illegal newline in double quoted raw bytes literal.
+SELECT rb"
+"
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+SELECT rb"
+       ^
+==
+
+# Legal newline in triple double quoted bytes literal.
+SELECT b"""
+"""
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          BytesLiteral(b"""
+""") [7-15]
+--
+SELECT
+  b"""
+"""
+==
+
+# Illegal escaped newline in single quoted string literal.
+SELECT 'abc\
+'
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:12]
+SELECT 'abc\
+           ^
+==
+
+# Illegal escaped newline in raw single quoted string literal.
+SELECT 'abc\
+'
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:12]
+SELECT 'abc\
+           ^
+==
+
+# Ilegal escaped newline in triple single quoted string literal.
+SELECT '''abc\
+'''
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:14]
+SELECT '''abc\
+             ^
+==
+
+# Illegal escaped newline in single quoted bytes literal.
+SELECT b'abc\
+'
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:13]
+SELECT b'abc\
+            ^
+==
+
+# Legal escaped newline in single quoted raw bytes literal.
+SELECT rb'abc\
+'
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          BytesLiteral(rb'abc\
+') [7-16]
+--
+SELECT
+  rb'abc\
+'
+==
+
+# Illegal escaped newline in triple single quoted bytes literal.
+SELECT b'''abc\
+'''
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:15]
+SELECT b'''abc\
+              ^
+==
+
+# Illegal escaped newline in double quoted string literal.
+SELECT "abc\
+"
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:12]
+SELECT "abc\
+           ^
+==
+
+# Illegal escaped newline in raw double quoted string literal.
+SELECT "abc\
+"
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:12]
+SELECT "abc\
+           ^
+==
+
+# Illegal escaped newline in triple double quoted string literal.
+SELECT """abc\
+"""
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:14]
+SELECT """abc\
+             ^
+==
+
+# Illegal escaped newline in double quoted bytes literal.
+SELECT b"abc\
+"
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:13]
+SELECT b"abc\
+            ^
+==
+
+# Legal escaped newline in double quoted raw bytes literal.
+SELECT rb"abc\
+"
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          BytesLiteral(rb"abc\
+") [7-16]
+--
+SELECT
+  rb"abc\
+"
+==
+
+# Illegal escaped newline in triple double quoted bytes literal.
+SELECT b"""abc\
+"""
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:15]
+SELECT b"""abc\
+              ^

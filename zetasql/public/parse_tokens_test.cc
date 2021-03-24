@@ -24,9 +24,10 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/flags/flag.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/strip.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 
 namespace zetasql {
 

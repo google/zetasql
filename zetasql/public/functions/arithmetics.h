@@ -38,6 +38,7 @@
 #define ZETASQL_PUBLIC_FUNCTIONS_ARITHMETICS_H_
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 
@@ -200,8 +201,8 @@ static_assert(std::is_same<int32_t, int>::value, "int != int32_t?");
 // built-in function. We store the result in an intermediate value to work
 // around that.
 template <>
-inline bool Add<uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
-                        absl::Status* error) {
+inline bool Add<uint64_t>(uint64_t in1, uint64_t in2, uint64_t* out,
+                          absl::Status* error) {
   unsigned long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_uaddll_overflow(in1, in2, &result);
   *out = static_cast<uint64_t>(result);
@@ -215,7 +216,7 @@ inline bool Add<uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
 
 template <>
 inline bool Multiply<uint64_t>(uint64_t in1, uint64_t in2, uint64_t* out,
-                             absl::Status* error) {
+                               absl::Status* error) {
   unsigned long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_umulll_overflow(in1, in2, &result);
   *out = static_cast<uint64_t>(result);
@@ -228,7 +229,8 @@ inline bool Multiply<uint64_t>(uint64_t in1, uint64_t in2, uint64_t* out,
 }
 
 template <>
-inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out, absl::Status* error) {
+inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out,
+                         absl::Status* error) {
   if (ABSL_PREDICT_FALSE(__builtin_sadd_overflow(in1, in2, out))) {
     return internal::UpdateError(
         error, internal::BinaryOverflowMessage(in1, in2, " + "));
@@ -238,7 +240,8 @@ inline bool Add<int32_t>(int32_t in1, int32_t in2, int32_t* out, absl::Status* e
 }
 
 template <>
-inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out, absl::Status* error) {
+inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out,
+                         absl::Status* error) {
   long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_saddll_overflow(in1, in2, &result);
   *out = static_cast<int64_t>(result);
@@ -251,8 +254,8 @@ inline bool Add<int64_t>(int64_t in1, int64_t in2, int64_t* out, absl::Status* e
 }
 
 template <>
-inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t *out,
-                            absl::Status* error) {
+inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t* out,
+                              absl::Status* error) {
   long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_ssubll_overflow(in1, in2, &result);
   *out = static_cast<int64_t>(result);
@@ -266,7 +269,7 @@ inline bool Subtract<int64_t>(int64_t in1, int64_t in2, int64_t *out,
 
 template <>
 inline bool Multiply<int32_t>(int32_t in1, int32_t in2, int32_t* out,
-                            absl::Status* error) {
+                              absl::Status* error) {
   if (ABSL_PREDICT_FALSE(__builtin_smul_overflow(in1, in2, out))) {
     return internal::UpdateError(
         error, internal::BinaryOverflowMessage(in1, in2, " * "));
@@ -276,8 +279,8 @@ inline bool Multiply<int32_t>(int32_t in1, int32_t in2, int32_t* out,
 }
 
 template <>
-inline bool Multiply<int64_t>(int64_t in1, int64_t in2, int64_t *out,
-                            absl::Status* error) {
+inline bool Multiply<int64_t>(int64_t in1, int64_t in2, int64_t* out,
+                              absl::Status* error) {
   long long result;  // NOLINT(runtime/int)
   bool has_overflow = __builtin_smulll_overflow(in1, in2, &result);
   *out = static_cast<int64_t>(result);
@@ -343,9 +346,9 @@ inline bool Multiply(T in1, T in2, T *out,
 
 template <typename T>
 inline bool Modulo(T in1, T in2, T *out, absl::Status* error) {
-  static_assert(std::is_same<uint64_t, T>::value ||
-                std::is_same<int64_t, T>::value,
-              "Modulo only supports 64 bit integer");
+  static_assert(
+      std::is_same<uint64_t, T>::value || std::is_same<int64_t, T>::value,
+      "Modulo only supports 64 bit integer");
   if (ABSL_PREDICT_FALSE(in2 == 0)) {
     return internal::UpdateError(
         error, absl::StrCat("division by zero: MOD(", in1, ", ", in2, ")"));
@@ -361,16 +364,18 @@ inline bool Modulo(T in1, T in2, T *out, absl::Status* error) {
   return true;
 }
 
-static_assert(std::numeric_limits<int32_t>::min()
-              + std::numeric_limits<int32_t>::max() == -1,
+static_assert(std::numeric_limits<int32_t>::min() +
+                      std::numeric_limits<int32_t>::max() ==
+                  -1,
               "int32 is not a two's complement type?");
-static_assert(std::numeric_limits<int64_t>::min()
-              + std::numeric_limits<int64_t>::max() == -1,
+static_assert(std::numeric_limits<int64_t>::min() +
+                      std::numeric_limits<int64_t>::max() ==
+                  -1,
               "int64 is not a two's complement type?");
 
 template <>
 inline bool UnaryMinus<int32_t, int32_t>(int32_t in, int32_t* out,
-                                     absl::Status* error) {
+                                         absl::Status* error) {
   if (in == std::numeric_limits<int32_t>::min()) {
     return internal::UpdateError(error,
                                  internal::UnaryOverflowMessage(in, "-"));
@@ -381,7 +386,7 @@ inline bool UnaryMinus<int32_t, int32_t>(int32_t in, int32_t* out,
 
 template <>
 inline bool UnaryMinus<int64_t, int64_t>(int64_t in, int64_t* out,
-                                     absl::Status* error) {
+                                         absl::Status* error) {
   if (in == std::numeric_limits<int64_t>::min()) {
     return internal::UpdateError(error,
                                  internal::UnaryOverflowMessage(in, "-"));
@@ -391,8 +396,8 @@ inline bool UnaryMinus<int64_t, int64_t>(int64_t in, int64_t* out,
 }
 
 template <>
-inline bool Subtract<uint64_t, int64_t>(uint64_t in1, uint64_t in2, int64_t *out,
-                                    absl::Status* error) {
+inline bool Subtract<uint64_t, int64_t>(uint64_t in1, uint64_t in2,
+                                        int64_t* out, absl::Status* error) {
   if (in1 >= in2) {
     uint64_t tmp = in1 - in2;
     if (!Convert<uint64_t, int64_t>(tmp, out, nullptr)) {
@@ -420,13 +425,14 @@ inline bool Subtract<uint64_t, int64_t>(uint64_t in1, uint64_t in2, int64_t *out
 // UINT64 subtraction, to allow Spandex to continue building until it
 // uses the correct new signature above.  Remove this once migrated.
 template <>
-inline bool Subtract<uint64_t, uint64_t>(uint64_t in1, uint64_t in2, uint64_t *out,
-                                     absl::Status* error) {
+inline bool Subtract<uint64_t, uint64_t>(uint64_t in1, uint64_t in2,
+                                         uint64_t* out, absl::Status* error) {
   return internal::UpdateError(error, "invalid UINT64 subtraction signature");
 }
 
 template <>
-inline bool Divide(uint64_t in1, uint64_t in2, uint64_t *out, absl::Status* error) {
+inline bool Divide(uint64_t in1, uint64_t in2, uint64_t* out,
+                   absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 == 0)) {
     return internal::UpdateError(error,
                                  internal::DivisionByZeroMessage(in1, in2));
@@ -436,7 +442,8 @@ inline bool Divide(uint64_t in1, uint64_t in2, uint64_t *out, absl::Status* erro
 }
 
 template <>
-inline bool Divide(int64_t in1, int64_t in2, int64_t *out, absl::Status* error) {
+inline bool Divide(int64_t in1, int64_t in2, int64_t* out,
+                   absl::Status* error) {
   if (ABSL_PREDICT_FALSE(in2 == -1)) {
     return UnaryMinus(in1, out, error);
   }

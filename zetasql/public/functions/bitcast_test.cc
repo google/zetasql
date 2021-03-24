@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/bitcast.h"
 
+#include <cstdint>
 #include <limits>
 
 #include "gtest/gtest.h"
@@ -42,76 +43,97 @@ void TestBitCast(const TIN& in, const TOUT& expected) {
 
 TEST(BitCast, Test) {
   // INT32 -> INT32
-  TestBitCast<int32_t, int32_t>(static_cast<int32_t>(0), static_cast<int32_t>(0));
+  TestBitCast<int32_t, int32_t>(static_cast<int32_t>(0),
+                                static_cast<int32_t>(0));
   TestBitCast<int32_t, int32_t>(static_cast<int32_t>(int32max),
-                            static_cast<int32_t>(int32max));
+                                static_cast<int32_t>(int32max));
   TestBitCast<int32_t, int32_t>(static_cast<int32_t>(int32min),
-                            static_cast<int32_t>(int32min));
-  TestBitCast<int32_t, int32_t>(static_cast<int32_t>(3), static_cast<int32_t>(3));
-  TestBitCast<int32_t, int32_t>(static_cast<int32_t>(-3), static_cast<int32_t>(-3));
+                                static_cast<int32_t>(int32min));
+  TestBitCast<int32_t, int32_t>(static_cast<int32_t>(3),
+                                static_cast<int32_t>(3));
+  TestBitCast<int32_t, int32_t>(static_cast<int32_t>(-3),
+                                static_cast<int32_t>(-3));
 
   // UINT32 -> INT32
-  TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(0), static_cast<int32_t>(0));
+  TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(0),
+                                 static_cast<int32_t>(0));
   TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(uint32max),
-                             static_cast<int32_t>(-1));
-  TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(3), static_cast<int32_t>(3));
+                                 static_cast<int32_t>(-1));
+  TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(3),
+                                 static_cast<int32_t>(3));
   TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(uint32max - 3),
-                             static_cast<int32_t>(-4));
+                                 static_cast<int32_t>(-4));
   TestBitCast<uint32_t, int32_t>(static_cast<uint32_t>(uint32max >> 1),
-                             static_cast<int32_t>(int32max));
+                                 static_cast<int32_t>(int32max));
 
   // INT64 -> INT64
-  TestBitCast<int64_t, int64_t>(static_cast<int64_t>(0), static_cast<int64_t>(0));
+  TestBitCast<int64_t, int64_t>(static_cast<int64_t>(0),
+                                static_cast<int64_t>(0));
   TestBitCast<int64_t, int64_t>(static_cast<int64_t>(int64max),
-                            static_cast<int64_t>(int64max));
+                                static_cast<int64_t>(int64max));
   TestBitCast<int64_t, int64_t>(static_cast<int64_t>(int64min),
-                            static_cast<int64_t>(int64min));
-  TestBitCast<int64_t, int64_t>(static_cast<int64_t>(3), static_cast<int64_t>(3));
-  TestBitCast<int64_t, int64_t>(static_cast<int64_t>(-3), static_cast<int64_t>(-3));
+                                static_cast<int64_t>(int64min));
+  TestBitCast<int64_t, int64_t>(static_cast<int64_t>(3),
+                                static_cast<int64_t>(3));
+  TestBitCast<int64_t, int64_t>(static_cast<int64_t>(-3),
+                                static_cast<int64_t>(-3));
 
   // UINT64 -> INT64
-  TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(0), static_cast<int64_t>(0));
+  TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(0),
+                                 static_cast<int64_t>(0));
   TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(uint64max),
-                             static_cast<int64_t>(-1));
-  TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(3), static_cast<int64_t>(3));
+                                 static_cast<int64_t>(-1));
+  TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(3),
+                                 static_cast<int64_t>(3));
   TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(uint64max - 3),
-                             static_cast<int64_t>(-4));
+                                 static_cast<int64_t>(-4));
   TestBitCast<uint64_t, int64_t>(static_cast<uint64_t>(uint64max >> 1),
-                             static_cast<int64_t>(int64max));
+                                 static_cast<int64_t>(int64max));
 
   // UINT32 -> UINT32
-  TestBitCast<uint32_t, uint32_t>(static_cast<uint32_t>(0), static_cast<uint32_t>(0));
+  TestBitCast<uint32_t, uint32_t>(static_cast<uint32_t>(0),
+                                  static_cast<uint32_t>(0));
   TestBitCast<uint32_t, uint32_t>(static_cast<uint32_t>(uint32max),
-                              static_cast<uint32_t>(uint32max));
-  TestBitCast<uint32_t, uint32_t>(static_cast<uint32_t>(3), static_cast<uint32_t>(3));
+                                  static_cast<uint32_t>(uint32max));
+  TestBitCast<uint32_t, uint32_t>(static_cast<uint32_t>(3),
+                                  static_cast<uint32_t>(3));
 
   // INT32 -> UINT32
-  TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(0), static_cast<uint32_t>(0));
+  TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(0),
+                                 static_cast<uint32_t>(0));
   TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(int32max),
-                             static_cast<uint32_t>(int32max));
-  TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(3), static_cast<uint32_t>(3));
-  TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(-3), static_cast<uint32_t>(-3));
+                                 static_cast<uint32_t>(int32max));
+  TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(3),
+                                 static_cast<uint32_t>(3));
+  TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(-3),
+                                 static_cast<uint32_t>(-3));
   TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(int32min),
-                             static_cast<uint32_t>(int32min));
+                                 static_cast<uint32_t>(int32min));
   TestBitCast<int32_t, uint32_t>(static_cast<int32_t>(int32min + 3),
-                             static_cast<uint32_t>(2147483651));
+                                 static_cast<uint32_t>(2147483651));
 
   // UINT64 -> UINT64
-  TestBitCast<uint64_t, uint64_t>(static_cast<uint64_t>(0), static_cast<uint64_t>(0));
+  TestBitCast<uint64_t, uint64_t>(static_cast<uint64_t>(0),
+                                  static_cast<uint64_t>(0));
   TestBitCast<uint64_t, uint64_t>(static_cast<uint64_t>(uint64max),
-                              static_cast<uint64_t>(uint64max));
-  TestBitCast<uint64_t, uint64_t>(static_cast<uint64_t>(3), static_cast<uint64_t>(3));
+                                  static_cast<uint64_t>(uint64max));
+  TestBitCast<uint64_t, uint64_t>(static_cast<uint64_t>(3),
+                                  static_cast<uint64_t>(3));
 
   // INT64 -> UINT64
-  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(0), static_cast<uint64_t>(0));
+  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(0),
+                                 static_cast<uint64_t>(0));
   TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(int64max),
-                             static_cast<uint64_t>(int64max));
-  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(3), static_cast<uint64_t>(3));
-  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(-3), static_cast<uint64_t>(-3));
+                                 static_cast<uint64_t>(int64max));
+  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(3),
+                                 static_cast<uint64_t>(3));
+  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(-3),
+                                 static_cast<uint64_t>(-3));
   TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(int64min),
-                             static_cast<uint64_t>(int64min));
-  TestBitCast<int64_t, uint64_t>(static_cast<int64_t>(int64min + 3),
-                             static_cast<uint64_t>(uint64_t{9223372036854775811u}));
+                                 static_cast<uint64_t>(int64min));
+  TestBitCast<int64_t, uint64_t>(
+      static_cast<int64_t>(int64min + 3),
+      static_cast<uint64_t>(uint64_t{9223372036854775811u}));
 }
 
 }  // namespace functions

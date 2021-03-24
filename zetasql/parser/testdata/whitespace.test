@@ -1,0 +1,25 @@
+# This contains every type of "Unicode" whitespace between the "SELECT" and the
+# 1, but no regular whitespace. This should verify that all of these are
+# recognized and treated as whitespace.
+SELECT
+              　1
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [51-52]
+        SelectColumn [51-52]
+          IntLiteral(1) [51-52]
+--
+SELECT
+  1
+==
+
+# This has an error after these whitespace characters.
+SELECT
+              　1x
+--
+
+ERROR: Syntax error: Missing whitespace between literal and alias [at 2:17]
+              　1x
+                ^

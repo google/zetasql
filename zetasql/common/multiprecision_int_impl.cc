@@ -16,6 +16,8 @@
 
 #include "zetasql/common/multiprecision_int_impl.h"
 
+#include <cstdint>
+
 namespace zetasql {
 namespace multiprecision_int_impl {
 

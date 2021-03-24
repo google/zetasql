@@ -12,7 +12,8 @@ CURRENT_TIME([timezone])
 
 **Description**
 
-Returns the current time as a `TIME` object.
+Returns the current time as a `TIME` object. Parentheses are optional when
+called with no arguments.
 
 This function supports an optional `timezone` parameter.
 See [Timezone definitions][time-link-to-timezone-definitions] for information
@@ -32,6 +33,24 @@ SELECT CURRENT_TIME() as now;
 +----------------------------+
 | 15:31:38.776361            |
 +----------------------------+
+```
+
+When a column named `current_time` is present, the column name and the function
+call without parentheses are ambiguous. To ensure the function call, add
+parentheses; to ensure the column name, qualify it with its
+[range variable][time-functions-link-to-range-variables]. For example, the
+following query will select the function in the `now` column and the table
+column in the `current_time` column.
+
+```sql
+WITH t AS (SELECT 'column value' AS `current_time`)
+SELECT current_time() as now, t.current_time FROM t;
+
++-----------------+--------------+
+| now             | current_time |
++-----------------+--------------+
+| 15:31:38.776361 | column value |
++-----------------+--------------+
 ```
 
 ### TIME
@@ -398,84 +417,103 @@ following elements:
  <tr>
     <td class="tab0">Format element</td>
     <td class="tab0">Description</td>
+    <td class="tab0">Example</td>
  </tr>
  <tr>
     <td>%H</td>
     <td>The hour (24-hour clock) as a decimal number (00-23).</td>
+    <td>21</td>
  </tr>
  <tr>
     <td>%I</td>
     <td>The hour (12-hour clock) as a decimal number (01-12).</td>
+    <td>09</td>
  </tr>
  <tr>
     <td>%k</td>
     <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
     preceded
 by a space.</td>
+    <td>21</td>
  </tr>
  <tr>
     <td>%l</td>
     <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
     preceded
 by a space.</td>
+    <td>9</td>
  </tr>
  <tr>
     <td>%M</td>
     <td>The minute as a decimal number (00-59).</td>
+    <td>47</td>
  </tr>
  <tr>
     <td>%n</td>
     <td>A newline character.</td>
+    <td></td>
  </tr>
  <tr>
     <td>%P</td>
     <td>Either am or pm.</td>
+    <td>pm</td>
  </tr>
  <tr>
     <td>%p</td>
     <td>Either AM or PM.</td>
+    <td>PM</td>
  </tr>
  <tr>
     <td>%R</td>
     <td>The time in the format %H:%M.</td>
+    <td>21:47</td>
  </tr>
  <tr>
     <td>%r</td>
     <td>The 12-hour clock time using AM/PM notation.</td>
+    <td>09:47:00 PM</td>
  </tr>
  <tr>
     <td>%S</td>
     <td>The second as a decimal number (00-60).</td>
+    <td>00</td>
  </tr>
  <tr>
     <td>%T</td>
     <td>The time in the format %H:%M:%S.</td>
+    <td>21:47:00</td>
  </tr>
  <tr>
     <td>%t</td>
     <td>A tab character.</td>
+    <td></td>
  </tr>
  <tr>
     <td>%X</td>
     <td>The time representation in HH:MM:SS format.</td>
+    <td>21:47:00</td>
  </tr>
  <tr>
     <td>%%</td>
     <td>A single % character.</td>
+    <td>%</td>
  </tr>
  <tr>
     <td>%E#S</td>
     <td>Seconds with # digits of fractional precision.</td>
+    <td>00.000</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
+    <td>00</td>
  </tr>
 </table>
 
 [time-format]: #format_time
 [time-format-elements]: #supported_format_elements_for_time
-[time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#casting-time-types
+[time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+[time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
 

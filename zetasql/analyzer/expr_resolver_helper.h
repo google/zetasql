@@ -17,6 +17,7 @@
 #ifndef ZETASQL_ANALYZER_EXPR_RESOLVER_HELPER_H_
 #define ZETASQL_ANALYZER_EXPR_RESOLVER_HELPER_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>

@@ -47,17 +47,17 @@ class ASTNode;
 //
 // ZETASQL_RETURN_IF_ERROR(cd->VisitNewColumn("a"));
 // auto finish_a =
-//     zetasql_base::MakeCleanup([&cd] { ZETASQL_CHECK_OK(cd.FinishCurrentColumn()); });
+//     absl::MakeCleanup([&cd] { ZETASQL_CHECK_OK(cd.FinishCurrentColumn()); });
 // ZETASQL_RETURN_IF_ERROR(cd.AddDependencyOn("b"));
 //
 // ZETASQL_RETURN_IF_ERROR(cd->VisitNewColumn("b"));
 // auto finish_b =
-//     zetasql_base::MakeCleanup([&cd] { ZETASQL_CHECK_OK(cd.FinishCurrentColumn()); });
+//     absl::MakeCleanup([&cd] { ZETASQL_CHECK_OK(cd.FinishCurrentColumn()); });
 // ZETASQL_RETURN_IF_ERROR(cd.AddDependencyOn("c"));
 //
 // ZETASQL_RETURN_IF_ERROR(cd->VisitNewColumn("c"));
 // auto finish_c =
-//     zetasql_base::MakeCleanup([&cd] { ZETASQL_CHECK_OK(cd.FinishCurrentColumn()); });
+//     absl::MakeCleanup([&cd] { ZETASQL_CHECK_OK(cd.FinishCurrentColumn()); });
 // ZETASQL_RETURN_IF_ERROR(cd.AddDependencyOn("a")); // <--- This will fail.
 //
 // PS. This cycle detector gets instantated for every generated column, but

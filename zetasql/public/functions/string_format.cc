@@ -20,10 +20,12 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cstdint>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/convert_proto.h"
+#include "zetasql/public/functions/format_max_output_width.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/strings.h"
 #include "absl/base/optimization.h"
@@ -40,11 +42,6 @@
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
-
-ABSL_FLAG(int32_t, zetasql_format_max_output_width, 1024 * 1024,
-          "Maximum width of a string returned from the FORMAT function. "
-          "If a call would result in a wider value, it will fail at "
-           "runtime.");
 
 namespace zetasql {
 namespace functions {
@@ -92,7 +89,8 @@ static absl::Status ValidatePrecisionValue(int64_t precision, char specifier) {
   return absl::OkStatus();
 }
 
-bool StringFormatEvaluator::ValueAsString(const Value& value, int64_t var_index) {
+bool StringFormatEvaluator::ValueAsString(const Value& value,
+                                          int64_t var_index) {
   if (value.is_null()) {
     cord_buffer_.Append("NULL");
     return true;
@@ -109,6 +107,7 @@ bool StringFormatEvaluator::ValueAsString(const Value& value, int64_t var_index)
     case TYPE_TIMESTAMP:
     case TYPE_TIME:
     case TYPE_DATETIME:
+    case TYPE_INTERVAL:
       cord_buffer_.Append(value.DebugString());
       break;
     case TYPE_ARRAY: {
@@ -760,6 +759,7 @@ FormatPart::SetterFn StringFormatEvaluator::MakeValueAsStringSetter(
     case TYPE_STRUCT:
     case TYPE_PROTO:
     case TYPE_DATETIME:
+    case TYPE_INTERVAL:
     case TYPE_BIGNUMERIC:
     case TYPE_NUMERIC:
     case TYPE_JSON:
@@ -796,6 +796,7 @@ FormatPart::SetterFn StringFormatEvaluator::MakeValueLiteralSetter(
     case TYPE_STRUCT:
     case TYPE_PROTO:
     case TYPE_DATETIME:
+    case TYPE_INTERVAL:
     case TYPE_BIGNUMERIC:
     case TYPE_NUMERIC:
     case TYPE_JSON:
@@ -1373,7 +1374,8 @@ bool FormatConvert(const FormatGsqlInt64<GROUPING>& value,
                    const absl::FormatConversionSpec& conv, absl::Cord* sink) {
   bool negative = value.value < 0;
   uint64_t magnitude = 0;
-  if (ABSL_PREDICT_FALSE(value.value == std::numeric_limits<int64_t>::lowest())) {
+  if (ABSL_PREDICT_FALSE(value.value ==
+                         std::numeric_limits<int64_t>::lowest())) {
     magnitude = 0x8000000000000000ull;
   } else if (negative) {
     magnitude = -value.value;
@@ -1391,7 +1393,8 @@ AbslFormatConvert(const FormatGsqlInt64<GROUPING>& value,
                   absl::FormatSink* sink) {
   bool negative = value.value < 0;
   uint64_t magnitude = 0;
-  if (ABSL_PREDICT_FALSE(value.value == std::numeric_limits<int64_t>::lowest())) {
+  if (ABSL_PREDICT_FALSE(value.value ==
+                         std::numeric_limits<int64_t>::lowest())) {
     magnitude = uint64_t{0x8000000000000000u};
   } else if (negative) {
     magnitude = -value.value;

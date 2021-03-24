@@ -1,0 +1,1410 @@
+# Positive simplest case
+SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
+--
+
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-56]
+        SelectColumn [7-56]
+          FunctionCall [7-11]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            PathExpression [9-10]
+              Identifier(x) [9-10]
+            WithGroupRows [7-56]
+              Query [29-55]
+                Select [29-55]
+                  SelectList [36-37]
+                    SelectColumn [36-37]
+                      PathExpression [36-37]
+                        Identifier(x) [36-37]
+                  FromClause [38-55]
+                    TVF [43-55]
+                      PathExpression [43-53]
+                        Identifier(GROUP_ROWS) [43-53]
+      FromClause [57-63]
+        TablePathExpression [62-63]
+          PathExpression [62-63]
+            Identifier(T) [62-63]
+--
+SELECT
+  f(x) WITH GROUP_ROWS (
+    SELECT
+      x
+    FROM
+      GROUP_ROWS()
+  )
+FROM
+  T
+
+==
+
+# Two param function with ORDER BY referring 2 columns in WITH GROUP_ROWS
+SELECT f(x ORDER BY y) WITH GROUP_ROWS (SELECT x, y FROM GROUP_ROWS()) FROM T;
+--
+
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-70]
+        SelectColumn [7-70]
+          FunctionCall [7-22]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            PathExpression [9-10]
+              Identifier(x) [9-10]
+            OrderBy [11-21]
+              OrderingExpression(ASC) [20-21]
+                PathExpression [20-21]
+                  Identifier(y) [20-21]
+            WithGroupRows [7-70]
+              Query [40-69]
+                Select [40-69]
+                  SelectList [47-51]
+                    SelectColumn [47-48]
+                      PathExpression [47-48]
+                        Identifier(x) [47-48]
+                    SelectColumn [50-51]
+                      PathExpression [50-51]
+                        Identifier(y) [50-51]
+                  FromClause [52-69]
+                    TVF [57-69]
+                      PathExpression [57-67]
+                        Identifier(GROUP_ROWS) [57-67]
+      FromClause [71-77]
+        TablePathExpression [76-77]
+          PathExpression [76-77]
+            Identifier(T) [76-77]
+--
+SELECT
+  f(x
+    ORDER BY y) WITH GROUP_ROWS (
+    SELECT
+      x,
+      y
+    FROM
+      GROUP_ROWS()
+  )
+FROM
+  T
+
+==
+
+# Two param function referring 2 columns in WITH GROUP_ROWS
+SELECT f(x, y) WITH GROUP_ROWS (SELECT x, y FROM GROUP_ROWS()) FROM T;
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-62]
+        SelectColumn [7-62]
+          FunctionCall [7-14]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            PathExpression [9-10]
+              Identifier(x) [9-10]
+            PathExpression [12-13]
+              Identifier(y) [12-13]
+            WithGroupRows [7-62]
+              Query [32-61]
+                Select [32-61]
+                  SelectList [39-43]
+                    SelectColumn [39-40]
+                      PathExpression [39-40]
+                        Identifier(x) [39-40]
+                    SelectColumn [42-43]
+                      PathExpression [42-43]
+                        Identifier(y) [42-43]
+                  FromClause [44-61]
+                    TVF [49-61]
+                      PathExpression [49-59]
+                        Identifier(GROUP_ROWS) [49-59]
+      FromClause [63-69]
+        TablePathExpression [68-69]
+          PathExpression [68-69]
+            Identifier(T) [68-69]
+--
+SELECT
+  f(x, y) WITH GROUP_ROWS (
+    SELECT
+      x,
+      y
+    FROM
+      GROUP_ROWS()
+  )
+FROM
+  T
+
+==
+
+# Positive test case for correct syntax. The query in GROUP_ROWS performs
+# grouping with additional grouping key coming FROM the input table T.
+SELECT
+  SUM(f2),
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT SUM(f2) AS x
+      FROM GROUP_ROWS()
+      GROUP BY f3
+      HAVING x > 2
+      ORDER BY f3
+      LIMIT 2
+      OFFSET 1)
+FROM T GROUP BY f1;
+--
+QueryStatement [0-202]
+  Query [0-202]
+    Select [0-202]
+      SelectList [9-183]
+        SelectColumn [9-16]
+          FunctionCall [9-16]
+            PathExpression [9-12]
+              Identifier(SUM) [9-12]
+            PathExpression [13-15]
+              Identifier(f2) [13-15]
+        SelectColumn [20-183]
+          FunctionCall [20-26]
+            PathExpression [20-23]
+              Identifier(AVG) [20-23]
+            PathExpression [24-25]
+              Identifier(x) [24-25]
+            WithGroupRows [20-183]
+              Query [55-182]
+                Select [55-135]
+                  SelectList [62-74]
+                    SelectColumn [62-74]
+                      FunctionCall [62-69]
+                        PathExpression [62-65]
+                          Identifier(SUM) [62-65]
+                        PathExpression [66-68]
+                          Identifier(f2) [66-68]
+                      Alias [70-74]
+                        Identifier(x) [73-74]
+                  FromClause [81-98]
+                    TVF [86-98]
+                      PathExpression [86-96]
+                        Identifier(GROUP_ROWS) [86-96]
+                  GroupBy [105-116]
+                    GroupingItem [114-116]
+                      PathExpression [114-116]
+                        Identifier(f3) [114-116]
+                  Having [123-135]
+                    BinaryExpression(>) [130-135]
+                      PathExpression [130-131]
+                        Identifier(x) [130-131]
+                      IntLiteral(2) [134-135]
+                OrderBy [142-153]
+                  OrderingExpression(ASC) [151-153]
+                    PathExpression [151-153]
+                      Identifier(f3) [151-153]
+                LimitOffset [160-182]
+                  IntLiteral(2) [166-167]
+                  IntLiteral(1) [181-182]
+      FromClause [184-190]
+        TablePathExpression [189-190]
+          PathExpression [189-190]
+            Identifier(T) [189-190]
+      GroupBy [191-202]
+        GroupingItem [200-202]
+          PathExpression [200-202]
+            Identifier(f1) [200-202]
+--
+SELECT
+  SUM(f2),
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      SUM(f2) AS x
+    FROM
+      GROUP_ROWS()
+    GROUP BY f3
+    HAVING x > 2
+    ORDER BY f3
+    LIMIT 2 OFFSET 1)
+FROM
+  T
+GROUP BY f1
+
+==
+
+# group_rows can be used as identifier.
+SELECT
+  `with` group_rows,
+  sum(group_rows) with group_rows(
+    SELECT group_rows
+    FROM group_rows())
+FROM (
+  SELECT
+    1 `with`,
+    2 group_rows)
+GROUP BY group_rows
+--
+QueryStatement [0-175]
+  Query [0-175]
+    Select [0-175]
+      SelectList [9-107]
+        SelectColumn [9-26]
+          PathExpression [9-15]
+            Identifier(`with`) [9-15]
+          Alias [16-26]
+            Identifier(group_rows) [16-26]
+        SelectColumn [30-107]
+          FunctionCall [30-45]
+            PathExpression [30-33]
+              Identifier(sum) [30-33]
+            PathExpression [34-44]
+              Identifier(group_rows) [34-44]
+            WithGroupRows [30-107]
+              Query [67-106]
+                Select [67-106]
+                  SelectList [74-84]
+                    SelectColumn [74-84]
+                      PathExpression [74-84]
+                        Identifier(group_rows) [74-84]
+                  FromClause [89-106]
+                    TVF [94-106]
+                      PathExpression [94-104]
+                        Identifier(group_rows) [94-104]
+      FromClause [108-155]
+        TableSubquery [113-155]
+          Query [117-154]
+            Select [117-154]
+              SelectList [128-154]
+                SelectColumn [128-136]
+                  IntLiteral(1) [128-129]
+                  Alias [130-136]
+                    Identifier(`with`) [130-136]
+                SelectColumn [142-154]
+                  IntLiteral(2) [142-143]
+                  Alias [144-154]
+                    Identifier(group_rows) [144-154]
+      GroupBy [156-175]
+        GroupingItem [165-175]
+          PathExpression [165-175]
+            Identifier(group_rows) [165-175]
+--
+SELECT
+  `with` AS group_rows,
+  sum(group_rows) WITH GROUP_ROWS (
+    SELECT
+      group_rows
+    FROM
+      group_rows()
+  )
+FROM
+  (
+    SELECT
+      1 AS `with`,
+      2 AS group_rows
+  )
+GROUP BY group_rows
+==
+
+# GROUP_ROWS() in a FROM subquery
+SELECT
+  SUM(f2),
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT SUM(f2) AS x
+      FROM (SELECT f1, f2, f3 FROM GROUP_ROWS())
+      GROUP BY f3)
+FROM T GROUP BY f1;
+--
+QueryStatement [0-161]
+  Query [0-161]
+    Select [0-161]
+      SelectList [9-142]
+        SelectColumn [9-16]
+          FunctionCall [9-16]
+            PathExpression [9-12]
+              Identifier(SUM) [9-12]
+            PathExpression [13-15]
+              Identifier(f2) [13-15]
+        SelectColumn [20-142]
+          FunctionCall [20-26]
+            PathExpression [20-23]
+              Identifier(AVG) [20-23]
+            PathExpression [24-25]
+              Identifier(x) [24-25]
+            WithGroupRows [20-142]
+              Query [55-141]
+                Select [55-141]
+                  SelectList [62-74]
+                    SelectColumn [62-74]
+                      FunctionCall [62-69]
+                        PathExpression [62-65]
+                          Identifier(SUM) [62-65]
+                        PathExpression [66-68]
+                          Identifier(f2) [66-68]
+                      Alias [70-74]
+                        Identifier(x) [73-74]
+                  FromClause [81-123]
+                    TableSubquery [86-123]
+                      Query [87-122]
+                        Select [87-122]
+                          SelectList [94-104]
+                            SelectColumn [94-96]
+                              PathExpression [94-96]
+                                Identifier(f1) [94-96]
+                            SelectColumn [98-100]
+                              PathExpression [98-100]
+                                Identifier(f2) [98-100]
+                            SelectColumn [102-104]
+                              PathExpression [102-104]
+                                Identifier(f3) [102-104]
+                          FromClause [105-122]
+                            TVF [110-122]
+                              PathExpression [110-120]
+                                Identifier(GROUP_ROWS) [110-120]
+                  GroupBy [130-141]
+                    GroupingItem [139-141]
+                      PathExpression [139-141]
+                        Identifier(f3) [139-141]
+      FromClause [143-149]
+        TablePathExpression [148-149]
+          PathExpression [148-149]
+            Identifier(T) [148-149]
+      GroupBy [150-161]
+        GroupingItem [159-161]
+          PathExpression [159-161]
+            Identifier(f1) [159-161]
+--
+SELECT
+  SUM(f2),
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      SUM(f2) AS x
+    FROM
+      (
+        SELECT
+          f1,
+          f2,
+          f3
+        FROM
+          GROUP_ROWS()
+      )
+    GROUP BY f3
+  )
+FROM
+  T
+GROUP BY f1
+
+==
+
+# GROUP_ROWS in an expression subquery
+SELECT
+  SUM(f2),
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT (SELECT SUM(f2) FROM GROUP_ROWS()) AS x)
+FROM T GROUP BY f1;
+--
+QueryStatement [0-121]
+  Query [0-121]
+    Select [0-121]
+      SelectList [9-102]
+        SelectColumn [9-16]
+          FunctionCall [9-16]
+            PathExpression [9-12]
+              Identifier(SUM) [9-12]
+            PathExpression [13-15]
+              Identifier(f2) [13-15]
+        SelectColumn [20-102]
+          FunctionCall [20-26]
+            PathExpression [20-23]
+              Identifier(AVG) [20-23]
+            PathExpression [24-25]
+              Identifier(x) [24-25]
+            WithGroupRows [20-102]
+              Query [55-101]
+                Select [55-101]
+                  SelectList [62-101]
+                    SelectColumn [62-101]
+                      ExpressionSubquery [62-96]
+                        Query [63-95]
+                          Select [63-95]
+                            SelectList [70-77]
+                              SelectColumn [70-77]
+                                FunctionCall [70-77]
+                                  PathExpression [70-73]
+                                    Identifier(SUM) [70-73]
+                                  PathExpression [74-76]
+                                    Identifier(f2) [74-76]
+                            FromClause [78-95]
+                              TVF [83-95]
+                                PathExpression [83-93]
+                                  Identifier(GROUP_ROWS) [83-93]
+                      Alias [97-101]
+                        Identifier(x) [100-101]
+      FromClause [103-109]
+        TablePathExpression [108-109]
+          PathExpression [108-109]
+            Identifier(T) [108-109]
+      GroupBy [110-121]
+        GroupingItem [119-121]
+          PathExpression [119-121]
+            Identifier(f1) [119-121]
+--
+SELECT
+  SUM(f2),
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      (
+        SELECT
+          SUM(f2)
+        FROM
+          GROUP_ROWS()
+      ) AS x
+  )
+FROM
+  T
+GROUP BY f1
+
+==
+
+# Nested WITH GROUP_ROWS
+SELECT
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT
+        MAX(y)
+          WITH GROUP_ROWS (
+            SELECT MIN(f4) AS y
+            FROM GROUP_ROWS()
+            GROUP BY f3
+          )
+        AS x
+      FROM GROUP_ROWS()
+      GROUP BY f2
+    )
+FROM T GROUP BY f1;
+--
+QueryStatement [0-271]
+  Query [0-271]
+    Select [0-271]
+      SelectList [9-252]
+        SelectColumn [9-252]
+          FunctionCall [9-15]
+            PathExpression [9-12]
+              Identifier(AVG) [9-12]
+            PathExpression [13-14]
+              Identifier(x) [13-14]
+            WithGroupRows [9-252]
+              Query [44-246]
+                Select [44-246]
+                  SelectList [59-204]
+                    SelectColumn [59-204]
+                      FunctionCall [59-65]
+                        PathExpression [59-62]
+                          Identifier(MAX) [59-62]
+                        PathExpression [63-64]
+                          Identifier(y) [63-64]
+                        WithGroupRows [59-191]
+                          Query [106-179]
+                            Select [106-179]
+                              SelectList [113-125]
+                                SelectColumn [113-125]
+                                  FunctionCall [113-120]
+                                    PathExpression [113-116]
+                                      Identifier(MIN) [113-116]
+                                    PathExpression [117-119]
+                                      Identifier(f4) [117-119]
+                                  Alias [121-125]
+                                    Identifier(y) [124-125]
+                              FromClause [138-155]
+                                TVF [143-155]
+                                  PathExpression [143-153]
+                                    Identifier(GROUP_ROWS) [143-153]
+                              GroupBy [168-179]
+                                GroupingItem [177-179]
+                                  PathExpression [177-179]
+                                    Identifier(f3) [177-179]
+                      Alias [200-204]
+                        Identifier(x) [203-204]
+                  FromClause [211-228]
+                    TVF [216-228]
+                      PathExpression [216-226]
+                        Identifier(GROUP_ROWS) [216-226]
+                  GroupBy [235-246]
+                    GroupingItem [244-246]
+                      PathExpression [244-246]
+                        Identifier(f2) [244-246]
+      FromClause [253-259]
+        TablePathExpression [258-259]
+          PathExpression [258-259]
+            Identifier(T) [258-259]
+      GroupBy [260-271]
+        GroupingItem [269-271]
+          PathExpression [269-271]
+            Identifier(f1) [269-271]
+--
+SELECT
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      MAX(y) WITH GROUP_ROWS (
+        SELECT
+          MIN(f4) AS y
+        FROM
+          GROUP_ROWS()
+        GROUP BY f3
+      ) AS x
+    FROM
+      GROUP_ROWS()
+    GROUP BY f2
+  )
+FROM
+  T
+GROUP BY f1
+
+==
+
+# WITH GROUP_ROWS without GROUP_ROWS()
+SELECT
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT SUM(f2) AS x FROM P)
+FROM T
+GROUP BY f1;
+--
+QueryStatement [0-90]
+  Query [0-90]
+    Select [0-90]
+      SelectList [9-71]
+        SelectColumn [9-71]
+          FunctionCall [9-15]
+            PathExpression [9-12]
+              Identifier(AVG) [9-12]
+            PathExpression [13-14]
+              Identifier(x) [13-14]
+            WithGroupRows [9-71]
+              Query [44-70]
+                Select [44-70]
+                  SelectList [51-63]
+                    SelectColumn [51-63]
+                      FunctionCall [51-58]
+                        PathExpression [51-54]
+                          Identifier(SUM) [51-54]
+                        PathExpression [55-57]
+                          Identifier(f2) [55-57]
+                      Alias [59-63]
+                        Identifier(x) [62-63]
+                  FromClause [64-70]
+                    TablePathExpression [69-70]
+                      PathExpression [69-70]
+                        Identifier(P) [69-70]
+      FromClause [72-78]
+        TablePathExpression [77-78]
+          PathExpression [77-78]
+            Identifier(T) [77-78]
+      GroupBy [79-90]
+        GroupingItem [88-90]
+          PathExpression [88-90]
+            Identifier(f1) [88-90]
+--
+SELECT
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      SUM(f2) AS x
+    FROM
+      P
+  )
+FROM
+  T
+GROUP BY f1
+
+==
+
+# GROUP_ROWS() without WITH GROUP_ROWS
+SELECT
+  AVG(x)
+     (
+      SELECT SUM(f2) AS x
+      FROM GROUP_ROWS()
+      GROUP BY f3)
+FROM T GROUP BY f1;
+--
+ERROR: Syntax error: Double function call parentheses [at 3:6]
+     (
+     ^
+==
+
+# GROUP_ROWS(): missing WITH
+SELECT
+  AVG(x) GROUP_ROWS
+     (
+      SELECT SUM(f2) AS x
+      FROM GROUP_ROWS()
+      GROUP BY f3)
+FROM T GROUP BY f1;
+--
+
+ERROR: Syntax error: Expected end of input but got "(" [at 3:6]
+     (
+     ^
+
+==
+
+# GROUP_ROWS(): missing GROUP_ROWS keyword
+SELECT
+  AVG(x) WITH
+     (
+      SELECT SUM(f2) AS x
+      FROM GROUP_ROWS()
+      GROUP BY f3)
+FROM T GROUP BY f1;
+--
+
+ERROR: Syntax error: Expected GROUP_ROWS but got "(" [at 3:6]
+     (
+     ^
+
+==
+
+# GROUP_ROWS(): missing () next to FROM GROUP_ROWS
+SELECT
+  AVG(x) WITH GROUP_ROWS
+     (
+      SELECT SUM(f2) AS x
+      FROM GROUP_ROWS
+      GROUP BY f3)
+FROM T GROUP BY f1;
+--
+QueryStatement [0-124]
+  Query [0-124]
+    Select [0-124]
+      SelectList [9-105]
+        SelectColumn [9-105]
+          FunctionCall [9-15]
+            PathExpression [9-12]
+              Identifier(AVG) [9-12]
+            PathExpression [13-14]
+              Identifier(x) [13-14]
+            WithGroupRows [9-105]
+              Query [45-104]
+                Select [45-104]
+                  SelectList [52-64]
+                    SelectColumn [52-64]
+                      FunctionCall [52-59]
+                        PathExpression [52-55]
+                          Identifier(SUM) [52-55]
+                        PathExpression [56-58]
+                          Identifier(f2) [56-58]
+                      Alias [60-64]
+                        Identifier(x) [63-64]
+                  FromClause [71-86]
+                    TablePathExpression [76-86]
+                      PathExpression [76-86]
+                        Identifier(GROUP_ROWS) [76-86]
+                  GroupBy [93-104]
+                    GroupingItem [102-104]
+                      PathExpression [102-104]
+                        Identifier(f3) [102-104]
+      FromClause [106-112]
+        TablePathExpression [111-112]
+          PathExpression [111-112]
+            Identifier(T) [111-112]
+      GroupBy [113-124]
+        GroupingItem [122-124]
+          PathExpression [122-124]
+            Identifier(f1) [122-124]
+--
+SELECT
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      SUM(f2) AS x
+    FROM
+      GROUP_ROWS
+    GROUP BY f3
+  )
+FROM
+  T
+GROUP BY f1
+
+==
+
+# GROUP_ROWS(): added () next to WITH GROUP_ROWS
+SELECT
+  AVG(x) WITH GROUP_ROWS()
+     (
+      SELECT SUM(f2) AS x
+      FROM GROUP_ROWS()
+      GROUP BY f3)
+FROM T GROUP BY f1;
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got ")" [at 2:26]
+  AVG(x) WITH GROUP_ROWS()
+                         ^
+
+==
+
+# WITH GROUP_ROWS and analytic function first
+SELECT f() OVER (PARTITION BY a ORDER BY a) WITH GROUP_ROWS(SELECT SUM(f2) AS x
+      FROM GROUP_ROWS()
+      GROUP BY f3)
+FROM T
+--
+ERROR: Syntax error: Expected end of input but got keyword WITH [at 1:45]
+SELECT f() OVER (PARTITION BY a ORDER BY a) WITH GROUP_ROWS(SELECT SUM(f2) AS x
+                                            ^
+
+==
+
+# WITH GROUP_ROWS followed by analytic function window
+SELECT
+  f()
+    WITH GROUP_ROWS(SELECT SUM(f2) AS x FROM GROUP_ROWS() GROUP BY f3)
+    OVER (PARTITION BY a ORDER BY a)
+FROM T
+--
+QueryStatement [0-127]
+  Query [0-127]
+    Select [0-127]
+      SelectList [9-120]
+        SelectColumn [9-120]
+          AnalyticFunctionCall [9-120]
+            FunctionCall [9-12]
+              PathExpression [9-10]
+                Identifier(f) [9-10]
+              WithGroupRows [9-120]
+                Query [33-82]
+                  Select [33-82]
+                    SelectList [40-52]
+                      SelectColumn [40-52]
+                        FunctionCall [40-47]
+                          PathExpression [40-43]
+                            Identifier(SUM) [40-43]
+                          PathExpression [44-46]
+                            Identifier(f2) [44-46]
+                        Alias [48-52]
+                          Identifier(x) [51-52]
+                    FromClause [53-70]
+                      TVF [58-70]
+                        PathExpression [58-68]
+                          Identifier(GROUP_ROWS) [58-68]
+                    GroupBy [71-82]
+                      GroupingItem [80-82]
+                        PathExpression [80-82]
+                          Identifier(f3) [80-82]
+            WindowSpecification [93-120]
+              PartitionBy [94-108]
+                PathExpression [107-108]
+                  Identifier(a) [107-108]
+              OrderBy [109-119]
+                OrderingExpression(ASC) [118-119]
+                  PathExpression [118-119]
+                    Identifier(a) [118-119]
+      FromClause [121-127]
+        TablePathExpression [126-127]
+          PathExpression [126-127]
+            Identifier(T) [126-127]
+--
+SELECT
+  f() WITH GROUP_ROWS (
+    SELECT
+      SUM(f2) AS x
+    FROM
+      GROUP_ROWS()
+    GROUP BY f3
+  ) OVER (PARTITION BY a
+    ORDER BY a)
+FROM
+  T
+
+==
+
+# Analytic function inside WITH GROUP_ROWS
+SELECT f() WITH GROUP_ROWS(SELECT g(f2) OVER (PARTITION BY a ORDER BY a) AS x
+      FROM GROUP_ROWS())
+FROM T
+--
+QueryStatement [0-109]
+  Query [0-109]
+    Select [0-109]
+      SelectList [7-102]
+        SelectColumn [7-102]
+          FunctionCall [7-10]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            WithGroupRows [7-102]
+              Query [27-101]
+                Select [27-101]
+                  SelectList [34-77]
+                    SelectColumn [34-77]
+                      AnalyticFunctionCall [34-72]
+                        FunctionCall [34-39]
+                          PathExpression [34-35]
+                            Identifier(g) [34-35]
+                          PathExpression [36-38]
+                            Identifier(f2) [36-38]
+                        WindowSpecification [45-72]
+                          PartitionBy [46-60]
+                            PathExpression [59-60]
+                              Identifier(a) [59-60]
+                          OrderBy [61-71]
+                            OrderingExpression(ASC) [70-71]
+                              PathExpression [70-71]
+                                Identifier(a) [70-71]
+                      Alias [73-77]
+                        Identifier(x) [76-77]
+                  FromClause [84-101]
+                    TVF [89-101]
+                      PathExpression [89-99]
+                        Identifier(GROUP_ROWS) [89-99]
+      FromClause [103-109]
+        TablePathExpression [108-109]
+          PathExpression [108-109]
+            Identifier(T) [108-109]
+--
+SELECT
+  f() WITH GROUP_ROWS (
+    SELECT
+      g(f2) OVER (PARTITION BY a
+        ORDER BY a) AS x
+    FROM
+      GROUP_ROWS()
+  )
+FROM
+  T
+
+==
+
+# GROUP_ROWS() function in an expression subquery
+SELECT (SELECT AVG(x) FROM(SELECT MAX(f2)  x
+      FROM GROUP_ROWS())) AS y
+FROM T
+--
+
+QueryStatement [0-82]
+  Query [0-82]
+    Select [0-82]
+      SelectList [7-75]
+        SelectColumn [7-75]
+          ExpressionSubquery [7-70]
+            Query [8-69]
+              Select [8-69]
+                SelectList [15-21]
+                  SelectColumn [15-21]
+                    FunctionCall [15-21]
+                      PathExpression [15-18]
+                        Identifier(AVG) [15-18]
+                      PathExpression [19-20]
+                        Identifier(x) [19-20]
+                FromClause [22-69]
+                  TableSubquery [26-69]
+                    Query [27-68]
+                      Select [27-68]
+                        SelectList [34-44]
+                          SelectColumn [34-44]
+                            FunctionCall [34-41]
+                              PathExpression [34-37]
+                                Identifier(MAX) [34-37]
+                              PathExpression [38-40]
+                                Identifier(f2) [38-40]
+                            Alias [43-44]
+                              Identifier(x) [43-44]
+                        FromClause [51-68]
+                          TVF [56-68]
+                            PathExpression [56-66]
+                              Identifier(GROUP_ROWS) [56-66]
+          Alias [71-75]
+            Identifier(y) [74-75]
+      FromClause [76-82]
+        TablePathExpression [81-82]
+          PathExpression [81-82]
+            Identifier(T) [81-82]
+--
+SELECT
+  (
+    SELECT
+      AVG(x)
+    FROM
+      (
+        SELECT
+          MAX(f2) AS x
+        FROM
+          GROUP_ROWS()
+      )
+  ) AS y
+FROM
+  T
+
+==
+
+# GROUP_ROWS() joined with the original table
+SELECT
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT f2 AS x
+      FROM GROUP_ROWS() g, t1
+      WHERE t1.f4 = g.f4
+      GROUP BY f3)
+FROM T t1 GROUP BY f1;
+--
+QueryStatement [0-154]
+  Query [0-154]
+    Select [0-154]
+      SelectList [9-132]
+        SelectColumn [9-132]
+          FunctionCall [9-15]
+            PathExpression [9-12]
+              Identifier(AVG) [9-12]
+            PathExpression [13-14]
+              Identifier(x) [13-14]
+            WithGroupRows [9-132]
+              Query [44-131]
+                Select [44-131]
+                  SelectList [51-58]
+                    SelectColumn [51-58]
+                      PathExpression [51-53]
+                        Identifier(f2) [51-53]
+                      Alias [54-58]
+                        Identifier(x) [57-58]
+                  FromClause [65-88]
+                    Join(COMMA) [84-88]
+                      TVF [70-84]
+                        PathExpression [70-80]
+                          Identifier(GROUP_ROWS) [70-80]
+                        Alias [83-84]
+                          Identifier(g) [83-84]
+                      TablePathExpression [86-88]
+                        PathExpression [86-88]
+                          Identifier(t1) [86-88]
+                  WhereClause [95-113]
+                    BinaryExpression(=) [101-113]
+                      PathExpression [101-106]
+                        Identifier(t1) [101-103]
+                        Identifier(f4) [104-106]
+                      PathExpression [109-113]
+                        Identifier(g) [109-110]
+                        Identifier(f4) [111-113]
+                  GroupBy [120-131]
+                    GroupingItem [129-131]
+                      PathExpression [129-131]
+                        Identifier(f3) [129-131]
+      FromClause [133-142]
+        TablePathExpression [138-142]
+          PathExpression [138-139]
+            Identifier(T) [138-139]
+          Alias [140-142]
+            Identifier(t1) [140-142]
+      GroupBy [143-154]
+        GroupingItem [152-154]
+          PathExpression [152-154]
+            Identifier(f1) [152-154]
+--
+SELECT
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      f2 AS x
+    FROM
+      GROUP_ROWS() AS g,
+      t1
+    WHERE
+      t1.f4 = g.f4
+    GROUP BY f3
+  )
+FROM
+  T AS t1
+GROUP BY f1
+
+==
+
+# WITH GROUP_ROWS and subquery joining with outer table, no GROUP_ROWS()
+SELECT
+  AVG(x)
+    WITH GROUP_ROWS (
+      SELECT f2 AS x
+      FROM T t2, t1
+      WHERE t2.f4 = t1.f4
+      GROUP BY f3)
+FROM T t1 GROUP BY f1;
+--
+QueryStatement [0-145]
+  Query [0-145]
+    Select [0-145]
+      SelectList [9-123]
+        SelectColumn [9-123]
+          FunctionCall [9-15]
+            PathExpression [9-12]
+              Identifier(AVG) [9-12]
+            PathExpression [13-14]
+              Identifier(x) [13-14]
+            WithGroupRows [9-123]
+              Query [44-122]
+                Select [44-122]
+                  SelectList [51-58]
+                    SelectColumn [51-58]
+                      PathExpression [51-53]
+                        Identifier(f2) [51-53]
+                      Alias [54-58]
+                        Identifier(x) [57-58]
+                  FromClause [65-78]
+                    Join(COMMA) [74-78]
+                      TablePathExpression [70-74]
+                        PathExpression [70-71]
+                          Identifier(T) [70-71]
+                        Alias [72-74]
+                          Identifier(t2) [72-74]
+                      TablePathExpression [76-78]
+                        PathExpression [76-78]
+                          Identifier(t1) [76-78]
+                  WhereClause [85-104]
+                    BinaryExpression(=) [91-104]
+                      PathExpression [91-96]
+                        Identifier(t2) [91-93]
+                        Identifier(f4) [94-96]
+                      PathExpression [99-104]
+                        Identifier(t1) [99-101]
+                        Identifier(f4) [102-104]
+                  GroupBy [111-122]
+                    GroupingItem [120-122]
+                      PathExpression [120-122]
+                        Identifier(f3) [120-122]
+      FromClause [124-133]
+        TablePathExpression [129-133]
+          PathExpression [129-130]
+            Identifier(T) [129-130]
+          Alias [131-133]
+            Identifier(t1) [131-133]
+      GroupBy [134-145]
+        GroupingItem [143-145]
+          PathExpression [143-145]
+            Identifier(f1) [143-145]
+--
+SELECT
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      f2 AS x
+    FROM
+      T AS t2,
+      t1
+    WHERE
+      t2.f4 = t1.f4
+    GROUP BY f3
+  )
+FROM
+  T AS t1
+GROUP BY f1
+
+==
+
+# GROUP_ROWS() as TVF with params
+SELECT COUNT(f1)
+FROM GROUP_ROWS(1, "a");
+--
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          FunctionCall [7-16]
+            PathExpression [7-12]
+              Identifier(COUNT) [7-12]
+            PathExpression [13-15]
+              Identifier(f1) [13-15]
+      FromClause [17-40]
+        TVF [22-40]
+          PathExpression [22-32]
+            Identifier(GROUP_ROWS) [22-32]
+          TVFArgument [33-34]
+            IntLiteral(1) [33-34]
+          TVFArgument [36-39]
+            StringLiteral("a") [36-39]
+--
+SELECT
+  COUNT(f1)
+FROM
+  GROUP_ROWS(1, "a")
+
+==
+
+# WITH OFFSET after FROM works
+SELECT GROUP_ROWS FROM T WITH OFFSET
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          PathExpression [7-17]
+            Identifier(GROUP_ROWS) [7-17]
+      FromClause [18-36]
+        TablePathExpression [23-36]
+          PathExpression [23-24]
+            Identifier(T) [23-24]
+          WithOffset [25-36]
+--
+SELECT
+  GROUP_ROWS
+FROM
+  T WITH OFFSET
+
+==
+
+# WITH OFFSET after CURRENT_TIMESTAMP()
+SELECT * FROM GROUP_ROWS FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WITH OFFSET;
+--
+ERROR: Syntax error: Expected GROUP_ROWS but got keyword OFFSET [at 1:73]
+SELECT * FROM GROUP_ROWS FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WITH OFFSET;
+                                                                        ^
+==
+
+# WITH OFFSET after UNNEST() works
+SELECT *
+FROM GROUP_ROWS(), UNNEST(KitchenSink.nested_repeated_value) WITH OFFSET;
+--
+QueryStatement [0-81]
+  Query [0-81]
+    Select [0-81]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-81]
+        Join(COMMA) [26-81]
+          TVF [14-26]
+            PathExpression [14-24]
+              Identifier(GROUP_ROWS) [14-24]
+          TablePathExpression [28-81]
+            UnnestExpression [28-69]
+              PathExpression [35-68]
+                Identifier(KitchenSink) [35-46]
+                Identifier(nested_repeated_value) [47-68]
+            WithOffset [70-81]
+--
+SELECT
+  *
+FROM
+  GROUP_ROWS(),
+  UNNEST(KitchenSink.nested_repeated_value) WITH OFFSET
+
+==
+
+# WITH WEIGHT after RESERVOIR() works
+SELECT
+  f(x) WITH GROUP_ROWS (SELECT 1 as x FROM GROUP_ROWS()s)
+FROM
+  T1 TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT
+--
+QueryStatement [0-116]
+  Query [0-116]
+    Select [0-116]
+      SelectList [9-64]
+        SelectColumn [9-64]
+          FunctionCall [9-13]
+            PathExpression [9-10]
+              Identifier(f) [9-10]
+            PathExpression [11-12]
+              Identifier(x) [11-12]
+            WithGroupRows [9-64]
+              Query [31-63]
+                Select [31-63]
+                  SelectList [38-44]
+                    SelectColumn [38-44]
+                      IntLiteral(1) [38-39]
+                      Alias [40-44]
+                        Identifier(x) [43-44]
+                  FromClause [45-63]
+                    TVF [50-63]
+                      PathExpression [50-60]
+                        Identifier(GROUP_ROWS) [50-60]
+                      Alias [62-63]
+                        Identifier(s) [62-63]
+      FromClause [65-116]
+        TablePathExpression [72-116]
+          PathExpression [72-74]
+            Identifier(T1) [72-74]
+          SampleClause [75-116]
+            Identifier(RESERVOIR) [87-96]
+            SampleSize [97-103]
+              IntLiteral(1) [97-98]
+            SampleSuffix [105-116]
+              WithWeight [105-116]
+--
+SELECT
+  f(x) WITH GROUP_ROWS (
+    SELECT
+      1 AS x
+    FROM
+      GROUP_ROWS() AS s
+  )
+FROM
+  T1 TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT
+
+==
+
+# WITH used for temporary table definition works
+WITH nums AS
+  (SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) x FROM T)
+SELECT some_numbers
+FROM nums;
+--
+QueryStatement [0-112]
+  Query [0-112]
+    WithClause [0-82]
+      WithClauseEntry [5-82]
+        Identifier(nums) [5-9]
+        Query [16-81]
+          Select [16-81]
+            SelectList [23-74]
+              SelectColumn [23-74]
+                FunctionCall [23-27]
+                  PathExpression [23-24]
+                    Identifier(f) [23-24]
+                  PathExpression [25-26]
+                    Identifier(x) [25-26]
+                  WithGroupRows [23-72]
+                    Query [45-71]
+                      Select [45-71]
+                        SelectList [52-53]
+                          SelectColumn [52-53]
+                            PathExpression [52-53]
+                              Identifier(x) [52-53]
+                        FromClause [54-71]
+                          TVF [59-71]
+                            PathExpression [59-69]
+                              Identifier(GROUP_ROWS) [59-69]
+                Alias [73-74]
+                  Identifier(x) [73-74]
+            FromClause [75-81]
+              TablePathExpression [80-81]
+                PathExpression [80-81]
+                  Identifier(T) [80-81]
+    Select [83-112]
+      SelectList [90-102]
+        SelectColumn [90-102]
+          PathExpression [90-102]
+            Identifier(some_numbers) [90-102]
+      FromClause [103-112]
+        TablePathExpression [108-112]
+          PathExpression [108-112]
+            Identifier(nums) [108-112]
+--
+WITH
+  nums AS (
+    SELECT
+      f(x) WITH GROUP_ROWS (
+        SELECT
+          x
+        FROM
+          GROUP_ROWS()
+      ) AS x
+    FROM
+      T
+  )
+SELECT
+  some_numbers
+FROM
+  nums
+
+==
+
+# WITH used to define query referring GROUP_ROWS()
+WITH t1 AS (SELECT MAX(x) x FROM GROUP_ROWS())
+SELECT AVG(x) WITH GROUP_ROWS (SELECT * FROM t1)
+FROM T;
+--
+QueryStatement [0-102]
+  Query [0-102]
+    WithClause [0-46]
+      WithClauseEntry [5-46]
+        Identifier(t1) [5-7]
+        Query [12-45]
+          Select [12-45]
+            SelectList [19-27]
+              SelectColumn [19-27]
+                FunctionCall [19-25]
+                  PathExpression [19-22]
+                    Identifier(MAX) [19-22]
+                  PathExpression [23-24]
+                    Identifier(x) [23-24]
+                Alias [26-27]
+                  Identifier(x) [26-27]
+            FromClause [28-45]
+              TVF [33-45]
+                PathExpression [33-43]
+                  Identifier(GROUP_ROWS) [33-43]
+    Select [47-102]
+      SelectList [54-95]
+        SelectColumn [54-95]
+          FunctionCall [54-60]
+            PathExpression [54-57]
+              Identifier(AVG) [54-57]
+            PathExpression [58-59]
+              Identifier(x) [58-59]
+            WithGroupRows [54-95]
+              Query [78-94]
+                Select [78-94]
+                  SelectList [85-86]
+                    SelectColumn [85-86]
+                      Star(*) [85-86]
+                  FromClause [87-94]
+                    TablePathExpression [92-94]
+                      PathExpression [92-94]
+                        Identifier(t1) [92-94]
+      FromClause [96-102]
+        TablePathExpression [101-102]
+          PathExpression [101-102]
+            Identifier(T) [101-102]
+--
+WITH
+  t1 AS (
+    SELECT
+      MAX(x) AS x
+    FROM
+      GROUP_ROWS()
+  )
+SELECT
+  AVG(x) WITH GROUP_ROWS (
+    SELECT
+      *
+    FROM
+      t1
+  )
+FROM
+  T
+==
+
+# WITH GROUP_ROWS feature disabled
+[no_allow_with_group_rows]
+SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
+--
+ERROR: WITH GROUP_ROWS is not supported [at 1:13]
+SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
+            ^
+==
+
+# Function call hints.
+@{hint_statement_int=123} SELECT f(x) @{hint_call_int=789, hint_call_string="a b c"} FROM T;
+--
+HintedStatement [0-91]
+  Hint [0-25]
+    HintEntry [2-24]
+      Identifier(hint_statement_int) [2-20]
+      IntLiteral(123) [21-24]
+  QueryStatement [26-91]
+    Query [26-91]
+      Select [26-91]
+        SelectList [33-84]
+          SelectColumn [33-84]
+            FunctionCall [33-37]
+              PathExpression [33-34]
+                Identifier(f) [33-34]
+              PathExpression [35-36]
+                Identifier(x) [35-36]
+              Hint [38-84]
+                HintEntry [40-57]
+                  Identifier(hint_call_int) [40-53]
+                  IntLiteral(789) [54-57]
+                HintEntry [59-83]
+                  Identifier(hint_call_string) [59-75]
+                  StringLiteral("a b c") [76-83]
+        FromClause [85-91]
+          TablePathExpression [90-91]
+            PathExpression [90-91]
+              Identifier(T) [90-91]
+--
+@{ hint_statement_int = 123 }
+SELECT
+  f(x) @{ hint_call_int = 789, hint_call_string = "a b c" }
+FROM
+  T

@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_TYPES_TIMESTAMP_UTIL_H_
 #define ZETASQL_PUBLIC_TYPES_TIMESTAMP_UTIL_H_
 
+#include <cstdint>
+
 #include "absl/time/time.h"
 
 namespace zetasql::types {

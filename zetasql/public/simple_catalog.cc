@@ -16,6 +16,7 @@
 
 #include "zetasql/public/simple_catalog.h"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <vector>

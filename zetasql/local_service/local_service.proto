@@ -140,6 +140,37 @@ service ZetaSqlLocalService {
   }
 }
 
+// Defines how to construct DescriptorPool objects in the local service.
+message DescriptorPoolListProto {
+  message Builtin {}
+  message Definition {
+    oneof definition {
+      // A literal FileDescriptorSet proto which will be used to construct
+      // a DescriptorPool.
+      google.protobuf.FileDescriptorSet file_descriptor_set = 1;
+
+      // References an already registered descriptor pool. Note, this may
+      // be used to reference the builtin descriptor pool, if the registered_id
+      // is known.
+      int64 registered_id = 2;
+
+      // The 'builtin' descriptor set. This is defined by an explicit set of
+      // protos used for encoding and decoding local service rpcs. Example:
+      //
+      //   zetasql.functions.DateTimestampPart
+      //
+      // The builtin DescriptorPool may be assigned a registered_id, in which
+      // case it is allowable to use `registered_id` instead of this object.
+      Builtin builtin = 3;
+    }
+  }
+  // A list of definitions that describe how to construct or find DescriptorPool
+  // to be used in encoding. The order is relevant, as encoding of other
+  // ProtoTypeProto (and a few other objects) will reference DescriptorPools
+  // by index in this list.
+  repeated Definition definitions = 1;
+}
+
 message PrepareRequest {
   optional string sql = 1;
   optional AnalyzerOptionsProto options = 2;
@@ -215,7 +246,13 @@ message TableFromProtoRequest {
 message AnalyzeRequest {
   optional AnalyzerOptionsProto options = 1;
   optional SimpleCatalogProto simple_catalog = 2;
+
+  // Deprecated, prefer descriptor_pool_list
   repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
+  // This list defines how to construct the list of DescriptorPools for
+  // use during deserialization.
+  optional DescriptorPoolListProto descriptor_pool_list = 9;
+
   // Set if using a registered catalog, in which case simple_catalog and
   // file_descriptor_set will be ignored.
   optional int64 registered_catalog_id = 4;
@@ -243,7 +280,12 @@ message AnalyzeResponse {
 
 message BuildSqlRequest {
   optional SimpleCatalogProto simple_catalog = 1;
+  // Deprecated, prefer descriptor_pool_list
   repeated google.protobuf.FileDescriptorSet file_descriptor_set = 2;
+  // This list defines how to construct the list of DescriptorPools for
+  // use during deserialization.
+  optional DescriptorPoolListProto descriptor_pool_list = 6;
+
   // Set if using a registered catalog, in which case simple_catalog and
   // file_descriptor_set will be ignored.
   optional int64 registered_catalog_id = 3;

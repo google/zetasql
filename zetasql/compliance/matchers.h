@@ -33,6 +33,7 @@
 #ifndef ZETASQL_COMPLIANCE_MATCHERS_H_
 #define ZETASQL_COMPLIANCE_MATCHERS_H_
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>

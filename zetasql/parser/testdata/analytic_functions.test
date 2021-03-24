@@ -1,0 +1,1922 @@
+select f() over () from T
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          AnalyticFunctionCall [7-18]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-18]
+      FromClause [19-25]
+        TablePathExpression [24-25]
+          PathExpression [24-25]
+            Identifier(T) [24-25]
+
+--
+SELECT
+  f() OVER ()
+FROM
+  T
+==
+
+# Missing over.
+select f() () from T
+--
+ERROR: Syntax error: Double function call parentheses [at 1:12]
+select f() () from T
+           ^
+==
+
+# Parentheses are required for analytic functions.
+select f over () from T
+--
+ERROR: Syntax error: OVER keyword must follow a function call [at 1:10]
+select f over () from T
+         ^
+==
+
+# Missing function call.
+select over () from T
+--
+ERROR: Syntax error: OVER keyword must follow a function call [at 1:8]
+select over () from T
+       ^
+==
+
+select f(a, b+1, sum(c)) over () from T
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          AnalyticFunctionCall [7-32]
+            FunctionCall [7-24]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [9-10]
+                Identifier(a) [9-10]
+              BinaryExpression(+) [12-15]
+                PathExpression [12-13]
+                  Identifier(b) [12-13]
+                IntLiteral(1) [14-15]
+              FunctionCall [17-23]
+                PathExpression [17-20]
+                  Identifier(sum) [17-20]
+                PathExpression [21-22]
+                  Identifier(c) [21-22]
+            WindowSpecification [30-32]
+      FromClause [33-39]
+        TablePathExpression [38-39]
+          PathExpression [38-39]
+            Identifier(T) [38-39]
+
+--
+SELECT
+  f(a, b + 1, sum(c)) OVER ()
+FROM
+  T
+==
+
+select f(distinct a, b) over () from T
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-31]
+        SelectColumn [7-31]
+          AnalyticFunctionCall [7-31]
+            FunctionCall(distinct=true) [7-23]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [18-19]
+                Identifier(a) [18-19]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            WindowSpecification [29-31]
+      FromClause [32-38]
+        TablePathExpression [37-38]
+          PathExpression [37-38]
+            Identifier(T) [37-38]
+
+--
+SELECT
+  f(DISTINCT a, b) OVER ()
+FROM
+  T
+==
+
+select f() over (partition by a, b+1, 1, sum(c)) from T
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-48]
+        SelectColumn [7-48]
+          AnalyticFunctionCall [7-48]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-48]
+              PartitionBy [17-47]
+                PathExpression [30-31]
+                  Identifier(a) [30-31]
+                BinaryExpression(+) [33-36]
+                  PathExpression [33-34]
+                    Identifier(b) [33-34]
+                  IntLiteral(1) [35-36]
+                IntLiteral(1) [38-39]
+                FunctionCall [41-47]
+                  PathExpression [41-44]
+                    Identifier(sum) [41-44]
+                  PathExpression [45-46]
+                    Identifier(c) [45-46]
+      FromClause [49-55]
+        TablePathExpression [54-55]
+          PathExpression [54-55]
+            Identifier(T) [54-55]
+
+--
+SELECT
+  f() OVER (PARTITION BY a, b + 1, 1, sum(c))
+FROM
+  T
+==
+
+select f() over (order by a, b+1, 1, sum(c)) from T
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-44]
+        SelectColumn [7-44]
+          AnalyticFunctionCall [7-44]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-44]
+              OrderBy [17-43]
+                OrderingExpression(ASC) [26-27]
+                  PathExpression [26-27]
+                    Identifier(a) [26-27]
+                OrderingExpression(ASC) [29-32]
+                  BinaryExpression(+) [29-32]
+                    PathExpression [29-30]
+                      Identifier(b) [29-30]
+                    IntLiteral(1) [31-32]
+                OrderingExpression(ASC) [34-35]
+                  IntLiteral(1) [34-35]
+                OrderingExpression(ASC) [37-43]
+                  FunctionCall [37-43]
+                    PathExpression [37-40]
+                      Identifier(sum) [37-40]
+                    PathExpression [41-42]
+                      Identifier(c) [41-42]
+      FromClause [45-51]
+        TablePathExpression [50-51]
+          PathExpression [50-51]
+            Identifier(T) [50-51]
+
+--
+SELECT
+  f() OVER (
+    ORDER BY a, b + 1, 1, sum(c))
+FROM
+  T
+==
+
+select f() over (partition by a order by a)
+from T
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-50]
+      SelectList [7-43]
+        SelectColumn [7-43]
+          AnalyticFunctionCall [7-43]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-43]
+              PartitionBy [17-31]
+                PathExpression [30-31]
+                  Identifier(a) [30-31]
+              OrderBy [32-42]
+                OrderingExpression(ASC) [41-42]
+                  PathExpression [41-42]
+                    Identifier(a) [41-42]
+      FromClause [44-50]
+        TablePathExpression [49-50]
+          PathExpression [49-50]
+            Identifier(T) [49-50]
+
+--
+SELECT
+  f() OVER (PARTITION BY a
+    ORDER BY a)
+FROM
+  T
+==
+
+# Wrong ordering of partition by and order by.
+select f() over (order by a partition by a) from T
+--
+ERROR: Syntax error: Expected ")" but got keyword PARTITION [at 1:29]
+select f() over (order by a partition by a) from T
+                            ^
+==
+
+# One-sided window.
+select f() over ({{rows|range}} unbounded preceding)
+--
+ALTERNATION GROUP: rows
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          AnalyticFunctionCall [7-42]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-42]
+              WindowFrame(ROWS) [17-41]
+                WindowFrameExpr(UNBOUNDED PRECEDING) [22-41]
+--
+SELECT
+  f() OVER (ROWS UNBOUNDED PRECEDING)
+--
+ALTERNATION GROUP: range
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-43]
+        SelectColumn [7-43]
+          AnalyticFunctionCall [7-43]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-43]
+              WindowFrame(RANGE) [17-42]
+                WindowFrameExpr(UNBOUNDED PRECEDING) [23-42]
+--
+SELECT
+  f() OVER (RANGE UNBOUNDED PRECEDING)
+==
+
+select f() over ({{rows|range}} 5+5 preceding)
+--
+ALTERNATION GROUP: rows
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-36]
+        SelectColumn [7-36]
+          AnalyticFunctionCall [7-36]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-36]
+              WindowFrame(ROWS) [17-35]
+                WindowFrameExpr(OFFSET PRECEDING) [22-35]
+                  BinaryExpression(+) [22-25]
+                    IntLiteral(5) [22-23]
+                    IntLiteral(5) [24-25]
+--
+SELECT
+  f() OVER (ROWS 5 + 5 PRECEDING)
+--
+ALTERNATION GROUP: range
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-37]
+      SelectList [7-37]
+        SelectColumn [7-37]
+          AnalyticFunctionCall [7-37]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-37]
+              WindowFrame(RANGE) [17-36]
+                WindowFrameExpr(OFFSET PRECEDING) [23-36]
+                  BinaryExpression(+) [23-26]
+                    IntLiteral(5) [23-24]
+                    IntLiteral(5) [25-26]
+--
+SELECT
+  f() OVER (RANGE 5 + 5 PRECEDING)
+==
+
+select f() over ({{rows|range}} current row)
+--
+ALTERNATION GROUP: rows
+--
+QueryStatement [0-34]
+  Query [0-34]
+    Select [0-34]
+      SelectList [7-34]
+        SelectColumn [7-34]
+          AnalyticFunctionCall [7-34]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-34]
+              WindowFrame(ROWS) [17-33]
+                WindowFrameExpr(CURRENT ROW) [22-33]
+--
+SELECT
+  f() OVER (ROWS CURRENT ROW)
+--
+ALTERNATION GROUP: range
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-35]
+        SelectColumn [7-35]
+          AnalyticFunctionCall [7-35]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-35]
+              WindowFrame(RANGE) [17-34]
+                WindowFrameExpr(CURRENT ROW) [23-34]
+--
+SELECT
+  f() OVER (RANGE CURRENT ROW)
+==
+
+# Two-sided window. Invalid framing boundaries will be captured by the resolver.
+# UNBOUNDED_PRECEDING as the ending boundary.
+select f() over ({{rows|range}} between 5+5 preceding and unbounded preceding)
+from T
+--
+ALTERNATION GROUP: rows
+--
+QueryStatement [0-75]
+  Query [0-75]
+    Select [0-75]
+      SelectList [7-68]
+        SelectColumn [7-68]
+          AnalyticFunctionCall [7-68]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-68]
+              WindowFrame(ROWS) [17-67]
+                WindowFrameExpr(OFFSET PRECEDING) [30-43]
+                  BinaryExpression(+) [30-33]
+                    IntLiteral(5) [30-31]
+                    IntLiteral(5) [32-33]
+                WindowFrameExpr(UNBOUNDED PRECEDING) [48-67]
+      FromClause [69-75]
+        TablePathExpression [74-75]
+          PathExpression [74-75]
+            Identifier(T) [74-75]
+--
+SELECT
+  f() OVER (ROWS BETWEEN 5 + 5 PRECEDING AND UNBOUNDED PRECEDING)
+FROM
+  T
+--
+ALTERNATION GROUP: range
+--
+QueryStatement [0-76]
+  Query [0-76]
+    Select [0-76]
+      SelectList [7-69]
+        SelectColumn [7-69]
+          AnalyticFunctionCall [7-69]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-69]
+              WindowFrame(RANGE) [17-68]
+                WindowFrameExpr(OFFSET PRECEDING) [31-44]
+                  BinaryExpression(+) [31-34]
+                    IntLiteral(5) [31-32]
+                    IntLiteral(5) [33-34]
+                WindowFrameExpr(UNBOUNDED PRECEDING) [49-68]
+      FromClause [70-76]
+        TablePathExpression [75-76]
+          PathExpression [75-76]
+            Identifier(T) [75-76]
+--
+SELECT
+  f() OVER (RANGE BETWEEN 5 + 5 PRECEDING AND UNBOUNDED PRECEDING)
+FROM
+  T
+==
+
+# OFFSET_PRECEDING as the ending boundary.
+select f() over (rows between 5+5 preceding and 5+5 preceding)
+from T
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-62]
+        SelectColumn [7-62]
+          AnalyticFunctionCall [7-62]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-62]
+              WindowFrame(ROWS) [17-61]
+                WindowFrameExpr(OFFSET PRECEDING) [30-43]
+                  BinaryExpression(+) [30-33]
+                    IntLiteral(5) [30-31]
+                    IntLiteral(5) [32-33]
+                WindowFrameExpr(OFFSET PRECEDING) [48-61]
+                  BinaryExpression(+) [48-51]
+                    IntLiteral(5) [48-49]
+                    IntLiteral(5) [50-51]
+      FromClause [63-69]
+        TablePathExpression [68-69]
+          PathExpression [68-69]
+            Identifier(T) [68-69]
+--
+SELECT
+  f() OVER (ROWS BETWEEN 5 + 5 PRECEDING AND 5 + 5 PRECEDING)
+FROM
+  T
+==
+
+# CURRENT_ROW as the ending boundary.
+select f() over (range between 5+5 preceding and current row)
+from T
+--
+QueryStatement [0-68]
+  Query [0-68]
+    Select [0-68]
+      SelectList [7-61]
+        SelectColumn [7-61]
+          AnalyticFunctionCall [7-61]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-61]
+              WindowFrame(RANGE) [17-60]
+                WindowFrameExpr(OFFSET PRECEDING) [31-44]
+                  BinaryExpression(+) [31-34]
+                    IntLiteral(5) [31-32]
+                    IntLiteral(5) [33-34]
+                WindowFrameExpr(CURRENT ROW) [49-60]
+      FromClause [62-68]
+        TablePathExpression [67-68]
+          PathExpression [67-68]
+            Identifier(T) [67-68]
+--
+SELECT
+  f() OVER (RANGE BETWEEN 5 + 5 PRECEDING AND CURRENT ROW)
+FROM
+  T
+==
+
+select f() over (range between 5+5 preceding and current {{rows|blah}})
+from T
+--
+ALTERNATION GROUP: rows
+--
+ERROR: Syntax error: Expected keyword ROW but got keyword ROWS [at 1:58]
+select f() over (range between 5+5 preceding and current rows)
+                                                         ^
+--
+ALTERNATION GROUP: blah
+--
+ERROR: Syntax error: Expected keyword ROW but got identifier "blah" [at 1:58]
+select f() over (range between 5+5 preceding and current blah)
+                                                         ^
+==
+
+# OFFSET_FOLLOWING as the ending boundary.
+select f() over (rows between 5+5 preceding and 5+5 following)
+from T
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-62]
+        SelectColumn [7-62]
+          AnalyticFunctionCall [7-62]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-62]
+              WindowFrame(ROWS) [17-61]
+                WindowFrameExpr(OFFSET PRECEDING) [30-43]
+                  BinaryExpression(+) [30-33]
+                    IntLiteral(5) [30-31]
+                    IntLiteral(5) [32-33]
+                WindowFrameExpr(OFFSET FOLLOWING) [48-61]
+                  BinaryExpression(+) [48-51]
+                    IntLiteral(5) [48-49]
+                    IntLiteral(5) [50-51]
+      FromClause [63-69]
+        TablePathExpression [68-69]
+          PathExpression [68-69]
+            Identifier(T) [68-69]
+--
+SELECT
+  f() OVER (ROWS BETWEEN 5 + 5 PRECEDING AND 5 + 5 FOLLOWING)
+FROM
+  T
+==
+
+# UNBOUNDED_FOLLOWING as the ending boundary.
+select f() over (range between 5+5 preceding and unbounded following)
+from T
+--
+QueryStatement [0-76]
+  Query [0-76]
+    Select [0-76]
+      SelectList [7-69]
+        SelectColumn [7-69]
+          AnalyticFunctionCall [7-69]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-69]
+              WindowFrame(RANGE) [17-68]
+                WindowFrameExpr(OFFSET PRECEDING) [31-44]
+                  BinaryExpression(+) [31-34]
+                    IntLiteral(5) [31-32]
+                    IntLiteral(5) [33-34]
+                WindowFrameExpr(UNBOUNDED FOLLOWING) [49-68]
+      FromClause [70-76]
+        TablePathExpression [75-76]
+          PathExpression [75-76]
+            Identifier(T) [75-76]
+--
+SELECT
+  f() OVER (RANGE BETWEEN 5 + 5 PRECEDING AND UNBOUNDED FOLLOWING)
+FROM
+  T
+==
+
+# Missing the frame unit.
+select f() over (current row)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword CURRENT [at 1:18]
+select f() over (current row)
+                 ^
+==
+
+select f() over (between current row and current row)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword BETWEEN [at 1:18]
+select f() over (between current row and current row)
+                 ^
+==
+
+# Missing the boundary expressions.
+select f() over (rows)
+from T
+--
+ERROR: Syntax error: Unexpected ")" [at 1:22]
+select f() over (rows)
+                     ^
+==
+
+select f() over (partition by a order by b rows current row) from T
+--
+QueryStatement [0-67]
+  Query [0-67]
+    Select [0-67]
+      SelectList [7-60]
+        SelectColumn [7-60]
+          AnalyticFunctionCall [7-60]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-60]
+              PartitionBy [17-31]
+                PathExpression [30-31]
+                  Identifier(a) [30-31]
+              OrderBy [32-42]
+                OrderingExpression(ASC) [41-42]
+                  PathExpression [41-42]
+                    Identifier(b) [41-42]
+              WindowFrame(ROWS) [43-59]
+                WindowFrameExpr(CURRENT ROW) [48-59]
+      FromClause [61-67]
+        TablePathExpression [66-67]
+          PathExpression [66-67]
+            Identifier(T) [66-67]
+
+--
+SELECT
+  f() OVER (PARTITION BY a
+    ORDER BY b ROWS CURRENT ROW)
+FROM
+  T
+==
+
+# partition by, order by and framing are all optional.
+# The resolver will validate the requirements for specific analytic functions.
+select f() over (partition by a rows current row) from T
+--
+QueryStatement [0-56]
+  Query [0-56]
+    Select [0-56]
+      SelectList [7-49]
+        SelectColumn [7-49]
+          AnalyticFunctionCall [7-49]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-49]
+              PartitionBy [17-31]
+                PathExpression [30-31]
+                  Identifier(a) [30-31]
+              WindowFrame(ROWS) [32-48]
+                WindowFrameExpr(CURRENT ROW) [37-48]
+      FromClause [50-56]
+        TablePathExpression [55-56]
+          PathExpression [55-56]
+            Identifier(T) [55-56]
+
+--
+SELECT
+  f() OVER (PARTITION BY a ROWS CURRENT ROW)
+FROM
+  T
+==
+
+select f() over (order by a  rows current row) from T
+--
+QueryStatement [0-53]
+  Query [0-53]
+    Select [0-53]
+      SelectList [7-46]
+        SelectColumn [7-46]
+          AnalyticFunctionCall [7-46]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-46]
+              OrderBy [17-27]
+                OrderingExpression(ASC) [26-27]
+                  PathExpression [26-27]
+                    Identifier(a) [26-27]
+              WindowFrame(ROWS) [29-45]
+                WindowFrameExpr(CURRENT ROW) [34-45]
+      FromClause [47-53]
+        TablePathExpression [52-53]
+          PathExpression [52-53]
+            Identifier(T) [52-53]
+
+--
+SELECT
+  f() OVER (
+    ORDER BY a ROWS CURRENT ROW)
+FROM
+  T
+==
+
+select f() over (partition by a order by a) from T
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-50]
+      SelectList [7-43]
+        SelectColumn [7-43]
+          AnalyticFunctionCall [7-43]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-43]
+              PartitionBy [17-31]
+                PathExpression [30-31]
+                  Identifier(a) [30-31]
+              OrderBy [32-42]
+                OrderingExpression(ASC) [41-42]
+                  PathExpression [41-42]
+                    Identifier(a) [41-42]
+      FromClause [44-50]
+        TablePathExpression [49-50]
+          PathExpression [49-50]
+            Identifier(T) [49-50]
+
+--
+SELECT
+  f() OVER (PARTITION BY a
+    ORDER BY a)
+FROM
+  T
+==
+
+# Window clauses.
+select * from T
+window w1 as (),
+       w2 as (partition by a order by b rows current row),
+       w3 as (w1),
+       w4 as (w1 partition by a order by b rows current row)
+--
+QueryStatement [0-171]
+  Query [0-171]
+    Select [0-171]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+      WindowClause [16-171]
+        WindowDefinition [23-31]
+          Identifier(w1) [23-25]
+          WindowSpecification [29-31]
+        WindowDefinition [40-90]
+          Identifier(w2) [40-42]
+          WindowSpecification [46-90]
+            PartitionBy [47-61]
+              PathExpression [60-61]
+                Identifier(a) [60-61]
+            OrderBy [62-72]
+              OrderingExpression(ASC) [71-72]
+                PathExpression [71-72]
+                  Identifier(b) [71-72]
+            WindowFrame(ROWS) [73-89]
+              WindowFrameExpr(CURRENT ROW) [78-89]
+        WindowDefinition [99-109]
+          Identifier(w3) [99-101]
+          WindowSpecification [105-109]
+            Identifier(w1) [106-108]
+        WindowDefinition [118-171]
+          Identifier(w4) [118-120]
+          WindowSpecification [124-171]
+            Identifier(w1) [125-127]
+            PartitionBy [128-142]
+              PathExpression [141-142]
+                Identifier(a) [141-142]
+            OrderBy [143-153]
+              OrderingExpression(ASC) [152-153]
+                PathExpression [152-153]
+                  Identifier(b) [152-153]
+            WindowFrame(ROWS) [154-170]
+              WindowFrameExpr(CURRENT ROW) [159-170]
+
+--
+SELECT
+  *
+FROM
+  T
+WINDOW w1 AS (), w2 AS (PARTITION BY a
+  ORDER BY b ROWS CURRENT ROW), w3 AS (w1), w4 AS (w1 PARTITION BY a
+  ORDER BY b ROWS CURRENT ROW)
+==
+
+# Forgot a comma.
+select * from T
+window w1 as ()
+       w2 as ()
+--
+ERROR: Syntax error: Expected end of input but got identifier "w2" [at 3:8]
+       w2 as ()
+       ^
+==
+
+# Comma at the end of the window clause is an error.
+select * from T
+window w1 as (),
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:17]
+window w1 as (),
+                ^
+==
+
+# Forgot as.
+select * from T
+window w1 ()
+--
+ERROR: Syntax error: Expected keyword AS but got "(" [at 2:11]
+window w1 ()
+          ^
+==
+
+# Window clause cannot appear after order by.
+select * from T
+order by a
+window w1 as ()
+--
+ERROR: Syntax error: Expected end of input but got keyword WINDOW [at 3:1]
+window w1 as ()
+^
+==
+
+# Window clause cannot appear before having.
+select * from T
+window w1 as ()
+having a > 1
+--
+ERROR: Syntax error: Expected end of input but got keyword HAVING [at 3:1]
+having a > 1
+^
+==
+
+# Window clause cannot appear before select.
+window w1 as ()
+select * from T
+--
+ERROR: Syntax error: Unexpected keyword WINDOW [at 1:1]
+window w1 as ()
+^
+==
+
+# Reference a window by name in the over clause.
+select f() over (w) from T
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          AnalyticFunctionCall [7-19]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-19]
+              Identifier(w) [17-18]
+      FromClause [20-26]
+        TablePathExpression [25-26]
+          PathExpression [25-26]
+            Identifier(T) [25-26]
+
+--
+SELECT
+  f() OVER (w)
+FROM
+  T
+==
+
+# Cannot have more than one window names.
+select f() over (w1 w2) from T
+--
+ERROR: Syntax error: Expected ")" but got identifier "w2" [at 1:21]
+select f() over (w1 w2) from T
+                    ^
+==
+
+select f() over (w1, w2) from T
+--
+ERROR: Syntax error: Expected ")" but got "," [at 1:20]
+select f() over (w1, w2) from T
+                   ^
+==
+
+select f() over (w partition by a, b order by a, b rows current row) from T
+--
+QueryStatement [0-75]
+  Query [0-75]
+    Select [0-75]
+      SelectList [7-68]
+        SelectColumn [7-68]
+          AnalyticFunctionCall [7-68]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-68]
+              Identifier(w) [17-18]
+              PartitionBy [19-36]
+                PathExpression [32-33]
+                  Identifier(a) [32-33]
+                PathExpression [35-36]
+                  Identifier(b) [35-36]
+              OrderBy [37-50]
+                OrderingExpression(ASC) [46-47]
+                  PathExpression [46-47]
+                    Identifier(a) [46-47]
+                OrderingExpression(ASC) [49-50]
+                  PathExpression [49-50]
+                    Identifier(b) [49-50]
+              WindowFrame(ROWS) [51-67]
+                WindowFrameExpr(CURRENT ROW) [56-67]
+      FromClause [69-75]
+        TablePathExpression [74-75]
+          PathExpression [74-75]
+            Identifier(T) [74-75]
+
+--
+SELECT
+  f() OVER (w PARTITION BY a, b
+    ORDER BY a, b ROWS CURRENT ROW)
+FROM
+  T
+==
+
+# Parentheses can be omitted only if no inline partition by, order by or frame
+# clause is specified.
+select f() over w from T
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          AnalyticFunctionCall [7-17]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-17]
+              Identifier(w) [16-17]
+      FromClause [18-24]
+        TablePathExpression [23-24]
+          PathExpression [23-24]
+            Identifier(T) [23-24]
+
+--
+SELECT
+  f() OVER (w)
+FROM
+  T
+==
+
+# Window name cannot be a path expression.
+select f() over a.b.c
+from T
+window a.b.c as ()
+--
+ERROR: Syntax error: Expected keyword AS but got "." [at 3:9]
+window a.b.c as ()
+        ^
+==
+
+# Analytic function call ends after OVER <identifier>, so OVER a.b gets parsed
+# as (... OVER a).b.
+select {{f() over a.b | f() over (a).b | (f() over a).b}}
+from T
+window a as ()
+--
+ALTERNATION GROUP: f() over a.b 
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          DotIdentifier [17-19]
+            AnalyticFunctionCall [7-17]
+              FunctionCall [7-10]
+                PathExpression [7-8]
+                  Identifier(f) [7-8]
+              WindowSpecification [16-17]
+                Identifier(a) [16-17]
+            Identifier(b) [18-19]
+      FromClause [21-27]
+        TablePathExpression [26-27]
+          PathExpression [26-27]
+            Identifier(T) [26-27]
+      WindowClause [28-42]
+        WindowDefinition [35-42]
+          Identifier(a) [35-36]
+          WindowSpecification [40-42]
+--
+SELECT
+  f() OVER (a).b
+FROM
+  T
+WINDOW a AS ()
+--
+ALTERNATION GROUP:  f() over (a).b 
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [8-22]
+        SelectColumn [8-22]
+          DotIdentifier [20-22]
+            AnalyticFunctionCall [8-20]
+              FunctionCall [8-11]
+                PathExpression [8-9]
+                  Identifier(f) [8-9]
+              WindowSpecification [17-20]
+                Identifier(a) [18-19]
+            Identifier(b) [21-22]
+      FromClause [24-30]
+        TablePathExpression [29-30]
+          PathExpression [29-30]
+            Identifier(T) [29-30]
+      WindowClause [31-45]
+        WindowDefinition [38-45]
+          Identifier(a) [38-39]
+          WindowSpecification [43-45]
+--
+SELECT
+  f() OVER (a).b
+FROM
+  T
+WINDOW a AS ()
+--
+ALTERNATION GROUP:  (f() over a).b
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [8-22]
+        SelectColumn [8-22]
+          DotIdentifier [20-22]
+            AnalyticFunctionCall [9-19]
+              FunctionCall [9-12]
+                PathExpression [9-10]
+                  Identifier(f) [9-10]
+              WindowSpecification [18-19]
+                Identifier(a) [18-19]
+            Identifier(b) [21-22]
+      FromClause [23-29]
+        TablePathExpression [28-29]
+          PathExpression [28-29]
+            Identifier(T) [28-29]
+      WindowClause [30-44]
+        WindowDefinition [37-44]
+          Identifier(a) [37-38]
+          WindowSpecification [42-44]
+--
+SELECT
+  (f() OVER (a)).b
+FROM
+  T
+WINDOW a AS ()
+==
+
+# Analytic function call ends after OVER <identifier>, so OVER a+b gets parsed
+# as (... OVER a)+b.
+select {{f() over a+b | f() over (a)+b | (f() over a)+b}}
+from T
+window a as ()
+--
+ALTERNATION GROUP: f() over a+b 
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          BinaryExpression(+) [7-19]
+            AnalyticFunctionCall [7-17]
+              FunctionCall [7-10]
+                PathExpression [7-8]
+                  Identifier(f) [7-8]
+              WindowSpecification [16-17]
+                Identifier(a) [16-17]
+            PathExpression [18-19]
+              Identifier(b) [18-19]
+      FromClause [21-27]
+        TablePathExpression [26-27]
+          PathExpression [26-27]
+            Identifier(T) [26-27]
+      WindowClause [28-42]
+        WindowDefinition [35-42]
+          Identifier(a) [35-36]
+          WindowSpecification [40-42]
+--
+SELECT
+  f() OVER (a) + b
+FROM
+  T
+WINDOW a AS ()
+--
+ALTERNATION GROUP:  f() over (a)+b 
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [8-22]
+        SelectColumn [8-22]
+          BinaryExpression(+) [8-22]
+            AnalyticFunctionCall [8-20]
+              FunctionCall [8-11]
+                PathExpression [8-9]
+                  Identifier(f) [8-9]
+              WindowSpecification [17-20]
+                Identifier(a) [18-19]
+            PathExpression [21-22]
+              Identifier(b) [21-22]
+      FromClause [24-30]
+        TablePathExpression [29-30]
+          PathExpression [29-30]
+            Identifier(T) [29-30]
+      WindowClause [31-45]
+        WindowDefinition [38-45]
+          Identifier(a) [38-39]
+          WindowSpecification [43-45]
+--
+SELECT
+  f() OVER (a) + b
+FROM
+  T
+WINDOW a AS ()
+--
+ALTERNATION GROUP:  (f() over a)+b
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [8-22]
+        SelectColumn [8-22]
+          BinaryExpression(+) [8-22]
+            AnalyticFunctionCall [9-19]
+              FunctionCall [9-12]
+                PathExpression [9-10]
+                  Identifier(f) [9-10]
+              WindowSpecification [18-19]
+                Identifier(a) [18-19]
+            PathExpression [21-22]
+              Identifier(b) [21-22]
+      FromClause [23-29]
+        TablePathExpression [28-29]
+          PathExpression [28-29]
+            Identifier(T) [28-29]
+      WindowClause [30-44]
+        WindowDefinition [37-44]
+          Identifier(a) [37-38]
+          WindowSpecification [42-44]
+--
+SELECT
+  (f() OVER (a)) + b
+FROM
+  T
+WINDOW a AS ()
+==
+
+# Parentheses are required when there is an inline partition by, order by or
+# window clause.
+select f() over w partition by a,b from T
+--
+ERROR: Syntax error: Expected end of input but got keyword PARTITION [at 1:19]
+select f() over w partition by a,b from T
+                  ^
+==
+
+select f() over w order by a,b from T
+--
+ERROR: Syntax error: Expected end of input but got keyword FROM [at 1:32]
+select f() over w order by a,b from T
+                               ^
+==
+
+select f() over w current row from T
+--
+ERROR: Syntax error: Expected end of input but got keyword CURRENT [at 1:19]
+select f() over w current row from T
+                  ^
+==
+
+# The parser allows analytic functions to appear in any places that admit an
+# expression. The resolver will report an error if an analytic function is not
+# in the select list or the order by.
+select f() over (), (f() over ())+1,
+       f(f() over ()) over (partition by f() over () order by f() over ()
+                            rows f() over () preceding)
+from T
+where f() over () and (f() over ())+1
+group by f() over (), (f() over ())+1
+having f() over () and (f() over ())+1
+order by f() over (), (f() over ())+1
+--
+QueryStatement [0-326]
+  Query [0-326]
+    Select [0-288]
+      SelectList [7-166]
+        SelectColumn [7-18]
+          AnalyticFunctionCall [7-18]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-18]
+        SelectColumn [20-35]
+          BinaryExpression(+) [20-35]
+            AnalyticFunctionCall [21-32]
+              FunctionCall [21-24]
+                PathExpression [21-22]
+                  Identifier(f) [21-22]
+              WindowSpecification [30-32]
+            IntLiteral(1) [34-35]
+        SelectColumn [44-166]
+          AnalyticFunctionCall [44-166]
+            FunctionCall [44-58]
+              PathExpression [44-45]
+                Identifier(f) [44-45]
+              AnalyticFunctionCall [46-57]
+                FunctionCall [46-49]
+                  PathExpression [46-47]
+                    Identifier(f) [46-47]
+                WindowSpecification [55-57]
+            WindowSpecification [64-166]
+              PartitionBy [65-89]
+                AnalyticFunctionCall [78-89]
+                  FunctionCall [78-81]
+                    PathExpression [78-79]
+                      Identifier(f) [78-79]
+                  WindowSpecification [87-89]
+              OrderBy [90-110]
+                OrderingExpression(ASC) [99-110]
+                  AnalyticFunctionCall [99-110]
+                    FunctionCall [99-102]
+                      PathExpression [99-100]
+                        Identifier(f) [99-100]
+                    WindowSpecification [108-110]
+              WindowFrame(ROWS) [139-165]
+                WindowFrameExpr(OFFSET PRECEDING) [144-165]
+                  AnalyticFunctionCall [144-155]
+                    FunctionCall [144-147]
+                      PathExpression [144-145]
+                        Identifier(f) [144-145]
+                    WindowSpecification [153-155]
+      FromClause [167-173]
+        TablePathExpression [172-173]
+          PathExpression [172-173]
+            Identifier(T) [172-173]
+      WhereClause [174-211]
+        AndExpr [180-211]
+          AnalyticFunctionCall [180-191]
+            FunctionCall [180-183]
+              PathExpression [180-181]
+                Identifier(f) [180-181]
+            WindowSpecification [189-191]
+          BinaryExpression(+) [196-211]
+            AnalyticFunctionCall [197-208]
+              FunctionCall [197-200]
+                PathExpression [197-198]
+                  Identifier(f) [197-198]
+              WindowSpecification [206-208]
+            IntLiteral(1) [210-211]
+      GroupBy [212-249]
+        GroupingItem [221-232]
+          AnalyticFunctionCall [221-232]
+            FunctionCall [221-224]
+              PathExpression [221-222]
+                Identifier(f) [221-222]
+            WindowSpecification [230-232]
+        GroupingItem [234-249]
+          BinaryExpression(+) [234-249]
+            AnalyticFunctionCall [235-246]
+              FunctionCall [235-238]
+                PathExpression [235-236]
+                  Identifier(f) [235-236]
+              WindowSpecification [244-246]
+            IntLiteral(1) [248-249]
+      Having [250-288]
+        AndExpr [257-288]
+          AnalyticFunctionCall [257-268]
+            FunctionCall [257-260]
+              PathExpression [257-258]
+                Identifier(f) [257-258]
+            WindowSpecification [266-268]
+          BinaryExpression(+) [273-288]
+            AnalyticFunctionCall [274-285]
+              FunctionCall [274-277]
+                PathExpression [274-275]
+                  Identifier(f) [274-275]
+              WindowSpecification [283-285]
+            IntLiteral(1) [287-288]
+    OrderBy [289-326]
+      OrderingExpression(ASC) [298-309]
+        AnalyticFunctionCall [298-309]
+          FunctionCall [298-301]
+            PathExpression [298-299]
+              Identifier(f) [298-299]
+          WindowSpecification [307-309]
+      OrderingExpression(ASC) [311-326]
+        BinaryExpression(+) [311-326]
+          AnalyticFunctionCall [312-323]
+            FunctionCall [312-315]
+              PathExpression [312-313]
+                Identifier(f) [312-313]
+            WindowSpecification [321-323]
+          IntLiteral(1) [325-326]
+
+--
+SELECT
+  f() OVER (),
+  (f() OVER ()) + 1,
+  f(f() OVER ()) OVER (PARTITION BY f() OVER ()
+    ORDER BY f() OVER () ROWS f() OVER () PRECEDING)
+FROM
+  T
+WHERE
+  f() OVER () AND (f() OVER ()) + 1
+GROUP BY f() OVER (), (f() OVER ()) + 1
+HAVING f() OVER () AND (f() OVER ()) + 1
+ORDER BY f() OVER (), (f() OVER ()) + 1
+==
+
+# Analytic functions in order by after union all.
+select * from T
+union all
+select * from T
+order by f() over (), (f() over ())+1
+--
+QueryStatement [0-79]
+  Query [0-79]
+    SetOperation(UNION ALL) [0-41]
+      Select [0-15]
+        SelectList [7-8]
+          SelectColumn [7-8]
+            Star(*) [7-8]
+        FromClause [9-15]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(T) [14-15]
+      Select [26-41]
+        SelectList [33-34]
+          SelectColumn [33-34]
+            Star(*) [33-34]
+        FromClause [35-41]
+          TablePathExpression [40-41]
+            PathExpression [40-41]
+              Identifier(T) [40-41]
+    OrderBy [42-79]
+      OrderingExpression(ASC) [51-62]
+        AnalyticFunctionCall [51-62]
+          FunctionCall [51-54]
+            PathExpression [51-52]
+              Identifier(f) [51-52]
+          WindowSpecification [60-62]
+      OrderingExpression(ASC) [64-79]
+        BinaryExpression(+) [64-79]
+          AnalyticFunctionCall [65-76]
+            FunctionCall [65-68]
+              PathExpression [65-66]
+                Identifier(f) [65-66]
+            WindowSpecification [74-76]
+          IntLiteral(1) [78-79]
+
+--
+SELECT
+  *
+FROM
+  T
+UNION ALL
+SELECT
+  *
+FROM
+  T
+ORDER BY f() OVER (), (f() OVER ()) + 1
+==
+
+#
+# Unsupported functionality.
+#
+
+# GROUPS is not supported yet.
+select f() over (groups current row)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword GROUPS [at 1:18]
+select f() over (groups current row)
+                 ^
+==
+
+select f() over (groups between current row and current row)
+--
+ERROR: Syntax error: Expected ")" but got keyword GROUPS [at 1:18]
+select f() over (groups between current row and current row)
+                 ^
+==
+
+# FROM FIRST and FROM LAST options for NTH_VALUE are not supported yet.
+select nth_value(a, 2) from first over () from T
+--
+ERROR: Syntax error: OVER keyword must follow a function call [at 1:35]
+select nth_value(a, 2) from first over () from T
+                                  ^
+==
+
+# IGNORE NULLS and RESPECT NULLS options are not supported yet.
+select lead(a) ignore nulls over () from T
+--
+ERROR: Syntax error: Expected end of input but got keyword IGNORE [at 1:16]
+select lead(a) ignore nulls over () from T
+               ^
+==
+
+select lead(a) respect nulls over () from T
+--
+ERROR: Syntax error: Expected end of input but got keyword RESPECT [at 1:16]
+select lead(a) respect nulls over () from T
+               ^
+==
+
+# Window frame exclusion is not supported yet.
+select
+  f() over (rows unbounded preceding and unbounded following
+            exclude current row)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword AND [at 2:38]
+  f() over (rows unbounded preceding and unbounded following
+                                     ^
+==
+
+select
+  f() over (rows unbounded preceding and unbounded following
+            exclude group)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword AND [at 2:38]
+  f() over (rows unbounded preceding and unbounded following
+                                     ^
+==
+
+select
+  f() over (rows unbounded preceding and unbounded following
+            exclude ties)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword AND [at 2:38]
+  f() over (rows unbounded preceding and unbounded following
+                                     ^
+==
+
+select
+  f() over (rows unbounded preceding and unbounded following
+            exclude no others)
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword AND [at 2:38]
+  f() over (rows unbounded preceding and unbounded following
+                                     ^
+==
+
+# Collation is not supported yet.
+select f() over (partition by k collate latin1_german2_ci) from T
+--
+ERROR: Syntax error: Expected ")" but got keyword COLLATE [at 1:33]
+select f() over (partition by k collate latin1_german2_ci) from T
+                                ^
+==
+
+select f() over (order by k collate "latin1_german2_ci") from T
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-56]
+        SelectColumn [7-56]
+          AnalyticFunctionCall [7-56]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-56]
+              OrderBy [17-55]
+                OrderingExpression(ASC) [26-55]
+                  PathExpression [26-27]
+                    Identifier(k) [26-27]
+                  Collate [28-55]
+                    StringLiteral("latin1_german2_ci") [36-55]
+      FromClause [57-63]
+        TablePathExpression [62-63]
+          PathExpression [62-63]
+            Identifier(T) [62-63]
+--
+SELECT
+  f() OVER (
+    ORDER BY k COLLATE "latin1_german2_ci")
+FROM
+  T
+
+==
+
+select f(a {{ignore|respect}} nulls) over () from T
+--
+ALTERNATION GROUP: ignore
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          AnalyticFunctionCall [7-32]
+            FunctionCall [7-24]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [9-10]
+                Identifier(a) [9-10]
+            WindowSpecification [30-32]
+      FromClause [33-39]
+        TablePathExpression [38-39]
+          PathExpression [38-39]
+            Identifier(T) [38-39]
+--
+SELECT
+  f(a IGNORE NULLS) OVER ()
+FROM
+  T
+--
+ALTERNATION GROUP: respect
+--
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [7-33]
+        SelectColumn [7-33]
+          AnalyticFunctionCall [7-33]
+            FunctionCall [7-25]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [9-10]
+                Identifier(a) [9-10]
+            WindowSpecification [31-33]
+      FromClause [34-40]
+        TablePathExpression [39-40]
+          PathExpression [39-40]
+            Identifier(T) [39-40]
+--
+SELECT
+  f(a RESPECT NULLS) OVER ()
+FROM
+  T
+
+==
+
+select f(a, b {{ignore|respect}} nulls) over () from T
+--
+ALTERNATION GROUP: ignore
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-35]
+        SelectColumn [7-35]
+          AnalyticFunctionCall [7-35]
+            FunctionCall [7-27]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [9-10]
+                Identifier(a) [9-10]
+              PathExpression [12-13]
+                Identifier(b) [12-13]
+            WindowSpecification [33-35]
+      FromClause [36-42]
+        TablePathExpression [41-42]
+          PathExpression [41-42]
+            Identifier(T) [41-42]
+
+--
+SELECT
+  f(a, b IGNORE NULLS) OVER ()
+FROM
+  T
+--
+ALTERNATION GROUP: respect
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-36]
+        SelectColumn [7-36]
+          AnalyticFunctionCall [7-36]
+            FunctionCall [7-28]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [9-10]
+                Identifier(a) [9-10]
+              PathExpression [12-13]
+                Identifier(b) [12-13]
+            WindowSpecification [34-36]
+      FromClause [37-43]
+        TablePathExpression [42-43]
+          PathExpression [42-43]
+            Identifier(T) [42-43]
+
+--
+SELECT
+  f(a, b RESPECT NULLS) OVER ()
+FROM
+  T
+
+==
+
+select
+  f(distinct a, b {{ignore|respect}} nulls order by c limit 1) over ()
+from T
+--
+ALTERNATION GROUP: ignore
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [9-65]
+        SelectColumn [9-65]
+          AnalyticFunctionCall [9-65]
+            FunctionCall(distinct=true) [9-57]
+              PathExpression [9-10]
+                Identifier(f) [9-10]
+              PathExpression [20-21]
+                Identifier(a) [20-21]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+              OrderBy [38-48]
+                OrderingExpression(ASC) [47-48]
+                  PathExpression [47-48]
+                    Identifier(c) [47-48]
+              LimitOffset [49-56]
+                IntLiteral(1) [55-56]
+            WindowSpecification [63-65]
+      FromClause [66-72]
+        TablePathExpression [71-72]
+          PathExpression [71-72]
+            Identifier(T) [71-72]
+--
+SELECT
+  f(DISTINCT a, b IGNORE NULLS
+    ORDER BY c
+    LIMIT 1) OVER ()
+FROM
+  T
+--
+ALTERNATION GROUP: respect
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-73]
+      SelectList [9-66]
+        SelectColumn [9-66]
+          AnalyticFunctionCall [9-66]
+            FunctionCall(distinct=true) [9-58]
+              PathExpression [9-10]
+                Identifier(f) [9-10]
+              PathExpression [20-21]
+                Identifier(a) [20-21]
+              PathExpression [23-24]
+                Identifier(b) [23-24]
+              OrderBy [39-49]
+                OrderingExpression(ASC) [48-49]
+                  PathExpression [48-49]
+                    Identifier(c) [48-49]
+              LimitOffset [50-57]
+                IntLiteral(1) [56-57]
+            WindowSpecification [64-66]
+      FromClause [67-73]
+        TablePathExpression [72-73]
+          PathExpression [72-73]
+            Identifier(T) [72-73]
+--
+SELECT
+  f(DISTINCT a, b RESPECT NULLS
+    ORDER BY c
+    LIMIT 1) OVER ()
+FROM
+  T
+
+==
+
+select
+  f(a {{ignore|respect}}) over ()
+from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Expected keyword NULLS but got ")" [at 2:13]
+  f(a ignore) over ()
+            ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Expected keyword NULLS but got ")" [at 2:14]
+  f(a respect) over ()
+             ^
+==
+
+select
+  f(a nulls) over ()
+from T
+--
+ERROR: Syntax error: Expected ")" but got keyword NULLS [at 2:7]
+  f(a nulls) over ()
+      ^
+==
+
+select
+  f(a {{ignore|respect}} null) over ()
+from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Expected keyword NULLS but got keyword NULL [at 2:14]
+  f(a ignore null) over ()
+             ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Expected keyword NULLS but got keyword NULL [at 2:15]
+  f(a respect null) over ()
+              ^
+==
+
+select
+  f(a {{ignore|respect}} nulls, b) over ()
+from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Expected ")" but got "," [at 2:19]
+  f(a ignore nulls, b) over ()
+                  ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Expected ")" but got "," [at 2:20]
+  f(a respect nulls, b) over ()
+                   ^
+==
+
+select
+  f(a, {{ignore|respect}} nulls) over ()
+from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 2:8]
+  f(a, ignore nulls) over ()
+       ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Unexpected keyword RESPECT [at 2:8]
+  f(a, respect nulls) over ()
+       ^
+==
+
+select
+  f(a {{ignore|respect}} nulls {{ignore|respect}} nulls) over ()
+from T
+--
+ALTERNATION GROUP: ignore,ignore
+--
+ERROR: Syntax error: Expected ")" but got keyword IGNORE [at 2:20]
+  f(a ignore nulls ignore nulls) over ()
+                   ^
+--
+ALTERNATION GROUP: ignore,respect
+--
+ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 2:20]
+  f(a ignore nulls respect nulls) over ()
+                   ^
+--
+ALTERNATION GROUP: respect,ignore
+--
+ERROR: Syntax error: Expected ")" but got keyword IGNORE [at 2:21]
+  f(a respect nulls ignore nulls) over ()
+                    ^
+--
+ALTERNATION GROUP: respect,respect
+--
+ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 2:21]
+  f(a respect nulls respect nulls) over ()
+                    ^
+==
+
+# This is expected to pass the parser, but will be rejected by the analyzer.
+select
+  {{count|anon_count}}(* {{ignore|respect}} nulls) over ()
+from T
+--
+ALTERNATION GROUP: count,ignore
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [9-38]
+        SelectColumn [9-38]
+          AnalyticFunctionCall [9-38]
+            FunctionCall [9-30]
+              PathExpression [9-14]
+                Identifier(count) [9-14]
+              Star(*) [15-16]
+            WindowSpecification [36-38]
+      FromClause [39-45]
+        TablePathExpression [44-45]
+          PathExpression [44-45]
+            Identifier(T) [44-45]
+--
+SELECT
+  count(* IGNORE NULLS) OVER ()
+FROM
+  T
+--
+ALTERNATION GROUP: count,respect
+--
+QueryStatement [0-46]
+  Query [0-46]
+    Select [0-46]
+      SelectList [9-39]
+        SelectColumn [9-39]
+          AnalyticFunctionCall [9-39]
+            FunctionCall [9-31]
+              PathExpression [9-14]
+                Identifier(count) [9-14]
+              Star(*) [15-16]
+            WindowSpecification [37-39]
+      FromClause [40-46]
+        TablePathExpression [45-46]
+          PathExpression [45-46]
+            Identifier(T) [45-46]
+--
+SELECT
+  count(* RESPECT NULLS) OVER ()
+FROM
+  T
+--
+ALTERNATION GROUP: anon_count,ignore
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-50]
+      SelectList [9-43]
+        SelectColumn [9-43]
+          AnalyticFunctionCall [9-43]
+            FunctionCall [9-35]
+              PathExpression [9-19]
+                Identifier(anon_count) [9-19]
+              Star(*) [20-21]
+            WindowSpecification [41-43]
+      FromClause [44-50]
+        TablePathExpression [49-50]
+          PathExpression [49-50]
+            Identifier(T) [49-50]
+--
+SELECT
+  anon_count(* IGNORE NULLS) OVER ()
+FROM
+  T
+--
+ALTERNATION GROUP: anon_count,respect
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [9-44]
+        SelectColumn [9-44]
+          AnalyticFunctionCall [9-44]
+            FunctionCall [9-36]
+              PathExpression [9-19]
+                Identifier(anon_count) [9-19]
+              Star(*) [20-21]
+            WindowSpecification [42-44]
+      FromClause [45-51]
+        TablePathExpression [50-51]
+          PathExpression [50-51]
+            Identifier(T) [50-51]
+--
+SELECT
+  anon_count(* RESPECT NULLS) OVER ()
+FROM
+  T
+==
+
+select
+  f({{ignore|respect}} nulls) over ()
+from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Expected ")" but got keyword IGNORE [at 2:5]
+  f(ignore nulls) over ()
+    ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 2:5]
+  f(respect nulls) over ()
+    ^
+==
+
+select f(a, b order by c {{ignore|respect}} nulls) over () from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Expected ")" but got keyword IGNORE [at 1:26]
+select f(a, b order by c ignore nulls) over () from T
+                         ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 1:26]
+select f(a, b order by c respect nulls) over () from T
+                         ^
+==
+
+select f(a, b limit 1 {{ignore|respect}} nulls) over () from T
+--
+ALTERNATION GROUP: ignore
+--
+ERROR: Syntax error: Expected ")" but got keyword IGNORE [at 1:23]
+select f(a, b limit 1 ignore nulls) over () from T
+                      ^
+--
+ALTERNATION GROUP: respect
+--
+ERROR: Syntax error: Expected ")" but got keyword RESPECT [at 1:23]
+select f(a, b limit 1 respect nulls) over () from T
+                      ^

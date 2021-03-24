@@ -1,0 +1,92 @@
+select * from KEYWORD_AS_IDENTIFIER_SENTINEL;
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-44]
+        TablePathExpression [14-44]
+          PathExpression [14-44]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [14-44]
+--
+SELECT
+  *
+FROM
+  KEYWORD_AS_IDENTIFIER_SENTINEL
+==
+
+select 1 AS KEYWORD_AS_IDENTIFIER_SENTINEL;
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          IntLiteral(1) [7-8]
+          Alias [9-42]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [12-42]
+--
+SELECT
+  1 AS KEYWORD_AS_IDENTIFIER_SENTINEL
+==
+
+select * from test AS KEYWORD_AS_IDENTIFIER_SENTINEL;
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-52]
+        TablePathExpression [14-52]
+          PathExpression [14-18]
+            Identifier(test) [14-18]
+          Alias [19-52]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL) [22-52]
+--
+SELECT
+  *
+FROM
+  test AS KEYWORD_AS_IDENTIFIER_SENTINEL
+==
+
+select * from KEYWORD_AS_IDENTIFIER_SENTINEL_prefix;
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-51]
+        TablePathExpression [14-51]
+          PathExpression [14-51]
+            Identifier(KEYWORD_AS_IDENTIFIER_SENTINEL_prefix) [14-51]
+--
+SELECT
+  *
+FROM
+  KEYWORD_AS_IDENTIFIER_SENTINEL_prefix
+==
+
+select * from suffix_KEYWORD_AS_IDENTIFIER_SENTINEL;
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-51]
+        TablePathExpression [14-51]
+          PathExpression [14-51]
+            Identifier(suffix_KEYWORD_AS_IDENTIFIER_SENTINEL) [14-51]
+--
+SELECT
+  *
+FROM
+  suffix_KEYWORD_AS_IDENTIFIER_SENTINEL
+==

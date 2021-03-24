@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_TYPES_TYPE_PARAMETERS_H_
 #define ZETASQL_PUBLIC_TYPES_TYPE_PARAMETERS_H_
 
+#include <cstdint>
+
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
@@ -73,11 +75,19 @@ class TypeParameters {
   static TypeParameters MakeTypeParametersWithChildList(
       std::vector<TypeParameters> child_list);
 
-  // Whether <type> matches this type parameter instance.
-  // For example, StringTypeParameters only matches STRING and BYTES type.
-  // Note, this function doesn't check whether sub-fields of STRUCT/ARRAY type
-  // matches the corresponding type parameters, please call this function for
-  // sub-fields if need to access sub-field type parameters.
+  static absl::Status ValidateStringTypeParameters(
+      const StringTypeParametersProto& string_type_parameters);
+
+  static absl::Status ValidateNumericTypeParameters(
+      const NumericTypeParametersProto& numeric_type_parameters);
+
+  // Returns whether <type> matches this type parameter instance.
+  // For example, StringTypeParameters only matches STRING and BYTES type. For
+  // STRUCT/ARRAY types, this function recursively checks if the subfields match
+  // the corresponding type parameters. Note: a TypeParameters object with one
+  // child can be applicable to both ARRAY and STRUCT types if the STRUCT type
+  // has a single field. An empty TypeParameters object matches any <type> and
+  // always returns true.
   bool MatchType(const Type* type) const;
 
   // Returns true if type parameter is empty and has no children. Empty type
@@ -134,7 +144,13 @@ class TypeParameters {
   const TypeParameters& child(int i) const { return child_list_[i]; }
   uint64_t num_children() const { return child_list_.size(); }
 
+  // Sets the child_list of a TypeParameters object to <child_list>, creating an
+  // Array or Struct TypeParameters object. This function should only be used
+  // with an empty TypeParameters object.
+  void set_child_list(std::vector<TypeParameters> child_list);
+
   absl::Status Serialize(TypeParametersProto* proto) const;
+  zetasql_base::StatusOr<std::string> SerializeAsString() const;
   static zetasql_base::StatusOr<TypeParameters> Deserialize(
       const TypeParametersProto& proto);
   std::string DebugString() const;

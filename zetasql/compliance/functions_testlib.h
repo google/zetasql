@@ -158,6 +158,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime();
 std::vector<FunctionTestCall> GetFunctionTestsFormatTime();
 std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp();
+std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampConversion();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampFromDate();
 
@@ -177,6 +178,13 @@ std::vector<FunctionTestCall> GetFunctionTestsIntervalComparisons();
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalUnaryMinus();
 std::vector<QueryParamsWithResult> GetDateTimestampIntervalSubtractions();
 std::vector<QueryParamsWithResult> GetDatetimeTimeIntervalSubtractions();
+std::vector<QueryParamsWithResult> GetDatetimeAddSubIntervalBase();
+std::vector<QueryParamsWithResult> GetDatetimeAddSubInterval();
+std::vector<QueryParamsWithResult> GetTimestampAddSubIntervalBase();
+std::vector<QueryParamsWithResult> GetTimestampAddSubInterval();
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalAdd();
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalSub();
+std::vector<QueryParamsWithResult> GetFunctionTestsExtractInterval();
 
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();
@@ -215,6 +223,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCodePoints();
 std::vector<FunctionTestCall> GetFunctionTestsPadding();
 std::vector<FunctionTestCall> GetFunctionTestsRepeat();
 std::vector<FunctionTestCall> GetFunctionTestsReverse();
+std::vector<FunctionTestCall> GetFunctionTestsParseNumeric();
 
 std::vector<FunctionTestCall> GetFunctionTestsNet();
 
@@ -251,6 +260,8 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonExtractStringArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQueryArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValueArray();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
+    bool include_nano_timestamp);
+std::vector<FunctionTestCall> GetFunctionTestsToJson(
     bool include_nano_timestamp);
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 

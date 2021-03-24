@@ -16,6 +16,8 @@
 
 #include "zetasql/scripting/parsed_script.h"
 
+#include <cstdint>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
 #include "gmock/gmock.h"
@@ -90,7 +92,8 @@ class TestInput {
   const std::string sql_;
   const std::string error_;
   const std::vector<std::string> owned_names_;
-  absl::variant<ParsedScript::StringSet, std::pair<int64_t, int64_t>> parameters_;
+  absl::variant<ParsedScript::StringSet, std::pair<int64_t, int64_t>>
+      parameters_;
 };
 
 TestInput TestInputWithError(const zetasql_base::SourceLocation& location,
@@ -135,7 +138,8 @@ void CheckStatement(const ParseLocationRange& range, const ParsedScript* parsed,
     }
     EXPECT_EQ(expected_named_params, lower_actual_names);
   } else {
-    std::pair<int64_t, int64_t> expected_pos_params = stmt.positional_parameters();
+    std::pair<int64_t, int64_t> expected_pos_params =
+        stmt.positional_parameters();
     EXPECT_EQ(actual_pos_params, expected_pos_params);
   }
 }

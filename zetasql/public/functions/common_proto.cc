@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/common_proto.h"
 
+#include <cstdint>
 #include <string>
 
 #include "google/type/timeofday.pb.h"

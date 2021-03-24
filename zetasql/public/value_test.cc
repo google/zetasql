@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <cstdint>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -430,7 +431,8 @@ TEST_F(ValueTest, SimpleRoundTrip) {
   EXPECT_EQ(-1 * (int64_t{42} << 42),
             Value::Int64(-1 * (int64_t{42} << 42)).int64_value());
   EXPECT_EQ(42u, Value::Uint32(42u).uint32_value());
-  EXPECT_EQ(uint64_t{42} << 42, Value::Uint64(uint64_t{42} << 42).uint64_value());
+  EXPECT_EQ(uint64_t{42} << 42,
+            Value::Uint64(uint64_t{42} << 42).uint64_value());
   EXPECT_EQ(true, Value::Bool(true).bool_value());
   EXPECT_EQ(false, Value::Bool(false).bool_value());
   EXPECT_EQ(3.1415f, Value::Float(3.1415f).float_value());
@@ -873,7 +875,8 @@ TEST_F(ValueTest, HashCode) {
       values::Int64Array({0, 1, 1, 2, 3, 5, 8, 13, -1}),
 
       values::JsonArray({}),
-      values::JsonArray({JSONValue(int64_t{1}), JSONValue(std::string("\"foo\"")),
+      values::JsonArray({JSONValue(int64_t{1}),
+                         JSONValue(std::string("\"foo\"")),
                          JSONValue::ParseJSONString("{\"a\": 10}").value()}),
       values::UnvalidatedJsonStringArray({}),
       values::UnvalidatedJsonStringArray({"1", "{\"a:}", "foo"}),
@@ -920,7 +923,8 @@ TEST_F(ValueTest, InvalidValue) {
 
 TEST_F(ValueTest, ConstructorTyping) {
   EXPECT_TRUE(Int32Type()->Equals(Value::Int32(-42).type()));
-  EXPECT_TRUE(Int64Type()->Equals(Value::Int64(-1 * (int64_t{42} << 42)).type()));
+  EXPECT_TRUE(
+      Int64Type()->Equals(Value::Int64(-1 * (int64_t{42} << 42)).type()));
   EXPECT_TRUE(Uint32Type()->Equals(Value::Uint32(42u).type()));
   EXPECT_TRUE(Uint64Type()->Equals(Value::Uint64(uint64_t{42} << 42).type()));
   EXPECT_TRUE(BoolType()->Equals(Value::Bool(true).type()));
@@ -1864,6 +1868,14 @@ TEST_F(ValueTest, Proto) {
   EXPECT_FALSE(proto_null_1.Equals(proto_null_2));
   // Same human readable value despite duplicated tag.
   EXPECT_EQ("{int32_val: 3}", proto3.ShortDebugString());
+  // Proto with field in NaN value.
+  kvalid.set_double_val(std::numeric_limits<double>::quiet_NaN());
+  Value proto_with_nan_1 = Proto(proto_type, kvalid);
+  kvalid.set_double_val(-std::numeric_limits<double>::quiet_NaN());
+  Value proto_with_nan_2 = Proto(proto_type, kvalid);
+  EXPECT_NE(std::string(proto_with_nan_1.ToCord()),
+            std::string(proto_with_nan_2.ToCord()));
+  EXPECT_TRUE(proto_with_nan_1.Equals(proto_with_nan_2));
 
   // Test with a proto with a duplicate optional field.  The last one takes
   // precedence.
@@ -2702,11 +2714,12 @@ TEST_F(ValueTest, Serialize) {
   SerializeDeserialize(Value::Numeric(NumericValue(int64_t{1})));
 
   SerializeDeserialize(EmptyArray(types::NumericArrayType()));
-  SerializeDeserialize(Array(
-      {Value::Numeric(NumericValue()), Value::Numeric(NumericValue(int64_t{-1})),
-       Value::Numeric(NumericValue(int64_t{1})),
-       Value::Numeric(NumericValue::MinValue()),
-       Value::Numeric(NumericValue::MaxValue()), Value::NullNumeric()}));
+  SerializeDeserialize(
+      Array({Value::Numeric(NumericValue()),
+             Value::Numeric(NumericValue(int64_t{-1})),
+             Value::Numeric(NumericValue(int64_t{1})),
+             Value::Numeric(NumericValue::MinValue()),
+             Value::Numeric(NumericValue::MaxValue()), Value::NullNumeric()}));
 
   SerializeDeserialize(Value::NullBigNumeric());
   SerializeDeserialize(Value::BigNumeric(BigNumericValue()));
@@ -2982,8 +2995,10 @@ TEST_F(ValueTest, Deserialize) {
   status_or_value = Value::Deserialize(value_proto, DateType());
   EXPECT_THAT(status_or_value, StatusIs(absl::StatusCode::kOutOfRange));
 
-  const int64_t kTimestampSecondsMin = zetasql::types::kTimestampMin / 1000000;
-  const int64_t kTimestampSecondsMax = zetasql::types::kTimestampMax / 1000000;
+  const int64_t kTimestampSecondsMin =
+      zetasql::types::kTimestampMin / 1000000;
+  const int64_t kTimestampSecondsMax =
+      zetasql::types::kTimestampMax / 1000000;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(
       absl::StrCat("timestamp_value: <seconds: ", kTimestampSecondsMin - 1,
                    " nanos: 999999999>"),

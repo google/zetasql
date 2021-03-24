@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )

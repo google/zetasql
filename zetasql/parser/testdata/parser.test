@@ -1,0 +1,2515 @@
+select 1;
+--
+QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+--
+SELECT
+  1
+==
+
+select 1; # NBSP
+--
+QueryStatement [0-9]
+  Query [0-9]
+    Select [0-9]
+      SelectList [8-9]
+        SelectColumn [8-9]
+          IntLiteral(1) [8-9]
+--
+SELECT
+  1
+==
+
+# Incorrect query with NBSP inside
+select    -
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:12]
+select    -
+           ^
+==
+
+select
+\# full line comment
+/* block
+   comment */
+\-- full line comment
+1# partial line comment
++-- partial line comment
+2/*partial line block comment*/+3;
+--
+QueryStatement [0-153]
+  Query [0-153]
+    Select [0-153]
+      SelectList [71-153]
+        SelectColumn [71-153]
+          BinaryExpression(+) [71-153]
+            BinaryExpression(+) [71-121]
+              IntLiteral(1) [71-72]
+              IntLiteral(2) [120-121]
+            IntLiteral(3) [152-153]
+--
+SELECT
+  1 + 2 + 3
+==
+
+select /* incorrect
+block
+ */ comment */ 1
+--
+ERROR: Syntax error: Unexpected "/" [at 3:14]
+ */ comment */ 1
+             ^
+==
+
+select /* block comment */
+/* contiguous block comment */ 1
+--
+QueryStatement [0-59]
+  Query [0-59]
+    Select [0-59]
+      SelectList [58-59]
+        SelectColumn [58-59]
+          IntLiteral(1) [58-59]
+--
+SELECT
+  1
+==
+
+# This is an empty input. (The test framework strips off #-comments.)
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:1]
+
+^
+==
+
+\-- Comment without query. Should give an error in the parser.
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:1]
+
+^
+==
+
+\# Comment without query.
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:1]
+
+^
+==
+
+/* Another comment without query */
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:36]
+/* Another comment without query */
+                                   ^
+==
+
+select /* unclosed block comment
+--
+ERROR: Syntax error: Unclosed comment [at 1:8]
+select /* unclosed block comment
+       ^
+==
+
+select--comment
+\--comment
+1 -- comment
++--
+2--comment
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [26-44]
+        SelectColumn [26-44]
+          BinaryExpression(+) [26-44]
+            IntLiteral(1) [26-27]
+            IntLiteral(2) [43-44]
+--
+SELECT
+  1 + 2
+==
+
+# "--" with no space.
+select --
+5
+--
+QueryStatement [0-11]
+  Query [0-11]
+    Select [0-11]
+      SelectList [10-11]
+        SelectColumn [10-11]
+          IntLiteral(5) [10-11]
+--
+SELECT
+  5
+==
+
+# "-- " with a space.
+select -- 
+5
+--
+QueryStatement [0-12]
+  Query [0-12]
+    Select [0-12]
+      SelectList [11-12]
+        SelectColumn [11-12]
+          IntLiteral(5) [11-12]
+--
+SELECT
+  5
+==
+
+select --1
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:1]
+
+^
+==
+
+select -- 1
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:1]
+
+^
+==
+
+select ---1
+--
+ERROR: Syntax error: Unexpected end of statement [at 2:1]
+
+^
+==
+
+select --- 1
+2
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [13-14]
+        SelectColumn [13-14]
+          IntLiteral(2) [13-14]
+--
+SELECT
+  2
+==
+
+select - - 1
+--
+QueryStatement [0-12]
+  Query [0-12]
+    Select [0-12]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          UnaryExpression(-) [7-12]
+            UnaryExpression(-) [9-12]
+              IntLiteral(1) [11-12]
+--
+SELECT
+  - - 1
+==
+
+select - - - - - - - 1
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          UnaryExpression(-) [7-22]
+            UnaryExpression(-) [9-22]
+              UnaryExpression(-) [11-22]
+                UnaryExpression(-) [13-22]
+                  UnaryExpression(-) [15-22]
+                    UnaryExpression(-) [17-22]
+                      UnaryExpression(-) [19-22]
+                        IntLiteral(1) [21-22]
+--
+SELECT
+  - - - - - - - 1
+==
+
+# No comments inside strings.
+select "abc -- def",
+       "abc # def",
+       "abc /* def */ ghi"
+--
+QueryStatement [0-67]
+  Query [0-67]
+    Select [0-67]
+      SelectList [7-67]
+        SelectColumn [7-19]
+          StringLiteral("abc -- def") [7-19]
+        SelectColumn [28-39]
+          StringLiteral("abc # def") [28-39]
+        SelectColumn [48-67]
+          StringLiteral("abc /* def */ ghi") [48-67]
+--
+SELECT
+  "abc -- def",
+  "abc # def",
+  "abc /* def */ ghi"
+==
+
+select /* no nested comments # -- /* */ 1;
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [40-41]
+        SelectColumn [40-41]
+          IntLiteral(1) [40-41]
+--
+SELECT
+  1
+==
+
+select f1, f2 from T
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-13]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-13]
+          PathExpression [11-13]
+            Identifier(f2) [11-13]
+      FromClause [14-20]
+        TablePathExpression [19-20]
+          PathExpression [19-20]
+            Identifier(T) [19-20]
+--
+SELECT
+  f1,
+  f2
+FROM
+  T
+==
+
+explain select 1;
+--
+ExplainStatement [0-16]
+  QueryStatement [8-16]
+    Query [8-16]
+      Select [8-16]
+        SelectList [15-16]
+          SelectColumn [15-16]
+            IntLiteral(1) [15-16]
+--
+EXPLAIN
+SELECT
+  1
+==
+
+# This parses but will give an analysis error.
+EXPLAIN EXPLAIN SELECT 1;
+--
+ExplainStatement [0-24]
+  ExplainStatement [8-24]
+    QueryStatement [16-24]
+      Query [16-24]
+        Select [16-24]
+          SelectList [23-24]
+            SelectColumn [23-24]
+              IntLiteral(1) [23-24]
+--
+EXPLAIN EXPLAIN
+SELECT
+  1
+==
+
+# You cannot explain a script statement, even inside of a script.
+[mode=script]
+EXPLAIN IF TRUE THEN SELECT 3; END IF;
+--
+ERROR: Syntax error: Unexpected keyword IF [at 1:9]
+EXPLAIN IF TRUE THEN SELECT 3; END IF;
+        ^
+==
+
+SELECT * FROM (EXPLAIN SELECT 1);
+--
+ERROR: Syntax error: Expected keyword JOIN but got keyword SELECT [at 1:24]
+SELECT * FROM (EXPLAIN SELECT 1);
+                       ^
+==
+
+select f1, `f 2` from T where b;
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-16]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-16]
+          PathExpression [11-16]
+            Identifier(`f 2`) [11-16]
+      FromClause [17-23]
+        TablePathExpression [22-23]
+          PathExpression [22-23]
+            Identifier(T) [22-23]
+      WhereClause [24-31]
+        PathExpression [30-31]
+          Identifier(b) [30-31]
+--
+SELECT
+  f1,
+  `f 2`
+FROM
+  T
+WHERE
+  b
+==
+
+select f1, f2 from (select 1 f1, "b" f2);
+--
+QueryStatement [0-40]
+  Query [0-40]
+    Select [0-40]
+      SelectList [7-13]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-13]
+          PathExpression [11-13]
+            Identifier(f2) [11-13]
+      FromClause [14-40]
+        TableSubquery [19-40]
+          Query [20-39]
+            Select [20-39]
+              SelectList [27-39]
+                SelectColumn [27-31]
+                  IntLiteral(1) [27-28]
+                  Alias [29-31]
+                    Identifier(f1) [29-31]
+                SelectColumn [33-39]
+                  StringLiteral("b") [33-36]
+                  Alias [37-39]
+                    Identifier(f2) [37-39]
+--
+SELECT
+  f1,
+  f2
+FROM
+  (
+    SELECT
+      1 AS f1,
+      "b" AS f2
+  )
+==
+
+select f1 from (select 1 f1) AS subquery_alias_1, (select 1 f1) subquery_alias_2
+--
+QueryStatement [0-80]
+  Query [0-80]
+    Select [0-80]
+      SelectList [7-9]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+      FromClause [10-80]
+        Join(COMMA) [48-80]
+          TableSubquery [15-48]
+            Query [16-27]
+              Select [16-27]
+                SelectList [23-27]
+                  SelectColumn [23-27]
+                    IntLiteral(1) [23-24]
+                    Alias [25-27]
+                      Identifier(f1) [25-27]
+            Alias [29-48]
+              Identifier(subquery_alias_1) [32-48]
+          TableSubquery [50-80]
+            Query [51-62]
+              Select [51-62]
+                SelectList [58-62]
+                  SelectColumn [58-62]
+                    IntLiteral(1) [58-59]
+                    Alias [60-62]
+                      Identifier(f1) [60-62]
+            Alias [64-80]
+              Identifier(subquery_alias_2) [64-80]
+--
+SELECT
+  f1
+FROM
+  (
+    SELECT
+      1 AS f1
+  ) AS subquery_alias_1,
+  (
+    SELECT
+      1 AS f1
+  ) AS subquery_alias_2
+==
+
+select hll_count.extract(hll_count.merge(foo)) from bar;
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-46]
+        SelectColumn [7-46]
+          FunctionCall [7-46]
+            PathExpression [7-24]
+              Identifier(hll_count) [7-16]
+              Identifier(`extract`) [17-24]
+            FunctionCall [25-45]
+              PathExpression [25-40]
+                Identifier(hll_count) [25-34]
+                Identifier(`merge`) [35-40]
+              PathExpression [41-44]
+                Identifier(foo) [41-44]
+      FromClause [47-55]
+        TablePathExpression [52-55]
+          PathExpression [52-55]
+            Identifier(bar) [52-55]
+--
+SELECT
+  hll_count.`extract`(hll_count.`merge`(foo))
+FROM
+  bar
+==
+
+select a AND b from T;
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          AndExpr [7-14]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+            PathExpression [13-14]
+              Identifier(b) [13-14]
+      FromClause [15-21]
+        TablePathExpression [20-21]
+          PathExpression [20-21]
+            Identifier(T) [20-21]
+--
+SELECT
+  a AND b
+FROM
+  T
+==
+
+
+
+select f(x + y) from A;
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          FunctionCall [7-15]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            BinaryExpression(+) [9-14]
+              PathExpression [9-10]
+                Identifier(x) [9-10]
+              PathExpression [13-14]
+                Identifier(y) [13-14]
+      FromClause [16-22]
+        TablePathExpression [21-22]
+          PathExpression [21-22]
+            Identifier(A) [21-22]
+--
+SELECT
+  f(x + y)
+FROM
+  A
+==
+
+select count(abc.def), count(*), anon_count(*, 0, 1) from T;
+--
+QueryStatement [0-59]
+  Query [0-59]
+    Select [0-59]
+      SelectList [7-52]
+        SelectColumn [7-21]
+          FunctionCall [7-21]
+            PathExpression [7-12]
+              Identifier(count) [7-12]
+            PathExpression [13-20]
+              Identifier(abc) [13-16]
+              Identifier(def) [17-20]
+        SelectColumn [23-31]
+          FunctionCall [23-31]
+            PathExpression [23-28]
+              Identifier(count) [23-28]
+            Star(*) [29-30]
+        SelectColumn [33-52]
+          FunctionCall [33-52]
+            PathExpression [33-43]
+              Identifier(anon_count) [33-43]
+            Star(*) [44-45]
+            IntLiteral(0) [47-48]
+            IntLiteral(1) [50-51]
+      FromClause [53-59]
+        TablePathExpression [58-59]
+          PathExpression [58-59]
+            Identifier(T) [58-59]
+--
+SELECT
+  count(abc.def),
+  count(*),
+  anon_count(*, 0, 1)
+FROM
+  T
+==
+
+select a.b.f(x.y) from T;
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          FunctionCall [7-17]
+            PathExpression [7-12]
+              Identifier(a) [7-8]
+              Identifier(b) [9-10]
+              Identifier(f) [11-12]
+            PathExpression [13-16]
+              Identifier(x) [13-14]
+              Identifier(y) [15-16]
+      FromClause [18-24]
+        TablePathExpression [23-24]
+          PathExpression [23-24]
+            Identifier(T) [23-24]
+--
+SELECT
+  a.b.f(x.y)
+FROM
+  T
+==
+
+select *, a.b.f(x.y) from T;
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-20]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+        SelectColumn [10-20]
+          FunctionCall [10-20]
+            PathExpression [10-15]
+              Identifier(a) [10-11]
+              Identifier(b) [12-13]
+              Identifier(f) [14-15]
+            PathExpression [16-19]
+              Identifier(x) [16-17]
+              Identifier(y) [18-19]
+      FromClause [21-27]
+        TablePathExpression [26-27]
+          PathExpression [26-27]
+            Identifier(T) [26-27]
+--
+SELECT
+  *,
+  a.b.f(x.y)
+FROM
+  T
+==
+
+select f(g(x)), f(1), h() AS foo from T;
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-32]
+        SelectColumn [7-14]
+          FunctionCall [7-14]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            FunctionCall [9-13]
+              PathExpression [9-10]
+                Identifier(g) [9-10]
+              PathExpression [11-12]
+                Identifier(x) [11-12]
+        SelectColumn [16-20]
+          FunctionCall [16-20]
+            PathExpression [16-17]
+              Identifier(f) [16-17]
+            IntLiteral(1) [18-19]
+        SelectColumn [22-32]
+          FunctionCall [22-25]
+            PathExpression [22-23]
+              Identifier(h) [22-23]
+          Alias [26-32]
+            Identifier(foo) [29-32]
+      FromClause [33-39]
+        TablePathExpression [38-39]
+          PathExpression [38-39]
+            Identifier(T) [38-39]
+--
+SELECT
+  f(g(x)),
+  f(1),
+  h() AS foo
+FROM
+  T
+==
+
+# Parenthesized path expressions are not allowed here.
+select foo AS (path.expression) from T
+--
+ERROR: Syntax error: Unexpected "(" [at 1:15]
+select foo AS (path.expression) from T
+              ^
+==
+
+# Parenthesized path expressions are not allowed here (even though this one does
+# not have a dot).
+select foo AS (path) from T
+--
+ERROR: Syntax error: Unexpected "(" [at 1:15]
+select foo AS (path) from T
+              ^
+==
+
+select f(1, x, "a", true, g(y)) AS bar from T;
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [7-38]
+        SelectColumn [7-38]
+          FunctionCall [7-31]
+            PathExpression [7-8]
+              Identifier(f) [7-8]
+            IntLiteral(1) [9-10]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            StringLiteral("a") [15-18]
+            BooleanLiteral(true) [20-24]
+            FunctionCall [26-30]
+              PathExpression [26-27]
+                Identifier(g) [26-27]
+              PathExpression [28-29]
+                Identifier(y) [28-29]
+          Alias [32-38]
+            Identifier(bar) [35-38]
+      FromClause [39-45]
+        TablePathExpression [44-45]
+          PathExpression [44-45]
+            Identifier(T) [44-45]
+--
+SELECT
+  f(1, x, "a", true, g(y)) AS bar
+FROM
+  T
+==
+
+select -1, +2, NOT a from T;
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-20]
+        SelectColumn [7-9]
+          UnaryExpression(-) [7-9]
+            IntLiteral(1) [8-9]
+        SelectColumn [11-13]
+          UnaryExpression(+) [11-13]
+            IntLiteral(2) [12-13]
+        SelectColumn [15-20]
+          UnaryExpression(NOT) [15-20]
+            PathExpression [19-20]
+              Identifier(a) [19-20]
+      FromClause [21-27]
+        TablePathExpression [26-27]
+          PathExpression [26-27]
+            Identifier(T) [26-27]
+--
+SELECT
+  - 1,
+  + 2,
+  NOT a
+FROM
+  T
+==
+
+select 1 as `This is an\\n\\talias on a new line.`
+--
+QueryStatement [0-50]
+  Query [0-50]
+    Select [0-50]
+      SelectList [7-50]
+        SelectColumn [7-50]
+          IntLiteral(1) [7-8]
+          Alias [9-50]
+            Identifier(`This is an\\n\\talias on a new line.`) [12-50]
+--
+SELECT
+  1 AS `This is an\\n\\talias on a new line.`
+==
+
+# NOTE: Backslashes are being unescaped by the test framework.
+select 1 as `\\t`, 2 as `\\n`, 3 as `\\010`, 4 as `\\xafh`, 5 as `\\u00045678`,
+       6 as `\\U00045678`, '\\x53' as `\\x54`;
+--
+QueryStatement [0-125]
+  Query [0-125]
+    Select [0-125]
+      SelectList [7-125]
+        SelectColumn [7-17]
+          IntLiteral(1) [7-8]
+          Alias [9-17]
+            Identifier(`\\t`) [12-17]
+        SelectColumn [19-29]
+          IntLiteral(2) [19-20]
+          Alias [21-29]
+            Identifier(`\\n`) [24-29]
+        SelectColumn [31-43]
+          IntLiteral(3) [31-32]
+          Alias [33-43]
+            Identifier(`\\010`) [36-43]
+        SelectColumn [45-58]
+          IntLiteral(4) [45-46]
+          Alias [47-58]
+            Identifier(`\\xafh`) [50-58]
+        SelectColumn [60-78]
+          IntLiteral(5) [60-61]
+          Alias [62-78]
+            Identifier(`\\u00045678`) [65-78]
+        SelectColumn [87-105]
+          IntLiteral(6) [87-88]
+          Alias [89-105]
+            Identifier(`\\U00045678`) [92-105]
+        SelectColumn [107-125]
+          StringLiteral('\\x53') [107-114]
+          Alias [115-125]
+            Identifier(`\\x54`) [118-125]
+--
+SELECT
+  1 AS `\\t`,
+  2 AS `\\n`,
+  3 AS `\\010`,
+  4 AS `\\xafh`,
+  5 AS `\\u00045678`,
+  6 AS `\\U00045678`,
+  '\\x53' AS `\\x54`
+==
+
+select '\\u1235' as `\\u1234`, "\\U00012346" as `\\U00012345`;
+--
+QueryStatement [0-61]
+  Query [0-61]
+    Select [0-61]
+      SelectList [7-61]
+        SelectColumn [7-29]
+          StringLiteral('\\u1235') [7-16]
+          Alias [17-29]
+            Identifier(`\\u1234`) [20-29]
+        SelectColumn [31-61]
+          StringLiteral("\\U00012346") [31-44]
+          Alias [45-61]
+            Identifier(`\\U00012345`) [48-61]
+--
+SELECT
+  '\\u1235' AS `\\u1234`,
+  "\\U00012346" AS `\\U00012345`
+==
+
+select {{safe_cast|cast}}("1" as int32);
+--
+ALTERNATION GROUP: safe_cast
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectList [7-30]
+        SelectColumn [7-30]
+          CastExpression(return_null_on_error=true) [7-30]
+            StringLiteral("1") [17-20]
+            SimpleType [24-29]
+              PathExpression [24-29]
+                Identifier(int32) [24-29]
+--
+SELECT
+  SAFE_CAST("1" AS int32)
+--
+ALTERNATION GROUP: cast
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-25]
+        SelectColumn [7-25]
+          CastExpression [7-25]
+            StringLiteral("1") [12-15]
+            SimpleType [19-24]
+              PathExpression [19-24]
+                Identifier(int32) [19-24]
+--
+SELECT
+  CAST("1" AS int32)
+==
+
+select cast(x as string(10));
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          CastExpression [7-28]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            SimpleType [17-27]
+              PathExpression [17-23]
+                Identifier(string) [17-23]
+              TypeParameterList [23-26]
+                IntLiteral(10) [24-26]
+--
+SELECT
+  CAST(x AS string(10))
+==
+
+select {{cast|safe_cast}}(`date` as date) from A;
+--
+ALTERNATION GROUP: cast
+--
+QueryStatement [0-34]
+  Query [0-34]
+    Select [0-34]
+      SelectList [7-27]
+        SelectColumn [7-27]
+          CastExpression [7-27]
+            PathExpression [12-18]
+              Identifier(date) [12-18]
+            SimpleType [22-26]
+              PathExpression [22-26]
+                Identifier(date) [22-26]
+      FromClause [28-34]
+        TablePathExpression [33-34]
+          PathExpression [33-34]
+            Identifier(A) [33-34]
+--
+SELECT
+  CAST(date AS date)
+FROM
+  A
+--
+ALTERNATION GROUP: safe_cast
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          CastExpression(return_null_on_error=true) [7-32]
+            PathExpression [17-23]
+              Identifier(date) [17-23]
+            SimpleType [27-31]
+              PathExpression [27-31]
+                Identifier(date) [27-31]
+      FromClause [33-39]
+        TablePathExpression [38-39]
+          PathExpression [38-39]
+            Identifier(A) [38-39]
+--
+SELECT
+  SAFE_CAST(date AS date)
+FROM
+  A
+==
+
+select {{cast|safe_cast}}([1,2,3] as array<string>)
+--
+
+ALTERNATION GROUP: cast
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-37]
+      SelectList [7-37]
+        SelectColumn [7-37]
+          CastExpression [7-37]
+            ArrayConstructor [12-19]
+              IntLiteral(1) [13-14]
+              IntLiteral(2) [15-16]
+              IntLiteral(3) [17-18]
+            ArrayType [23-36]
+              SimpleType [29-35]
+                PathExpression [29-35]
+                  Identifier(string) [29-35]
+--
+SELECT
+  CAST(ARRAY[1, 2, 3] AS ARRAY< string >)
+--
+ALTERNATION GROUP: safe_cast
+--
+QueryStatement [0-42]
+  Query [0-42]
+    Select [0-42]
+      SelectList [7-42]
+        SelectColumn [7-42]
+          CastExpression(return_null_on_error=true) [7-42]
+            ArrayConstructor [17-24]
+              IntLiteral(1) [18-19]
+              IntLiteral(2) [20-21]
+              IntLiteral(3) [22-23]
+            ArrayType [28-41]
+              SimpleType [34-40]
+                PathExpression [34-40]
+                  Identifier(string) [34-40]
+--
+SELECT
+  SAFE_CAST(ARRAY[1, 2, 3] AS ARRAY< string >)
+==
+
+select cast("1" as int32), cast(1 as string),
+       cast(t as TimeStamp_Millis),
+       cast(u as TimeStamp_Micros),
+       cast(v as TimeStamp_seconds),
+       cast(w as TimeStamp_nanos),
+       cast(x as `mypackage.myproto`),
+       cast(y as `mypackage.myenum`) from T;
+--
+QueryStatement [0-272]
+  Query [0-272]
+    Select [0-272]
+      SelectList [7-265]
+        SelectColumn [7-25]
+          CastExpression [7-25]
+            StringLiteral("1") [12-15]
+            SimpleType [19-24]
+              PathExpression [19-24]
+                Identifier(int32) [19-24]
+        SelectColumn [27-44]
+          CastExpression [27-44]
+            IntLiteral(1) [32-33]
+            SimpleType [37-43]
+              PathExpression [37-43]
+                Identifier(string) [37-43]
+        SelectColumn [53-80]
+          CastExpression [53-80]
+            PathExpression [58-59]
+              Identifier(t) [58-59]
+            SimpleType [63-79]
+              PathExpression [63-79]
+                Identifier(TimeStamp_Millis) [63-79]
+        SelectColumn [89-116]
+          CastExpression [89-116]
+            PathExpression [94-95]
+              Identifier(u) [94-95]
+            SimpleType [99-115]
+              PathExpression [99-115]
+                Identifier(TimeStamp_Micros) [99-115]
+        SelectColumn [125-153]
+          CastExpression [125-153]
+            PathExpression [130-131]
+              Identifier(v) [130-131]
+            SimpleType [135-152]
+              PathExpression [135-152]
+                Identifier(TimeStamp_seconds) [135-152]
+        SelectColumn [162-188]
+          CastExpression [162-188]
+            PathExpression [167-168]
+              Identifier(w) [167-168]
+            SimpleType [172-187]
+              PathExpression [172-187]
+                Identifier(TimeStamp_nanos) [172-187]
+        SelectColumn [197-227]
+          CastExpression [197-227]
+            PathExpression [202-203]
+              Identifier(x) [202-203]
+            SimpleType [207-226]
+              PathExpression [207-226]
+                Identifier(`mypackage.myproto`) [207-226]
+        SelectColumn [236-265]
+          CastExpression [236-265]
+            PathExpression [241-242]
+              Identifier(y) [241-242]
+            SimpleType [246-264]
+              PathExpression [246-264]
+                Identifier(`mypackage.myenum`) [246-264]
+      FromClause [266-272]
+        TablePathExpression [271-272]
+          PathExpression [271-272]
+            Identifier(T) [271-272]
+--
+SELECT
+  CAST("1" AS int32),
+  CAST(1 AS string),
+  CAST(t AS TimeStamp_Millis),
+  CAST(u AS TimeStamp_Micros),
+  CAST(v AS TimeStamp_seconds),
+  CAST(w AS TimeStamp_nanos),
+  CAST(x AS `mypackage.myproto`),
+  CAST(y AS `mypackage.myenum`)
+FROM
+  T
+==
+
+select safe_cast("1" as int32),
+       safe_cast(1 as string),
+       safe_cast(t as TimeStamp_Millis),
+       safe_cast(u as TimeStamp_Micros),
+       safe_cast(v as TimeStamp_seconds),
+       safe_cast(w as TimeStamp_nanos),
+       safe_cast(x as `mypackage.myproto`),
+       safe_cast(y as `mypackage.myenum`) from T;
+--
+
+QueryStatement [0-319]
+  Query [0-319]
+    Select [0-319]
+      SelectList [7-312]
+        SelectColumn [7-30]
+          CastExpression(return_null_on_error=true) [7-30]
+            StringLiteral("1") [17-20]
+            SimpleType [24-29]
+              PathExpression [24-29]
+                Identifier(int32) [24-29]
+        SelectColumn [39-61]
+          CastExpression(return_null_on_error=true) [39-61]
+            IntLiteral(1) [49-50]
+            SimpleType [54-60]
+              PathExpression [54-60]
+                Identifier(string) [54-60]
+        SelectColumn [70-102]
+          CastExpression(return_null_on_error=true) [70-102]
+            PathExpression [80-81]
+              Identifier(t) [80-81]
+            SimpleType [85-101]
+              PathExpression [85-101]
+                Identifier(TimeStamp_Millis) [85-101]
+        SelectColumn [111-143]
+          CastExpression(return_null_on_error=true) [111-143]
+            PathExpression [121-122]
+              Identifier(u) [121-122]
+            SimpleType [126-142]
+              PathExpression [126-142]
+                Identifier(TimeStamp_Micros) [126-142]
+        SelectColumn [152-185]
+          CastExpression(return_null_on_error=true) [152-185]
+            PathExpression [162-163]
+              Identifier(v) [162-163]
+            SimpleType [167-184]
+              PathExpression [167-184]
+                Identifier(TimeStamp_seconds) [167-184]
+        SelectColumn [194-225]
+          CastExpression(return_null_on_error=true) [194-225]
+            PathExpression [204-205]
+              Identifier(w) [204-205]
+            SimpleType [209-224]
+              PathExpression [209-224]
+                Identifier(TimeStamp_nanos) [209-224]
+        SelectColumn [234-269]
+          CastExpression(return_null_on_error=true) [234-269]
+            PathExpression [244-245]
+              Identifier(x) [244-245]
+            SimpleType [249-268]
+              PathExpression [249-268]
+                Identifier(`mypackage.myproto`) [249-268]
+        SelectColumn [278-312]
+          CastExpression(return_null_on_error=true) [278-312]
+            PathExpression [288-289]
+              Identifier(y) [288-289]
+            SimpleType [293-311]
+              PathExpression [293-311]
+                Identifier(`mypackage.myenum`) [293-311]
+      FromClause [313-319]
+        TablePathExpression [318-319]
+          PathExpression [318-319]
+            Identifier(T) [318-319]
+--
+SELECT
+  SAFE_CAST("1" AS int32),
+  SAFE_CAST(1 AS string),
+  SAFE_CAST(t AS TimeStamp_Millis),
+  SAFE_CAST(u AS TimeStamp_Micros),
+  SAFE_CAST(v AS TimeStamp_seconds),
+  SAFE_CAST(w AS TimeStamp_nanos),
+  SAFE_CAST(x AS `mypackage.myproto`),
+  SAFE_CAST(y AS `mypackage.myenum`)
+FROM
+  T
+==
+
+select cast(x as foo),
+       cast(x as a.b),
+       cast(x > 5 as timestamp_seconds),
+       cast("1" as `int64`) as cast_1_as_int64,
+       cast(x < 10 as b),
+       cast(x as struct<x int, y double>),
+       cast(x as struct<int, double>),
+       cast(x as struct<x int, y double, string, bytes>)
+from T;
+--
+QueryStatement [0-306]
+  Query [0-306]
+    Select [0-306]
+      SelectList [7-299]
+        SelectColumn [7-21]
+          CastExpression [7-21]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            SimpleType [17-20]
+              PathExpression [17-20]
+                Identifier(foo) [17-20]
+        SelectColumn [30-44]
+          CastExpression [30-44]
+            PathExpression [35-36]
+              Identifier(x) [35-36]
+            SimpleType [40-43]
+              PathExpression [40-43]
+                Identifier(a) [40-41]
+                Identifier(b) [42-43]
+        SelectColumn [53-85]
+          CastExpression [53-85]
+            BinaryExpression(>) [58-63]
+              PathExpression [58-59]
+                Identifier(x) [58-59]
+              IntLiteral(5) [62-63]
+            SimpleType [67-84]
+              PathExpression [67-84]
+                Identifier(timestamp_seconds) [67-84]
+        SelectColumn [94-133]
+          CastExpression [94-114]
+            StringLiteral("1") [99-102]
+            SimpleType [106-113]
+              PathExpression [106-113]
+                Identifier(int64) [106-113]
+          Alias [115-133]
+            Identifier(cast_1_as_int64) [118-133]
+        SelectColumn [142-159]
+          CastExpression [142-159]
+            BinaryExpression(<) [147-153]
+              PathExpression [147-148]
+                Identifier(x) [147-148]
+              IntLiteral(10) [151-153]
+            SimpleType [157-158]
+              PathExpression [157-158]
+                Identifier(b) [157-158]
+        SelectColumn [168-202]
+          CastExpression [168-202]
+            PathExpression [173-174]
+              Identifier(x) [173-174]
+            StructType [178-201]
+              StructField [185-190]
+                Identifier(x) [185-186]
+                SimpleType [187-190]
+                  PathExpression [187-190]
+                    Identifier(int) [187-190]
+              StructField [192-200]
+                Identifier(y) [192-193]
+                SimpleType [194-200]
+                  PathExpression [194-200]
+                    Identifier(double) [194-200]
+        SelectColumn [211-241]
+          CastExpression [211-241]
+            PathExpression [216-217]
+              Identifier(x) [216-217]
+            StructType [221-240]
+              StructField [228-231]
+                SimpleType [228-231]
+                  PathExpression [228-231]
+                    Identifier(int) [228-231]
+              StructField [233-239]
+                SimpleType [233-239]
+                  PathExpression [233-239]
+                    Identifier(double) [233-239]
+        SelectColumn [250-299]
+          CastExpression [250-299]
+            PathExpression [255-256]
+              Identifier(x) [255-256]
+            StructType [260-298]
+              StructField [267-272]
+                Identifier(x) [267-268]
+                SimpleType [269-272]
+                  PathExpression [269-272]
+                    Identifier(int) [269-272]
+              StructField [274-282]
+                Identifier(y) [274-275]
+                SimpleType [276-282]
+                  PathExpression [276-282]
+                    Identifier(double) [276-282]
+              StructField [284-290]
+                SimpleType [284-290]
+                  PathExpression [284-290]
+                    Identifier(string) [284-290]
+              StructField [292-297]
+                SimpleType [292-297]
+                  PathExpression [292-297]
+                    Identifier(bytes) [292-297]
+      FromClause [300-306]
+        TablePathExpression [305-306]
+          PathExpression [305-306]
+            Identifier(T) [305-306]
+--
+SELECT
+  CAST(x AS foo),
+  CAST(x AS a.b),
+  CAST(x > 5 AS timestamp_seconds),
+  CAST("1" AS int64) AS cast_1_as_int64,
+  CAST(x < 10 AS b),
+  CAST(x AS STRUCT< x int, y double >),
+  CAST(x AS STRUCT< int, double >),
+  CAST(x AS STRUCT< x int, y double, string, bytes >)
+FROM
+  T
+==
+
+select safe_cast(x as foo),
+       safe_cast(x as a.b),
+       safe_cast(x > 5 as timestamp_seconds),
+       safe_cast("1" as `int64`) as safe_cast_1_as_int64,
+       safe_cast(x < 10 as b),
+       safe_cast(x as struct<x int, y double>),
+       safe_cast(x as struct<int, double>),
+       safe_cast(x as struct<x int, y double, string, bytes>)
+from T;
+--
+QueryStatement [0-351]
+  Query [0-351]
+    Select [0-351]
+      SelectList [7-344]
+        SelectColumn [7-26]
+          CastExpression(return_null_on_error=true) [7-26]
+            PathExpression [17-18]
+              Identifier(x) [17-18]
+            SimpleType [22-25]
+              PathExpression [22-25]
+                Identifier(foo) [22-25]
+        SelectColumn [35-54]
+          CastExpression(return_null_on_error=true) [35-54]
+            PathExpression [45-46]
+              Identifier(x) [45-46]
+            SimpleType [50-53]
+              PathExpression [50-53]
+                Identifier(a) [50-51]
+                Identifier(b) [52-53]
+        SelectColumn [63-100]
+          CastExpression(return_null_on_error=true) [63-100]
+            BinaryExpression(>) [73-78]
+              PathExpression [73-74]
+                Identifier(x) [73-74]
+              IntLiteral(5) [77-78]
+            SimpleType [82-99]
+              PathExpression [82-99]
+                Identifier(timestamp_seconds) [82-99]
+        SelectColumn [109-158]
+          CastExpression(return_null_on_error=true) [109-134]
+            StringLiteral("1") [119-122]
+            SimpleType [126-133]
+              PathExpression [126-133]
+                Identifier(int64) [126-133]
+          Alias [135-158]
+            Identifier(safe_cast_1_as_int64) [138-158]
+        SelectColumn [167-189]
+          CastExpression(return_null_on_error=true) [167-189]
+            BinaryExpression(<) [177-183]
+              PathExpression [177-178]
+                Identifier(x) [177-178]
+              IntLiteral(10) [181-183]
+            SimpleType [187-188]
+              PathExpression [187-188]
+                Identifier(b) [187-188]
+        SelectColumn [198-237]
+          CastExpression(return_null_on_error=true) [198-237]
+            PathExpression [208-209]
+              Identifier(x) [208-209]
+            StructType [213-236]
+              StructField [220-225]
+                Identifier(x) [220-221]
+                SimpleType [222-225]
+                  PathExpression [222-225]
+                    Identifier(int) [222-225]
+              StructField [227-235]
+                Identifier(y) [227-228]
+                SimpleType [229-235]
+                  PathExpression [229-235]
+                    Identifier(double) [229-235]
+        SelectColumn [246-281]
+          CastExpression(return_null_on_error=true) [246-281]
+            PathExpression [256-257]
+              Identifier(x) [256-257]
+            StructType [261-280]
+              StructField [268-271]
+                SimpleType [268-271]
+                  PathExpression [268-271]
+                    Identifier(int) [268-271]
+              StructField [273-279]
+                SimpleType [273-279]
+                  PathExpression [273-279]
+                    Identifier(double) [273-279]
+        SelectColumn [290-344]
+          CastExpression(return_null_on_error=true) [290-344]
+            PathExpression [300-301]
+              Identifier(x) [300-301]
+            StructType [305-343]
+              StructField [312-317]
+                Identifier(x) [312-313]
+                SimpleType [314-317]
+                  PathExpression [314-317]
+                    Identifier(int) [314-317]
+              StructField [319-327]
+                Identifier(y) [319-320]
+                SimpleType [321-327]
+                  PathExpression [321-327]
+                    Identifier(double) [321-327]
+              StructField [329-335]
+                SimpleType [329-335]
+                  PathExpression [329-335]
+                    Identifier(string) [329-335]
+              StructField [337-342]
+                SimpleType [337-342]
+                  PathExpression [337-342]
+                    Identifier(bytes) [337-342]
+      FromClause [345-351]
+        TablePathExpression [350-351]
+          PathExpression [350-351]
+            Identifier(T) [350-351]
+--
+SELECT
+  SAFE_CAST(x AS foo),
+  SAFE_CAST(x AS a.b),
+  SAFE_CAST(x > 5 AS timestamp_seconds),
+  SAFE_CAST("1" AS int64) AS safe_cast_1_as_int64,
+  SAFE_CAST(x < 10 AS b),
+  SAFE_CAST(x AS STRUCT< x int, y double >),
+  SAFE_CAST(x AS STRUCT< int, double >),
+  SAFE_CAST(x AS STRUCT< x int, y double, string, bytes >)
+FROM
+  T
+==
+
+select {{cast|safe_cast}}(expr as string format format_string) from t;
+
+--
+ALTERNATION GROUP: cast
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-48]
+        SelectColumn [7-48]
+          CastExpression [7-48]
+            PathExpression [12-16]
+              Identifier(expr) [12-16]
+            SimpleType [20-26]
+              PathExpression [20-26]
+                Identifier(string) [20-26]
+            FormatClause [27-47]
+              PathExpression [34-47]
+                Identifier(format_string) [34-47]
+      FromClause [49-55]
+        TablePathExpression [54-55]
+          PathExpression [54-55]
+            Identifier(t) [54-55]
+--
+SELECT
+  CAST(expr AS string FORMAT format_string)
+FROM
+  t
+--
+ALTERNATION GROUP: safe_cast
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-53]
+        SelectColumn [7-53]
+          CastExpression(return_null_on_error=true) [7-53]
+            PathExpression [17-21]
+              Identifier(expr) [17-21]
+            SimpleType [25-31]
+              PathExpression [25-31]
+                Identifier(string) [25-31]
+            FormatClause [32-52]
+              PathExpression [39-52]
+                Identifier(format_string) [39-52]
+      FromClause [54-60]
+        TablePathExpression [59-60]
+          PathExpression [59-60]
+            Identifier(t) [59-60]
+--
+SELECT
+  SAFE_CAST(expr AS string FORMAT format_string)
+FROM
+  t
+==
+
+select {{cast|safe_cast}}('literal' as int64 format format_string) from t;
+--
+
+ALTERNATION GROUP: cast
+--
+QueryStatement [0-59]
+  Query [0-59]
+    Select [0-59]
+      SelectList [7-52]
+        SelectColumn [7-52]
+          CastExpression [7-52]
+            StringLiteral('literal') [12-21]
+            SimpleType [25-30]
+              PathExpression [25-30]
+                Identifier(int64) [25-30]
+            FormatClause [31-51]
+              PathExpression [38-51]
+                Identifier(format_string) [38-51]
+      FromClause [53-59]
+        TablePathExpression [58-59]
+          PathExpression [58-59]
+            Identifier(t) [58-59]
+--
+SELECT
+  CAST('literal' AS int64 FORMAT format_string)
+FROM
+  t
+--
+ALTERNATION GROUP: safe_cast
+--
+QueryStatement [0-64]
+  Query [0-64]
+    Select [0-64]
+      SelectList [7-57]
+        SelectColumn [7-57]
+          CastExpression(return_null_on_error=true) [7-57]
+            StringLiteral('literal') [17-26]
+            SimpleType [30-35]
+              PathExpression [30-35]
+                Identifier(int64) [30-35]
+            FormatClause [36-56]
+              PathExpression [43-56]
+                Identifier(format_string) [43-56]
+      FromClause [58-64]
+        TablePathExpression [63-64]
+          PathExpression [63-64]
+            Identifier(t) [63-64]
+--
+SELECT
+  SAFE_CAST('literal' AS int64 FORMAT format_string)
+FROM
+  t
+==
+
+select {{cast|safe_cast}}(expr AS date FORMAT format_string At tImE ZoNe hour || ':' || minute) from t;
+
+--
+ALTERNATION GROUP: cast
+--
+QueryStatement [0-88]
+  Query [0-88]
+    Select [0-88]
+      SelectList [7-81]
+        SelectColumn [7-81]
+          CastExpression [7-81]
+            PathExpression [12-16]
+              Identifier(expr) [12-16]
+            SimpleType [20-24]
+              PathExpression [20-24]
+                Identifier(date) [20-24]
+            FormatClause [25-80]
+              PathExpression [32-45]
+                Identifier(format_string) [32-45]
+              BinaryExpression(||) [59-80]
+                BinaryExpression(||) [59-70]
+                  PathExpression [59-63]
+                    Identifier(hour) [59-63]
+                  StringLiteral(':') [67-70]
+                PathExpression [74-80]
+                  Identifier(minute) [74-80]
+      FromClause [82-88]
+        TablePathExpression [87-88]
+          PathExpression [87-88]
+            Identifier(t) [87-88]
+--
+SELECT
+  CAST(expr AS date FORMAT format_string AT TIME ZONE hour || ':' || minute)
+FROM
+  t
+--
+ALTERNATION GROUP: safe_cast
+--
+QueryStatement [0-93]
+  Query [0-93]
+    Select [0-93]
+      SelectList [7-86]
+        SelectColumn [7-86]
+          CastExpression(return_null_on_error=true) [7-86]
+            PathExpression [17-21]
+              Identifier(expr) [17-21]
+            SimpleType [25-29]
+              PathExpression [25-29]
+                Identifier(date) [25-29]
+            FormatClause [30-85]
+              PathExpression [37-50]
+                Identifier(format_string) [37-50]
+              BinaryExpression(||) [64-85]
+                BinaryExpression(||) [64-75]
+                  PathExpression [64-68]
+                    Identifier(hour) [64-68]
+                  StringLiteral(':') [72-75]
+                PathExpression [79-85]
+                  Identifier(minute) [79-85]
+      FromClause [87-93]
+        TablePathExpression [92-93]
+          PathExpression [92-93]
+            Identifier(t) [92-93]
+--
+SELECT
+  SAFE_CAST(expr AS date FORMAT format_string AT TIME ZONE hour || ':' || minute)
+FROM
+  t
+==
+
+select count(*), anon_count(*, 0, 1), count(distinct x), sum(x),
+       sum(distinct x), group_concat(distinct x, '|')
+from T;
+--
+QueryStatement [0-125]
+  Query [0-125]
+    Select [0-125]
+      SelectList [7-118]
+        SelectColumn [7-15]
+          FunctionCall [7-15]
+            PathExpression [7-12]
+              Identifier(count) [7-12]
+            Star(*) [13-14]
+        SelectColumn [17-36]
+          FunctionCall [17-36]
+            PathExpression [17-27]
+              Identifier(anon_count) [17-27]
+            Star(*) [28-29]
+            IntLiteral(0) [31-32]
+            IntLiteral(1) [34-35]
+        SelectColumn [38-55]
+          FunctionCall(distinct=true) [38-55]
+            PathExpression [38-43]
+              Identifier(count) [38-43]
+            PathExpression [53-54]
+              Identifier(x) [53-54]
+        SelectColumn [57-63]
+          FunctionCall [57-63]
+            PathExpression [57-60]
+              Identifier(sum) [57-60]
+            PathExpression [61-62]
+              Identifier(x) [61-62]
+        SelectColumn [72-87]
+          FunctionCall(distinct=true) [72-87]
+            PathExpression [72-75]
+              Identifier(sum) [72-75]
+            PathExpression [85-86]
+              Identifier(x) [85-86]
+        SelectColumn [89-118]
+          FunctionCall(distinct=true) [89-118]
+            PathExpression [89-101]
+              Identifier(group_concat) [89-101]
+            PathExpression [111-112]
+              Identifier(x) [111-112]
+            StringLiteral('|') [114-117]
+      FromClause [119-125]
+        TablePathExpression [124-125]
+          PathExpression [124-125]
+            Identifier(T) [124-125]
+--
+SELECT
+  count(*),
+  anon_count(*, 0, 1),
+  count(DISTINCT x),
+  sum(x),
+  sum(DISTINCT x),
+  group_concat(DISTINCT x, '|')
+FROM
+  T
+==
+
+select count(distinct);
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          FunctionCall(distinct=true) [7-22]
+            PathExpression [7-12]
+              Identifier(count) [7-12]
+--
+SELECT
+  count(DISTINCT)
+==
+
+# WITH reserved word works in a path expression.
+select nested1.field1, field2 from table1.with.dots
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-29]
+        SelectColumn [7-21]
+          PathExpression [7-21]
+            Identifier(nested1) [7-14]
+            Identifier(field1) [15-21]
+        SelectColumn [23-29]
+          PathExpression [23-29]
+            Identifier(field2) [23-29]
+      FromClause [30-51]
+        TablePathExpression [35-51]
+          PathExpression [35-51]
+            Identifier(table1) [35-41]
+            Identifier(`with`) [42-46]
+            Identifier(dots) [47-51]
+--
+SELECT
+  nested1.field1,
+  field2
+FROM
+  table1.`with`.dots
+==
+
+# PROTO reserved word works in a path expression.
+select nested1.proto
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-20]
+        SelectColumn [7-20]
+          PathExpression [7-20]
+            Identifier(nested1) [7-14]
+            Identifier(`proto`) [15-20]
+--
+SELECT
+  nested1.`proto`
+==
+
+# Table name with backticks
+select nested1.field1, field2 from `table.with.dots`
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-29]
+        SelectColumn [7-21]
+          PathExpression [7-21]
+            Identifier(nested1) [7-14]
+            Identifier(field1) [15-21]
+        SelectColumn [23-29]
+          PathExpression [23-29]
+            Identifier(field2) [23-29]
+      FromClause [30-52]
+        TablePathExpression [35-52]
+          PathExpression [35-52]
+            Identifier(`table.with.dots`) [35-52]
+--
+SELECT
+  nested1.field1,
+  field2
+FROM
+  `table.with.dots`
+==
+
+select f(column.field_name) like 'pattern%';
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-43]
+        SelectColumn [7-43]
+          BinaryExpression(LIKE) [7-43]
+            FunctionCall [7-27]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+              PathExpression [9-26]
+                Identifier(column) [9-15]
+                Identifier(field_name) [16-26]
+            StringLiteral('pattern%') [33-43]
+--
+SELECT
+  f(column.field_name) LIKE 'pattern%'
+==
+
+select a NOT LIKE b;
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          BinaryExpression(NOT LIKE) [7-19]
+            PathExpression [7-8]
+              Identifier(a) [7-8]
+            PathExpression [18-19]
+              Identifier(b) [18-19]
+--
+SELECT
+  a NOT LIKE b
+==
+
+# The Bison parser only recognizes NOT after an expression if it is for
+# "NOT IN/LIKE/BETWEEN".
+select a NOT <= b;
+--
+ERROR: Syntax error: Expected end of input but got keyword NOT [at 1:10]
+select a NOT <= b;
+         ^
+==
+
+select 1 IS NULL
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          BinaryExpression(IS) [7-16]
+            IntLiteral(1) [7-8]
+            NullLiteral(NULL) [12-16]
+--
+SELECT
+  1 IS NULL
+==
+
+select a from t where (f(a) + b[c]) IS NOT NULL
+--
+QueryStatement [0-47]
+  Query [0-47]
+    Select [0-47]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(t) [14-15]
+      WhereClause [16-47]
+        BinaryExpression(IS NOT) [22-47]
+          BinaryExpression(+) [23-34]
+            FunctionCall [23-27]
+              PathExpression [23-24]
+                Identifier(f) [23-24]
+              PathExpression [25-26]
+                Identifier(a) [25-26]
+            ArrayElement [31-34]
+              PathExpression [30-31]
+                Identifier(b) [30-31]
+              PathExpression [32-33]
+                Identifier(c) [32-33]
+          NullLiteral(NULL) [43-47]
+--
+SELECT
+  a
+FROM
+  t
+WHERE
+  (f(a) + b[c]) IS NOT NULL
+==
+
+select 1 NOT IS NULL
+--
+ERROR: Syntax error: Expected end of input but got keyword NOT [at 1:10]
+select 1 NOT IS NULL
+         ^
+==
+
+select NULL IS NULL
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          BinaryExpression(IS) [7-19]
+            NullLiteral(NULL) [7-11]
+            NullLiteral(NULL) [15-19]
+--
+SELECT
+  NULL IS NULL
+==
+
+select NOT NULL IS NOT NULL
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-27]
+        SelectColumn [7-27]
+          UnaryExpression(NOT) [7-27]
+            BinaryExpression(IS NOT) [11-27]
+              NullLiteral(NULL) [11-15]
+              NullLiteral(NULL) [23-27]
+--
+SELECT
+  NOT NULL IS NOT NULL
+==
+
+select NULL IS NOT NULL NULL
+--
+ERROR: Syntax error: Expected end of input but got keyword NULL [at 1:25]
+select NULL IS NOT NULL NULL
+                        ^
+==
+
+select 1 from T where TRUE IS NOT TRUE
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+      WhereClause [16-38]
+        BinaryExpression(IS NOT) [22-38]
+          BooleanLiteral(TRUE) [22-26]
+          BooleanLiteral(TRUE) [34-38]
+--
+SELECT
+  1
+FROM
+  T
+WHERE
+  TRUE IS NOT TRUE
+==
+
+select 1 from T where TRUE IS NOT FALSE
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+      WhereClause [16-39]
+        BinaryExpression(IS NOT) [22-39]
+          BooleanLiteral(TRUE) [22-26]
+          BooleanLiteral(FALSE) [34-39]
+--
+SELECT
+  1
+FROM
+  T
+WHERE
+  TRUE IS NOT FALSE
+==
+
+select FALSE from T where NULL IS TRUE
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          BooleanLiteral(FALSE) [7-12]
+      FromClause [13-19]
+        TablePathExpression [18-19]
+          PathExpression [18-19]
+            Identifier(T) [18-19]
+      WhereClause [20-38]
+        BinaryExpression(IS) [26-38]
+          NullLiteral(NULL) [26-30]
+          BooleanLiteral(TRUE) [34-38]
+--
+SELECT
+  FALSE
+FROM
+  T
+WHERE
+  NULL IS TRUE
+==
+
+select TRUE IS NULL FALSE
+--
+ERROR: Syntax error: Expected end of input but got keyword FALSE [at 1:21]
+select TRUE IS NULL FALSE
+                    ^
+==
+
+select x from T where x IS y
+--
+ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE but got identifier "y" [at 1:28]
+select x from T where x IS y
+                           ^
+==
+
+select x IS NOT 5
+--
+ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE but got integer literal "5" [at 1:17]
+select x IS NOT 5
+                ^
+==
+
+select * from Table1 where col BETWEEN value1 AND value2;
+--
+QueryStatement [0-56]
+  Query [0-56]
+    Select [0-56]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-20]
+        TablePathExpression [14-20]
+          PathExpression [14-20]
+            Identifier(Table1) [14-20]
+      WhereClause [21-56]
+        BetweenExpression(BETWEEN) [31-56]
+          PathExpression [27-30]
+            Identifier(col) [27-30]
+          PathExpression [39-45]
+            Identifier(value1) [39-45]
+          PathExpression [50-56]
+            Identifier(value2) [50-56]
+--
+SELECT
+  *
+FROM
+  Table1
+WHERE
+  col BETWEEN value1 AND value2
+==
+
+# Unbalanced parentheses/brackets tokenizes correctly (or at least without
+# crashing) but doesn't parse.
+SELECT {{(|{|[|}} foo {{)|}|]}} {{)|}|]}}, foo
+--
+ALTERNATION GROUP: (,),)
+--
+ERROR: Syntax error: Expected end of input but got ")" [at 1:16]
+SELECT ( foo ) ), foo
+               ^
+--
+ALTERNATION GROUP: (,),}
+--
+ERROR: Syntax error: Expected end of input but got "}" [at 1:16]
+SELECT ( foo ) }, foo
+               ^
+--
+ALTERNATION GROUP: (,),]
+--
+ERROR: Syntax error: Expected end of input but got "]" [at 1:16]
+SELECT ( foo ) ], foo
+               ^
+--
+ALTERNATION GROUP: (,},)
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+SELECT ( foo } ), foo
+         ^
+--
+ALTERNATION GROUP: (,},}
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+SELECT ( foo } }, foo
+         ^
+--
+ALTERNATION GROUP: (,},]
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+SELECT ( foo } ], foo
+         ^
+--
+ALTERNATION GROUP: (,],)
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+SELECT ( foo ] ), foo
+         ^
+--
+ALTERNATION GROUP: (,],}
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+SELECT ( foo ] }, foo
+         ^
+--
+ALTERNATION GROUP: (,],]
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 1:10]
+SELECT ( foo ] ], foo
+         ^
+--
+ALTERNATION GROUP: {,),)
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo ) ), foo
+       ^
+--
+ALTERNATION GROUP: {,),}
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo ) }, foo
+       ^
+--
+ALTERNATION GROUP: {,),]
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo ) ], foo
+       ^
+--
+ALTERNATION GROUP: {,},)
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo } ), foo
+       ^
+--
+ALTERNATION GROUP: {,},}
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo } }, foo
+       ^
+--
+ALTERNATION GROUP: {,},]
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo } ], foo
+       ^
+--
+ALTERNATION GROUP: {,],)
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo ] ), foo
+       ^
+--
+ALTERNATION GROUP: {,],}
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo ] }, foo
+       ^
+--
+ALTERNATION GROUP: {,],]
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { foo ] ], foo
+       ^
+--
+ALTERNATION GROUP: [,),)
+--
+ERROR: Syntax error: Expected "," or "]" but got ")" [at 1:14]
+SELECT [ foo ) ), foo
+             ^
+--
+ALTERNATION GROUP: [,),}
+--
+ERROR: Syntax error: Expected "," or "]" but got ")" [at 1:14]
+SELECT [ foo ) }, foo
+             ^
+--
+ALTERNATION GROUP: [,),]
+--
+ERROR: Syntax error: Expected "," or "]" but got ")" [at 1:14]
+SELECT [ foo ) ], foo
+             ^
+--
+ALTERNATION GROUP: [,},)
+--
+ERROR: Syntax error: Expected "," or "]" but got "}" [at 1:14]
+SELECT [ foo } ), foo
+             ^
+--
+ALTERNATION GROUP: [,},}
+--
+ERROR: Syntax error: Expected "," or "]" but got "}" [at 1:14]
+SELECT [ foo } }, foo
+             ^
+--
+ALTERNATION GROUP: [,},]
+--
+ERROR: Syntax error: Expected "," or "]" but got "}" [at 1:14]
+SELECT [ foo } ], foo
+             ^
+--
+ALTERNATION GROUP: [,],)
+--
+ERROR: Syntax error: Expected end of input but got ")" [at 1:16]
+SELECT [ foo ] ), foo
+               ^
+--
+ALTERNATION GROUP: [,],}
+--
+ERROR: Syntax error: Expected end of input but got "}" [at 1:16]
+SELECT [ foo ] }, foo
+               ^
+--
+ALTERNATION GROUP: [,],]
+--
+ERROR: Syntax error: Expected end of input but got "]" [at 1:16]
+SELECT [ foo ] ], foo
+               ^
+--
+ALTERNATION GROUP: ),)
+--
+ERROR: Syntax error: Expected end of input but got ")" [at 1:13]
+SELECT  foo ) ), foo
+            ^
+--
+ALTERNATION GROUP: ),}
+--
+ERROR: Syntax error: Expected end of input but got ")" [at 1:13]
+SELECT  foo ) }, foo
+            ^
+--
+ALTERNATION GROUP: ),]
+--
+ERROR: Syntax error: Expected end of input but got ")" [at 1:13]
+SELECT  foo ) ], foo
+            ^
+--
+ALTERNATION GROUP: },)
+--
+ERROR: Syntax error: Expected end of input but got "}" [at 1:13]
+SELECT  foo } ), foo
+            ^
+--
+ALTERNATION GROUP: },}
+--
+ERROR: Syntax error: Expected end of input but got "}" [at 1:13]
+SELECT  foo } }, foo
+            ^
+--
+ALTERNATION GROUP: },]
+--
+ERROR: Syntax error: Expected end of input but got "}" [at 1:13]
+SELECT  foo } ], foo
+            ^
+--
+ALTERNATION GROUP: ],)
+--
+ERROR: Syntax error: Expected end of input but got "]" [at 1:13]
+SELECT  foo ] ), foo
+            ^
+--
+ALTERNATION GROUP: ],}
+--
+ERROR: Syntax error: Expected end of input but got "]" [at 1:13]
+SELECT  foo ] }, foo
+            ^
+--
+ALTERNATION GROUP: ],]
+--
+ERROR: Syntax error: Expected end of input but got "]" [at 1:13]
+SELECT  foo ] ], foo
+            ^
+==
+
+# Closing parentheses/brackets in the middle of a BETWEEN tokenizes correctly
+# but doesn't parse.
+SELECT {{(|{|[}} x BETWEEN y{{)|}|]}}, foo
+--
+ALTERNATION GROUP: (,)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:21]
+SELECT ( x BETWEEN y), foo
+                    ^
+--
+ALTERNATION GROUP: (,}
+--
+ERROR: Syntax error: Unexpected "}" [at 1:21]
+SELECT ( x BETWEEN y}, foo
+                    ^
+--
+ALTERNATION GROUP: (,]
+--
+ERROR: Syntax error: Unexpected "]" [at 1:21]
+SELECT ( x BETWEEN y], foo
+                    ^
+--
+ALTERNATION GROUP: {,)
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { x BETWEEN y), foo
+       ^
+--
+ALTERNATION GROUP: {,}
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { x BETWEEN y}, foo
+       ^
+--
+ALTERNATION GROUP: {,]
+--
+ERROR: Syntax error: Unexpected "{" [at 1:8]
+SELECT { x BETWEEN y], foo
+       ^
+--
+ALTERNATION GROUP: [,)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:21]
+SELECT [ x BETWEEN y), foo
+                    ^
+--
+ALTERNATION GROUP: [,}
+--
+ERROR: Syntax error: Unexpected "}" [at 1:21]
+SELECT [ x BETWEEN y}, foo
+                    ^
+--
+ALTERNATION GROUP: [,]
+--
+ERROR: Syntax error: Unexpected "]" [at 1:21]
+SELECT [ x BETWEEN y], foo
+                    ^
+==
+
+select key, kv.key, kv, (kv).key from KeyValue kv;
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-32]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(key) [7-10]
+        SelectColumn [12-18]
+          PathExpression [12-18]
+            Identifier(kv) [12-14]
+            Identifier(key) [15-18]
+        SelectColumn [20-22]
+          PathExpression [20-22]
+            Identifier(kv) [20-22]
+        SelectColumn [24-32]
+          DotIdentifier [28-32]
+            PathExpression [25-27]
+              Identifier(kv) [25-27]
+            Identifier(key) [29-32]
+      FromClause [33-49]
+        TablePathExpression [38-49]
+          PathExpression [38-46]
+            Identifier(KeyValue) [38-46]
+          Alias [47-49]
+            Identifier(kv) [47-49]
+--
+SELECT
+  key,
+  kv.key,
+  kv,
+  (kv).key
+FROM
+  KeyValue AS kv
+==
+
+# NOT IN is handled specially, but NOTIN shouldn't be.
+SELECT 1 AS NOTIN;
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          IntLiteral(1) [7-8]
+          Alias [9-17]
+            Identifier(NOTIN) [12-17]
+--
+SELECT
+  1 AS NOTIN
+==
+
+# NOT IN is handled specially, but NOTIN shouldn't be.
+SELECT 1 NOTIN (2, 3);
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 1:16]
+SELECT 1 NOTIN (2, 3);
+               ^
+==
+
+# NOT BETWEEN is handled specially, but NOTBETWEEN shouldn't be.
+SELECT 1 AS NOTBETWEEN;
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          IntLiteral(1) [7-8]
+          Alias [9-22]
+            Identifier(NOTBETWEEN) [12-22]
+--
+SELECT
+  1 AS NOTBETWEEN
+==
+
+# NOT BETWEEN is handled specially, but NOTBETWEEN shouldn't be.
+SELECT 1 NOTBETWEEN 1 AND 2;
+--
+ERROR: Syntax error: Expected end of input but got integer literal "1" [at 1:21]
+SELECT 1 NOTBETWEEN 1 AND 2;
+                    ^
+==
+
+# NOT LIKE is handled specially, but NOTLIKE shouldn't be.
+SELECT 1 AS NOTLIKE;
+--
+QueryStatement [0-19]
+  Query [0-19]
+    Select [0-19]
+      SelectList [7-19]
+        SelectColumn [7-19]
+          IntLiteral(1) [7-8]
+          Alias [9-19]
+            Identifier(NOTLIKE) [12-19]
+--
+SELECT
+  1 AS NOTLIKE
+==
+
+# NOT LIKE is handled specially, but NOTLIKE shouldn't be.
+SELECT 1 NOTLIKE 'abc%';
+--
+ERROR: Syntax error: Expected end of input but got string literal 'abc%' [at 1:18]
+SELECT 1 NOTLIKE 'abc%';
+                 ^
+==
+
+# <> and != are different operators at the parser level. They should be
+# unparsed as themselves.
+SELECT 1 <> 1, 1 != 1
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-13]
+          BinaryExpression(<>) [7-13]
+            IntLiteral(1) [7-8]
+            IntLiteral(1) [12-13]
+        SelectColumn [15-21]
+          BinaryExpression(!=) [15-21]
+            IntLiteral(1) [15-16]
+            IntLiteral(1) [20-21]
+--
+SELECT
+  1 <> 1,
+  1 != 1
+==
+
+# Various C-style comment corner cases.
+[no_test_get_parse_tokens]
+/* C-style comment with {{* in the middle|/ in the middle|trailing *|trailing**}}*/
+SELECT foo;
+--
+ALTERNATION GROUPS:
+    * in the middle
+    / in the middle
+--
+QueryStatement [42-52]
+  Query [42-52]
+    Select [42-52]
+      SelectList [49-52]
+        SelectColumn [49-52]
+          PathExpression [49-52]
+            Identifier(foo) [49-52]
+--
+SELECT
+  foo
+--
+ALTERNATION GROUPS:
+    trailing *
+    trailing**
+--
+QueryStatement [37-47]
+  Query [37-47]
+    Select [37-47]
+      SelectList [44-47]
+        SelectColumn [44-47]
+          PathExpression [44-47]
+            Identifier(foo) [44-47]
+--
+SELECT
+  foo
+==
+
+# Parenthesized ANDs should not be merged.
+SELECT (TRUE AND FALSE) AND (FALSE AND TRUE)
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [7-44]
+        SelectColumn [7-44]
+          AndExpr [7-44]
+            AndExpr [8-22]
+              BooleanLiteral(TRUE) [8-12]
+              BooleanLiteral(FALSE) [17-22]
+            AndExpr [29-43]
+              BooleanLiteral(FALSE) [29-34]
+              BooleanLiteral(TRUE) [39-43]
+--
+SELECT
+  (TRUE AND FALSE) AND (FALSE AND TRUE)
+==
+
+# Parenthesized ORs should not be merged.
+SELECT (TRUE OR FALSE) OR (FALSE OR TRUE)
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          OrExpr [7-41]
+            OrExpr [8-21]
+              BooleanLiteral(TRUE) [8-12]
+              BooleanLiteral(FALSE) [16-21]
+            OrExpr [27-40]
+              BooleanLiteral(FALSE) [27-32]
+              BooleanLiteral(TRUE) [36-40]
+--
+SELECT
+  (TRUE OR FALSE) OR (FALSE OR TRUE)
+==
+
+# Query ending in an end-of-line comment without a newline.
+[strip_trailing_newline]
+SELECT 1 # End of line comment
+--
+QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+--
+SELECT
+  1
+==
+
+# Function call operator can only be applied to an *unparenthesized* path
+# expression.
+select {{(foo)|(foo.bar)|(3)|3|(current_date)|(current_date())}}
+       ({{DISTINCT|}} foo)
+--
+ALTERNATION GROUPS:
+    (foo),DISTINCT
+    (foo.bar),DISTINCT
+    (3),DISTINCT
+    3,DISTINCT
+    (current_date),DISTINCT
+    (current_date()),DISTINCT
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 2:8]
+       (DISTINCT foo)
+       ^
+--
+ALTERNATION GROUPS:
+    (foo),
+    (foo.bar),
+    (3),
+    3,
+    (current_date),
+    (current_date()),
+--
+ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 2:8]
+       ( foo)
+       ^
+==

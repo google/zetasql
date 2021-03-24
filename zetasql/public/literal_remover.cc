@@ -127,7 +127,6 @@ absl::Status ReplaceLiteralsByParameters(
   // <literals> are ordered by parse location. The loop below constructs
   // <result_sql> by appending the <replacement> string for each encountered
   // literal.
-  ParseLocationTranslator translator(sql);
   int prefix_offset = 0;  // Offset in <sql> of the text preceding the literal.
   int parameter_index = 0;  // Index used to generate unique parameter names.
   std::string parameter_name;  // Most recently used parameter name.

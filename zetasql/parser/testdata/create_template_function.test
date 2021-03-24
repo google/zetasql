@@ -1,0 +1,194 @@
+CREATE FUNCTION foo(ANY TYPE);
+--
+CreateFunctionStatement [0-29]
+  FunctionDeclaration [16-29]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-29]
+      FunctionParameter [20-28]
+        TemplatedParameterType [20-28]
+--
+CREATE FUNCTION foo(ANY TYPE)
+==
+
+CREATE FUNCTION foo(a ANY TYPE);
+--
+CreateFunctionStatement [0-31]
+  FunctionDeclaration [16-31]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-31]
+      FunctionParameter [20-30]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-30]
+--
+CREATE FUNCTION foo(a ANY TYPE)
+==
+
+CREATE FUNCTION foo(a ANY TYPE AS b);
+--
+CreateFunctionStatement [0-36]
+  FunctionDeclaration [16-36]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-36]
+      FunctionParameter [20-35]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-30]
+        Alias [31-35]
+          Identifier(b) [34-35]
+--
+CREATE FUNCTION foo(a ANY TYPE AS b)
+==
+
+CREATE FUNCTION foo(a ANY TYPE AS b NOT AGGREGATE);
+--
+CreateFunctionStatement [0-50]
+  FunctionDeclaration [16-50]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-50]
+      FunctionParameter(is_not_aggregate=true) [20-49]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-30]
+        Alias [31-35]
+          Identifier(b) [34-35]
+--
+CREATE FUNCTION foo(a ANY TYPE AS b NOT AGGREGATE)
+==
+
+# Test with all the supported templated types.
+CREATE FUNCTION foo(a ANY {{TYPE|PROTO|ENUM|TABLE|STRUCT|ARRAY}} AS b NOT AGGREGATE)
+--
+ALTERNATION GROUP: TYPE
+--
+CreateFunctionStatement [0-50]
+  FunctionDeclaration [16-50]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-50]
+      FunctionParameter(is_not_aggregate=true) [20-49]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-30]
+        Alias [31-35]
+          Identifier(b) [34-35]
+--
+CREATE FUNCTION foo(a ANY TYPE AS b NOT AGGREGATE)
+--
+ALTERNATION GROUP: PROTO
+--
+CreateFunctionStatement [0-51]
+  FunctionDeclaration [16-51]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-51]
+      FunctionParameter(is_not_aggregate=true) [20-50]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-31]
+        Alias [32-36]
+          Identifier(b) [35-36]
+--
+CREATE FUNCTION foo(a ANY PROTO AS b NOT AGGREGATE)
+--
+ALTERNATION GROUP: ENUM
+--
+CreateFunctionStatement [0-50]
+  FunctionDeclaration [16-50]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-50]
+      FunctionParameter(is_not_aggregate=true) [20-49]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-30]
+        Alias [31-35]
+          Identifier(b) [34-35]
+--
+CREATE FUNCTION foo(a ANY ENUM AS b NOT AGGREGATE)
+--
+ALTERNATION GROUP: TABLE
+--
+CreateFunctionStatement [0-51]
+  FunctionDeclaration [16-51]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-51]
+      FunctionParameter(is_not_aggregate=true) [20-50]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-31]
+        Alias [32-36]
+          Identifier(b) [35-36]
+--
+CREATE FUNCTION foo(a ANY TABLE AS b NOT AGGREGATE)
+--
+ALTERNATION GROUP: STRUCT
+--
+CreateFunctionStatement [0-52]
+  FunctionDeclaration [16-52]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-52]
+      FunctionParameter(is_not_aggregate=true) [20-51]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-32]
+        Alias [33-37]
+          Identifier(b) [36-37]
+--
+CREATE FUNCTION foo(a ANY STRUCT AS b NOT AGGREGATE)
+--
+ALTERNATION GROUP: ARRAY
+--
+CreateFunctionStatement [0-51]
+  FunctionDeclaration [16-51]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-51]
+      FunctionParameter(is_not_aggregate=true) [20-50]
+        Identifier(a) [20-21]
+        TemplatedParameterType [22-31]
+        Alias [32-36]
+          Identifier(b) [35-36]
+--
+CREATE FUNCTION foo(a ANY ARRAY AS b NOT AGGREGATE)
+==
+
+# This ANY clause is missing the kind
+CREATE FUNCTION foo(a ANY {{|AS b}});
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected ")" [at 1:27]
+CREATE FUNCTION foo(a ANY );
+                          ^
+--
+ALTERNATION GROUP: AS b
+--
+ERROR: Syntax error: Unexpected keyword AS [at 1:27]
+CREATE FUNCTION foo(a ANY AS b);
+                          ^
+==
+
+CREATE FUNCTION foo(a ANY {{INTEGER|FLOAT|STRING|something}});
+--
+ALTERNATION GROUP: INTEGER
+--
+ERROR: Syntax error: unexpected ANY template type [at 1:27]
+CREATE FUNCTION foo(a ANY INTEGER);
+                          ^
+--
+ALTERNATION GROUP: FLOAT
+--
+ERROR: Syntax error: unexpected ANY template type [at 1:27]
+CREATE FUNCTION foo(a ANY FLOAT);
+                          ^
+--
+ALTERNATION GROUP: STRING
+--
+ERROR: Syntax error: unexpected ANY template type [at 1:27]
+CREATE FUNCTION foo(a ANY STRING);
+                          ^
+--
+ALTERNATION GROUP: something
+--
+ERROR: Syntax error: unexpected ANY template type [at 1:27]
+CREATE FUNCTION foo(a ANY something);
+                          ^

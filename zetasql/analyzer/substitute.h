@@ -43,9 +43,7 @@ namespace zetasql {
 // 'options' must contain a zetasql_base::SequenceNumber that is higher than the highest
 // column id currently present in the parent AST or any of the 'variable'
 // expressions. 'options' must also use the same arenas as the parent AST did
-// during its analysis. Alternately, if the parent options did not orignally use
-// arenas or sequence numbers, these variables can be constructed or retrieved
-// from the original AnalyzerOutput.
+// during its analysis.
 //
 // 'expression' must not directly reference any positional query parameters (?)
 // and it must only reference named parameters that are keys in 'lambdas'.
@@ -96,6 +94,15 @@ zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas = {});
+
+// Helper function which translates errors returned by AnalyzeSubstitute() into
+// internal errors. This function is intended for rewriters who expect their
+// calls to AnalyzeSubstitute() to always succeed.
+//
+// Typical usage:
+//   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> expr,
+//      AnalyzeSubstitute(...), _.With(ExpectAnalyzeSubstituteSuccess));
+absl::Status ExpectAnalyzeSubstituteSuccess(zetasql_base::StatusBuilder status_builder);
 
 }  // namespace zetasql
 

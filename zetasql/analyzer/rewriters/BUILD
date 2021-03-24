@@ -157,3 +157,36 @@ cc_library(
         "@com_google_absl//absl/synchronization",
     ],
 )
+
+cc_library(
+    name = "pivot_rewriter",
+    srcs = ["pivot_rewriter.cc"],
+    hdrs = ["pivot_rewriter.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":rewriter_interface",
+        "//zetasql/analyzer:resolver",
+        "//zetasql/analyzer:substitute",
+        "//zetasql/common:aggregate_null_handling",
+        "//zetasql/common:errors",
+        "//zetasql/public:analyzer_options",
+        "//zetasql/public:analyzer_output",
+        "//zetasql/public:analyzer_output_properties",
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:function",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
+        "//zetasql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/status",
+    ],
+)

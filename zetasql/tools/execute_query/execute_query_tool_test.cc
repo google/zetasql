@@ -18,21 +18,37 @@
 
 #include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/map_field.h"
+#include "google/protobuf/text_format.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/testdata/test_schema.pb.h"
+#include "zetasql/tools/execute_query/execute_query_proto_writer.h"
+#include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
+#include "absl/flags/reflection.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 
 namespace zetasql {
+namespace {
 
+using zetasql_test::EmptyMessage;
+using zetasql_test::KitchenSinkPB;
 using testing::IsEmpty;
+using testing::NotNull;
 using zetasql_base::testing::StatusIs;
 using ToolMode = ExecuteQueryConfig::ToolMode;
+
+absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
+                          std::ostream& out_stream) {
+  ExecuteQueryStreamWriter writer{out_stream};
+  return ExecuteQuery(sql, config, writer);
+}
 
 TEST(SetToolModeFromFlags, ToolMode) {
   auto CheckFlag = [](absl::string_view name, ToolMode expected_mode) {
@@ -47,17 +63,100 @@ TEST(SetToolModeFromFlags, ToolMode) {
   CheckFlag("execute", ToolMode::kExecute);
 }
 
-TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
-  {
-    absl::SetFlag(&FLAGS_descriptor_pool, "none");
-    ExecuteQueryConfig config;
-    ZETASQL_EXPECT_OK(SetDescriptorPoolFromFlags(config));
+TEST(MakeWriterFromFlagsTest, Empty) {
+  absl::FlagSaver fs;
 
-    const Type* type = nullptr;
-    ZETASQL_EXPECT_OK(config.mutable_catalog().GetType("zetasql_test.KitchenSinkPB",
-                                               &type));
-    EXPECT_EQ(type, nullptr);
-  }
+  absl::SetFlag(&FLAGS_output_mode, "");
+  std::ostringstream output;
+  EXPECT_THAT(MakeWriterFromFlags(ExecuteQueryConfig{}, output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Must specify --output_mode"));
+  EXPECT_THAT(output.str(), IsEmpty());
+}
+
+TEST(MakeWriterFromFlagsTest, Unknown) {
+  absl::FlagSaver fs;
+
+  absl::SetFlag(&FLAGS_output_mode, "foobar");
+  std::ostringstream output;
+  EXPECT_THAT(MakeWriterFromFlags(ExecuteQueryConfig{}, output),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       "Unknown output mode foobar"));
+  EXPECT_THAT(output.str(), IsEmpty());
+}
+
+void RunWriter(const absl::string_view mode, std::ostream& output) {
+  absl::FlagSaver fs;
+
+  absl::SetFlag(&FLAGS_output_mode, mode);
+
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kExecute);
+  config.SetDescriptorPool(google::protobuf::DescriptorPool::generated_pool());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const std::unique_ptr<ExecuteQueryWriter> writer,
+                       MakeWriterFromFlags(config, output));
+
+  EXPECT_THAT(writer, NotNull());
+
+  const std::vector<SimpleTable::NameAndType> columns{
+      {"key", types::Int32Type()},
+      {"name", types::StringType()},
+      {"tag", types::StringArrayType()},
+  };
+  SimpleTable table{"DataTable", columns};
+  table.SetContents({
+      {values::Int32(0), values::String(""),
+       values::EmptyArray(types::StringArrayType())},
+      {values::Int32(100), values::String("foo"),
+       values::StringArray({"aaa", "zzz"})},
+      {values::Int32(200), values::String("bar"), values::StringArray({"bbb"})},
+  });
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       table.CreateEvaluatorTableIterator({0, 1, 2}));
+
+  ZETASQL_EXPECT_OK(writer->executed(*MakeResolvedLiteral(), std::move(iter)));
+}
+
+TEST(MakeWriterFromFlagsTest, Box) {
+  std::ostringstream output;
+  RunWriter("box", output);
+  EXPECT_EQ(output.str(), R"(+-----+------+------------+
+| key | name | tag        |
++-----+------+------------+
+| 0   |      | []         |
+| 100 | foo  | [aaa, zzz] |
+| 200 | bar  | [bbb]      |
++-----+------+------------+
+
+)");
+}
+
+TEST(MakeWriterFromFlagsTest, Json) {
+  // ExecuteQueryWriteJson has better tests
+  std::ostringstream output;
+  RunWriter("json", output);
+  ZETASQL_EXPECT_OK(JSONValue::ParseJSONString(output.str()));
+}
+
+TEST(MakeWriterFromFlagsTest, Textproto) {
+  // ExecuteQueryWriteTextproto has better tests
+  std::ostringstream output;
+  RunWriter("textproto", output);
+}
+
+TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
+  absl::FlagSaver fs;
+
+  absl::SetFlag(&FLAGS_descriptor_pool, "none");
+  ExecuteQueryConfig config;
+  ZETASQL_EXPECT_OK(SetDescriptorPoolFromFlags(config));
+
+  const Type* type = nullptr;
+  ZETASQL_EXPECT_OK(
+      config.mutable_catalog().GetType("zetasql_test.KitchenSinkPB", &type));
+  EXPECT_EQ(type, nullptr);
 }
 
 TEST(SetToolModeFromFlags, BadToolMode) {
@@ -284,4 +383,5 @@ TEST(ExecuteQuery, ExamineResolvedASTCallback) {
   EXPECT_THAT(output.str(), IsEmpty());
 }
 
+}  // namespace
 }  // namespace zetasql

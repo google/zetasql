@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_DATE_TIME_UTIL_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_DATE_TIME_UTIL_H_
 
+#include <cstdint>
 #include <string>
 
 #include "google/protobuf/timestamp.pb.h"
@@ -102,7 +103,8 @@ absl::Status MakeTimeZone(absl::string_view timezone_string,
                           absl::TimeZone* timezone);
 
 // Creates a absl::Time from an int64_t based timestamp value.
-ABSL_MUST_USE_RESULT absl::Time MakeTime(int64_t timestamp, TimestampScale scale);
+ABSL_MUST_USE_RESULT absl::Time MakeTime(int64_t timestamp,
+                                         TimestampScale scale);
 
 // Converts a absl::Time value into an int64_t timestamp for the given <scale>.
 // Returns false if the value is outside the representable range.
@@ -409,7 +411,8 @@ absl::Status ConstructDatetime(int32_t date, const TimeValue& time,
 // Extracts a DateTimestampPart from the given date
 // Returns error status if the input date value is invalid, or if the
 // requested DateTimestampPart is not applicable to Date.
-absl::Status ExtractFromDate(DateTimestampPart part, int32_t date, int32_t* output);
+absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
+                             int32_t* output);
 
 // Extracts a DateTimestampPart from the given timestamp as of the specified
 // <timezone_string>.  Returns error status if the input timestamp or timezone
@@ -440,7 +443,8 @@ absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
 // status if the input DATETIME value is invalid. Extracting the DATE part from
 // a DATETIME value effectively converts a DATETIME to a date.
 absl::Status ExtractFromDatetime(DateTimestampPart part,
-                                 const DatetimeValue& datetime, int32_t* output);
+                                 const DatetimeValue& datetime,
+                                 int32_t* output);
 
 // Extracts a TIME from the given DATETIME value. Returns error
 // status if the input DATETIME value is invalid.
@@ -557,8 +561,13 @@ absl::Status AddDate(int32_t date, DateTimestampPart part, int64_t interval,
                      int32_t* output);
 
 // Similar to AddDate, but it doesn't create an error when overflow occurs.
-absl::Status AddDateOverflow(int32_t date, DateTimestampPart part, int32_t interval,
-                             int32_t* output, bool* had_overflow);
+absl::Status AddDateOverflow(int32_t date, DateTimestampPart part,
+                             int32_t interval, int32_t* output,
+                             bool* had_overflow);
+
+// DATE + INTERVAL = DATETIME
+absl::Status AddDate(int32_t date, zetasql::IntervalValue interval,
+                     DatetimeValue* output);
 
 // Same as above, but subtracts the interval from a part of the date value.
 absl::Status SubDate(int32_t date, DateTimestampPart part, int64_t interval,
@@ -602,6 +611,11 @@ absl::Status AddDatetime(const DatetimeValue& datetime, DateTimestampPart part,
 // avoid overflow.
 absl::Status SubDatetime(const DatetimeValue& datetime, DateTimestampPart part,
                          int64_t interval, DatetimeValue* output);
+
+// DATETIME + INTERVAL
+absl::Status AddDatetime(DatetimeValue datetime,
+                         zetasql::IntervalValue interval,
+                         DatetimeValue* output);
 
 // Returns the diff (signed integer) of the specified DateTimestampPart
 // between a given datetime pair, based on datetime1 - datetime2.
@@ -673,7 +687,8 @@ absl::Status TruncateDatetime(const DatetimeValue& datetime,
 //  LastDayOfDate("2001-12-31", WEEK) -> "2002-01-05"
 //  LastDayOfDate("2001-12-31", ISOWEEK) -> "2002-01-06"
 //  LastDayOfDate("2001-12-31", WEEK_FRIDAY) -> "2002-01-03"
-absl::Status LastDayOfDate(int32_t date, DateTimestampPart part, int32_t* output);
+absl::Status LastDayOfDate(int32_t date, DateTimestampPart part,
+                           int32_t* output);
 
 absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
                                DateTimestampPart part, int32_t* output);
@@ -687,8 +702,8 @@ absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
 // difference in nanos between max and min nano timestamps).  Does not
 // range check the arguments.
 absl::Status TimestampDiff(int64_t timestamp1, int64_t timestamp2,
-                           TimestampScale scale,
-                           DateTimestampPart part, int64_t* output);
+                           TimestampScale scale, DateTimestampPart part,
+                           int64_t* output);
 
 // This function has exact same contract as the function above except it takes 2
 // absl::Time as input.
@@ -757,6 +772,11 @@ absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
 absl::Status AddTimestamp(absl::Time timestamp,
                           absl::string_view timezone_string,
                           DateTimestampPart part, int64_t interval,
+                          absl::Time* output);
+
+// TIMESTAMP + INTERVAL
+absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
+                          zetasql::IntervalValue interval,
                           absl::Time* output);
 
 // Similar to AddTimestamp() above, but it doesn't return an error when overflow
@@ -849,7 +869,8 @@ absl::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
 // and DAY.
 // Returns error if the date is invalid (out of range), or the DateTimestampPart
 // is not allowed.
-absl::Status TruncateDate(int32_t date, DateTimestampPart part, int32_t* output);
+absl::Status TruncateDate(int32_t date, DateTimestampPart part,
+                          int32_t* output);
 
 // Truncates the timestamp to the beginning of the specified DateTimestampPart
 // granularity.  Assumes that the input <timestamp> is at MICROSECOND precision.
@@ -870,7 +891,8 @@ absl::Status TruncateDate(int32_t date, DateTimestampPart part, int32_t* output)
 // <part> in that <timezone>.
 absl::Status TimestampTrunc(int64_t timestamp, absl::TimeZone timezone,
                             DateTimestampPart part, int64_t* output);
-absl::Status TimestampTrunc(int64_t timestamp, absl::string_view timezone_string,
+absl::Status TimestampTrunc(int64_t timestamp,
+                            absl::string_view timezone_string,
                             DateTimestampPart part, int64_t* output);
 
 // The 2 functions below have same contract as the 2 above except the
@@ -919,16 +941,15 @@ int DateTimestampPart_FromName(absl::string_view name);
 // DATE format.  <*output_is_null> will be set to true if this encoded value
 // should decode as NULL.  (This happens for DATE_DECIMAL format for value 0.)
 // Return an error if the format is unsupported or the encoded value is invalid.
-absl::Status DecodeFormattedDate(
-    int64_t input_formatted_date, FieldFormat::Format format,
-    int32_t* output_date, bool* output_is_null);
+absl::Status DecodeFormattedDate(int64_t input_formatted_date,
+                                 FieldFormat::Format format,
+                                 int32_t* output_date, bool* output_is_null);
 
 // Encode a zetasql DATE value using <format>.
 // Return an error if the format is unsupported or the input value cannot
 // encoded into that format.
-absl::Status EncodeFormattedDate(
-    int32_t input_date, FieldFormat::Format format,
-    int32_t* output_formatted_date);
+absl::Status EncodeFormattedDate(int32_t input_date, FieldFormat::Format format,
+                                 int32_t* output_formatted_date);
 
 // Returns current date as of the specified timezone.
 ABSL_MUST_USE_RESULT int32_t CurrentDate(absl::TimeZone timezone);
@@ -946,67 +967,6 @@ ABSL_MUST_USE_RESULT int64_t CurrentTimestamp();
 // scale that can still accurately represent the timestamp.
 void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale);
 
-
-// Populates <out> using the <format_string> following the formatting rules from
-// (broken link).
-//
-// Assumes <timestamp> is the number of microseconds from
-// 1970-01-01 UTC.
-// Returns error status if conversion fails.
-//
-// <format_string> must be a valid utf-8 string, else this and all the other
-// CastFormat functions will fail.
-//
-// Note, this method is not locale aware and generally formats in an en-US
-// style. For example, months and days of week will use the en-US names.
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         int64_t timestamp_micros,
-                                         absl::TimeZone timezone,
-                                         std::string* out);
-
-// Invokes MakeTimeZone() on <timezone_string> and invokes the prior function.
-// Returns error status if <timezone_string> is invalid or conversion fails.
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         int64_t timestamp_micros,
-                                         absl::string_view timezone_string,
-                                         std::string* out);
-
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         absl::Time timestamp,
-                                         absl::TimeZone timezone,
-                                         std::string* out);
-
-absl::Status CastFormatTimestampToString(absl::string_view format_string,
-                                         absl::Time timestamp,
-                                         absl::string_view timezone_string,
-                                         std::string* out);
-
-// Populates <out> using the <format_str> following the formatting rules from
-// (broken link).
-// Assumes <date>: number of days since the epoch (1970-01-01)
-//
-// Does not allow timezone or time format elements.
-// Returns error status if the conversion fails.
-absl::Status CastFormatDateToString(absl::string_view format_string, int32_t date,
-                                    std::string* out);
-
-// Populates <out> using the <format_str> following the formatting rules from
-// (broken link).
-//
-// Does not allow timezone related format elements.
-// Returns error status if the conversion fails.
-absl::Status CastFormatDatetimeToString(absl::string_view format_string,
-                                        const DatetimeValue& datetime,
-                                        std::string* out);
-
-// Populates <out> using the <format_string> as defined by absl::FormatTime() in
-// base/time.h. Returns error status if conversion fails.
-//
-// Does not allow timezone or date format elements.
-absl::Status CastFormatTimeToString(absl::string_view format_string,
-                                    const TimeValue& time, std::string* out);
-
-
 inline bool IntervalUnaryMinus(IntervalValue in, IntervalValue* out,
                                absl::Status* error) {
   *out = -in;
@@ -1022,51 +982,26 @@ absl::Status ExpandPercentZQ(absl::string_view format_string,
                              bool expand_quarter,
                              std::string* expanded_format_string);
 
-enum FormatElementType {
-  FORMAT_ELEMENT_TYPE_UNSPECIFIED = 0,
-  LITERAL,
-  DOUBLE_QUOTED_LITERAL,
-  YEAR,
-  MONTH,
-  DAY,
-  HOUR,
-  MINUTE,
-  SECOND,
-  MERIDIAN_INDICATOR,
-  TIME_ZONE,
-  CENTURY,
-  QUARTER,
-  WEEK,
-  ERA_INDICATOR,
-  MISC,
-};
+// 1==Sun, ..., 7=Sat
+int DayOfWeekIntegerSunToSat1To7(absl::Weekday weekday);
 
-inline std::string FormatElementTypeString(const FormatElementType& type);
+// Returns the timezone sign, hour and minute.
+void GetSignHourAndMinuteTimeZoneOffset(const absl::TimeZone::CivilInfo& info,
+                                        bool* positive_offset,
+                                        int32_t* hour_offset,
+                                        int32_t* minute_offset);
 
-struct FormatElement {
-  FormatElementType type;
-  // In case the format element is double quoted literal, the original string
-  // will be unquoted and unescaped, e.g. if the user input format string is
-  // "\"abc\\\\\"", the original_str for this format element would be "abc\\"
-  std::string original_str;
-  FormatElement() = default;
-  FormatElement(FormatElementType type_in, absl::string_view original_str_in)
-      : type(type_in), original_str(original_str_in) {}
-};
-
-zetasql_base::StatusOr<std::vector<FormatElement>> GetFormatElements(
-    absl::string_view format_str);
-
-zetasql_base::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
-    absl::Span<const FormatElement> format_elements, absl::Time base_time,
-    absl::TimeZone timezone);
-
-absl::Status ValidateTimeFormatElementsForFormatting(
-    absl::Span<const FormatElement> format_elements);
-absl::Status ValidateDateFormatElementsForFormatting(
-    absl::Span<const FormatElement> format_elements);
-absl::Status ValidateDatetimeFormatElementsForFormatting(
-    absl::Span<const FormatElement> format_elements);
+// Returns <timezone> if the timezone offset for (<base_time>, <timezone>)
+// is minute aligned.  Otherwise returns a fixed-offset timezone using that
+// offset truncated to a minute boundary (i.e., eliminating the non-zero
+// seconds part of the offset).
+//
+// ZetaSQL does not support rendering numeric timezones with sub-minute
+// offsets (neither do ISO6801 or RFC3339).  If the timezone has a sub-minute
+// offset like -07:52:58 (which happens for the America/Los_Angeles time zone
+// in years before 1884), we instead treat it (and display it) as -07:52.
+absl::TimeZone GetNormalizedTimeZone(absl::Time base_time,
+                                     absl::TimeZone timezone);
 
 }  // namespace internal_functions
 }  // namespace functions

@@ -16,6 +16,7 @@
 
 #include "zetasql/resolved_ast/resolved_ast.h"
 
+#include <cstdint>
 #include <memory>
 #include <set>
 #include <utility>

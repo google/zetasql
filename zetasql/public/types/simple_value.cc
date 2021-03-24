@@ -16,6 +16,8 @@
 
 #include "zetasql/public/types/simple_value.h"
 
+#include <cstdint>
+
 #include "zetasql/public/strings.h"
 
 namespace zetasql {

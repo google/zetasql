@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
 
+#include <cstdint>
 #include <utility>
 
 #include "zetasql/base/logging.h"

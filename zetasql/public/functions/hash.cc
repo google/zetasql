@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/hash.h"
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 

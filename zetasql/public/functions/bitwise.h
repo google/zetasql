@@ -47,6 +47,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_BITWISE_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_BITWISE_H_
 
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -83,8 +84,8 @@ bool BitwiseLeftShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
                            absl::Status* error);
 template <typename T>
 bool BitwiseRightShift(T in1, int64_t in2, T* out, absl::Status* error);
-bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2, std::string* out,
-                            absl::Status* error);
+bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2,
+                            std::string* out, absl::Status* error);
 int64_t BitCount(int32_t in);
 int64_t BitCount(int64_t in);
 int64_t BitCount(uint64_t in);
@@ -177,9 +178,7 @@ inline int64_t BitCount(int64_t in) {
   return zetasql_base::Bits::CountOnes64(absl::bit_cast<uint64_t>(in));
 }
 
-inline int64_t BitCount(uint64_t in) {
-  return zetasql_base::Bits::CountOnes64(in);
-}
+inline int64_t BitCount(uint64_t in) { return zetasql_base::Bits::CountOnes64(in); }
 
 }  // namespace functions
 }  // namespace zetasql

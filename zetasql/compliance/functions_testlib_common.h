@@ -17,6 +17,7 @@
 #ifndef ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_COMMON_H_
 #define ZETASQL_COMPLIANCE_FUNCTIONS_TESTLIB_COMMON_H_
 
+#include <cstdint>
 #include <limits>
 #include <set>
 #include <string>
@@ -55,8 +56,8 @@ const uint64_t uint64max = std::numeric_limits<uint64_t>::max();
 
 const int32_t date_min = types::kDateMin;
 const int32_t date_max = types::kDateMax;
-const int64_t timestamp_min =  types::kTimestampMin;
-const int64_t timestamp_max =  types::kTimestampMax;
+const int64_t timestamp_min = types::kTimestampMin;
+const int64_t timestamp_max = types::kTimestampMax;
 
 const int64_t int32max_plus_one = static_cast<int64_t>(int32max) + 1;
 const int64_t int32min_minus_one = static_cast<int64_t>(int32min) - 1;
@@ -118,7 +119,8 @@ Value KitchenSink(const std::string& proto_str);
 Value Proto3Timestamp(int64_t seconds, int32_t nanos);
 Value Proto3Date(int32_t year, int32_t month, int32_t day);
 Value Proto3LatLng(double latitude, double longitude);
-Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds, int32_t nanos);
+Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
+                      int32_t nanos);
 Value CivilTimeTypesSink(const std::string& proto_str);
 Value NullableInt(const std::string& proto_str);
 
@@ -243,6 +245,11 @@ QueryParamsWithResult WrapResultForNumeric(
 
 // Wraps the result to require that FEATURE_BIGNUMERIC_TYPE is enabled.
 QueryParamsWithResult WrapResultForBigNumeric(
+    const std::vector<ValueConstructor>& params,
+    const QueryParamsWithResult::Result& result);
+
+// Wraps the result to require that FEATURE_INTERVAL_TYPE is enabled.
+QueryParamsWithResult WrapResultForInterval(
     const std::vector<ValueConstructor>& params,
     const QueryParamsWithResult::Result& result);
 

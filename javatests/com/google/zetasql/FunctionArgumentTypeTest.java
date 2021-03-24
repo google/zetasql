@@ -19,6 +19,7 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.zetasql.FunctionArgumentType.FunctionArgumentTypeOptions;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
@@ -260,16 +261,18 @@ public class FunctionArgumentTypeTest {
     assertThat(options)
         .isEqualTo(
             FunctionArgumentTypeOptions.deserialize(
-                options.serialize(),
+                options.serialize(/*argType=*/null, fileDescriptorSetsBuilder),
                 fileDescriptorSetsBuilder.getDescriptorPools(),
+                /*argType=*/null,
                 TypeFactory.nonUniqueNames()));
-    assertThat(options.serialize())
+    assertThat(options.serialize(/*argType=*/null, fileDescriptorSetsBuilder))
         .isEqualTo(
             FunctionArgumentTypeOptions.deserialize(
-                    options.serialize(),
+                    options.serialize(/*argType=*/null, fileDescriptorSetsBuilder),
                     fileDescriptorSetsBuilder.getDescriptorPools(),
+                    /*argType=*/null,
                     TypeFactory.nonUniqueNames())
-                .serialize());
+                .serialize(/*argType=*/null, fileDescriptorSetsBuilder));
   }
 
   static void checkEquals(FunctionArgumentType type1, FunctionArgumentType type2) {
@@ -278,6 +281,11 @@ public class FunctionArgumentTypeTest {
     assertThat(type2.getKind()).isEqualTo(type1.getKind());
     if (type1.isConcrete()) {
       assertThat(type1.getType()).isEqualTo(type2.getType());
+    }
+    if (type1.getOptions().getDefault() != null) {
+      assertThat(type1.getOptions().getDefault()).isEqualTo(type2.getOptions().getDefault());
+    } else {
+      assertThat(type2.getOptions().getDefault()).isNull();
     }
   }
 
@@ -293,5 +301,166 @@ public class FunctionArgumentTypeTest {
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(FunctionArgumentType.class))
         .isEqualTo(5);
+  }
+
+  @Test
+  public void testDefaultValues() {
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    FunctionArgumentTypeOptions.builder()
+                        .setCardinality(ArgumentCardinality.REQUIRED)
+                        .setDefault(Value.createStringValue("abc"))
+                        .build()))
+        .hasMessageThat()
+        .contains("Default value cannot be applied to a REQUIRED argument");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    FunctionArgumentTypeOptions.builder()
+                        .setCardinality(ArgumentCardinality.REPEATED)
+                        .setDefault(Value.createDoubleValue(3.14))
+                        .build()))
+        .hasMessageThat()
+        .contains("Default value cannot be applied to a REPEATED argument");
+
+    FunctionArgumentTypeOptions validOptionalArgTypeOption =
+        FunctionArgumentTypeOptions
+            .builder()
+            .setCardinality(ArgumentCardinality.OPTIONAL)
+            .setDefault(Value.createInt32Value(10086)).build();
+    FunctionArgumentTypeOptions validOptionalArgTypeOptionNull =
+        FunctionArgumentTypeOptions.builder().setCardinality(ArgumentCardinality.OPTIONAL)
+          .setDefault(Value.createSimpleNullValue(TypeKind.TYPE_INT32)).build();
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        TypeFactory.createSimpleType(TypeKind.TYPE_BYTES),
+                        validOptionalArgTypeOption,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("Default value type does not match the argument type");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        TypeFactory.createSimpleType(TypeKind.TYPE_INT64),
+                        validOptionalArgTypeOption,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("Default value type does not match the argument type");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        TypeFactory.createSimpleType(TypeKind.TYPE_INT64),
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("Default value type does not match the argument type");
+
+    FunctionArgumentType optionalFixedTypeInt32 =
+        new FunctionArgumentType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
+            validOptionalArgTypeOption,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(optionalFixedTypeInt32);
+
+    FunctionArgumentType optionalFixedTypeInt32Null =
+        new FunctionArgumentType(
+            TypeFactory.createSimpleType(TypeKind.TYPE_INT32),
+            validOptionalArgTypeOptionNull,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(optionalFixedTypeInt32Null);
+
+    FunctionArgumentType templatedTypeNonNull =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1,
+            validOptionalArgTypeOption,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(templatedTypeNonNull);
+
+    FunctionArgumentType templatedTypeNull =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_ANY_1,
+            validOptionalArgTypeOptionNull,
+            /*numOccurrences=*/ 1);
+    checkSerializeAndDeserialize(templatedTypeNull);
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        SignatureArgumentKind.ARG_TYPE_RELATION,
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("ANY TABLE argument cannot have a default value");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        SignatureArgumentKind.ARG_TYPE_VOID,
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("<void> argument cannot have a default value");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        SignatureArgumentKind.ARG_TYPE_MODEL,
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("ANY MODEL argument cannot have a default value");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        SignatureArgumentKind.ARG_TYPE_CONNECTION,
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("ANY CONNECTION argument cannot have a default value");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        SignatureArgumentKind.ARG_TYPE_DESCRIPTOR,
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("ANY DESCRIPTOR argument cannot have a default value");
+
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionArgumentType(
+                        SignatureArgumentKind.ARG_TYPE_LAMBDA,
+                        validOptionalArgTypeOptionNull,
+                        /*numOccurrences=*/ 1)))
+        .hasMessageThat()
+        .contains("LAMBDA argument cannot have a default value");
   }
 }

@@ -17,6 +17,8 @@
 #ifndef ZETASQL_COMMON_UTF_UTIL_H_
 #define ZETASQL_COMMON_UTF_UTIL_H_
 
+#include <cstdint>
+
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "unicode/utf8.h"
@@ -53,7 +55,7 @@ ABSL_MUST_USE_RESULT bool CheckAndCastStrLength(absl::string_view str,
 // optional if an invalid UTF-8 codepoint is detected.
 // Similar to U8_FWD_N, but will detect bad utf codepoints.
 absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
-                               int64_t num_code_points);
+                                 int64_t num_code_points);
 
 }  // namespace zetasql
 

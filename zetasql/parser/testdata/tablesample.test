@@ -1,0 +1,1618 @@
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-69]
+        TablePathExpression [16-69]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-69]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-53]
+              IntLiteral(100) [45-48]
+            SampleSuffix [55-69]
+              RepeatableClause [55-69]
+                IntLiteral(10) [66-68]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(100 ROWS) REPEATABLE (10)
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (cast(100 as int32) ROWS)
+                                            REPEATABLE(cast(10 as int32))
+--
+QueryStatement [0-143]
+  Query [0-143]
+    Select [0-143]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-143]
+        TablePathExpression [16-143]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-143]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-68]
+              CastExpression [45-63]
+                IntLiteral(100) [50-53]
+                SimpleType [57-62]
+                  PathExpression [57-62]
+                    Identifier(int32) [57-62]
+            SampleSuffix [114-143]
+              RepeatableClause [114-143]
+                CastExpression [125-142]
+                  IntLiteral(10) [130-132]
+                  SimpleType [136-141]
+                    PathExpression [136-141]
+                      Identifier(int32) [136-141]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(CAST(100 AS int32) ROWS) REPEATABLE (CAST(10 AS int32))
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (@param1 ROWS) REPEATABLE(@param2)
+--
+QueryStatement [0-78]
+  Query [0-78]
+    Select [0-78]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-78]
+        TablePathExpression [16-78]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-78]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-57]
+              ParameterExpr [45-52]
+                Identifier(param1) [46-52]
+            SampleSuffix [59-78]
+              RepeatableClause [59-78]
+                ParameterExpr [70-77]
+                  Identifier(param2) [71-77]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(@param1 ROWS) REPEATABLE (@param2)
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (cast(@param1 as int32) ROWS)
+                                            REPEATABLE(cast(@param2 as string))
+--
+QueryStatement [0-153]
+  Query [0-153]
+    Select [0-153]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-153]
+        TablePathExpression [16-153]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-153]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-72]
+              CastExpression [45-67]
+                ParameterExpr [50-57]
+                  Identifier(param1) [51-57]
+                SimpleType [61-66]
+                  PathExpression [61-66]
+                    Identifier(int32) [61-66]
+            SampleSuffix [118-153]
+              RepeatableClause [118-153]
+                CastExpression [129-152]
+                  ParameterExpr [134-141]
+                    Identifier(param2) [135-141]
+                  SimpleType [145-151]
+                    PathExpression [145-151]
+                      Identifier(string) [145-151]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(CAST(@param1 AS int32) ROWS) REPEATABLE (CAST(@param2 AS string))
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (@@sysvar1 ROWS) REPEATABLE(@@sysvar2)
+--
+QueryStatement [0-82]
+  Query [0-82]
+    Select [0-82]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-82]
+        TablePathExpression [16-82]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-82]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-59]
+              SystemVariableExpr [45-54]
+                PathExpression [47-54]
+                  Identifier(sysvar1) [47-54]
+            SampleSuffix [61-82]
+              RepeatableClause [61-82]
+                SystemVariableExpr [72-81]
+                  PathExpression [74-81]
+                    Identifier(sysvar2) [74-81]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(@@sysvar1 ROWS) REPEATABLE (@@sysvar2)
+==
+
+select uId from Users TABLESAMPLE (100 ROWS) REPEATABLE(10)
+--
+ERROR: Syntax error: Unexpected "(" [at 1:35]
+select uId from Users TABLESAMPLE (100 ROWS) REPEATABLE(10)
+                                  ^
+==
+
+# As RESERVOIR is a non-reserved keyword, it is treated as an alias to the table
+# Users here.
+select uId from Users RESERVOIR (100 ROWS) REPEATABLE(10)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 1:33]
+select uId from Users RESERVOIR (100 ROWS) REPEATABLE(10)
+                                ^
+==
+
+select uId from Users RESERVOIR TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-79]
+  Query [0-79]
+    Select [0-79]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-79]
+        TablePathExpression [16-79]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          Alias [22-31]
+            Identifier(RESERVOIR) [22-31]
+          SampleClause [32-79]
+            Identifier(RESERVOIR) [44-53]
+            SampleSize [55-63]
+              IntLiteral(100) [55-58]
+            SampleSuffix [65-79]
+              RepeatableClause [65-79]
+                IntLiteral(10) [76-78]
+--
+SELECT
+  uId
+FROM
+  Users AS RESERVOIR TABLESAMPLE RESERVOIR(100 ROWS) REPEATABLE (10)
+==
+
+SELECT * FROM Users TABLESAMPLE RESERVOIR (10 ROWS PARTITION BY state, zipcode)
+--
+QueryStatement [0-79]
+  Query [0-79]
+    Select [0-79]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-79]
+        TablePathExpression [14-79]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-79]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-78]
+              IntLiteral(10) [43-45]
+              PartitionBy [51-78]
+                PathExpression [64-69]
+                  Identifier(state) [64-69]
+                PathExpression [71-78]
+                  Identifier(zipcode) [71-78]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(10 ROWS PARTITION BY state, zipcode)
+==
+
+select uId from Users RESERVOIR TABLESAMPLE (100 ROWS) REPEATABLE(10)
+--
+ERROR: Syntax error: Unexpected "(" [at 1:45]
+select uId from Users RESERVOIR TABLESAMPLE (100 ROWS) REPEATABLE(10)
+                                            ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR ROWS(100) REPEATABLE(10)
+--
+ERROR: Syntax error: Expected "(" but got keyword ROWS [at 1:45]
+select uId from Users TABLESAMPLE RESERVOIR ROWS(100) REPEATABLE(10)
+                                            ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) (10 REPEATABLE)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 1:56]
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) (10 REPEATABLE)
+                                                       ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR REPEATABLE(10)
+--
+ERROR: Syntax error: Expected "(" but got keyword REPEATABLE [at 1:45]
+select uId from Users TABLESAMPLE RESERVOIR REPEATABLE(10)
+                                            ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR 100 ROWS REPEATABLE(10)
+--
+ERROR: Syntax error: Expected "(" but got integer literal "100" [at 1:45]
+select uId from Users TABLESAMPLE RESERVOIR 100 ROWS REPEATABLE(10)
+                                            ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100) REPEATABLE(10)
+--
+ERROR: Syntax error: Expected keyword PERCENT or keyword ROWS but got ")" [at 1:49]
+select uId from Users TABLESAMPLE RESERVOIR (100) REPEATABLE(10)
+                                                ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR () REPEATABLE(10)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:46]
+select uId from Users TABLESAMPLE RESERVOIR () REPEATABLE(10)
+                                             ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR REPEATABLE(10)
+--
+ERROR: Syntax error: Expected "(" but got keyword REPEATABLE [at 1:45]
+select uId from Users TABLESAMPLE RESERVOIR REPEATABLE(10)
+                                            ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:67]
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE()
+                                                                  ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:66]
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE
+                                                                 ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) (10)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 1:56]
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) (10)
+                                                       ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) 10
+--
+ERROR: Syntax error: Expected end of input but got integer literal "10" [at 1:56]
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) 10
+                                                       ^
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS)
+--
+QueryStatement [0-54]
+  Query [0-54]
+    Select [0-54]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-54]
+        TablePathExpression [16-54]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-54]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-53]
+              IntLiteral(100) [45-48]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(100 ROWS)
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (0.1 PERCENT) REPEATABLE(10)
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-72]
+        TablePathExpression [16-72]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-72]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-56]
+              FloatLiteral(0.1) [45-48]
+            SampleSuffix [58-72]
+              RepeatableClause [58-72]
+                IntLiteral(10) [69-71]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(0.1 PERCENT) REPEATABLE (10)
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 PERCENT) REPEATABLE(10)
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-72]
+        TablePathExpression [16-72]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-72]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-56]
+              IntLiteral(100) [45-48]
+            SampleSuffix [58-72]
+              RepeatableClause [58-72]
+                IntLiteral(10) [69-71]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(100 PERCENT) REPEATABLE (10)
+==
+
+# Query should fail while resolving, float literal on ROWS doesn't makes sense.
+select uId from Users TABLESAMPLE RESERVOIR (0.1 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-69]
+        TablePathExpression [16-69]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-69]
+            Identifier(RESERVOIR) [34-43]
+            SampleSize [45-53]
+              FloatLiteral(0.1) [45-48]
+            SampleSuffix [55-69]
+              RepeatableClause [55-69]
+                IntLiteral(10) [66-68]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RESERVOIR(0.1 ROWS) REPEATABLE (10)
+==
+
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(1.0)
+--
+ERROR: Syntax error: Unexpected floating point literal "1.0" [at 1:67]
+select uId from Users TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(1.0)
+                                                                  ^
+==
+
+select uId from Users TABLESAMPLE BERNOULLI (100 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-69]
+        TablePathExpression [16-69]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-69]
+            Identifier(BERNOULLI) [34-43]
+            SampleSize [45-53]
+              IntLiteral(100) [45-48]
+            SampleSuffix [55-69]
+              RepeatableClause [55-69]
+                IntLiteral(10) [66-68]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE BERNOULLI(100 ROWS) REPEATABLE (10)
+==
+
+select uId from Users TABLESAMPLE SYSTEM (100 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-66]
+  Query [0-66]
+    Select [0-66]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-66]
+        TablePathExpression [16-66]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-66]
+            Identifier(SYSTEM) [34-40]
+            SampleSize [42-50]
+              IntLiteral(100) [42-45]
+            SampleSuffix [52-66]
+              RepeatableClause [52-66]
+                IntLiteral(10) [63-65]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE SYSTEM(100 ROWS) REPEATABLE (10)
+==
+
+select uId from Users TABLESAMPLE RANDOM (100 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-66]
+  Query [0-66]
+    Select [0-66]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-66]
+        TablePathExpression [16-66]
+          PathExpression [16-21]
+            Identifier(Users) [16-21]
+          SampleClause [22-66]
+            Identifier(RANDOM) [34-40]
+            SampleSize [42-50]
+              IntLiteral(100) [42-45]
+            SampleSuffix [52-66]
+              RepeatableClause [52-66]
+                IntLiteral(10) [63-65]
+--
+SELECT
+  uId
+FROM
+  Users TABLESAMPLE RANDOM(100 ROWS) REPEATABLE (10)
+==
+
+select *
+from (select uId from Users) TABLESAMPLE BERNOULLI (100 ROWS) REPEATABLE(10)
+--
+QueryStatement [0-85]
+  Query [0-85]
+    Select [0-85]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-85]
+        TableSubquery [14-85]
+          Query [15-36]
+            Select [15-36]
+              SelectList [22-25]
+                SelectColumn [22-25]
+                  PathExpression [22-25]
+                    Identifier(uId) [22-25]
+              FromClause [26-36]
+                TablePathExpression [31-36]
+                  PathExpression [31-36]
+                    Identifier(Users) [31-36]
+          SampleClause [38-85]
+            Identifier(BERNOULLI) [50-59]
+            SampleSize [61-69]
+              IntLiteral(100) [61-64]
+            SampleSuffix [71-85]
+              RepeatableClause [71-85]
+                IntLiteral(10) [82-84]
+--
+SELECT
+  *
+FROM
+  (
+    SELECT
+      uId
+    FROM
+      Users
+  ) TABLESAMPLE BERNOULLI(100 ROWS) REPEATABLE (10)
+==
+
+select * from (a JOIN (select * from Users)) TABLESAMPLE RESERVOIR (100 ROWS)
+--
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-77]
+        ParenthesizedJoin [14-77]
+          Join [17-43]
+            TablePathExpression [15-16]
+              PathExpression [15-16]
+                Identifier(a) [15-16]
+            TableSubquery [22-43]
+              Query [23-42]
+                Select [23-42]
+                  SelectList [30-31]
+                    SelectColumn [30-31]
+                      Star(*) [30-31]
+                  FromClause [32-42]
+                    TablePathExpression [37-42]
+                      PathExpression [37-42]
+                        Identifier(Users) [37-42]
+          SampleClause [45-77]
+            Identifier(RESERVOIR) [57-66]
+            SampleSize [68-76]
+              IntLiteral(100) [68-71]
+--
+SELECT
+  *
+FROM
+  (
+    a
+    JOIN
+    (
+      SELECT
+        *
+      FROM
+        Users
+    )
+  ) TABLESAMPLE RESERVOIR(100 ROWS)
+==
+
+select * from a, (select * from Users) TABLESAMPLE RESERVOIR (5 ROWS) where true
+--
+QueryStatement [0-80]
+  Query [0-80]
+    Select [0-80]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-69]
+        Join(COMMA) [15-69]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          TableSubquery [17-69]
+            Query [18-37]
+              Select [18-37]
+                SelectList [25-26]
+                  SelectColumn [25-26]
+                    Star(*) [25-26]
+                FromClause [27-37]
+                  TablePathExpression [32-37]
+                    PathExpression [32-37]
+                      Identifier(Users) [32-37]
+            SampleClause [39-69]
+              Identifier(RESERVOIR) [51-60]
+              SampleSize [62-68]
+                IntLiteral(5) [62-63]
+      WhereClause [70-80]
+        BooleanLiteral(true) [76-80]
+--
+SELECT
+  *
+FROM
+  a,
+  (
+    SELECT
+      *
+    FROM
+      Users
+  ) TABLESAMPLE RESERVOIR(5 ROWS)
+WHERE
+  true
+==
+
+# PERCENT, REPEATABLE are non-reserved keywords and can be used as identifiers.
+select 4 PERCENT, 5 REPEATABLE
+from Users TABLESAMPLE RESERVOIR (0 PERCENT) REPEATABLE(1)
+--
+QueryStatement [0-89]
+  Query [0-89]
+    Select [0-89]
+      SelectList [7-30]
+        SelectColumn [7-16]
+          IntLiteral(4) [7-8]
+          Alias [9-16]
+            Identifier(PERCENT) [9-16]
+        SelectColumn [18-30]
+          IntLiteral(5) [18-19]
+          Alias [20-30]
+            Identifier(REPEATABLE) [20-30]
+      FromClause [31-89]
+        TablePathExpression [36-89]
+          PathExpression [36-41]
+            Identifier(Users) [36-41]
+          SampleClause [42-89]
+            Identifier(RESERVOIR) [54-63]
+            SampleSize [65-74]
+              IntLiteral(0) [65-66]
+            SampleSuffix [76-89]
+              RepeatableClause [76-89]
+                IntLiteral(1) [87-88]
+--
+SELECT
+  4 AS PERCENT,
+  5 AS REPEATABLE
+FROM
+  Users TABLESAMPLE RESERVOIR(0 PERCENT) REPEATABLE (1)
+==
+
+# TABLESAMPLE is a reserved keyword and cannot be used as an identifier.
+select 1 TABLESAMPLE from Users TABLESAMPLE RESERVOIR (1 ROWS)
+--
+ERROR: Syntax error: Expected end of input but got keyword TABLESAMPLE [at 1:10]
+select 1 TABLESAMPLE from Users TABLESAMPLE RESERVOIR (1 ROWS)
+         ^
+==
+
+# ROWS is a reserved keyword and cannot be used as an identifier.
+select 1 ROWS from Users from TABLESAMPLE RESERVOIR (1 ROWS)
+--
+ERROR: Syntax error: Expected end of input but got keyword ROWS [at 1:10]
+select 1 ROWS from Users from TABLESAMPLE RESERVOIR (1 ROWS)
+         ^
+==
+
+select * from Users TABLESAMPLE RESERVOIR (-1 ROWS)
+--
+ERROR: Syntax error: Unexpected "-" [at 1:44]
+select * from Users TABLESAMPLE RESERVOIR (-1 ROWS)
+                                           ^
+==
+
+select * from Users TABLESAMPLE RESERVOIR (1 ROW)
+--
+ERROR: Syntax error: Expected keyword PERCENT or keyword ROWS but got keyword ROW [at 1:46]
+select * from Users TABLESAMPLE RESERVOIR (1 ROW)
+                                             ^
+==
+
+select * from a, b TABLESAMPLE RESERVOIR (1 ROWS)
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-49]
+        Join(COMMA) [15-49]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          TablePathExpression [17-49]
+            PathExpression [17-18]
+              Identifier(b) [17-18]
+            SampleClause [19-49]
+              Identifier(RESERVOIR) [31-40]
+              SampleSize [42-48]
+                IntLiteral(1) [42-43]
+--
+SELECT
+  *
+FROM
+  a,
+  b TABLESAMPLE RESERVOIR(1 ROWS)
+==
+
+select * from (a, b) TABLESAMPLE RESERVOIR (1 ROWS)
+--
+ERROR: Syntax error: Expected keyword JOIN but got "," [at 1:17]
+select * from (a, b) TABLESAMPLE RESERVOIR (1 ROWS)
+                ^
+==
+
+select * from a JOIN b TABLESAMPLE RESERVOIR (1 ROWS)
+--
+QueryStatement [0-53]
+  Query [0-53]
+    Select [0-53]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-53]
+        Join [16-53]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          TablePathExpression [21-53]
+            PathExpression [21-22]
+              Identifier(b) [21-22]
+            SampleClause [23-53]
+              Identifier(RESERVOIR) [35-44]
+              SampleSize [46-52]
+                IntLiteral(1) [46-47]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b TABLESAMPLE RESERVOIR(1 ROWS)
+==
+
+select * from (a JOIN b) TABLESAMPLE RESERVOIR (1 ROWS)
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-55]
+        ParenthesizedJoin [14-55]
+          Join [17-23]
+            TablePathExpression [15-16]
+              PathExpression [15-16]
+                Identifier(a) [15-16]
+            TablePathExpression [22-23]
+              PathExpression [22-23]
+                Identifier(b) [22-23]
+          SampleClause [25-55]
+            Identifier(RESERVOIR) [37-46]
+            SampleSize [48-54]
+              IntLiteral(1) [48-49]
+--
+SELECT
+  *
+FROM
+  (
+    a
+    JOIN
+    b
+  ) TABLESAMPLE RESERVOIR(1 ROWS)
+==
+
+SELECT * FROM Users TABLESAMPLE RESERVOIR (1 ROWS)
+WITH WEIGHT {{|weight|AS weight}} {{|REPEATABLE(1)}}
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-62]
+        TablePathExpression [14-62]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-62]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-49]
+              IntLiteral(1) [43-44]
+            SampleSuffix [51-62]
+              WithWeight [51-62]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT
+--
+ALTERNATION GROUP: REPEATABLE(1)
+--
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-77]
+        TablePathExpression [14-77]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-77]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-49]
+              IntLiteral(1) [43-44]
+            SampleSuffix [51-77]
+              WithWeight [51-77]
+              RepeatableClause [64-77]
+                IntLiteral(1) [75-76]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT REPEATABLE (1)
+--
+ALTERNATION GROUP: weight,
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-69]
+        TablePathExpression [14-69]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-69]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-49]
+              IntLiteral(1) [43-44]
+            SampleSuffix [51-69]
+              WithWeight [51-69]
+                Alias [63-69]
+                  Identifier(weight) [63-69]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: weight,REPEATABLE(1)
+--
+QueryStatement [0-83]
+  Query [0-83]
+    Select [0-83]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-83]
+        TablePathExpression [14-83]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-83]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-49]
+              IntLiteral(1) [43-44]
+            SampleSuffix [51-83]
+              WithWeight [51-83]
+                Alias [63-69]
+                  Identifier(weight) [63-69]
+              RepeatableClause [70-83]
+                IntLiteral(1) [81-82]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight REPEATABLE (1)
+--
+ALTERNATION GROUP: AS weight,
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-72]
+        TablePathExpression [14-72]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-72]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-49]
+              IntLiteral(1) [43-44]
+            SampleSuffix [51-72]
+              WithWeight [51-72]
+                Alias [63-72]
+                  Identifier(weight) [66-72]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: AS weight,REPEATABLE(1)
+--
+QueryStatement [0-86]
+  Query [0-86]
+    Select [0-86]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-86]
+        TablePathExpression [14-86]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-86]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [43-49]
+              IntLiteral(1) [43-44]
+            SampleSuffix [51-86]
+              WithWeight [51-86]
+                Alias [63-72]
+                  Identifier(weight) [66-72]
+              RepeatableClause [73-86]
+                IntLiteral(1) [84-85]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS weight REPEATABLE (1)
+==
+
+SELECT * FROM Users TABLESAMPLE {{BERNOULLI|SYSTEM}} (1 PERCENT)
+WITH WEIGHT {{|weight|AS weight}} {{|REPEATABLE(1)}}
+--
+ALTERNATION GROUP: BERNOULLI,,
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-65]
+        TablePathExpression [14-65]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-65]
+            Identifier(BERNOULLI) [32-41]
+            SampleSize [43-52]
+              IntLiteral(1) [43-44]
+            SampleSuffix [54-65]
+              WithWeight [54-65]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE BERNOULLI(1 PERCENT) WITH WEIGHT
+--
+ALTERNATION GROUP: BERNOULLI,,REPEATABLE(1)
+--
+QueryStatement [0-80]
+  Query [0-80]
+    Select [0-80]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-80]
+        TablePathExpression [14-80]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-80]
+            Identifier(BERNOULLI) [32-41]
+            SampleSize [43-52]
+              IntLiteral(1) [43-44]
+            SampleSuffix [54-80]
+              WithWeight [54-80]
+              RepeatableClause [67-80]
+                IntLiteral(1) [78-79]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE BERNOULLI(1 PERCENT) WITH WEIGHT REPEATABLE (1)
+--
+ALTERNATION GROUP: BERNOULLI,weight,
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-72]
+        TablePathExpression [14-72]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-72]
+            Identifier(BERNOULLI) [32-41]
+            SampleSize [43-52]
+              IntLiteral(1) [43-44]
+            SampleSuffix [54-72]
+              WithWeight [54-72]
+                Alias [66-72]
+                  Identifier(weight) [66-72]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE BERNOULLI(1 PERCENT) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: BERNOULLI,weight,REPEATABLE(1)
+--
+QueryStatement [0-86]
+  Query [0-86]
+    Select [0-86]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-86]
+        TablePathExpression [14-86]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-86]
+            Identifier(BERNOULLI) [32-41]
+            SampleSize [43-52]
+              IntLiteral(1) [43-44]
+            SampleSuffix [54-86]
+              WithWeight [54-86]
+                Alias [66-72]
+                  Identifier(weight) [66-72]
+              RepeatableClause [73-86]
+                IntLiteral(1) [84-85]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE BERNOULLI(1 PERCENT) WITH WEIGHT AS weight REPEATABLE (1)
+--
+ALTERNATION GROUP: BERNOULLI,AS weight,
+--
+QueryStatement [0-75]
+  Query [0-75]
+    Select [0-75]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-75]
+        TablePathExpression [14-75]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-75]
+            Identifier(BERNOULLI) [32-41]
+            SampleSize [43-52]
+              IntLiteral(1) [43-44]
+            SampleSuffix [54-75]
+              WithWeight [54-75]
+                Alias [66-75]
+                  Identifier(weight) [69-75]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE BERNOULLI(1 PERCENT) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: BERNOULLI,AS weight,REPEATABLE(1)
+--
+QueryStatement [0-89]
+  Query [0-89]
+    Select [0-89]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-89]
+        TablePathExpression [14-89]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-89]
+            Identifier(BERNOULLI) [32-41]
+            SampleSize [43-52]
+              IntLiteral(1) [43-44]
+            SampleSuffix [54-89]
+              WithWeight [54-89]
+                Alias [66-75]
+                  Identifier(weight) [69-75]
+              RepeatableClause [76-89]
+                IntLiteral(1) [87-88]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE BERNOULLI(1 PERCENT) WITH WEIGHT AS weight REPEATABLE (1)
+--
+ALTERNATION GROUP: SYSTEM,,
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-62]
+        TablePathExpression [14-62]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-62]
+            Identifier(SYSTEM) [32-38]
+            SampleSize [40-49]
+              IntLiteral(1) [40-41]
+            SampleSuffix [51-62]
+              WithWeight [51-62]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE SYSTEM(1 PERCENT) WITH WEIGHT
+--
+ALTERNATION GROUP: SYSTEM,,REPEATABLE(1)
+--
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-77]
+        TablePathExpression [14-77]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-77]
+            Identifier(SYSTEM) [32-38]
+            SampleSize [40-49]
+              IntLiteral(1) [40-41]
+            SampleSuffix [51-77]
+              WithWeight [51-77]
+              RepeatableClause [64-77]
+                IntLiteral(1) [75-76]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE SYSTEM(1 PERCENT) WITH WEIGHT REPEATABLE (1)
+--
+ALTERNATION GROUP: SYSTEM,weight,
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-69]
+        TablePathExpression [14-69]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-69]
+            Identifier(SYSTEM) [32-38]
+            SampleSize [40-49]
+              IntLiteral(1) [40-41]
+            SampleSuffix [51-69]
+              WithWeight [51-69]
+                Alias [63-69]
+                  Identifier(weight) [63-69]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE SYSTEM(1 PERCENT) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: SYSTEM,weight,REPEATABLE(1)
+--
+QueryStatement [0-83]
+  Query [0-83]
+    Select [0-83]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-83]
+        TablePathExpression [14-83]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-83]
+            Identifier(SYSTEM) [32-38]
+            SampleSize [40-49]
+              IntLiteral(1) [40-41]
+            SampleSuffix [51-83]
+              WithWeight [51-83]
+                Alias [63-69]
+                  Identifier(weight) [63-69]
+              RepeatableClause [70-83]
+                IntLiteral(1) [81-82]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE SYSTEM(1 PERCENT) WITH WEIGHT AS weight REPEATABLE (1)
+--
+ALTERNATION GROUP: SYSTEM,AS weight,
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-72]
+        TablePathExpression [14-72]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-72]
+            Identifier(SYSTEM) [32-38]
+            SampleSize [40-49]
+              IntLiteral(1) [40-41]
+            SampleSuffix [51-72]
+              WithWeight [51-72]
+                Alias [63-72]
+                  Identifier(weight) [66-72]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE SYSTEM(1 PERCENT) WITH WEIGHT AS weight
+--
+ALTERNATION GROUP: SYSTEM,AS weight,REPEATABLE(1)
+--
+QueryStatement [0-86]
+  Query [0-86]
+    Select [0-86]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-86]
+        TablePathExpression [14-86]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-86]
+            Identifier(SYSTEM) [32-38]
+            SampleSize [40-49]
+              IntLiteral(1) [40-41]
+            SampleSuffix [51-86]
+              WithWeight [51-86]
+                Alias [63-72]
+                  Identifier(weight) [66-72]
+              RepeatableClause [73-86]
+                IntLiteral(1) [84-85]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE SYSTEM(1 PERCENT) WITH WEIGHT AS weight REPEATABLE (1)
+==
+
+# REPEATABLE is non-reserved keyword, hence, can be used as an alias for weight.
+SELECT * FROM Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT REPEATABLE
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-72]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-72]
+        TablePathExpression [14-72]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+          SampleClause [20-72]
+            Identifier(RESERVOIR) [32-41]
+            SampleSize [42-48]
+              IntLiteral(1) [42-43]
+            SampleSuffix [50-72]
+              WithWeight [50-72]
+                Alias [62-72]
+                  Identifier(REPEATABLE) [62-72]
+--
+SELECT
+  *
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS) WITH WEIGHT AS REPEATABLE
+==
+
+# WEIGHT is non-reserved keyword and can be used as an identifier.
+SELECT 4 WEIGHT
+from Users TABLESAMPLE RESERVOIR (1 ROWS)
+--
+QueryStatement [0-57]
+  Query [0-57]
+    Select [0-57]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          IntLiteral(4) [7-8]
+          Alias [9-15]
+            Identifier(WEIGHT) [9-15]
+      FromClause [16-57]
+        TablePathExpression [21-57]
+          PathExpression [21-26]
+            Identifier(Users) [21-26]
+          SampleClause [27-57]
+            Identifier(RESERVOIR) [39-48]
+            SampleSize [50-56]
+              IntLiteral(1) [50-51]
+--
+SELECT
+  4 AS WEIGHT
+FROM
+  Users TABLESAMPLE RESERVOIR(1 ROWS)
+==
+
+# Query should fail while resolving. Sampling on arrays is not supported.
+select * from UNNEST(array_expr) TABLESAMPLE RESERVOIR (1 ROWS)
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-63]
+        TablePathExpression [14-63]
+          UnnestExpression [14-32]
+            PathExpression [21-31]
+              Identifier(array_expr) [21-31]
+          SampleClause [33-63]
+            Identifier(RESERVOIR) [45-54]
+            SampleSize [56-62]
+              IntLiteral(1) [56-57]
+--
+SELECT
+  *
+FROM
+  UNNEST(array_expr) TABLESAMPLE RESERVOIR(1 ROWS)
+==
+
+select * from UNNEST(array_expr) WITH OFFSET pos TABLESAMPLE RESERVOIR (1 ROWS)
+--
+QueryStatement [0-79]
+  Query [0-79]
+    Select [0-79]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-79]
+        TablePathExpression [14-79]
+          UnnestExpression [14-32]
+            PathExpression [21-31]
+              Identifier(array_expr) [21-31]
+          WithOffset [33-48]
+            Alias [45-48]
+              Identifier(pos) [45-48]
+          SampleClause [49-79]
+            Identifier(RESERVOIR) [61-70]
+            SampleSize [72-78]
+              IntLiteral(1) [72-73]
+--
+SELECT
+  *
+FROM
+  UNNEST(array_expr) WITH OFFSET AS pos TABLESAMPLE RESERVOIR(1 ROWS)
+==
+
+select * from T, T.a as arr TABLESAMPLE RESERVOIR (1 ROWS) WITH OFFSET pos
+--
+ERROR: Syntax error: Expected keyword WEIGHT but got keyword OFFSET [at 1:65]
+select * from T, T.a as arr TABLESAMPLE RESERVOIR (1 ROWS) WITH OFFSET pos
+                                                                ^
+==
+
+select * from ARRAY(select * from Users) TABLESAMPLE RESERVOIR (1 ROWS)
+--
+ERROR: Syntax error: Unexpected keyword ARRAY [at 1:15]
+select * from ARRAY(select * from Users) TABLESAMPLE RESERVOIR (1 ROWS)
+              ^
+==
+
+# TABLESAMPLE can only be applied to table subqueries.
+select * from Users
+where a IN((select * from a_s) TABLESAMPLE RESERVOIR (1 ROWS))
+--
+ERROR: Syntax error: Expected ")" but got keyword TABLESAMPLE [at 2:32]
+where a IN((select * from a_s) TABLESAMPLE RESERVOIR (1 ROWS))
+                               ^
+==
+
+select * from Users
+where a IN (select * from a_s TABLESAMPLE RESERVOIR (1 ROWS))
+--
+QueryStatement [0-81]
+  Query [0-81]
+    Select [0-81]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-19]
+        TablePathExpression [14-19]
+          PathExpression [14-19]
+            Identifier(Users) [14-19]
+      WhereClause [20-81]
+        InExpression(IN) [28-81]
+          PathExpression [26-27]
+            Identifier(a) [26-27]
+          Query [32-80]
+            Select [32-80]
+              SelectList [39-40]
+                SelectColumn [39-40]
+                  Star(*) [39-40]
+              FromClause [41-80]
+                TablePathExpression [46-80]
+                  PathExpression [46-49]
+                    Identifier(a_s) [46-49]
+                  SampleClause [50-80]
+                    Identifier(RESERVOIR) [62-71]
+                    SampleSize [73-79]
+                      IntLiteral(1) [73-74]
+--
+SELECT
+  *
+FROM
+  Users
+WHERE
+  a IN (
+    SELECT
+      *
+    FROM
+      a_s TABLESAMPLE RESERVOIR(1 ROWS)
+  )
+==
+
+select uId
+from ( a TABLESAMPLE RESERVOIR (1 ROWS) JOIN
+       (select * from b) TABLESAMPLE RESERVOIR (1 ROWS) JOIN
+       (c TABLESAMPLE RESERVOIR (1 PERCENT) JOIN
+        d TABLESAMPLE RESERVOIR (1 ROWS)) TABLESAMPLE SYSTEM (1 ROWS)
+     ) TABLESAMPLE RESERVOIR (5.0 PERCENT)
+--
+QueryStatement [0-278]
+  Query [0-278]
+    Select [0-278]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(uId) [7-10]
+      FromClause [11-278]
+        ParenthesizedJoin [16-278]
+          Join [112-235]
+            Join [51-111]
+              TablePathExpression [18-50]
+                PathExpression [18-19]
+                  Identifier(a) [18-19]
+                SampleClause [20-50]
+                  Identifier(RESERVOIR) [32-41]
+                  SampleSize [43-49]
+                    IntLiteral(1) [43-44]
+              TableSubquery [63-111]
+                Query [64-79]
+                  Select [64-79]
+                    SelectList [71-72]
+                      SelectColumn [71-72]
+                        Star(*) [71-72]
+                    FromClause [73-79]
+                      TablePathExpression [78-79]
+                        PathExpression [78-79]
+                          Identifier(b) [78-79]
+                SampleClause [81-111]
+                  Identifier(RESERVOIR) [93-102]
+                  SampleSize [104-110]
+                    IntLiteral(1) [104-105]
+            ParenthesizedJoin [124-235]
+              Join [161-206]
+                TablePathExpression [125-160]
+                  PathExpression [125-126]
+                    Identifier(c) [125-126]
+                  SampleClause [127-160]
+                    Identifier(RESERVOIR) [139-148]
+                    SampleSize [150-159]
+                      IntLiteral(1) [150-151]
+                TablePathExpression [174-206]
+                  PathExpression [174-175]
+                    Identifier(d) [174-175]
+                  SampleClause [176-206]
+                    Identifier(RESERVOIR) [188-197]
+                    SampleSize [199-205]
+                      IntLiteral(1) [199-200]
+              SampleClause [208-235]
+                Identifier(SYSTEM) [220-226]
+                SampleSize [228-234]
+                  IntLiteral(1) [228-229]
+          SampleClause [243-278]
+            Identifier(RESERVOIR) [255-264]
+            SampleSize [266-277]
+              FloatLiteral(5.0) [266-269]
+--
+SELECT
+  uId
+FROM
+  (
+    a TABLESAMPLE RESERVOIR(1 ROWS)
+    JOIN
+    (
+      SELECT
+        *
+      FROM
+        b
+    ) TABLESAMPLE RESERVOIR(1 ROWS)
+    JOIN
+    (
+      c TABLESAMPLE RESERVOIR(1 PERCENT)
+      JOIN
+      d TABLESAMPLE RESERVOIR(1 ROWS)
+    ) TABLESAMPLE SYSTEM(1 ROWS)
+  ) TABLESAMPLE RESERVOIR(5.0 PERCENT)
+==
+
+select a from b WHERE true TABLESAMPLE SYSTEM (1 ROWS)
+--
+ERROR: Syntax error: Expected end of input but got keyword TABLESAMPLE [at 1:28]
+select a from b WHERE true TABLESAMPLE SYSTEM (1 ROWS)
+                           ^
+==
+
+select a from b LIMIT 5 TABLESAMPLE SYSTEM (1 ROWS)
+--
+ERROR: Syntax error: Expected end of input but got keyword TABLESAMPLE [at 1:25]
+select a from b LIMIT 5 TABLESAMPLE SYSTEM (1 ROWS)
+                        ^
+==
+
+select a from b ORDER BY a TABLESAMPLE SYSTEM (1 ROWS)
+--
+ERROR: Syntax error: Expected end of input but got keyword TABLESAMPLE [at 1:28]
+select a from b ORDER BY a TABLESAMPLE SYSTEM (1 ROWS)
+                           ^
+==
+
+select a FROM b TABLESAMPLE SYSTEM (1 ROWS) WHERE true ORDER BY a LIMIT 5
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-54]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-43]
+        TablePathExpression [14-43]
+          PathExpression [14-15]
+            Identifier(b) [14-15]
+          SampleClause [16-43]
+            Identifier(SYSTEM) [28-34]
+            SampleSize [36-42]
+              IntLiteral(1) [36-37]
+      WhereClause [44-54]
+        BooleanLiteral(true) [50-54]
+    OrderBy [55-65]
+      OrderingExpression(ASC) [64-65]
+        PathExpression [64-65]
+          Identifier(a) [64-65]
+    LimitOffset [66-73]
+      IntLiteral(5) [72-73]
+--
+SELECT
+  a
+FROM
+  b TABLESAMPLE SYSTEM(1 ROWS)
+WHERE
+  true
+ORDER BY a
+LIMIT 5
+==
+
+select a from b TABLESAMPLE SYSTEM (NULL ROWS)
+--
+ERROR: Syntax error: Unexpected keyword NULL [at 1:37]
+select a from b TABLESAMPLE SYSTEM (NULL ROWS)
+                                    ^
+==
+
+select a from b TABLESAMPLE SYSTEM (1 ROWS) REPEATABLE(NULL)
+--
+ERROR: Syntax error: Unexpected keyword NULL [at 1:56]
+select a from b TABLESAMPLE SYSTEM (1 ROWS) REPEATABLE(NULL)
+                                                       ^
+==
+
+select * from KeyValue TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY)
+--
+ERROR: Syntax error: Unexpected ")" [at 1:68]
+select * from KeyValue TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY)
+                                                                   ^

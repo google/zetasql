@@ -127,6 +127,27 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
+[name=modify_map_null_map]
+SELECT MODIFY_MAP(CAST(NULL AS ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>(NULL)}
+]
+==
+
+[name=modify_map_empty_map]
+SELECT MODIFY_MAP(CAST([] AS ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+     {
+       key: "foo"
+       value: 789
+     }
+   ]}
+]
+==
+
 [name=modify_map_multiple_keys]
 SELECT MODIFY_MAP(value.string_int32_map, "foo", 789, "quux", 1337) FROM Table0;
 --

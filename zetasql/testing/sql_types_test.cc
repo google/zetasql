@@ -38,8 +38,8 @@ void ZetaSQLTypesTest::SetUp() {
 
   enum_value = Value::Enum(GetTestEnumType(), 1);
   enum_null = Value::Null(GetTestEnumType());
-  proto_value = Value::Proto(GetKitchenSinkProtoType(), absl::Cord("1"));
-  proto_null = Value::Null(GetKitchenSinkProtoType());
+  proto_value = Value::Proto(GetKitchenSinkNestedProtoType(), absl::Cord("1"));
+  proto_null = Value::Null(GetKitchenSinkNestedProtoType());
   array_int32_value = Value::EmptyArray(GetInt32ArrayType());
   array_int64_value = Value::EmptyArray(GetInt64ArrayType());
   array_struct_value = Value::EmptyArray(GetStructArrayType());
@@ -82,10 +82,10 @@ void ZetaSQLTypesTest::SetUp() {
   enum_literal_arg = absl::make_unique<InputArgumentType>(enum_value);
   enum_null_arg = absl::make_unique<InputArgumentType>(enum_null);
 
-  proto_arg = absl::make_unique<InputArgumentType>(GetKitchenSinkProtoType(),
-                                                   false /* is_parameter */);
+  proto_arg = absl::make_unique<InputArgumentType>(
+      GetKitchenSinkNestedProtoType(), false /* is_parameter */);
   proto_parameter_arg = absl::make_unique<InputArgumentType>(
-      GetKitchenSinkProtoType(), true /* is_parameter */);
+      GetKitchenSinkNestedProtoType(), true /* is_parameter */);
   proto_literal_arg = absl::make_unique<InputArgumentType>(proto_value);
   proto_null_arg = absl::make_unique<InputArgumentType>(proto_null);
 
@@ -262,7 +262,8 @@ void ZetaSQLTypesTest::SetUp() {
                 ARRAY_STRUCT.type(),
                 GetTestEnumType(),
                 GetAnotherTestEnumType(),
-                GetKitchenSinkProtoType(),
+                GetKitchenSinkNestedProtoType(),
+                GetKitchenSinkNestedDatesProtoType(),
                 GetSimpleStructType()};
 }
 
@@ -308,13 +309,22 @@ const EnumType* ZetaSQLTypesTest::GetAnotherTestEnumType() {
   return another_enum_type_;
 }
 
-const ProtoType* ZetaSQLTypesTest::GetKitchenSinkProtoType() {
-  if (kitchen_sink_proto_type_ == nullptr) {
+const ProtoType* ZetaSQLTypesTest::GetKitchenSinkNestedProtoType() {
+  if (kitchen_sink_nested_proto_type_ == nullptr) {
     ZETASQL_CHECK_OK(type_factory_.MakeProtoType(
         zetasql_test::KitchenSinkPB::Nested::descriptor(),
-        &kitchen_sink_proto_type_));
+        &kitchen_sink_nested_proto_type_));
   }
-  return kitchen_sink_proto_type_;
+  return kitchen_sink_nested_proto_type_;
+}
+
+const ProtoType* ZetaSQLTypesTest::GetKitchenSinkNestedDatesProtoType() {
+  if (kitchen_sink_nested_dates_proto_type_ == nullptr) {
+    ZETASQL_CHECK_OK(type_factory_.MakeProtoType(
+        zetasql_test::KitchenSinkPB::NestedDates::descriptor(),
+        &kitchen_sink_nested_dates_proto_type_));
+  }
+  return kitchen_sink_nested_dates_proto_type_;
 }
 
 const StructType* ZetaSQLTypesTest::GetSimpleStructType() {
@@ -335,7 +345,8 @@ void ZetaSQLTypesTest::GetSampleTestTypes(
   sample_types->push_back(GetStructArrayType());
   sample_types->push_back(GetTestEnumType());
   sample_types->push_back(GetAnotherTestEnumType());
-  sample_types->push_back(GetKitchenSinkProtoType());
+  sample_types->push_back(GetKitchenSinkNestedProtoType());
+  sample_types->push_back(GetKitchenSinkNestedDatesProtoType());
   sample_types->push_back(GetSimpleStructType());
 }
 

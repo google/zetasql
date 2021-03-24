@@ -1,0 +1,9 @@
+# Ensure this doesn't crash.
+select col1,(exists @{a = b} (select col2 from T2)
+from T1
+where exists @{a=1} (select col from T3)
+--
+ERROR: Syntax error: Expected ")" but got keyword FROM [at 2:1]
+from T1
+^
+==

@@ -1,0 +1,280 @@
+# Test cases for WITH OFFSET / WITH POSITION.
+select pos1, pos2
+  from T, T.arr AS arr WITH OFFSET AS pos1, T.arr WITH OFFSET pos2
+--
+QueryStatement [0-84]
+  Query [0-84]
+    Select [0-84]
+      SelectList [7-17]
+        SelectColumn [7-11]
+          PathExpression [7-11]
+            Identifier(pos1) [7-11]
+        SelectColumn [13-17]
+          PathExpression [13-17]
+            Identifier(pos2) [13-17]
+      FromClause [20-84]
+        Join(COMMA) [60-84]
+          Join(COMMA) [26-60]
+            TablePathExpression [25-26]
+              PathExpression [25-26]
+                Identifier(T) [25-26]
+            TablePathExpression [28-60]
+              PathExpression [28-33]
+                Identifier(T) [28-29]
+                Identifier(arr) [30-33]
+              Alias [34-40]
+                Identifier(arr) [37-40]
+              WithOffset [41-60]
+                Alias [53-60]
+                  Identifier(pos1) [56-60]
+          TablePathExpression [62-84]
+            PathExpression [62-67]
+              Identifier(T) [62-63]
+              Identifier(arr) [64-67]
+            WithOffset [68-84]
+              Alias [80-84]
+                Identifier(pos2) [80-84]
+--
+SELECT
+  pos1,
+  pos2
+FROM
+  T,
+  T.arr AS arr WITH OFFSET AS pos1,
+  T.arr WITH OFFSET AS pos2
+==
+
+# WITH POSITION syntax was supported for a while but has been removed.
+select *
+  from T, T.arr AS arr WITH POSITION AS pos1
+--
+ERROR: Syntax error: Expected keyword OFFSET but got identifier "POSITION" [at 2:29]
+  from T, T.arr AS arr WITH POSITION AS pos1
+                            ^
+==
+
+select a from arr a WITH OFFSET
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+      FromClause [9-31]
+        TablePathExpression [14-31]
+          PathExpression [14-17]
+            Identifier(arr) [14-17]
+          Alias [18-19]
+            Identifier(a) [18-19]
+          WithOffset [20-31]
+--
+SELECT
+  a
+FROM
+  arr AS a WITH OFFSET
+==
+
+select 1+pos from T.arr WITH OFFSET pos
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          BinaryExpression(+) [7-12]
+            IntLiteral(1) [7-8]
+            PathExpression [9-12]
+              Identifier(pos) [9-12]
+      FromClause [13-39]
+        TablePathExpression [18-39]
+          PathExpression [18-23]
+            Identifier(T) [18-19]
+            Identifier(arr) [20-23]
+          WithOffset [24-39]
+            Alias [36-39]
+              Identifier(pos) [36-39]
+--
+SELECT
+  1 + pos
+FROM
+  T.arr WITH OFFSET AS pos
+==
+
+select arr, pos from arr WITH pos
+--
+ERROR: Syntax error: Expected keyword OFFSET but got identifier "pos" [at 1:31]
+select arr, pos from arr WITH pos
+                              ^
+==
+
+select pos from WITH OFFSET pos
+--
+ERROR: Syntax error: Unexpected keyword WITH [at 1:17]
+select pos from WITH OFFSET pos
+                ^
+==
+
+select pos, value
+  from keys AS key WITH OFFSET pos
+       JOIN
+       values AS value WITH OFFSET pos USING (pos)
+  where key='Mykey'
+--
+QueryStatement [0-135]
+  Query [0-135]
+    Select [0-135]
+      SelectList [7-17]
+        SelectColumn [7-10]
+          PathExpression [7-10]
+            Identifier(pos) [7-10]
+        SelectColumn [12-17]
+          PathExpression [12-17]
+            Identifier(value) [12-17]
+      FromClause [20-115]
+        Join [60-115]
+          TablePathExpression [25-52]
+            PathExpression [25-29]
+              Identifier(keys) [25-29]
+            Alias [30-36]
+              Identifier(key) [33-36]
+            WithOffset [37-52]
+              Alias [49-52]
+                Identifier(pos) [49-52]
+          TablePathExpression [72-103]
+            PathExpression [72-78]
+              Identifier(values) [72-78]
+            Alias [79-87]
+              Identifier(value) [82-87]
+            WithOffset [88-103]
+              Alias [100-103]
+                Identifier(pos) [100-103]
+          UsingClause [104-115]
+            Identifier(pos) [111-114]
+      WhereClause [118-135]
+        BinaryExpression(=) [124-135]
+          PathExpression [124-127]
+            Identifier(key) [124-127]
+          StringLiteral('Mykey') [128-135]
+--
+SELECT
+  pos,
+  value
+FROM
+  keys AS key WITH OFFSET AS pos
+  JOIN
+  values AS value WITH OFFSET AS pos
+  USING(pos)
+WHERE
+  key = 'Mykey'
+==
+
+select * from structs AS s WITH OFFSET AS pos
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-45]
+        TablePathExpression [14-45]
+          PathExpression [14-21]
+            Identifier(structs) [14-21]
+          Alias [22-26]
+            Identifier(s) [25-26]
+          WithOffset [27-45]
+            Alias [39-45]
+              Identifier(pos) [42-45]
+--
+SELECT
+  *
+FROM
+  structs AS s WITH OFFSET AS pos
+==
+
+select * from t1 WITH OFFSET offset, t2 WITH OFFSET as offset
+--
+QueryStatement [0-61]
+  Query [0-61]
+    Select [0-61]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-61]
+        Join(COMMA) [35-61]
+          TablePathExpression [14-35]
+            PathExpression [14-16]
+              Identifier(t1) [14-16]
+            WithOffset [17-35]
+              Alias [29-35]
+                Identifier(offset) [29-35]
+          TablePathExpression [37-61]
+            PathExpression [37-39]
+              Identifier(t2) [37-39]
+            WithOffset [40-61]
+              Alias [52-61]
+                Identifier(offset) [55-61]
+--
+SELECT
+  *
+FROM
+  t1 WITH OFFSET AS offset,
+  t2 WITH OFFSET AS offset
+==
+
+select * from f1 WITH abc
+--
+ERROR: Syntax error: Expected keyword OFFSET but got identifier "abc" [at 1:23]
+select * from f1 WITH abc
+                      ^
+==
+
+# Combining WITH OFFSET and FOR SYSTEM TIME AS OF
+select pos1, pos2
+  from T, T.arr AS arr WITH OFFSET AS pos1, T.arr WITH OFFSET pos2
+  FOR SYSTEM TIME AS OF '2007-01-02';
+--
+QueryStatement [0-121]
+  Query [0-121]
+    Select [0-121]
+      SelectList [7-17]
+        SelectColumn [7-11]
+          PathExpression [7-11]
+            Identifier(pos1) [7-11]
+        SelectColumn [13-17]
+          PathExpression [13-17]
+            Identifier(pos2) [13-17]
+      FromClause [20-121]
+        Join(COMMA) [60-121]
+          Join(COMMA) [26-60]
+            TablePathExpression [25-26]
+              PathExpression [25-26]
+                Identifier(T) [25-26]
+            TablePathExpression [28-60]
+              PathExpression [28-33]
+                Identifier(T) [28-29]
+                Identifier(arr) [30-33]
+              Alias [34-40]
+                Identifier(arr) [37-40]
+              WithOffset [41-60]
+                Alias [53-60]
+                  Identifier(pos1) [56-60]
+          TablePathExpression [62-121]
+            PathExpression [62-67]
+              Identifier(T) [62-63]
+              Identifier(arr) [64-67]
+            WithOffset [68-84]
+              Alias [80-84]
+                Identifier(pos2) [80-84]
+            ForSystemTime [87-121]
+              StringLiteral('2007-01-02') [109-121]
+--
+SELECT
+  pos1,
+  pos2
+FROM
+  T,
+  T.arr AS arr WITH OFFSET AS pos1,
+  T.arr WITH OFFSET AS pos2 FOR SYSTEM_TIME AS OF '2007-01-02'

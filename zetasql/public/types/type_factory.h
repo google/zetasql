@@ -17,7 +17,10 @@
 #ifndef ZETASQL_PUBLIC_TYPES_TYPE_FACTORY_H_
 #define ZETASQL_PUBLIC_TYPES_TYPE_FACTORY_H_
 
+#include <cstdint>
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
@@ -26,6 +29,10 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/container/node_hash_map.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 ABSL_DECLARE_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit);
 
@@ -118,6 +125,14 @@ class TypeStoreHelper {
   static int64_t Test_GetRefCount(const TypeStore* store);
 };
 
+// Chain of the catalog names that reference TypeProto or TypeEnum. Prepended to
+// the type name.
+struct CatalogName {
+  absl::InlinedVector<std::string, 1> path;
+  // Backticked path components.
+  const std::string* path_string = nullptr;
+};
+
 }  // namespace internal
 
 // A TypeFactory creates and owns Type objects.
@@ -197,6 +212,7 @@ class TypeFactory {
 
   // Make a proto type.
   // The <descriptor> must outlive this TypeFactory.
+  // The <catalog_name> if provided is prepended to type's FullName.
   //
   // This always constructs a ProtoType, even for protos that are
   // annotated with zetasql.is_struct or zetasql.is_wrapper,
@@ -204,9 +220,11 @@ class TypeFactory {
   // a different type.  Use MakeUnwrappedTypeFromProto instead
   // to get the unwrapped type.
   absl::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
-                             const ProtoType** result);
+                             const ProtoType** result,
+                             std::vector<std::string> catalog_name_path = {});
   absl::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
-                             const Type** result);
+                             const Type** result,
+                             std::vector<std::string> catalog_name_path = {});
 
   // Make a zetasql type from a proto, honoring zetasql.is_struct and
   // zetasql.is_wrapper annotations.
@@ -240,10 +258,13 @@ class TypeFactory {
 
   // Make an enum type from a protocol buffer EnumDescriptor.
   // The <enum_descriptor> must outlive this TypeFactory.
+  // The <catalog_name> if provided is prepended to type's FullName.
   absl::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
-                            const EnumType** result);
+                            const EnumType** result,
+                            std::vector<std::string> catalog_name_path = {});
   absl::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
-                            const Type** result);
+                            const Type** result,
+                            std::vector<std::string> catalog_name_path = {});
 
   // Get the Type for a proto field.
   // If <ignore_annotations> is false, this looks at format annotations on the
@@ -343,7 +364,8 @@ class TypeFactory {
   const TYPE* TakeOwnershipLocked(const TYPE* type)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
   template <class TYPE>
-  const TYPE* TakeOwnershipLocked(const TYPE* type, int64_t type_owned_bytes_size)
+  const TYPE* TakeOwnershipLocked(const TYPE* type,
+                                  int64_t type_owned_bytes_size)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
 
   // Takes ownership of <annotation_map> and updates estimated used memory.
@@ -353,6 +375,22 @@ class TypeFactory {
   // Mark that <other_type>'s factory must outlive <this>.
   void AddDependency(const Type* other_type)
       ABSL_LOCKS_EXCLUDED(store_->mutex_);
+
+  // Returns TypeProto or TypeEnum.
+  template <typename Descriptor>
+  const auto* MakeDescribedType(const Descriptor* descriptor,
+                                std::vector<std::string> catalog_name_path)
+      ABSL_LOCKS_EXCLUDED(store_->mutex_);
+
+  template <typename Descriptor>
+  const auto*& FindOrCreateCachedType(const Descriptor* descriptor,
+                                      const internal::CatalogName* catalog)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
+
+  // Find or create cached catalog name.
+  const internal::CatalogName* FindOrCreateCatalogName(
+      std::vector<std::string> catalog_name_path)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
 
   // Get the Type for a proto field from its corresponding TypeKind. For
   // repeated fields, <kind> must be the base TypeKind for the field (i.e., the
@@ -386,6 +424,20 @@ class TypeFactory {
       cached_proto_types_ ABSL_GUARDED_BY(store_->mutex_);
   absl::flat_hash_map<const google::protobuf::EnumDescriptor*, const EnumType*>
       cached_enum_types_ ABSL_GUARDED_BY(store_->mutex_);
+
+  // The key is a descriptor and a catalog name path.
+  absl::flat_hash_map<
+      std::pair<const google::protobuf::Descriptor*, const internal::CatalogName*>,
+      const ProtoType*>
+      cached_proto_types_with_catalog_name_ ABSL_GUARDED_BY(store_->mutex_);
+  absl::flat_hash_map<
+      std::pair<const google::protobuf::EnumDescriptor*, const internal::CatalogName*>,
+      const EnumType*>
+      cached_enum_types_with_catalog_name_ ABSL_GUARDED_BY(store_->mutex_);
+
+  // The key is a catalog name path.
+  absl::node_hash_map<std::string, internal::CatalogName> cached_catalog_names_
+      ABSL_GUARDED_BY(store_->mutex_);
 
   internal::TypeStore* store_;  // Stores created types.
 

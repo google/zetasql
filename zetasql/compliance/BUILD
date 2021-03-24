@@ -14,6 +14,8 @@
 # limitations under the License.
 #
 
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 
 cc_library(
@@ -38,7 +40,6 @@ cc_library(
         ":test_driver",
         ":test_util",
         "//zetasql/base",
-        "//zetasql/base:cleanup",
         "//zetasql/base:file_util",
         "//zetasql/base:map_util",
         "//zetasql/base:path",
@@ -61,6 +62,7 @@ cc_library(
         "//zetasql/reference_impl:reference_driver",
         "//zetasql/testing:type_util",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:node_hash_set",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/functional:bind_front",
@@ -71,7 +73,7 @@ cc_library(
         "@com_google_file_based_test_driver//file_based_test_driver",
         "@com_google_file_based_test_driver//file_based_test_driver:run_test_case_result",
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
         "@com_googlesource_code_re2//:re2",
     ],
@@ -91,6 +93,7 @@ cc_library(
     ],
     data = glob(["testdata/*.test"]) + [
         "//zetasql/testdata:test_schema_proto",
+        "//zetasql/testdata:test_proto3_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
         "@com_googleapis_googleapis//:latlng_proto",
@@ -319,7 +322,7 @@ cc_library(
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
         "//zetasql/testing:type_util",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
@@ -426,6 +429,7 @@ cc_library(
         "functions_testlib_like.cc",
         "functions_testlib_math.cc",
         "functions_testlib_net.cc",
+        "functions_testlib_numeric.cc",
         "functions_testlib_regex.cc",
         "functions_testlib_string_1.cc",
         "functions_testlib_string_2.cc",
@@ -459,6 +463,7 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:civil_time",
+        "//zetasql/public:interval_value",
         "//zetasql/public:interval_value_test_util",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",

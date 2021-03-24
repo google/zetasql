@@ -19,7 +19,7 @@ The return result is between `-1` and `1`. A result of `0` indicates no
 correlation.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
@@ -59,7 +59,7 @@ number is the independent variable. The return result is between `-Inf` and
 `+Inf`.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
@@ -99,7 +99,7 @@ number is the independent variable. The return result is between `-Inf` and
 `+Inf`.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
@@ -137,7 +137,7 @@ Returns the population (biased) standard deviation of the values. The return
 result is between `0` and `+Inf`.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
@@ -178,7 +178,7 @@ Returns the sample (unbiased) standard deviation of the values. The return
 result is between `0` and `+Inf`.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
@@ -226,7 +226,7 @@ Returns the population (biased) variance of the values. The return result is
 between `0` and `+Inf`.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.
@@ -267,7 +267,7 @@ Returns the sample (unbiased) variance of the values. The return result is
 between `0` and `+Inf`.
 
 All numeric types are supported. If the
-input is `NUMERIC` then the internal aggregation is
+input is `NUMERIC` or `BIGNUMERIC` then the internal aggregation is
 stable with the final output converted to a `DOUBLE`.
 Otherwise the input is converted to a `DOUBLE`
 before aggregation, resulting in a potentially unstable result.

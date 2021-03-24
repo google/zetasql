@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/math.h"
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>

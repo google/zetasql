@@ -26,6 +26,7 @@
 #include "zetasql/testing/test_catalog.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 namespace {
@@ -107,6 +108,33 @@ class ExpressionSubstitutorTest : public ::testing::Test {
   std::unique_ptr<const AnalyzerOutput> filter_lambda_output_;
   const ResolvedInlineLambda* filter_lambda_;
 };
+
+TEST_F(ExpressionSubstitutorTest, RequiresArenas) {
+  {
+    AnalyzerOptions options = options_;
+    options.set_column_id_sequence_number(nullptr);
+    EXPECT_THAT(AnalyzeSubstitute(options, AllRewriters(), catalog_,
+                                  type_factory_, "1 + 2", {})
+                    .status(),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  }
+  {
+    AnalyzerOptions options = options_;
+    options.set_id_string_pool(nullptr);
+    EXPECT_THAT(AnalyzeSubstitute(options, AllRewriters(), catalog_,
+                                  type_factory_, "1 + 2", {})
+                    .status(),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  }
+  {
+    AnalyzerOptions options = options_;
+    options.set_arena(nullptr);
+    EXPECT_THAT(AnalyzeSubstitute(options, AllRewriters(), catalog_,
+                                  type_factory_, "1 + 2", {})
+                    .status(),
+                zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
+  }
+}
 
 TEST_F(ExpressionSubstitutorTest, ColumnReferences) {
   // Make sure the subquery's parameter list is set up properly when the

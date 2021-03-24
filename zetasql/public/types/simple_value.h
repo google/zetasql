@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_TYPES_SIMPLE_VALUE_H_
 #define ZETASQL_PUBLIC_TYPES_SIMPLE_VALUE_H_
 
+#include <cstdint>
+
 #include "zetasql/public/simple_value.pb.h"
 #include "zetasql/public/types/value_representations.h"
 #include "absl/status/status.h"
@@ -96,7 +98,8 @@ class SimpleValue {
   friend class AnnotationMap;
   // Hide constructors below.  Users should always use factory method to create
   // an instance.
-  SimpleValue(ValueType type, int64_t value) : type_(type), int64_value_(value) {}
+  SimpleValue(ValueType type, int64_t value)
+      : type_(type), int64_value_(value) {}
   SimpleValue(ValueType type, std::string value)
       : type_(type), string_ptr_(new internal::StringRef(std::move(value))) {}
   SimpleValue(ValueType type, bool value) : type_(type), bool_value_(value) {}

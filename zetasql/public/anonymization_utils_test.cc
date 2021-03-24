@@ -16,6 +16,8 @@
 
 #include "zetasql/public/anonymization_utils.h"
 
+#include <cstdint>
+
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -113,7 +115,9 @@ struct ComputeKThresholdTest {
   ComputeKThresholdTest(double epsilon_in, double delta_in,
                         absl::optional<int64_t> kappa_in,
                         absl::optional<int64_t> expected_k_threshold_in)
-      : epsilon(epsilon_in), delta(delta_in), kappa(kappa_in),
+      : epsilon(epsilon_in),
+        delta(delta_in),
+        kappa(kappa_in),
         expected_k_threshold(expected_k_threshold_in) {}
 
   const double epsilon;

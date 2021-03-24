@@ -16,13 +16,14 @@
 
 #include "zetasql/compliance/test_util.h"
 
+#include <cstdint>
 #include <utility>
 
 #include "zetasql/base/logging.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/reflection.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 

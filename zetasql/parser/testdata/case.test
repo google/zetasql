@@ -1,0 +1,288 @@
+# Tests for the CASE expression.
+select case when a < 0 then 5 end;
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-33]
+          CaseNoValueExpression [7-33]
+            BinaryExpression(<) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              IntLiteral(0) [21-22]
+            IntLiteral(5) [28-29]
+--
+SELECT
+  CASE
+    WHEN a < 0 THEN 5
+  END
+==
+
+select case when a < 0 then 5 else 15 end;
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          CaseNoValueExpression [7-41]
+            BinaryExpression(<) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              IntLiteral(0) [21-22]
+            IntLiteral(5) [28-29]
+            IntLiteral(15) [35-37]
+--
+SELECT
+  CASE
+    WHEN a < 0 THEN 5
+    ELSE 15
+  END
+==
+
+select case when a < 0 then 5 when a > 0 then 10 end;
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-52]
+        SelectColumn [7-52]
+          CaseNoValueExpression [7-52]
+            BinaryExpression(<) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              IntLiteral(0) [21-22]
+            IntLiteral(5) [28-29]
+            BinaryExpression(>) [35-40]
+              PathExpression [35-36]
+                Identifier(a) [35-36]
+              IntLiteral(0) [39-40]
+            IntLiteral(10) [46-48]
+--
+SELECT
+  CASE
+    WHEN a < 0 THEN 5
+    WHEN a > 0 THEN 10
+  END
+==
+
+select case when a < 0 then 5 when a > 0 then 10 else 15 end;
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-60]
+        SelectColumn [7-60]
+          CaseNoValueExpression [7-60]
+            BinaryExpression(<) [17-22]
+              PathExpression [17-18]
+                Identifier(a) [17-18]
+              IntLiteral(0) [21-22]
+            IntLiteral(5) [28-29]
+            BinaryExpression(>) [35-40]
+              PathExpression [35-36]
+                Identifier(a) [35-36]
+              IntLiteral(0) [39-40]
+            IntLiteral(10) [46-48]
+            IntLiteral(15) [54-56]
+--
+SELECT
+  CASE
+    WHEN a < 0 THEN 5
+    WHEN a > 0 THEN 10
+    ELSE 15
+  END
+==
+
+select case a1 when a2 then 5 end;
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-33]
+          CaseValueExpression [7-33]
+            PathExpression [12-14]
+              Identifier(a1) [12-14]
+            PathExpression [20-22]
+              Identifier(a2) [20-22]
+            IntLiteral(5) [28-29]
+--
+SELECT
+  CASE a1
+    WHEN a2 THEN 5
+  END
+==
+
+select case a1 when a2 then 5 else 15 end;
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          CaseValueExpression [7-41]
+            PathExpression [12-14]
+              Identifier(a1) [12-14]
+            PathExpression [20-22]
+              Identifier(a2) [20-22]
+            IntLiteral(5) [28-29]
+            IntLiteral(15) [35-37]
+--
+SELECT
+  CASE a1
+    WHEN a2 THEN 5
+    ELSE 15
+  END
+==
+
+select case a1 when a2 then 5 when a3 then 10 end;
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-49]
+        SelectColumn [7-49]
+          CaseValueExpression [7-49]
+            PathExpression [12-14]
+              Identifier(a1) [12-14]
+            PathExpression [20-22]
+              Identifier(a2) [20-22]
+            IntLiteral(5) [28-29]
+            PathExpression [35-37]
+              Identifier(a3) [35-37]
+            IntLiteral(10) [43-45]
+--
+SELECT
+  CASE a1
+    WHEN a2 THEN 5
+    WHEN a3 THEN 10
+  END
+==
+
+select case a1 when a2 then 5 when a3 then 10 else 15 end;
+--
+QueryStatement [0-57]
+  Query [0-57]
+    Select [0-57]
+      SelectList [7-57]
+        SelectColumn [7-57]
+          CaseValueExpression [7-57]
+            PathExpression [12-14]
+              Identifier(a1) [12-14]
+            PathExpression [20-22]
+              Identifier(a2) [20-22]
+            IntLiteral(5) [28-29]
+            PathExpression [35-37]
+              Identifier(a3) [35-37]
+            IntLiteral(10) [43-45]
+            IntLiteral(15) [51-53]
+--
+SELECT
+  CASE a1
+    WHEN a2 THEN 5
+    WHEN a3 THEN 10
+    ELSE 15
+  END
+==
+
+select case a1+57 when sqrt(a2/5) then concat(c,d)
+       when a3*4 then 'ddd'
+       else if(a4 = 6, 'aaa', 'bbb') end;
+--
+QueryStatement [0-119]
+  Query [0-119]
+    Select [0-119]
+      SelectList [7-119]
+        SelectColumn [7-119]
+          CaseValueExpression [7-119]
+            BinaryExpression(+) [12-17]
+              PathExpression [12-14]
+                Identifier(a1) [12-14]
+              IntLiteral(57) [15-17]
+            FunctionCall [23-33]
+              PathExpression [23-27]
+                Identifier(sqrt) [23-27]
+              BinaryExpression(/) [28-32]
+                PathExpression [28-30]
+                  Identifier(a2) [28-30]
+                IntLiteral(5) [31-32]
+            FunctionCall [39-50]
+              PathExpression [39-45]
+                Identifier(concat) [39-45]
+              PathExpression [46-47]
+                Identifier(c) [46-47]
+              PathExpression [48-49]
+                Identifier(d) [48-49]
+            BinaryExpression(*) [63-67]
+              PathExpression [63-65]
+                Identifier(a3) [63-65]
+              IntLiteral(4) [66-67]
+            StringLiteral('ddd') [73-78]
+            FunctionCall [91-115]
+              PathExpression [91-93]
+                Identifier(`if`) [91-93]
+              BinaryExpression(=) [94-100]
+                PathExpression [94-96]
+                  Identifier(a4) [94-96]
+                IntLiteral(6) [99-100]
+              StringLiteral('aaa') [102-107]
+              StringLiteral('bbb') [109-114]
+--
+SELECT
+  CASE a1 + 57
+    WHEN sqrt(a2 / 5) THEN concat(c, d)
+    WHEN a3 * 4 THEN 'ddd'
+    ELSE `if`(a4 = 6, 'aaa', 'bbb')
+  END
+==
+
+select case a when 1 then proto1 else proto2 end.foo
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-52]
+        SelectColumn [7-52]
+          DotIdentifier [48-52]
+            CaseValueExpression [7-48]
+              PathExpression [12-13]
+                Identifier(a) [12-13]
+              IntLiteral(1) [19-20]
+              PathExpression [26-32]
+                Identifier(proto1) [26-32]
+              PathExpression [38-44]
+                Identifier(proto2) [38-44]
+            Identifier(foo) [49-52]
+--
+SELECT
+  CASE a
+    WHEN 1 THEN proto1
+    ELSE proto2
+  END.foo
+==
+
+select (case a when 1 then proto1 else proto2 end).foo
+--
+QueryStatement [0-54]
+  Query [0-54]
+    Select [0-54]
+      SelectList [7-54]
+        SelectColumn [7-54]
+          DotIdentifier [50-54]
+            CaseValueExpression [8-49]
+              PathExpression [13-14]
+                Identifier(a) [13-14]
+              IntLiteral(1) [20-21]
+              PathExpression [27-33]
+                Identifier(proto1) [27-33]
+              PathExpression [39-45]
+                Identifier(proto2) [39-45]
+            Identifier(foo) [51-54]
+--
+SELECT
+  CASE a
+    WHEN 1 THEN proto1
+    ELSE proto2
+  END.foo

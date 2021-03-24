@@ -1,0 +1,369 @@
+# ALTER TABLE to add column.
+ALTER TABLE foo ADD COLUMN bar STRING;
+--
+AlterTableStatement [0-37]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-37]
+    AddColumnAction [16-37]
+      ColumnDefinition [27-37]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-37]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+--
+ALTER TABLE foo ADD COLUMN bar STRING
+==
+
+# ALTER TABLE that might not exist to add column.
+ALTER TABLE IF EXISTS foo ADD COLUMN bar INT64;
+--
+AlterTableStatement(is_if_exists) [0-46]
+  PathExpression [22-25]
+    Identifier(foo) [22-25]
+  AlterActionList [26-46]
+    AddColumnAction [26-46]
+      ColumnDefinition [37-46]
+        Identifier(bar) [37-40]
+        SimpleColumnSchema [41-46]
+          PathExpression [41-46]
+            Identifier(INT64) [41-46]
+--
+ALTER TABLE IF EXISTS foo ADD COLUMN bar INT64
+==
+
+# ALTER TABLE to add column if not exists.
+ALTER TABLE foo ADD COLUMN IF NOT EXISTS bar INT64;
+--
+AlterTableStatement [0-50]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-50]
+    AddColumnAction(is_if_not_exists) [16-50]
+      ColumnDefinition [41-50]
+        Identifier(bar) [41-44]
+        SimpleColumnSchema [45-50]
+          PathExpression [45-50]
+            Identifier(INT64) [45-50]
+--
+ALTER TABLE foo ADD COLUMN IF NOT EXISTS bar INT64
+==
+
+# ALTER TABLE that might not exist to add column if not exists.
+ALTER TABLE IF EXISTS foo ADD COLUMN IF NOT EXISTS bar INT64;
+--
+AlterTableStatement(is_if_exists) [0-60]
+  PathExpression [22-25]
+    Identifier(foo) [22-25]
+  AlterActionList [26-60]
+    AddColumnAction(is_if_not_exists) [26-60]
+      ColumnDefinition [51-60]
+        Identifier(bar) [51-54]
+        SimpleColumnSchema [55-60]
+          PathExpression [55-60]
+            Identifier(INT64) [55-60]
+--
+ALTER TABLE IF EXISTS foo ADD COLUMN IF NOT EXISTS bar INT64
+==
+
+# ALTER TABLE add column with position
+ALTER TABLE foo ADD COLUMN bar INT64 PRECEDING baz;
+--
+AlterTableStatement [0-50]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-50]
+    AddColumnAction [16-50]
+      ColumnDefinition [27-36]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-36]
+          PathExpression [31-36]
+            Identifier(INT64) [31-36]
+      ColumnPosition(PRECEDING) [37-50]
+        Identifier(baz) [47-50]
+--
+ALTER TABLE foo ADD COLUMN bar INT64 PRECEDING baz
+==
+
+# ALTER TABLE add column if not exists with position
+ALTER TABLE foo ADD COLUMN IF NOT EXISTS bar STRING FOLLOWING baz;
+--
+AlterTableStatement [0-65]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-65]
+    AddColumnAction(is_if_not_exists) [16-65]
+      ColumnDefinition [41-51]
+        Identifier(bar) [41-44]
+        SimpleColumnSchema [45-51]
+          PathExpression [45-51]
+            Identifier(STRING) [45-51]
+      ColumnPosition(FOLLOWING) [52-65]
+        Identifier(baz) [62-65]
+--
+ALTER TABLE foo ADD COLUMN IF NOT EXISTS bar STRING FOLLOWING baz
+==
+
+# ALTER TABLE add column with attributes and position
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL FOLLOWING baz;
+--
+AlterTableStatement [0-60]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-60]
+    AddColumnAction [16-60]
+      ColumnDefinition [27-46]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-46]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          ColumnAttributeList [38-46]
+            NotNullColumnAttribute [38-46]
+      ColumnPosition(FOLLOWING) [47-60]
+        Identifier(baz) [57-60]
+--
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL FOLLOWING baz
+==
+
+# ALTER TABLE add column with fill expression
+ALTER TABLE foo ADD COLUMN bar STRING FILL USING a + b;
+--
+AlterTableStatement [0-54]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-54]
+    AddColumnAction [16-54]
+      ColumnDefinition [27-37]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-37]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+      BinaryExpression(+) [49-54]
+        PathExpression [49-50]
+          Identifier(a) [49-50]
+        PathExpression [53-54]
+          Identifier(b) [53-54]
+--
+ALTER TABLE foo ADD COLUMN bar STRING FILL USING a + b
+==
+
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL PRIMARY KEY{{| ENFORCED| NOT ENFORCED}} FILL USING a + b;
+--
+
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-75]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-75]
+    AddColumnAction [16-75]
+      ColumnDefinition [27-58]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-58]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          ColumnAttributeList [38-58]
+            NotNullColumnAttribute [38-46]
+            PrimaryKeyColumnAttribute [47-58]
+      BinaryExpression(+) [70-75]
+        PathExpression [70-71]
+          Identifier(a) [70-71]
+        PathExpression [74-75]
+          Identifier(b) [74-75]
+--
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL PRIMARY KEY FILL USING a + b
+--
+ALTERNATION GROUP:  ENFORCED
+--
+AlterTableStatement [0-84]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-84]
+    AddColumnAction [16-84]
+      ColumnDefinition [27-67]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-67]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          ColumnAttributeList [38-67]
+            NotNullColumnAttribute [38-46]
+            PrimaryKeyColumnAttribute [47-67]
+      BinaryExpression(+) [79-84]
+        PathExpression [79-80]
+          Identifier(a) [79-80]
+        PathExpression [83-84]
+          Identifier(b) [83-84]
+--
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL PRIMARY KEY FILL USING a + b
+--
+ALTERNATION GROUP:  NOT ENFORCED
+--
+AlterTableStatement [0-88]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-88]
+    AddColumnAction [16-88]
+      ColumnDefinition [27-71]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-71]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          ColumnAttributeList [38-71]
+            NotNullColumnAttribute [38-46]
+            PrimaryKeyColumnAttribute [47-71]
+      BinaryExpression(+) [83-88]
+        PathExpression [83-84]
+          Identifier(a) [83-84]
+        PathExpression [87-88]
+          Identifier(b) [87-88]
+--
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL PRIMARY KEY NOT ENFORCED FILL USING a + b
+==
+
+# ALTER TABLE add column with NOT NULL and PRIMARY KEY attributes and fill expression
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL PRIMARY KEY FILL USING a + b;
+--
+AlterTableStatement [0-75]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-75]
+    AddColumnAction [16-75]
+      ColumnDefinition [27-58]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-58]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          ColumnAttributeList [38-58]
+            NotNullColumnAttribute [38-46]
+            PrimaryKeyColumnAttribute [47-58]
+      BinaryExpression(+) [70-75]
+        PathExpression [70-71]
+          Identifier(a) [70-71]
+        PathExpression [74-75]
+          Identifier(b) [74-75]
+--
+ALTER TABLE foo ADD COLUMN bar STRING NOT NULL PRIMARY KEY FILL USING a + b
+==
+
+# ALTER TABLE add column with position and fill expression
+ALTER TABLE foo ADD COLUMN bar STRING FOLLOWING baz FILL USING a + b;
+--
+AlterTableStatement [0-68]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-68]
+    AddColumnAction [16-68]
+      ColumnDefinition [27-37]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-37]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+      ColumnPosition(FOLLOWING) [38-51]
+        Identifier(baz) [48-51]
+      BinaryExpression(+) [63-68]
+        PathExpression [63-64]
+          Identifier(a) [63-64]
+        PathExpression [67-68]
+          Identifier(b) [67-68]
+--
+ALTER TABLE foo ADD COLUMN bar STRING FOLLOWING baz FILL USING a + b
+==
+
+# ALTER TABLE several add column actions
+ALTER TABLE foo ADD COLUMN bar STRING FILL USING a + b, ADD COLUMN baz INT64;
+--
+AlterTableStatement [0-76]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-76]
+    AddColumnAction [16-54]
+      ColumnDefinition [27-37]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-37]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+      BinaryExpression(+) [49-54]
+        PathExpression [49-50]
+          Identifier(a) [49-50]
+        PathExpression [53-54]
+          Identifier(b) [53-54]
+    AddColumnAction [56-76]
+      ColumnDefinition [67-76]
+        Identifier(baz) [67-70]
+        SimpleColumnSchema [71-76]
+          PathExpression [71-76]
+            Identifier(INT64) [71-76]
+--
+ALTER TABLE foo ADD COLUMN bar STRING FILL USING a + b, ADD COLUMN baz INT64
+==
+
+# ALTER TABLE several add column actions with special names
+ALTER TABLE foo ADD COLUMN column STRING FILL USING a + b,
+                ADD COLUMN `column` STRING PRIMARY KEY,
+                ADD COLUMN `union` INT64;
+--
+AlterTableStatement [0-155]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-155]
+    AddColumnAction [16-57]
+      ColumnDefinition [27-40]
+        Identifier(column) [27-33]
+        SimpleColumnSchema [34-40]
+          PathExpression [34-40]
+            Identifier(STRING) [34-40]
+      BinaryExpression(+) [52-57]
+        PathExpression [52-53]
+          Identifier(a) [52-53]
+        PathExpression [56-57]
+          Identifier(b) [56-57]
+    AddColumnAction [75-113]
+      ColumnDefinition [86-113]
+        Identifier(column) [86-94]
+        SimpleColumnSchema [95-113]
+          PathExpression [95-101]
+            Identifier(STRING) [95-101]
+          ColumnAttributeList [102-113]
+            PrimaryKeyColumnAttribute [102-113]
+    AddColumnAction [131-155]
+      ColumnDefinition [142-155]
+        Identifier(`union`) [142-149]
+        SimpleColumnSchema [150-155]
+          PathExpression [150-155]
+            Identifier(INT64) [150-155]
+--
+ALTER TABLE foo ADD COLUMN column STRING FILL USING a + b, ADD COLUMN column STRING PRIMARY KEY, ADD COLUMN `union` INT64
+==
+
+# ALTER TABLE several add column actions with special name, unquoted
+ALTER TABLE foo ADD COLUMN union STRING;
+--
+ERROR: Syntax error: Unexpected keyword UNION [at 1:28]
+ALTER TABLE foo ADD COLUMN union STRING;
+                           ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+ALTER TABLE foo-bar-123 ADD COLUMN baz STRING;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-bar-123` [at 1:13]
+ALTER TABLE foo-bar-123 ADD COLUMN baz STRING;
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-45]
+  PathExpression [12-23]
+    Identifier(`foo-bar-123`) [12-23]
+  AlterActionList [24-45]
+    AddColumnAction [24-45]
+      ColumnDefinition [35-45]
+        Identifier(baz) [35-38]
+        SimpleColumnSchema [39-45]
+          PathExpression [39-45]
+            Identifier(STRING) [39-45]
+--
+ALTER TABLE `foo-bar-123` ADD COLUMN baz STRING

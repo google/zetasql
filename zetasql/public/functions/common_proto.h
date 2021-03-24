@@ -21,6 +21,7 @@
 // types found in google/protobuf/ and google/type. Supported
 // conversions can be found at (broken link).
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <type_traits>

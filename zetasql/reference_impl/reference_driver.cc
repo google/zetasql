@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/reference_driver.h"
 
+#include <cstdint>
 #include <map>
 #include <utility>
 
@@ -37,6 +38,7 @@
 #include "zetasql/reference_impl/functions/register_all.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
+#include "zetasql/reference_impl/rewrite_flags.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -65,13 +67,6 @@ ABSL_FLAG(int32_t, reference_driver_query_eval_timeout_sec, 0,
 ABSL_FLAG(bool, force_reference_product_mode_external, false,
           "If true, ignore the provided product mode setting and force "
           "the reference to use PRODUCT_EXTERNAL.");
-
-ABSL_FLAG(bool, reference_impl_enable_optional_rewrites, false,
-          "If true, enables all default rewrites in the reference "
-          "implementation. By default (false), rewrites are disabled for "
-          "features that are implemented natively in the reference "
-          "implementation. This flag allows RQG tests to be run against either "
-          "the native or rewritten reference implementation.");
 
 namespace zetasql {
 
@@ -296,9 +291,7 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
   ZETASQL_CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
 
   AnalyzerOptions analyzer_options(language_options_);
-  if (!absl::GetFlag(FLAGS_reference_impl_enable_optional_rewrites)) {
-    analyzer_options.enable_rewrite(REWRITE_FLATTEN, false);
-  }
+  analyzer_options.set_enabled_rewrites(absl::GetFlag(FLAGS_rewrites));
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
   analyzer_options.set_default_time_zone(default_time_zone_);

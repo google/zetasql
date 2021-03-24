@@ -1,0 +1,2583 @@
+select NULL, TRUE, "x", b"y", 1, 1.0
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-36]
+        SelectColumn [7-11]
+          NullLiteral(NULL) [7-11]
+        SelectColumn [13-17]
+          BooleanLiteral(TRUE) [13-17]
+        SelectColumn [19-22]
+          StringLiteral("x") [19-22]
+        SelectColumn [24-28]
+          BytesLiteral(b"y") [24-28]
+        SelectColumn [30-31]
+          IntLiteral(1) [30-31]
+        SelectColumn [33-36]
+          FloatLiteral(1.0) [33-36]
+--
+SELECT
+  NULL,
+  TRUE,
+  "x",
+  b"y",
+  1,
+  1.0
+==
+
+select 1e10, .1e10, 0.1e10, 1.e10, 1e+10, .1e-10, 0.1e+10, 1.e-10;
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-65]
+        SelectColumn [7-11]
+          FloatLiteral(1e10) [7-11]
+        SelectColumn [13-18]
+          FloatLiteral(.1e10) [13-18]
+        SelectColumn [20-26]
+          FloatLiteral(0.1e10) [20-26]
+        SelectColumn [28-33]
+          FloatLiteral(1.e10) [28-33]
+        SelectColumn [35-40]
+          FloatLiteral(1e+10) [35-40]
+        SelectColumn [42-48]
+          FloatLiteral(.1e-10) [42-48]
+        SelectColumn [50-57]
+          FloatLiteral(0.1e+10) [50-57]
+        SelectColumn [59-65]
+          FloatLiteral(1.e-10) [59-65]
+--
+SELECT
+  1e10,
+  .1e10,
+  0.1e10,
+  1.e10,
+  1e+10,
+  .1e-10,
+  0.1e+10,
+  1.e-10
+==
+
+select 'abc', 'a\b', "def", '\\x53', '\\u1235', "\\U00012346"
+--
+QueryStatement [0-61]
+  Query [0-61]
+    Select [0-61]
+      SelectList [7-61]
+        SelectColumn [7-12]
+          StringLiteral('abc') [7-12]
+        SelectColumn [14-19]
+          StringLiteral('a\b') [14-19]
+        SelectColumn [21-26]
+          StringLiteral("def") [21-26]
+        SelectColumn [28-35]
+          StringLiteral('\\x53') [28-35]
+        SelectColumn [37-46]
+          StringLiteral('\\u1235') [37-46]
+        SelectColumn [48-61]
+          StringLiteral("\\U00012346") [48-61]
+--
+SELECT
+  'abc',
+  'a\b',
+  "def",
+  '\\x53',
+  '\\u1235',
+  "\\U00012346"
+==
+
+select """line1""", '''line1'''
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-18]
+          StringLiteral("""line1""") [7-18]
+        SelectColumn [20-31]
+          StringLiteral('''line1''') [20-31]
+--
+SELECT
+  """line1""",
+  '''line1'''
+==
+
+select '''abc\'''', '''abc\\'''
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-18]
+          StringLiteral('''abc\'''') [7-18]
+        SelectColumn [20-31]
+          StringLiteral('''abc\\''') [20-31]
+--
+SELECT
+  '''abc\'''',
+  '''abc\\'''
+==
+
+# Escaped quotes prevent triple-quote detection.
+select '''abc'\\''def''', '''abc''\\'def'''
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-43]
+        SelectColumn [7-24]
+          StringLiteral('''abc'\\''def''') [7-24]
+        SelectColumn [26-43]
+          StringLiteral('''abc''\\'def''') [26-43]
+--
+SELECT
+  '''abc'\\''def''',
+  '''abc''\\'def'''
+==
+
+# Escaped quotes prevent triple-quote detection.
+select """abc"\\""def""", """abc""\\"def"""
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-43]
+        SelectColumn [7-24]
+          StringLiteral("""abc"\\""def""") [7-24]
+        SelectColumn [26-43]
+          StringLiteral("""abc""\\"def""") [26-43]
+--
+SELECT
+  """abc"\\""def""",
+  """abc""\\"def"""
+==
+
+# "a" inside """ quotes won't work as well.
+select """"a""""
+--
+ERROR: Syntax error: Unclosed string literal [at 1:16]
+select """"a""""
+               ^
+==
+
+select """"a" """
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          StringLiteral(""""a" """) [7-17]
+--
+SELECT
+  """"a" """
+==
+
+select """line1 'single_quote' "double_quote" \\x41g \\u22FD \\U000022FD"""
+--
+QueryStatement [0-75]
+  Query [0-75]
+    Select [0-75]
+      SelectList [7-75]
+        SelectColumn [7-75]
+          StringLiteral("""line1 'single_quote' "double_quote" \\x41g \\u22FD \\U000022FD""") [7-75]
+--
+SELECT
+  """line1 'single_quote' "double_quote" \\x41g \\u22FD \\U000022FD"""
+==
+
+select '''line1 'single_quote' "double_quote" \\x41g \\u22FD \\U000022FD'''
+--
+QueryStatement [0-75]
+  Query [0-75]
+    Select [0-75]
+      SelectList [7-75]
+        SelectColumn [7-75]
+          StringLiteral('''line1 'single_quote' "double_quote" \\x41g \\u22FD \\U000022FD''') [7-75]
+--
+SELECT
+  '''line1 'single_quote' "double_quote" \\x41g \\u22FD \\U000022FD'''
+==
+
+select """\u123"""
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u123 [at 1:11]
+select """\u123"""
+          ^
+==
+
+select """\U123"""
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U123 [at 1:11]
+select """\U123"""
+          ^
+==
+
+select """line1
+line2
+line3""",
+'--------------------------',
+'''line1
+line2
+line3'''
+--
+QueryStatement [0-85]
+  Query [0-85]
+    Select [0-85]
+      SelectList [7-85]
+        SelectColumn [7-30]
+          StringLiteral("""line1
+line2
+line3""") [7-30]
+        SelectColumn [32-60]
+          StringLiteral('--------------------------') [32-60]
+        SelectColumn [62-85]
+          StringLiteral('''line1
+line2
+line3''') [62-85]
+--
+SELECT
+  """line1
+line2
+line3""",
+  '--------------------------',
+  '''line1
+line2
+line3'''
+==
+
+select """line1\
+line2"""
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:16]
+select """line1\
+               ^
+==
+
+select '''line1\
+line2'''
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:16]
+select '''line1\
+               ^
+==
+
+select """line1\\
+line2""",
+'-----------------------------',
+'''line1\\
+line2'''
+--
+QueryStatement [0-80]
+  Query [0-80]
+    Select [0-80]
+      SelectList [7-80]
+        SelectColumn [7-26]
+          StringLiteral("""line1\\
+line2""") [7-26]
+        SelectColumn [28-59]
+          StringLiteral('-----------------------------') [28-59]
+        SelectColumn [61-80]
+          StringLiteral('''line1\\
+line2''') [61-80]
+--
+SELECT
+  """line1\\
+line2""",
+  '-----------------------------',
+  '''line1\\
+line2'''
+==
+
+select """line1
+line2\
+line3"""
+--
+ERROR: Syntax error: Illegal escaped newline [at 2:6]
+line2\
+     ^
+==
+
+select """a'''a'''a"""
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          StringLiteral("""a'''a'''a""") [7-22]
+--
+SELECT
+  """a'''a'''a"""
+==
+
+select '''a"""a"""a'''
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          StringLiteral('''a"""a"""a''') [7-22]
+--
+SELECT
+  '''a"""a"""a'''
+==
+
+select """line1""""""line2""""""line3"""
+--
+ERROR: Syntax error: Expected end of input but got string literal """line2""" [at 1:19]
+select """line1""""""line2""""""line3"""
+                  ^
+==
+
+select """line1"""
+"""line2"""
+"""line3"""
+--
+ERROR: Syntax error: Expected end of input but got string literal """line2""" [at 2:1]
+"""line2"""
+^
+==
+
+select
+"""line1""",
+"""line2""",
+"""line3"""
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [7-44]
+        SelectColumn [7-18]
+          StringLiteral("""line1""") [7-18]
+        SelectColumn [20-31]
+          StringLiteral("""line2""") [20-31]
+        SelectColumn [33-44]
+          StringLiteral("""line3""") [33-44]
+--
+SELECT
+  """line1""",
+  """line2""",
+  """line3"""
+==
+
+select /* comment "a"*/ "a", /* comment """a*/ """a"""
+--
+QueryStatement [0-54]
+  Query [0-54]
+    Select [0-54]
+      SelectList [24-54]
+        SelectColumn [24-27]
+          StringLiteral("a") [24-27]
+        SelectColumn [47-54]
+          StringLiteral("""a""") [47-54]
+--
+SELECT
+  "a",
+  """a"""
+==
+
+select "a /* comment */ ", """a /* comment */"""
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-48]
+        SelectColumn [7-25]
+          StringLiteral("a /* comment */ ") [7-25]
+        SelectColumn [27-48]
+          StringLiteral("""a /* comment */""") [27-48]
+--
+SELECT
+  "a /* comment */ ",
+  """a /* comment */"""
+==
+
+select """abc # """, """ def -- """, """ ghi /* """, """ */ jkl """
+--
+QueryStatement [0-67]
+  Query [0-67]
+    Select [0-67]
+      SelectList [7-67]
+        SelectColumn [7-19]
+          StringLiteral("""abc # """) [7-19]
+        SelectColumn [21-35]
+          StringLiteral(""" def -- """) [21-35]
+        SelectColumn [37-51]
+          StringLiteral(""" ghi /* """) [37-51]
+        SelectColumn [53-67]
+          StringLiteral(""" */ jkl """) [53-67]
+--
+SELECT
+  """abc # """,
+  """ def -- """,
+  """ ghi /* """,
+  """ */ jkl """
+==
+
+# Basic tests for all the valid escapes.
+select '\x53'        as OneHexByte
+      ,'\X41'        as AnotherHexByte
+      ,'\001'        as OneOctalByte
+      ,'\a...'       as a
+      ,'\b...'       as b
+      ,'\f...'       as f
+      ,'\n...'       as n
+      ,'\r...'       as r
+      ,'\t...'       as t
+      ,'\v...'       as v
+      ,'\\...'      as backslash
+      ,'\?...'       as question
+      ,'\"...'       as single_double_quote
+      ,'\'...'       as single_single_quote
+      ,'\`...'       as single_back_tick
+      ,"\"..."       as double_double_quote
+      ,"\'..."       as double_single_quote
+      ,"\`..."       as double_back_tick
+      ,'\uabcd'      as short_UTF8_char
+      ,'\U0010FFFF'  as long_UTF8_char
+--
+QueryStatement [0-695]
+  Query [0-695]
+    Select [0-695]
+      SelectList [7-695]
+        SelectColumn [7-34]
+          StringLiteral('\x53') [7-13]
+          Alias [21-34]
+            Identifier(OneHexByte) [24-34]
+        SelectColumn [42-73]
+          StringLiteral('\X41') [42-48]
+          Alias [56-73]
+            Identifier(AnotherHexByte) [59-73]
+        SelectColumn [81-110]
+          StringLiteral('\001') [81-87]
+          Alias [95-110]
+            Identifier(OneOctalByte) [98-110]
+        SelectColumn [118-136]
+          StringLiteral('\a...') [118-125]
+          Alias [132-136]
+            Identifier(a) [135-136]
+        SelectColumn [144-162]
+          StringLiteral('\b...') [144-151]
+          Alias [158-162]
+            Identifier(b) [161-162]
+        SelectColumn [170-188]
+          StringLiteral('\f...') [170-177]
+          Alias [184-188]
+            Identifier(f) [187-188]
+        SelectColumn [196-214]
+          StringLiteral('\n...') [196-203]
+          Alias [210-214]
+            Identifier(n) [213-214]
+        SelectColumn [222-240]
+          StringLiteral('\r...') [222-229]
+          Alias [236-240]
+            Identifier(r) [239-240]
+        SelectColumn [248-266]
+          StringLiteral('\t...') [248-255]
+          Alias [262-266]
+            Identifier(t) [265-266]
+        SelectColumn [274-292]
+          StringLiteral('\v...') [274-281]
+          Alias [288-292]
+            Identifier(v) [291-292]
+        SelectColumn [300-325]
+          StringLiteral('\\...') [300-307]
+          Alias [313-325]
+            Identifier(backslash) [316-325]
+        SelectColumn [333-358]
+          StringLiteral('\?...') [333-340]
+          Alias [347-358]
+            Identifier(question) [350-358]
+        SelectColumn [366-402]
+          StringLiteral('\"...') [366-373]
+          Alias [380-402]
+            Identifier(single_double_quote) [383-402]
+        SelectColumn [410-446]
+          StringLiteral('\'...') [410-417]
+          Alias [424-446]
+            Identifier(single_single_quote) [427-446]
+        SelectColumn [454-487]
+          StringLiteral('\`...') [454-461]
+          Alias [468-487]
+            Identifier(single_back_tick) [471-487]
+        SelectColumn [495-531]
+          StringLiteral("\"...") [495-502]
+          Alias [509-531]
+            Identifier(double_double_quote) [512-531]
+        SelectColumn [539-575]
+          StringLiteral("\'...") [539-546]
+          Alias [553-575]
+            Identifier(double_single_quote) [556-575]
+        SelectColumn [583-616]
+          StringLiteral("\`...") [583-590]
+          Alias [597-616]
+            Identifier(double_back_tick) [600-616]
+        SelectColumn [624-656]
+          StringLiteral('\uabcd') [624-632]
+          Alias [638-656]
+            Identifier(short_UTF8_char) [641-656]
+        SelectColumn [664-695]
+          StringLiteral('\U0010FFFF') [664-676]
+          Alias [678-695]
+            Identifier(long_UTF8_char) [681-695]
+--
+SELECT
+  '\x53' AS OneHexByte,
+  '\X41' AS AnotherHexByte,
+  '\001' AS OneOctalByte,
+  '\a...' AS a,
+  '\b...' AS b,
+  '\f...' AS f,
+  '\n...' AS n,
+  '\r...' AS r,
+  '\t...' AS t,
+  '\v...' AS v,
+  '\\...' AS backslash,
+  '\?...' AS question,
+  '\"...' AS single_double_quote,
+  '\'...' AS single_single_quote,
+  '\`...' AS single_back_tick,
+  "\"..." AS double_double_quote,
+  "\'..." AS double_single_quote,
+  "\`..." AS double_back_tick,
+  '\uabcd' AS short_UTF8_char,
+  '\U0010FFFF' AS long_UTF8_char
+==
+
+# Some more interesting valid escape sequences.
+select 'ab\x41g'
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          StringLiteral('ab\x41g') [7-16]
+--
+SELECT
+  'ab\x41g'
+==
+
+# 'ab' followed by 3 octal characters.
+select 'ab\012\345\067'
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          StringLiteral('ab\012\345\067') [7-23]
+--
+SELECT
+  'ab\012\345\067'
+==
+
+# Valid octal escape limited from \000 - \377
+select 'ab\000A', 'ab\377B'
+--
+QueryStatement [0-27]
+  Query [0-27]
+    Select [0-27]
+      SelectList [7-27]
+        SelectColumn [7-16]
+          StringLiteral('ab\000A') [7-16]
+        SelectColumn [18-27]
+          StringLiteral('ab\377B') [18-27]
+--
+SELECT
+  'ab\000A',
+  'ab\377B'
+==
+
+# Valid octal escapes are limited to \000 - \377
+select 'ab\444A'
+--
+ERROR: Syntax error: Illegal escape sequence: \4 [at 1:11]
+select 'ab\444A'
+          ^
+==
+
+select 'ab\378A'
+--
+ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \378 [at 1:11]
+select 'ab\378A'
+          ^
+==
+
+select 'ab\37AA'
+--
+ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \37A [at 1:11]
+select 'ab\37AA'
+          ^
+==
+
+# Invalid escape sequence, \c not valid.
+select 'ab\cA'
+--
+ERROR: Syntax error: Illegal escape sequence: \c [at 1:11]
+select 'ab\cA'
+          ^
+==
+
+select "line1\
+line2"
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:14]
+select "line1\
+             ^
+==
+
+select 'line1\
+line2'
+--
+ERROR: Syntax error: Illegal escaped newline [at 1:14]
+select 'line1\
+             ^
+==
+
+select "line1
+line2"
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select "line1
+       ^
+==
+
+select 'line1
+line2'
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select 'line1
+       ^
+==
+
+select '...
+        ...'
+--
+ERROR: Syntax error: Unclosed string literal [at 1:8]
+select '...
+       ^
+
+==
+
+select 'abc\U00100\x4100'
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U00100\x4 [at 1:12]
+select 'abc\U00100\x4100'
+           ^
+==
+
+select 'abc\U'
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U [at 1:12]
+select 'abc\U'
+           ^
+==
+
+select 'abc\U00100',
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U00100 [at 1:12]
+select 'abc\U00100',
+           ^
+==
+
+select 'abc\U00100G00',
+--
+ERROR: Syntax error: Illegal escape sequence: \U must be followed by 8 hex digits but saw: \U00100G00 [at 1:12]
+select 'abc\U00100G00',
+           ^
+==
+
+select 'abc\U00110000A'
+--
+ERROR: Syntax error: Illegal escape sequence: Value of \U00110000 exceeds Unicode limit (0x0010FFFF) [at 1:12]
+select 'abc\U00110000A'
+           ^
+==
+
+select '\Uffffffff'
+--
+ERROR: Syntax error: Illegal escape sequence: Value of \Uffffffff exceeds Unicode limit (0x0010FFFF) [at 1:9]
+select '\Uffffffff'
+        ^
+==
+
+select '\ude8c'
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode value \ude8c is invalid [at 1:9]
+select '\ude8c'
+        ^
+==
+
+select '\U0000D83D'
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode value \U0000D83D is invalid [at 1:9]
+select '\U0000D83D'
+        ^
+==
+
+# Valid hex escapes are from \x00 - \xff.
+select 'abc\x00\x99\xffd'
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-25]
+        SelectColumn [7-25]
+          StringLiteral('abc\x00\x99\xffd') [7-25]
+--
+SELECT
+  'abc\x00\x99\xffd'
+==
+
+select 'abc\x'
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x [at 1:12]
+select 'abc\x'
+           ^
+==
+
+select 'abc\xF'
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \xF [at 1:12]
+select 'abc\xF'
+           ^
+==
+
+select 'abc\xFG'
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \xFG [at 1:12]
+select 'abc\xFG'
+           ^
+==
+
+select 'abc\u'
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u [at 1:12]
+select 'abc\u'
+           ^
+==
+
+select 'abc\u0'
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u0 [at 1:12]
+select 'abc\u0'
+           ^
+==
+
+select 'abc\u02'
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u02 [at 1:12]
+select 'abc\u02'
+           ^
+==
+
+select 'abc\u002'
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u002 [at 1:12]
+select 'abc\u002'
+           ^
+==
+
+select 'abc\u002G'
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u002G [at 1:12]
+select 'abc\u002G'
+           ^
+==
+
+select "bad string escape \u123";
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u123 [at 1:27]
+select "bad string escape \u123";
+                          ^
+==
+
+select 'bad string escape \U12345678';
+--
+ERROR: Syntax error: Illegal escape sequence: Value of \U12345678 exceeds Unicode limit (0x0010FFFF) [at 1:27]
+select 'bad string escape \U12345678';
+                          ^
+==
+
+# TODO: See if we could mandate a space between string literals and
+# their corresponding aliases in the parser.
+select ""a
+--
+QueryStatement [0-10]
+  Query [0-10]
+    Select [0-10]
+      SelectList [7-10]
+        SelectColumn [7-10]
+          StringLiteral("") [7-9]
+          Alias [9-10]
+            Identifier(a) [9-10]
+--
+SELECT
+  "" AS a
+==
+
+# Zero length strings
+select '', "", """""", ''''''
+--
+QueryStatement [0-29]
+  Query [0-29]
+    Select [0-29]
+      SelectList [7-29]
+        SelectColumn [7-9]
+          StringLiteral('') [7-9]
+        SelectColumn [11-13]
+          StringLiteral("") [11-13]
+        SelectColumn [15-21]
+          StringLiteral("""""") [15-21]
+        SelectColumn [23-29]
+          StringLiteral('''''') [23-29]
+--
+SELECT
+  '',
+  "",
+  """""",
+  ''''''
+==
+
+select b'abc', B"def", B'"', B"'", B'`', B"`"
+--
+QueryStatement [0-45]
+  Query [0-45]
+    Select [0-45]
+      SelectList [7-45]
+        SelectColumn [7-13]
+          BytesLiteral(b'abc') [7-13]
+        SelectColumn [15-21]
+          BytesLiteral(B"def") [15-21]
+        SelectColumn [23-27]
+          BytesLiteral(B'"') [23-27]
+        SelectColumn [29-33]
+          BytesLiteral(B"'") [29-33]
+        SelectColumn [35-39]
+          BytesLiteral(B'`') [35-39]
+        SelectColumn [41-45]
+          BytesLiteral(B"`") [41-45]
+--
+SELECT
+  b'abc',
+  B"def",
+  B'"',
+  B"'",
+  B'`',
+  B"`"
+==
+
+select b"""abc""", B'''def''', B"""'''a'''""", b'''"a"''', B'''`''', B"""`"""
+--
+QueryStatement [0-77]
+  Query [0-77]
+    Select [0-77]
+      SelectList [7-77]
+        SelectColumn [7-17]
+          BytesLiteral(b"""abc""") [7-17]
+        SelectColumn [19-29]
+          BytesLiteral(B'''def''') [19-29]
+        SelectColumn [31-45]
+          BytesLiteral(B"""'''a'''""") [31-45]
+        SelectColumn [47-57]
+          BytesLiteral(b'''"a"''') [47-57]
+        SelectColumn [59-67]
+          BytesLiteral(B'''`''') [59-67]
+        SelectColumn [69-77]
+          BytesLiteral(B"""`""") [69-77]
+--
+SELECT
+  b"""abc""",
+  B'''def''',
+  B"""'''a'''""",
+  b'''"a"''',
+  B'''`''',
+  B"""`"""
+==
+
+select b'\x53'   as OneHexByte
+     , b'\001'   as OneOctalByte
+     , b'\a...'  as a
+     , b'\b...'  as b
+     , b'\f...'  as f
+     , b'\n...'  as n
+     , b'\r...'  as r
+     , b'\t...'  as t
+     , b'\v...'  as v
+     , b'\\...' as backslash
+     , b'\?...'  as question
+     , b'\"...'  as single_double_quote
+     , b'\'...'  as single_single_quote
+     , b'\`...'  as single_back_tick
+     , b"\"..."  as double_double_quote
+     , b"\'..."  as double_single_quote
+     , b"\`..."  as double_back_tick
+--
+QueryStatement [0-509]
+  Query [0-509]
+    Select [0-509]
+      SelectList [7-509]
+        SelectColumn [7-30]
+          BytesLiteral(b'\x53') [7-14]
+          Alias [17-30]
+            Identifier(OneHexByte) [20-30]
+        SelectColumn [38-63]
+          BytesLiteral(b'\001') [38-45]
+          Alias [48-63]
+            Identifier(OneOctalByte) [51-63]
+        SelectColumn [71-85]
+          BytesLiteral(b'\a...') [71-79]
+          Alias [81-85]
+            Identifier(a) [84-85]
+        SelectColumn [93-107]
+          BytesLiteral(b'\b...') [93-101]
+          Alias [103-107]
+            Identifier(b) [106-107]
+        SelectColumn [115-129]
+          BytesLiteral(b'\f...') [115-123]
+          Alias [125-129]
+            Identifier(f) [128-129]
+        SelectColumn [137-151]
+          BytesLiteral(b'\n...') [137-145]
+          Alias [147-151]
+            Identifier(n) [150-151]
+        SelectColumn [159-173]
+          BytesLiteral(b'\r...') [159-167]
+          Alias [169-173]
+            Identifier(r) [172-173]
+        SelectColumn [181-195]
+          BytesLiteral(b'\t...') [181-189]
+          Alias [191-195]
+            Identifier(t) [194-195]
+        SelectColumn [203-217]
+          BytesLiteral(b'\v...') [203-211]
+          Alias [213-217]
+            Identifier(v) [216-217]
+        SelectColumn [225-246]
+          BytesLiteral(b'\\...') [225-233]
+          Alias [234-246]
+            Identifier(backslash) [237-246]
+        SelectColumn [254-275]
+          BytesLiteral(b'\?...') [254-262]
+          Alias [264-275]
+            Identifier(question) [267-275]
+        SelectColumn [283-315]
+          BytesLiteral(b'\"...') [283-291]
+          Alias [293-315]
+            Identifier(single_double_quote) [296-315]
+        SelectColumn [323-355]
+          BytesLiteral(b'\'...') [323-331]
+          Alias [333-355]
+            Identifier(single_single_quote) [336-355]
+        SelectColumn [363-392]
+          BytesLiteral(b'\`...') [363-371]
+          Alias [373-392]
+            Identifier(single_back_tick) [376-392]
+        SelectColumn [400-432]
+          BytesLiteral(b"\"...") [400-408]
+          Alias [410-432]
+            Identifier(double_double_quote) [413-432]
+        SelectColumn [440-472]
+          BytesLiteral(b"\'...") [440-448]
+          Alias [450-472]
+            Identifier(double_single_quote) [453-472]
+        SelectColumn [480-509]
+          BytesLiteral(b"\`...") [480-488]
+          Alias [490-509]
+            Identifier(double_back_tick) [493-509]
+--
+SELECT
+  b'\x53' AS OneHexByte,
+  b'\001' AS OneOctalByte,
+  b'\a...' AS a,
+  b'\b...' AS b,
+  b'\f...' AS f,
+  b'\n...' AS n,
+  b'\r...' AS r,
+  b'\t...' AS t,
+  b'\v...' AS v,
+  b'\\...' AS backslash,
+  b'\?...' AS question,
+  b'\"...' AS single_double_quote,
+  b'\'...' AS single_single_quote,
+  b'\`...' AS single_back_tick,
+  b"\"..." AS double_double_quote,
+  b"\'..." AS double_single_quote,
+  b"\`..." AS double_back_tick
+==
+
+select b'''\x53'''   as OneHexByte
+     , b'''\001'''   as OneOctalByte
+     , b'''\a...'''  as a
+     , b'''\b...'''  as b
+     , b'''\f...'''  as f
+     , b'''\n...'''  as n
+     , b'''\r...'''  as r
+     , b'''\t...'''  as t
+     , b'''\v...'''  as v
+     , b'''\\...''' as backslash
+     , b'''\?...'''  as question
+     , b'''\"...'''  as single_double_quote
+     , b'''\'...'''  as single_single_quote
+     , b'''\`...'''  as single_back_tick
+     , b"""\"..."""  as double_double_quote
+     , b"""\'..."""  as double_single_quote
+     , b"""\`..."""  as double_back_tick
+--
+QueryStatement [0-577]
+  Query [0-577]
+    Select [0-577]
+      SelectList [7-577]
+        SelectColumn [7-34]
+          BytesLiteral(b'''\x53''') [7-18]
+          Alias [21-34]
+            Identifier(OneHexByte) [24-34]
+        SelectColumn [42-71]
+          BytesLiteral(b'''\001''') [42-53]
+          Alias [56-71]
+            Identifier(OneOctalByte) [59-71]
+        SelectColumn [79-97]
+          BytesLiteral(b'''\a...''') [79-91]
+          Alias [93-97]
+            Identifier(a) [96-97]
+        SelectColumn [105-123]
+          BytesLiteral(b'''\b...''') [105-117]
+          Alias [119-123]
+            Identifier(b) [122-123]
+        SelectColumn [131-149]
+          BytesLiteral(b'''\f...''') [131-143]
+          Alias [145-149]
+            Identifier(f) [148-149]
+        SelectColumn [157-175]
+          BytesLiteral(b'''\n...''') [157-169]
+          Alias [171-175]
+            Identifier(n) [174-175]
+        SelectColumn [183-201]
+          BytesLiteral(b'''\r...''') [183-195]
+          Alias [197-201]
+            Identifier(r) [200-201]
+        SelectColumn [209-227]
+          BytesLiteral(b'''\t...''') [209-221]
+          Alias [223-227]
+            Identifier(t) [226-227]
+        SelectColumn [235-253]
+          BytesLiteral(b'''\v...''') [235-247]
+          Alias [249-253]
+            Identifier(v) [252-253]
+        SelectColumn [261-286]
+          BytesLiteral(b'''\\...''') [261-273]
+          Alias [274-286]
+            Identifier(backslash) [277-286]
+        SelectColumn [294-319]
+          BytesLiteral(b'''\?...''') [294-306]
+          Alias [308-319]
+            Identifier(question) [311-319]
+        SelectColumn [327-363]
+          BytesLiteral(b'''\"...''') [327-339]
+          Alias [341-363]
+            Identifier(single_double_quote) [344-363]
+        SelectColumn [371-407]
+          BytesLiteral(b'''\'...''') [371-383]
+          Alias [385-407]
+            Identifier(single_single_quote) [388-407]
+        SelectColumn [415-448]
+          BytesLiteral(b'''\`...''') [415-427]
+          Alias [429-448]
+            Identifier(single_back_tick) [432-448]
+        SelectColumn [456-492]
+          BytesLiteral(b"""\"...""") [456-468]
+          Alias [470-492]
+            Identifier(double_double_quote) [473-492]
+        SelectColumn [500-536]
+          BytesLiteral(b"""\'...""") [500-512]
+          Alias [514-536]
+            Identifier(double_single_quote) [517-536]
+        SelectColumn [544-577]
+          BytesLiteral(b"""\`...""") [544-556]
+          Alias [558-577]
+            Identifier(double_back_tick) [561-577]
+--
+SELECT
+  b'''\x53''' AS OneHexByte,
+  b'''\001''' AS OneOctalByte,
+  b'''\a...''' AS a,
+  b'''\b...''' AS b,
+  b'''\f...''' AS f,
+  b'''\n...''' AS n,
+  b'''\r...''' AS r,
+  b'''\t...''' AS t,
+  b'''\v...''' AS v,
+  b'''\\...''' AS backslash,
+  b'''\?...''' AS question,
+  b'''\"...''' AS single_double_quote,
+  b'''\'...''' AS single_single_quote,
+  b'''\`...''' AS single_back_tick,
+  b"""\"...""" AS double_double_quote,
+  b"""\'...""" AS double_single_quote,
+  b"""\`...""" AS double_back_tick
+==
+
+select b'\x5'   as OneHexByteRequiresTwoDigits
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x5 [at 1:10]
+select b'\x5'   as OneHexByteRequiresTwoDigits
+         ^
+==
+
+select b'''\x5''' as OneHexByteRequiresTwoDigits
+--
+ERROR: Syntax error: Illegal escape sequence: Hex escape must be followed by 2 hex digits but saw: \x5 [at 1:12]
+select b'''\x5''' as OneHexByteRequiresTwoDigits
+           ^
+==
+
+select b'\01'   as OneOctalByteRequiresThreeDigits
+--
+ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \01 [at 1:10]
+select b'\01'   as OneOctalByteRequiresThreeDigits
+         ^
+==
+
+select b'''\01''' as OneOctalByteRequiresThreeDigits
+--
+ERROR: Syntax error: Illegal escape sequence: Octal escape must be followed by 3 octal digits but saw: \01 [at 1:12]
+select b'''\01''' as OneOctalByteRequiresThreeDigits
+           ^
+==
+
+select b'\u0042';
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode escape sequence \u cannot be used in bytes literals [at 1:10]
+select b'\u0042';
+         ^
+==
+
+select b'''\u0042'''
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode escape sequence \u cannot be used in bytes literals [at 1:12]
+select b'''\u0042'''
+           ^
+==
+
+select b'\U00000042';
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode escape sequence \U cannot be used in bytes literals [at 1:10]
+select b'\U00000042';
+         ^
+==
+
+select b'''\U00000042'''
+--
+ERROR: Syntax error: Illegal escape sequence: Unicode escape sequence \U cannot be used in bytes literals [at 1:12]
+select b'''\U00000042'''
+           ^
+==
+
+select b'...
+         ...'
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:8]
+select b'...
+       ^
+==
+
+select b'''...
+           ...'''
+--
+QueryStatement [0-32]
+  Query [0-32]
+    Select [0-32]
+      SelectList [7-32]
+        SelectColumn [7-32]
+          BytesLiteral(b'''...
+           ...''') [7-32]
+--
+SELECT
+  b'''...
+           ...'''
+==
+
+# Zero length bytes.
+select b'', B"", b'''''', B""""""
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-10]
+          BytesLiteral(b'') [7-10]
+        SelectColumn [12-15]
+          BytesLiteral(B"") [12-15]
+        SelectColumn [17-24]
+          BytesLiteral(b'''''') [17-24]
+        SelectColumn [26-33]
+          BytesLiteral(B"""""") [26-33]
+--
+SELECT
+  b'',
+  B"",
+  b'''''',
+  B""""""
+==
+
+select b'''abc\'''', B'''abc\\'''
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-19]
+          BytesLiteral(b'''abc\'''') [7-19]
+        SelectColumn [21-33]
+          BytesLiteral(B'''abc\\''') [21-33]
+--
+SELECT
+  b'''abc\'''',
+  B'''abc\\'''
+==
+
+select b"""line1
+line2\
+line3"""
+--
+ERROR: Syntax error: Illegal escaped newline [at 2:6]
+line2\
+     ^
+==
+
+[no_test_get_parse_tokens]
+select r"1",
+       r"\x53", r"\x123", r'\001', r'a\444A',
+       r'a\e', r'\ea',
+       r"\U1234", R"\u",
+       r'\xc2\\', r'|\xc2|\\',
+       r'f\(abc,(.*),def\?'
+--
+QueryStatement [0-165]
+  Query [0-165]
+    Select [0-165]
+      SelectList [7-165]
+        SelectColumn [7-11]
+          StringLiteral(r"1") [7-11]
+        SelectColumn [20-27]
+          StringLiteral(r"\x53") [20-27]
+        SelectColumn [29-37]
+          StringLiteral(r"\x123") [29-37]
+        SelectColumn [39-46]
+          StringLiteral(r'\001') [39-46]
+        SelectColumn [48-57]
+          StringLiteral(r'a\444A') [48-57]
+        SelectColumn [66-72]
+          StringLiteral(r'a\e') [66-72]
+        SelectColumn [74-80]
+          StringLiteral(r'\ea') [74-80]
+        SelectColumn [89-98]
+          StringLiteral(r"\U1234") [89-98]
+        SelectColumn [100-105]
+          StringLiteral(R"\u") [100-105]
+        SelectColumn [114-123]
+          StringLiteral(r'\xc2\\') [114-123]
+        SelectColumn [125-136]
+          StringLiteral(r'|\xc2|\\') [125-136]
+        SelectColumn [145-165]
+          StringLiteral(r'f\(abc,(.*),def\?') [145-165]
+--
+SELECT
+  r"1",
+  r"\x53",
+  r"\x123",
+  r'\001',
+  r'a\444A',
+  r'a\e',
+  r'\ea',
+  r"\U1234",
+  R"\u",
+  r'\xc2\\',
+  r'|\xc2|\\',
+  r'f\(abc,(.*),def\?'
+==
+
+[no_test_get_parse_tokens]
+select rb"1",
+       rb"\x53", rb"\x123", rb'\001', rb'a\444A',
+       rb'a\e', rb'\ea',
+       rb"\U1234", RB"\u",
+       rb'\xc2\\', rb'|\xc2|\\',
+       rb'f\(abc,(.*),def\?'
+--
+QueryStatement [0-177]
+  Query [0-177]
+    Select [0-177]
+      SelectList [7-177]
+        SelectColumn [7-12]
+          BytesLiteral(rb"1") [7-12]
+        SelectColumn [21-29]
+          BytesLiteral(rb"\x53") [21-29]
+        SelectColumn [31-40]
+          BytesLiteral(rb"\x123") [31-40]
+        SelectColumn [42-50]
+          BytesLiteral(rb'\001') [42-50]
+        SelectColumn [52-62]
+          BytesLiteral(rb'a\444A') [52-62]
+        SelectColumn [71-78]
+          BytesLiteral(rb'a\e') [71-78]
+        SelectColumn [80-87]
+          BytesLiteral(rb'\ea') [80-87]
+        SelectColumn [96-106]
+          BytesLiteral(rb"\U1234") [96-106]
+        SelectColumn [108-114]
+          BytesLiteral(RB"\u") [108-114]
+        SelectColumn [123-133]
+          BytesLiteral(rb'\xc2\\') [123-133]
+        SelectColumn [135-147]
+          BytesLiteral(rb'|\xc2|\\') [135-147]
+        SelectColumn [156-177]
+          BytesLiteral(rb'f\(abc,(.*),def\?') [156-177]
+--
+SELECT
+  rb"1",
+  rb"\x53",
+  rb"\x123",
+  rb'\001',
+  rb'a\444A',
+  rb'a\e',
+  rb'\ea',
+  rb"\U1234",
+  RB"\u",
+  rb'\xc2\\',
+  rb'|\xc2|\\',
+  rb'f\(abc,(.*),def\?'
+==
+
+[no_test_get_parse_tokens]
+select rb"""1""",
+       rb"""\x53""", rb"""\x123""", rb'''\001''', rb'''a\444A''',
+       rb'''a\e''', rb'''\ea''',
+       rb"""\U1234""", RB"""\u""",
+       rb'''\xc2\\''', rb'''|\xc2|\\''',
+       rb'''f\(abc,(.*),def\?'''
+--
+QueryStatement [0-225]
+  Query [0-225]
+    Select [0-225]
+      SelectList [7-225]
+        SelectColumn [7-16]
+          BytesLiteral(rb"""1""") [7-16]
+        SelectColumn [25-37]
+          BytesLiteral(rb"""\x53""") [25-37]
+        SelectColumn [39-52]
+          BytesLiteral(rb"""\x123""") [39-52]
+        SelectColumn [54-66]
+          BytesLiteral(rb'''\001''') [54-66]
+        SelectColumn [68-82]
+          BytesLiteral(rb'''a\444A''') [68-82]
+        SelectColumn [91-102]
+          BytesLiteral(rb'''a\e''') [91-102]
+        SelectColumn [104-115]
+          BytesLiteral(rb'''\ea''') [104-115]
+        SelectColumn [124-138]
+          BytesLiteral(rb"""\U1234""") [124-138]
+        SelectColumn [140-150]
+          BytesLiteral(RB"""\u""") [140-150]
+        SelectColumn [159-173]
+          BytesLiteral(rb'''\xc2\\''') [159-173]
+        SelectColumn [175-191]
+          BytesLiteral(rb'''|\xc2|\\''') [175-191]
+        SelectColumn [200-225]
+          BytesLiteral(rb'''f\(abc,(.*),def\?''') [200-225]
+--
+SELECT
+  rb"""1""",
+  rb"""\x53""",
+  rb"""\x123""",
+  rb'''\001''',
+  rb'''a\444A''',
+  rb'''a\e''',
+  rb'''\ea''',
+  rb"""\U1234""",
+  RB"""\u""",
+  rb'''\xc2\\''',
+  rb'''|\xc2|\\''',
+  rb'''f\(abc,(.*),def\?'''
+==
+
+[no_test_get_parse_tokens]
+select br"1",
+       br"\x53", br"\x123", br'\001', br'a\444A',
+       br'a\e', br'\ea',
+       br"\U1234", BR"\u",
+       br'\xc2\\', br'|\xc2|\\',
+       br'f\(abc,(.*),def\?'
+--
+QueryStatement [0-177]
+  Query [0-177]
+    Select [0-177]
+      SelectList [7-177]
+        SelectColumn [7-12]
+          BytesLiteral(br"1") [7-12]
+        SelectColumn [21-29]
+          BytesLiteral(br"\x53") [21-29]
+        SelectColumn [31-40]
+          BytesLiteral(br"\x123") [31-40]
+        SelectColumn [42-50]
+          BytesLiteral(br'\001') [42-50]
+        SelectColumn [52-62]
+          BytesLiteral(br'a\444A') [52-62]
+        SelectColumn [71-78]
+          BytesLiteral(br'a\e') [71-78]
+        SelectColumn [80-87]
+          BytesLiteral(br'\ea') [80-87]
+        SelectColumn [96-106]
+          BytesLiteral(br"\U1234") [96-106]
+        SelectColumn [108-114]
+          BytesLiteral(BR"\u") [108-114]
+        SelectColumn [123-133]
+          BytesLiteral(br'\xc2\\') [123-133]
+        SelectColumn [135-147]
+          BytesLiteral(br'|\xc2|\\') [135-147]
+        SelectColumn [156-177]
+          BytesLiteral(br'f\(abc,(.*),def\?') [156-177]
+--
+SELECT
+  br"1",
+  br"\x53",
+  br"\x123",
+  br'\001',
+  br'a\444A',
+  br'a\e',
+  br'\ea',
+  br"\U1234",
+  BR"\u",
+  br'\xc2\\',
+  br'|\xc2|\\',
+  br'f\(abc,(.*),def\?'
+==
+
+[no_test_get_parse_tokens]
+select br"""1""",
+       br"""\x53""", br"""\x123""", br'''\001''', br'''a\444A''',
+       br'''a\e''', br'''\ea''',
+       br"""\U1234""", BR"""\u""",
+       br'''\xc2\\''', br'''|\xc2|\\''',
+       br'''f\(abc,(.*),def\?'''
+--
+QueryStatement [0-225]
+  Query [0-225]
+    Select [0-225]
+      SelectList [7-225]
+        SelectColumn [7-16]
+          BytesLiteral(br"""1""") [7-16]
+        SelectColumn [25-37]
+          BytesLiteral(br"""\x53""") [25-37]
+        SelectColumn [39-52]
+          BytesLiteral(br"""\x123""") [39-52]
+        SelectColumn [54-66]
+          BytesLiteral(br'''\001''') [54-66]
+        SelectColumn [68-82]
+          BytesLiteral(br'''a\444A''') [68-82]
+        SelectColumn [91-102]
+          BytesLiteral(br'''a\e''') [91-102]
+        SelectColumn [104-115]
+          BytesLiteral(br'''\ea''') [104-115]
+        SelectColumn [124-138]
+          BytesLiteral(br"""\U1234""") [124-138]
+        SelectColumn [140-150]
+          BytesLiteral(BR"""\u""") [140-150]
+        SelectColumn [159-173]
+          BytesLiteral(br'''\xc2\\''') [159-173]
+        SelectColumn [175-191]
+          BytesLiteral(br'''|\xc2|\\''') [175-191]
+        SelectColumn [200-225]
+          BytesLiteral(br'''f\(abc,(.*),def\?''') [200-225]
+--
+SELECT
+  br"""1""",
+  br"""\x53""",
+  br"""\x123""",
+  br'''\001''',
+  br'''a\444A''',
+  br'''a\e''',
+  br'''\ea''',
+  br"""\U1234""",
+  BR"""\u""",
+  br'''\xc2\\''',
+  br'''|\xc2|\\''',
+  br'''f\(abc,(.*),def\?'''
+==
+
+select r{{'\'|'\\\'}}
+--
+ALTERNATION GROUP: '\'
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'\'
+       ^
+--
+ALTERNATION GROUP: '\\\'
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'\\\'
+       ^
+==
+
+select r'\\', r'\\\\'
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-12]
+          StringLiteral(r'\\') [7-12]
+        SelectColumn [14-21]
+          StringLiteral(r'\\\\') [14-21]
+--
+SELECT
+  r'\\',
+  r'\\\\'
+==
+
+select r{{'a'b'|"a"b"|'''a'''b'''|"""a"""b"""}}
+--
+ALTERNATION GROUP: 'a'b'
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:12]
+select r'a'b'
+           ^
+--
+ALTERNATION GROUP: "a"b"
+--
+ERROR: Syntax error: Unclosed bytes literal [at 1:12]
+select r"a"b"
+           ^
+--
+ALTERNATION GROUP: '''a'''b'''
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:16]
+select r'''a'''b'''
+               ^
+--
+ALTERNATION GROUP: """a"""b"""
+--
+ERROR: Syntax error: Unclosed triple-quoted bytes literal [at 1:16]
+select r"""a"""b"""
+               ^
+==
+
+select r'a\'b', r"a\"b",
+       r'''a\'''b''', r'''a'\''b''', r'''a''\'b''',
+       r"""a\"""b""", r"""a"\""b""", r"""a""\"b"""
+--
+QueryStatement [0-127]
+  Query [0-127]
+    Select [0-127]
+      SelectList [7-127]
+        SelectColumn [7-14]
+          StringLiteral(r'a\'b') [7-14]
+        SelectColumn [16-23]
+          StringLiteral(r"a\"b") [16-23]
+        SelectColumn [32-45]
+          StringLiteral(r'''a\'''b''') [32-45]
+        SelectColumn [47-60]
+          StringLiteral(r'''a'\''b''') [47-60]
+        SelectColumn [62-75]
+          StringLiteral(r'''a''\'b''') [62-75]
+        SelectColumn [84-97]
+          StringLiteral(r"""a\"""b""") [84-97]
+        SelectColumn [99-112]
+          StringLiteral(r"""a"\""b""") [99-112]
+        SelectColumn [114-127]
+          StringLiteral(r"""a""\"b""") [114-127]
+--
+SELECT
+  r'a\'b',
+  r"a\"b",
+  r'''a\'''b''',
+  r'''a'\''b''',
+  r'''a''\'b''',
+  r"""a\"""b""",
+  r"""a"\""b""",
+  r"""a""\"b"""
+==
+
+select r'...
+         ...'
+--
+ERROR: Syntax error: Unclosed raw string literal [at 1:8]
+select r'...
+       ^
+==
+
+select rb'...
+          ...'
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select rb'...
+       ^
+==
+
+select br'...
+          ...'
+--
+ERROR: Syntax error: Unclosed raw bytes literal [at 1:8]
+select br'...
+       ^
+==
+
+select r'''...
+           ...''',
+       r'''...\
+           ...''',
+       br'''...
+            ...''',
+       br'''...\
+            ...''',
+       rb'''...
+            ...''',
+       rb'''...\
+            ...'''
+--
+QueryStatement [0-213]
+  Query [0-213]
+    Select [0-213]
+      SelectList [7-213]
+        SelectColumn [7-32]
+          StringLiteral(r'''...
+           ...''') [7-32]
+        SelectColumn [41-67]
+          StringLiteral(r'''...\
+           ...''') [41-67]
+        SelectColumn [76-103]
+          BytesLiteral(br'''...
+            ...''') [76-103]
+        SelectColumn [112-140]
+          BytesLiteral(br'''...\
+            ...''') [112-140]
+        SelectColumn [149-176]
+          BytesLiteral(rb'''...
+            ...''') [149-176]
+        SelectColumn [185-213]
+          BytesLiteral(rb'''...\
+            ...''') [185-213]
+--
+SELECT
+  r'''...
+           ...''',
+  r'''...\
+           ...''',
+  br'''...
+            ...''',
+  br'''...\
+            ...''',
+  rb'''...
+            ...''',
+  rb'''...\
+            ...'''
+==
+
+# Empty raw strings.
+select r'', r"", r'''''', r""""""
+--
+QueryStatement [0-33]
+  Query [0-33]
+    Select [0-33]
+      SelectList [7-33]
+        SelectColumn [7-10]
+          StringLiteral(r'') [7-10]
+        SelectColumn [12-15]
+          StringLiteral(r"") [12-15]
+        SelectColumn [17-24]
+          StringLiteral(r'''''') [17-24]
+        SelectColumn [26-33]
+          StringLiteral(r"""""") [26-33]
+--
+SELECT
+  r'',
+  r"",
+  r'''''',
+  r""""""
+==
+
+# Empty raw bytes.
+select rb'', br'', rb"", br"", rb'''''', br'''''', rb"""""", br""""""
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-69]
+        SelectColumn [7-11]
+          BytesLiteral(rb'') [7-11]
+        SelectColumn [13-17]
+          BytesLiteral(br'') [13-17]
+        SelectColumn [19-23]
+          BytesLiteral(rb"") [19-23]
+        SelectColumn [25-29]
+          BytesLiteral(br"") [25-29]
+        SelectColumn [31-39]
+          BytesLiteral(rb'''''') [31-39]
+        SelectColumn [41-49]
+          BytesLiteral(br'''''') [41-49]
+        SelectColumn [51-59]
+          BytesLiteral(rb"""""") [51-59]
+        SelectColumn [61-69]
+          BytesLiteral(br"""""") [61-69]
+--
+SELECT
+  rb'',
+  br'',
+  rb"",
+  br"",
+  rb'''''',
+  br'''''',
+  rb"""""",
+  br""""""
+==
+
+# This passes parse but fails GetNextTokens because of integer overflow.
+[no_test_get_parse_tokens]
+select 0x0, -0x01 a, 0X000000001 as a, 0x0123456789AbCdEf,
+       0xffffffffffffffffffffffffffffffffffffffff
+--
+QueryStatement [0-108]
+  Query [0-108]
+    Select [0-108]
+      SelectList [7-108]
+        SelectColumn [7-10]
+          IntLiteral(0x0) [7-10]
+        SelectColumn [12-19]
+          UnaryExpression(-) [12-17]
+            IntLiteral(0x01) [13-17]
+          Alias [18-19]
+            Identifier(a) [18-19]
+        SelectColumn [21-37]
+          IntLiteral(0X000000001) [21-32]
+          Alias [33-37]
+            Identifier(a) [36-37]
+        SelectColumn [39-57]
+          IntLiteral(0x0123456789AbCdEf) [39-57]
+        SelectColumn [66-108]
+          IntLiteral(0xffffffffffffffffffffffffffffffffffffffff) [66-108]
+--
+SELECT
+  0x0,
+  - 0x01 AS a,
+  0X000000001 AS a,
+  0x0123456789AbCdEf,
+  0xffffffffffffffffffffffffffffffffffffffff
+==
+
+select 0xg
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+select 0xg
+        ^
+==
+
+select 00x0
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+select 00x0
+         ^
+==
+
+select x0
+--
+QueryStatement [0-9]
+  Query [0-9]
+    Select [0-9]
+      SelectList [7-9]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(x0) [7-9]
+--
+SELECT
+  x0
+==
+
+select 0x0g
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:11]
+select 0x0g
+          ^
+==
+
+select 0x0 0x0
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0x0" [at 1:12]
+select 0x0 0x0
+           ^
+==
+
+select 0x0 + 0x1
+--
+QueryStatement [0-16]
+  Query [0-16]
+    Select [0-16]
+      SelectList [7-16]
+        SelectColumn [7-16]
+          BinaryExpression(+) [7-16]
+            IntLiteral(0x0) [7-10]
+            IntLiteral(0x1) [13-16]
+--
+SELECT
+  0x0 + 0x1
+==
+
+select 0 x 0
+--
+ERROR: Syntax error: Expected end of input but got integer literal "0" [at 1:12]
+select 0 x 0
+           ^
+==
+
+select 0x
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+select 0x
+        ^
+==
+
+select 1x1
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 1:9]
+select 1x1
+        ^
+==
+
+select a, sum(b) from foo
+group by 0x1
+order by 0x2
+limit 0x3
+offset 0x4
+--
+QueryStatement [0-72]
+  Query [0-72]
+    Select [0-38]
+      SelectList [7-16]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(a) [7-8]
+        SelectColumn [10-16]
+          FunctionCall [10-16]
+            PathExpression [10-13]
+              Identifier(sum) [10-13]
+            PathExpression [14-15]
+              Identifier(b) [14-15]
+      FromClause [17-25]
+        TablePathExpression [22-25]
+          PathExpression [22-25]
+            Identifier(foo) [22-25]
+      GroupBy [26-38]
+        GroupingItem [35-38]
+          IntLiteral(0x1) [35-38]
+    OrderBy [39-51]
+      OrderingExpression(ASC) [48-51]
+        IntLiteral(0x2) [48-51]
+    LimitOffset [52-72]
+      IntLiteral(0x3) [58-61]
+      IntLiteral(0x4) [69-72]
+--
+SELECT
+  a,
+  sum(b)
+FROM
+  foo
+GROUP BY 0x1
+ORDER BY 0x2
+LIMIT 0x3 OFFSET 0x4
+==
+
+# Bad escape sequences in multiline literals get a correct location marker.
+SELECT """abc
+def\u"""
+--
+ERROR: Syntax error: Illegal escape sequence: \u must be followed by 4 hex digits but saw: \u [at 2:4]
+def\u"""
+   ^
+==
+
+# Note that some of the literals here do not construct valid NUMERIC values.
+# The validation happens in the resolver, though, and therefore all these
+# forms are accepted by the parser.
+select NUMERIC '1.1',
+       NUMERIC '0.123',
+       NUMERIC '456.0',
+       NUMERIC '123',
+       NUMERIC "123",
+       NUMERIC '0',
+       NUMERIC '-1.1',
+       NUMERIC '-0.123',
+       NUMERIC '-456.0',
+       NUMERIC '-123',
+       NUMERIC "-123",
+       NUMERIC '0.999999999',
+       NUMERIC '99999999999999999999999999999.999999999',
+       NUMERIC '-0.999999999',
+       NUMERIC '-99999999999999999999999999999.999999999',
+       NUMERIC '-0',
+       NUMERIC '+5',
+       NUMERIC '+5.123',
+       NUMERIC '',
+       NUMERIC 'abc',
+       NUMERIC '99999999999999999999999999999999999999',
+       NUMERIC '0.99999999999999999999999999999999999999',
+       NUMERIC '+',
+       NUMERIC '-'
+--
+QueryStatement [0-693]
+  Query [0-693]
+    Select [0-693]
+      SelectList [7-693]
+        SelectColumn [7-20]
+          NumericLiteral('1.1') [7-20]
+        SelectColumn [29-44]
+          NumericLiteral('0.123') [29-44]
+        SelectColumn [53-68]
+          NumericLiteral('456.0') [53-68]
+        SelectColumn [77-90]
+          NumericLiteral('123') [77-90]
+        SelectColumn [99-112]
+          NumericLiteral("123") [99-112]
+        SelectColumn [121-132]
+          NumericLiteral('0') [121-132]
+        SelectColumn [141-155]
+          NumericLiteral('-1.1') [141-155]
+        SelectColumn [164-180]
+          NumericLiteral('-0.123') [164-180]
+        SelectColumn [189-205]
+          NumericLiteral('-456.0') [189-205]
+        SelectColumn [214-228]
+          NumericLiteral('-123') [214-228]
+        SelectColumn [237-251]
+          NumericLiteral("-123") [237-251]
+        SelectColumn [260-281]
+          NumericLiteral('0.999999999') [260-281]
+        SelectColumn [290-339]
+          NumericLiteral('99999999999999999999999999999.999999999') [290-339]
+        SelectColumn [348-370]
+          NumericLiteral('-0.999999999') [348-370]
+        SelectColumn [379-429]
+          NumericLiteral('-99999999999999999999999999999.999999999') [379-429]
+        SelectColumn [438-450]
+          NumericLiteral('-0') [438-450]
+        SelectColumn [459-471]
+          NumericLiteral('+5') [459-471]
+        SelectColumn [480-496]
+          NumericLiteral('+5.123') [480-496]
+        SelectColumn [505-515]
+          NumericLiteral('') [505-515]
+        SelectColumn [524-537]
+          NumericLiteral('abc') [524-537]
+        SelectColumn [546-594]
+          NumericLiteral('99999999999999999999999999999999999999') [546-594]
+        SelectColumn [603-653]
+          NumericLiteral('0.99999999999999999999999999999999999999') [603-653]
+        SelectColumn [662-673]
+          NumericLiteral('+') [662-673]
+        SelectColumn [682-693]
+          NumericLiteral('-') [682-693]
+--
+SELECT
+  NUMERIC '1.1',
+  NUMERIC '0.123',
+  NUMERIC '456.0',
+  NUMERIC '123',
+  NUMERIC "123",
+  NUMERIC '0',
+  NUMERIC '-1.1',
+  NUMERIC '-0.123',
+  NUMERIC '-456.0',
+  NUMERIC '-123',
+  NUMERIC "-123",
+  NUMERIC '0.999999999',
+  NUMERIC '99999999999999999999999999999.999999999',
+  NUMERIC '-0.999999999',
+  NUMERIC '-99999999999999999999999999999.999999999',
+  NUMERIC '-0',
+  NUMERIC '+5',
+  NUMERIC '+5.123',
+  NUMERIC '',
+  NUMERIC 'abc',
+  NUMERIC '99999999999999999999999999999999999999',
+  NUMERIC '0.99999999999999999999999999999999999999',
+  NUMERIC '+',
+  NUMERIC '-'
+==
+
+select NUMERIC '100' `NUMERIC`
+--
+QueryStatement [0-30]
+  Query [0-30]
+    Select [0-30]
+      SelectList [7-30]
+        SelectColumn [7-30]
+          NumericLiteral('100') [7-20]
+          Alias [21-30]
+            Identifier(NUMERIC) [21-30]
+--
+SELECT
+  NUMERIC '100' AS NUMERIC
+==
+
+select NUMERIC '100' numeric
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          NumericLiteral('100') [7-20]
+          Alias [21-28]
+            Identifier(numeric) [21-28]
+--
+SELECT
+  NUMERIC '100' AS numeric
+==
+
+# We do not test the rebuilt query here because the tokenizer will
+# strip the backticks and without the backticks NUMERIC gets parsed
+# as a keyword and the query succeeds.
+[no_test_get_parse_tokens]
+select `NUMERIC` '100'
+--
+ERROR: Syntax error: Expected end of input but got string literal '100' [at 1:18]
+select `NUMERIC` '100'
+                 ^
+==
+
+select NUMERIC '100.1' + NUMERIC '200'
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-38]
+        SelectColumn [7-38]
+          BinaryExpression(+) [7-38]
+            NumericLiteral('100.1') [7-22]
+            NumericLiteral('200') [25-38]
+--
+SELECT
+  NUMERIC '100.1' + NUMERIC '200'
+==
+
+# This is a test for application of the unary minus operation to a NUMERIC
+# literal. A negative literal can be always formed by writing a negative number
+# within the quotes, e.g. NUMERIC '-100'.
+select -NUMERIC '100'
+--
+QueryStatement [0-21]
+  Query [0-21]
+    Select [0-21]
+      SelectList [7-21]
+        SelectColumn [7-21]
+          UnaryExpression(-) [7-21]
+            NumericLiteral('100') [8-21]
+--
+SELECT
+  - NUMERIC '100'
+==
+
+# Note that some of the literals here do not construct valid BIGNUMERIC values.
+# The validation happens in the resolver, though, and therefore all these
+# forms are accepted by the parser.
+select BIGNUMERIC '1.1',
+       BIGNUMERIC '0.123',
+       BIGNUMERIC '456.0',
+       BIGNUMERIC '123',
+       BIGNUMERIC "123",
+       BIGNUMERIC '0',
+       BIGNUMERIC '-1.1',
+       BIGNUMERIC '-0.123',
+       BIGNUMERIC '-456.0',
+       BIGNUMERIC '-123',
+       BIGNUMERIC "-123",
+       BIGNUMERIC '0.99999999999999999999999999999999999999',
+       BIGNUMERIC '578960446186580977117854925043439539266.34992332820282019728792003956564819967',
+       BIGNUMERIC '-0.99999999999999999999999999999999999999',
+       BIGNUMERIC '-578960446186580977117854925043439539266.34992332820282019728792003956564819968',
+       BIGNUMERIC '-0',
+       BIGNUMERIC '+5',
+       BIGNUMERIC '+5.123',
+       BIGNUMERIC '',
+       BIGNUMERIC 'abc',
+       BIGNUMERIC '99999999999999999999999999999999999999999999999999999999999',
+       BIGNUMERIC '0.999999999999999999999999999999999999999999999999999999999',
+       BIGNUMERIC '+',
+       BIGNUMERIC '-'
+--
+QueryStatement [0-941]
+  Query [0-941]
+    Select [0-941]
+      SelectList [7-941]
+        SelectColumn [7-23]
+          BigNumericLiteral('1.1') [7-23]
+        SelectColumn [32-50]
+          BigNumericLiteral('0.123') [32-50]
+        SelectColumn [59-77]
+          BigNumericLiteral('456.0') [59-77]
+        SelectColumn [86-102]
+          BigNumericLiteral('123') [86-102]
+        SelectColumn [111-127]
+          BigNumericLiteral("123") [111-127]
+        SelectColumn [136-150]
+          BigNumericLiteral('0') [136-150]
+        SelectColumn [159-176]
+          BigNumericLiteral('-1.1') [159-176]
+        SelectColumn [185-204]
+          BigNumericLiteral('-0.123') [185-204]
+        SelectColumn [213-232]
+          BigNumericLiteral('-456.0') [213-232]
+        SelectColumn [241-258]
+          BigNumericLiteral('-123') [241-258]
+        SelectColumn [267-284]
+          BigNumericLiteral("-123") [267-284]
+        SelectColumn [293-346]
+          BigNumericLiteral('0.99999999999999999999999999999999999999') [293-346]
+        SelectColumn [355-446]
+          BigNumericLiteral('578960446186580977117854925043439539266.34992332820282019728792003956564819967') [355-446]
+        SelectColumn [455-509]
+          BigNumericLiteral('-0.99999999999999999999999999999999999999') [455-509]
+        SelectColumn [518-610]
+          BigNumericLiteral('-578960446186580977117854925043439539266.34992332820282019728792003956564819968') [518-610]
+        SelectColumn [619-634]
+          BigNumericLiteral('-0') [619-634]
+        SelectColumn [643-658]
+          BigNumericLiteral('+5') [643-658]
+        SelectColumn [667-686]
+          BigNumericLiteral('+5.123') [667-686]
+        SelectColumn [695-708]
+          BigNumericLiteral('') [695-708]
+        SelectColumn [717-733]
+          BigNumericLiteral('abc') [717-733]
+        SelectColumn [742-814]
+          BigNumericLiteral('99999999999999999999999999999999999999999999999999999999999') [742-814]
+        SelectColumn [823-895]
+          BigNumericLiteral('0.999999999999999999999999999999999999999999999999999999999') [823-895]
+        SelectColumn [904-918]
+          BigNumericLiteral('+') [904-918]
+        SelectColumn [927-941]
+          BigNumericLiteral('-') [927-941]
+--
+SELECT
+  BIGNUMERIC '1.1',
+  BIGNUMERIC '0.123',
+  BIGNUMERIC '456.0',
+  BIGNUMERIC '123',
+  BIGNUMERIC "123",
+  BIGNUMERIC '0',
+  BIGNUMERIC '-1.1',
+  BIGNUMERIC '-0.123',
+  BIGNUMERIC '-456.0',
+  BIGNUMERIC '-123',
+  BIGNUMERIC "-123",
+  BIGNUMERIC '0.99999999999999999999999999999999999999',
+  BIGNUMERIC '578960446186580977117854925043439539266.34992332820282019728792003956564819967',
+  BIGNUMERIC '-0.99999999999999999999999999999999999999',
+  BIGNUMERIC '-578960446186580977117854925043439539266.34992332820282019728792003956564819968',
+  BIGNUMERIC '-0',
+  BIGNUMERIC '+5',
+  BIGNUMERIC '+5.123',
+  BIGNUMERIC '',
+  BIGNUMERIC 'abc',
+  BIGNUMERIC '99999999999999999999999999999999999999999999999999999999999',
+  BIGNUMERIC '0.999999999999999999999999999999999999999999999999999999999',
+  BIGNUMERIC '+',
+  BIGNUMERIC '-'
+==
+
+select BIGNUMERIC '100' `BIGNUMERIC`
+--
+QueryStatement [0-36]
+  Query [0-36]
+    Select [0-36]
+      SelectList [7-36]
+        SelectColumn [7-36]
+          BigNumericLiteral('100') [7-23]
+          Alias [24-36]
+            Identifier(BIGNUMERIC) [24-36]
+--
+SELECT
+  BIGNUMERIC '100' AS BIGNUMERIC
+==
+
+select BIGNUMERIC '100' numeric
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-31]
+          BigNumericLiteral('100') [7-23]
+          Alias [24-31]
+            Identifier(numeric) [24-31]
+--
+SELECT
+  BIGNUMERIC '100' AS numeric
+==
+
+# We do not test the rebuilt query here because the tokenizer will
+# strip the backticks and without the backticks BIGNUMERIC gets parsed
+# as a keyword and the query succeeds.
+[no_test_get_parse_tokens]
+select `BIGNUMERIC` '100'
+--
+ERROR: Syntax error: Expected end of input but got string literal '100' [at 1:21]
+select `BIGNUMERIC` '100'
+                    ^
+==
+
+select BIGNUMERIC '100.1' + BIGNUMERIC '200'
+--
+QueryStatement [0-44]
+  Query [0-44]
+    Select [0-44]
+      SelectList [7-44]
+        SelectColumn [7-44]
+          BinaryExpression(+) [7-44]
+            BigNumericLiteral('100.1') [7-25]
+            BigNumericLiteral('200') [28-44]
+--
+SELECT
+  BIGNUMERIC '100.1' + BIGNUMERIC '200'
+==
+
+# This is a test for application of the unary minus operation to a BIGNUMERIC
+# literal. A negative literal can be always formed by writing a negative number
+# within the quotes, e.g. BIGNUMERIC '-100'.
+select -BIGNUMERIC '100'
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectList [7-24]
+        SelectColumn [7-24]
+          UnaryExpression(-) [7-24]
+            BigNumericLiteral('100') [8-24]
+--
+SELECT
+  - BIGNUMERIC '100'
+==
+
+select JSON '1'
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          JSONLiteral('1') [7-15]
+--
+SELECT
+  JSON '1'
+==
+
+select JSON "true",
+       JSON '\'value\'',
+       JSON "t",
+       JSON 'true',
+       JSON "'v'",
+       JSON 'null',
+       JSON '[1, 2, 3]',
+       JSON '{ "k1": "v1", "k2": [true, false]}',
+       JSON '{\n"k" : "v"\n}',
+       JSON r'{"k\n1" : "v"}',
+       JSON '',
+       JSON '0.123',
+       JSON '456.0',
+       JSON '123',
+       JSON "123",
+       JSON '-1.1',
+       JSON '-123',
+       JSON "-123"
+--
+QueryStatement [0-412]
+  Query [0-412]
+    Select [0-412]
+      SelectList [7-412]
+        SelectColumn [7-18]
+          JSONLiteral("true") [7-18]
+        SelectColumn [27-43]
+          JSONLiteral('\'value\'') [27-43]
+        SelectColumn [52-60]
+          JSONLiteral("t") [52-60]
+        SelectColumn [69-80]
+          JSONLiteral('true') [69-80]
+        SelectColumn [89-99]
+          JSONLiteral("'v'") [89-99]
+        SelectColumn [108-119]
+          JSONLiteral('null') [108-119]
+        SelectColumn [128-144]
+          JSONLiteral('[1, 2, 3]') [128-144]
+        SelectColumn [153-194]
+          JSONLiteral('{ "k1": "v1", "k2": [true, false]}') [153-194]
+        SelectColumn [203-225]
+          JSONLiteral('{\n"k" : "v"\n}') [203-225]
+        SelectColumn [234-256]
+          JSONLiteral(r'{"k\n1" : "v"}') [234-256]
+        SelectColumn [265-272]
+          JSONLiteral('') [265-272]
+        SelectColumn [281-293]
+          JSONLiteral('0.123') [281-293]
+        SelectColumn [302-314]
+          JSONLiteral('456.0') [302-314]
+        SelectColumn [323-333]
+          JSONLiteral('123') [323-333]
+        SelectColumn [342-352]
+          JSONLiteral("123") [342-352]
+        SelectColumn [361-372]
+          JSONLiteral('-1.1') [361-372]
+        SelectColumn [381-392]
+          JSONLiteral('-123') [381-392]
+        SelectColumn [401-412]
+          JSONLiteral("-123") [401-412]
+--
+SELECT
+  JSON "true",
+  JSON '\'value\'',
+  JSON "t",
+  JSON 'true',
+  JSON "'v'",
+  JSON 'null',
+  JSON '[1, 2, 3]',
+  JSON '{ "k1": "v1", "k2": [true, false]}',
+  JSON '{\n"k" : "v"\n}',
+  JSON r'{"k\n1" : "v"}',
+  JSON '',
+  JSON '0.123',
+  JSON '456.0',
+  JSON '123',
+  JSON "123",
+  JSON '-1.1',
+  JSON '-123',
+  JSON "-123"
+==
+
+select JSON '100' json
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          JSONLiteral('100') [7-17]
+          Alias [18-22]
+            Identifier(json) [18-22]
+--
+SELECT
+  JSON '100' AS json
+
+==
+
+select DECIMAL '1.1',
+       DECIMAL '0.123',
+       DECIMAL '456.0',
+       DECIMAL '123',
+       DECIMAL "123",
+       DECIMAL '0',
+       DECIMAL '-1.1',
+       DECIMAL '-0.123',
+       DECIMAL '-456.0',
+       DECIMAL '-123',
+       DECIMAL "-123",
+       DECIMAL '0.999999999',
+       DECIMAL '99999999999999999999999999999.999999999',
+       DECIMAL '-0.999999999',
+       DECIMAL '-99999999999999999999999999999.999999999',
+       DECIMAL '-0',
+       DECIMAL '+5',
+       DECIMAL '+5.123',
+       DECIMAL '',
+       DECIMAL 'abc',
+       DECIMAL '99999999999999999999999999999999999999',
+       DECIMAL '0.99999999999999999999999999999999999999',
+       DECIMAL '+',
+       DECIMAL '-'
+--
+QueryStatement [0-693]
+  Query [0-693]
+    Select [0-693]
+      SelectList [7-693]
+        SelectColumn [7-20]
+          NumericLiteral('1.1') [7-20]
+        SelectColumn [29-44]
+          NumericLiteral('0.123') [29-44]
+        SelectColumn [53-68]
+          NumericLiteral('456.0') [53-68]
+        SelectColumn [77-90]
+          NumericLiteral('123') [77-90]
+        SelectColumn [99-112]
+          NumericLiteral("123") [99-112]
+        SelectColumn [121-132]
+          NumericLiteral('0') [121-132]
+        SelectColumn [141-155]
+          NumericLiteral('-1.1') [141-155]
+        SelectColumn [164-180]
+          NumericLiteral('-0.123') [164-180]
+        SelectColumn [189-205]
+          NumericLiteral('-456.0') [189-205]
+        SelectColumn [214-228]
+          NumericLiteral('-123') [214-228]
+        SelectColumn [237-251]
+          NumericLiteral("-123") [237-251]
+        SelectColumn [260-281]
+          NumericLiteral('0.999999999') [260-281]
+        SelectColumn [290-339]
+          NumericLiteral('99999999999999999999999999999.999999999') [290-339]
+        SelectColumn [348-370]
+          NumericLiteral('-0.999999999') [348-370]
+        SelectColumn [379-429]
+          NumericLiteral('-99999999999999999999999999999.999999999') [379-429]
+        SelectColumn [438-450]
+          NumericLiteral('-0') [438-450]
+        SelectColumn [459-471]
+          NumericLiteral('+5') [459-471]
+        SelectColumn [480-496]
+          NumericLiteral('+5.123') [480-496]
+        SelectColumn [505-515]
+          NumericLiteral('') [505-515]
+        SelectColumn [524-537]
+          NumericLiteral('abc') [524-537]
+        SelectColumn [546-594]
+          NumericLiteral('99999999999999999999999999999999999999') [546-594]
+        SelectColumn [603-653]
+          NumericLiteral('0.99999999999999999999999999999999999999') [603-653]
+        SelectColumn [662-673]
+          NumericLiteral('+') [662-673]
+        SelectColumn [682-693]
+          NumericLiteral('-') [682-693]
+--
+SELECT
+  NUMERIC '1.1',
+  NUMERIC '0.123',
+  NUMERIC '456.0',
+  NUMERIC '123',
+  NUMERIC "123",
+  NUMERIC '0',
+  NUMERIC '-1.1',
+  NUMERIC '-0.123',
+  NUMERIC '-456.0',
+  NUMERIC '-123',
+  NUMERIC "-123",
+  NUMERIC '0.999999999',
+  NUMERIC '99999999999999999999999999999.999999999',
+  NUMERIC '-0.999999999',
+  NUMERIC '-99999999999999999999999999999.999999999',
+  NUMERIC '-0',
+  NUMERIC '+5',
+  NUMERIC '+5.123',
+  NUMERIC '',
+  NUMERIC 'abc',
+  NUMERIC '99999999999999999999999999999999999999',
+  NUMERIC '0.99999999999999999999999999999999999999',
+  NUMERIC '+',
+  NUMERIC '-'
+
+==
+
+select BIGDECIMAL '1.1',
+       BIGDECIMAL '0.123',
+       BIGDECIMAL '456.0',
+       BIGDECIMAL '123',
+       BIGDECIMAL "123",
+       BIGDECIMAL '0',
+       BIGDECIMAL '-1.1',
+       BIGDECIMAL '-0.123',
+       BIGDECIMAL '-456.0',
+       BIGDECIMAL '-123',
+       BIGDECIMAL "-123",
+       BIGDECIMAL '0.99999999999999999999999999999999999999',
+       BIGDECIMAL '578960446186580977117854925043439539266.34992332820282019728792003956564819967',
+       BIGDECIMAL '-0.99999999999999999999999999999999999999',
+       BIGDECIMAL '-578960446186580977117854925043439539266.34992332820282019728792003956564819968',
+       BIGDECIMAL '-0',
+       BIGDECIMAL '+5',
+       BIGDECIMAL '+5.123',
+       BIGDECIMAL '',
+       BIGDECIMAL 'abc',
+       BIGDECIMAL '99999999999999999999999999999999999999999999999999999999999',
+       BIGDECIMAL '0.999999999999999999999999999999999999999999999999999999999',
+       BIGDECIMAL '+',
+       BIGDECIMAL '-'
+--
+QueryStatement [0-941]
+  Query [0-941]
+    Select [0-941]
+      SelectList [7-941]
+        SelectColumn [7-23]
+          BigNumericLiteral('1.1') [7-23]
+        SelectColumn [32-50]
+          BigNumericLiteral('0.123') [32-50]
+        SelectColumn [59-77]
+          BigNumericLiteral('456.0') [59-77]
+        SelectColumn [86-102]
+          BigNumericLiteral('123') [86-102]
+        SelectColumn [111-127]
+          BigNumericLiteral("123") [111-127]
+        SelectColumn [136-150]
+          BigNumericLiteral('0') [136-150]
+        SelectColumn [159-176]
+          BigNumericLiteral('-1.1') [159-176]
+        SelectColumn [185-204]
+          BigNumericLiteral('-0.123') [185-204]
+        SelectColumn [213-232]
+          BigNumericLiteral('-456.0') [213-232]
+        SelectColumn [241-258]
+          BigNumericLiteral('-123') [241-258]
+        SelectColumn [267-284]
+          BigNumericLiteral("-123") [267-284]
+        SelectColumn [293-346]
+          BigNumericLiteral('0.99999999999999999999999999999999999999') [293-346]
+        SelectColumn [355-446]
+          BigNumericLiteral('578960446186580977117854925043439539266.34992332820282019728792003956564819967') [355-446]
+        SelectColumn [455-509]
+          BigNumericLiteral('-0.99999999999999999999999999999999999999') [455-509]
+        SelectColumn [518-610]
+          BigNumericLiteral('-578960446186580977117854925043439539266.34992332820282019728792003956564819968') [518-610]
+        SelectColumn [619-634]
+          BigNumericLiteral('-0') [619-634]
+        SelectColumn [643-658]
+          BigNumericLiteral('+5') [643-658]
+        SelectColumn [667-686]
+          BigNumericLiteral('+5.123') [667-686]
+        SelectColumn [695-708]
+          BigNumericLiteral('') [695-708]
+        SelectColumn [717-733]
+          BigNumericLiteral('abc') [717-733]
+        SelectColumn [742-814]
+          BigNumericLiteral('99999999999999999999999999999999999999999999999999999999999') [742-814]
+        SelectColumn [823-895]
+          BigNumericLiteral('0.999999999999999999999999999999999999999999999999999999999') [823-895]
+        SelectColumn [904-918]
+          BigNumericLiteral('+') [904-918]
+        SelectColumn [927-941]
+          BigNumericLiteral('-') [927-941]
+--
+SELECT
+  BIGNUMERIC '1.1',
+  BIGNUMERIC '0.123',
+  BIGNUMERIC '456.0',
+  BIGNUMERIC '123',
+  BIGNUMERIC "123",
+  BIGNUMERIC '0',
+  BIGNUMERIC '-1.1',
+  BIGNUMERIC '-0.123',
+  BIGNUMERIC '-456.0',
+  BIGNUMERIC '-123',
+  BIGNUMERIC "-123",
+  BIGNUMERIC '0.99999999999999999999999999999999999999',
+  BIGNUMERIC '578960446186580977117854925043439539266.34992332820282019728792003956564819967',
+  BIGNUMERIC '-0.99999999999999999999999999999999999999',
+  BIGNUMERIC '-578960446186580977117854925043439539266.34992332820282019728792003956564819968',
+  BIGNUMERIC '-0',
+  BIGNUMERIC '+5',
+  BIGNUMERIC '+5.123',
+  BIGNUMERIC '',
+  BIGNUMERIC 'abc',
+  BIGNUMERIC '99999999999999999999999999999999999999999999999999999999999',
+  BIGNUMERIC '0.999999999999999999999999999999999999999999999999999999999',
+  BIGNUMERIC '+',
+  BIGNUMERIC '-'

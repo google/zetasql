@@ -70,6 +70,6 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 ```
 
 [link-to-SAFE_DIVIDE]: #safe_divide
-[link-to-SAFE_CAST]: #safe-casting
+[link-to-SAFE_CAST]: #safe_casting
 [link-to-operators]: #operators
 

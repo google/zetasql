@@ -78,7 +78,7 @@ public class FileDescriptorSetsBuilder implements Serializable {
 
   int addAllFileDescriptors(DescriptorPool pool) {
     Preconditions.checkNotNull(pool);
-    for (FileDescriptor descriptor : pool.getAllFileDescriptors()) {
+    for (FileDescriptor descriptor : pool.getAllFileDescriptorsInDependencyOrder()) {
       addFileDescriptor(descriptor, pool);
     }
 

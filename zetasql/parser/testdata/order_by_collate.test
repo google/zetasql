@@ -1,0 +1,411 @@
+select * from T
+order by col COLLATE {{"en_US"|@en_US}} ASC
+--
+ALTERNATION GROUP: "en_US"
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-48]
+      OrderingExpression(ASC EXPLICITLY) [25-48]
+        PathExpression [25-28]
+          Identifier(col) [25-28]
+        Collate [29-44]
+          StringLiteral("en_US") [37-44]
+--
+SELECT
+  *
+FROM
+  T
+ORDER BY col COLLATE "en_US" ASC
+--
+ALTERNATION GROUP: @en_US
+--
+QueryStatement [0-47]
+  Query [0-47]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-47]
+      OrderingExpression(ASC EXPLICITLY) [25-47]
+        PathExpression [25-28]
+          Identifier(col) [25-28]
+        Collate [29-43]
+          ParameterExpr [37-43]
+            Identifier(en_US) [38-43]
+--
+SELECT
+  *
+FROM
+  T
+ORDER BY col COLLATE @en_US ASC
+==
+
+select * from T
+order by col1 ASC,
+         col2 COLLATE "c2" DESC,
+         3 DESC,
+         4 COLLATE @c4 ASC
+--
+QueryStatement [0-111]
+  Query [0-111]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-111]
+      OrderingExpression(ASC EXPLICITLY) [25-33]
+        PathExpression [25-29]
+          Identifier(col1) [25-29]
+      OrderingExpression(DESC) [44-66]
+        PathExpression [44-48]
+          Identifier(col2) [44-48]
+        Collate [49-61]
+          StringLiteral("c2") [57-61]
+      OrderingExpression(DESC) [77-83]
+        IntLiteral(3) [77-78]
+      OrderingExpression(ASC EXPLICITLY) [94-111]
+        IntLiteral(4) [94-95]
+        Collate [96-107]
+          ParameterExpr [104-107]
+            Identifier(c4) [105-107]
+--
+SELECT
+  *
+FROM
+  T
+ORDER BY col1 ASC, col2 COLLATE "c2" DESC, 3 DESC, 4 COLLATE @c4 ASC
+==
+
+select f() over (ORDER BY a COLLATE "en") from T
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          AnalyticFunctionCall [7-41]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-41]
+              OrderBy [17-40]
+                OrderingExpression(ASC) [26-40]
+                  PathExpression [26-27]
+                    Identifier(a) [26-27]
+                  Collate [28-40]
+                    StringLiteral("en") [36-40]
+      FromClause [42-48]
+        TablePathExpression [47-48]
+          PathExpression [47-48]
+            Identifier(T) [47-48]
+--
+SELECT
+  f() OVER (
+    ORDER BY a COLLATE "en")
+FROM
+  T
+==
+
+select f() over(partition by a COLLATE "en") from T
+--
+ERROR: Syntax error: Expected ")" but got keyword COLLATE [at 1:32]
+select f() over(partition by a COLLATE "en") from T
+                               ^
+==
+
+select f() over(partition by a order by a COLLATE "en") from T
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-55]
+        SelectColumn [7-55]
+          AnalyticFunctionCall [7-55]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [15-55]
+              PartitionBy [16-30]
+                PathExpression [29-30]
+                  Identifier(a) [29-30]
+              OrderBy [31-54]
+                OrderingExpression(ASC) [40-54]
+                  PathExpression [40-41]
+                    Identifier(a) [40-41]
+                  Collate [42-54]
+                    StringLiteral("en") [50-54]
+      FromClause [56-62]
+        TablePathExpression [61-62]
+          PathExpression [61-62]
+            Identifier(T) [61-62]
+--
+SELECT
+  f() OVER (PARTITION BY a
+    ORDER BY a COLLATE "en")
+FROM
+  T
+==
+
+select f() over (order by a COLLATE "ca" ASC,
+                          b COLLATE "cb" DESC,
+                          3 COLLATE @c3 ASC,
+                          4 COLLATE @c4 DESC)
+--
+QueryStatement [0-183]
+  Query [0-183]
+    Select [0-183]
+      SelectList [7-183]
+        SelectColumn [7-183]
+          AnalyticFunctionCall [7-183]
+            FunctionCall [7-10]
+              PathExpression [7-8]
+                Identifier(f) [7-8]
+            WindowSpecification [16-183]
+              OrderBy [17-182]
+                OrderingExpression(ASC EXPLICITLY) [26-44]
+                  PathExpression [26-27]
+                    Identifier(a) [26-27]
+                  Collate [28-40]
+                    StringLiteral("ca") [36-40]
+                OrderingExpression(DESC) [72-91]
+                  PathExpression [72-73]
+                    Identifier(b) [72-73]
+                  Collate [74-86]
+                    StringLiteral("cb") [82-86]
+                OrderingExpression(ASC EXPLICITLY) [119-136]
+                  IntLiteral(3) [119-120]
+                  Collate [121-132]
+                    ParameterExpr [129-132]
+                      Identifier(c3) [130-132]
+                OrderingExpression(DESC) [164-182]
+                  IntLiteral(4) [164-165]
+                  Collate [166-177]
+                    ParameterExpr [174-177]
+                      Identifier(c4) [175-177]
+--
+SELECT
+  f() OVER (
+    ORDER BY a COLLATE "ca" ASC, b COLLATE "cb" DESC, 3 COLLATE @c3 ASC, 4 COLLATE @c4 DESC)
+==
+
+select * from T
+order by 1 COLLATE {{""|NULL|"NULL"}}
+--
+ALTERNATION GROUP: ""
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-37]
+      OrderingExpression(ASC) [25-37]
+        IntLiteral(1) [25-26]
+        Collate [27-37]
+          StringLiteral("") [35-37]
+--
+SELECT
+  *
+FROM
+  T
+ORDER BY 1 COLLATE ""
+--
+ALTERNATION GROUP: NULL
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got keyword NULL [at 2:20]
+order by 1 COLLATE NULL
+                   ^
+--
+ALTERNATION GROUP: "NULL"
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-15]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+    OrderBy [16-41]
+      OrderingExpression(ASC) [25-41]
+        IntLiteral(1) [25-26]
+        Collate [27-41]
+          StringLiteral("NULL") [35-41]
+--
+SELECT
+  *
+FROM
+  T
+ORDER BY 1 COLLATE "NULL"
+==
+
+select a, b from T
+order by c COLLATE d
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "d" [at 2:20]
+order by c COLLATE d
+                   ^
+==
+
+select * from T
+order by col ASC COLLATE "en_US"
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 2:18]
+order by col ASC COLLATE "en_US"
+                 ^
+==
+
+select * from T
+order by COLLATE "en_US" col
+--
+ERROR: Syntax error: Unexpected keyword COLLATE [at 2:10]
+order by COLLATE "en_US" col
+         ^
+==
+
+# -------------------------------------------
+# COLLATE is only supported in ORDER BY clause.
+# -------------------------------------------
+
+select * from T COLLATE "en_US"
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 1:17]
+select * from T COLLATE "en_US"
+                ^
+==
+
+select col COLLATE "en_US" from T
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 1:12]
+select col COLLATE "en_US" from T
+           ^
+==
+
+select col from T
+GROUP BY col COLLATE "en_US"
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 2:14]
+GROUP BY col COLLATE "en_US"
+             ^
+==
+
+select MAX(col COLLATE "en_US") from T
+--
+ERROR: Syntax error: Expected ")" but got keyword COLLATE [at 1:16]
+select MAX(col COLLATE "en_US") from T
+               ^
+==
+
+select DISTINCT col COLLATE "en_US" from T
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 1:21]
+select DISTINCT col COLLATE "en_US" from T
+                    ^
+==
+
+select * from T
+WHERE expr1 COLLATE "en_US" = expr2 COLLATE "ar_EG"
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 2:13]
+WHERE expr1 COLLATE "en_US" = expr2 COLLATE "ar_EG"
+            ^
+==
+
+# This query will fail in analyzer.
+select * from T
+WHERE STRCMP(expr1, expr2, "en_US")=0
+--
+QueryStatement [0-53]
+  Query [0-53]
+    Select [0-53]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+      WhereClause [16-53]
+        BinaryExpression(=) [22-53]
+          FunctionCall [22-51]
+            PathExpression [22-28]
+              Identifier(STRCMP) [22-28]
+            PathExpression [29-34]
+              Identifier(expr1) [29-34]
+            PathExpression [36-41]
+              Identifier(expr2) [36-41]
+            StringLiteral("en_US") [43-50]
+          IntLiteral(0) [52-53]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  STRCMP(expr1, expr2, "en_US") = 0
+==
+
+# This query will fail in analyzer.
+select * from T
+WHERE LOCATE(str1, str2, "en_US")!=0
+--
+QueryStatement [0-52]
+  Query [0-52]
+    Select [0-52]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-15]
+        TablePathExpression [14-15]
+          PathExpression [14-15]
+            Identifier(T) [14-15]
+      WhereClause [16-52]
+        BinaryExpression(!=) [22-52]
+          FunctionCall [22-49]
+            PathExpression [22-28]
+              Identifier(LOCATE) [22-28]
+            PathExpression [29-33]
+              Identifier(str1) [29-33]
+            PathExpression [35-39]
+              Identifier(str2) [35-39]
+            StringLiteral("en_US") [41-48]
+          IntLiteral(0) [51-52]
+--
+SELECT
+  *
+FROM
+  T
+WHERE
+  LOCATE(str1, str2, "en_US") != 0
+==
+
+select * from T
+WHERE col COLLATE "en_US" LIKE expr
+--
+ERROR: Syntax error: Expected end of input but got keyword COLLATE [at 2:11]
+WHERE col COLLATE "en_US" LIKE expr
+          ^

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_STRING_FORMAT_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_STRING_FORMAT_H_
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>

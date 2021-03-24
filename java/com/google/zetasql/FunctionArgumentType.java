@@ -61,6 +61,7 @@ public final class FunctionArgumentType implements Serializable {
     this.numOccurrences = numOccurrences;
     this.options = options;
     this.lambda = null;
+    validate();
   }
 
   public FunctionArgumentType(Type type, FunctionArgumentTypeOptions options, int numOccurrences) {
@@ -69,6 +70,7 @@ public final class FunctionArgumentType implements Serializable {
     this.numOccurrences = numOccurrences;
     this.options = options;
     this.lambda = null;
+    validate();
   }
 
   public FunctionArgumentType(
@@ -79,6 +81,7 @@ public final class FunctionArgumentType implements Serializable {
     this.numOccurrences = numOccurrences;
     this.options = FunctionArgumentTypeOptions.builder().setCardinality(cardinality).build();
     this.lambda = null;
+    validate();
   }
 
   public FunctionArgumentType(Type type, ArgumentCardinality cardinality, int numOccurrences) {
@@ -87,6 +90,7 @@ public final class FunctionArgumentType implements Serializable {
     this.numOccurrences = numOccurrences;
     this.options = FunctionArgumentTypeOptions.builder().setCardinality(cardinality).build();
     this.lambda = null;
+    validate();
   }
 
   public FunctionArgumentType(
@@ -102,6 +106,7 @@ public final class FunctionArgumentType implements Serializable {
     lambda.argumentTypes = lambdaArgumentTypes;
     lambda.bodyType = lambdaBodyType;
     this.lambda = lambda;
+    validate();
   }
 
   public FunctionArgumentType(Type type, ArgumentCardinality cardinality) {
@@ -285,7 +290,8 @@ public final class FunctionArgumentType implements Serializable {
     if (numOccurrences != 0) {
       builder.setNumOccurrences(numOccurrences);
     }
-    FunctionArgumentTypeOptionsProto optionsProto = options.serialize();
+    FunctionArgumentTypeOptionsProto optionsProto =
+        options.serialize(type, fileDescriptorSetsBuilder);
     if (!optionsProto.equals(FunctionArgumentTypeOptionsProto.getDefaultInstance())) {
       builder.setOptions(optionsProto);
     }
@@ -311,9 +317,11 @@ public final class FunctionArgumentType implements Serializable {
     TypeFactory factory = TypeFactory.nonUniqueNames();
 
     if (kind == SignatureArgumentKind.ARG_TYPE_FIXED) {
+      Type argType = factory.deserialize(proto.getType(), pools);
       return new FunctionArgumentType(
-          factory.deserialize(proto.getType(), pools),
-          FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, factory),
+          argType,
+          FunctionArgumentTypeOptions.deserialize(
+              proto.getOptions(), pools, argType, factory),
           proto.getNumOccurrences());
     } else if (kind == SignatureArgumentKind.ARG_TYPE_LAMBDA) {
       List<FunctionArgumentType> argumentTypes = new ArrayList<>();
@@ -326,8 +334,29 @@ public final class FunctionArgumentType implements Serializable {
     } else {
       return new FunctionArgumentType(
           kind,
-          FunctionArgumentTypeOptions.deserialize(proto.getOptions(), pools, factory),
+          FunctionArgumentTypeOptions.deserialize(
+              proto.getOptions(), pools, /*argType=*/ null, factory),
           proto.getNumOccurrences());
+    }
+  }
+
+  private void validate() {
+    if (getOptions().getDefault() != null) {
+      Preconditions.checkArgument(
+          kind != SignatureArgumentKind.ARG_TYPE_RELATION
+              && kind != SignatureArgumentKind.ARG_TYPE_VOID
+              && kind != SignatureArgumentKind.ARG_TYPE_MODEL
+              && kind != SignatureArgumentKind.ARG_TYPE_DESCRIPTOR
+              && kind != SignatureArgumentKind.ARG_TYPE_CONNECTION
+              && kind != SignatureArgumentKind.ARG_TYPE_LAMBDA,
+          "%s argument cannot have a default value",
+          signatureArgumentKindToString(kind));
+      if (type != null) {
+        Preconditions.checkArgument(
+            type.equals(getOptions().getDefault().getType()),
+            "Default value type does not match the argument type: %s vs %s",
+            type, getOptions().getDefault().getType());
+      }
     }
   }
 
@@ -382,7 +411,11 @@ public final class FunctionArgumentType implements Serializable {
     @Nullable
     public abstract Integer getDescriptorResolutionTableOffset();
 
-    public FunctionArgumentTypeOptionsProto serialize() {
+    @Nullable
+    public abstract Value getDefault();
+
+    public FunctionArgumentTypeOptionsProto serialize(
+        @Nullable Type argType, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
       FunctionArgumentTypeOptionsProto.Builder builder =
           FunctionArgumentTypeOptionsProto.newBuilder();
       if (getCardinality() != null) {
@@ -433,12 +466,21 @@ public final class FunctionArgumentType implements Serializable {
       if (getDescriptorResolutionTableOffset() != null) {
         builder.setDescriptorResolutionTableOffset(getDescriptorResolutionTableOffset());
       }
+      if (getDefault() != null) {
+        if (argType == null) {
+          getDefault()
+              .getType()
+              .serialize(builder.getDefaultValueTypeBuilder(), fileDescriptorSetsBuilder);
+        }
+        builder.setDefaultValue(getDefault().getProto());
+      }
       return builder.build();
     }
 
     public static FunctionArgumentTypeOptions deserialize(
         FunctionArgumentTypeOptionsProto proto,
         ImmutableList<? extends DescriptorPool> pools,
+        @Nullable Type argType,
         TypeFactory typeFactory) {
       Builder builder = builder();
       if (proto.hasCardinality()) {
@@ -492,6 +534,14 @@ public final class FunctionArgumentType implements Serializable {
       if (proto.hasDescriptorResolutionTableOffset()) {
         builder.setDescriptorResolutionTableOffset(proto.getDescriptorResolutionTableOffset());
       }
+      if (proto.hasDefaultValue()) {
+        Type type = argType;
+        if (type == null) {
+          Preconditions.checkArgument(proto.hasDefaultValueType());
+          type = typeFactory.deserialize(proto.getDefaultValueType(), pools);
+        }
+        builder.setDefault(Value.deserialize(type, proto.getDefaultValue()));
+      }
       return builder.build();
     }
 
@@ -513,6 +563,9 @@ public final class FunctionArgumentType implements Serializable {
       if (getProcedureArgumentMode() != null
           && getProcedureArgumentMode() != ProcedureArgumentMode.NOT_SET) {
         options.add("procedure_argument_mode: " + getProcedureArgumentMode().name());
+      }
+      if (getDefault() != null) {
+        options.add("default_value: " + getDefault());
       }
 
       if (options.isEmpty()) {
@@ -557,7 +610,20 @@ public final class FunctionArgumentType implements Serializable {
 
       public abstract Builder setDescriptorResolutionTableOffset(Integer offset);
 
-      public abstract FunctionArgumentTypeOptions build();
+      public abstract Builder setDefault(Value defaultValue);
+
+      abstract FunctionArgumentTypeOptions autoBuild();
+
+      public FunctionArgumentTypeOptions build() {
+        FunctionArgumentTypeOptions options = autoBuild();
+        if (options.getDefault() != null) {
+          Preconditions.checkArgument(
+              options.getCardinality() == ArgumentCardinality.OPTIONAL,
+              "Default value cannot be applied to a %s argument",
+              options.getCardinality());
+        }
+        return options;
+      }
     }
   }
 }

@@ -1,0 +1,123 @@
+ALTER table foo alter constraint bar;
+--
+ERROR: Syntax error: Expected keyword ENFORCED or keyword NOT or keyword SET but got ";" [at 1:37]
+ALTER table foo alter constraint bar;
+                                    ^
+
+==
+
+ALTER table foo alter constraint bar enforced;
+--
+AlterTableStatement [0-45]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-45]
+    AlterConstraintEnforcementAction [16-45]
+      Identifier(bar) [33-36]
+
+--
+ALTER TABLE foo ALTER CONSTRAINT bar ENFORCED
+
+==
+
+ALTER table foo alter constraint if exists bar enforced;
+--
+AlterTableStatement [0-55]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-55]
+    AlterConstraintEnforcementAction(is_if_exists) [16-55]
+      Identifier(bar) [43-46]
+
+--
+ALTER TABLE foo ALTER CONSTRAINT IF EXISTS bar ENFORCED
+
+==
+
+ALTER table foo alter constraint bar not enforced;
+--
+AlterTableStatement [0-49]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-49]
+    AlterConstraintEnforcementAction [16-49]
+      Identifier(bar) [33-36]
+
+--
+ALTER TABLE foo ALTER CONSTRAINT bar NOT ENFORCED
+
+==
+
+ALTER table foo alter constraint bar set options ();
+--
+AlterTableStatement [0-51]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-51]
+    AlterConstraintSetOptionsAction [16-51]
+      Identifier(bar) [33-36]
+      OptionsList [49-51]
+
+--
+ALTER TABLE foo ALTER CONSTRAINT bar SET OPTIONS()
+
+==
+
+ALTER table foo alter constraint if exists bar set options (opt_a = 1);
+--
+AlterTableStatement [0-70]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-70]
+    AlterConstraintSetOptionsAction(is_if_exists) [16-70]
+      Identifier(bar) [43-46]
+      OptionsList [59-70]
+        OptionsEntry [60-69]
+          Identifier(opt_a) [60-65]
+          IntLiteral(1) [68-69]
+
+--
+ALTER TABLE foo ALTER CONSTRAINT IF EXISTS bar SET OPTIONS(opt_a = 1)
+
+==
+
+ALTER table foo alter constraint bar set options (opt_a = 1, opt_b = 2);
+--
+AlterTableStatement [0-71]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-71]
+    AlterConstraintSetOptionsAction [16-71]
+      Identifier(bar) [33-36]
+      OptionsList [49-71]
+        OptionsEntry [50-59]
+          Identifier(opt_a) [50-55]
+          IntLiteral(1) [58-59]
+        OptionsEntry [61-70]
+          Identifier(opt_b) [61-66]
+          IntLiteral(2) [69-70]
+--
+ALTER TABLE foo ALTER CONSTRAINT bar SET OPTIONS(opt_a = 1, opt_b = 2)
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-123.bar` [at 1:13]
+ALTER TABLE foo-123.bar ALTER CONSTRAINT baz ENFORCED
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-53]
+  PathExpression [12-23]
+    Identifier(`foo-123`) [12-23]
+    Identifier(bar) [12-23]
+  AlterActionList [24-53]
+    AlterConstraintEnforcementAction [24-53]
+      Identifier(baz) [41-44]
+--
+ALTER TABLE `foo-123`.bar ALTER CONSTRAINT baz ENFORCED

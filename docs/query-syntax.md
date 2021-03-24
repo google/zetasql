@@ -2925,7 +2925,7 @@ Results:
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
-[flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
+[flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 [flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties

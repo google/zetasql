@@ -151,11 +151,23 @@ zetasql_base::StatusOr<std::string> ArrayType::TypeNameWithParameters(
 }
 
 zetasql_base::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(
-    const std::vector<TypeParameterValue>& resolved_type_parameters,
+    const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   return MakeSqlError() << ShortTypeName(mode)
                         << " type cannot have type parameters by itself, it "
                            "can only have type parameters on its element type";
+}
+
+absl::Status ArrayType::ValidateResolvedTypeParameters(
+    const TypeParameters& type_parameters, ProductMode mode) const {
+  // type_parameters must be empty or has the one child.
+  if (type_parameters.IsEmpty()) {
+    return absl::OkStatus();
+  }
+  ZETASQL_RET_CHECK(type_parameters.IsStructOrArrayParameters());
+  ZETASQL_RET_CHECK_EQ(type_parameters.num_children(), 1);
+  return element_type_->ValidateResolvedTypeParameters(type_parameters.child(0),
+                                                       mode);
 }
 
 bool ArrayType::EqualsImpl(const ArrayType* const type1,

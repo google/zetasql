@@ -1,0 +1,222 @@
+# ALTER TABLE to set column type.
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING;
+--
+AlterTableStatement [0-53]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-53]
+    AlterColumnTypeAction [16-53]
+      Identifier(bar) [29-32]
+      SimpleColumnSchema [47-53]
+        PathExpression [47-53]
+          Identifier(STRING) [47-53]
+--
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING
+
+==
+
+# ALTER TABLE to set column type with IF EXISTS.
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING;
+--
+AlterTableStatement [0-63]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-63]
+    AlterColumnTypeAction(is_if_exists) [16-63]
+      Identifier(bar) [39-42]
+      SimpleColumnSchema [57-63]
+        PathExpression [57-63]
+          Identifier(STRING) [57-63]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING
+
+==
+
+# ALTER TABLE to set column type.
+ALTER TABLE foo ALTER COLUMN `CAST` SET DATA TYPE STRING;
+--
+AlterTableStatement [0-56]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-56]
+    AlterColumnTypeAction [16-56]
+      Identifier(`CAST`) [29-35]
+      SimpleColumnSchema [50-56]
+        PathExpression [50-56]
+          Identifier(STRING) [50-56]
+--
+ALTER TABLE foo ALTER COLUMN `CAST` SET DATA TYPE STRING
+
+==
+
+ALTER TABLE foo ALTER COLUMN CAST SET DATA TYPE STRING;
+--
+ERROR: Syntax error: Unexpected keyword CAST [at 1:30]
+ALTER TABLE foo ALTER COLUMN CAST SET DATA TYPE STRING;
+                             ^
+
+==
+
+# ALTER TABLE to set invalid column type.
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE (STRING);
+--
+ERROR: Syntax error: Unexpected "(" [at 1:48]
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE (STRING);
+                                               ^
+
+==
+
+ALTER TABLE foo ALTER COLUMN bar SET TYPE STRING;
+--
+ERROR: Syntax error: Expected keyword DATA or keyword OPTIONS but got keyword TYPE [at 1:38]
+ALTER TABLE foo ALTER COLUMN bar SET TYPE STRING;
+                                     ^
+
+==
+
+ALTER TABLE foo ALTER COLUMN bar SET DATA STRING;
+--
+ERROR: Syntax error: Expected keyword TYPE but got identifier "STRING" [at 1:43]
+ALTER TABLE foo ALTER COLUMN bar SET DATA STRING;
+                                          ^
+
+==
+
+ALTER TABLE foo ALTER COLUMN EXISTS bar SET DATA TYPE STRING;
+--
+ERROR: Syntax error: Unexpected keyword EXISTS [at 1:30]
+ALTER TABLE foo ALTER COLUMN EXISTS bar SET DATA TYPE STRING;
+                             ^
+
+==
+
+ALTER TABLE foo ALTER COLUMN IF bar SET DATA TYPE STRING;
+--
+ERROR: Syntax error: Expected keyword EXISTS but got identifier "bar" [at 1:33]
+ALTER TABLE foo ALTER COLUMN IF bar SET DATA TYPE STRING;
+                                ^
+
+==
+
+ALTER TABLE foo ALTER COLUMN IF NOT EXISTS bar SET DATA TYPE STRING;
+--
+ERROR: Syntax error: Expected keyword EXISTS but got keyword NOT [at 1:33]
+ALTER TABLE foo ALTER COLUMN IF NOT EXISTS bar SET DATA TYPE STRING;
+                                ^
+
+==
+
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE 42;
+--
+ERROR: Syntax error: Unexpected integer literal "42" [at 1:48]
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE 42;
+                                               ^
+
+==
+
+# ALTER TABLE to add empty options.
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS ();
+--
+AlterTableStatement [0-47]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-47]
+    AlterColumnOptionsAction [16-47]
+      Identifier(bar) [29-32]
+      OptionsList [45-47]
+
+--
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS()
+
+==
+
+# ALTER TABLE to add options.
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (foo="bar");
+--
+AlterTableStatement [0-56]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-56]
+    AlterColumnOptionsAction [16-56]
+      Identifier(bar) [29-32]
+      OptionsList [45-56]
+        OptionsEntry [46-55]
+          Identifier(foo) [46-49]
+          StringLiteral("bar") [50-55]
+
+--
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = "bar")
+
+==
+
+# ALTER TABLE to add options with IF EXISTS.
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET OPTIONS (foo="bar");
+--
+AlterTableStatement [0-66]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-66]
+    AlterColumnOptionsAction(is_if_exists) [16-66]
+      Identifier(bar) [39-42]
+      OptionsList [55-66]
+        OptionsEntry [56-65]
+          Identifier(foo) [56-59]
+          StringLiteral("bar") [60-65]
+
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET OPTIONS(foo = "bar")
+
+==
+
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (foo=bar);
+--
+AlterTableStatement [0-54]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-54]
+    AlterColumnOptionsAction [16-54]
+      Identifier(bar) [29-32]
+      OptionsList [45-54]
+        OptionsEntry [46-53]
+          Identifier(foo) [46-49]
+          PathExpression [50-53]
+            Identifier(bar) [50-53]
+--
+ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = bar)
+
+==
+
+ALTER TABLE foo ALTER COLUMN bar DROP NOT NULL;
+--
+AlterTableStatement [0-46]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-46]
+    AlterColumnDropNotNullAction [16-46]
+      Identifier(bar) [29-32]
+--
+ALTER TABLE foo ALTER COLUMN bar DROP NOT NULL
+==
+
+ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP NOT NULL;
+--
+AlterTableStatement(is_if_exists) [0-56]
+  PathExpression [22-25]
+    Identifier(foo) [22-25]
+  AlterActionList [26-56]
+    AlterColumnDropNotNullAction [26-56]
+      Identifier(bar) [39-42]
+--
+ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP NOT NULL
+==
+
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP NOT NULL;
+--
+AlterTableStatement [0-56]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-56]
+    AlterColumnDropNotNullAction(is_if_exists) [16-56]
+      Identifier(bar) [39-42]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP NOT NULL

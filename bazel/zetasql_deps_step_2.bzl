@@ -106,10 +106,10 @@ cc_proto_library(
         #
         http_archive(
             name = "com_google_absl",
-            # Commit from 2020-07-01
-            url = "https://github.com/abseil/abseil-cpp/archive/81f34df8347a73c617f244f49cb916238857dc34.tar.gz",
-            sha256 = "89b1c570dd59cebf5127ff96b9b46ae8a7fe352cab4f9198e20dc7749ab8aa16",
-            strip_prefix = "abseil-cpp-81f34df8347a73c617f244f49cb916238857dc34",
+            # Commit from 2021-02-23
+            url = "https://github.com/abseil/abseil-cpp/archive/a50ae369a30f99f79d7559002aba3413dac1bd48.tar.gz",
+            sha256 = "be2a9d7ea7ee15f9317b57beff37e8ffb67418fb0df64592366b04c8618c2584",
+            strip_prefix = "abseil-cpp-a50ae369a30f99f79d7559002aba3413dac1bd48",
         )
 
     # Abseil (Python)
@@ -259,9 +259,9 @@ cc_proto_library(
         http_archive(
             name = "com_google_file_based_test_driver",
             # Commit from 2020-11-24
-            url = "https://github.com/google/file-based-test-driver/archive/5074f48f03c6a892edafab55410addc43f4a0546.tar.gz",
-            sha256 = "955cdee45433dd608bfde47d4d1dd6f47decf739a4c54cf4eecc11896dcbb374",
-            strip_prefix = "file-based-test-driver-5074f48f03c6a892edafab55410addc43f4a0546",
+            url = "https://github.com/google/file-based-test-driver/archive/77e24638ad40ec67dcbf6e37fd57e20c5d98976e.tar.gz",
+            sha256 = "fdb5d0138cc013b8b8d21b0d1827a1296621f1bfa599ef889a69eeed73a6f24b",
+            strip_prefix = "file-based-test-driver-77e24638ad40ec67dcbf6e37fd57e20c5d98976e",
         )
 
     # gRPC
@@ -467,10 +467,10 @@ cc_proto_library(
     if not native.existing_rule("junit_junit"):
         jvm_maven_import_external(
             name = "junit_junit",
-            artifact = "junit:junit:4.12",
-            tags = ["maven_coordinates=junit:junit:4.12"],
+            artifact = "junit:junit:4.13",
+            tags = ["maven_coordinates=junit:junit:4.13"],
             server_urls = ["https://repo1.maven.org/maven2"],
-            artifact_sha256 = "59721f0805e223d84b90677887d9ff567dc534d7c502ca903c0c2b17f05c116a",
+            artifact_sha256 = "4b8532f63bdc0e0661507f947eb324a954d1dbac631ad19c8aa9a00feed1d863",
             licenses = ["notice"],  # EPL 1.0
         )
 
@@ -857,10 +857,22 @@ alias(
     ##########################################################################
 
     all_content = """filegroup(name = "all", srcs = glob(["**"]), visibility = ["//visibility:public"])"""
+    bison_build_file_content = all_content + """
+filegroup(
+    name = "bison_runtime_data",
+    srcs = glob(["data/**/*"]),
+    output_licenses = ["unencumbered"],
+    path = "data",
+    visibility = ["//visibility:public"],
+
+)
+exports_files(["data"])
+
+"""
 
     http_archive(
         name = "bison",
-        build_file_content = all_content,
+        build_file_content = bison_build_file_content,
         strip_prefix = "bison-3.6.2",
         sha256 = "e28ed3aad934de2d1df68be209ac0b454f7b6d3c3d6d01126e5cd2cbadba089a",
         urls = [

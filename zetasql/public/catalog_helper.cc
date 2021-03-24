@@ -16,6 +16,7 @@
 
 #include "zetasql/public/catalog_helper.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 

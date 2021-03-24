@@ -97,6 +97,9 @@ class TableNameResolver {
   absl::Status FindInCreateTableFunctionStatement(
       const ASTCreateTableFunctionStatement* statement);
 
+  absl::Status FindInCloneDataStatement(
+      const ASTCloneDataStatement* statement);
+
   absl::Status FindInExportDataStatement(
       const ASTExportDataStatement* statement);
 
@@ -416,6 +419,14 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CLONE_DATA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CLONE_DATA_STMT)) {
+        return FindInCloneDataStatement(
+            statement->GetAs<ASTCloneDataStatement>());
+      }
+      break;
+
     case AST_EXPORT_DATA_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_EXPORT_DATA_STMT)) {
@@ -723,6 +734,14 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         return absl::OkStatus();
       }
       break;
+    case AST_ANALYZE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ANALYZE_STMT)) {
+        return FindInExpressionsUnder(statement->GetAs<ASTAnalyzeStatement>()
+                                          ->table_and_column_info_list(),
+                                      /*visible_aliases=*/{});
+      }
+      break;
     case AST_ASSERT_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_ASSERT_STMT)) {
@@ -859,6 +878,18 @@ absl::Status TableNameResolver::FindInCreateTableFunctionStatement(
   }
   ZETASQL_RETURN_IF_ERROR(FindInQuery(statement->query(), /*visible_aliases=*/{}));
   local_table_aliases_.clear();
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInCloneDataStatement(
+    const ASTCloneDataStatement* statement) {
+  zetasql_base::InsertIfNotPresent(table_names_,
+                          statement->target_path()->ToIdentifierVector());
+  for (const ASTCloneDataSource* data_source :
+       statement->data_source_list()->data_sources()) {
+    zetasql_base::InsertIfNotPresent(table_names_,
+                            data_source->path_expr()->ToIdentifierVector());
+  }
   return absl::OkStatus();
 }
 
@@ -1191,6 +1222,10 @@ absl::Status TableNameResolver::FindInTVF(
                                   local_visible_aliases));
       }
     }
+  }
+  if (tvf->alias() != nullptr) {
+    local_visible_aliases->insert(
+        absl::AsciiStrToLower(tvf->alias()->GetAsString()));
   }
   return absl::OkStatus();
 }

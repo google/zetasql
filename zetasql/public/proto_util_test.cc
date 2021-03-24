@@ -16,6 +16,7 @@
 
 #include "zetasql/public/proto_util.h"
 
+#include <cstdint>
 #include <string>
 #include <utility>
 

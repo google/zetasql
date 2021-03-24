@@ -183,15 +183,20 @@ def ToFile(output_filename, data):
 
 
 def main(argv):
-  if len(argv) != 5:
+  if len(argv) != 6:
     raise Exception(
-        'Usage: %s <input/path/to/parse_tree.h> <output/path/to/parse_tree_visitor.h> <output/path/to/parse_tree_decls.h> <output/path/to/parse_tree_accept_methods.inc>'
+        'Usage: %s <input/path/to/parse_tree_generated.h> <input/path/to/parse_tree_manual.h> <output/path/to/parse_tree_visitor.h> <output/path/to/parse_tree_decls.h> <output/path/to/parse_tree_accept_methods.inc>'
     )
 
-  (concrete_classes, abstract_classes) = GetClasses(argv[1])
-  ToFile(argv[2], GenerateParseTreeVisitor(concrete_classes))
-  ToFile(argv[3], GenerateParseTreeDecls(concrete_classes, abstract_classes))
-  ToFile(argv[4], GeneerateParseTreeAcceptMethods(concrete_classes))
+  # Classes defined in parse_tree_generated.h
+  (concrete_classes1, abstract_classes1) = GetClasses(argv[1])
+  # Classes defined in parse_tree_manual.h
+  (concrete_classes2, abstract_classes2) = GetClasses(argv[2])
+  concrete_classes = concrete_classes1 + concrete_classes2
+  abstract_classes = ['ASTNode'] + abstract_classes1 + abstract_classes2
+  ToFile(argv[3], GenerateParseTreeVisitor(concrete_classes))
+  ToFile(argv[4], GenerateParseTreeDecls(concrete_classes, abstract_classes))
+  ToFile(argv[5], GeneerateParseTreeAcceptMethods(concrete_classes))
 
 
 if __name__ == '__main__':

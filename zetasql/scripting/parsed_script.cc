@@ -16,6 +16,7 @@
 
 #include "zetasql/scripting/parsed_script.h"
 
+#include <cstdint>
 #include <stack>
 
 #include "zetasql/common/errors.h"
@@ -267,7 +268,9 @@ class FindStatementFromPositionVisitor : public NonRecursiveParseTreeVisitor {
     if (match_ != nullptr) {
       return VisitResult::Empty();
     }
-    if (node->IsStatement() || node->node_kind() == AST_ELSEIF_CLAUSE) {
+    if (node->IsStatement()
+        || node->node_kind() == AST_ELSEIF_CLAUSE
+        || node->node_kind() == AST_UNTIL_CLAUSE) {
       const ParseLocationRange& stmt_range = node->GetParseLocationRange();
       if (stmt_range.start() == location_) {
         match_ = node;
@@ -491,8 +494,8 @@ std::pair<int64_t, int64_t> ParsedScript::GetPositionalParameters(
 
   int64_t start = lower->second;
   int64_t end = upper == positional_query_parameters_.end()
-                  ? positional_query_parameters_.size()
-                  : upper->second;
+                    ? positional_query_parameters_.size()
+                    : upper->second;
   return {start, end - start};
 }
 

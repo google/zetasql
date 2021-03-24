@@ -1,0 +1,164 @@
+select 1 from unnest(5)
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+      FromClause [9-23]
+        TablePathExpression [14-23]
+          UnnestExpression [14-23]
+            IntLiteral(5) [21-22]
+--
+SELECT
+  1
+FROM
+  UNNEST(5)
+==
+
+select unnest(x)
+--
+ERROR: Syntax error: Unexpected keyword UNNEST [at 1:8]
+select unnest(x)
+       ^
+==
+
+select x from unnest(y+z) as k with offset pos
+--
+QueryStatement [0-46]
+  Query [0-46]
+    Select [0-46]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+      FromClause [9-46]
+        TablePathExpression [14-46]
+          UnnestExpression [14-25]
+            BinaryExpression(+) [21-24]
+              PathExpression [21-22]
+                Identifier(y) [21-22]
+              PathExpression [23-24]
+                Identifier(z) [23-24]
+          Alias [26-30]
+            Identifier(k) [29-30]
+          WithOffset [31-46]
+            Alias [43-46]
+              Identifier(pos) [43-46]
+--
+SELECT
+  x
+FROM
+  UNNEST(y + z) AS k WITH OFFSET AS pos
+==
+
+# ZetaSQL returns an error message to help the user figure out how to update
+# the query in the case of forgotten parentheses for scalar subqueries in
+# FROM UNNEST.
+select x from unnest(select y+z) as k with offset pos
+--
+ERROR: The argument to UNNEST is an expression, not a query; to use a query as an expression, the query must be wrapped with additional parentheses to make it a scalar subquery expression [at 1:22]
+select x from unnest(select y+z) as k with offset pos
+                     ^
+==
+
+select x from unnest()
+--
+ERROR: Syntax error: Unexpected ")" [at 1:22]
+select x from unnest()
+                     ^
+==
+
+select x from unnest(@param) join unnest(null) using (k)
+--
+QueryStatement [0-56]
+  Query [0-56]
+    Select [0-56]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+      FromClause [9-56]
+        Join [29-56]
+          TablePathExpression [14-28]
+            UnnestExpression [14-28]
+              ParameterExpr [21-27]
+                Identifier(param) [22-27]
+          TablePathExpression [34-46]
+            UnnestExpression [34-46]
+              NullLiteral(null) [41-45]
+          UsingClause [47-56]
+            Identifier(k) [54-55]
+--
+SELECT
+  x
+FROM
+  UNNEST(@param)
+  JOIN
+  UNNEST(null)
+  USING(k)
+==
+
+select x from unnest(@@sysvar) join unnest(null) using (k)
+--
+QueryStatement [0-58]
+  Query [0-58]
+    Select [0-58]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          PathExpression [7-8]
+            Identifier(x) [7-8]
+      FromClause [9-58]
+        Join [31-58]
+          TablePathExpression [14-30]
+            UnnestExpression [14-30]
+              SystemVariableExpr [21-29]
+                PathExpression [23-29]
+                  Identifier(sysvar) [23-29]
+          TablePathExpression [36-48]
+            UnnestExpression [36-48]
+              NullLiteral(null) [43-47]
+          UsingClause [49-58]
+            Identifier(k) [56-57]
+
+--
+SELECT
+  x
+FROM
+  UNNEST(@@sysvar)
+  JOIN
+  UNNEST(null)
+  USING(k)
+==
+
+# UNNEST is not a function.
+select unnest(5) from x
+--
+ERROR: Syntax error: Unexpected keyword UNNEST [at 1:8]
+select unnest(5) from x
+       ^
+==
+
+# Nested UNNEST does not make sense.  The error points at the inner UNNEST.
+select * from unnest(unnest(y))
+--
+ERROR: Syntax error: Unexpected keyword UNNEST [at 1:22]
+select * from unnest(unnest(y))
+                     ^
+==
+
+select 1
+from unnest(unnest(a)[offset(1)])
+--
+ERROR: Syntax error: Unexpected keyword UNNEST [at 2:13]
+from unnest(unnest(a)[offset(1)])
+            ^
+==
+
+select 1
+from unnest(unnest(a.b).(c))
+--
+ERROR: Syntax error: Unexpected keyword UNNEST [at 2:13]
+from unnest(unnest(a.b).(c))
+            ^

@@ -1,0 +1,245 @@
+SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
+--
+ALTERNATION GROUP: NOT
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-31]
+        SelectColumn [7-31]
+          BinaryExpression(IS NOT DISTINCT FROM) [7-31]
+            IntLiteral(1) [7-8]
+            IntLiteral(2) [30-31]
+--
+SELECT
+  1 IS NOT DISTINCT FROM 2
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-28]
+        SelectColumn [7-28]
+          BinaryExpression(IS DISTINCT FROM) [7-28]
+            IntLiteral(1) [7-8]
+            IntLiteral(2) [27-28]
+--
+SELECT
+  1 IS DISTINCT FROM 2
+==
+
+# + vs. DISTINCT
+select 1 + 2 is {{NOT|}} distinct from NULL;
+--
+ALTERNATION GROUP: NOT
+--
+QueryStatement [0-38]
+  Query [0-38]
+    Select [0-38]
+      SelectList [7-38]
+        SelectColumn [7-38]
+          BinaryExpression(IS NOT DISTINCT FROM) [7-38]
+            BinaryExpression(+) [7-12]
+              IntLiteral(1) [7-8]
+              IntLiteral(2) [11-12]
+            NullLiteral(NULL) [34-38]
+--
+SELECT
+  1 + 2 IS NOT DISTINCT FROM NULL
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-35]
+  Query [0-35]
+    Select [0-35]
+      SelectList [7-35]
+        SelectColumn [7-35]
+          BinaryExpression(IS DISTINCT FROM) [7-35]
+            BinaryExpression(+) [7-12]
+              IntLiteral(1) [7-8]
+              IntLiteral(2) [11-12]
+            NullLiteral(NULL) [31-35]
+--
+SELECT
+  1 + 2 IS DISTINCT FROM NULL
+==
+
+# < vs. DISTINCT
+select 1 < 2 is {{NOT|}} distinct from NULL;
+--
+ALTERNATION GROUP: NOT
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:14]
+select 1 < 2 is NOT distinct from NULL;
+             ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:14]
+select 1 < 2 is  distinct from NULL;
+             ^
+==
+
+# BETWEEN vs. DISTINCT
+select 1 BETWEEN 2 AND 3 is {{NOT|}} distinct from NULL;
+--
+ALTERNATION GROUP: NOT
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:26]
+select 1 BETWEEN 2 AND 3 is NOT distinct from NULL;
+                         ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:26]
+select 1 BETWEEN 2 AND 3 is  distinct from NULL;
+                         ^
+==
+
+# Complex lhs/rhs expressions
+SELECT 1 + 2 * 3 IS {{NOT|}} DISTINCT FROM (4 * 5 + 6 BETWEEN 7 AND 8);
+--
+ALTERNATION GROUP: NOT
+--
+QueryStatement [0-65]
+  Query [0-65]
+    Select [0-65]
+      SelectList [7-65]
+        SelectColumn [7-65]
+          BinaryExpression(IS NOT DISTINCT FROM) [7-65]
+            BinaryExpression(+) [7-16]
+              IntLiteral(1) [7-8]
+              BinaryExpression(*) [11-16]
+                IntLiteral(2) [11-12]
+                IntLiteral(3) [15-16]
+            BetweenExpression(BETWEEN) [49-64]
+              BinaryExpression(+) [39-48]
+                BinaryExpression(*) [39-44]
+                  IntLiteral(4) [39-40]
+                  IntLiteral(5) [43-44]
+                IntLiteral(6) [47-48]
+              IntLiteral(7) [57-58]
+              IntLiteral(8) [63-64]
+--
+SELECT
+  1 + 2 * 3 IS NOT DISTINCT FROM(4 * 5 + 6 BETWEEN 7 AND 8)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-62]
+        SelectColumn [7-62]
+          BinaryExpression(IS DISTINCT FROM) [7-62]
+            BinaryExpression(+) [7-16]
+              IntLiteral(1) [7-8]
+              BinaryExpression(*) [11-16]
+                IntLiteral(2) [11-12]
+                IntLiteral(3) [15-16]
+            BetweenExpression(BETWEEN) [46-61]
+              BinaryExpression(+) [36-45]
+                BinaryExpression(*) [36-41]
+                  IntLiteral(4) [36-37]
+                  IntLiteral(5) [40-41]
+                IntLiteral(6) [44-45]
+              IntLiteral(7) [54-55]
+              IntLiteral(8) [60-61]
+--
+SELECT
+  1 + 2 * 3 IS DISTINCT FROM(4 * 5 + 6 BETWEEN 7 AND 8)
+==
+
+# Syntax error
+SELECT 1 NOT DISTINCT FROM 2;
+--
+ERROR: Syntax error: Expected keyword BETWEEN or keyword IN or keyword LIKE but got keyword DISTINCT [at 1:14]
+SELECT 1 NOT DISTINCT FROM 2;
+             ^
+==
+
+# Syntax error
+SELECT 1 IS NOT DISTINCT 2;
+--
+ERROR: Syntax error: Expected keyword FROM but got integer literal "2" [at 1:26]
+SELECT 1 IS NOT DISTINCT 2;
+                         ^
+==
+
+1 IS DISTINCT FROM 2 IS TRUE;
+--
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:1]
+1 IS DISTINCT FROM 2 IS TRUE;
+^
+==
+
+# IS DISTINCT FROM as lhs of IS
+SELECT (1 IS DISTINCT FROM 2) IS TRUE;
+--
+QueryStatement [0-37]
+  Query [0-37]
+    Select [0-37]
+      SelectList [7-37]
+        SelectColumn [7-37]
+          BinaryExpression(IS) [7-37]
+            BinaryExpression(IS DISTINCT FROM) [8-28]
+              IntLiteral(1) [8-9]
+              IntLiteral(2) [27-28]
+            BooleanLiteral(TRUE) [33-37]
+--
+SELECT
+  (1 IS DISTINCT FROM 2) IS TRUE
+==
+
+# IS DISTINCT FROM as lhs and rhs of IS DISTINCT FROM
+SELECT (1 IS DISTINCT FROM 2) IS DISTINCT FROM (3 IS DISTINCT FROM 4);
+--
+QueryStatement [0-69]
+  Query [0-69]
+    Select [0-69]
+      SelectList [7-69]
+        SelectColumn [7-69]
+          BinaryExpression(IS DISTINCT FROM) [7-69]
+            BinaryExpression(IS DISTINCT FROM) [8-28]
+              IntLiteral(1) [8-9]
+              IntLiteral(2) [27-28]
+            BinaryExpression(IS DISTINCT FROM) [48-68]
+              IntLiteral(3) [48-49]
+              IntLiteral(4) [67-68]
+--
+SELECT
+  (1 IS DISTINCT FROM 2) IS DISTINCT FROM(3 IS DISTINCT FROM 4)
+==
+
+# IS DISTINCT FROM as lhs and rhs of IS DISTINCT FROM, no parens around rhs
+SELECT (1 IS DISTINCT FROM 2) IS DISTINCT FROM 3 IS DISTINCT FROM 4;
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:50]
+SELECT (1 IS DISTINCT FROM 2) IS DISTINCT FROM 3 IS DISTINCT FROM 4;
+                                                 ^
+==
+
+# IS DISTINCT FROM as lhs and rhs of IS DISTINCT FROM, no parens around lhs
+SELECT 1 IS DISTINCT FROM 2 IS DISTINCT FROM (3 IS DISTINCT FROM 4);
+--
+ERROR: Syntax error: Unexpected keyword IS [at 1:29]
+SELECT 1 IS DISTINCT FROM 2 IS DISTINCT FROM (3 IS DISTINCT FROM 4);
+                            ^
+==
+
+# IS DISTRICT FROM - feature disabled
+[no_allow_is_distinct_from]
+SELECT 1 IS {{NOT|}} DISTINCT FROM 2;
+--
+ALTERNATION GROUP: NOT
+--
+ERROR: IS DISTINCT FROM is not supported [at 1:17]
+SELECT 1 IS NOT DISTINCT FROM 2;
+                ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: IS DISTINCT FROM is not supported [at 1:10]
+SELECT 1 IS  DISTINCT FROM 2;
+         ^

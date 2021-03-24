@@ -22,6 +22,7 @@
 #include "zetasql/analyzer/rewriters/array_functions_rewriter.h"
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
+#include "zetasql/analyzer/rewriters/pivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/rewriters/unpivot_rewriter.h"
 
@@ -31,7 +32,7 @@ const std::vector<const Rewriter*>& AllRewriters() {
   static const auto* const kRewriters = new std::vector<const Rewriter*>{
       GetAnonymizationRewriter(), GetArrayFunctionsRewriter(),
       GetFlattenRewriter(),       GetMapFunctionRewriter(),
-      GetUnpivotRewriter(),
+      GetPivotRewriter(),         GetUnpivotRewriter(),
   };
   return *kRewriters;
 }

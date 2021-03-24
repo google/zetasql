@@ -196,7 +196,8 @@ std::ostream& operator<<(std::ostream& out, const QueryParamsWithResult& p) {
   std::vector<std::string> arguments;
   arguments.reserve(p.params().size());
   for (int i = 0; i < p.params().size(); ++i) {
-    arguments.push_back(p.param(i).FullDebugString());
+    std::string param_string = p.param(i).FullDebugString();
+    arguments.push_back(param_string);
   }
 
   out << "QueryParamsWithResult[params: {" << absl::StrJoin(arguments, ", ")

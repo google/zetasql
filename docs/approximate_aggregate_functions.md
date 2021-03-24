@@ -258,6 +258,8 @@ If the `weight` input is negative or `NaN`, this function returns an error.
 
 <li>NUMERIC</li>
 
+<li>BIGNUMERIC</li>
+
 <li>DOUBLE</li>
 </ul>
 

@@ -1,0 +1,1029 @@
+# This file contains test cases to test joins with consecutive ON/USING clauses
+
+# Simple test case
+select * from a join b join c join d on cond1 on cond2 on cond3;
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-63]
+        Join [16-63]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [23-54]
+            TablePathExpression [21-22]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            Join [30-45]
+              TablePathExpression [28-29]
+                PathExpression [28-29]
+                  Identifier(c) [28-29]
+              TablePathExpression [35-36]
+                PathExpression [35-36]
+                  Identifier(d) [35-36]
+              OnClause [37-45]
+                PathExpression [40-45]
+                  Identifier(cond1) [40-45]
+            OnClause [46-54]
+              PathExpression [49-54]
+                Identifier(cond2) [49-54]
+          OnClause [55-63]
+            PathExpression [58-63]
+              Identifier(cond3) [58-63]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  JOIN
+  c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+  ON cond3
+==
+
+# Test that hints are preserved during transformation
+select * from a HASH join @{h1=v1} b join c on cond1 on cond2;
+--
+QueryStatement [0-61]
+  Query [0-61]
+    Select [0-61]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-61]
+        Join(HASH) [16-61]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Hint [26-34]
+            HintEntry [28-33]
+              Identifier(h1) [28-30]
+              PathExpression [31-33]
+                Identifier(v1) [31-33]
+          Join [37-52]
+            TablePathExpression [35-36]
+              PathExpression [35-36]
+                Identifier(b) [35-36]
+            TablePathExpression [42-43]
+              PathExpression [42-43]
+                Identifier(c) [42-43]
+            OnClause [44-52]
+              PathExpression [47-52]
+                Identifier(cond1) [47-52]
+          OnClause [53-61]
+            PathExpression [56-61]
+              Identifier(cond2) [56-61]
+--
+SELECT
+  *
+FROM
+  a
+  HASH JOIN
+  @{ h1 = v1 } b
+  JOIN
+  c
+  ON cond1
+  ON cond2
+==
+
+# Test that join types are preserved during transformation
+select * from a left join b full outer join c on cond1 on cond2;
+--
+QueryStatement [0-63]
+  Query [0-63]
+    Select [0-63]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-63]
+        Join(LEFT) [16-63]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join(FULL) [28-54]
+            TablePathExpression [26-27]
+              PathExpression [26-27]
+                Identifier(b) [26-27]
+            TablePathExpression [44-45]
+              PathExpression [44-45]
+                Identifier(c) [44-45]
+            OnClause [46-54]
+              PathExpression [49-54]
+                Identifier(cond1) [49-54]
+          OnClause [55-63]
+            PathExpression [58-63]
+              Identifier(cond2) [58-63]
+--
+SELECT
+  *
+FROM
+  a
+  LEFT JOIN
+  b
+  FULL JOIN
+  c
+  ON cond1
+  ON cond2
+==
+
+# Test transformation of expressions containing CROSS JOIN
+select * from a join b cross join c join d on cond1 on cond2
+--
+QueryStatement [0-60]
+  Query [0-60]
+    Select [0-60]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-60]
+        Join [16-60]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [36-51]
+            Join(CROSS) [23-35]
+              TablePathExpression [21-22]
+                PathExpression [21-22]
+                  Identifier(b) [21-22]
+              TablePathExpression [34-35]
+                PathExpression [34-35]
+                  Identifier(c) [34-35]
+            TablePathExpression [41-42]
+              PathExpression [41-42]
+                Identifier(d) [41-42]
+            OnClause [43-51]
+              PathExpression [46-51]
+                Identifier(cond1) [46-51]
+          OnClause [52-60]
+            PathExpression [55-60]
+              Identifier(cond2) [55-60]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  CROSS JOIN
+  c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+==
+
+# Expressions containing multiple CROSS JOINs
+select * from a join b cross join c cross join d join e on cond1 on cond2
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-73]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-73]
+        Join [16-73]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [49-64]
+            Join(CROSS) [36-48]
+              Join(CROSS) [23-35]
+                TablePathExpression [21-22]
+                  PathExpression [21-22]
+                    Identifier(b) [21-22]
+                TablePathExpression [34-35]
+                  PathExpression [34-35]
+                    Identifier(c) [34-35]
+              TablePathExpression [47-48]
+                PathExpression [47-48]
+                  Identifier(d) [47-48]
+            TablePathExpression [54-55]
+              PathExpression [54-55]
+                Identifier(e) [54-55]
+            OnClause [56-64]
+              PathExpression [59-64]
+                Identifier(cond1) [59-64]
+          OnClause [65-73]
+            PathExpression [68-73]
+              Identifier(cond2) [68-73]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  CROSS JOIN
+  c
+  CROSS JOIN
+  d
+  JOIN
+  e
+  ON cond1
+  ON cond2
+==
+
+# Test expression with NATURAL JOIN
+select * from a join b natural join c join d on cond1 on cond2
+--
+QueryStatement [0-62]
+  Query [0-62]
+    Select [0-62]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-62]
+        Join [16-62]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [38-53]
+            Join(NATURAL) [23-37]
+              TablePathExpression [21-22]
+                PathExpression [21-22]
+                  Identifier(b) [21-22]
+              TablePathExpression [36-37]
+                PathExpression [36-37]
+                  Identifier(c) [36-37]
+            TablePathExpression [43-44]
+              PathExpression [43-44]
+                Identifier(d) [43-44]
+            OnClause [45-53]
+              PathExpression [48-53]
+                Identifier(cond1) [48-53]
+          OnClause [54-62]
+            PathExpression [57-62]
+              Identifier(cond2) [57-62]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  NATURAL JOIN
+  c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+==
+
+# Test CROSS JOIN with hints
+select * from a join b cross hash join @{h1=v1} c join d on cond1 on cond2
+--
+QueryStatement [0-74]
+  Query [0-74]
+    Select [0-74]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-74]
+        Join [16-74]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [50-65]
+            Join(CROSS, HASH) [23-49]
+              TablePathExpression [21-22]
+                PathExpression [21-22]
+                  Identifier(b) [21-22]
+              Hint [39-47]
+                HintEntry [41-46]
+                  Identifier(h1) [41-43]
+                  PathExpression [44-46]
+                    Identifier(v1) [44-46]
+              TablePathExpression [48-49]
+                PathExpression [48-49]
+                  Identifier(c) [48-49]
+            TablePathExpression [55-56]
+              PathExpression [55-56]
+                Identifier(d) [55-56]
+            OnClause [57-65]
+              PathExpression [60-65]
+                Identifier(cond1) [60-65]
+          OnClause [66-74]
+            PathExpression [69-74]
+              Identifier(cond2) [69-74]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  CROSS HASH JOIN
+  @{ h1 = v1 } c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+==
+
+# Test expression containing parenthesized join
+select * from (a JOIN b) JOIN c JOIN d ON cond1 ON cond2;
+--
+QueryStatement [0-56]
+  Query [0-56]
+    Select [0-56]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-56]
+        Join [25-56]
+          ParenthesizedJoin [14-24]
+            Join [17-23]
+              TablePathExpression [15-16]
+                PathExpression [15-16]
+                  Identifier(a) [15-16]
+              TablePathExpression [22-23]
+                PathExpression [22-23]
+                  Identifier(b) [22-23]
+          Join [32-47]
+            TablePathExpression [30-31]
+              PathExpression [30-31]
+                Identifier(c) [30-31]
+            TablePathExpression [37-38]
+              PathExpression [37-38]
+                Identifier(d) [37-38]
+            OnClause [39-47]
+              PathExpression [42-47]
+                Identifier(cond1) [42-47]
+          OnClause [48-56]
+            PathExpression [51-56]
+              Identifier(cond2) [51-56]
+--
+SELECT
+  *
+FROM
+  (
+    a
+    JOIN
+    b
+  )
+  JOIN
+  c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+==
+
+# Test expression containing parenthesized join in the middle
+select * from t1 JOIN (t2 JOIN t3 JOIN t4 ON cond1 ON cond2) JOIN t5 ON cond3 ON cond4;
+--
+QueryStatement [0-86]
+  Query [0-86]
+    Select [0-86]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-86]
+        Join [17-86]
+          TablePathExpression [14-16]
+            PathExpression [14-16]
+              Identifier(t1) [14-16]
+          Join [61-77]
+            ParenthesizedJoin [22-60]
+              Join [26-59]
+                TablePathExpression [23-25]
+                  PathExpression [23-25]
+                    Identifier(t2) [23-25]
+                Join [34-50]
+                  TablePathExpression [31-33]
+                    PathExpression [31-33]
+                      Identifier(t3) [31-33]
+                  TablePathExpression [39-41]
+                    PathExpression [39-41]
+                      Identifier(t4) [39-41]
+                  OnClause [42-50]
+                    PathExpression [45-50]
+                      Identifier(cond1) [45-50]
+                OnClause [51-59]
+                  PathExpression [54-59]
+                    Identifier(cond2) [54-59]
+            TablePathExpression [66-68]
+              PathExpression [66-68]
+                Identifier(t5) [66-68]
+            OnClause [69-77]
+              PathExpression [72-77]
+                Identifier(cond3) [72-77]
+          OnClause [78-86]
+            PathExpression [81-86]
+              Identifier(cond4) [81-86]
+--
+SELECT
+  *
+FROM
+  t1
+  JOIN
+  (
+    t2
+    JOIN
+    t3
+    JOIN
+    t4
+    ON cond1
+    ON cond2
+  )
+  JOIN
+  t5
+  ON cond3
+  ON cond4
+==
+
+# Test case where the intermediate Join node is invalid, but the whole
+# expression is valid
+select * from a JOIN b JOIN c JOIN d ON cond1 ON cond2 JOIN e on cond3 ON cond4;
+--
+QueryStatement [0-79]
+  Query [0-79]
+    Select [0-79]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-79]
+        Join [16-79]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [55-70]
+            Join [23-54]
+              TablePathExpression [21-22]
+                PathExpression [21-22]
+                  Identifier(b) [21-22]
+              Join [30-45]
+                TablePathExpression [28-29]
+                  PathExpression [28-29]
+                    Identifier(c) [28-29]
+                TablePathExpression [35-36]
+                  PathExpression [35-36]
+                    Identifier(d) [35-36]
+                OnClause [37-45]
+                  PathExpression [40-45]
+                    Identifier(cond1) [40-45]
+              OnClause [46-54]
+                PathExpression [49-54]
+                  Identifier(cond2) [49-54]
+            TablePathExpression [60-61]
+              PathExpression [60-61]
+                Identifier(e) [60-61]
+            OnClause [62-70]
+              PathExpression [65-70]
+                Identifier(cond3) [65-70]
+          OnClause [71-79]
+            PathExpression [74-79]
+              Identifier(cond4) [74-79]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  JOIN
+  c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+  JOIN
+  e
+  ON cond3
+  ON cond4
+==
+
+# Similarly to the previous test case, but in parentheses:
+# Test case where the intermediate Join node is invalid, but the whole
+# expression is valid
+select * from (t1 join t2 join t3 join t4 on c1 on c2 join t5 on c3 on c4)
+--
+QueryStatement [0-74]
+  Query [0-74]
+    Select [0-74]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-74]
+        ParenthesizedJoin [14-74]
+          Join [18-73]
+            TablePathExpression [15-17]
+              PathExpression [15-17]
+                Identifier(t1) [15-17]
+            Join [54-67]
+              Join [26-53]
+                TablePathExpression [23-25]
+                  PathExpression [23-25]
+                    Identifier(t2) [23-25]
+                Join [34-47]
+                  TablePathExpression [31-33]
+                    PathExpression [31-33]
+                      Identifier(t3) [31-33]
+                  TablePathExpression [39-41]
+                    PathExpression [39-41]
+                      Identifier(t4) [39-41]
+                  OnClause [42-47]
+                    PathExpression [45-47]
+                      Identifier(c1) [45-47]
+                OnClause [48-53]
+                  PathExpression [51-53]
+                    Identifier(c2) [51-53]
+              TablePathExpression [59-61]
+                PathExpression [59-61]
+                  Identifier(t5) [59-61]
+              OnClause [62-67]
+                PathExpression [65-67]
+                  Identifier(c3) [65-67]
+            OnClause [68-73]
+              PathExpression [71-73]
+                Identifier(c4) [71-73]
+--
+SELECT
+  *
+FROM
+  (
+    t1
+    JOIN
+    t2
+    JOIN
+    t3
+    JOIN
+    t4
+    ON c1
+    ON c2
+    JOIN
+    t5
+    ON c3
+    ON c4
+  )
+==
+
+
+# Test USING clause
+select * from a join b join c join d using (cond1) on cond2 using (cond3);
+--
+QueryStatement [0-73]
+  Query [0-73]
+    Select [0-73]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-73]
+        Join [16-73]
+          TablePathExpression [14-15]
+            PathExpression [14-15]
+              Identifier(a) [14-15]
+          Join [23-59]
+            TablePathExpression [21-22]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            Join [30-50]
+              TablePathExpression [28-29]
+                PathExpression [28-29]
+                  Identifier(c) [28-29]
+              TablePathExpression [35-36]
+                PathExpression [35-36]
+                  Identifier(d) [35-36]
+              UsingClause [37-50]
+                Identifier(cond1) [44-49]
+            OnClause [51-59]
+              PathExpression [54-59]
+                Identifier(cond2) [54-59]
+          UsingClause [60-73]
+            Identifier(cond3) [67-72]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  JOIN
+  c
+  JOIN
+  d
+  USING(cond1)
+  ON cond2
+  USING(cond3)
+==
+
+select * from a join b using (cond1) join c join d on cond1 on cond2;
+--
+QueryStatement [0-68]
+  Query [0-68]
+    Select [0-68]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-68]
+        Join [37-68]
+          Join [16-36]
+            TablePathExpression [14-15]
+              PathExpression [14-15]
+                Identifier(a) [14-15]
+            TablePathExpression [21-22]
+              PathExpression [21-22]
+                Identifier(b) [21-22]
+            UsingClause [23-36]
+              Identifier(cond1) [30-35]
+          Join [44-59]
+            TablePathExpression [42-43]
+              PathExpression [42-43]
+                Identifier(c) [42-43]
+            TablePathExpression [49-50]
+              PathExpression [49-50]
+                Identifier(d) [49-50]
+            OnClause [51-59]
+              PathExpression [54-59]
+                Identifier(cond1) [54-59]
+          OnClause [60-68]
+            PathExpression [63-68]
+              Identifier(cond2) [63-68]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  USING(cond1)
+  JOIN
+  c
+  JOIN
+  d
+  ON cond1
+  ON cond2
+==
+
+# Test JOINs inside parentheses
+select * from (a join b join c on cond1 on cond2)
+--
+QueryStatement [0-49]
+  Query [0-49]
+    Select [0-49]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-49]
+        ParenthesizedJoin [14-49]
+          Join [17-48]
+            TablePathExpression [15-16]
+              PathExpression [15-16]
+                Identifier(a) [15-16]
+            Join [24-39]
+              TablePathExpression [22-23]
+                PathExpression [22-23]
+                  Identifier(b) [22-23]
+              TablePathExpression [29-30]
+                PathExpression [29-30]
+                  Identifier(c) [29-30]
+              OnClause [31-39]
+                PathExpression [34-39]
+                  Identifier(cond1) [34-39]
+            OnClause [40-48]
+              PathExpression [43-48]
+                Identifier(cond2) [43-48]
+--
+SELECT
+  *
+FROM
+  (
+    a
+    JOIN
+    b
+    JOIN
+    c
+    ON cond1
+    ON cond2
+  )
+==
+
+# Test consecutive ON/CLAUSES in a query as an argument to a TVF
+call tvf((SELECT * FROM a join b join c on cond1 on cond2));
+--
+CallStatement [0-59]
+  PathExpression [5-8]
+    Identifier(tvf) [5-8]
+  TVFArgument [9-58]
+    ExpressionSubquery [9-58]
+      Query [10-57]
+        Select [10-57]
+          SelectList [17-18]
+            SelectColumn [17-18]
+              Star(*) [17-18]
+          FromClause [19-57]
+            Join [26-57]
+              TablePathExpression [24-25]
+                PathExpression [24-25]
+                  Identifier(a) [24-25]
+              Join [33-48]
+                TablePathExpression [31-32]
+                  PathExpression [31-32]
+                    Identifier(b) [31-32]
+                TablePathExpression [38-39]
+                  PathExpression [38-39]
+                    Identifier(c) [38-39]
+                OnClause [40-48]
+                  PathExpression [43-48]
+                    Identifier(cond1) [43-48]
+              OnClause [49-57]
+                PathExpression [52-57]
+                  Identifier(cond2) [52-57]
+--
+CALL tvf((
+  SELECT
+    *
+  FROM
+    a
+    JOIN
+    b
+    JOIN
+    c
+    ON cond1
+    ON cond2
+))
+==
+
+select * from a join b on cond1 cross join c join d join e on cond2 on cond3
+--
+QueryStatement [0-76]
+  Query [0-76]
+    Select [0-76]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-76]
+        Join [45-76]
+          Join(CROSS) [32-44]
+            Join [16-31]
+              TablePathExpression [14-15]
+                PathExpression [14-15]
+                  Identifier(a) [14-15]
+              TablePathExpression [21-22]
+                PathExpression [21-22]
+                  Identifier(b) [21-22]
+              OnClause [23-31]
+                PathExpression [26-31]
+                  Identifier(cond1) [26-31]
+            TablePathExpression [43-44]
+              PathExpression [43-44]
+                Identifier(c) [43-44]
+          Join [52-67]
+            TablePathExpression [50-51]
+              PathExpression [50-51]
+                Identifier(d) [50-51]
+            TablePathExpression [57-58]
+              PathExpression [57-58]
+                Identifier(e) [57-58]
+            OnClause [59-67]
+              PathExpression [62-67]
+                Identifier(cond2) [62-67]
+          OnClause [68-76]
+            PathExpression [71-76]
+              Identifier(cond3) [71-76]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b
+  ON cond1
+  CROSS JOIN
+  c
+  JOIN
+  d
+  JOIN
+  e
+  ON cond2
+  ON cond3
+==
+
+# Test that consecutive ON/USING clauses cannot be mixed with COMMA JOINs
+select * from a join b, c join d on cond1 on cond2
+--
+ERROR: Syntax error: Unexpected keyword ON [at 1:43]
+select * from a join b, c join d on cond1 on cond2
+                                          ^
+==
+
+select * from a join b join c on cond1 on cond2, d
+--
+ERROR: Syntax error: Comma join is not allowed after consecutive ON/USING clauses [at 1:48]
+select * from a join b join c on cond1 on cond2, d
+                                               ^
+==
+
+# Test that single ON/USING clause is allowed to work with COMMA JOINs
+# by the parser.
+# Note that such queries could be rejected by the analyzer.
+# This is allowed if 'a join b' is an array join.
+select * from a join b, c join d on cond1
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-41]
+        Join [26-41]
+          Join(COMMA) [22-25]
+            Join [16-22]
+              TablePathExpression [14-15]
+                PathExpression [14-15]
+                  Identifier(a) [14-15]
+              TablePathExpression [21-22]
+                PathExpression [21-22]
+                  Identifier(b) [21-22]
+            TablePathExpression [24-25]
+              PathExpression [24-25]
+                Identifier(c) [24-25]
+          TablePathExpression [31-32]
+            PathExpression [31-32]
+              Identifier(d) [31-32]
+          OnClause [33-41]
+            PathExpression [36-41]
+              Identifier(cond1) [36-41]
+--
+SELECT
+  *
+FROM
+  a
+  JOIN
+  b,
+  c
+  JOIN
+  d
+  ON cond1
+==
+
+
+# Error checking: invalid JOIN (not enough ON clause) is detected
+select * from a join b join c join d on cond1 on cond2
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is 3. INNER JOIN must have an ON or USING clause [at 1:17]
+select * from a join b join c join d on cond1 on cond2
+                ^
+==
+
+# Error checking: invalid JOIN (not enough ON clause) is detected
+select * from a left join b join c join d on cond1 on cond2
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is 3. LEFT JOIN must have an ON or USING clause [at 1:17]
+select * from a left join b join c join d on cond1 on cond2
+                ^
+==
+
+# Error checking: too many ON clauses
+select * from a join b on cond1 on cond2
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword ON [at 1:33]
+select * from a join b on cond1 on cond2
+                                ^
+==
+
+# When reporting error when there are too many ON clauses, the count of joins
+# and join conditions is calcuated based on join blocks, not the whole
+# expression. Thus, the join and join condition in "a join b" are not counted
+# when generating the error message.
+
+select * from a join b on cond1 join c on cond2 on cond3
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword ON [at 1:49]
+select * from a join b on cond1 join c on cond2 on cond3
+                                                ^
+==
+
+# Test the case when there are multiple places with extra ON clauses. The error
+# location should be the first extra ON clause.
+
+select * from t1 join t2 on cond1 join t3 on cond2 on cond3 on cond 4 join t4 on cond5 on cond6
+--
+ERROR: Syntax error: The number of join conditions is 3 but the number of joins that require a join condition is only 1. Unexpected keyword ON [at 1:52]
+select * from t1 join t2 on cond1 join t3 on cond2 on cond3 on cond 4 join t4...
+                                                   ^
+==
+
+# When reporting error when there are too many ON clauses, the count of joins
+# does not include cross joins or natural joins.
+select * from a join b cross join c natural join d join e on cond1 on cond2 on cond3 on cond4
+--
+ERROR: Syntax error: The number of join conditions is 4 but the number of joins that require a join condition is only 2. Unexpected keyword ON [at 1:77]
+...join c natural join d join e on cond1 on cond2 on cond3 on cond4
+                                                  ^
+==
+
+# Test the case when there are more joins after the place where we have an
+# excess join condition.
+select * from t1 join t2 join c on cond1 on cond2 on cond3 on cond4 join t3 join t4
+--
+ERROR: Syntax error: The number of join conditions is 4 but the number of joins that require a join condition is only 2. Unexpected keyword ON [at 1:51]
+select * from t1 join t2 join c on cond1 on cond2 on cond3 on cond4 join t3 j...
+                                                  ^
+==
+
+# Error checking inside parenthesized join
+select * from (a join b join c join d on cond1 on cond2)
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is 3. INNER JOIN must have an ON or USING clause [at 1:18]
+select * from (a join b join c join d on cond1 on cond2)
+                 ^
+==
+
+# Error checking: too many ON clauses
+select * from (a join b on cond1 on cond2)
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is only 1. Unexpected keyword ON [at 1:34]
+select * from (a join b on cond1 on cond2)
+                                 ^
+==
+
+select * from t1 join t2 join t3 join t4 on c1 on c2 join t5
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is 4. INNER JOIN must have an ON or USING clause [at 1:18]
+select * from t1 join t2 join t3 join t4 on c1 on c2 join t5
+                 ^
+==
+
+select * from t1 join t2 join t3 join t4 on cond1 join t5 on cond2 on cond3;
+--
+ERROR: Syntax error: The number of join conditions is 3 but the number of joins that require a join condition is 4. INNER JOIN must have an ON or USING clause [at 1:18]
+select * from t1 join t2 join t3 join t4 on cond1 join t5 on cond2 on cond3;
+                 ^
+==
+
+# Test the case that include cross joins and natural joins. This query would be
+# the same as the query in the previous test case if all cross and natural joins
+# are removed. Since cross and natural joins do not affect the error, so
+# - the join count and join condition count must be the same as in the previous
+#   test.
+# - the error location is the same as in the previous test, i.e. the join right
+#   before t2.
+select * from a cross join t1 cross join b join t2 natural join b join t3 join t4 on cond1 join t5 on cond2 on cond3;
+--
+ERROR: Syntax error: The number of join conditions is 3 but the number of joins that require a join condition is 4. INNER JOIN must have an ON or USING clause [at 1:44]
+select * from a cross join t1 cross join b join t2 natural join b join t3 joi...
+                                           ^
+==
+
+# When reporting error when there are missing ON clauses, the count of joins
+# and join conditions is calcuated based on join blocks, not the whole
+# expression. Thus, the joins and join conditions in
+# "t1 join t2 join t3 on cond1 on cond2" are not counted when generating the
+# error message.
+select * from t1 join t2 join t3 on cond1 on cond2 join t4;
+--
+ERROR: Syntax error: The number of join conditions is 0 but the number of joins that require a join condition is 1. INNER JOIN must have an ON or USING clause [at 1:52]
+select * from t1 join t2 join t3 on cond1 on cond2 join t4;
+                                                   ^
+==
+
+# Test that the error location is the first qualified join of the join block.
+# Thus, the error location is at "join t3", not at "cross join a"
+select * from  t1 join t2 on c1 cross join a join t3 join t4 join t5 on c2 on c3
+--
+ERROR: Syntax error: The number of join conditions is 2 but the number of joins that require a join condition is 3. INNER JOIN must have an ON or USING clause [at 1:46]
+select * from  t1 join t2 on c1 cross join a join t3 join t4 join t5 on c2 on c3
+                                             ^
+==
+
+select * from  t1 join t2 join t3 on c1 on c2 join t4 cross join a cross join b
+--
+ERROR: Syntax error: The number of join conditions is 0 but the number of joins that require a join condition is 1. INNER JOIN must have an ON or USING clause [at 1:47]
+select * from  t1 join t2 join t3 on c1 on c2 join t4 cross join a cross join b
+                                              ^
+==
+
+# Test error reporting when there are more join conditions than joins
+select * from a cross join b on cond1 cross join c on cond2 cross join d on cond3 on cond4
+--
+ERROR: Syntax error: The number of join conditions is 1 but the number of joins that require a join condition is only 0. Unexpected keyword ON [at 1:30]
+select * from a cross join b on cond1 cross join c on cond2 cross join d on c...
+                             ^
+==
+
+select * from a cross join b on cond1 join c join d join e on cond2 on cond3
+--
+ERROR: Syntax error: The number of join conditions is 1 but the number of joins that require a join condition is only 0. Unexpected keyword ON [at 1:30]
+select * from a cross join b on cond1 join c join d join e on cond2 on cond3
+                             ^
+==
+
+# Test the case when allow_consecutive_on is turned off
+[no_allow_consecutive_on]
+select * from t1 join t2 join t3 on c1 on c2
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 1:40]
+select * from t1 join t2 join t3 on c1 on c2
+                                       ^

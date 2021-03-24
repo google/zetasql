@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_TYPES_STRUCT_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_STRUCT_TYPE_H_
 
+#include <cstdint>
+
 #include "zetasql/public/types/type.h"
 
 namespace zetasql {
@@ -100,8 +102,12 @@ class StructType : public Type {
   // Validate and resolve type parameters for struct type, currently always
   // return error since struct type itself doesn't support type parameters.
   zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
-      const std::vector<TypeParameterValue>& resolved_type_parameters,
+      const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const override;
+
+  // Validates resolved type parameters for struct subfields recursively.
+  absl::Status ValidateResolvedTypeParameters(
+      const TypeParameters& type_parameters, ProductMode mode) const override;
 
  protected:
   // Return estimated size of memory owned by this type. Owned memory includes

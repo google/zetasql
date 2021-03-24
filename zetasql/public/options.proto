@@ -326,8 +326,7 @@ enum LanguageFeature {
   FEATURE_UNENFORCED_PRIMARY_KEYS = 40;
 
   // BIGNUMERIC data type. (broken link)
-  FEATURE_BIGNUMERIC_TYPE = 41
-      [(language_feature_options).in_development = true];
+  FEATURE_BIGNUMERIC_TYPE = 41;
 
   // Extended types (TYPE_EXTENDED): (broken link).
   FEATURE_EXTENDED_TYPES = 42
@@ -424,6 +423,10 @@ enum LanguageFeature {
   // CREATE TABLE t1 CLONE t2
   FEATURE_CREATE_TABLE_CLONE = 60
       [(language_feature_options).in_development = true];
+
+  // Enables support for CLONE DATA INTO
+  // Example: CLONE DATA INTO ds.tbl;
+  FEATURE_CLONE_DATA = 61 [(language_feature_options).in_development = true];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -618,7 +621,7 @@ enum LanguageFeature {
 
   // Support maps in protocol buffers. ((broken link))
   FEATURE_V_1_3_PROTO_MAPS = 13012
-      [(language_feature_options).in_development = true];
+      [(language_feature_options).in_development = false];
 
   // Enables support for the ENUM_VALUE_DESCRIPTOR_PROTO() function, see
   // (broken link)
@@ -686,7 +689,15 @@ enum LanguageFeature {
   FEATURE_V_1_3_IS_DISTINCT = 13028;
 
   // If true, FORMAT clause is supported in CAST().
-  FEATURE_V_1_3_FORMAT_IN_CAST = 13029;
+  // Fully implemented:
+  //   BYTES <=> STRING
+  //   DATE/DATETIME/TIME/TIMESTAMP => STRING
+  //
+  // Under development:
+  //   STRING => DATE/DATETIME/TIME/TIMESTAMP
+  //   NUMBER => STRING
+  FEATURE_V_1_3_FORMAT_IN_CAST = 13029
+      [(language_feature_options).in_development = true];
 
   // UNPIVOT clause ((broken link)).
   FEATURE_V_1_3_UNPIVOT = 13030
@@ -711,6 +722,16 @@ enum LanguageFeature {
   // Enable support for REPEAT...UNTIL...END REPEAT statement.
   // (broken link)
   FEATURE_V_1_3_REPEAT = 13034
+      [(language_feature_options).in_development = true];
+
+  // Enables column DEFAULT clause in CREATE and ALTER TABLE statements.
+  // See (broken link)
+  FEATURE_V_1_3_COLUMN_DEFAULT_VALUE = 13035
+      [(language_feature_options).in_development = true];
+
+  // Enable support for FOR...IN...DO...END FOR statement.
+  // (broken link)
+  FEATURE_V_1_3_FOR_IN = 13036
       [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES
@@ -782,6 +803,9 @@ enum ResolvedASTRewrite {
 
   // Rewrites unpivot ast to equivalent scan.
   REWRITE_UNPIVOT = 5 [(rewrite_options).default_enabled = true];
+
+  // Rewrites PIVOT scans. See (broken link).
+  REWRITE_PIVOT = 6 [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.

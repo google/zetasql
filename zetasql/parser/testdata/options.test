@@ -1,0 +1,360 @@
+# OPTIONS related tests, for different locations
+#
+# The OPTIONS clause includes a parenthesized list of comma-separated
+# '<identifier> = <expression>' entries.
+#
+# We use the MODULE statement for these tests since it is the simplest
+# statement type.
+
+# An empty options list is allowed.
+MODULE foo OPTIONS();
+--
+ModuleStatement [0-20]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-20]
+--
+MODULE foo OPTIONS()
+==
+
+MODULE foo OPTIONS(a=1);
+--
+ModuleStatement [0-23]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-23]
+    OptionsEntry [19-22]
+      Identifier(a) [19-20]
+      IntLiteral(1) [21-22]
+--
+MODULE foo OPTIONS(a = 1)
+==
+
+MODULE foo OPTIONS(a=1, b = 'b', c = 2.0+57);
+--
+ModuleStatement [0-44]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-44]
+    OptionsEntry [19-22]
+      Identifier(a) [19-20]
+      IntLiteral(1) [21-22]
+    OptionsEntry [24-31]
+      Identifier(b) [24-25]
+      StringLiteral('b') [28-31]
+    OptionsEntry [33-43]
+      Identifier(c) [33-34]
+      BinaryExpression(+) [37-43]
+        FloatLiteral(2.0) [37-40]
+        IntLiteral(57) [41-43]
+--
+MODULE foo OPTIONS(a = 1, b = 'b', c = 2.0 + 57)
+==
+
+# General expressions and function calls are allowed in the parser, but
+# ultimately this statement would fail semantic analysis given that the
+# expression is not a constant expression.
+MODULE foo OPTIONS(a=strcat(b, c));
+--
+ModuleStatement [0-34]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-34]
+    OptionsEntry [19-33]
+      Identifier(a) [19-20]
+      FunctionCall [21-33]
+        PathExpression [21-27]
+          Identifier(strcat) [21-27]
+        PathExpression [28-29]
+          Identifier(b) [28-29]
+        PathExpression [31-32]
+          Identifier(c) [31-32]
+--
+MODULE foo OPTIONS(a = strcat(b, c))
+==
+
+# Clause fails without parenthesization.
+MODULE foo OPTIONS;
+--
+ERROR: Syntax error: Expected "(" but got ";" [at 1:19]
+MODULE foo OPTIONS;
+                  ^
+==
+
+# Path expressions do not work.
+MODULE foo OPTIONS(a.b=1);
+--
+ERROR: Syntax error: Expected "=" but got "." [at 1:21]
+MODULE foo OPTIONS(a.b=1);
+                    ^
+==
+
+# Invalid options entries fails.
+MODULE foo OPTIONS(a);
+--
+ERROR: Syntax error: Expected "=" but got ")" [at 1:21]
+MODULE foo OPTIONS(a);
+                    ^
+==
+
+MODULE foo OPTIONS(true);
+--
+ERROR: Syntax error: Unexpected keyword TRUE [at 1:20]
+MODULE foo OPTIONS(true);
+                   ^
+==
+
+# Parameters do not work either.
+MODULE foo OPTIONS(@test_param);
+--
+ERROR: Syntax error: Unexpected "@" [at 1:20]
+MODULE foo OPTIONS(@test_param);
+                   ^
+==
+
+# Reserved keywords generally do not work.
+# Reserved keyword test.
+MODULE foo OPTIONS(AND=1);
+--
+ERROR: Syntax error: Unexpected keyword AND [at 1:20]
+MODULE foo OPTIONS(AND=1);
+                   ^
+==
+
+# Reserved keywords generally do not work.
+# Reserved keyword that can be used in generalized identifier test.
+MODULE foo OPTIONS(ALL=1);
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:20]
+MODULE foo OPTIONS(ALL=1);
+                   ^
+==
+
+# Unreserved keywords generally do work.
+MODULE foo OPTIONS(ALTER=1);
+--
+ModuleStatement [0-27]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-27]
+    OptionsEntry [19-26]
+      Identifier(ALTER) [19-24]
+      IntLiteral(1) [25-26]
+--
+MODULE foo OPTIONS(ALTER = 1)
+==
+
+# However, there is support for some special option names that are also
+# reserved keywords.
+MODULE foo OPTIONS(HASH=1);
+--
+ModuleStatement [0-26]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-26]
+    OptionsEntry [19-25]
+      Identifier(`HASH`) [19-23]
+      IntLiteral(1) [24-25]
+--
+MODULE foo OPTIONS(`HASH` = 1)
+==
+
+MODULE foo OPTIONS(PROTO=1);
+--
+ModuleStatement [0-27]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-27]
+    OptionsEntry [19-26]
+      Identifier(`PROTO`) [19-24]
+      IntLiteral(1) [25-26]
+--
+MODULE foo OPTIONS(`PROTO` = 1)
+==
+
+MODULE foo OPTIONS(PARTITION=1);
+--
+ModuleStatement [0-31]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [18-31]
+    OptionsEntry [19-30]
+      Identifier(`PARTITION`) [19-28]
+      IntLiteral(1) [29-30]
+--
+MODULE foo OPTIONS(`PARTITION` = 1)
+==
+
+# The following tests are for different supported statements/locations.
+#
+ALTER {{TABLE|VIEW}} foo SET OPTIONS (a=1);
+--
+ALTERNATION GROUP: TABLE
+--
+AlterTableStatement [0-33]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-33]
+    SetOptionsOperation [16-33]
+      OptionsList [28-33]
+        OptionsEntry [29-32]
+          Identifier(a) [29-30]
+          IntLiteral(1) [31-32]
+--
+ALTER TABLE foo SET OPTIONS(a = 1)
+--
+ALTERNATION GROUP: VIEW
+--
+AlterViewStatement [0-32]
+  PathExpression [11-14]
+    Identifier(foo) [11-14]
+  AlterActionList [15-32]
+    SetOptionsOperation [15-32]
+      OptionsList [27-32]
+        OptionsEntry [28-31]
+          Identifier(a) [28-29]
+          IntLiteral(1) [30-31]
+--
+ALTER VIEW foo SET OPTIONS(a = 1)
+==
+
+CREATE FUNCTION foo() OPTIONS (a=1);
+--
+CreateFunctionStatement [0-35]
+  FunctionDeclaration [16-21]
+    PathExpression [16-19]
+      Identifier(foo) [16-19]
+    FunctionParameters [19-21]
+  OptionsList [30-35]
+    OptionsEntry [31-34]
+      Identifier(a) [31-32]
+      IntLiteral(1) [33-34]
+--
+CREATE FUNCTION foo()
+OPTIONS
+  (a = 1)
+==
+
+CREATE TABLE foo OPTIONS (a=1) as SELECT 1 a;
+--
+CreateTableStatement [0-44]
+  PathExpression [13-16]
+    Identifier(foo) [13-16]
+  OptionsList [25-30]
+    OptionsEntry [26-29]
+      Identifier(a) [26-27]
+      IntLiteral(1) [28-29]
+  Query [34-44]
+    Select [34-44]
+      SelectList [41-44]
+        SelectColumn [41-44]
+          IntLiteral(1) [41-42]
+          Alias [43-44]
+            Identifier(a) [43-44]
+--
+CREATE TABLE foo OPTIONS(a = 1) AS
+SELECT
+  1 AS a
+==
+
+CREATE MODEL foo OPTIONS (a=1) as SELECT 1 a;
+--
+CreateModelStatement [0-44]
+  PathExpression [13-16]
+    Identifier(foo) [13-16]
+  OptionsList [25-30]
+    OptionsEntry [26-29]
+      Identifier(a) [26-27]
+      IntLiteral(1) [28-29]
+  Query [34-44]
+    Select [34-44]
+      SelectList [41-44]
+        SelectColumn [41-44]
+          IntLiteral(1) [41-42]
+          Alias [43-44]
+            Identifier(a) [43-44]
+--
+CREATE MODEL foo OPTIONS(a = 1) AS
+SELECT
+  1 AS a
+==
+
+CREATE VIEW foo OPTIONS (a=1) as SELECT 1 a;
+--
+CreateViewStatement [0-43]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  OptionsList [24-29]
+    OptionsEntry [25-28]
+      Identifier(a) [25-26]
+      IntLiteral(1) [27-28]
+  Query [33-43]
+    Select [33-43]
+      SelectList [40-43]
+        SelectColumn [40-43]
+          IntLiteral(1) [40-41]
+          Alias [42-43]
+            Identifier(a) [42-43]
+--
+CREATE VIEW foo OPTIONS(a = 1) AS
+SELECT
+  1 AS a
+==
+
+EXPORT DATA OPTIONS (a=1) AS SELECT 1 a;
+--
+ExportDataStatement [0-39]
+  OptionsList [20-25]
+    OptionsEntry [21-24]
+      Identifier(a) [21-22]
+      IntLiteral(1) [23-24]
+  Query [29-39]
+    Select [29-39]
+      SelectList [36-39]
+        SelectColumn [36-39]
+          IntLiteral(1) [36-37]
+          Alias [38-39]
+            Identifier(a) [38-39]
+--
+EXPORT DATA OPTIONS(a = 1) AS
+SELECT
+  1 AS a
+==
+
+IMPORT MODULE foo OPTIONS (a=1);
+--
+ImportStatement [0-31]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  OptionsList [26-31]
+    OptionsEntry [27-30]
+      Identifier(a) [27-28]
+      IntLiteral(1) [29-30]
+--
+IMPORT MODULE foo OPTIONS(a = 1)
+==
+
+MODULE foo OPTIONS (a=1);
+--
+ModuleStatement [0-24]
+  PathExpression [7-10]
+    Identifier(foo) [7-10]
+  OptionsList [19-24]
+    OptionsEntry [20-23]
+      Identifier(a) [20-21]
+      IntLiteral(1) [22-23]
+--
+MODULE foo OPTIONS(a = 1)
+==
+
+DEFINE TABLE foo (a=1);
+--
+DefineTableStatement [0-22]
+  PathExpression [13-16]
+    Identifier(foo) [13-16]
+  OptionsList [17-22]
+    OptionsEntry [18-21]
+      Identifier(a) [18-19]
+      IntLiteral(1) [20-21]
+--
+DEFINE TABLE foo(a = 1)

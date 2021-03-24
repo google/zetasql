@@ -17,6 +17,7 @@
 // Tests of analytic function code.
 
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 #include <limits>
 #include <memory>

@@ -17,6 +17,7 @@
 
 #include "zetasql/public/functions/arithmetics_internal.h"
 
+#include <cstdint>
 #include <limits>
 
 #include "gtest/gtest.h"

@@ -25,6 +25,7 @@
 #include "zetasql/public/types/type.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 
@@ -100,16 +101,16 @@ inline int64_t GetRawHashSetCapacityEstimateFromExpectedSize(
 }
 
 // Estimate memory allocation of raw_hash_set, which is a base class for
-// absl::flat_hash_map and flat_hash_set
+// absl::flat_hash_map, flat_hash_set and node_hash_map
 template <typename SetT>
 int64_t GetRawHashSetExternallyAllocatedMemoryEstimate(
     const SetT& set, int64_t count_of_expected_items_to_add) {
   // If we know the capacity we should just use it. Otherwise we have to
   // estimate what it will be after the expected number of items are added.
   int64_t capacity = count_of_expected_items_to_add == 0
-                       ? set.capacity()
-                       : GetRawHashSetCapacityEstimateFromExpectedSize(
-                             count_of_expected_items_to_add + set.size());
+                         ? set.capacity()
+                         : GetRawHashSetCapacityEstimateFromExpectedSize(
+                               count_of_expected_items_to_add + set.size());
 
   if (capacity == 0) {
     return 0;
@@ -122,7 +123,7 @@ int64_t GetRawHashSetExternallyAllocatedMemoryEstimate(
   constexpr int control_state_padding = 17;
   return GetArrayAllocationMemoryEstimate<typename SetT::slot_type>(capacity) +
          GetArrayAllocationMemoryEstimate<uint8_t>(capacity +
-                                                 control_state_padding);
+                                                   control_state_padding);
 }
 
 template <typename... Types>
@@ -139,6 +140,14 @@ int64_t GetExternallyAllocatedMemoryEstimate(
     int64_t count_of_expected_items_to_add = 0) {
   return GetRawHashSetExternallyAllocatedMemoryEstimate<
       absl::flat_hash_set<Types...>>(set, count_of_expected_items_to_add);
+}
+
+template <typename... Types>
+int64_t GetExternallyAllocatedMemoryEstimate(
+    const absl::node_hash_map<Types...>& map,
+    int64_t count_of_expected_items_to_add = 0) {
+  return GetRawHashSetExternallyAllocatedMemoryEstimate<
+      absl::node_hash_map<Types...>>(map, count_of_expected_items_to_add);
 }
 
 // Adds the file descriptor and all of its dependencies to the given map of file

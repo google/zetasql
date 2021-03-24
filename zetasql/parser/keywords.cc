@@ -17,6 +17,7 @@
 #include "zetasql/parser/keywords.h"
 
 #include <cctype>
+#include <cstdint>
 #include <limits>
 #include <memory>
 #include <unordered_map>
@@ -154,6 +155,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"immutable", KW_IMMUTABLE},
     {"import", KW_IMPORT},
     {"in", KW_IN, KeywordInfo::kReserved},
+    {"include", KW_INCLUDE},
     {"inout", KW_INOUT},
     {"index", KW_INDEX},
     {"inner", KW_INNER, KeywordInfo::kReserved},

@@ -1,0 +1,5497 @@
+delete from T
+--
+DeleteStatement [0-13]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+--
+DELETE T
+==
+
+delete x.T where true
+--
+DeleteStatement [0-21]
+  PathExpression [7-10]
+    Identifier(x) [7-8]
+    Identifier(T) [9-10]
+  BooleanLiteral(true) [17-21]
+--
+DELETE x.T
+WHERE
+  true
+==
+
+# The resolver will fail on this because WITH OFFSET is not allowed in
+# top-level DELETE statements, but it does parse.
+delete T with offset AS offset where true
+--
+DeleteStatement [0-41]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  WithOffset [9-30]
+    Alias [21-30]
+      Identifier(offset) [24-30]
+  BooleanLiteral(true) [37-41]
+--
+DELETE T WITH OFFSET AS offset
+WHERE
+  true
+==
+
+delete a.b.c
+where c=y
+assert_rows_modified 10
+--
+DeleteStatement [0-46]
+  PathExpression [7-12]
+    Identifier(a) [7-8]
+    Identifier(b) [9-10]
+    Identifier(c) [11-12]
+  BinaryExpression(=) [19-22]
+    PathExpression [19-20]
+      Identifier(c) [19-20]
+    PathExpression [21-22]
+      Identifier(y) [21-22]
+  AssertRowsModified [23-46]
+    IntLiteral(10) [44-46]
+--
+DELETE a.b.c
+WHERE
+  c = y
+ASSERT_ROWS_MODIFIED 10
+==
+
+delete T
+assert_rows_modified {{0|cast(0 as int32)|@param1|cast(@param1 as int64)}}
+--
+ALTERNATION GROUP: 0
+--
+DeleteStatement [0-31]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-31]
+    IntLiteral(0) [30-31]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED 0
+--
+ALTERNATION GROUP: cast(0 as int32)
+--
+DeleteStatement [0-46]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-46]
+    CastExpression [30-46]
+      IntLiteral(0) [35-36]
+      SimpleType [40-45]
+        PathExpression [40-45]
+          Identifier(int32) [40-45]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(0 AS int32)
+--
+ALTERNATION GROUP: @param1
+--
+DeleteStatement [0-37]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-37]
+    ParameterExpr [30-37]
+      Identifier(param1) [31-37]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED @param1
+--
+ALTERNATION GROUP: cast(@param1 as int64)
+--
+DeleteStatement [0-52]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-52]
+    CastExpression [30-52]
+      ParameterExpr [35-42]
+        Identifier(param1) [36-42]
+      SimpleType [46-51]
+        PathExpression [46-51]
+          Identifier(int64) [46-51]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(@param1 AS int64)
+==
+
+delete T
+assert_rows_modified {{0|cast(0 as int32)|@@sysvar|cast(@@sysvar as int64)}}
+--
+ALTERNATION GROUP: 0
+--
+DeleteStatement [0-31]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-31]
+    IntLiteral(0) [30-31]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED 0
+--
+ALTERNATION GROUP: cast(0 as int32)
+--
+DeleteStatement [0-46]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-46]
+    CastExpression [30-46]
+      IntLiteral(0) [35-36]
+      SimpleType [40-45]
+        PathExpression [40-45]
+          Identifier(int32) [40-45]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(0 AS int32)
+--
+ALTERNATION GROUP: @@sysvar
+--
+DeleteStatement [0-38]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-38]
+    SystemVariableExpr [30-38]
+      PathExpression [32-38]
+        Identifier(sysvar) [32-38]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED @@sysvar
+--
+ALTERNATION GROUP: cast(@@sysvar as int64)
+--
+DeleteStatement [0-53]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  AssertRowsModified [9-53]
+    CastExpression [30-53]
+      SystemVariableExpr [35-43]
+        PathExpression [37-43]
+          Identifier(sysvar) [37-43]
+      SimpleType [47-52]
+        PathExpression [47-52]
+          Identifier(int64) [47-52]
+--
+DELETE T
+ASSERT_ROWS_MODIFIED CAST(@@sysvar AS int64)
+==
+
+delete T
+assert_rows_modified cast(cast(0 as int32) as int64)
+--
+ERROR: Syntax error: Expected "@" or "@@" or integer literal but got keyword CAST [at 2:27]
+assert_rows_modified cast(cast(0 as int32) as int64)
+                          ^
+==
+
+delete T
+assert_rows_modified -1
+--
+ERROR: Syntax error: Unexpected "-" [at 2:22]
+assert_rows_modified -1
+                     ^
+==
+
+delete T
+where 1+(select count(*) from T2)=5
+assert_rows_modified @row_count
+--
+DeleteStatement [0-76]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  BinaryExpression(=) [15-44]
+    BinaryExpression(+) [15-42]
+      IntLiteral(1) [15-16]
+      ExpressionSubquery [17-42]
+        Query [18-41]
+          Select [18-41]
+            SelectList [25-33]
+              SelectColumn [25-33]
+                FunctionCall [25-33]
+                  PathExpression [25-30]
+                    Identifier(count) [25-30]
+                  Star(*) [31-32]
+            FromClause [34-41]
+              TablePathExpression [39-41]
+                PathExpression [39-41]
+                  Identifier(T2) [39-41]
+    IntLiteral(5) [43-44]
+  AssertRowsModified [45-76]
+    ParameterExpr [66-76]
+      Identifier(row_count) [67-76]
+--
+DELETE T
+WHERE
+  1 + (
+    SELECT
+      count(*)
+    FROM
+      T2
+  ) = 5
+ASSERT_ROWS_MODIFIED @row_count
+==
+
+delete T
+assert_rows_modified x
+--
+ERROR: Syntax error: Unexpected identifier "x" [at 2:22]
+assert_rows_modified x
+                     ^
+==
+
+delete T
+assert_rows_modified 1+2
+--
+ERROR: Syntax error: Expected end of input but got "+" [at 2:23]
+assert_rows_modified 1+2
+                      ^
+==
+
+delete T
+where
+assert_rows_modified 5
+--
+ERROR: Syntax error: Unexpected keyword ASSERT_ROWS_MODIFIED [at 3:1]
+assert_rows_modified 5
+^
+==
+
+delete T
+where true
+assert_rows_modified
+--
+ERROR: Syntax error: Unexpected end of statement [at 3:21]
+assert_rows_modified
+                    ^
+==
+
+delete T
+where true
+assert rows modified 5
+--
+ERROR: Syntax error: Expected end of input but got keyword ASSERT [at 3:1]
+assert rows modified 5
+^
+==
+
+delete T
+assert rows
+--
+ERROR: Syntax error: Expected end of input but got keyword ROWS [at 2:8]
+assert rows
+       ^
+==
+
+delete T
+where true
+assert
+--
+ERROR: Syntax error: Expected end of input but got keyword ASSERT [at 3:1]
+assert
+^
+==
+
+delete
+where true
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 2:1]
+where true
+^
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+delete T.(a.b).c where true
+--
+DeleteStatement [0-27]
+  DotIdentifier [14-16]
+    DotGeneralizedField [8-14]
+      PathExpression [7-8]
+        Identifier(T) [7-8]
+      PathExpression [10-13]
+        Identifier(a) [10-11]
+        Identifier(b) [12-13]
+    Identifier(c) [15-16]
+  BooleanLiteral(true) [23-27]
+--
+DELETE T.(a.b).c
+WHERE
+  true
+==
+
+# The resolver will fail on this because the target involves [], but it does
+# parse.
+delete T.a[0].b where true
+--
+DeleteStatement [0-26]
+  DotIdentifier [13-15]
+    ArrayElement [10-13]
+      PathExpression [7-10]
+        Identifier(T) [7-8]
+        Identifier(a) [9-10]
+      IntLiteral(0) [11-12]
+    Identifier(b) [14-15]
+  BooleanLiteral(true) [22-26]
+--
+DELETE T.a[0].b
+WHERE
+  true
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+delete db-1-2.T where true
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `db-1-2.T` [at 1:8]
+delete db-1-2.T where true
+       ^
+--
+ALTERNATION GROUP: <empty>
+--
+DeleteStatement [0-26]
+  PathExpression [7-15]
+    Identifier(`db-1-2`) [7-15]
+    Identifier(T) [7-15]
+  BooleanLiteral(true) [22-26]
+--
+DELETE `db-1-2`.T
+WHERE
+  true
+==
+
+insert into T
+values (1)
+--
+InsertStatement [0-24]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  InsertValuesRowList [14-24]
+    InsertValuesRow [21-24]
+      IntLiteral(1) [22-23]
+--
+INSERT INTO T
+VALUES
+  (1)
+==
+
+# Duplicate OR IGNORE/REPLACE/UPDATE. In the case where the second instance
+# is REPLACE or UPDATE it is interpreted as a table name, because REPLACE
+# and UPDATE are non-reserved keywords. When the second instance is IGNORE,
+# then it is a keyword and it is treated as a duplicate.
+INSERT {{OR|}} {{IGNORE|REPLACE|UPDATE}} {{OR|}} {{IGNORE|REPLACE|UPDATE}}
+--
+ALTERNATION GROUP: OR,IGNORE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR IGNORE OR IGNORE
+                 ^
+--
+ALTERNATION GROUP: OR,IGNORE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR IGNORE OR REPLACE
+                 ^
+--
+ALTERNATION GROUP: OR,IGNORE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR IGNORE OR UPDATE
+                 ^
+--
+ALTERNATION GROUP: OR,IGNORE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:19]
+INSERT OR IGNORE  IGNORE
+                  ^
+--
+ALTERNATION GROUP: OR,IGNORE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+INSERT OR IGNORE  REPLACE
+                         ^
+--
+ALTERNATION GROUP: OR,IGNORE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+INSERT OR IGNORE  UPDATE
+                        ^
+--
+ALTERNATION GROUP: OR,REPLACE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:19]
+INSERT OR REPLACE OR IGNORE
+                  ^
+--
+ALTERNATION GROUP: OR,REPLACE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:19]
+INSERT OR REPLACE OR REPLACE
+                  ^
+--
+ALTERNATION GROUP: OR,REPLACE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:19]
+INSERT OR REPLACE OR UPDATE
+                  ^
+--
+ALTERNATION GROUP: OR,REPLACE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:20]
+INSERT OR REPLACE  IGNORE
+                   ^
+--
+ALTERNATION GROUP: OR,REPLACE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:27]
+INSERT OR REPLACE  REPLACE
+                          ^
+--
+ALTERNATION GROUP: OR,REPLACE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+INSERT OR REPLACE  UPDATE
+                         ^
+--
+ALTERNATION GROUP: OR,UPDATE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR UPDATE OR IGNORE
+                 ^
+--
+ALTERNATION GROUP: OR,UPDATE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR UPDATE OR REPLACE
+                 ^
+--
+ALTERNATION GROUP: OR,UPDATE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:18]
+INSERT OR UPDATE OR UPDATE
+                 ^
+--
+ALTERNATION GROUP: OR,UPDATE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:19]
+INSERT OR UPDATE  IGNORE
+                  ^
+--
+ALTERNATION GROUP: OR,UPDATE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:26]
+INSERT OR UPDATE  REPLACE
+                         ^
+--
+ALTERNATION GROUP: OR,UPDATE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+INSERT OR UPDATE  UPDATE
+                        ^
+--
+ALTERNATION GROUP: IGNORE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  IGNORE OR IGNORE
+               ^
+--
+ALTERNATION GROUP: IGNORE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  IGNORE OR REPLACE
+               ^
+--
+ALTERNATION GROUP: IGNORE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  IGNORE OR UPDATE
+               ^
+--
+ALTERNATION GROUP: IGNORE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:17]
+INSERT  IGNORE  IGNORE
+                ^
+--
+ALTERNATION GROUP: IGNORE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+INSERT  IGNORE  REPLACE
+                       ^
+--
+ALTERNATION GROUP: IGNORE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:23]
+INSERT  IGNORE  UPDATE
+                      ^
+--
+ALTERNATION GROUP: REPLACE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:17]
+INSERT  REPLACE OR IGNORE
+                ^
+--
+ALTERNATION GROUP: REPLACE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:17]
+INSERT  REPLACE OR REPLACE
+                ^
+--
+ALTERNATION GROUP: REPLACE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:17]
+INSERT  REPLACE OR UPDATE
+                ^
+--
+ALTERNATION GROUP: REPLACE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:18]
+INSERT  REPLACE  IGNORE
+                 ^
+--
+ALTERNATION GROUP: REPLACE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:25]
+INSERT  REPLACE  REPLACE
+                        ^
+--
+ALTERNATION GROUP: REPLACE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+INSERT  REPLACE  UPDATE
+                       ^
+--
+ALTERNATION GROUP: UPDATE,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  UPDATE OR IGNORE
+               ^
+--
+ALTERNATION GROUP: UPDATE,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  UPDATE OR REPLACE
+               ^
+--
+ALTERNATION GROUP: UPDATE,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:16]
+INSERT  UPDATE OR UPDATE
+               ^
+--
+ALTERNATION GROUP: UPDATE,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:17]
+INSERT  UPDATE  IGNORE
+                ^
+--
+ALTERNATION GROUP: UPDATE,,REPLACE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:24]
+INSERT  UPDATE  REPLACE
+                       ^
+--
+ALTERNATION GROUP: UPDATE,,UPDATE
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:23]
+INSERT  UPDATE  UPDATE
+                      ^
+==
+
+# Duplicate.
+INSERT {{INTO|}} mytable {{INTO|}} mytable
+--
+ALTERNATION GROUP: INTO,INTO
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:21]
+INSERT INTO mytable INTO mytable
+                    ^
+--
+ALTERNATION GROUP: INTO,
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:22]
+INSERT INTO mytable  mytable
+                     ^
+--
+ALTERNATION GROUP: INTO
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:17]
+INSERT  mytable INTO mytable
+                ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:18]
+INSERT  mytable  mytable
+                 ^
+==
+
+# Duplicate.
+INSERT INTO mytable (c1, c2) (c1, c2)
+--
+ERROR: Syntax error: Unexpected column list [at 1:30]
+INSERT INTO mytable (c1, c2) (c1, c2)
+                             ^
+==
+
+# Duplicate.
+INSERT INTO mytable VALUES (a, b) VALUES (a, b)
+--
+ERROR: Syntax error: Unexpected VALUES list [at 1:35]
+INSERT INTO mytable VALUES (a, b) VALUES (a, b)
+                                  ^
+==
+
+# Wrong order for OR IGNORE/REPLACE/UPDATE.
+INSERT INTO mytable {{(c1, c2)|}}{{VALUES (a, b)|}} {{OR|}} {{IGNORE|REPLACE|UPDATE}}
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+INSERT INTO mytable (c1, c2)VALUES (a, b) OR IGNORE
+                                          ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+INSERT INTO mytable (c1, c2)VALUES (a, b) OR REPLACE
+                                          ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:43]
+INSERT INTO mytable (c1, c2)VALUES (a, b) OR UPDATE
+                                          ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:44]
+INSERT INTO mytable (c1, c2)VALUES (a, b)  IGNORE
+                                           ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),,REPLACE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:44]
+INSERT INTO mytable (c1, c2)VALUES (a, b)  REPLACE
+                                           ^
+--
+ALTERNATION GROUP: (c1, c2),VALUES (a, b),,UPDATE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:44]
+INSERT INTO mytable (c1, c2)VALUES (a, b)  UPDATE
+                                           ^
+--
+ALTERNATION GROUP: (c1, c2),,OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:30]
+INSERT INTO mytable (c1, c2) OR IGNORE
+                             ^
+--
+ALTERNATION GROUP: (c1, c2),,OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:30]
+INSERT INTO mytable (c1, c2) OR REPLACE
+                             ^
+--
+ALTERNATION GROUP: (c1, c2),,OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:30]
+INSERT INTO mytable (c1, c2) OR UPDATE
+                             ^
+--
+ALTERNATION GROUP: (c1, c2),,,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:31]
+INSERT INTO mytable (c1, c2)  IGNORE
+                              ^
+--
+ALTERNATION GROUP: (c1, c2),,,REPLACE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:31]
+INSERT INTO mytable (c1, c2)  REPLACE
+                              ^
+--
+ALTERNATION GROUP: (c1, c2),,,UPDATE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:31]
+INSERT INTO mytable (c1, c2)  UPDATE
+                              ^
+--
+ALTERNATION GROUP: VALUES (a, b),OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+INSERT INTO mytable VALUES (a, b) OR IGNORE
+                                  ^
+--
+ALTERNATION GROUP: VALUES (a, b),OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+INSERT INTO mytable VALUES (a, b) OR REPLACE
+                                  ^
+--
+ALTERNATION GROUP: VALUES (a, b),OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:35]
+INSERT INTO mytable VALUES (a, b) OR UPDATE
+                                  ^
+--
+ALTERNATION GROUP: VALUES (a, b),,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:36]
+INSERT INTO mytable VALUES (a, b)  IGNORE
+                                   ^
+--
+ALTERNATION GROUP: VALUES (a, b),,REPLACE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:36]
+INSERT INTO mytable VALUES (a, b)  REPLACE
+                                   ^
+--
+ALTERNATION GROUP: VALUES (a, b),,UPDATE
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:36]
+INSERT INTO mytable VALUES (a, b)  UPDATE
+                                   ^
+--
+ALTERNATION GROUP: OR,IGNORE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:22]
+INSERT INTO mytable  OR IGNORE
+                     ^
+--
+ALTERNATION GROUP: OR,REPLACE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:22]
+INSERT INTO mytable  OR REPLACE
+                     ^
+--
+ALTERNATION GROUP: OR,UPDATE
+--
+ERROR: Syntax error: Unexpected keyword OR [at 1:22]
+INSERT INTO mytable  OR UPDATE
+                     ^
+--
+ALTERNATION GROUP: IGNORE
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:23]
+INSERT INTO mytable   IGNORE
+                      ^
+--
+ALTERNATION GROUP: REPLACE
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:23]
+INSERT INTO mytable   REPLACE
+                      ^
+--
+ALTERNATION GROUP: UPDATE
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:23]
+INSERT INTO mytable   UPDATE
+                      ^
+==
+
+# Wrong order for column list.
+INSERT (c1, c2) INTO mytable
+--
+ERROR: Syntax error: Expecting INSERT target name [at 1:8]
+INSERT (c1, c2) INTO mytable
+       ^
+==
+
+# Wrong order for VALUES clause.
+INSERT VALUES (a, b) {{INTO|}} mytable
+--
+ALTERNATION GROUP: INTO
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:22]
+INSERT VALUES (a, b) INTO mytable
+                     ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Unexpected INSERT target name [at 1:23]
+INSERT VALUES (a, b)  mytable
+                      ^
+==
+
+# Wrong order for VALUES clause, missing table.
+INSERT VALUES (a, b) (c1, c2)
+--
+ERROR: Syntax error: Unexpected column list [at 1:22]
+INSERT VALUES (a, b) (c1, c2)
+                     ^
+==
+
+insert {{or|}} ignore {{into|}} {{c.T|values}} {{(c1, c2)|}}
+values (5,6), ('abc')
+assert_rows_modified 5
+--
+ALTERNATION GROUP: or,into,c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-79]
+  PathExpression [22-25]
+    Identifier(c) [22-23]
+    Identifier(T) [24-25]
+  ColumnList [26-34]
+    Identifier(c1) [27-29]
+    Identifier(c2) [31-33]
+  InsertValuesRowList [35-56]
+    InsertValuesRow [42-47]
+      IntLiteral(5) [43-44]
+      IntLiteral(6) [45-46]
+    InsertValuesRow [49-56]
+      StringLiteral('abc') [50-55]
+  AssertRowsModified [57-79]
+    IntLiteral(5) [78-79]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,into,c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-71]
+  PathExpression [22-25]
+    Identifier(c) [22-23]
+    Identifier(T) [24-25]
+  InsertValuesRowList [27-48]
+    InsertValuesRow [34-39]
+      IntLiteral(5) [35-36]
+      IntLiteral(6) [37-38]
+    InsertValuesRow [41-48]
+      StringLiteral('abc') [42-47]
+  AssertRowsModified [49-71]
+    IntLiteral(5) [70-71]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,into,values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-82]
+  PathExpression [22-28]
+    Identifier(values) [22-28]
+  ColumnList [29-37]
+    Identifier(c1) [30-32]
+    Identifier(c2) [34-36]
+  InsertValuesRowList [38-59]
+    InsertValuesRow [45-50]
+      IntLiteral(5) [46-47]
+      IntLiteral(6) [48-49]
+    InsertValuesRow [52-59]
+      StringLiteral('abc') [53-58]
+  AssertRowsModified [60-82]
+    IntLiteral(5) [81-82]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,into,values,
+--
+InsertStatement(insert_mode=IGNORE) [0-74]
+  PathExpression [22-28]
+    Identifier(values) [22-28]
+  InsertValuesRowList [30-51]
+    InsertValuesRow [37-42]
+      IntLiteral(5) [38-39]
+      IntLiteral(6) [40-41]
+    InsertValuesRow [44-51]
+      StringLiteral('abc') [45-50]
+  AssertRowsModified [52-74]
+    IntLiteral(5) [73-74]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-75]
+  PathExpression [18-21]
+    Identifier(c) [18-19]
+    Identifier(T) [20-21]
+  ColumnList [22-30]
+    Identifier(c1) [23-25]
+    Identifier(c2) [27-29]
+  InsertValuesRowList [31-52]
+    InsertValuesRow [38-43]
+      IntLiteral(5) [39-40]
+      IntLiteral(6) [41-42]
+    InsertValuesRow [45-52]
+      StringLiteral('abc') [46-51]
+  AssertRowsModified [53-75]
+    IntLiteral(5) [74-75]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-67]
+  PathExpression [18-21]
+    Identifier(c) [18-19]
+    Identifier(T) [20-21]
+  InsertValuesRowList [23-44]
+    InsertValuesRow [30-35]
+      IntLiteral(5) [31-32]
+      IntLiteral(6) [33-34]
+    InsertValuesRow [37-44]
+      StringLiteral('abc') [38-43]
+  AssertRowsModified [45-67]
+    IntLiteral(5) [66-67]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-78]
+  PathExpression [18-24]
+    Identifier(values) [18-24]
+  ColumnList [25-33]
+    Identifier(c1) [26-28]
+    Identifier(c2) [30-32]
+  InsertValuesRowList [34-55]
+    InsertValuesRow [41-46]
+      IntLiteral(5) [42-43]
+      IntLiteral(6) [44-45]
+    InsertValuesRow [48-55]
+      StringLiteral('abc') [49-54]
+  AssertRowsModified [56-78]
+    IntLiteral(5) [77-78]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: or,,values,
+--
+InsertStatement(insert_mode=IGNORE) [0-70]
+  PathExpression [18-24]
+    Identifier(values) [18-24]
+  InsertValuesRowList [26-47]
+    InsertValuesRow [33-38]
+      IntLiteral(5) [34-35]
+      IntLiteral(6) [36-37]
+    InsertValuesRow [40-47]
+      StringLiteral('abc') [41-46]
+  AssertRowsModified [48-70]
+    IntLiteral(5) [69-70]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-77]
+  PathExpression [20-23]
+    Identifier(c) [20-21]
+    Identifier(T) [22-23]
+  ColumnList [24-32]
+    Identifier(c1) [25-27]
+    Identifier(c2) [29-31]
+  InsertValuesRowList [33-54]
+    InsertValuesRow [40-45]
+      IntLiteral(5) [41-42]
+      IntLiteral(6) [43-44]
+    InsertValuesRow [47-54]
+      StringLiteral('abc') [48-53]
+  AssertRowsModified [55-77]
+    IntLiteral(5) [76-77]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-69]
+  PathExpression [20-23]
+    Identifier(c) [20-21]
+    Identifier(T) [22-23]
+  InsertValuesRowList [25-46]
+    InsertValuesRow [32-37]
+      IntLiteral(5) [33-34]
+      IntLiteral(6) [35-36]
+    InsertValuesRow [39-46]
+      StringLiteral('abc') [40-45]
+  AssertRowsModified [47-69]
+    IntLiteral(5) [68-69]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-80]
+  PathExpression [20-26]
+    Identifier(values) [20-26]
+  ColumnList [27-35]
+    Identifier(c1) [28-30]
+    Identifier(c2) [32-34]
+  InsertValuesRowList [36-57]
+    InsertValuesRow [43-48]
+      IntLiteral(5) [44-45]
+      IntLiteral(6) [46-47]
+    InsertValuesRow [50-57]
+      StringLiteral('abc') [51-56]
+  AssertRowsModified [58-80]
+    IntLiteral(5) [79-80]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: into,values,
+--
+InsertStatement(insert_mode=IGNORE) [0-72]
+  PathExpression [20-26]
+    Identifier(values) [20-26]
+  InsertValuesRowList [28-49]
+    InsertValuesRow [35-40]
+      IntLiteral(5) [36-37]
+      IntLiteral(6) [38-39]
+    InsertValuesRow [42-49]
+      StringLiteral('abc') [43-48]
+  AssertRowsModified [50-72]
+    IntLiteral(5) [71-72]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: c.T,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-73]
+  PathExpression [16-19]
+    Identifier(c) [16-17]
+    Identifier(T) [18-19]
+  ColumnList [20-28]
+    Identifier(c1) [21-23]
+    Identifier(c2) [25-27]
+  InsertValuesRowList [29-50]
+    InsertValuesRow [36-41]
+      IntLiteral(5) [37-38]
+      IntLiteral(6) [39-40]
+    InsertValuesRow [43-50]
+      StringLiteral('abc') [44-49]
+  AssertRowsModified [51-73]
+    IntLiteral(5) [72-73]
+--
+INSERT OR IGNORE INTO c.T(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: c.T,
+--
+InsertStatement(insert_mode=IGNORE) [0-65]
+  PathExpression [16-19]
+    Identifier(c) [16-17]
+    Identifier(T) [18-19]
+  InsertValuesRowList [21-42]
+    InsertValuesRow [28-33]
+      IntLiteral(5) [29-30]
+      IntLiteral(6) [31-32]
+    InsertValuesRow [35-42]
+      StringLiteral('abc') [36-41]
+  AssertRowsModified [43-65]
+    IntLiteral(5) [64-65]
+--
+INSERT OR IGNORE INTO c.T
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: values,(c1, c2)
+--
+InsertStatement(insert_mode=IGNORE) [0-76]
+  PathExpression [16-22]
+    Identifier(values) [16-22]
+  ColumnList [23-31]
+    Identifier(c1) [24-26]
+    Identifier(c2) [28-30]
+  InsertValuesRowList [32-53]
+    InsertValuesRow [39-44]
+      IntLiteral(5) [40-41]
+      IntLiteral(6) [42-43]
+    InsertValuesRow [46-53]
+      StringLiteral('abc') [47-52]
+  AssertRowsModified [54-76]
+    IntLiteral(5) [75-76]
+--
+INSERT OR IGNORE INTO values(c1, c2)
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+--
+ALTERNATION GROUP: values,
+--
+InsertStatement(insert_mode=IGNORE) [0-68]
+  PathExpression [16-22]
+    Identifier(values) [16-22]
+  InsertValuesRowList [24-45]
+    InsertValuesRow [31-36]
+      IntLiteral(5) [32-33]
+      IntLiteral(6) [34-35]
+    InsertValuesRow [38-45]
+      StringLiteral('abc') [39-44]
+  AssertRowsModified [46-68]
+    IntLiteral(5) [67-68]
+--
+INSERT OR IGNORE INTO values
+VALUES
+  (5, 6),
+  ('abc')
+ASSERT_ROWS_MODIFIED 5
+==
+
+# Test all combinations of missing and present parts.
+# The insert_mode is never treated as a table name, although the tests below
+# show that those can be valid table names after INTO.
+insert{{ or|}}{{| ignore| replace| update}}{{ into|}}{{ T|}}
+select 1
+--
+ALTERNATION GROUP:  or,, into, T
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got keyword INTO [at 1:11]
+insert or into T
+          ^
+--
+ALTERNATION GROUP:  or,, into,
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got keyword INTO [at 1:11]
+insert or into
+          ^
+--
+ALTERNATION GROUP:  or,,, T
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got identifier "T" [at 1:11]
+insert or T
+          ^
+--
+ALTERNATION GROUP:  or,,,
+--
+ERROR: Syntax error: Expected keyword IGNORE or keyword REPLACE or keyword UPDATE but got keyword SELECT [at 2:1]
+select 1
+^
+--
+ALTERNATION GROUP:  or, ignore, into, T
+--
+InsertStatement(insert_mode=IGNORE) [0-32]
+  PathExpression [22-23]
+    Identifier(T) [22-23]
+  Query [24-32]
+    Select [24-32]
+      SelectList [31-32]
+        SelectColumn [31-32]
+          IntLiteral(1) [31-32]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUPS:
+     or, ignore, into,
+     or, replace, into,
+     or, update, into,
+     into,
+     ignore, into,
+     replace, into,
+     update, into,
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 2:1]
+select 1
+^
+--
+ALTERNATION GROUP:  or, ignore,, T
+--
+InsertStatement(insert_mode=IGNORE) [0-27]
+  PathExpression [17-18]
+    Identifier(T) [17-18]
+  Query [19-27]
+    Select [19-27]
+      SelectList [26-27]
+        SelectColumn [26-27]
+          IntLiteral(1) [26-27]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUPS:
+     or, ignore,,
+     or, replace,,
+     or, update,,
+    <empty>
+     ignore,,
+     replace,,
+     update,,
+--
+ERROR: Syntax error: Expecting INSERT target name [at 2:1]
+select 1
+^
+--
+ALTERNATION GROUP:  or, replace, into, T
+--
+InsertStatement(insert_mode=REPLACE) [0-33]
+  PathExpression [23-24]
+    Identifier(T) [23-24]
+  Query [25-33]
+    Select [25-33]
+      SelectList [32-33]
+        SelectColumn [32-33]
+          IntLiteral(1) [32-33]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  or, replace,, T
+--
+InsertStatement(insert_mode=REPLACE) [0-28]
+  PathExpression [18-19]
+    Identifier(T) [18-19]
+  Query [20-28]
+    Select [20-28]
+      SelectList [27-28]
+        SelectColumn [27-28]
+          IntLiteral(1) [27-28]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  or, update, into, T
+--
+InsertStatement(insert_mode=UPDATE) [0-32]
+  PathExpression [22-23]
+    Identifier(T) [22-23]
+  Query [24-32]
+    Select [24-32]
+      SelectList [31-32]
+        SelectColumn [31-32]
+          IntLiteral(1) [31-32]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  or, update,, T
+--
+InsertStatement(insert_mode=UPDATE) [0-27]
+  PathExpression [17-18]
+    Identifier(T) [17-18]
+  Query [19-27]
+    Select [19-27]
+      SelectList [26-27]
+        SelectColumn [26-27]
+          IntLiteral(1) [26-27]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  into, T
+--
+InsertStatement [0-22]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  Query [14-22]
+    Select [14-22]
+      SelectList [21-22]
+        SelectColumn [21-22]
+          IntLiteral(1) [21-22]
+--
+INSERT INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  T
+--
+InsertStatement [0-17]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Query [9-17]
+    Select [9-17]
+      SelectList [16-17]
+        SelectColumn [16-17]
+          IntLiteral(1) [16-17]
+--
+INSERT INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  ignore, into, T
+--
+InsertStatement(insert_mode=IGNORE) [0-29]
+  PathExpression [19-20]
+    Identifier(T) [19-20]
+  Query [21-29]
+    Select [21-29]
+      SelectList [28-29]
+        SelectColumn [28-29]
+          IntLiteral(1) [28-29]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  ignore,, T
+--
+InsertStatement(insert_mode=IGNORE) [0-24]
+  PathExpression [14-15]
+    Identifier(T) [14-15]
+  Query [16-24]
+    Select [16-24]
+      SelectList [23-24]
+        SelectColumn [23-24]
+          IntLiteral(1) [23-24]
+--
+INSERT OR IGNORE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  replace, into, T
+--
+InsertStatement(insert_mode=REPLACE) [0-30]
+  PathExpression [20-21]
+    Identifier(T) [20-21]
+  Query [22-30]
+    Select [22-30]
+      SelectList [29-30]
+        SelectColumn [29-30]
+          IntLiteral(1) [29-30]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  replace,, T
+--
+InsertStatement(insert_mode=REPLACE) [0-25]
+  PathExpression [15-16]
+    Identifier(T) [15-16]
+  Query [17-25]
+    Select [17-25]
+      SelectList [24-25]
+        SelectColumn [24-25]
+          IntLiteral(1) [24-25]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  update, into, T
+--
+InsertStatement(insert_mode=UPDATE) [0-29]
+  PathExpression [19-20]
+    Identifier(T) [19-20]
+  Query [21-29]
+    Select [21-29]
+      SelectList [28-29]
+        SelectColumn [28-29]
+          IntLiteral(1) [28-29]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+--
+ALTERNATION GROUP:  update,, T
+--
+InsertStatement(insert_mode=UPDATE) [0-24]
+  PathExpression [14-15]
+    Identifier(T) [14-15]
+  Query [16-24]
+    Select [16-24]
+      SelectList [23-24]
+        SelectColumn [23-24]
+          IntLiteral(1) [23-24]
+--
+INSERT OR UPDATE INTO T
+SELECT
+  1
+==
+
+# After "values", the Bison parser parses the list as a values list, even if the
+# "values" is really a table name, which means that the list should be
+# interpreted as a column list.
+INSERT values (a, b)
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:21]
+INSERT values (a, b)
+                    ^
+==
+
+INSERT values values (a, b)
+--
+InsertStatement [0-27]
+  PathExpression [7-13]
+    Identifier(values) [7-13]
+  InsertValuesRowList [14-27]
+    InsertValuesRow [21-27]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      PathExpression [25-26]
+        Identifier(b) [25-26]
+--
+INSERT INTO values
+VALUES
+  (a, b)
+==
+
+INSERT mytable values (a, b)
+--
+InsertStatement [0-28]
+  PathExpression [7-14]
+    Identifier(mytable) [7-14]
+  InsertValuesRowList [15-28]
+    InsertValuesRow [22-28]
+      PathExpression [23-24]
+        Identifier(a) [23-24]
+      PathExpression [26-27]
+        Identifier(b) [26-27]
+--
+INSERT INTO mytable
+VALUES
+  (a, b)
+==
+
+INSERT values mytable (a, b)
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:15]
+INSERT values mytable (a, b)
+              ^
+==
+
+# Bad column list (values is a table name here).
+INSERT values (1, 3)
+--
+ERROR: Syntax error: Expected column name [at 1:16]
+INSERT values (1, 3)
+               ^
+==
+
+# After "values", the Bison parser parses the list as a values list, even if
+# the "values" is really a table name, which means that the list should be
+# interpreted as a column list. In this test case multiple column lists are
+# given, which parses correctly but is then rejected when the list is
+# reinterpreted as a column list.
+INSERT values (a, b), (c, d)
+--
+ERROR: Syntax error: Unexpected multiple column lists [at 1:23]
+INSERT values (a, b), (c, d)
+                      ^
+==
+
+# Same as the previous test case, but the first column list doesn't parse as a
+# column list.
+INSERT values (1, 3), (c, d)
+--
+ERROR: Syntax error: Expected column name [at 1:16]
+INSERT values (1, 3), (c, d)
+               ^
+==
+
+# Column list after "values" (which is a table name here) that includes the
+# "default" keyword. It is still a keyword, so it can't be included in the
+# column name list without escaping..
+INSERT values (a, default) values (1, 3)
+--
+ERROR: Syntax error: Expected column name, got keyword DEFAULT [at 1:19]
+INSERT values (a, default) values (1, 3)
+                  ^
+==
+
+# Using "default" as a column name works fine with escaping.
+INSERT values (a, `default`) values (1, 3)
+--
+InsertStatement [0-42]
+  PathExpression [7-13]
+    Identifier(values) [7-13]
+  ColumnList [14-28]
+    Identifier(a) [15-16]
+    Identifier(`default`) [18-27]
+  InsertValuesRowList [29-42]
+    InsertValuesRow [36-42]
+      IntLiteral(1) [37-38]
+      IntLiteral(3) [40-41]
+--
+INSERT INTO values(a, `default`)
+VALUES
+  (1, 3)
+==
+
+insert or ignore {{into|}} replace
+select 1
+--
+ALTERNATION GROUP: into
+--
+InsertStatement(insert_mode=IGNORE) [0-38]
+  PathExpression [22-29]
+    Identifier(`replace`) [22-29]
+  Query [30-38]
+    Select [30-38]
+      SelectList [37-38]
+        SelectColumn [37-38]
+          IntLiteral(1) [37-38]
+--
+INSERT OR IGNORE INTO `replace`
+SELECT
+  1
+--
+ALTERNATION GROUP: <empty>
+--
+InsertStatement(insert_mode=IGNORE) [0-34]
+  PathExpression [18-25]
+    Identifier(`replace`) [18-25]
+  Query [26-34]
+    Select [26-34]
+      SelectList [33-34]
+        SelectColumn [33-34]
+          IntLiteral(1) [33-34]
+--
+INSERT OR IGNORE INTO `replace`
+SELECT
+  1
+==
+
+insert into insert
+select 1
+--
+InsertStatement [0-27]
+  PathExpression [12-18]
+    Identifier(insert) [12-18]
+  Query [19-27]
+    Select [19-27]
+      SelectList [26-27]
+        SelectColumn [26-27]
+          IntLiteral(1) [26-27]
+--
+INSERT INTO insert
+SELECT
+  1
+==
+
+# IGNORE is a reserved keyword.
+insert into ignore
+select 1
+--
+ERROR: Syntax error: Unexpected keyword IGNORE [at 1:13]
+insert into ignore
+            ^
+==
+
+insert into replace
+select 1
+--
+InsertStatement [0-28]
+  PathExpression [12-19]
+    Identifier(`replace`) [12-19]
+  Query [20-28]
+    Select [20-28]
+      SelectList [27-28]
+        SelectColumn [27-28]
+          IntLiteral(1) [27-28]
+--
+INSERT INTO `replace`
+SELECT
+  1
+==
+
+insert into T (c1)
+with q1 as (select 1)
+select * from q1
+assert_rows_modified @row_count
+--
+InsertStatement [0-89]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  ColumnList [14-18]
+    Identifier(c1) [15-17]
+  Query [19-57]
+    WithClause [19-40]
+      WithClauseEntry [24-40]
+        Identifier(q1) [24-26]
+        Query [31-39]
+          Select [31-39]
+            SelectList [38-39]
+              SelectColumn [38-39]
+                IntLiteral(1) [38-39]
+    Select [41-57]
+      SelectList [48-49]
+        SelectColumn [48-49]
+          Star(*) [48-49]
+      FromClause [50-57]
+        TablePathExpression [55-57]
+          PathExpression [55-57]
+            Identifier(q1) [55-57]
+  AssertRowsModified [58-89]
+    ParameterExpr [79-89]
+      Identifier(row_count) [80-89]
+--
+INSERT INTO T(c1)
+WITH
+  q1 AS (
+    SELECT
+      1
+  )
+SELECT
+  *
+FROM
+  q1
+ASSERT_ROWS_MODIFIED @row_count
+==
+
+insert into T
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:14]
+insert into T
+             ^
+==
+
+insert into T (c1,c2)
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:22]
+insert into T (c1,c2)
+                     ^
+==
+
+insert into T (c1,c2)
+assert_rows_modified 10
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 2:1]
+assert_rows_modified 10
+^
+==
+
+insert into T ()
+select 1
+--
+ERROR: Syntax error: Unexpected ")" [at 1:16]
+insert into T ()
+               ^
+==
+
+insert into T
+values ()
+--
+ERROR: Syntax error: Unexpected ")" [at 2:9]
+values ()
+        ^
+==
+
+insert into T
+values ((1,2), (select 1))
+--
+InsertStatement [0-40]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  InsertValuesRowList [14-40]
+    InsertValuesRow [21-40]
+      StructConstructorWithParens [22-27]
+        IntLiteral(1) [23-24]
+        IntLiteral(2) [25-26]
+      ExpressionSubquery [29-39]
+        Query [30-38]
+          Select [30-38]
+            SelectList [37-38]
+              SelectColumn [37-38]
+                IntLiteral(1) [37-38]
+--
+INSERT INTO T
+VALUES
+  ((1, 2), (
+      SELECT
+        1
+    ))
+==
+
+insert into T
+values (1,2), (select 1)
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 2:16]
+values (1,2), (select 1)
+               ^
+==
+
+insert into T
+values (1,2), ((select 1))
+--
+InsertStatement [0-40]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  InsertValuesRowList [14-40]
+    InsertValuesRow [21-26]
+      IntLiteral(1) [22-23]
+      IntLiteral(2) [24-25]
+    InsertValuesRow [28-40]
+      ExpressionSubquery [29-39]
+        Query [30-38]
+          Select [30-38]
+            SelectList [37-38]
+              SelectColumn [37-38]
+                IntLiteral(1) [37-38]
+--
+INSERT INTO T
+VALUES
+  (1, 2),
+  ((
+      SELECT
+        1
+    ))
+==
+
+# WITH with no column_list.
+insert T
+with q1 as (select 1)
+select * from q1
+--
+InsertStatement [0-47]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Query [9-47]
+    WithClause [9-30]
+      WithClauseEntry [14-30]
+        Identifier(q1) [14-16]
+        Query [21-29]
+          Select [21-29]
+            SelectList [28-29]
+              SelectColumn [28-29]
+                IntLiteral(1) [28-29]
+    Select [31-47]
+      SelectList [38-39]
+        SelectColumn [38-39]
+          Star(*) [38-39]
+      FromClause [40-47]
+        TablePathExpression [45-47]
+          PathExpression [45-47]
+            Identifier(q1) [45-47]
+--
+INSERT INTO T
+WITH
+  q1 AS (
+    SELECT
+      1
+  )
+SELECT
+  *
+FROM
+  q1
+==
+
+insert or replace into T
+select * from q1
+union all
+select * from q2
+order by x
+limit 5
+assert_rows_modified 0
+--
+InsertStatement(insert_mode=REPLACE) [0-110]
+  PathExpression [23-24]
+    Identifier(T) [23-24]
+  Query [25-87]
+    SetOperation(UNION ALL) [25-68]
+      Select [25-41]
+        SelectList [32-33]
+          SelectColumn [32-33]
+            Star(*) [32-33]
+        FromClause [34-41]
+          TablePathExpression [39-41]
+            PathExpression [39-41]
+              Identifier(q1) [39-41]
+      Select [52-68]
+        SelectList [59-60]
+          SelectColumn [59-60]
+            Star(*) [59-60]
+        FromClause [61-68]
+          TablePathExpression [66-68]
+            PathExpression [66-68]
+              Identifier(q2) [66-68]
+    OrderBy [69-79]
+      OrderingExpression(ASC) [78-79]
+        PathExpression [78-79]
+          Identifier(x) [78-79]
+    LimitOffset [80-87]
+      IntLiteral(5) [86-87]
+  AssertRowsModified [88-110]
+    IntLiteral(0) [109-110]
+--
+INSERT OR REPLACE INTO T
+SELECT
+  *
+FROM
+  q1
+UNION ALL
+SELECT
+  *
+FROM
+  q2
+ORDER BY x
+LIMIT 5
+ASSERT_ROWS_MODIFIED 0
+==
+
+insert into T (c1,c2)
+values (1+2, f(), null, default),
+       (default, (select x from y))
+--
+InsertStatement [0-91]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  ColumnList [14-21]
+    Identifier(c1) [15-17]
+    Identifier(c2) [18-20]
+  InsertValuesRowList [22-91]
+    InsertValuesRow [29-54]
+      BinaryExpression(+) [30-33]
+        IntLiteral(1) [30-31]
+        IntLiteral(2) [32-33]
+      FunctionCall [35-38]
+        PathExpression [35-36]
+          Identifier(f) [35-36]
+      NullLiteral(null) [40-44]
+      DefaultLiteral [46-53]
+    InsertValuesRow [63-91]
+      DefaultLiteral [64-71]
+      ExpressionSubquery [73-90]
+        Query [74-89]
+          Select [74-89]
+            SelectList [81-82]
+              SelectColumn [81-82]
+                PathExpression [81-82]
+                  Identifier(x) [81-82]
+            FromClause [83-89]
+              TablePathExpression [88-89]
+                PathExpression [88-89]
+                  Identifier(y) [88-89]
+--
+INSERT INTO T(c1, c2)
+VALUES
+  (1 + 2, f(), null, DEFAULT),
+  (DEFAULT, (
+      SELECT
+        x
+      FROM
+        y
+    ))
+==
+
+insert into c1.T (c1.c2)
+--
+ERROR: Syntax error: Expected ")" or "," but got "." [at 1:21]
+insert into c1.T (c1.c2)
+                    ^
+==
+
+insert into (select 1)
+--
+ERROR: Syntax error: Unexpected "(" [at 1:13]
+insert into (select 1)
+            ^
+==
+
+insert into T
+values (1,2)
+select 5
+--
+ERROR: Syntax error: Unexpected query [at 3:1]
+select 5
+^
+==
+
+insert into T
+select 5
+values (1,2)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 3:8]
+values (1,2)
+       ^
+==
+
+# Parenthesized query without a column_list.  This exercises the special
+# case in insert_statement().
+insert into T
+(select 5)
+--
+InsertStatement [0-24]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  Query [14-24]
+    Query [15-23]
+      Select [15-23]
+        SelectList [22-23]
+          SelectColumn [22-23]
+            IntLiteral(5) [22-23]
+--
+INSERT INTO T
+(
+SELECT
+  5
+)
+==
+
+# Double-parenthesized query without a column_list.
+insert into T
+((select 1) union all (select 2))
+--
+InsertStatement [0-47]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  Query [14-47]
+    Query [15-46]
+      SetOperation(UNION ALL) [15-46]
+        Query [16-24]
+          Select [16-24]
+            SelectList [23-24]
+              SelectColumn [23-24]
+                IntLiteral(1) [23-24]
+        Query [37-45]
+          Select [37-45]
+            SelectList [44-45]
+              SelectColumn [44-45]
+                IntLiteral(2) [44-45]
+--
+INSERT INTO T
+((
+SELECT
+  1
+) UNION ALL(
+SELECT
+  2
+))
+==
+
+insert into T (c1, c2)
+(select 5, 7) union all select 8,9
+--
+InsertStatement [0-57]
+  PathExpression [12-13]
+    Identifier(T) [12-13]
+  ColumnList [14-22]
+    Identifier(c1) [15-17]
+    Identifier(c2) [19-21]
+  Query [23-57]
+    SetOperation(UNION ALL) [23-57]
+      Query [24-35]
+        Select [24-35]
+          SelectList [31-35]
+            SelectColumn [31-32]
+              IntLiteral(5) [31-32]
+            SelectColumn [34-35]
+              IntLiteral(7) [34-35]
+      Select [47-57]
+        SelectList [54-57]
+          SelectColumn [54-55]
+            IntLiteral(8) [54-55]
+          SelectColumn [56-57]
+            IntLiteral(9) [56-57]
+--
+INSERT INTO T(c1, c2)
+(
+SELECT
+  5,
+  7
+) UNION ALL
+SELECT
+  8,
+  9
+==
+
+insert into T (c1, c2) (c3)
+--
+ERROR: Syntax error: Unexpected column list [at 1:24]
+insert into T (c1, c2) (c3)
+                       ^
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+insert into T.(a.b).c VALUES (1)
+--
+InsertStatement [0-32]
+  DotIdentifier [19-21]
+    DotGeneralizedField [13-19]
+      PathExpression [12-13]
+        Identifier(T) [12-13]
+      PathExpression [15-18]
+        Identifier(a) [15-16]
+        Identifier(b) [17-18]
+    Identifier(c) [20-21]
+  InsertValuesRowList [22-32]
+    InsertValuesRow [29-32]
+      IntLiteral(1) [30-31]
+--
+INSERT INTO T.(a.b).c
+VALUES
+  (1)
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+insert into T.a[0].b VALUES(1)
+--
+InsertStatement [0-30]
+  DotIdentifier [18-20]
+    ArrayElement [15-18]
+      PathExpression [12-15]
+        Identifier(T) [12-13]
+        Identifier(a) [14-15]
+      IntLiteral(0) [16-17]
+    Identifier(b) [19-20]
+  InsertValuesRowList [21-30]
+    InsertValuesRow [27-30]
+      IntLiteral(1) [28-29]
+--
+INSERT INTO T.a[0].b
+VALUES
+  (1)
+==
+
+update T
+set x=y
+--
+UpdateStatement [0-16]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-16]
+    UpdateItem [13-16]
+      UpdateSetValue [13-16]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [15-16]
+          Identifier(y) [15-16]
+--
+UPDATE T
+SET
+  x = y
+==
+
+# The resolver will fail on this because WITH OFFSET is not allowed in
+# top-level UPDATE statements, but it does parse.
+update T with offset AS offset set x = y
+--
+UpdateStatement [0-40]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  WithOffset [9-30]
+    Alias [21-30]
+      Identifier(offset) [24-30]
+  UpdateItemList [35-40]
+    UpdateItem [35-40]
+      UpdateSetValue [35-40]
+        PathExpression [35-36]
+          Identifier(x) [35-36]
+        PathExpression [39-40]
+          Identifier(y) [39-40]
+--
+UPDATE T WITH OFFSET AS offset
+SET
+  x = y
+==
+
+# The resolver will fail on this because the target involves a generalized
+# field access, but it does parse.
+update T.(a.b).c set x = y
+--
+UpdateStatement [0-26]
+  DotIdentifier [14-16]
+    DotGeneralizedField [8-14]
+      PathExpression [7-8]
+        Identifier(T) [7-8]
+      PathExpression [10-13]
+        Identifier(a) [10-11]
+        Identifier(b) [12-13]
+    Identifier(c) [15-16]
+  UpdateItemList [21-26]
+    UpdateItem [21-26]
+      UpdateSetValue [21-26]
+        PathExpression [21-22]
+          Identifier(x) [21-22]
+        PathExpression [25-26]
+          Identifier(y) [25-26]
+--
+UPDATE T.(a.b).c
+SET
+  x = y
+==
+
+# The resolver will fail on this because the target involves [], but it does
+# parse.
+update T.a[0].b set x = y
+--
+UpdateStatement [0-25]
+  DotIdentifier [13-15]
+    ArrayElement [10-13]
+      PathExpression [7-10]
+        Identifier(T) [7-8]
+        Identifier(a) [9-10]
+      IntLiteral(0) [11-12]
+    Identifier(b) [14-15]
+  UpdateItemList [20-25]
+    UpdateItem [20-25]
+      UpdateSetValue [20-25]
+        PathExpression [20-21]
+          Identifier(x) [20-21]
+        PathExpression [24-25]
+          Identifier(y) [24-25]
+--
+UPDATE T.a[0].b
+SET
+  x = y
+==
+
+update T
+set id.(path.to.extension) = 5
+--
+UpdateStatement [0-39]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-39]
+    UpdateItem [13-39]
+      UpdateSetValue [13-39]
+        DotGeneralizedField [15-35]
+          PathExpression [13-15]
+            Identifier(id) [13-15]
+          PathExpression [17-34]
+            Identifier(path) [17-21]
+            Identifier(`to`) [22-24]
+            Identifier(extension) [25-34]
+        IntLiteral(5) [38-39]
+--
+UPDATE T
+SET
+  id.(path.`to`.extension) = 5
+==
+
+update T
+set id.(path.to.extension) = DEFAULT
+--
+UpdateStatement [0-45]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-45]
+    UpdateItem [13-45]
+      UpdateSetValue [13-45]
+        DotGeneralizedField [15-35]
+          PathExpression [13-15]
+            Identifier(id) [13-15]
+          PathExpression [17-34]
+            Identifier(path) [17-21]
+            Identifier(`to`) [22-24]
+            Identifier(extension) [25-34]
+        DefaultLiteral [38-45]
+--
+UPDATE T
+SET
+  id.(path.`to`.extension) = DEFAULT
+==
+
+update T
+set id[0] = DEFAULT
+--
+UpdateStatement [0-28]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-28]
+    UpdateItem [13-28]
+      UpdateSetValue [13-28]
+        ArrayElement [15-18]
+          PathExpression [13-15]
+            Identifier(id) [13-15]
+          IntLiteral(0) [16-17]
+        DefaultLiteral [21-28]
+--
+UPDATE T
+SET
+  id[0] = DEFAULT
+==
+
+update T
+set id1.id2.(path.to.extension) = 5
+--
+UpdateStatement [0-44]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-44]
+    UpdateItem [13-44]
+      UpdateSetValue [13-44]
+        DotGeneralizedField [20-40]
+          PathExpression [13-20]
+            Identifier(id1) [13-16]
+            Identifier(id2) [17-20]
+          PathExpression [22-39]
+            Identifier(path) [22-26]
+            Identifier(`to`) [27-29]
+            Identifier(extension) [30-39]
+        IntLiteral(5) [43-44]
+--
+UPDATE T
+SET
+  id1.id2.(path.`to`.extension) = 5
+==
+
+update T
+set id1.(id2).(id3) = 5
+--
+UpdateStatement [0-32]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-32]
+    UpdateItem [13-32]
+      UpdateSetValue [13-32]
+        DotGeneralizedField [22-28]
+          DotGeneralizedField [16-22]
+            PathExpression [13-16]
+              Identifier(id1) [13-16]
+            PathExpression [18-21]
+              Identifier(id2) [18-21]
+          PathExpression [24-27]
+            Identifier(id3) [24-27]
+        IntLiteral(5) [31-32]
+--
+UPDATE T
+SET
+  id1.(id2).(id3) = 5
+==
+
+update T
+set id1.(a.b.c).(d.e.f).id2.(g.h.i).id3.id4 = 5
+--
+UpdateStatement [0-56]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-56]
+    UpdateItem [13-56]
+      UpdateSetValue [13-56]
+        DotIdentifier [48-52]
+          DotIdentifier [44-48]
+            DotGeneralizedField [36-44]
+              DotIdentifier [32-36]
+                DotGeneralizedField [24-32]
+                  DotGeneralizedField [16-24]
+                    PathExpression [13-16]
+                      Identifier(id1) [13-16]
+                    PathExpression [18-23]
+                      Identifier(a) [18-19]
+                      Identifier(b) [20-21]
+                      Identifier(c) [22-23]
+                  PathExpression [26-31]
+                    Identifier(d) [26-27]
+                    Identifier(e) [28-29]
+                    Identifier(f) [30-31]
+                Identifier(id2) [33-36]
+              PathExpression [38-43]
+                Identifier(g) [38-39]
+                Identifier(h) [40-41]
+                Identifier(i) [42-43]
+            Identifier(id3) [45-48]
+          Identifier(id4) [49-52]
+        IntLiteral(5) [55-56]
+--
+UPDATE T
+SET
+  id1.(a.b.c).(d.e.f).id2.(g.h.i).id3.id4 = 5
+==
+
+update T set id1[0] = 5
+--
+UpdateStatement [0-23]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-23]
+    UpdateItem [13-23]
+      UpdateSetValue [13-23]
+        ArrayElement [16-19]
+          PathExpression [13-16]
+            Identifier(id1) [13-16]
+          IntLiteral(0) [17-18]
+        IntLiteral(5) [22-23]
+--
+UPDATE T
+SET
+  id1[0] = 5
+==
+
+update T set id1[0].(a.b.c).id1.(d.e.f)[1].id3 = 5
+--
+UpdateStatement [0-50]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-50]
+    UpdateItem [13-50]
+      UpdateSetValue [13-50]
+        DotIdentifier [42-46]
+          ArrayElement [39-42]
+            DotGeneralizedField [31-39]
+              DotIdentifier [27-31]
+                DotGeneralizedField [19-27]
+                  ArrayElement [16-19]
+                    PathExpression [13-16]
+                      Identifier(id1) [13-16]
+                    IntLiteral(0) [17-18]
+                  PathExpression [21-26]
+                    Identifier(a) [21-22]
+                    Identifier(b) [23-24]
+                    Identifier(c) [25-26]
+                Identifier(id1) [28-31]
+              PathExpression [33-38]
+                Identifier(d) [33-34]
+                Identifier(e) [35-36]
+                Identifier(f) [37-38]
+            IntLiteral(1) [40-41]
+          Identifier(id3) [43-46]
+        IntLiteral(5) [49-50]
+--
+UPDATE T
+SET
+  id1[0].(a.b.c).id1.(d.e.f)[1].id3 = 5
+==
+
+# This parses, but in practice it will never resolve because ZetaSQL does not
+# support arrays of arrays.
+update T set id1[0][1] = 5
+--
+UpdateStatement [0-26]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-26]
+    UpdateItem [13-26]
+      UpdateSetValue [13-26]
+        ArrayElement [19-22]
+          ArrayElement [16-19]
+            PathExpression [13-16]
+              Identifier(id1) [13-16]
+            IntLiteral(0) [17-18]
+          IntLiteral(1) [20-21]
+        IntLiteral(5) [25-26]
+--
+UPDATE T
+SET
+  id1[0][1] = 5
+==
+
+# We don't support parsing generalized paths that begin with a parenthesized
+# component because it creates ambiguity in the grammar with nested INSERTS.
+update T
+set (a.b.c) = 5
+--
+ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE but got identifier "a" [at 2:6]
+set (a.b.c) = 5
+     ^
+==
+
+update T
+set (a.b.c)[0] = 5
+--
+ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE but got identifier "a" [at 2:6]
+set (a.b.c)[0] = 5
+     ^
+==
+
+update T
+set (a.b.c).d = 5
+--
+ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE but got identifier "a" [at 2:6]
+set (a.b.c).d = 5
+     ^
+==
+
+update T
+set (a.b.c).d[0] = 5
+--
+ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE but got identifier "a" [at 2:6]
+set (a.b.c).d[0] = 5
+     ^
+==
+
+update T
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:9]
+update T
+        ^
+==
+
+update c.T
+set x=y, a.b.c=1+(select count(*) from t2)
+where zzz+yyy=55
+assert_rows_modified @row_count
+--
+UpdateStatement [0-102]
+  PathExpression [7-10]
+    Identifier(c) [7-8]
+    Identifier(T) [9-10]
+  UpdateItemList [15-53]
+    UpdateItem [15-18]
+      UpdateSetValue [15-18]
+        PathExpression [15-16]
+          Identifier(x) [15-16]
+        PathExpression [17-18]
+          Identifier(y) [17-18]
+    UpdateItem [20-53]
+      UpdateSetValue [20-53]
+        PathExpression [20-25]
+          Identifier(a) [20-21]
+          Identifier(b) [22-23]
+          Identifier(c) [24-25]
+        BinaryExpression(+) [26-53]
+          IntLiteral(1) [26-27]
+          ExpressionSubquery [28-53]
+            Query [29-52]
+              Select [29-52]
+                SelectList [36-44]
+                  SelectColumn [36-44]
+                    FunctionCall [36-44]
+                      PathExpression [36-41]
+                        Identifier(count) [36-41]
+                      Star(*) [42-43]
+                FromClause [45-52]
+                  TablePathExpression [50-52]
+                    PathExpression [50-52]
+                      Identifier(t2) [50-52]
+  BinaryExpression(=) [60-70]
+    BinaryExpression(+) [60-67]
+      PathExpression [60-63]
+        Identifier(zzz) [60-63]
+      PathExpression [64-67]
+        Identifier(yyy) [64-67]
+    IntLiteral(55) [68-70]
+  AssertRowsModified [71-102]
+    ParameterExpr [92-102]
+      Identifier(row_count) [93-102]
+--
+UPDATE c.T
+SET
+  x = y,
+  a.b.c = 1 + (
+    SELECT
+      count(*)
+    FROM
+      t2
+  )
+WHERE
+  zzz + yyy = 55
+ASSERT_ROWS_MODIFIED @row_count
+==
+
+update T
+where true
+set x=y
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 2:1]
+where true
+^
+==
+
+update T
+set x=null, y=default, z=z
+--
+UpdateStatement [0-35]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-35]
+    UpdateItem [13-19]
+      UpdateSetValue [13-19]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        NullLiteral(null) [15-19]
+    UpdateItem [21-30]
+      UpdateSetValue [21-30]
+        PathExpression [21-22]
+          Identifier(y) [21-22]
+        DefaultLiteral [23-30]
+    UpdateItem [32-35]
+      UpdateSetValue [32-35]
+        PathExpression [32-33]
+          Identifier(z) [32-33]
+        PathExpression [34-35]
+          Identifier(z) [34-35]
+--
+UPDATE T
+SET
+  x = null,
+  y = DEFAULT,
+  z = z
+==
+
+update T
+set x=default+1
+--
+
+ERROR: Syntax error: Expected end of input but got "+" [at 2:14]
+set x=default+1
+             ^
+==
+
+update T
+set default=y
+--
+ERROR: Syntax error: Unexpected keyword DEFAULT [at 2:5]
+set default=y
+    ^
+==
+
+update T
+where true
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 2:1]
+where true
+^
+==
+
+update T
+set
+where true
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 3:1]
+where true
+^
+==
+
+update T
+set a=1
+set b=2
+--
+ERROR: Syntax error: Expected end of input but got keyword SET [at 3:1]
+set b=2
+^
+==
+
+update T
+set a=1,
+set b=2
+--
+ERROR: Syntax error: Unexpected keyword SET [at 3:1]
+set b=2
+^
+==
+
+# Missing table name.  SET is a reserved keyword.
+update set x=y
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:8]
+update set x=y
+       ^
+==
+
+# SET is a reserved keyword and cannot be used as a table name.
+update Set
+SET x=y
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:8]
+update Set
+       ^
+==
+
+# SET is a reserved keyword and cannot be used as a table alias.
+update T SET
+SET x=y
+--
+ERROR: Syntax error: Unexpected keyword SET [at 2:1]
+SET x=y
+^
+==
+
+# SET is a reserved keyword and cannot be used as an identifier.
+update T SET set = 5
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:14]
+update T SET set = 5
+             ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+update a-100.b.c
+set x=y
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `a-100.b.c` [at 1:8]
+update a-100.b.c
+       ^
+--
+ALTERNATION GROUP: <empty>
+--
+UpdateStatement [0-24]
+  PathExpression [7-16]
+    Identifier(`a-100`) [7-14]
+    Identifier(b) [7-14]
+    Identifier(c) [15-16]
+  UpdateItemList [21-24]
+    UpdateItem [21-24]
+      UpdateSetValue [21-24]
+        PathExpression [21-22]
+          Identifier(x) [21-22]
+        PathExpression [23-24]
+          Identifier(y) [23-24]
+--
+UPDATE `a-100`.b.c
+SET
+  x = y
+==
+
+# Delete statement with a table alias.
+DELETE T {{AS|}} a
+WHERE a.x=1
+--
+ALTERNATION GROUP: AS
+--
+DeleteStatement [0-25]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [9-13]
+    Identifier(a) [12-13]
+  BinaryExpression(=) [20-25]
+    PathExpression [20-23]
+      Identifier(a) [20-21]
+      Identifier(x) [22-23]
+    IntLiteral(1) [24-25]
+--
+DELETE T AS a
+WHERE
+  a.x = 1
+--
+ALTERNATION GROUP: <empty>
+--
+DeleteStatement [0-23]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [10-11]
+    Identifier(a) [10-11]
+  BinaryExpression(=) [18-23]
+    PathExpression [18-21]
+      Identifier(a) [18-19]
+      Identifier(x) [20-21]
+    IntLiteral(1) [22-23]
+--
+DELETE T AS a
+WHERE
+  a.x = 1
+==
+
+# Update statement with a table alias.
+UPDATE T {{AS|}} a SET a.x=1
+--
+ALTERNATION GROUP: AS
+--
+UpdateStatement [0-23]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [9-13]
+    Identifier(a) [12-13]
+  UpdateItemList [18-23]
+    UpdateItem [18-23]
+      UpdateSetValue [18-23]
+        PathExpression [18-21]
+          Identifier(a) [18-19]
+          Identifier(x) [20-21]
+        IntLiteral(1) [22-23]
+--
+UPDATE T AS a
+SET
+  a.x = 1
+--
+ALTERNATION GROUP: <empty>
+--
+UpdateStatement [0-21]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [10-11]
+    Identifier(a) [10-11]
+  UpdateItemList [16-21]
+    UpdateItem [16-21]
+      UpdateSetValue [16-21]
+        PathExpression [16-19]
+          Identifier(a) [16-17]
+          Identifier(x) [18-19]
+        IntLiteral(1) [20-21]
+--
+UPDATE T AS a
+SET
+  a.x = 1
+==
+
+# Insert statement does not support table alias.
+INSERT T {{AS|}} a VALUES (5)
+--
+ALTERNATION GROUP: AS
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 1:9]
+INSERT T AS a VALUES (5)
+        ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 1:11]
+INSERT T  a VALUES (5)
+          ^
+==
+
+# Nested DML statements.
+update T
+set x=y,
+    (delete x),
+    (insert y.z values (5)),
+    (update a set b=c),
+    z=default
+--
+UpdateStatement [0-100]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-100]
+    UpdateItem [13-16]
+      UpdateSetValue [13-16]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [15-16]
+          Identifier(y) [15-16]
+    UpdateItem [22-32]
+      DeleteStatement [23-31]
+        PathExpression [30-31]
+          Identifier(x) [30-31]
+    UpdateItem [38-61]
+      InsertStatement [39-60]
+        PathExpression [46-49]
+          Identifier(y) [46-47]
+          Identifier(z) [48-49]
+        InsertValuesRowList [50-60]
+          InsertValuesRow [57-60]
+            IntLiteral(5) [58-59]
+    UpdateItem [67-85]
+      UpdateStatement [68-84]
+        PathExpression [75-76]
+          Identifier(a) [75-76]
+        UpdateItemList [81-84]
+          UpdateItem [81-84]
+            UpdateSetValue [81-84]
+              PathExpression [81-82]
+                Identifier(b) [81-82]
+              PathExpression [83-84]
+                Identifier(c) [83-84]
+    UpdateItem [91-100]
+      UpdateSetValue [91-100]
+        PathExpression [91-92]
+          Identifier(z) [91-92]
+        DefaultLiteral [93-100]
+--
+UPDATE T
+SET
+  x = y,
+  (
+    DELETE x
+  ),
+  (
+    INSERT INTO y.z
+    VALUES
+      (5)
+  ),
+  (
+    UPDATE a
+    SET
+      b = c
+  ),
+  z = DEFAULT
+==
+
+# Nested DML statements with generalized path targets.
+update T
+set (delete a.(b.c)),
+    (insert d.(e.f) values (5)),
+    (update a.(b.c) set d = 10)
+--
+UpdateStatement [0-95]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-95]
+    UpdateItem [13-29]
+      DeleteStatement [14-28]
+        DotGeneralizedField [22-28]
+          PathExpression [21-22]
+            Identifier(a) [21-22]
+          PathExpression [24-27]
+            Identifier(b) [24-25]
+            Identifier(c) [26-27]
+    UpdateItem [35-62]
+      InsertStatement [36-61]
+        DotGeneralizedField [44-50]
+          PathExpression [43-44]
+            Identifier(d) [43-44]
+          PathExpression [46-49]
+            Identifier(e) [46-47]
+            Identifier(f) [48-49]
+        InsertValuesRowList [51-61]
+          InsertValuesRow [58-61]
+            IntLiteral(5) [59-60]
+    UpdateItem [68-95]
+      UpdateStatement [69-94]
+        DotGeneralizedField [77-83]
+          PathExpression [76-77]
+            Identifier(a) [76-77]
+          PathExpression [79-82]
+            Identifier(b) [79-80]
+            Identifier(c) [81-82]
+        UpdateItemList [88-94]
+          UpdateItem [88-94]
+            UpdateSetValue [88-94]
+              PathExpression [88-89]
+                Identifier(d) [88-89]
+              IntLiteral(10) [92-94]
+--
+UPDATE T
+SET
+  (
+    DELETE a.(b.c)
+  ),
+  (
+    INSERT INTO d.(e.f)
+    VALUES
+      (5)
+  ),
+  (
+    UPDATE a.(b.c)
+    SET
+      d = 10
+  )
+==
+
+# Another set of nested DML statements with generalized path targets, this time
+# with a generalized field access in the middle.
+update T
+set (delete a.(b.c).x),
+    (insert d.(e.f).y values (5)),
+    (update a.(b.c).x set d = 10)
+--
+UpdateStatement [0-101]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-101]
+    UpdateItem [13-31]
+      DeleteStatement [14-30]
+        DotIdentifier [28-30]
+          DotGeneralizedField [22-28]
+            PathExpression [21-22]
+              Identifier(a) [21-22]
+            PathExpression [24-27]
+              Identifier(b) [24-25]
+              Identifier(c) [26-27]
+          Identifier(x) [29-30]
+    UpdateItem [37-66]
+      InsertStatement [38-65]
+        DotIdentifier [52-54]
+          DotGeneralizedField [46-52]
+            PathExpression [45-46]
+              Identifier(d) [45-46]
+            PathExpression [48-51]
+              Identifier(e) [48-49]
+              Identifier(f) [50-51]
+          Identifier(y) [53-54]
+        InsertValuesRowList [55-65]
+          InsertValuesRow [62-65]
+            IntLiteral(5) [63-64]
+    UpdateItem [72-101]
+      UpdateStatement [73-100]
+        DotIdentifier [87-89]
+          DotGeneralizedField [81-87]
+            PathExpression [80-81]
+              Identifier(a) [80-81]
+            PathExpression [83-86]
+              Identifier(b) [83-84]
+              Identifier(c) [85-86]
+          Identifier(x) [88-89]
+        UpdateItemList [94-100]
+          UpdateItem [94-100]
+            UpdateSetValue [94-100]
+              PathExpression [94-95]
+                Identifier(d) [94-95]
+              IntLiteral(10) [98-100]
+--
+UPDATE T
+SET
+  (
+    DELETE a.(b.c).x
+  ),
+  (
+    INSERT INTO d.(e.f).y
+    VALUES
+      (5)
+  ),
+  (
+    UPDATE a.(b.c).x
+    SET
+      d = 10
+  )
+==
+
+# Nested DML statements with generalized path targets involving array element
+# modifications. These parse but the resolver doesn't allow array element
+# modifications in the targets of nested DML statements.
+update T
+set (delete a.(b.c)[0].d),
+    (insert d.(e.f)[1] values (5)),
+    (update a[2].(b.c) set d = 10)
+--
+UpdateStatement [0-106]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-106]
+    UpdateItem [13-34]
+      DeleteStatement [14-33]
+        DotIdentifier [31-33]
+          ArrayElement [28-31]
+            DotGeneralizedField [22-28]
+              PathExpression [21-22]
+                Identifier(a) [21-22]
+              PathExpression [24-27]
+                Identifier(b) [24-25]
+                Identifier(c) [26-27]
+            IntLiteral(0) [29-30]
+          Identifier(d) [32-33]
+    UpdateItem [40-70]
+      InsertStatement [41-69]
+        ArrayElement [55-58]
+          DotGeneralizedField [49-55]
+            PathExpression [48-49]
+              Identifier(d) [48-49]
+            PathExpression [51-54]
+              Identifier(e) [51-52]
+              Identifier(f) [53-54]
+          IntLiteral(1) [56-57]
+        InsertValuesRowList [59-69]
+          InsertValuesRow [66-69]
+            IntLiteral(5) [67-68]
+    UpdateItem [76-106]
+      UpdateStatement [77-105]
+        DotGeneralizedField [88-94]
+          ArrayElement [85-88]
+            PathExpression [84-85]
+              Identifier(a) [84-85]
+            IntLiteral(2) [86-87]
+          PathExpression [90-93]
+            Identifier(b) [90-91]
+            Identifier(c) [92-93]
+        UpdateItemList [99-105]
+          UpdateItem [99-105]
+            UpdateSetValue [99-105]
+              PathExpression [99-100]
+                Identifier(d) [99-100]
+              IntLiteral(10) [103-105]
+--
+UPDATE T
+SET
+  (
+    DELETE a.(b.c)[0].d
+  ),
+  (
+    INSERT INTO d.(e.f)[1]
+    VALUES
+      (5)
+  ),
+  (
+    UPDATE a[2].(b.c)
+    SET
+      d = 10
+  )
+==
+
+# Nested DML statement with alias.
+update T {{AS|}} a
+set a.x=y,
+    (delete a.x {{AS|}} na where na.x=1),
+    (update a.x {{AS|}} na set na.x=1),
+    (insert a.x values (5))
+--
+ALTERNATION GROUP: AS,AS,AS
+--
+UpdateStatement [0-124]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [9-13]
+    Identifier(a) [12-13]
+  UpdateItemList [18-124]
+    UpdateItem [18-23]
+      UpdateSetValue [18-23]
+        PathExpression [18-21]
+          Identifier(a) [18-19]
+          Identifier(x) [20-21]
+        PathExpression [22-23]
+          Identifier(y) [22-23]
+    UpdateItem [29-60]
+      DeleteStatement [30-59]
+        PathExpression [37-40]
+          Identifier(a) [37-38]
+          Identifier(x) [39-40]
+        Alias [41-46]
+          Identifier(na) [44-46]
+        BinaryExpression(=) [53-59]
+          PathExpression [53-57]
+            Identifier(na) [53-55]
+            Identifier(x) [56-57]
+          IntLiteral(1) [58-59]
+    UpdateItem [66-95]
+      UpdateStatement [67-94]
+        PathExpression [74-77]
+          Identifier(a) [74-75]
+          Identifier(x) [76-77]
+        Alias [78-83]
+          Identifier(na) [81-83]
+        UpdateItemList [88-94]
+          UpdateItem [88-94]
+            UpdateSetValue [88-94]
+              PathExpression [88-92]
+                Identifier(na) [88-90]
+                Identifier(x) [91-92]
+              IntLiteral(1) [93-94]
+    UpdateItem [101-124]
+      InsertStatement [102-123]
+        PathExpression [109-112]
+          Identifier(a) [109-110]
+          Identifier(x) [111-112]
+        InsertValuesRowList [113-123]
+          InsertValuesRow [120-123]
+            IntLiteral(5) [121-122]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: AS,AS,
+--
+UpdateStatement [0-122]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [9-13]
+    Identifier(a) [12-13]
+  UpdateItemList [18-122]
+    UpdateItem [18-23]
+      UpdateSetValue [18-23]
+        PathExpression [18-21]
+          Identifier(a) [18-19]
+          Identifier(x) [20-21]
+        PathExpression [22-23]
+          Identifier(y) [22-23]
+    UpdateItem [29-60]
+      DeleteStatement [30-59]
+        PathExpression [37-40]
+          Identifier(a) [37-38]
+          Identifier(x) [39-40]
+        Alias [41-46]
+          Identifier(na) [44-46]
+        BinaryExpression(=) [53-59]
+          PathExpression [53-57]
+            Identifier(na) [53-55]
+            Identifier(x) [56-57]
+          IntLiteral(1) [58-59]
+    UpdateItem [66-93]
+      UpdateStatement [67-92]
+        PathExpression [74-77]
+          Identifier(a) [74-75]
+          Identifier(x) [76-77]
+        Alias [79-81]
+          Identifier(na) [79-81]
+        UpdateItemList [86-92]
+          UpdateItem [86-92]
+            UpdateSetValue [86-92]
+              PathExpression [86-90]
+                Identifier(na) [86-88]
+                Identifier(x) [89-90]
+              IntLiteral(1) [91-92]
+    UpdateItem [99-122]
+      InsertStatement [100-121]
+        PathExpression [107-110]
+          Identifier(a) [107-108]
+          Identifier(x) [109-110]
+        InsertValuesRowList [111-121]
+          InsertValuesRow [118-121]
+            IntLiteral(5) [119-120]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: AS,,AS
+--
+UpdateStatement [0-122]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [9-13]
+    Identifier(a) [12-13]
+  UpdateItemList [18-122]
+    UpdateItem [18-23]
+      UpdateSetValue [18-23]
+        PathExpression [18-21]
+          Identifier(a) [18-19]
+          Identifier(x) [20-21]
+        PathExpression [22-23]
+          Identifier(y) [22-23]
+    UpdateItem [29-58]
+      DeleteStatement [30-57]
+        PathExpression [37-40]
+          Identifier(a) [37-38]
+          Identifier(x) [39-40]
+        Alias [42-44]
+          Identifier(na) [42-44]
+        BinaryExpression(=) [51-57]
+          PathExpression [51-55]
+            Identifier(na) [51-53]
+            Identifier(x) [54-55]
+          IntLiteral(1) [56-57]
+    UpdateItem [64-93]
+      UpdateStatement [65-92]
+        PathExpression [72-75]
+          Identifier(a) [72-73]
+          Identifier(x) [74-75]
+        Alias [76-81]
+          Identifier(na) [79-81]
+        UpdateItemList [86-92]
+          UpdateItem [86-92]
+            UpdateSetValue [86-92]
+              PathExpression [86-90]
+                Identifier(na) [86-88]
+                Identifier(x) [89-90]
+              IntLiteral(1) [91-92]
+    UpdateItem [99-122]
+      InsertStatement [100-121]
+        PathExpression [107-110]
+          Identifier(a) [107-108]
+          Identifier(x) [109-110]
+        InsertValuesRowList [111-121]
+          InsertValuesRow [118-121]
+            IntLiteral(5) [119-120]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: AS,,
+--
+UpdateStatement [0-120]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [9-13]
+    Identifier(a) [12-13]
+  UpdateItemList [18-120]
+    UpdateItem [18-23]
+      UpdateSetValue [18-23]
+        PathExpression [18-21]
+          Identifier(a) [18-19]
+          Identifier(x) [20-21]
+        PathExpression [22-23]
+          Identifier(y) [22-23]
+    UpdateItem [29-58]
+      DeleteStatement [30-57]
+        PathExpression [37-40]
+          Identifier(a) [37-38]
+          Identifier(x) [39-40]
+        Alias [42-44]
+          Identifier(na) [42-44]
+        BinaryExpression(=) [51-57]
+          PathExpression [51-55]
+            Identifier(na) [51-53]
+            Identifier(x) [54-55]
+          IntLiteral(1) [56-57]
+    UpdateItem [64-91]
+      UpdateStatement [65-90]
+        PathExpression [72-75]
+          Identifier(a) [72-73]
+          Identifier(x) [74-75]
+        Alias [77-79]
+          Identifier(na) [77-79]
+        UpdateItemList [84-90]
+          UpdateItem [84-90]
+            UpdateSetValue [84-90]
+              PathExpression [84-88]
+                Identifier(na) [84-86]
+                Identifier(x) [87-88]
+              IntLiteral(1) [89-90]
+    UpdateItem [97-120]
+      InsertStatement [98-119]
+        PathExpression [105-108]
+          Identifier(a) [105-106]
+          Identifier(x) [107-108]
+        InsertValuesRowList [109-119]
+          InsertValuesRow [116-119]
+            IntLiteral(5) [117-118]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: AS,AS
+--
+UpdateStatement [0-122]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [10-11]
+    Identifier(a) [10-11]
+  UpdateItemList [16-122]
+    UpdateItem [16-21]
+      UpdateSetValue [16-21]
+        PathExpression [16-19]
+          Identifier(a) [16-17]
+          Identifier(x) [18-19]
+        PathExpression [20-21]
+          Identifier(y) [20-21]
+    UpdateItem [27-58]
+      DeleteStatement [28-57]
+        PathExpression [35-38]
+          Identifier(a) [35-36]
+          Identifier(x) [37-38]
+        Alias [39-44]
+          Identifier(na) [42-44]
+        BinaryExpression(=) [51-57]
+          PathExpression [51-55]
+            Identifier(na) [51-53]
+            Identifier(x) [54-55]
+          IntLiteral(1) [56-57]
+    UpdateItem [64-93]
+      UpdateStatement [65-92]
+        PathExpression [72-75]
+          Identifier(a) [72-73]
+          Identifier(x) [74-75]
+        Alias [76-81]
+          Identifier(na) [79-81]
+        UpdateItemList [86-92]
+          UpdateItem [86-92]
+            UpdateSetValue [86-92]
+              PathExpression [86-90]
+                Identifier(na) [86-88]
+                Identifier(x) [89-90]
+              IntLiteral(1) [91-92]
+    UpdateItem [99-122]
+      InsertStatement [100-121]
+        PathExpression [107-110]
+          Identifier(a) [107-108]
+          Identifier(x) [109-110]
+        InsertValuesRowList [111-121]
+          InsertValuesRow [118-121]
+            IntLiteral(5) [119-120]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: AS,
+--
+UpdateStatement [0-120]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [10-11]
+    Identifier(a) [10-11]
+  UpdateItemList [16-120]
+    UpdateItem [16-21]
+      UpdateSetValue [16-21]
+        PathExpression [16-19]
+          Identifier(a) [16-17]
+          Identifier(x) [18-19]
+        PathExpression [20-21]
+          Identifier(y) [20-21]
+    UpdateItem [27-58]
+      DeleteStatement [28-57]
+        PathExpression [35-38]
+          Identifier(a) [35-36]
+          Identifier(x) [37-38]
+        Alias [39-44]
+          Identifier(na) [42-44]
+        BinaryExpression(=) [51-57]
+          PathExpression [51-55]
+            Identifier(na) [51-53]
+            Identifier(x) [54-55]
+          IntLiteral(1) [56-57]
+    UpdateItem [64-91]
+      UpdateStatement [65-90]
+        PathExpression [72-75]
+          Identifier(a) [72-73]
+          Identifier(x) [74-75]
+        Alias [77-79]
+          Identifier(na) [77-79]
+        UpdateItemList [84-90]
+          UpdateItem [84-90]
+            UpdateSetValue [84-90]
+              PathExpression [84-88]
+                Identifier(na) [84-86]
+                Identifier(x) [87-88]
+              IntLiteral(1) [89-90]
+    UpdateItem [97-120]
+      InsertStatement [98-119]
+        PathExpression [105-108]
+          Identifier(a) [105-106]
+          Identifier(x) [107-108]
+        InsertValuesRowList [109-119]
+          InsertValuesRow [116-119]
+            IntLiteral(5) [117-118]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: AS
+--
+UpdateStatement [0-120]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [10-11]
+    Identifier(a) [10-11]
+  UpdateItemList [16-120]
+    UpdateItem [16-21]
+      UpdateSetValue [16-21]
+        PathExpression [16-19]
+          Identifier(a) [16-17]
+          Identifier(x) [18-19]
+        PathExpression [20-21]
+          Identifier(y) [20-21]
+    UpdateItem [27-56]
+      DeleteStatement [28-55]
+        PathExpression [35-38]
+          Identifier(a) [35-36]
+          Identifier(x) [37-38]
+        Alias [40-42]
+          Identifier(na) [40-42]
+        BinaryExpression(=) [49-55]
+          PathExpression [49-53]
+            Identifier(na) [49-51]
+            Identifier(x) [52-53]
+          IntLiteral(1) [54-55]
+    UpdateItem [62-91]
+      UpdateStatement [63-90]
+        PathExpression [70-73]
+          Identifier(a) [70-71]
+          Identifier(x) [72-73]
+        Alias [74-79]
+          Identifier(na) [77-79]
+        UpdateItemList [84-90]
+          UpdateItem [84-90]
+            UpdateSetValue [84-90]
+              PathExpression [84-88]
+                Identifier(na) [84-86]
+                Identifier(x) [87-88]
+              IntLiteral(1) [89-90]
+    UpdateItem [97-120]
+      InsertStatement [98-119]
+        PathExpression [105-108]
+          Identifier(a) [105-106]
+          Identifier(x) [107-108]
+        InsertValuesRowList [109-119]
+          InsertValuesRow [116-119]
+            IntLiteral(5) [117-118]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+--
+ALTERNATION GROUP: <empty>
+--
+UpdateStatement [0-118]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  Alias [10-11]
+    Identifier(a) [10-11]
+  UpdateItemList [16-118]
+    UpdateItem [16-21]
+      UpdateSetValue [16-21]
+        PathExpression [16-19]
+          Identifier(a) [16-17]
+          Identifier(x) [18-19]
+        PathExpression [20-21]
+          Identifier(y) [20-21]
+    UpdateItem [27-56]
+      DeleteStatement [28-55]
+        PathExpression [35-38]
+          Identifier(a) [35-36]
+          Identifier(x) [37-38]
+        Alias [40-42]
+          Identifier(na) [40-42]
+        BinaryExpression(=) [49-55]
+          PathExpression [49-53]
+            Identifier(na) [49-51]
+            Identifier(x) [52-53]
+          IntLiteral(1) [54-55]
+    UpdateItem [62-89]
+      UpdateStatement [63-88]
+        PathExpression [70-73]
+          Identifier(a) [70-71]
+          Identifier(x) [72-73]
+        Alias [75-77]
+          Identifier(na) [75-77]
+        UpdateItemList [82-88]
+          UpdateItem [82-88]
+            UpdateSetValue [82-88]
+              PathExpression [82-86]
+                Identifier(na) [82-84]
+                Identifier(x) [85-86]
+              IntLiteral(1) [87-88]
+    UpdateItem [95-118]
+      InsertStatement [96-117]
+        PathExpression [103-106]
+          Identifier(a) [103-104]
+          Identifier(x) [105-106]
+        InsertValuesRowList [107-117]
+          InsertValuesRow [114-117]
+            IntLiteral(5) [115-116]
+--
+UPDATE T AS a
+SET
+  a.x = y,
+  (
+    DELETE a.x AS na
+    WHERE
+      na.x = 1
+  ),
+  (
+    UPDATE a.x AS na
+    SET
+      na.x = 1
+  ),
+  (
+    INSERT INTO a.x
+    VALUES
+      (5)
+  )
+==
+
+# Nested insert statemnent does not support table alias.
+update T a
+set (insert a.x {{AS|}} na values (5))
+--
+ALTERNATION GROUP: AS
+--
+ERROR: Syntax error: Expecting VALUES list or query [at 2:16]
+set (insert a.x AS na values (5))
+               ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: INSERT target cannot have an alias [at 2:18]
+set (insert a.x  na values (5))
+                 ^
+==
+
+# Nested update with offset.
+update T set
+  (update a with offset {{|as}} {{|offset|foo}}
+   set x = y
+   where offset = 0)
+where true
+--
+ALTERNATION GROUP: <empty>
+--
+UpdateStatement [0-83]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-72]
+    UpdateItem [15-72]
+      UpdateStatement [16-71]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-36]
+        UpdateItemList [46-51]
+          UpdateItem [46-51]
+            UpdateSetValue [46-51]
+              PathExpression [46-47]
+                Identifier(x) [46-47]
+              PathExpression [50-51]
+                Identifier(y) [50-51]
+        BinaryExpression(=) [61-71]
+          PathExpression [61-67]
+            Identifier(offset) [61-67]
+          IntLiteral(0) [70-71]
+  BooleanLiteral(true) [79-83]
+--
+UPDATE T
+SET
+  (
+    UPDATE a WITH OFFSET
+    SET
+      x = y
+    WHERE
+      offset = 0
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: offset
+--
+UpdateStatement [0-89]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-78]
+    UpdateItem [15-78]
+      UpdateStatement [16-77]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-44]
+          Alias [38-44]
+            Identifier(offset) [38-44]
+        UpdateItemList [52-57]
+          UpdateItem [52-57]
+            UpdateSetValue [52-57]
+              PathExpression [52-53]
+                Identifier(x) [52-53]
+              PathExpression [56-57]
+                Identifier(y) [56-57]
+        BinaryExpression(=) [67-77]
+          PathExpression [67-73]
+            Identifier(offset) [67-73]
+          IntLiteral(0) [76-77]
+  BooleanLiteral(true) [85-89]
+--
+UPDATE T
+SET
+  (
+    UPDATE a WITH OFFSET AS offset
+    SET
+      x = y
+    WHERE
+      offset = 0
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: foo
+--
+UpdateStatement [0-86]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-75]
+    UpdateItem [15-75]
+      UpdateStatement [16-74]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-41]
+          Alias [38-41]
+            Identifier(foo) [38-41]
+        UpdateItemList [49-54]
+          UpdateItem [49-54]
+            UpdateSetValue [49-54]
+              PathExpression [49-50]
+                Identifier(x) [49-50]
+              PathExpression [53-54]
+                Identifier(y) [53-54]
+        BinaryExpression(=) [64-74]
+          PathExpression [64-70]
+            Identifier(offset) [64-70]
+          IntLiteral(0) [73-74]
+  BooleanLiteral(true) [82-86]
+--
+UPDATE T
+SET
+  (
+    UPDATE a WITH OFFSET AS foo
+    SET
+      x = y
+    WHERE
+      offset = 0
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: as,
+--
+ERROR: Syntax error: Unexpected keyword SET [at 3:4]
+   set x = y
+   ^
+--
+ALTERNATION GROUP: as,offset
+--
+UpdateStatement [0-91]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-80]
+    UpdateItem [15-80]
+      UpdateStatement [16-79]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-46]
+          Alias [37-46]
+            Identifier(offset) [40-46]
+        UpdateItemList [54-59]
+          UpdateItem [54-59]
+            UpdateSetValue [54-59]
+              PathExpression [54-55]
+                Identifier(x) [54-55]
+              PathExpression [58-59]
+                Identifier(y) [58-59]
+        BinaryExpression(=) [69-79]
+          PathExpression [69-75]
+            Identifier(offset) [69-75]
+          IntLiteral(0) [78-79]
+  BooleanLiteral(true) [87-91]
+--
+UPDATE T
+SET
+  (
+    UPDATE a WITH OFFSET AS offset
+    SET
+      x = y
+    WHERE
+      offset = 0
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: as,foo
+--
+UpdateStatement [0-88]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-77]
+    UpdateItem [15-77]
+      UpdateStatement [16-76]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-43]
+          Alias [37-43]
+            Identifier(foo) [40-43]
+        UpdateItemList [51-56]
+          UpdateItem [51-56]
+            UpdateSetValue [51-56]
+              PathExpression [51-52]
+                Identifier(x) [51-52]
+              PathExpression [55-56]
+                Identifier(y) [55-56]
+        BinaryExpression(=) [66-76]
+          PathExpression [66-72]
+            Identifier(offset) [66-72]
+          IntLiteral(0) [75-76]
+  BooleanLiteral(true) [84-88]
+--
+UPDATE T
+SET
+  (
+    UPDATE a WITH OFFSET AS foo
+    SET
+      x = y
+    WHERE
+      offset = 0
+  )
+WHERE
+  true
+==
+
+# Nested delete with offset.
+update T set
+  (delete a with offset {{|as}} {{|offset|foo}} where true)
+where true
+--
+ALTERNATION GROUP: <empty>
+--
+UpdateStatement [0-61]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-50]
+    UpdateItem [15-50]
+      DeleteStatement [16-49]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-36]
+        BooleanLiteral(true) [45-49]
+  BooleanLiteral(true) [57-61]
+--
+UPDATE T
+SET
+  (
+    DELETE a WITH OFFSET
+    WHERE
+      true
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: offset
+--
+UpdateStatement [0-67]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-56]
+    UpdateItem [15-56]
+      DeleteStatement [16-55]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-44]
+          Alias [38-44]
+            Identifier(offset) [38-44]
+        BooleanLiteral(true) [51-55]
+  BooleanLiteral(true) [63-67]
+--
+UPDATE T
+SET
+  (
+    DELETE a WITH OFFSET AS offset
+    WHERE
+      true
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: foo
+--
+UpdateStatement [0-64]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-53]
+    UpdateItem [15-53]
+      DeleteStatement [16-52]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-41]
+          Alias [38-41]
+            Identifier(foo) [38-41]
+        BooleanLiteral(true) [48-52]
+  BooleanLiteral(true) [60-64]
+--
+UPDATE T
+SET
+  (
+    DELETE a WITH OFFSET AS foo
+    WHERE
+      true
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: as,
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 2:29]
+  (delete a with offset as  where true)
+                            ^
+--
+ALTERNATION GROUP: as,offset
+--
+UpdateStatement [0-69]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-58]
+    UpdateItem [15-58]
+      DeleteStatement [16-57]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-46]
+          Alias [37-46]
+            Identifier(offset) [40-46]
+        BooleanLiteral(true) [53-57]
+  BooleanLiteral(true) [65-69]
+--
+UPDATE T
+SET
+  (
+    DELETE a WITH OFFSET AS offset
+    WHERE
+      true
+  )
+WHERE
+  true
+--
+ALTERNATION GROUP: as,foo
+--
+UpdateStatement [0-66]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [15-55]
+    UpdateItem [15-55]
+      DeleteStatement [16-54]
+        PathExpression [23-24]
+          Identifier(a) [23-24]
+        WithOffset [25-43]
+          Alias [37-43]
+            Identifier(foo) [40-43]
+        BooleanLiteral(true) [50-54]
+  BooleanLiteral(true) [62-66]
+--
+UPDATE T
+SET
+  (
+    DELETE a WITH OFFSET AS foo
+    WHERE
+      true
+  )
+WHERE
+  true
+==
+
+# Multiple levels of nested UPDATEs.
+update T
+set (update c1.c2
+     set (update c3
+          set (delete from c4
+               where false
+               assert_rows_modified 5)
+          where true
+          assert_rows_modified 4)
+     where false
+     assert_rows_modified 3)
+where true
+assert_rows_modified 2
+--
+UpdateStatement [0-277]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-243]
+    UpdateItem [13-243]
+      UpdateStatement [14-242]
+        PathExpression [21-26]
+          Identifier(c1) [21-23]
+          Identifier(c2) [24-26]
+        UpdateItemList [36-197]
+          UpdateItem [36-197]
+            UpdateStatement [37-196]
+              PathExpression [44-46]
+                Identifier(c3) [44-46]
+              UpdateItemList [61-142]
+                UpdateItem [61-142]
+                  DeleteStatement [62-141]
+                    PathExpression [74-76]
+                      Identifier(c4) [74-76]
+                    BooleanLiteral(false) [98-103]
+                    AssertRowsModified [119-141]
+                      IntLiteral(5) [140-141]
+              BooleanLiteral(true) [159-163]
+              AssertRowsModified [174-196]
+                IntLiteral(4) [195-196]
+        BooleanLiteral(false) [209-214]
+        AssertRowsModified [220-242]
+          IntLiteral(3) [241-242]
+  BooleanLiteral(true) [250-254]
+  AssertRowsModified [255-277]
+    IntLiteral(2) [276-277]
+--
+UPDATE T
+SET
+  (
+    UPDATE c1.c2
+    SET
+      (
+        UPDATE c3
+        SET
+          (
+            DELETE c4
+            WHERE
+              false
+            ASSERT_ROWS_MODIFIED 5
+          )
+        WHERE
+          true
+        ASSERT_ROWS_MODIFIED 4
+      )
+    WHERE
+      false
+    ASSERT_ROWS_MODIFIED 3
+  )
+WHERE
+  true
+ASSERT_ROWS_MODIFIED 2
+==
+
+# Hints work on outer statements but not inner.  (We could add this.)
+@{a=b} delete from t1
+--
+HintedStatement [0-21]
+  Hint [0-6]
+    HintEntry [2-5]
+      Identifier(a) [2-3]
+      PathExpression [4-5]
+        Identifier(b) [4-5]
+  DeleteStatement [7-21]
+    PathExpression [19-21]
+      Identifier(t1) [19-21]
+--
+@{ a = b }
+DELETE t1
+==
+
+@{c=d} update t1
+       set (       delete from t2),
+           (@{e=f} delete from t3)
+--
+ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE but got "@" [at 3:13]
+           (@{e=f} delete from t3)
+            ^
+==
+
+@{a=b} insert into t1 values (null)
+--
+HintedStatement [0-35]
+  Hint [0-6]
+    HintEntry [2-5]
+      Identifier(a) [2-3]
+      PathExpression [4-5]
+        Identifier(b) [4-5]
+  InsertStatement [7-35]
+    PathExpression [19-21]
+      Identifier(t1) [19-21]
+    InsertValuesRowList [22-35]
+      InsertValuesRow [29-35]
+        NullLiteral(null) [30-34]
+--
+@{ a = b }
+INSERT INTO t1
+VALUES
+  (null)
+==
+
+# Hints are not allowed on the to-be deleted table.
+@{a=b} delete from t1 @{a=b}
+--
+ERROR: Syntax error: Unexpected "@" [at 1:23]
+@{a=b} delete from t1 @{a=b}
+                      ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+insert into project-987654321.a.b values (1)
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `project-987654321.a.b` [at 1:13]
+insert into project-987654321.a.b values (1)
+            ^
+--
+ALTERNATION GROUP: <empty>
+--
+InsertStatement [0-44]
+  PathExpression [12-33]
+    Identifier(`project-987654321`) [12-31]
+    Identifier(a) [12-31]
+    Identifier(b) [32-33]
+  InsertValuesRowList [34-44]
+    InsertValuesRow [41-44]
+      IntLiteral(1) [42-43]
+--
+INSERT INTO `project-987654321`.a.b
+VALUES
+  (1)
+==
+
+UPDATE T
+SET x = T1.y
+FROM T1
+WHERE T.a = T1.b
+--
+UpdateStatement [0-46]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-21]
+    UpdateItem [13-21]
+      UpdateSetValue [13-21]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [17-21]
+          Identifier(T1) [17-19]
+          Identifier(y) [20-21]
+  FromClause [22-29]
+    TablePathExpression [27-29]
+      PathExpression [27-29]
+        Identifier(T1) [27-29]
+  BinaryExpression(=) [36-46]
+    PathExpression [36-39]
+      Identifier(T) [36-37]
+      Identifier(a) [38-39]
+    PathExpression [42-46]
+      Identifier(T1) [42-44]
+      Identifier(b) [45-46]
+--
+UPDATE T
+SET
+  x = T1.y
+FROM
+  T1
+WHERE
+  T.a = T1.b
+==
+
+UPDATE T
+SET x = T2.c
+FROM T1 JOIN T2 ON T1.x = T2.y
+WHERE T.a < T1.b
+--
+UpdateStatement [0-69]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-21]
+    UpdateItem [13-21]
+      UpdateSetValue [13-21]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [17-21]
+          Identifier(T2) [17-19]
+          Identifier(c) [20-21]
+  FromClause [22-52]
+    Join [30-52]
+      TablePathExpression [27-29]
+        PathExpression [27-29]
+          Identifier(T1) [27-29]
+      TablePathExpression [35-37]
+        PathExpression [35-37]
+          Identifier(T2) [35-37]
+      OnClause [38-52]
+        BinaryExpression(=) [41-52]
+          PathExpression [41-45]
+            Identifier(T1) [41-43]
+            Identifier(x) [44-45]
+          PathExpression [48-52]
+            Identifier(T2) [48-50]
+            Identifier(y) [51-52]
+  BinaryExpression(<) [59-69]
+    PathExpression [59-62]
+      Identifier(T) [59-60]
+      Identifier(a) [61-62]
+    PathExpression [65-69]
+      Identifier(T1) [65-67]
+      Identifier(b) [68-69]
+--
+UPDATE T
+SET
+  x = T2.c
+FROM
+  T1
+  JOIN
+  T2
+  ON T1.x = T2.y
+WHERE
+  T.a < T1.b
+==
+
+UPDATE T
+SET x = T2.c
+FROM T1, T2
+WHERE T.a < T1.b
+--
+UpdateStatement [0-50]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-21]
+    UpdateItem [13-21]
+      UpdateSetValue [13-21]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        PathExpression [17-21]
+          Identifier(T2) [17-19]
+          Identifier(c) [20-21]
+  FromClause [22-33]
+    Join(COMMA) [29-33]
+      TablePathExpression [27-29]
+        PathExpression [27-29]
+          Identifier(T1) [27-29]
+      TablePathExpression [31-33]
+        PathExpression [31-33]
+          Identifier(T2) [31-33]
+  BinaryExpression(<) [40-50]
+    PathExpression [40-43]
+      Identifier(T) [40-41]
+      Identifier(a) [42-43]
+    PathExpression [46-50]
+      Identifier(T1) [46-48]
+      Identifier(b) [49-50]
+--
+UPDATE T
+SET
+  x = T2.c
+FROM
+  T1,
+  T2
+WHERE
+  T.a < T1.b
+==
+
+UPDATE T SET x = 1
+FROM (T1 JOIN T2) JOIN T3
+WHERE true
+--
+UpdateStatement [0-55]
+  PathExpression [7-8]
+    Identifier(T) [7-8]
+  UpdateItemList [13-18]
+    UpdateItem [13-18]
+      UpdateSetValue [13-18]
+        PathExpression [13-14]
+          Identifier(x) [13-14]
+        IntLiteral(1) [17-18]
+  FromClause [19-44]
+    Join [37-44]
+      ParenthesizedJoin [24-36]
+        Join [28-35]
+          TablePathExpression [25-27]
+            PathExpression [25-27]
+              Identifier(T1) [25-27]
+          TablePathExpression [33-35]
+            PathExpression [33-35]
+              Identifier(T2) [33-35]
+      TablePathExpression [42-44]
+        PathExpression [42-44]
+          Identifier(T3) [42-44]
+  BooleanLiteral(true) [51-55]
+--
+UPDATE T
+SET
+  x = 1
+FROM
+  (
+    T1
+    JOIN
+    T2
+  )
+  JOIN
+  T3
+WHERE
+  true
+
+==
+
+# Only has WHEN MATCHED clause
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+--
+MergeStatement [0-104]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-104]
+    MergeWhenClause(match_type=MATCHED) [32-104]
+      BinaryExpression(=) [49-57]
+        PathExpression [49-53]
+          Identifier(T) [49-50]
+          Identifier(T1) [51-53]
+        IntLiteral(5) [56-57]
+      MergeAction(UPDATE) [63-104]
+        UpdateItemList [74-104]
+          UpdateItem [74-86]
+            UpdateSetValue [74-86]
+              PathExpression [74-76]
+                Identifier(T1) [74-76]
+              BinaryExpression(+) [79-86]
+                PathExpression [79-81]
+                  Identifier(T1) [79-81]
+                IntLiteral(10) [84-86]
+          UpdateItem [88-104]
+            UpdateSetValue [88-104]
+              PathExpression [88-90]
+                Identifier(T2) [88-90]
+              BinaryExpression(+) [93-104]
+                PathExpression [93-97]
+                  Identifier(T) [93-94]
+                  Identifier(T1) [95-97]
+                PathExpression [100-104]
+                  Identifier(S) [100-101]
+                  Identifier(C1) [102-104]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+==
+
+# Verify that we can use generalized paths with SET
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1.(foo.bar) = T1.(foo.bar) + 10, T2 = T.T1 + S.C1
+--
+MergeStatement [0-124]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-124]
+    MergeWhenClause(match_type=MATCHED) [32-124]
+      BinaryExpression(=) [49-57]
+        PathExpression [49-53]
+          Identifier(T) [49-50]
+          Identifier(T1) [51-53]
+        IntLiteral(5) [56-57]
+      MergeAction(UPDATE) [63-124]
+        UpdateItemList [74-124]
+          UpdateItem [74-106]
+            UpdateSetValue [74-106]
+              DotGeneralizedField [76-86]
+                PathExpression [74-76]
+                  Identifier(T1) [74-76]
+                PathExpression [78-85]
+                  Identifier(foo) [78-81]
+                  Identifier(bar) [82-85]
+              BinaryExpression(+) [89-106]
+                DotGeneralizedField [91-101]
+                  PathExpression [89-91]
+                    Identifier(T1) [89-91]
+                  PathExpression [93-100]
+                    Identifier(foo) [93-96]
+                    Identifier(bar) [97-100]
+                IntLiteral(10) [104-106]
+          UpdateItem [108-124]
+            UpdateSetValue [108-124]
+              PathExpression [108-110]
+                Identifier(T2) [108-110]
+              BinaryExpression(+) [113-124]
+                PathExpression [113-117]
+                  Identifier(T) [113-114]
+                  Identifier(T1) [115-117]
+                PathExpression [120-124]
+                  Identifier(S) [120-121]
+                  Identifier(C1) [122-124]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1.(foo.bar) = T1.(foo.bar) + 10,
+    T2 = T.T1 + S.C1
+==
+
+# Only has (implicit) NOT MATCHED BY TARGET clause
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+--
+MergeStatement [0-102]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-102]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-102]
+      MergeAction(INSERT) [54-102]
+        ColumnList [60-72]
+          Identifier(t1) [61-63]
+          Identifier(t2) [65-67]
+          Identifier(t3) [69-71]
+        InsertValuesRow [79-102]
+          IntLiteral(10) [80-82]
+          PathExpression [84-88]
+            Identifier(S) [84-85]
+            Identifier(C3) [86-88]
+          BinaryExpression(+) [90-101]
+            PathExpression [90-94]
+              Identifier(S) [90-91]
+              Identifier(C1) [92-94]
+            PathExpression [97-101]
+              Identifier(S) [97-98]
+              Identifier(C2) [99-101]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Only has NOT MATCHED BY SOURCE clause
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-70]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-70]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-70]
+      MergeAction(DELETE) [64-70]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+# Has MATCHED & NOT MATCHED BY TARGET clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+--
+MergeStatement [0-175]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-175]
+    MergeWhenClause(match_type=MATCHED) [32-104]
+      BinaryExpression(=) [49-57]
+        PathExpression [49-53]
+          Identifier(T) [49-50]
+          Identifier(T1) [51-53]
+        IntLiteral(5) [56-57]
+      MergeAction(UPDATE) [63-104]
+        UpdateItemList [74-104]
+          UpdateItem [74-86]
+            UpdateSetValue [74-86]
+              PathExpression [74-76]
+                Identifier(T1) [74-76]
+              BinaryExpression(+) [79-86]
+                PathExpression [79-81]
+                  Identifier(T1) [79-81]
+                IntLiteral(10) [84-86]
+          UpdateItem [88-104]
+            UpdateSetValue [88-104]
+              PathExpression [88-90]
+                Identifier(T2) [88-90]
+              BinaryExpression(+) [93-104]
+                PathExpression [93-97]
+                  Identifier(T) [93-94]
+                  Identifier(T1) [95-97]
+                PathExpression [100-104]
+                  Identifier(S) [100-101]
+                  Identifier(C1) [102-104]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [105-175]
+      MergeAction(INSERT) [127-175]
+        ColumnList [133-145]
+          Identifier(t1) [134-136]
+          Identifier(t2) [138-140]
+          Identifier(t3) [142-144]
+        InsertValuesRow [152-175]
+          IntLiteral(10) [153-155]
+          PathExpression [157-161]
+            Identifier(S) [157-158]
+            Identifier(C3) [159-161]
+          BinaryExpression(+) [163-174]
+            PathExpression [163-167]
+              Identifier(S) [163-164]
+              Identifier(C1) [165-167]
+            PathExpression [170-174]
+              Identifier(S) [170-171]
+              Identifier(C2) [172-174]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Has MATCHED & NOT MATCHED BY SOURCE clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-143]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-143]
+    MergeWhenClause(match_type=MATCHED) [32-104]
+      BinaryExpression(=) [49-57]
+        PathExpression [49-53]
+          Identifier(T) [49-50]
+          Identifier(T1) [51-53]
+        IntLiteral(5) [56-57]
+      MergeAction(UPDATE) [63-104]
+        UpdateItemList [74-104]
+          UpdateItem [74-86]
+            UpdateSetValue [74-86]
+              PathExpression [74-76]
+                Identifier(T1) [74-76]
+              BinaryExpression(+) [79-86]
+                PathExpression [79-81]
+                  Identifier(T1) [79-81]
+                IntLiteral(10) [84-86]
+          UpdateItem [88-104]
+            UpdateSetValue [88-104]
+              PathExpression [88-90]
+                Identifier(T2) [88-90]
+              BinaryExpression(+) [93-104]
+                PathExpression [93-97]
+                  Identifier(T) [93-94]
+                  Identifier(T1) [95-97]
+                PathExpression [100-104]
+                  Identifier(S) [100-101]
+                  Identifier(C1) [102-104]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [105-143]
+      MergeAction(DELETE) [137-143]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+# Has NOT MATCHED BY SOURCE & TARGET clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-141]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-141]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-102]
+      MergeAction(INSERT) [54-102]
+        ColumnList [60-72]
+          Identifier(t1) [61-63]
+          Identifier(t2) [65-67]
+          Identifier(t3) [69-71]
+        InsertValuesRow [79-102]
+          IntLiteral(10) [80-82]
+          PathExpression [84-88]
+            Identifier(S) [84-85]
+            Identifier(C3) [86-88]
+          BinaryExpression(+) [90-101]
+            PathExpression [90-94]
+              Identifier(S) [90-91]
+              Identifier(C1) [92-94]
+            PathExpression [97-101]
+              Identifier(S) [97-98]
+              Identifier(C2) [99-101]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [103-141]
+      MergeAction(DELETE) [135-141]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+# Has all three clauses.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN NOT MATCHED THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+DELETE
+--
+MergeStatement [0-214]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-214]
+    MergeWhenClause(match_type=MATCHED) [32-104]
+      BinaryExpression(=) [49-57]
+        PathExpression [49-53]
+          Identifier(T) [49-50]
+          Identifier(T1) [51-53]
+        IntLiteral(5) [56-57]
+      MergeAction(UPDATE) [63-104]
+        UpdateItemList [74-104]
+          UpdateItem [74-86]
+            UpdateSetValue [74-86]
+              PathExpression [74-76]
+                Identifier(T1) [74-76]
+              BinaryExpression(+) [79-86]
+                PathExpression [79-81]
+                  Identifier(T1) [79-81]
+                IntLiteral(10) [84-86]
+          UpdateItem [88-104]
+            UpdateSetValue [88-104]
+              PathExpression [88-90]
+                Identifier(T2) [88-90]
+              BinaryExpression(+) [93-104]
+                PathExpression [93-97]
+                  Identifier(T) [93-94]
+                  Identifier(T1) [95-97]
+                PathExpression [100-104]
+                  Identifier(S) [100-101]
+                  Identifier(C1) [102-104]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [105-175]
+      MergeAction(INSERT) [127-175]
+        ColumnList [133-145]
+          Identifier(t1) [134-136]
+          Identifier(t2) [138-140]
+          Identifier(t3) [142-144]
+        InsertValuesRow [152-175]
+          IntLiteral(10) [153-155]
+          PathExpression [157-161]
+            Identifier(S) [157-158]
+            Identifier(C3) [159-161]
+          BinaryExpression(+) [163-174]
+            PathExpression [163-167]
+              Identifier(S) [163-164]
+              Identifier(C1) [165-167]
+            PathExpression [170-174]
+              Identifier(S) [170-171]
+              Identifier(C2) [172-174]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [176-214]
+      MergeAction(DELETE) [208-214]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+WHEN NOT MATCHED BY SOURCE THEN
+  DELETE
+==
+
+MERGE INTO T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED BY TARGET AND s1 > 10 THEN
+INSERT(t1) VALUES(10)
+--
+MergeStatement [0-101]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-35]
+    PathExpression [24-28]
+      Identifier(T) [24-25]
+      Identifier(t1) [26-28]
+    PathExpression [31-35]
+      Identifier(S) [31-32]
+      Identifier(s1) [33-35]
+  MergeWhenClauseList [36-101]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [36-101]
+      BinaryExpression(>) [67-74]
+        PathExpression [67-69]
+          Identifier(s1) [67-69]
+        IntLiteral(10) [72-74]
+      MergeAction(INSERT) [80-101]
+        ColumnList [86-90]
+          Identifier(t1) [87-89]
+        InsertValuesRow [97-101]
+          IntLiteral(10) [98-100]
+--
+MERGE INTO T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED BY TARGET AND s1 > 10 THEN
+  INSERT(t1)
+  VALUES
+    (10)
+==
+
+MERGE T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED THEN
+INSERT(t1) VALUES(10)
+--
+MergeStatement [0-74]
+  PathExpression [6-7]
+    Identifier(T) [6-7]
+  TablePathExpression [14-15]
+    PathExpression [14-15]
+      Identifier(S) [14-15]
+  BinaryExpression(=) [19-30]
+    PathExpression [19-23]
+      Identifier(T) [19-20]
+      Identifier(t1) [21-23]
+    PathExpression [26-30]
+      Identifier(S) [26-27]
+      Identifier(s1) [28-30]
+  MergeWhenClauseList [31-74]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [31-74]
+      MergeAction(INSERT) [53-74]
+        ColumnList [59-63]
+          Identifier(t1) [60-62]
+        InsertValuesRow [70-74]
+          IntLiteral(10) [71-73]
+--
+MERGE INTO T
+USING S
+ON T.t1 = S.s1
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1)
+  VALUES
+    (10)
+==
+
+# Using subquery as source table.
+MERGE INTO T
+USING (SELECT * FROM Y JOIN Z ON Y.C1 = Z.C1) AS S
+ON t1 = s1
+WHEN NOT MATCHED AND S.C2 = 20 THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+
+--
+MergeStatement [0-159]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TableSubquery [19-63]
+    Query [20-57]
+      Select [20-57]
+        SelectList [27-28]
+          SelectColumn [27-28]
+            Star(*) [27-28]
+        FromClause [29-57]
+          Join [36-57]
+            TablePathExpression [34-35]
+              PathExpression [34-35]
+                Identifier(Y) [34-35]
+            TablePathExpression [41-42]
+              PathExpression [41-42]
+                Identifier(Z) [41-42]
+            OnClause [43-57]
+              BinaryExpression(=) [46-57]
+                PathExpression [46-50]
+                  Identifier(Y) [46-47]
+                  Identifier(C1) [48-50]
+                PathExpression [53-57]
+                  Identifier(Z) [53-54]
+                  Identifier(C1) [55-57]
+    Alias [59-63]
+      Identifier(S) [62-63]
+  BinaryExpression(=) [67-74]
+    PathExpression [67-69]
+      Identifier(t1) [67-69]
+    PathExpression [72-74]
+      Identifier(s1) [72-74]
+  MergeWhenClauseList [75-159]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [75-159]
+      BinaryExpression(=) [96-105]
+        PathExpression [96-100]
+          Identifier(S) [96-97]
+          Identifier(C2) [98-100]
+        IntLiteral(20) [103-105]
+      MergeAction(INSERT) [111-159]
+        ColumnList [117-129]
+          Identifier(t1) [118-120]
+          Identifier(t2) [122-124]
+          Identifier(t3) [126-128]
+        InsertValuesRow [136-159]
+          IntLiteral(10) [137-139]
+          PathExpression [141-145]
+            Identifier(S) [141-142]
+            Identifier(C3) [143-145]
+          BinaryExpression(+) [147-158]
+            PathExpression [147-151]
+              Identifier(S) [147-148]
+              Identifier(C1) [149-151]
+            PathExpression [154-158]
+              Identifier(S) [154-155]
+              Identifier(C2) [156-158]
+--
+MERGE INTO T
+USING
+(
+  SELECT
+    *
+  FROM
+    Y
+    JOIN
+    Z
+    ON Y.C1 = Z.C1
+) AS S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET AND S.C2 = 20 THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Has multiple WHEN NOT MATCHED BY TARGET clauses.
+MERGE T AS X
+USING S
+ON X.t1 = S.s1
+WHEN NOT MATCHED AND S.C1 > 100 THEN
+INSERT(t1) VALUES(S.C2)
+WHEN NOT MATCHED AND S.C1 > 50 THEN
+INSERT(t1) VALUES(S.C2 * 10)
+WHEN NOT MATCHED THEN
+INSERT(t1) VALUES(S.C2 * 100)
+--
+MergeStatement [0-213]
+  PathExpression [6-7]
+    Identifier(T) [6-7]
+  Alias [8-12]
+    Identifier(X) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-35]
+    PathExpression [24-28]
+      Identifier(X) [24-25]
+      Identifier(t1) [26-28]
+    PathExpression [31-35]
+      Identifier(S) [31-32]
+      Identifier(s1) [33-35]
+  MergeWhenClauseList [36-213]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [36-96]
+      BinaryExpression(>) [57-67]
+        PathExpression [57-61]
+          Identifier(S) [57-58]
+          Identifier(C1) [59-61]
+        IntLiteral(100) [64-67]
+      MergeAction(INSERT) [73-96]
+        ColumnList [79-83]
+          Identifier(t1) [80-82]
+        InsertValuesRow [90-96]
+          PathExpression [91-95]
+            Identifier(S) [91-92]
+            Identifier(C2) [93-95]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [97-161]
+      BinaryExpression(>) [118-127]
+        PathExpression [118-122]
+          Identifier(S) [118-119]
+          Identifier(C1) [120-122]
+        IntLiteral(50) [125-127]
+      MergeAction(INSERT) [133-161]
+        ColumnList [139-143]
+          Identifier(t1) [140-142]
+        InsertValuesRow [150-161]
+          BinaryExpression(*) [151-160]
+            PathExpression [151-155]
+              Identifier(S) [151-152]
+              Identifier(C2) [153-155]
+            IntLiteral(10) [158-160]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [162-213]
+      MergeAction(INSERT) [184-213]
+        ColumnList [190-194]
+          Identifier(t1) [191-193]
+        InsertValuesRow [201-213]
+          BinaryExpression(*) [202-212]
+            PathExpression [202-206]
+              Identifier(S) [202-203]
+              Identifier(C2) [204-206]
+            IntLiteral(100) [209-212]
+--
+MERGE INTO T AS X
+USING S
+ON X.t1 = S.s1
+WHEN NOT MATCHED BY TARGET AND S.C1 > 100 THEN
+  INSERT(t1)
+  VALUES
+    (S.C2)
+WHEN NOT MATCHED BY TARGET AND S.C1 > 50 THEN
+  INSERT(t1)
+  VALUES
+    (S.C2 * 10)
+WHEN NOT MATCHED BY TARGET THEN
+  INSERT(t1)
+  VALUES
+    (S.C2 * 100)
+==
+
+# More than 1 same type clauses together with other clause type.
+MERGE INTO T
+USING (SELECT * FROM Y JOIN Z ON Y.C1 = Z.C1) AS S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 AND S.C3 < 0 THEN
+UPDATE SET T1 = T1 + 10, T2 = T.T1 + S.C1
+WHEN MATCHED THEN
+DELETE
+WHEN NOT MATCHED AND S.C2 = 20 THEN
+INSERT(t1, t2, t3) VALUES(10, S.C3, S.C1 + S.C2)
+--
+MergeStatement [0-270]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TableSubquery [19-63]
+    Query [20-57]
+      Select [20-57]
+        SelectList [27-28]
+          SelectColumn [27-28]
+            Star(*) [27-28]
+        FromClause [29-57]
+          Join [36-57]
+            TablePathExpression [34-35]
+              PathExpression [34-35]
+                Identifier(Y) [34-35]
+            TablePathExpression [41-42]
+              PathExpression [41-42]
+                Identifier(Z) [41-42]
+            OnClause [43-57]
+              BinaryExpression(=) [46-57]
+                PathExpression [46-50]
+                  Identifier(Y) [46-47]
+                  Identifier(C1) [48-50]
+                PathExpression [53-57]
+                  Identifier(Z) [53-54]
+                  Identifier(C1) [55-57]
+    Alias [59-63]
+      Identifier(S) [62-63]
+  BinaryExpression(=) [67-74]
+    PathExpression [67-69]
+      Identifier(t1) [67-69]
+    PathExpression [72-74]
+      Identifier(s1) [72-74]
+  MergeWhenClauseList [75-270]
+    MergeWhenClause(match_type=MATCHED) [75-160]
+      AndExpr [92-113]
+        BinaryExpression(=) [92-100]
+          PathExpression [92-96]
+            Identifier(T) [92-93]
+            Identifier(T1) [94-96]
+          IntLiteral(5) [99-100]
+        BinaryExpression(<) [105-113]
+          PathExpression [105-109]
+            Identifier(S) [105-106]
+            Identifier(C3) [107-109]
+          IntLiteral(0) [112-113]
+      MergeAction(UPDATE) [119-160]
+        UpdateItemList [130-160]
+          UpdateItem [130-142]
+            UpdateSetValue [130-142]
+              PathExpression [130-132]
+                Identifier(T1) [130-132]
+              BinaryExpression(+) [135-142]
+                PathExpression [135-137]
+                  Identifier(T1) [135-137]
+                IntLiteral(10) [140-142]
+          UpdateItem [144-160]
+            UpdateSetValue [144-160]
+              PathExpression [144-146]
+                Identifier(T2) [144-146]
+              BinaryExpression(+) [149-160]
+                PathExpression [149-153]
+                  Identifier(T) [149-150]
+                  Identifier(T1) [151-153]
+                PathExpression [156-160]
+                  Identifier(S) [156-157]
+                  Identifier(C1) [158-160]
+    MergeWhenClause(match_type=MATCHED) [161-185]
+      MergeAction(DELETE) [179-185]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [186-270]
+      BinaryExpression(=) [207-216]
+        PathExpression [207-211]
+          Identifier(S) [207-208]
+          Identifier(C2) [209-211]
+        IntLiteral(20) [214-216]
+      MergeAction(INSERT) [222-270]
+        ColumnList [228-240]
+          Identifier(t1) [229-231]
+          Identifier(t2) [233-235]
+          Identifier(t3) [237-239]
+        InsertValuesRow [247-270]
+          IntLiteral(10) [248-250]
+          PathExpression [252-256]
+            Identifier(S) [252-253]
+            Identifier(C3) [254-256]
+          BinaryExpression(+) [258-269]
+            PathExpression [258-262]
+              Identifier(S) [258-259]
+              Identifier(C1) [260-262]
+            PathExpression [265-269]
+              Identifier(S) [265-266]
+              Identifier(C2) [267-269]
+--
+MERGE INTO T
+USING
+(
+  SELECT
+    *
+  FROM
+    Y
+    JOIN
+    Z
+    ON Y.C1 = Z.C1
+) AS S
+ON t1 = s1
+WHEN MATCHED AND T.T1 = 5 AND S.C3 < 0 THEN
+  UPDATE
+  SET
+    T1 = T1 + 10,
+    T2 = T.T1 + S.C1
+WHEN MATCHED THEN
+  DELETE
+WHEN NOT MATCHED BY TARGET AND S.C2 = 20 THEN
+  INSERT(t1, t2, t3)
+  VALUES
+    (10, S.C3, S.C1 + S.C2)
+==
+
+# Missing target table
+MERGE
+USING S
+ON C1 = S1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Unexpected keyword USING [at 2:1]
+USING S
+^
+==
+
+# Missing USING clause
+MERGE INTO T
+ON C1 = S1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Unexpected keyword ON [at 2:1]
+ON C1 = S1
+^
+==
+
+# Missing merge condition
+MERGE INTO T
+USING S
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Expected keyword ON but got keyword WHEN [at 3:1]
+WHEN MATCHED THEN
+^
+==
+
+# Missing WHEN ... THEN clause.
+MERGE INTO T
+USING S
+ON t1 = s1
+--
+ERROR: Syntax error: Expected keyword WHEN but got end of statement [at 3:11]
+ON t1 = s1
+          ^
+==
+
+# Does not support JOIN for source table
+MERGE INTO T
+USING Y JOIN Z ON Y.C1 = Z.C1
+ON t1 = s1
+WHEN NOT MATCHED THEN
+INSERT(t1) VALUES(10)
+--
+ERROR: Syntax error: Expected keyword ON but got keyword JOIN [at 2:9]
+USING Y JOIN Z ON Y.C1 = Z.C1
+        ^
+==
+
+# Does not support parenthesized joins for source table
+MERGE INTO T
+USING (Y JOIN Z ON Y.C1 = Z.C1)
+ON t1 = s1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "Y" [at 2:8]
+USING (Y JOIN Z ON Y.C1 = Z.C1)
+       ^
+==
+
+# Does not support TVF
+MERGE INTO T
+USING mytvf()
+ON t1 = s1
+WHEN MATCHED THEN
+DELETE
+--
+ERROR: Syntax error: Expected keyword ON but got "(" [at 2:12]
+USING mytvf()
+           ^
+==
+
+# This and following cases are allowed in parser, but will be disabled by
+# resolver. According to spec, only some of the actions are allowed for each
+# type of WHEN clause as following,
+#
+#          | MATCHED | NOT_MATCHED_BY_SOURCE | NOT_MATCHED_BY_TARGET
+#   INSERT |    N    |           N           |           Y
+#   UPDATE |    Y    |           Y           |           N
+#   DELETE |    Y    |           Y           |           N
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED THEN
+  INSERT(t1) VALUES(10)
+--
+MergeStatement [0-73]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-73]
+    MergeWhenClause(match_type=MATCHED) [32-73]
+      MergeAction(INSERT) [52-73]
+        ColumnList [58-62]
+          Identifier(t1) [59-61]
+        InsertValuesRow [69-73]
+          IntLiteral(10) [70-72]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN MATCHED THEN
+  INSERT(t1)
+  VALUES
+    (10)
+==
+
+# This is allowed in parser, but will be disabled by resolver.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+  DELETE
+--
+MergeStatement [0-62]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-62]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-62]
+      MergeAction(DELETE) [56-62]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  DELETE
+==
+
+# This is allowed in parser, but will be disabled by resolver.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED THEN
+  UPDATE SET t1 = 10
+--
+MergeStatement [0-74]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-74]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_TARGET) [32-74]
+      MergeAction(UPDATE) [56-74]
+        UpdateItemList [67-74]
+          UpdateItem [67-74]
+            UpdateSetValue [67-74]
+              PathExpression [67-69]
+                Identifier(t1) [67-69]
+              IntLiteral(10) [72-74]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY TARGET THEN
+  UPDATE
+  SET
+    t1 = 10
+==
+
+# This is allowed in parser, but will be disabled by resolver.
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1) VALUES(s2)
+--
+MergeStatement [0-87]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-87]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-87]
+      MergeAction(INSERT) [66-87]
+        ColumnList [72-76]
+          Identifier(t1) [73-75]
+        InsertValuesRow [83-87]
+          PathExpression [84-86]
+            Identifier(s2) [84-86]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1)
+  VALUES
+    (s2)
+
+==
+
+# Omit insert column list
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT VALUES(s2)
+--
+MergeStatement [0-83]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-83]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-83]
+      MergeAction(INSERT) [66-83]
+        InsertValuesRow [79-83]
+          PathExpression [80-82]
+            Identifier(s2) [80-82]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT
+  VALUES
+    (s2)
+==
+
+# Omit insert value list
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1) ROW
+--
+MergeStatement [0-80]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-80]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-80]
+      MergeAction(INSERT) [66-80]
+        ColumnList [72-76]
+          Identifier(t1) [73-75]
+        InsertValuesRow [77-80]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT(t1)
+  ROW
+==
+
+# Omit both insert column and value lists
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT ROW
+--
+MergeStatement [0-76]
+  PathExpression [11-12]
+    Identifier(T) [11-12]
+  TablePathExpression [19-20]
+    PathExpression [19-20]
+      Identifier(S) [19-20]
+  BinaryExpression(=) [24-31]
+    PathExpression [24-26]
+      Identifier(t1) [24-26]
+    PathExpression [29-31]
+      Identifier(s1) [29-31]
+  MergeWhenClauseList [32-76]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [32-76]
+      MergeAction(INSERT) [66-76]
+        InsertValuesRow [73-76]
+--
+MERGE INTO T
+USING S
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT
+  ROW
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+MERGE INTO my-project-123.a.t
+USING project-789-abc.b.s
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN INSERT ROW
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project-123.a.t` [at 1:12]
+MERGE INTO my-project-123.a.t
+           ^
+--
+ALTERNATION GROUP: <empty>
+--
+MergeStatement [0-109]
+  PathExpression [11-29]
+    Identifier(`my-project-123`) [11-27]
+    Identifier(a) [11-27]
+    Identifier(t) [28-29]
+  TablePathExpression [36-55]
+    PathExpression [36-55]
+      Identifier(`project-789-abc`) [36-51]
+      Identifier(b) [52-53]
+      Identifier(s) [54-55]
+  BinaryExpression(=) [59-66]
+    PathExpression [59-61]
+      Identifier(t1) [59-61]
+    PathExpression [64-66]
+      Identifier(s1) [64-66]
+  MergeWhenClauseList [67-109]
+    MergeWhenClause(match_type=NOT_MATCHED_BY_SOURCE) [67-109]
+      MergeAction(INSERT) [99-109]
+        InsertValuesRow [106-109]
+--
+MERGE INTO `my-project-123`.a.t
+USING `project-789-abc`.b.s
+ON t1 = s1
+WHEN NOT MATCHED BY SOURCE THEN
+  INSERT
+  ROW

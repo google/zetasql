@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <iterator>
@@ -518,8 +519,8 @@ bool RightTrimBytes(absl::string_view str, absl::string_view chars,
   return true;
 }
 
-bool LeftUtf8(absl::string_view str, int64_t length,
-              absl::string_view* out, absl::Status* error) {
+bool LeftUtf8(absl::string_view str, int64_t length, absl::string_view* out,
+              absl::Status* error) {
   if (length < 0) {
     return internal::UpdateError(
         error, "Second argument in LEFT() cannot be negative");
@@ -536,8 +537,8 @@ bool LeftBytes(absl::string_view str, int64_t length, absl::string_view* out,
   return SubstrWithLengthBytes(str, 0, length, out, error);
 }
 
-bool RightUtf8(absl::string_view str, int64_t length,
-              absl::string_view* out, absl::Status* error) {
+bool RightUtf8(absl::string_view str, int64_t length, absl::string_view* out,
+               absl::Status* error) {
   if (length < 0) {
     return internal::UpdateError(
         error, "Second argument in RIGHT() cannot be negative");
@@ -546,7 +547,7 @@ bool RightUtf8(absl::string_view str, int64_t length,
 }
 
 bool RightBytes(absl::string_view str, int64_t length, absl::string_view* out,
-               absl::Status* error) {
+                absl::Status* error) {
   if (length < 0) {
     return internal::UpdateError(
         error, "Second argument in RIGHT() cannot be negative");
@@ -556,8 +557,8 @@ bool RightBytes(absl::string_view str, int64_t length, absl::string_view* out,
 
 bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
                 absl::Status* error) {
-  return SubstrWithLengthUtf8(str, pos, std::numeric_limits<int64_t>::max(), out,
-                              error);
+  return SubstrWithLengthUtf8(str, pos, std::numeric_limits<int64_t>::max(),
+                              out, error);
 }
 
 // Move forward <num_code_points> in str starting at <str_offset> and updates
@@ -565,8 +566,8 @@ bool SubstrUtf8(absl::string_view str, int64_t pos, absl::string_view* out,
 // <hit_end> indicates whether we reached the end of <str> with less than
 // <num_code_points> character moves.
 static bool ForwardN(absl::string_view str, int32_t str_length32,
-                     int64_t num_code_points, int32_t* str_offset, bool* hit_end,
-                     absl::Status* error) {
+                     int64_t num_code_points, int32_t* str_offset,
+                     bool* hit_end, absl::Status* error) {
   int64_t i = 0;
   for (; i < num_code_points && *str_offset < str_length32; ++i) {
     UChar32 character;
@@ -950,8 +951,8 @@ bool SubstrWithLengthUtf8(absl::string_view str, int64_t pos, int64_t length,
 
 bool SubstrBytes(absl::string_view str, int64_t pos, absl::string_view* out,
                  absl::Status* error) {
-  return SubstrWithLengthBytes(str, pos, std::numeric_limits<int64_t>::max(), out,
-                               error);
+  return SubstrWithLengthBytes(str, pos, std::numeric_limits<int64_t>::max(),
+                               out, error);
 }
 
 bool SubstrWithLengthBytes(absl::string_view str, int64_t pos, int64_t length,
@@ -1293,7 +1294,7 @@ bool FirstCharOfStringToASCII(absl::string_view str, int64_t* out,
 }
 
 bool FirstByteOfBytesToASCII(absl::string_view str, int64_t* out,
-                              absl::Status* error) {
+                             absl::Status* error) {
   if (str.empty()) {
     *out = 0;
   } else {
@@ -1336,10 +1337,10 @@ bool FirstCharToCodePoint(absl::string_view str, int64_t* out,
   return true;
 }
 
-bool CodePointToString(int64_t codepoint, std::string* out, absl::Status* error) {
+bool CodePointToString(int64_t codepoint, std::string* out,
+                       absl::Status* error) {
   return CodePointsToString(absl::MakeConstSpan(&codepoint, 1), out, error);
 }
-
 
 bool StringToCodePoints(absl::string_view str, std::vector<int64_t>* out,
                         absl::Status* error) {
@@ -1602,8 +1603,9 @@ bool RightPadBytes(absl::string_view input_str, int64_t output_size_bytes,
                   out, error);
 }
 
-bool RightPadBytesDefault(absl::string_view input_str, int64_t output_size_bytes,
-                          std::string* out, absl::Status* error) {
+bool RightPadBytesDefault(absl::string_view input_str,
+                          int64_t output_size_bytes, std::string* out,
+                          absl::Status* error) {
   return PadBytes(input_str, output_size_bytes, " ", false /* left_pad */, out,
                   error);
 }

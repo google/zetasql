@@ -16,6 +16,7 @@
 
 #include "zetasql/public/proto_value_conversion.h"
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -48,6 +49,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>
+#include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/str_cat.h"

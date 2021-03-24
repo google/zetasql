@@ -16,6 +16,8 @@
 
 #include "zetasql/public/civil_time.h"
 
+#include <cstdint>
+
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
@@ -66,7 +68,8 @@ inline bool IsValidDatetimeFields(int64_t year, int64_t month, int64_t day,
          IsValidTimeFields(hour, minute, second, nanosecond);
 }
 
-inline int64_t GetPartFromBitField(uint64_t bit_field, uint64_t mask, int shift) {
+inline int64_t GetPartFromBitField(uint64_t bit_field, uint64_t mask,
+                                   int shift) {
   return absl::bit_cast<int64_t>((bit_field & mask) >> shift);
 }
 
@@ -102,8 +105,8 @@ void NormalizeTime(int32_t* h, int32_t* m, int32_t* s, int64_t* ns) {
 
 // Normalize date and time parts by carrying any overage of the legal range of
 // each part into adjacent fields.
-void NormalizeDatetime(int64_t* y, int32_t* mo, int32_t* d, int32_t* h, int32_t* m,
-                       int32_t* s, int64_t* ns) {
+void NormalizeDatetime(int64_t* y, int32_t* mo, int32_t* d, int32_t* h,
+                       int32_t* m, int32_t* s, int64_t* ns) {
   int64_t carry_seconds = zetasql_base::MathUtil::FloorOfRatio(*ns, kNanosPerSecond);
   absl::CivilSecond cs(*y, *mo, *d, *h, *m, *s);
   cs += carry_seconds;
@@ -128,13 +131,14 @@ static_assert(sizeof(TimeValue) <= 8, "TimeValue is larger than 8 bytes");
 TimeValue::TimeValue()
     : valid_(true), hour_(0), minute_(0), second_(0), nanosecond_(0) {}
 
-TimeValue TimeValue::FromHMSAndNanos(int32_t hour, int32_t minute, int32_t second,
-                                     int32_t nanosecond) {
+TimeValue TimeValue::FromHMSAndNanos(int32_t hour, int32_t minute,
+                                     int32_t second, int32_t nanosecond) {
   return FromHMSAndNanosInternal(hour, minute, second, nanosecond);
 }
 
 TimeValue TimeValue::FromHMSAndNanosNormalized(int32_t hour, int32_t minute,
-                                               int32_t second, int32_t nanosecond) {
+                                               int32_t second,
+                                               int32_t nanosecond) {
   int64_t nanos64 = static_cast<int64_t>(nanosecond);
   NormalizeTime(&hour, &minute, &second, &nanos64);
   TimeValue ret = FromHMSAndNanosInternal(hour, minute, second, nanos64);
@@ -142,8 +146,8 @@ TimeValue TimeValue::FromHMSAndNanosNormalized(int32_t hour, int32_t minute,
   return ret;
 }
 
-TimeValue TimeValue::FromHMSAndMicros(int32_t hour, int32_t minute, int32_t second,
-                                      int32_t microsecond) {
+TimeValue TimeValue::FromHMSAndMicros(int32_t hour, int32_t minute,
+                                      int32_t second, int32_t microsecond) {
   int64_t nanosecond = static_cast<int64_t>(microsecond) * 1000;
   return FromHMSAndNanosInternal(hour, minute, second, nanosecond);
 }
@@ -159,7 +163,8 @@ TimeValue TimeValue::FromHMSAndMicrosNormalized(int32_t hour, int32_t minute,
 }
 
 TimeValue TimeValue::FromHMSAndNanosInternal(int64_t hour, int64_t minute,
-                                             int64_t second, int64_t nanosecond) {
+                                             int64_t second,
+                                             int64_t nanosecond) {
   TimeValue ret;
   ret.valid_ = IsValidTimeFields(hour, minute, second, nanosecond);
   if (ret.valid_) {
@@ -187,7 +192,8 @@ TimeValue TimeValue::InternalFromPacked64SecondsAndNanos(
 
 TimeValue TimeValue::FromPacked64Micros(int64_t bit_field_time_micros) {
   uint64_t bit_field = absl::bit_cast<uint64_t>(bit_field_time_micros);
-  int64_t microsecond = GetPartFromBitField(bit_field, kMicrosMask, /*shift=*/0);
+  int64_t microsecond =
+      GetPartFromBitField(bit_field, kMicrosMask, /*shift=*/0);
   // Cannot overflow because micros is less than 1 << 20.
   ZETASQL_DCHECK_LT(microsecond, 1 << 20);
   int64_t nanosecond = microsecond * 1000;
@@ -208,8 +214,8 @@ TimeValue TimeValue::FromPacked32SecondsAndNanos(int32_t bit_field_time_seconds,
   return InternalFromPacked64SecondsAndNanos(bit_field, nanosecond);
 }
 
-TimeValue TimeValue::FromPacked32SecondsAndMicros(int32_t bit_field_time_seconds,
-                                                  int32_t microsecond) {
+TimeValue TimeValue::FromPacked32SecondsAndMicros(
+    int32_t bit_field_time_seconds, int32_t microsecond) {
   uint32_t bit_field = absl::bit_cast<uint32_t>(bit_field_time_seconds);
   int64_t nanosecond = static_cast<int64_t>(microsecond) * 1000;
   return InternalFromPacked64SecondsAndNanos(bit_field, nanosecond);
@@ -258,11 +264,9 @@ DatetimeValue::DatetimeValue()
       valid_(true),
       nanosecond_(0) {}
 
-DatetimeValue DatetimeValue::FromYMDHMSAndNanosInternal(int64_t year, int64_t month,
-                                                        int64_t day, int64_t hour,
-                                                        int64_t minute,
-                                                        int64_t second,
-                                                        int64_t nanosecond) {
+DatetimeValue DatetimeValue::FromYMDHMSAndNanosInternal(
+    int64_t year, int64_t month, int64_t day, int64_t hour, int64_t minute,
+    int64_t second, int64_t nanosecond) {
   DatetimeValue ret;
   ret.valid_ =
       IsValidDatetimeFields(year, month, day, hour, minute, second, nanosecond);
@@ -293,8 +297,8 @@ DatetimeValue DatetimeValue::FromYMDHMSAndMicros(int32_t year, int32_t month,
 }
 
 DatetimeValue DatetimeValue::FromYMDHMSAndMicrosNormalized(
-    int32_t year, int32_t month, int32_t day, int32_t hour, int32_t minute, int32_t second,
-    int32_t microsecond) {
+    int32_t year, int32_t month, int32_t day, int32_t hour, int32_t minute,
+    int32_t second, int32_t microsecond) {
   int64_t nanos64 = static_cast<int64_t>(microsecond) * 1000;
   int64_t year64 = static_cast<int64_t>(year);
   NormalizeDatetime(&year64, &month, &day, &hour, &minute, &second, &nanos64);
@@ -312,8 +316,8 @@ DatetimeValue DatetimeValue::FromYMDHMSAndNanos(int32_t year, int32_t month,
 }
 
 DatetimeValue DatetimeValue::FromYMDHMSAndNanosNormalized(
-    int32_t year, int32_t month, int32_t day, int32_t hour, int32_t minute, int32_t second,
-    int32_t nanosecond) {
+    int32_t year, int32_t month, int32_t day, int32_t hour, int32_t minute,
+    int32_t second, int32_t nanosecond) {
   int64_t nanos64 = static_cast<int64_t>(nanosecond);
   int64_t year64 = static_cast<int64_t>(year);
   NormalizeDatetime(&year64, &month, &day, &hour, &minute, &second, &nanos64);
@@ -376,11 +380,8 @@ DatetimeValue DatetimeValue::FromPacked64SecondsAndNanosInternal(
 
 int64_t DatetimeValue::Packed64DatetimeSeconds() const {
   return (static_cast<uint64_t>(year_) << kYearShift) |
-         (month_ << kMonthShift) |
-         (day_ << kDayShift) |
-         (hour_ << kHourShift) |
-         (minute_ << kMinuteShift) |
-         (second_ << kSecondShift);
+         (month_ << kMonthShift) | (day_ << kDayShift) | (hour_ << kHourShift) |
+         (minute_ << kMinuteShift) | (second_ << kSecondShift);
 }
 
 int64_t DatetimeValue::Packed64DatetimeMicros() const {

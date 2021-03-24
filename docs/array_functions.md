@@ -213,28 +213,51 @@ FROM items;
 
 ```sql
 FLATTEN(flatten_path)
+
+flatten_path:
+{
+  array_expression
+  | flatten_path.field
+  | flatten_path.array_field
+  | flatten_path.array_field[{offset_clause | safe_offset_clause}]
+}
 ```
 
 **Description**
 
-Extracts a collection of values that have the same semantic meaning from a
-tree-shaped value and returns an array. `flatten_path` is a path that can select
-many values out of the tree-shaped value and return them as an array. For
-example, `FLATTEN(table.column.array_field.target)` will return an array of all
-`targets` inside `table.column`. Tree-shaped data is represented in the
-ZetaSQL type system by composing these typed values:
+Nested data can be flattened into a single, flat array with the `FLATTEN`
+operator. The `FLATTEN` operator accepts a unique type of path called the
+_flatten path_. The flatten path lets you traverse through the levels of a
+nested array from left to right. For example,
+`FLATTEN(column.array_field.target)` will return an array of all
+`targets` inside `column`. The flatten path can include:
 
-+ STRUCT
-+ ARRAY
-+ PROTO (Protobuf message types and enum types)
++ `array_expression`: Expression that evaluates to a single, flat array.
++ `flatten_path.field`: A concatenation of `element.field` for all elements of
+  `FLATTEN(flatten_path)`. `field` represents a non-array field.
++ `flatten_path.array_field`: A concatenation of elements of
+  `element.array_field` for all elements of `FLATTEN(flatten_path)`.
+  `array_field` represents an array field.
+  + `[{offset_clause | safe_offset_clause}]`: If the optional
+    [`OFFSET`][offset-clause] or [`SAFE_OFFSET`][safe-offset-clause] is present,
+    for each array_field value, `FLATTEN` includes only the array element at
+    the selected offset, rather than all elements.
 
-The resulting array may contain `NULL` array elements, but only if
-evaluating the path along some array elements returns `NULL`. Returns `NULL`
-if `flatten_path` is `NULL`.
+`FLATTEN` can return `NULL` if following the flatten path encounters a
+`NULL` before it encounters an array. Once a non-null array is encountered,
+`FLATTEN` can never return `NULL` and will always return an array.
 
-You can learn more about flattening tree structured data into arrays and
+`NULL`s in arrays are added to the resulting array.
+
+Tip: Nested data is common in protocol buffers that have data within repeated
+messages.
+
+Tip: The `FLATTEN` operator is implicit inside the `UNNEST` operator and
+`UNNEST(flatten_path)` is equivalent to `UNNEST(FLATTEN(flatten_path))`.
+
+You can learn more about flattening nested data into arrays and
 the flatten path in
-[Flattening tree-structured data into arrays][flatten-tree-to-array].
+[Flattening nested data into an array][flatten-tree-to-array].
 
 **Return type**
 
@@ -313,6 +336,86 @@ SELECT FLATTEN(
 +------------------+
 ```
 
+In this example, all of the arrays for `v.sales.quantity` are concatenated in
+a flattened array.
+
+```sql
+WITH t AS (
+  SELECT
+  [
+    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
+    STRUCT([STRUCT([7,8] AS quantity), STRUCT([] AS quantity)] AS sales)
+  ] AS v
+)
+SELECT FLATTEN(v.sales.quantity) AS all_values
+FROM t;
+
++--------------------------+
+| all_values               |
++--------------------------+
+| [1, 2, 3, 4, 5, 6, 7, 8] |
++--------------------------+
+```
+
+In this example, `OFFSET` gets the second value in each array and
+concatenates them.
+
+```sql
+WITH t AS (
+  SELECT
+  [
+    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
+    STRUCT([STRUCT([7,8,9] AS quantity), STRUCT([10,11,12] AS quantity)] AS sales)
+  ] AS v
+)
+SELECT FLATTEN(v.sales.quantity[OFFSET(1)]) AS second_values
+FROM t;
+
++---------------+
+| second_values |
++---------------+
+| [2, 5, 8, 11] |
++---------------+
+```
+
+If you use `OFFSET` with `FLATTEN` and a value is missing from an array,
+an error is returned.
+
+```sql
+WITH t AS (
+  SELECT
+  [
+    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
+    STRUCT([STRUCT([7,8,9] AS quantity), STRUCT([10] AS quantity)] AS sales)
+  ] AS v
+)
+SELECT FLATTEN(v.sales.quantity[OFFSET(1)]) AS second_values
+FROM t;
+
+-- ERROR: Array index is out of bounds.
+```
+
+In this example, `SAFE_OFFSET` gets the third value in each array and
+concatenates them. If a value is missing, a `NULL` is returned for the value.
+
+```sql
+WITH t AS (
+  SELECT
+  [
+    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
+    STRUCT([STRUCT([7] AS quantity), STRUCT([10,11,12] AS quantity)] AS sales)
+  ] AS v
+)
+SELECT FLATTEN(v.sales.quantity[SAFE_OFFSET(1)]) AS third_values
+FROM t;
+
++------------------+
+| third_values     |
++------------------+
+| [3, 6, NULL, 12] |
++------------------+
+```
+
 The resulting array may contain `NULL` `ARRAY` elements, but only if
 evaluating the flatten path along some array elements returns `NULL`.
 For example:
@@ -358,7 +461,7 @@ parameters determine the inclusive start and end of the array.
 The `GENERATE_ARRAY` function accepts the following data types as inputs:
 
 <ul>
-<li>INT64</li><li>UINT64</li><li>NUMERIC</li><li>DOUBLE</li>
+<li>INT64</li><li>UINT64</li><li>NUMERIC</li><li>BIGNUMERIC</li><li>DOUBLE</li>
 </ul>
 
 The `step_expression` parameter determines the increment used to
@@ -918,11 +1021,13 @@ FROM items;
 +----------------------------------+---------------+----------------+
 ```
 
+[offset-clause]: #offset_and_ordinal
+[safe-offset-clause]: #safe_offset_and_safe_ordinal
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
 [datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
 [datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
-[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_trees_into_arrays
+[flatten-tree-to-array]:https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

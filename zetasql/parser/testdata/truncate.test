@@ -1,0 +1,120 @@
+# TRUNCATE TABLE
+TRUNCATE TABLE foo;
+--
+TruncateStatement [0-18]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+--
+TRUNCATE TABLE foo
+==
+
+# Specify partition with WHERE expression
+TRUNCATE TABLE foo WHERE bar > 3;
+--
+TruncateStatement [0-32]
+  PathExpression [15-18]
+    Identifier(foo) [15-18]
+  BinaryExpression(>) [25-32]
+    PathExpression [25-28]
+      Identifier(bar) [25-28]
+    IntLiteral(3) [31-32]
+--
+TRUNCATE TABLE foo
+WHERE
+  bar > 3
+==
+
+# Verify that TRUNCATE is a non-reserve word.
+SELECT truncate FROM foo;
+--
+QueryStatement [0-24]
+  Query [0-24]
+    Select [0-24]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          PathExpression [7-15]
+            Identifier(truncate) [7-15]
+      FromClause [16-24]
+        TablePathExpression [21-24]
+          PathExpression [21-24]
+            Identifier(foo) [21-24]
+--
+SELECT
+  truncate
+FROM
+  foo
+==
+
+SELECT * FROM truncate;
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-22]
+        TablePathExpression [14-22]
+          PathExpression [14-22]
+            Identifier(truncate) [14-22]
+--
+SELECT
+  *
+FROM
+  truncate
+==
+
+# 'TRUNCATE' (no arguments) to show error message.
+TRUNCATE;
+--
+ERROR: Syntax error: Expected keyword TABLE but got ";" [at 1:9]
+TRUNCATE;
+        ^
+==
+
+# 'IF EXISTS' modified is not supported for TRUNCATE TABLE; it is DML
+TRUNCATE TABLE TestTable IF EXISTS;
+--
+ERROR: Syntax error: Expected end of input but got keyword IF [at 1:26]
+TRUNCATE TABLE TestTable IF EXISTS;
+                         ^
+==
+
+# Generalized path not supported.
+TRUNCATE TABLE TestTable.(a.b) WHERE True;
+--
+ERROR: Syntax error: Unexpected "(" [at 1:26]
+TRUNCATE TABLE TestTable.(a.b) WHERE True;
+                         ^
+==
+
+# TRUNCATE TABLE not supported in nested DML
+MERGE TestTable
+Using SimpleTypes
+ON key = int32
+WHEN MATCHED THEN
+  TRUNCATE TABLE
+--
+ERROR: Syntax error: Expected keyword DELETE or keyword INSERT or keyword UPDATE but got keyword TRUNCATE [at 5:3]
+  TRUNCATE TABLE
+  ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+TRUNCATE TABLE foo-567-bar.baz;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `foo-567-bar.baz` [at 1:16]
+TRUNCATE TABLE foo-567-bar.baz;
+               ^
+--
+ALTERNATION GROUP: <empty>
+--
+TruncateStatement [0-30]
+  PathExpression [15-30]
+    Identifier(`foo-567-bar`) [15-26]
+    Identifier(baz) [27-30]
+--
+TRUNCATE TABLE `foo-567-bar`.baz

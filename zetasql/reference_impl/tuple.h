@@ -21,6 +21,7 @@
 
 #include <stddef.h>
 
+#include <cstdint>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -758,7 +759,7 @@ class TupleDataOrderedQueue {
   // for performance reasons.
   bool Insert(std::unique_ptr<TupleData> data, absl::Status* status) {
     const int64_t byte_size = data->GetPhysicalByteSize() +
-                            sizeof(std::pair<const TupleData*, ValueEntry>);
+                              sizeof(std::pair<const TupleData*, ValueEntry>);
     if (!accountant_->RequestBytes(byte_size, status)) {
       return false;
     }

@@ -17,13 +17,25 @@
 #ifndef ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 
+#include <cstdint>
+#include <string>
+
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
+namespace internal {
+struct CatalogName;
+}
+
 // A proto type.
+// The type may contain a catalog path if it was explicitly provided during
+// construction, so it can be reproduced by SQLBuilder while rebuilding SQL and
+// error messages and SQLBuilder. Two types with the same descriptors but
+// different catalog names are not equal, but equivalent.
 class ProtoType : public Type {
  public:
 #ifndef SWIG
@@ -67,6 +79,9 @@ class ProtoType : public Type {
   std::string ShortTypeName(
       ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
   std::string TypeName() const;  // Proto-specific version does not need mode.
+
+  // Nested catalog names, that were passed to the constructor.
+  absl::Span<const std::string> CatalogNamePath() const;
 
   // Get the ZetaSQL Type of the requested field of the proto, identified by
   // either tag number or name.  A new Type may be created so a type factory
@@ -240,8 +255,8 @@ class ProtoType : public Type {
 
   // Does not take ownership of <factory> or <descriptor>.  The <descriptor>
   // must outlive the type.
-  ProtoType(const TypeFactory* factory,
-            const google::protobuf::Descriptor* descriptor);
+  ProtoType(const TypeFactory* factory, const google::protobuf::Descriptor* descriptor,
+            const internal::CatalogName* catalog_name);
   ~ProtoType() override;
 
   bool SupportsGroupingImpl(const LanguageOptions& language_options,
@@ -306,7 +321,8 @@ class ProtoType : public Type {
   absl::Status DeserializeValueContent(const ValueProto& value_proto,
                                        ValueContent* value) const override;
 
-  const google::protobuf::Descriptor* descriptor_;  // Not owned.
+  const google::protobuf::Descriptor* descriptor_;       // Not owned.
+  const internal::CatalogName* catalog_name_;  // Optional.
 
   friend class TypeFactory;
 };

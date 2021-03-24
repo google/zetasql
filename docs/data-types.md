@@ -363,6 +363,7 @@ Numeric types include the following types:
  * `INT64`
  * `UINT64`
  * `NUMERIC` with alias `DECIMAL`
+ * `BIGNUMERIC` with alias `BIGDECIMAL`
  * `FLOAT`
  * `DOUBLE`
 
@@ -402,7 +403,7 @@ Integers are numeric values that do not have fractional components.
 </tbody>
 </table>
 
-### Decimal type
+### Decimal types
 
 Decimal type values are numeric values with fixed precision and scale.
 Precision is the number of digits that the number contains. Scale is
@@ -426,8 +427,19 @@ calculations.
   <td style="vertical-align:middle">
     Precision: 38<br>
     Scale: 9<br>
-    Min: -9.9999999999999999999999999999999999999E+29<br>
-    Max: 9.9999999999999999999999999999999999999E+29
+    Min: -9.9999999999999999999999999999999999999E+28<br>
+    Max: 9.9999999999999999999999999999999999999E+28
+  </td>
+</tr>
+
+<tr id="bignumeric_type">
+  <td id="bignumeric-type" style="vertical-align:middle"><code>BIGNUMERIC</code>
+    <br><code>BIGDECIMAL</code></td>
+  <td style="vertical-align:middle">
+    Precision: 76.76 (the 77th digit is partial)<br>
+    Scale: 38<br>
+    Min: <small>-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38</small><br>
+    Max: <small>5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38</small>
   </td>
 </tr>
 
@@ -435,6 +447,7 @@ calculations.
 </table>
 
 `DECIMAL` is an alias for `NUMERIC`.
+`BIGDECIMAL` is an alias for `BIGNUMERIC`.
 
 ### Floating point types 
 <a id="floating_point_types"></a>

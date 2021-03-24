@@ -38,6 +38,7 @@
 
 namespace zetasql {
 
+using testing::_;
 using testing::HasSubstr;
 using testing::IsNull;
 using testing::NotNull;
@@ -50,13 +51,13 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_FALSE(fixed_type_int32.IsConcrete());
   fixed_type_int32.set_num_occurrences(0);
   ASSERT_TRUE(fixed_type_int32.IsConcrete());
-  EXPECT_FALSE(fixed_type_int32.IsValid().ok());
+  EXPECT_FALSE(fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   fixed_type_int32.set_num_occurrences(2);
   ASSERT_TRUE(fixed_type_int32.IsConcrete());
-  EXPECT_FALSE(fixed_type_int32.IsValid().ok());
+  EXPECT_FALSE(fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   fixed_type_int32.set_num_occurrences(1);
   ASSERT_TRUE(fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   ASSERT_THAT(fixed_type_int32.type(), NotNull());
   ASSERT_EQ(ARG_TYPE_FIXED, fixed_type_int32.kind());
   ASSERT_FALSE(fixed_type_int32.repeated());
@@ -69,13 +70,13 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_FALSE(repeating_fixed_type_int32.IsConcrete());
   repeating_fixed_type_int32.set_num_occurrences(0);
   ASSERT_TRUE(repeating_fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(repeating_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(repeating_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   repeating_fixed_type_int32.IncrementNumOccurrences();
   ASSERT_TRUE(repeating_fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(repeating_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(repeating_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   repeating_fixed_type_int32.IncrementNumOccurrences();
   ASSERT_TRUE(repeating_fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(repeating_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(repeating_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   ASSERT_THAT(repeating_fixed_type_int32.type(), NotNull());
   ASSERT_EQ(ARG_TYPE_FIXED, repeating_fixed_type_int32.kind());
   ASSERT_TRUE(repeating_fixed_type_int32.repeated());
@@ -88,16 +89,17 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeTests) {
   ASSERT_FALSE(optional_fixed_type_int32.IsConcrete());
   optional_fixed_type_int32.set_num_occurrences(0);
   ASSERT_TRUE(optional_fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   optional_fixed_type_int32.IncrementNumOccurrences();
   ASSERT_TRUE(optional_fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   optional_fixed_type_int32.IncrementNumOccurrences();
   ASSERT_TRUE(optional_fixed_type_int32.IsConcrete());
-  EXPECT_FALSE(optional_fixed_type_int32.IsValid().ok());
+  EXPECT_FALSE(
+      optional_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   optional_fixed_type_int32.set_num_occurrences(0);
   ASSERT_TRUE(optional_fixed_type_int32.IsConcrete());
-  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   ASSERT_THAT(optional_fixed_type_int32.type(), NotNull());
   ASSERT_EQ(ARG_TYPE_FIXED, optional_fixed_type_int32.kind());
   ASSERT_FALSE(optional_fixed_type_int32.repeated());
@@ -174,7 +176,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
       factory.get_string(), invalid_required_arg_type_option,
       /*num_occurrences=*/1);
   EXPECT_THAT(
-      required_fixed_type_string.IsValid(),
+      required_fixed_type_string.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Default value cannot be applied to a REQUIRED argument")));
@@ -183,7 +185,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
       factory.get_double(), invalid_repeated_arg_type_option,
       /*num_occurrences=*/1);
   EXPECT_THAT(
-      repeated_fixed_type_double.IsValid(),
+      repeated_fixed_type_double.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Default value cannot be applied to a REPEATED argument")));
@@ -192,7 +194,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
                                                  valid_optional_arg_type_option,
                                                  /*num_occurrences=*/1);
   EXPECT_THAT(
-      optional_fixed_type_bytes.IsValid(),
+      optional_fixed_type_bytes.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Default value type does not match the argument type")));
@@ -201,7 +203,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
                                                  valid_optional_arg_type_option,
                                                  /*num_occurrences=*/1);
   EXPECT_THAT(
-      optional_fixed_type_int64.IsValid(),
+      optional_fixed_type_int64.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Default value type does not match the argument type")));
@@ -210,7 +212,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
       factory.get_int64(), valid_optional_arg_type_option_null,
       /*num_occurrences=*/1);
   EXPECT_THAT(
-      bad_optional_fixed_type_int64.IsValid(),
+      bad_optional_fixed_type_int64.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("Default value type does not match the argument type")));
@@ -220,7 +222,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
                                                  /*num_occurrences=*/1);
   EXPECT_TRUE(optional_fixed_type_int32.GetDefault().value().Equals(
       values::Int32(10086)));
-  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid());
+  ZETASQL_EXPECT_OK(optional_fixed_type_int32.IsValid(ProductMode::PRODUCT_EXTERNAL));
   TestDefaultValueAfterSerialization(optional_fixed_type_int32);
 
   FunctionArgumentType optional_fixed_type_int32_null(
@@ -228,41 +230,42 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
       /*num_occurrences=*/1);
   EXPECT_TRUE(optional_fixed_type_int32_null.GetDefault().value().Equals(
       values::NullInt32()));
-  ZETASQL_EXPECT_OK(optional_fixed_type_int32_null.IsValid());
+  ZETASQL_EXPECT_OK(
+      optional_fixed_type_int32_null.IsValid(ProductMode::PRODUCT_EXTERNAL));
   TestDefaultValueAfterSerialization(optional_fixed_type_int32_null);
 
   FunctionArgumentType templated_type_non_null(ARG_TYPE_ANY_1,
                                                valid_optional_arg_type_option);
   EXPECT_TRUE(templated_type_non_null.GetDefault().value().Equals(
       values::Int32(10086)));
-  ZETASQL_EXPECT_OK(templated_type_non_null.IsValid());
+  ZETASQL_EXPECT_OK(templated_type_non_null.IsValid(ProductMode::PRODUCT_EXTERNAL));
   TestDefaultValueAfterSerialization(templated_type_non_null);
 
   FunctionArgumentType templated_type_null(ARG_TYPE_ANY_1,
                                            valid_optional_arg_type_option_null);
   EXPECT_TRUE(
       templated_type_null.GetDefault().value().Equals(values::NullInt32()));
-  ZETASQL_EXPECT_OK(templated_type_null.IsValid());
+  ZETASQL_EXPECT_OK(templated_type_null.IsValid(ProductMode::PRODUCT_EXTERNAL));
   TestDefaultValueAfterSerialization(templated_type_null);
 
   FunctionArgumentType relation_type(ARG_TYPE_RELATION,
                                      valid_optional_arg_type_option_null);
   EXPECT_THAT(
-      relation_type.IsValid(),
+      relation_type.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("ANY TABLE argument cannot have a default value")));
 
   FunctionArgumentType model_type(ARG_TYPE_MODEL,
                                   valid_optional_arg_type_option_null);
   EXPECT_THAT(
-      model_type.IsValid(),
+      model_type.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("ANY MODEL argument cannot have a default value")));
 
   FunctionArgumentType connection_type(ARG_TYPE_CONNECTION,
                                        valid_optional_arg_type_option_null);
   EXPECT_THAT(
-      connection_type.IsValid(),
+      connection_type.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("ANY CONNECTION argument cannot have a default value")));
@@ -270,7 +273,7 @@ TEST(FunctionSignatureTests, FunctionArgumentTypeWithDefaultValues) {
   FunctionArgumentType descriptor_type(ARG_TYPE_DESCRIPTOR,
                                        valid_optional_arg_type_option_null);
   EXPECT_THAT(
-      descriptor_type.IsValid(),
+      descriptor_type.IsValid(ProductMode::PRODUCT_EXTERNAL),
       StatusIs(
           absl::StatusCode::kInvalidArgument,
           HasSubstr("ANY DESCRIPTOR argument cannot have a default value")));
@@ -792,7 +795,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
           arguments, -1 /* context_id */)),
       "Result type cannot be repeated or optional");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // optional result is invalid
@@ -802,7 +805,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
           arguments, -1 /* context_id */)),
       "Result type cannot be repeated or optional");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // optional argument that is not last is invalid.
@@ -811,12 +814,12 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(
       signature.reset(
@@ -824,7 +827,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "Optional arguments must be at the end of the argument list");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // repeated arguments must be consecutive.
@@ -833,17 +836,17 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED));
   EXPECT_DEBUG_DEATH(
       signature.reset(
@@ -851,7 +854,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "Repeated arguments must be consecutive");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // If there is at least one repeated argument, then the number of optional
@@ -868,7 +871,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       "The number of repeated arguments \\(1\\) must be greater than the "
       "number of optional arguments \\(1\\)");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // 1 repeated, 2 optional
@@ -879,7 +882,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "The number of repeated arguments");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // 2 repeated, 2 optional
@@ -894,7 +897,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "The number of repeated arguments");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // 2 repeated, 3 optional
@@ -905,7 +908,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "The number of repeated arguments");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // num_occurrences must be the same value for all repeated arguments.
@@ -917,7 +920,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "num_occurrences");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // repeated relation argument is invalid.
@@ -978,12 +981,12 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       -1 /* context_id */);
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(
       signature.reset(
@@ -991,7 +994,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "Optional arguments must be at the end of the argument list");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // repeated relation argument following an optional scalar argument is
@@ -1006,7 +1009,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                                 arguments, -1 /* context_id */)),
       "Optional arguments must be at the end of the argument list");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   arguments.clear();
@@ -1023,7 +1026,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
           FunctionArgumentType(ARG_TYPE_ANY_2), arguments, /*context_id=*/-1)),
       "Result type template must match an argument type template");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // Templated argument of lambda not related to previous arguments.
@@ -1037,7 +1040,28 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                      "Templated argument of lambda argument type must match an "
                      "argument type before the lambda argument.");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
+  }
+
+  // An invalid signature like
+  //   fn(optional a int32_t default 1, optional b string).
+  arguments.clear();
+  arguments.emplace_back(factory.get_int32(),
+                         FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
+                             .set_argument_name("a")
+                             .set_default(values::Int32(1)),
+                         /*num_occurrences=*/1);
+  arguments.emplace_back(factory.get_string(),
+                         FunctionArgumentTypeOptions(FunctionEnums::OPTIONAL)
+                             .set_argument_name("b"),
+                         /*num_occurrences=*/1);
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         /*context_id=*/-1)),
+                     "Optional arguments with default values must be at the "
+                     "end of the argument list");
+  if (!ZETASQL_DEBUG_MODE) {
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 }
 
@@ -1056,7 +1080,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Argument kind not supported");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   arguments.clear();
@@ -1069,7 +1093,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Argument kind not supported");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // ARG_ARRAY_TYPE_ANY_1 not supported as lambda argument.
@@ -1083,7 +1107,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Argument kind not supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // ARG_ARRAY_TYPE_ANY_2 not supported as lambda argument.
@@ -1097,7 +1121,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Argument kind not supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   FunctionArgumentType::ArgumentCardinality REPEATED =
@@ -1115,7 +1139,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Only REQUIRED simple options are supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   arguments.clear();
@@ -1128,7 +1152,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Only REQUIRED simple options are supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   arguments.clear();
@@ -1142,7 +1166,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
                          -1 /* context_id */)),
                      "Only REQUIRED simple options are supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   EXPECT_DEBUG_DEATH(
@@ -1616,14 +1640,14 @@ TEST(FunctionSignatureTests, TestIsDescriptorTableOffsetArgumentValid) {
   signature.reset(new FunctionSignature(
       retuneType, {arg_type, FunctionArgumentType::AnyDescriptor(0)}, -1));
 
-  ZETASQL_EXPECT_OK(signature->IsValid());
+  ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
 
   EXPECT_DEBUG_DEATH(
       signature.reset(new FunctionSignature(
           retuneType, {FunctionArgumentType::AnyDescriptor(3), arg_type}, -1)),
       "should point to a valid table argument");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   EXPECT_DEBUG_DEATH(
@@ -1631,7 +1655,7 @@ TEST(FunctionSignatureTests, TestIsDescriptorTableOffsetArgumentValid) {
           retuneType, {arg_type, FunctionArgumentType::AnyDescriptor(1)}, -1)),
       "should point to a valid table argument");
   if (!ZETASQL_DEBUG_MODE) {
-    EXPECT_FALSE(signature->IsValid().ok());
+    EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 }
 

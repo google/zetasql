@@ -269,44 +269,51 @@ FROM sequences;
 +---------------+------+
 ```
 
-## Flattening tree-structured data into arrays 
-<a id="flattening_trees_into_arrays"></a>
+## Flattening nested data into an array 
+<a id="flattening_nested_data_into_arrays"></a>
 
-Tree-structured data is represented in the ZetaSQL type system by
-composing these typed values:
+If you have a value with a nested data type, possibly containing multiple levels
+of arrays, you can return a single, flat array containing all elements in the
+nested data type. These types of data can be flattened:
 
 + STRUCT
 + ARRAY
-+ PROTO (Protobuf message types and enum types)
++ PROTO (Protobuf message types)
 
-A common operation on tree-structured values is extracting a collection of
-values that have the same semantic meaning from a tree-shaped value.
-ZetaSQL supports an extended path expression called a _flatten path_
-in a few places to make this operation easier and more concise.
+To flatten a value with a nested data type, you can use the
+[`FLATTEN`][flatten-operator] operator. The `FLATTEN` operator accepts a unique
+type of path called the _flatten path_. The flatten path lets you traverse
+through the levels of a nested array from left to right. For example,
+`FLATTEN(column.array_field.target)` will return an array of all
+`targets` inside `column`.
 
-TLDR: The argument to the [`FLATTEN` operator][flatten-operator] is a path that
-can select many values out of a tree-shaped value and return them as an array.
-`FLATTEN(table.column.array_field.target)` will return an array of all `targets`
-inside `table.column`.
+Outside `FLATTEN`, paths cannot continue after the first array-typed
+field because array values themselves do not have fields. The `FLATTEN` operator
+maps the field access operation onto elements of the arrays.
 
-Normal path expressions in ZetaSQL are a sequence of element access
-operators. A regular path expression addresses a single value within a
-tree structure, and must specify which element to access for each array value
-reached by the path. A _flatten path_ is similar, except that it can
-simultaneously access all elements of an array. This means a flatten path can
-address many elements in an array at the same time, resulting in a collection
-of values.
+Here are some conceptual examples that illustrate the types of arguments you can
+pass into the `FLATTEN` operator and what they produce.
 
-Within a flatten path, the field access operator (the `.` operator) is allowed
-to operate on an `ARRAY` typed input. Outside a flatten path, the field
-access operator is not allowed on `ARRAY` inputs because the `ARRAY` type does
-not have fields. When evaluating a flatten path, the field access operator on
-an `ARRAY` transforms the array by replacing each element of the array with the
-result of applying the field access on the element.
+```sql
+-- Returns an array.
+FLATTEN(array_expression)
+
+-- Returns a concatenation of element.field for all elements of
+-- FLATTEN(flatten_path).
+FLATTEN(flatten_path.field)
+
+-- Returns a concatenation of elements of element.array_field
+-- for all elements of FLATTEN(flatten_path).
+FLATTEN(flatten_path.array_field)
+
+-- Returns a concatenation of element.array_field[OFFSET(1)] for all elements
+-- of FLATTEN(flatten_path).
+FLATTEN(flatten_path.array_field[OFFSET(1)])
+```
 
 **Examples**
 
-Examples will consider the following tree structured value as an input:
+The examples in this section reference this nested data as an input:
 
 ```sql
 v := [
@@ -344,11 +351,6 @@ The flatten path `v.sales.prices[SAFE_OFFSET(1)]` describes the
 array `[50.0, NULL, NULL, NULL]`
 .
 
-[`FLATTEN`][flatten-operator] is a special operator in ZetaSQL that
-takes a flatten path as its argument and returns the resulting array as a value.
-The `FLATTEN` operator is implicit inside the `UNNEST` operator and
-`UNNEST(flatten_path)` is equivalent to `UNNEST(FLATTEN(flatten_path))`.
-
 The following query is a complete self-contained example combining the above
 examples into a runnable query.
 
@@ -378,7 +380,7 @@ FROM t;
 +----------------------+---------------+------------------------+------------------------+
 ```
 
-## Flattening arrays into tables 
+## Convert elements in an array to rows in a table 
 <a id="flattening_arrays"></a>
 
 To convert an `ARRAY` into a set of rows, also known as "flattening," use the
