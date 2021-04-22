@@ -44,6 +44,10 @@ class FilterFieldsPathValidator {
       bool include,
       const std::vector<const google::protobuf::FieldDescriptor*>& field_path);
 
+  // Validates that required fields are not cleared given a list of field paths.
+  // Should be called after finishing calling on ValidateFieldPath.
+  absl::Status ValidateRequiredFields() const;
+
  private:
   // Represent a field/subfield inside a proto. A path from the root node to
   // this node represent a valid field path.
@@ -58,6 +62,8 @@ class FilterFieldsPathValidator {
     // Child nodes which are keyed by proto field tag numbers.
     absl::flat_hash_map<int, std::unique_ptr<FieldPathTrieNode>> children;
   };
+
+  absl::Status RecursivelyValidateNode(const FieldPathTrieNode* node) const;
 
   const google::protobuf::Descriptor* root_node_descriptor_;
   std::unique_ptr<FieldPathTrieNode> root_node_;

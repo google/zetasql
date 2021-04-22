@@ -437,6 +437,10 @@ class Evaluator {
   // ResolvedQueryStmt.
   std::vector<VariableId> output_column_variables_ ABSL_GUARDED_BY(mutex_);
 
+  // If catalog is not provided via prepare, we will construct the default
+  // 'builtin' catalog automatically and store it here.
+  std::unique_ptr<SimpleCatalog> owned_catalog_ ABSL_GUARDED_BY(mutex_);
+
   mutable absl::Mutex num_live_iterators_mutex_;
   // The number of live iterators corresponding to `compiled_relational_op_` or
   // `complied_value_expr` with type `DMLValueExpr`. Only valid if !is_expr_.
@@ -471,13 +475,12 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   // respect the input column indexes.
   // analyzer_options_.set_prune_unused_columns(true);
 
-  std::unique_ptr<SimpleCatalog> simple_catalog;
   if (catalog == nullptr && (statement_ == nullptr && expr_ == nullptr)) {
-    simple_catalog = absl::make_unique<SimpleCatalog>(
+    owned_catalog_ = absl::make_unique<SimpleCatalog>(
         "default_catalog", evaluator_options_.type_factory);
-    catalog = simple_catalog.get();
     // Add built-in functions to the catalog, using provided <options>.
-    simple_catalog->AddZetaSQLFunctions(options.language());
+    owned_catalog_->AddZetaSQLFunctions(options.language());
+    catalog = owned_catalog_.get();
   }
 
   AlgebrizerOptions algebrizer_options;

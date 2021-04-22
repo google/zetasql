@@ -600,6 +600,7 @@ zetasql_base::StatusOr<const AnnotationMap*> TypeFactory::TakeOwnership(
   // TODO: look up in cache and return deduped AnnotationMap
   // pointer.
   ZETASQL_RET_CHECK(annotation_map != nullptr);
+  annotation_map->Normalize();
   return TakeOwnershipInternal(annotation_map.release());
 }
 

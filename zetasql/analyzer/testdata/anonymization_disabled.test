@@ -1,0 +1,22 @@
+# Anonymization query without the feature flag turned on
+select with anonymization sum() from table;
+--
+ERROR: Anonymization queries are not supported [at 1:1]
+select with anonymization sum() from table;
+^
+==
+
+# Anonymization query without the feature flag turned on
+select anon_sum() from SimpleTypes;
+--
+ERROR: Function not found: anon_sum [at 1:8]
+select anon_sum() from SimpleTypes;
+       ^
+==
+
+# Anonymization query without the feature flag turned on
+select anon_avg() from SimpleTypes;
+--
+ERROR: Function not found: anon_avg; Did you mean afn_agg? [at 1:8]
+select anon_avg() from SimpleTypes;
+       ^

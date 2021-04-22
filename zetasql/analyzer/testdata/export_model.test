@@ -1,0 +1,47 @@
+[no_java]
+export model model.name with connection connection1 options(uri="destination")
+--
+ExportModelStmt
++-model_name_path=model.name
++-connection=
+| +-Connection(connection=connection1)
++-option_list=
+  +-uri := Literal(type=STRING, value="destination")
+==
+
+# Export Model without a WITH statement.
+export model model.name options(uri="destination")
+--
+ExportModelStmt
++-model_name_path=model.name
++-option_list=
+  +-uri := Literal(type=STRING, value="destination")
+==
+
+# Export Model without the model name
+[no_java]
+export model with connection connection1 options(uri="destination")
+--
+ERROR: Syntax error: Unexpected keyword WITH [at 1:14]
+export model with connection connection1 options(uri="destination")
+             ^
+==
+
+# Export Model without any options. (Most engines probably reject this.)
+[no_java]
+export model model.name with connection connection1
+--
+ExportModelStmt
++-model_name_path=model.name
++-connection=
+  +-Connection(connection=connection1)
+==
+
+# Export Model with an AS statement.
+[no_java]
+export model model.name options(uri="destination") AS
+--
+ERROR: Syntax error: Expected end of input but got keyword AS [at 1:52]
+export model model.name options(uri="destination") AS
+                                                   ^
+==

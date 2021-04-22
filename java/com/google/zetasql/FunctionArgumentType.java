@@ -446,7 +446,8 @@ public final class FunctionArgumentType implements Serializable {
         builder.setExtraRelationInputColumnsAllowed(getExtraRelationInputColumnsAllowed());
       }
       if (getRelationInputSchema() != null) {
-        builder.setRelationInputSchema(getRelationInputSchema().serialize());
+        builder.setRelationInputSchema(
+            getRelationInputSchema().serialize(fileDescriptorSetsBuilder));
       }
       if (getArgumentName() != null) {
         builder.setArgumentName(getArgumentName());

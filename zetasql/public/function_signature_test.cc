@@ -584,8 +584,8 @@ static FunctionSignature GetCaseValueFunction(
                                             FunctionArgumentType::REPEATED));
   arguments->push_back(FunctionArgumentType(ARG_TYPE_ANY_2,
                                             FunctionArgumentType::OPTIONAL));
-  FunctionSignature case_value_signature(
-      FunctionArgumentType(ARG_TYPE_ANY_2), *arguments, -1 /* context_id */);
+  FunctionSignature case_value_signature(FunctionArgumentType(ARG_TYPE_ANY_2),
+                                         *arguments, /*context_id=*/-1);
   return case_value_signature;
 }
 
@@ -595,9 +595,9 @@ static FunctionSignature GetVoidFunction(TypeFactory* factory) {
       ARG_TYPE_VOID,
       {{types::BoolType()},
        {types::Int64Type(),
-           FunctionArgumentTypeOptions().set_is_not_aggregate()},
+        FunctionArgumentTypeOptions().set_is_not_aggregate()},
        {ARG_TYPE_ANY_1, FunctionArgumentTypeOptions().set_must_be_non_null()}},
-       -1 /* context_id */);
+      /*context_id=*/-1);
   return void_func;
 }
 
@@ -788,71 +788,68 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   FunctionArgumentType::ArgumentCardinality OPTIONAL =
       FunctionArgumentType::OPTIONAL;
 
-  // repeated result is invalid
-  EXPECT_DEBUG_DEATH(
-      signature.reset(new FunctionSignature(
-          FunctionArgumentType(factory.get_int64(), REPEATED),
-          arguments, -1 /* context_id */)),
-      "Result type cannot be repeated or optional");
+  // Repeated result is invalid.
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64(), REPEATED),
+                         arguments, /*context_id=*/-1)),
+                     "Result type cannot be repeated or optional");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // optional result is invalid
-  EXPECT_DEBUG_DEATH(
-      signature.reset(new FunctionSignature(
-          FunctionArgumentType(factory.get_int64(), OPTIONAL),
-          arguments, -1 /* context_id */)),
-      "Result type cannot be repeated or optional");
+  // Optional result is invalid.
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64(), OPTIONAL),
+                         arguments, /*context_id=*/-1)),
+                     "Result type cannot be repeated or optional");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // optional argument that is not last is invalid.
+  // Optional argument that is not last is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(
       signature.reset(
           new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
+                                arguments, /*context_id=*/-1)),
       "Optional arguments must be at the end of the argument list");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // repeated arguments must be consecutive.
+  // Repeated arguments must be consecutive.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED));
-  EXPECT_DEBUG_DEATH(
-      signature.reset(
-          new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
-      "Repeated arguments must be consecutive");
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         /*context_id=*/-1)),
+                     "Repeated arguments must be consecutive");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
@@ -867,7 +864,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   EXPECT_DEBUG_DEATH(
       signature.reset(
           new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
+                                arguments, /*context_id=*/-1)),
       "The number of repeated arguments \\(1\\) must be greater than the "
       "number of optional arguments \\(1\\)");
   if (!ZETASQL_DEBUG_MODE) {
@@ -876,11 +873,10 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
 
   // 1 repeated, 2 optional
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
-  EXPECT_DEBUG_DEATH(
-      signature.reset(
-          new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
-      "The number of repeated arguments");
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         /*context_id=*/-1)),
+                     "The number of repeated arguments");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
@@ -891,22 +887,20 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
-  EXPECT_DEBUG_DEATH(
-      signature.reset(
-          new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
-      "The number of repeated arguments");
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         /*context_id=*/-1)),
+                     "The number of repeated arguments");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
   // 2 repeated, 3 optional
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
-  EXPECT_DEBUG_DEATH(
-      signature.reset(
-          new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
-      "The number of repeated arguments");
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         /*context_id=*/-1)),
+                     "The number of repeated arguments");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
@@ -914,90 +908,70 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   // num_occurrences must be the same value for all repeated arguments.
   arguments.assign({{ARG_TYPE_ANY_1, REPEATED, 2},
                     {ARG_TYPE_ANY_1, REPEATED, 1}});
-  EXPECT_DEBUG_DEATH(
-      signature.reset(
-          new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
-      "num_occurrences");
+  EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
+                         FunctionArgumentType(factory.get_int64()), arguments,
+                         /*context_id=*/-1)),
+                     "num_occurrences");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // repeated relation argument is invalid.
+  // Repeated relation argument is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, REPEATED));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
 
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
               StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr(
                            "Repeated relation argument is not supported")));
 
-  // optional relation following any other optional argument is invalid.
+  // Optional relation following any other optional argument is just fine.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
   signature = absl::make_unique<FunctionSignature>(
-      FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
-  EXPECT_THAT(signature->IsValidForTableValuedFunction(),
-              StatusIs(absl::StatusCode::kInternal,
-                       testing::HasSubstr("Relation arguments cannot follow "
-                                          "repeated or optional arguments")));
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
 
-  // optional relation following a repeated argument is invalid.
+  // Optional relation following a repeated argument is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(factory.get_int64(), REPEATED));
   arguments.push_back(FunctionArgumentType(factory.get_int64(), REPEATED));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
   signature = absl::make_unique<FunctionSignature>(
-      FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
               StatusIs(absl::StatusCode::kInternal,
                        testing::HasSubstr("Relation arguments cannot follow "
-                                          "repeated or optional arguments")));
+                                          "repeated arguments")));
 
-  // repeated relation following an optional argument is invalid.
-  arguments.clear();
-  arguments.push_back(FunctionArgumentType(factory.get_int64(), REPEATED));
-  arguments.push_back(FunctionArgumentType(factory.get_int64(), REPEATED));
-  arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
-  signature = absl::make_unique<FunctionSignature>(
-      FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
-
-  EXPECT_THAT(signature->IsValidForTableValuedFunction(),
-              StatusIs(absl::StatusCode::kInternal,
-                       testing::HasSubstr("Relation arguments cannot follow "
-                                          "repeated or optional arguments")));
-
-  // required scalar following an optional relation is invalid.
+  // Required scalar following an optional relation is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(factory.get_int64()));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
   signature = absl::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
-      -1 /* context_id */);
+      /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(
       signature.reset(
           new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
+                                arguments, /*context_id=*/-1)),
       "Optional arguments must be at the end of the argument list");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
 
-  // repeated relation argument following an optional scalar argument is
+  // Repeated relation argument following an optional scalar argument is
   // invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(factory.get_int64(), OPTIONAL));
@@ -1006,11 +980,156 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   EXPECT_DEBUG_DEATH(
       signature.reset(
           new FunctionSignature(FunctionArgumentType(factory.get_int64()),
-                                arguments, -1 /* context_id */)),
+                                arguments, /*context_id=*/-1)),
       "Optional arguments must be at the end of the argument list");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
   }
+
+  // Optional STRUCT before named param is allowed.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_STRUCT_ANY, OPTIONAL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_ARBITRARY,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Repeated STRUCT before named param is allowed.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_STRUCT_ANY, REPEATED));
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY, REPEATED));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_ARBITRARY,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Optional RELATION before named param is allowed.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_ARBITRARY,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Named optional RELATION is fine if it's the only named param.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY, OPTIONAL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Named optional RELATION after required RELATION is fine if it's the only
+  // named param.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Named optional RELATION after optional RELATION is allowed.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Two named optional RELATIONS are allowed.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("barfoo").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Required Models not in the first position are fine.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Optional Models are fine, regardless of position.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL, OPTIONAL));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Named optional RELATION is fine after MODEL.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Named optional RELATION is allowed after optional MODEL.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL, OPTIONAL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION,
+      FunctionArgumentTypeOptions().set_argument_name("barfoo").set_cardinality(
+          OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
+
+  // Mandatory named RELATION is invalid.
+  arguments.clear();
+  arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY, OPTIONAL));
+  arguments.push_back(FunctionArgumentType(
+      ARG_TYPE_RELATION, FunctionArgumentTypeOptions()
+                             .set_argument_name("foobar")
+                             .set_argument_name_is_mandatory(true)
+                             .set_cardinality(OPTIONAL)));
+  signature = absl::make_unique<FunctionSignature>(
+      FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
+
+  ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
 
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_ARRAY_TYPE_ANY_1));
@@ -1077,7 +1196,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       FunctionArgumentType::Lambda({ARG_TYPE_ARBITRARY}, factory.get_bool()));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Argument kind not supported");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1090,7 +1209,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       FunctionArgumentType::Lambda({factory.get_bool()}, ARG_TYPE_ARBITRARY));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Argument kind not supported");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1104,7 +1223,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_1}, ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Argument kind not supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1118,7 +1237,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       FunctionArgumentType::Lambda({ARG_ARRAY_TYPE_ANY_2}, ARG_TYPE_ANY_1));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Argument kind not supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1136,7 +1255,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       {FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED)}, factory.get_bool()));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Only REQUIRED simple options are supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1149,7 +1268,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       {FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL)}, factory.get_bool()));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Only REQUIRED simple options are supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1163,7 +1282,7 @@ TEST(FunctionSignatureTests, FunctionSignatureLambdaValidityTests) {
       FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED)));
   EXPECT_DEBUG_DEATH(signature.reset(new FunctionSignature(
                          FunctionArgumentType(factory.get_int64()), arguments,
-                         -1 /* context_id */)),
+                         /*context_id=*/-1)),
                      "Only REQUIRED simple options are supported by lambda");
   if (!ZETASQL_DEBUG_MODE) {
     EXPECT_FALSE(signature->IsValid(ProductMode::PRODUCT_EXTERNAL).ok());
@@ -1336,13 +1455,13 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   // 0 arguments.
   arguments.clear();
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(0, signature->NumConcreteArguments());
 
   // 1 required.
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(1, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64Type(), signature, 0);
 
@@ -1351,7 +1470,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), REQUIRED, 1));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(2, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64Type(), signature, 0);
   CheckConcreteArgumentType(types::Int32Type(), signature, 1);
@@ -1362,7 +1481,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(3, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
@@ -1375,7 +1494,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REPEATED, 2));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), OPTIONAL, 0));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(4, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
@@ -1389,7 +1508,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REPEATED, 2));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 1));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(5, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
@@ -1408,7 +1527,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 0));
   arguments.push_back(FunctionArgumentType(types::DateType(), OPTIONAL, 0));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(9, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::StringType(), signature, 1);
@@ -1431,7 +1550,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 1));
   arguments.push_back(FunctionArgumentType(types::DateType(), OPTIONAL, 0));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(10, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::StringType(), signature, 1);
@@ -1451,7 +1570,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 1));
   arguments.push_back(FunctionArgumentType(types::DateType(), OPTIONAL, 0));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(3, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::StringType(), signature, 1);
@@ -1464,7 +1583,7 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
       {FunctionArgumentType(types::Int64Type(), REQUIRED, 1)},
       FunctionArgumentType(types::Int64Type(), REQUIRED, 1)));
   signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   -1 /* context_id */);
+                                                   /*context_id=*/-1);
   EXPECT_EQ(2, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64ArrayType(), signature, 0);
   // The value type of lambda is the type of the body.

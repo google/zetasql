@@ -1,0 +1,132 @@
+alter table KeyValue alter column key set options (description="new description");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+==
+
+alter table if exists KeyValue alter column key set options (description="new description");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+alter table KeyValue alter column key set options (description="description1"), alter column value set options(description="description2");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+  | +-column="key"
+  | +-option_list=
+  |   +-description := Literal(type=STRING, value="description1")
+  +-AlterColumnOptionsAction
+    +-column="value"
+    +-option_list=
+      +-description := Literal(type=STRING, value="description2")
+
+==
+
+alter table KeyValue alter column not_a_column set options (description="new description");
+--
+
+ERROR: Column not found: not_a_column [at 1:35]
+alter table KeyValue alter column not_a_column set options (description="new ...
+                                  ^
+==
+
+alter table not_a_table alter column not_a_column set options (description="new description");
+--
+
+ERROR: Table not found: not_a_table [at 1:13]
+alter table not_a_table alter column not_a_column set options (description="n...
+            ^
+==
+
+alter table if exists KeyValue alter column not_a_column set options (description="new description");
+--
+
+ERROR: Column not found: not_a_column [at 1:45]
+alter table if exists KeyValue alter column not_a_column set options (descrip...
+                                            ^
+==
+
+alter table KeyValue alter column if exists key set options (description="new description");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+==
+
+alter table KeyValue alter column if exists not_a_column set options (description="new description");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="not_a_column"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
+==
+
+alter table if exists KeyValue alter column if exists key set options (description="new description");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+alter table if exists KeyValue alter column if exists not_a_column set options (description="new description");
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="not_a_column"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==
+
+alter table if exists not_a_table alter column if exists key set options (description="new description");
+--
+AlterTableStmt
++-name_path=not_a_table
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+
+==

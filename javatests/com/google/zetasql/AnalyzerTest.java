@@ -29,8 +29,11 @@ import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.TableValuedFunction.ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
+import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedQueryStmt;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import com.google.zetasqltest.TestSchemaProto.KitchenSinkPB;
+import com.google.zetasqltest.TestSchemaProto.NullableInt;
+import com.google.zetasqltest.TestSchemaProto.TestEnum;
 
 
 import java.util.Arrays;
@@ -105,6 +108,117 @@ public class AnalyzerTest {
     AnalyzerOptions options = new AnalyzerOptions();
     String sql = "select nullable_int from KitchenSinkPB;";
     assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+
+    // Try registering the catalog.
+    catalog.register();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+
+    // Try unregistering the catalog.
+    catalog.unregister();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+  }
+
+  void assertOutputColumnType(ResolvedStatement stmt, Type expectedType) {
+    assertThat(stmt).isInstanceOf(ResolvedQueryStmt.class);
+    assertThat(((ResolvedQueryStmt) stmt).getOutputColumnList().get(0).getColumn().getType())
+        .isEqualTo(expectedType);
+  }
+
+  @Test
+  public void testAnalyzeStatementWithTableWithProtoType() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+
+    ProtoType kitchenSinkType = catalog.getTypeFactory().createProtoType(KitchenSinkPB.class);
+    String tableName = "TestTable";
+    SimpleColumn column =
+        new SimpleColumn(
+            tableName,
+            "kitchen",
+            kitchenSinkType,
+            /*isPseudoColumn=*/ false,
+            /*isWritableColumn=*/ false);
+    SimpleTable table = new SimpleTable(tableName, ImmutableList.of(column));
+
+    catalog.addSimpleTable(table);
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select kitchen.nullable_int from TestTable;";
+    assertOutputColumnType(
+        Analyzer.analyzeStatement(sql, options, catalog),
+        catalog.getTypeFactory().createProtoType(NullableInt.class));
+
+    // Try registering the catalog.
+    catalog.register();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+
+    // Try unregistering the catalog.
+    catalog.unregister();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+  }
+
+  @Test
+  public void testAnalyzeStatementWithCatalogProtoType() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+    ProtoType kitchenSinkType = catalog.getTypeFactory().createProtoType(KitchenSinkPB.class);
+    catalog.addType("zetasql_test.KitchenSinkPB", kitchenSinkType);
+    // TODO: Use ImmutableDescriptorPool
+    catalog.setDescriptorPool(ZetaSQLDescriptorPool.getGeneratedPool());
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2)";
+    assertOutputColumnType(Analyzer.analyzeStatement(sql, options, catalog), kitchenSinkType);
+
+    // Try registering the catalog.
+    catalog.register();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+
+    // Try unregistering the catalog.
+    catalog.unregister();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+  }
+
+  @Test
+  public void testAnalyzeStatementWithTableWithEnumType() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+
+    EnumType testEnumType = catalog.getTypeFactory().createEnumType(TestEnum.class);
+    String tableName = "TestTable";
+    SimpleColumn column =
+        new SimpleColumn(
+            tableName, "te", testEnumType, /*isPseudoColumn=*/ false, /*isWritableColumn=*/ false);
+    SimpleTable table = new SimpleTable(tableName, ImmutableList.of(column));
+
+    catalog.addSimpleTable(table);
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select te from TestTable";
+    assertOutputColumnType(Analyzer.analyzeStatement(sql, options, catalog), testEnumType);
+
+    // Try registering the catalog.
+    catalog.register();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+
+    // Try unregistering the catalog.
+    catalog.unregister();
+    assertThat(Analyzer.analyzeStatement(sql, options, catalog)).isNotNull();
+  }
+
+  @Test
+  public void testAnalyzeStatementWithCatalogEnumType() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+
+    EnumType testEnumType = catalog.getTypeFactory().createEnumType(TestEnum.class);
+    catalog.addType("zetasql_test.TestEnum", testEnumType);
+    // TODO: Use ImmutableDescriptorPool
+    catalog.setDescriptorPool(ZetaSQLDescriptorPool.getGeneratedPool());
+
+    AnalyzerOptions options = new AnalyzerOptions();
+    String sql = "select cast('TESTENUM1' as zetasql_test.TestEnum)";
+    assertOutputColumnType(Analyzer.analyzeStatement(sql, options, catalog), testEnumType);
 
     // Try registering the catalog.
     catalog.register();

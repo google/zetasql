@@ -428,6 +428,16 @@ enum LanguageFeature {
   // Example: CLONE DATA INTO ds.tbl;
   FEATURE_CLONE_DATA = 61 [(language_feature_options).in_development = true];
 
+  // Enables support for ALTER COLUMN SET DATA TYPE.
+  // See (broken link) for details.
+  FEATURE_ALTER_COLUMN_SET_DATA_TYPE = 62
+      [(language_feature_options).in_development = true];
+
+  // Enables support for CREATE SNAPSHOT TABLE
+  // (broken link)
+  FEATURE_CREATE_SNAPSHOT_TABLE = 63
+      [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -558,10 +568,12 @@ enum LanguageFeature {
 
   // If enabled, the analyzer will return an error when attempting to check
   // if a proto3 scalar field has been explicitly set (e.g.,
-  // proto3.has_scalar_field and EXTRACT(HAS(scalar_field) from proto3)). This
-  // is not allowed because proto3 does not generate has_ accessors for scalar
-  // fields.
-  FEATURE_V_1_3_DISALLOW_PROTO3_HAS_SCALAR_FIELD = 13003;
+  // proto3.has_scalar_field and EXTRACT(HAS(scalar_field) from proto3)).
+  // This feature is deprecated and should not be used, since proto3 now
+  // supports scalar field presence testing. Eventually we will remove this
+  // feature and the underlying code.
+  FEATURE_DEPRECATED_DISALLOW_PROTO3_HAS_SCALAR_FIELD = 13003
+      [(language_feature_options).ideally_enabled = false];
 
   // Enable array ordering (and non-equality comparisons).  This enables
   // arrays in the ORDER BY of a query, as well as in aggregate and analytic
@@ -732,6 +744,17 @@ enum LanguageFeature {
   // Enable support for FOR...IN...DO...END FOR statement.
   // (broken link)
   FEATURE_V_1_3_FOR_IN = 13036
+      [(language_feature_options).in_development = true];
+
+  // Enables support for initializing KLLs with weights as an additional
+  // parameter. Support for this feature in addition to the weighting
+  // functionality also requires support for named arguments as the weight
+  // argument must be named. (broken link).
+  FEATURE_KLL_WEIGHTS = 13037;
+
+  // LIKE ANY/SOME/ALL support.
+  // (broken link)
+  FEATURE_V_1_3_LIKE_ANY_SOME_ALL = 13038
       [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES

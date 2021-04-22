@@ -86,11 +86,12 @@ struct OrderByItemInfo;
 //
 // NOTE: Because this class is so large, the implementation is split up
 // by category across multiple cc files:
-//   resolver.cc        Common and shared methods
-//   resolver_dml.cc    DML
-//   resolver_expr.cc   Expressions
-//   resolver_query.cc  SELECT statements, things that make Scans
-//   resolver_stmt.cc   Statements (except DML)
+//   resolver.cc            Common and shared methods
+//   resolver_alter_stmt.cc ALTER TABLE statements
+//   resolver_dml.cc        DML
+//   resolver_expr.cc       Expressions
+//   resolver_query.cc      SELECT statements, things that make Scans
+//   resolver_stmt.cc       Statements (except DML)
 class Resolver {
  public:
   // <*analyzer_options> should outlive the constructed Resolver. It must have
@@ -657,8 +658,7 @@ class Resolver {
 
   // Resolve the CreateMode from a generic CREATE statement.
   absl::Status ResolveCreateStatementOptions(
-      const ASTCreateStatement* ast_statement,
-      const std::string& statement_type,
+      const ASTCreateStatement* ast_statement, absl::string_view statement_type,
       ResolvedCreateStatement::CreateScope* create_scope,
       ResolvedCreateStatement::CreateMode* create_mode) const;
 
@@ -669,7 +669,7 @@ class Resolver {
   // Other output arguments are always non-nulls.
   absl::Status ResolveCreateViewStatementBaseProperties(
       const ASTCreateViewStatementBase* ast_statement,
-      const std::string& statement_type, absl::string_view object_type,
+      absl::string_view statement_type, absl::string_view object_type,
       std::vector<std::string>* table_name,
       ResolvedCreateStatement::CreateScope* create_scope,
       ResolvedCreateStatement::CreateMode* create_mode,
@@ -680,8 +680,7 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
           column_definition_list,
       std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
-      bool* is_value_table,
-      bool* is_recursive);
+      bool* is_value_table, bool* is_recursive);
 
   // Creates the ResolvedGeneratedColumnInfo from an ASTGeneratedColumnInfo.
   // - <ast_generated_column>: Is a pointer to the Generated Column
@@ -968,6 +967,11 @@ class Resolver {
       const ASTCreateExternalTableStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  // Resolves a CREATE SNAPSHOT TABLE statement.
+  absl::Status ResolveCreateSnapshotTableStatement(
+      const ASTCreateSnapshotTableStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   // Resolves a CREATE CONSTANT statement.
   absl::Status ResolveCreateConstantStatement(
       const ASTCreateConstantStatement* ast_statement,
@@ -1147,6 +1151,14 @@ class Resolver {
       const ASTDropMaterializedViewStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  absl::Status ResolveDropSnapshotTableStatement(
+      const ASTDropSnapshotTableStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  absl::Status ResolveDropSearchIndexStatement(
+      const ASTDropSearchIndexStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveDMLTargetTable(
       const ASTPathExpression* target_path, const ASTAlias* target_path_alias,
       IdString* alias,
@@ -1253,6 +1265,13 @@ class Resolver {
       IdString table_name_id_string, const Table* table,
       const ASTDropColumnAction* action, IdStringSetCase* new_columns,
       IdStringSetCase* columns_to_drop,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  // <table> can be NULL.  If the table does not exist in the Catalog, we  try
+  // to resolve the ALTER statement anyway.
+  absl::Status ResolveAlterColumnTypeAction(
+      IdString table_name_id_string, const Table* table,
+      const ASTAlterColumnTypeAction* action,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   // <table> can be NULL.  If the table does not exist in the Catalog, we  try
@@ -2214,10 +2233,20 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedExpr>> exprs,
       std::unique_ptr<const ResolvedExpr>* output_expr) const;
 
-  // If analyzer option 'record_parse_locations' is set, copies the location
-  // from the AST to resolved node.
+  // If analyzer option 'parse_location_options().record_parse_locations' is
+  // set, copies the location from the AST to resolved node.
   void MaybeRecordParseLocation(const ASTNode* ast_location,
                                 ResolvedNode* resolved_node) const;
+
+  // If analyzer option 'parse_location_options().record_parse_locations' is
+  // set, copies the location from the AST to resolved node.
+  // The function will internally choose to record the location of the function
+  // name only or the entire function call depending on
+  // 'parse_location_options().function_call_record_type'.
+  void MaybeRecordFunctionCallParseLocation(const ASTFunctionCall* ast_location,
+                                            ResolvedNode* resolved_node) const;
+  void MaybeRecordTVFCallParseLocation(const ASTTVF* ast_location,
+                                       ResolvedNode* resolved_node) const;
 
   // Copies the locations of the argument name and type (if present) from the
   // 'function_argument' to the 'options'.
@@ -2566,6 +2595,10 @@ class Resolver {
       const ASTExpression* ast_expr,
       ExprResolutionInfo* parent_expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  // Validates <json_literal> and returns the JSONValue.
+  zetasql_base::StatusOr<std::unique_ptr<const ResolvedLiteral>> ResolveJsonLiteral(
+      const ASTJSONLiteral* json_literal);
 
   // Resolve a literal expression. Requires ast_expr->node_kind() to be one of
   // AST_*_LITERAL.
@@ -3477,17 +3510,32 @@ class Resolver {
       std::unique_ptr<const ResolvedAddConstraintAction>*
           resolved_alter_action);
 
-  absl::Status ResolveType(const ASTType* type,
-                           const Type** resolved_type) const;
+  // TODO: Combine the logic of ResolveTypeParameters() with
+  // ResolveType() so that type parameter resolving is done in this method.
+  // In doing so, we will modify the input to take in the argument
+  // "TypeParameters*" instead of the optional string_view argument
+  // <type_parameter_context>. The ResolveType() method should then have its
+  // contract defined to state that type parameters are handled and resolved by
+  // this method.
+  //
+  // If <type_parameter_context> is specified it means that type parameters are
+  // disallowed by the caller of ResolveType() and should error out with
+  // <type_parameter_context> in the error message if type parameters exist.
+  absl::Status ResolveType(
+      const ASTType* type, const Type** resolved_type,
+      absl::optional<absl::string_view> type_parameter_context) const;
 
-  absl::Status ResolveSimpleType(const ASTSimpleType* type,
-                                 const Type** resolved_type) const;
+  absl::Status ResolveSimpleType(
+      const ASTSimpleType* type, const Type** resolved_type,
+      absl::optional<absl::string_view> type_parameter_context) const;
 
-  absl::Status ResolveArrayType(const ASTArrayType* array_type,
-                                const ArrayType** resolved_type) const;
+  absl::Status ResolveArrayType(
+      const ASTArrayType* array_type, const ArrayType** resolved_type,
+      absl::optional<absl::string_view> type_parameter_context) const;
 
-  absl::Status ResolveStructType(const ASTStructType* struct_type,
-                                 const StructType** resolved_type) const;
+  absl::Status ResolveStructType(
+      const ASTStructType* struct_type, const StructType** resolved_type,
+      absl::optional<absl::string_view> type_parameter_context) const;
 
   // Resolve type parameters to the resolved TypeParameters class, which stores
   // type parameters as a TypeParametersProto. If there are no type parameters
@@ -3685,7 +3733,7 @@ class Resolver {
   // basis of flag values in resolved_properties_control_args.
   absl::Status ResolveCreateTableStmtBaseProperties(
       const ASTCreateTableStmtBase* ast_statement,
-      const std::string& statement_type,
+      absl::string_view statement_type,
       const ASTPathExpression* like_table_name, const ASTQuery* query,
       const ASTPartitionBy* partition_by, const ASTClusterBy* cluster_by,
       const ASTWithPartitionColumnsClause* with_partition_columns_clause,

@@ -160,10 +160,46 @@ DropMaterializedViewStatement(is_if_exists) [0-36]
 DROP MATERIALIZED VIEW IF EXISTS a.b
 ==
 
+drop snapshot table a;
+--
+DropSnapshotTableStatement [0-21]
+  PathExpression [20-21]
+    Identifier(a) [20-21]
+--
+DROP SNAPSHOT TABLE a
+==
+
+drop SNAPSHOT TABLE if exists a;
+--
+DropSnapshotTableStatement(is_if_exists) [0-31]
+  PathExpression [30-31]
+    Identifier(a) [30-31]
+--
+DROP SNAPSHOT TABLE IF EXISTS a
+==
+
+# dashed parameters are allowed for snapshots
+drop SNAPSHOT TABLE if exists `snapshot-1`;
+--
+
+DropSnapshotTableStatement(is_if_exists) [0-42]
+  PathExpression [30-42]
+    Identifier(`snapshot-1`) [30-42]
+--
+DROP SNAPSHOT TABLE IF EXISTS `snapshot-1`
+==
+
+drop SNAPSHOT TABLE
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:20]
+drop SNAPSHOT TABLE
+                   ^
+==
+
 # The follow object types are syntactically valid (no syntax errors),
 # although AGGREGATE FUNCTION and TABLE FUNCTION are not currently supported.
 # Other object types are not valid.
-drop {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
+drop {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|TABLE|TABLE FUNCTION|VIEW|EXTERNAL TABLE FUNCTION|SCHEMA|SNAPSHOT TABLE}} foo {{|RESTRICT|Restrict|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}};
 --
 ALTERNATION GROUP: AGGREGATE FUNCTION,
 --
@@ -692,6 +728,44 @@ ALTERNATION GROUP: SCHEMA,DROP_MODE_UNSPECIFIED
 ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:17]
 drop SCHEMA foo DROP_MODE_UNSPECIFIED;
                 ^
+--
+ALTERNATION GROUP: SNAPSHOT TABLE,
+--
+DropSnapshotTableStatement [0-23]
+  PathExpression [20-23]
+    Identifier(foo) [20-23]
+--
+DROP SNAPSHOT TABLE foo
+--
+ALTERNATION GROUP: SNAPSHOT TABLE,RESTRICT
+--
+ERROR: Syntax error: Expected end of input but got keyword RESTRICT [at 1:25]
+drop SNAPSHOT TABLE foo RESTRICT;
+                        ^
+--
+ALTERNATION GROUP: SNAPSHOT TABLE,Restrict
+--
+ERROR: Syntax error: Expected end of input but got keyword RESTRICT [at 1:25]
+drop SNAPSHOT TABLE foo Restrict;
+                        ^
+--
+ALTERNATION GROUP: SNAPSHOT TABLE,CASCADE
+--
+ERROR: Syntax error: Expected end of input but got keyword CASCADE [at 1:25]
+drop SNAPSHOT TABLE foo CASCADE;
+                        ^
+--
+ALTERNATION GROUP: SNAPSHOT TABLE,INVALID_DROP_MODE
+--
+ERROR: Syntax error: Expected end of input but got identifier "INVALID_DROP_MODE" [at 1:25]
+drop SNAPSHOT TABLE foo INVALID_DROP_MODE;
+                        ^
+--
+ALTERNATION GROUP: SNAPSHOT TABLE,DROP_MODE_UNSPECIFIED
+--
+ERROR: Syntax error: Expected end of input but got identifier "DROP_MODE_UNSPECIFIED" [at 1:25]
+drop SNAPSHOT TABLE foo DROP_MODE_UNSPECIFIED;
+                        ^
 ==
 
 DROP SCHEMA IF EXISTS `foo.bar` {{|RESTRICT|ResTRICT|CASCADE|INVALID_DROP_MODE|DROP_MODE_UNSPECIFIED}} ;

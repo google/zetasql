@@ -74,8 +74,152 @@ CREATE SCHEMA foo
 OPTIONS(x = 'a', y = 'b')
 ==
 
+CREATE {{|or replace}} SCHEMA {{|if not exists}} foo.bar COLLATE 'unicode:ci'
+options()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateSchemaStatement [0-54]
+  PathExpression [16-23]
+    Identifier(foo) [16-19]
+    Identifier(bar) [20-23]
+  Collate [24-44]
+    StringLiteral('unicode:ci') [32-44]
+  OptionsList [52-54]
+--
+CREATE SCHEMA foo.bar COLLATE 'unicode:ci'
+OPTIONS()
+--
+ALTERNATION GROUP: if not exists
+--
+CreateSchemaStatement(is_if_not_exists) [0-67]
+  PathExpression [29-36]
+    Identifier(foo) [29-32]
+    Identifier(bar) [33-36]
+  Collate [37-57]
+    StringLiteral('unicode:ci') [45-57]
+  OptionsList [65-67]
+--
+CREATE SCHEMA IF NOT EXISTS foo.bar COLLATE 'unicode:ci'
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,
+--
+CreateSchemaStatement(is_or_replace) [0-64]
+  PathExpression [26-33]
+    Identifier(foo) [26-29]
+    Identifier(bar) [30-33]
+  Collate [34-54]
+    StringLiteral('unicode:ci') [42-54]
+  OptionsList [62-64]
+--
+CREATE OR REPLACE SCHEMA foo.bar COLLATE 'unicode:ci'
+OPTIONS()
+--
+ALTERNATION GROUP: or replace,if not exists
+--
+CreateSchemaStatement(is_or_replace, is_if_not_exists) [0-77]
+  PathExpression [39-46]
+    Identifier(foo) [39-42]
+    Identifier(bar) [43-46]
+  Collate [47-67]
+    StringLiteral('unicode:ci') [55-67]
+  OptionsList [75-77]
+--
+CREATE OR REPLACE SCHEMA IF NOT EXISTS foo.bar COLLATE 'unicode:ci'
+OPTIONS()
+
+==
+
+CREATE SCHEMA foo COLLATE 'unicode:ci' options(x='a',y='b')
+--
+CreateSchemaStatement [0-59]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Collate [18-38]
+    StringLiteral('unicode:ci') [26-38]
+  OptionsList [46-59]
+    OptionsEntry [47-52]
+      Identifier(x) [47-48]
+      StringLiteral('a') [49-52]
+    OptionsEntry [53-58]
+      Identifier(y) [53-54]
+      StringLiteral('b') [55-58]
+--
+CREATE SCHEMA foo COLLATE 'unicode:ci'
+OPTIONS(x = 'a', y = 'b')
+==
+
 CREATE SCHEMA
 --
 ERROR: Syntax error: Unexpected end of statement [at 1:14]
 CREATE SCHEMA
              ^
+==
+
+CREATE SCHEMA foo COLLATE {{@|@@}}a options(x='a',y='b')
+--
+ALTERNATION GROUP: @
+--
+CreateSchemaStatement [0-49]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Collate [18-28]
+    ParameterExpr [26-28]
+      Identifier(a) [27-28]
+  OptionsList [36-49]
+    OptionsEntry [37-42]
+      Identifier(x) [37-38]
+      StringLiteral('a') [39-42]
+    OptionsEntry [43-48]
+      Identifier(y) [43-44]
+      StringLiteral('b') [45-48]
+--
+CREATE SCHEMA foo COLLATE @a
+OPTIONS(x = 'a', y = 'b')
+--
+ALTERNATION GROUP: @@
+--
+CreateSchemaStatement [0-50]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Collate [18-29]
+    SystemVariableExpr [26-29]
+      PathExpression [28-29]
+        Identifier(a) [28-29]
+  OptionsList [37-50]
+    OptionsEntry [38-43]
+      Identifier(x) [38-39]
+      StringLiteral('a') [40-43]
+    OptionsEntry [44-49]
+      Identifier(y) [44-45]
+      StringLiteral('b') [46-49]
+--
+CREATE SCHEMA foo COLLATE @@a
+OPTIONS(x = 'a', y = 'b')
+==
+
+CREATE SCHEMA foo COLLATE ? options(x='a',y='b')
+--
+CreateSchemaStatement [0-48]
+  PathExpression [14-17]
+    Identifier(foo) [14-17]
+  Collate [18-27]
+    ParameterExpr(1) [26-27]
+  OptionsList [35-48]
+    OptionsEntry [36-41]
+      Identifier(x) [36-37]
+      StringLiteral('a') [38-41]
+    OptionsEntry [42-47]
+      Identifier(y) [42-43]
+      StringLiteral('b') [44-47]
+--
+CREATE SCHEMA foo COLLATE ?
+OPTIONS(x = 'a', y = 'b')
+==
+
+CREATE SCHEMA foo COLLATE CONCAT('unicode', ':', 'ci') options(x='a',y='b')
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "CONCAT" [at 1:27]
+CREATE SCHEMA foo COLLATE CONCAT('unicode', ':', 'ci') options(x='a',y='b')
+                          ^

@@ -104,9 +104,19 @@ the functions in the previous table.
   <tbody>
     
     <tr>
+      <td><a href="#to_json"><code>TO_JSON</code></a></td>
+      <td>
+        Takes a SQL value and returns a JSON value.
+      </td>
+      <td>JSON value</td>
+    </tr>
+    
+    
+    <tr>
       <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a></td>
       <td>
-        Returns a JSON-formatted string representation of a value.
+        Takes a SQL value and returns a JSON-formatted string
+        representation of the value.
       </td>
       <td>JSON-formatted <code>STRING</code></td>
     </tr>
@@ -459,6 +469,127 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 +-------+
 ```
 
+### TO_JSON
+
+```sql
+TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE } ])
+```
+
+**Description**
+
+Takes a SQL value and returns a JSON value. The value
+must be a supported ZetaSQL data type. You can review the
+ZetaSQL data types that this function supports and their
+JSON encodings [here][json-encodings].
+
+This function supports an optional mandatory-named argument called
+`stringify_wide_numbers`. If this argument is `TRUE`, numeric values outside
+of the `DOUBLE` type domain are encoded as strings.
+If this argument is not used or is `FALSE`, numeric values outside
+of the `DOUBLE` type domain are not encoded
+as strings and there may be loss of precision when numeric values are encoded
+as JSON numbers. The following numerical data types are affected by the
+`stringify_wide_numbers` argument:
+
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
+
+If one of these numerical data types appears in a container data type
+such as an `ARRAY` or `STRUCT`, the `stringify_wide_numbers` argument is
+applied to the numerical data types in the container data type.
+
+**Return type**
+
+A JSON value
+
+**Examples**
+
+In the following example, the query converts rows in a table to JSON values.
+
+```sql
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT TO_JSON(t) AS json_objects
+FROM CoordinatesTable AS t;
+
++--------------------------------+
+| json_objects                   |
++--------------------------------+
+| {"coordinates":[10,20],"id":1} |
+| {"coordinates":[30,40],"id":2} |
+| {"coordinates":[50,60],"id":3} |
++--------------------------------+
+```
+
+In the following example, the query returns a large numerical value as a
+JSON string.
+
+```sql
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on
+
++--------------------+
+| stringify_on       |
++--------------------+
+| "9007199254740993" |
++--------------------+
+```
+
+In the following example, both queries return a large numerical value as a
+JSON number.
+
+```sql
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off
+SELECT TO_JSON(9007199254740993) as stringify_off
+
++------------------+
+| stringify_off    |
++------------------+
+| 9007199254740993 |
++------------------+
+```
+
+In the following example, only large numeric values are converted to
+JSON strings.
+
+```sql
+With T1 AS (
+  (SELECT 9007199254740993 AS id) UNION ALL
+  (SELECT 2 AS id))
+SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
+FROM T1 AS t;
+
++---------------------------+
+| json_objects              |
++---------------------------+
+| {"id":"9007199254740993"} |
+| {"id":2}                  |
++---------------------------+
+```
+
+In this example, the values `9007199254740993` (`INT64`)
+and `2.1` (`DOUBLE`) are converted
+to the common supertype `DOUBLE`, which is not
+affected by the `stringify_wide_numbers` argument.
+
+```sql
+With T1 AS (
+  (SELECT 9007199254740993 AS id) UNION ALL
+  (SELECT 2.1 AS id))
+SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
+FROM T1 AS t;
+
++------------------------------+
+| json_objects                 |
++------------------------------+
+| {"id":9.007199254740992e+15} |
+| {"id":2.1}                   |
++------------------------------+
+```
+
 ### TO_JSON_STRING
 
 ```sql
@@ -467,230 +598,14 @@ TO_JSON_STRING(value[, pretty_print])
 
 **Description**
 
-Returns a JSON-formatted string representation of `value`. This function
-supports an optional boolean parameter called `pretty_print`. If `pretty_print`
-is `true`, the returned value is formatted for easy readability.
+Takes a SQL value and returns a JSON-formatted string
+representation of the value. The value must be a supported ZetaSQL
+data type. You can review the ZetaSQL data types that this function
+supports and their JSON encodings [here][json-encodings].
 
-<table>
-<thead>
-<tr>
-<th>Input data type</th>
-<th>Returned value</th>
-</tr>
-</thead>
-<tbody>
- <tr>
-    <td>NULL of any type</td>
-    <td><code>null</code></td>
- </tr>
-  <tr>
-    <td>BOOL</td>
-    <td><code>true</code> or <code>false</code>.</td>
- </tr>
-
-  <tr>
-    <td>INT32, UINT32</td>
-    <td><p>Same as <code>CAST(value AS STRING)</code>. For example:</p>
-    <code>-1, 0, 12345678901</code>
-    </td>
- </tr>
-
- <tr>
-    <td>INT64, UINT64</td>
-    <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
-    in the range of [-2<sup>53</sup>, 2<sup>53</sup>], which is the range of integers that can be
-    represented losslessly as IEEE 754 double-precision floating point numbers.
-    Values outside of this range are represented as quoted strings. For example:
-    </p>
-    <code>-1</code><br>
-    <code>0</code><br>
-    <code>12345678901</code><br>
-    <code>9007199254740992</code><br>
-    <code>-9007199254740992</code><br>
-    <code>"9007199254740993"</code><br>
-    <p><code>9007199254740993</code> is greater than 2<sup>53</sup>, so it is represented
-    as a quoted string.</p>
-    </td>
- </tr>
- <tr>
-   <td>NUMERIC, BIGNUMERIC</td>
-   <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
-     in the range of [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
-     part. Values outside of this range are represented as quoted strings. For
-     example:</p>
-     <code>-1</code><br/>
-     <code>0</code><br/>
-     <code>&quot;9007199254740993&quot;</code><br/>
-     <code>&quot;123.56&quot;</code>
-    </td>
- </tr>
- <tr>
-    <td>FLOAT, DOUBLE</td>
-    <td><code>+/-inf</code> and <code>NaN</code> are represented as
-    <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>,
-    respectively.
-    <p>Otherwise, the same as <code>CAST(value AS STRING)</code>.</p>
-    </td>
- </tr>
- <tr>
-    <td>STRING</td>
-    <td>Quoted string value, escaped according to the JSON standard.
-    Specifically, <code>"</code>, <code>\</code>, and the control characters
-    from <code>U+0000</code> to <code>U+001F</code> are escaped.</td>
- </tr>
- <tr>
-    <td>BYTES</td>
-    <td><p>Quoted RFC 4648 base64-escaped value. For example:</p>
-    <p><code>"R29vZ2xl"</code> is the base64 representation of bytes
-    <code>b"Google"</code></p>
-    </td>
- </tr>
- 
- <tr>
-    <td>ENUM</td>
-    <td><p>Quoted enum value name as a string.</p>
-    <p>Invalid enum values are represented as their number, such as 0 or 42.</p>
-    </td>
- </tr>
- 
- <tr>
-    <td>DATE</td>
-    <td><p>Quoted date. For example:</p>
-    <code>"2017-03-06"</code>
-    </td>
- </tr>
- <tr>
-    <td>TIMESTAMP</td>
-    <td><p>Quoted ISO 8601 date-time, where T separates the date and time and
-    Zulu/UTC represents the time zone. For example:</p>
-    <code>"2017-03-06T12:34:56.789012Z"</code>
-    </td>
- </tr>
- <tr>
-    <td>DATETIME</td>
-    <td><p>Quoted ISO 8601 date-time, where T separates the date and time. For
-    example:</p>
-    <code>"2017-03-06T12:34:56.789012"</code>
-    </td>
- </tr>
- <tr>
-    <td>TIME</td>
-    <td><p>Quoted ISO 8601 time. For example:</p>
-    <code>"12:34:56.789012"</code></td>
- </tr>
- <tr>
-    <td>ARRAY</td>
-    <td>
-      <p>
-        Array of zero or more elements. Each element is formatted according to
-        its type.
-      </p>
-      <p>
-        Example without formatting:
-      </p>
-      <pre class="lang-sql prettyprint">["red", "blue", "green"]</pre>
-      <p>
-        Example with formatting:
-      </p>
-      <pre class="lang-sql prettyprint">
-[
-  "red",
-  "blue",
-  "green"
-]</pre>
-    </td>
- </tr>
- <tr>
-    <td>STRUCT</td>
-    <td>
-      <p>
-        Object that contains zero or more key/value pairs.
-        Each value is formatted according to its type.
-      </p>
-      <p>
-        Example without formatting:
-      </p>
-      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
-      <p>
-        Example with formatting:
-      </p>
-      <pre class="lang-sql prettyprint">
-{
-  "color":[
-    "red",
-    "blue"
-   ]
-  "purchases":12,
-  "inStock": true
-}</pre>
-      <p>
-        Fields with duplicate names might result in unparseable JSON. Anonymous
-        fields are represented with <code>""</code>. If a field is a non-empty
-        array or object, elements/fields are indented
-        to the appropriate level.
-      </p>
-      <p>
-        Invalid UTF-8 field names might result in unparseable JSON. String
-        values are escaped according to the JSON standard. Specifically,
-        <code>"</code>, <code>\</code>, and the control characters from
-        <code>U+0000</code> to <code>U+001F</code> are escaped.
-      </p>
-    </td>
- </tr>
-
- <tr>
-    <td>PROTO</td>
-    <td>
-      <p>
-        Object that contains zero or more key/value pairs.
-        Each value is formatted according to its type.
-      </p>
-      <p>
-        Example without formatting:
-      </p>
-      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
-      <p>
-        Example with formatting:
-      </p>
-      <pre class="lang-sql prettyprint">
-{
-  "color":[
-    "red",
-    "blue"
-   ]
-  "purchases":12,
-  "inStock": true
-}</pre>
-      <p>
-        Field names with underscores are converted to camel-case in accordance
-        with
-        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-        protobuf json conversion</a>. Field values are formatted according to
-        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-        protobuf json conversion</a>. If a <code>field_value</code> is a non-empty
-        repeated field or submessage, elements/fields are indented to the
-        appropriate level.
-      </p>
-      <ul>
-        <li>
-          Field names that are not valid UTF-8 might result in unparseable
-          JSON.
-        </li>
-        <li>Field annotations are ignored.</li>
-        <li>Repeated fields are represented as arrays.</li>
-        <li>Submessages are formatted as values of PROTO type.</li>
-        <li>
-          Extension fields are included in the output, where the extension
-          field name is enclosed in brackets and prefixed with the full name of
-          the extension type.
-        </li>
-        
-      </ul>
-    </td>
- </tr>
-
-</tbody>
-</table>
+This function supports an optional boolean parameter called `pretty_print`.
+If `pretty_print` is `true`, the returned value is formatted for easy
+readability.
 
 **Return type**
 
@@ -698,7 +613,7 @@ A JSON-formatted `STRING`
 
 **Examples**
 
-Convert rows in a table to JSON.
+Convert rows in a table to JSON-formatted strings.
 
 ```sql
 With CoordinatesTable AS (
@@ -717,7 +632,7 @@ FROM CoordinatesTable AS t;
 +----+-------------+--------------------------------+
 ```
 
-Convert rows in a table to JSON with formatting.
+Convert rows in a table to JSON-formatted strings that are easy to read.
 
 ```sql
 With CoordinatesTable AS (
@@ -746,6 +661,431 @@ FROM CoordinatesTable AS t;
 |    |             | }                  |
 +----+-------------+--------------------+
 ```
+
+### JSON encodings 
+<a id="json_encodings"></a>
+
+The following table includes common encodings that are used when a
+SQL value is encoded as JSON value with
+the `TO_JSON_STRING`
+or `TO_JSON` function.
+
+<table>
+  <thead>
+    <tr>
+      <th>From SQL</th>
+      <th width='400px'>To JSON</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NULL</td>
+      <td>
+        <p>null</p>
+      </td>
+      <td>
+        SQL input: <code>NULL</code><br />
+        JSON output: <code>null</code>
+      </td>
+    </tr>
+    
+    <tr>
+      <td>BOOL</td>
+      <td>boolean</td>
+      <td>
+        SQL input: <code>TRUE</code><br />
+        JSON output: <code>true</code><br />
+        <hr />
+        SQL input: <code>FALSE</code><br />
+        JSON output: <code>false</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        INT32<br/>
+        UINT32
+      </td>
+      <td>integer</td>
+      <td>
+        SQL input: <code>-1</code><br />
+        JSON output: <code>-1</code><br />
+        <hr />
+        SQL input: <code>0</code><br />
+        JSON output: <code>0</code><br />
+        <hr />
+        SQL input: <code>12345678901</code><br />
+        JSON output: <code>12345678901</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    <tr>
+      <td>
+        INT64
+        <br />UINT64
+      </td>
+      <td>
+        <p>(TO_JSON_STRING only)</p>
+        <p>number or string</p>
+        <p>
+          Encoded as a number when the value is in the range of
+          [-2<sup>53</sup>, 2<sup>53</sup>], which is the range of
+          integers that can be represented losslessly as IEEE 754
+          double-precision floating point numbers. A value outside of this range
+          is encoded as a string.
+        </p>
+      <td>
+        SQL input: <code>9007199254740992</code><br />
+        JSON output: <code>9007199254740992</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>
+        INT64
+        <br />UINT64
+      </td>
+      <td>
+        <p>(TO_JSON only)</p>
+        <p>number or string</p>
+        <p>
+          If the <code>stringify_wide_numbers</code> argument
+          is <code>TRUE</code> and the value is outside of the
+          DOUBLE type domain, it is
+          encoded as a string. Otherwise, it's encoded as a number.
+        </p>
+      <td>
+        SQL input: <code>9007199254740992</code><br />
+        JSON output: <code>9007199254740992</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>9007199254740993</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE:
+        <code>9007199254740992</code><br />
+        JSON output: <code>9007199254740992</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE:
+        <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>
+        NUMERIC
+        <br/>BIGNUMERIC
+      </td>
+      <td>
+        <p>(TO_JSON_STRING only)</p>
+        <p>number or string</p>
+        <p>
+          Encoded as a number when the value is in the range of
+          [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
+          part. A value outside of this range is encoded as a string.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>-1</code><br />
+        JSON output: <code>-1</code><br />
+        <hr />
+        SQL input: <code>0</code><br />
+        JSON output: <code>0</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+        <hr />
+        SQL input: <code>123.56</code><br />
+        JSON output: <code>"123.56"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>
+        NUMERIC
+        <br/>BIGNUMERIC
+      </td>
+      <td>
+        <p>(TO_JSON only)</p>
+        <p>number or string</p>
+        <p>
+          If the <code>stringify_wide_numbers</code> argument
+          is <code>TRUE</code> and the value is outside of the
+          DOUBLE type domain, it is
+          encoded as a string. Otherwise, it's encoded as a number.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>-1</code><br />
+        JSON output: <code>-1</code><br />
+        <hr />
+        SQL input: <code>0</code><br />
+        JSON output: <code>0</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>9007199254740993</code><br />
+        <hr />
+        SQL input: <code>123.56</code><br />
+        JSON output: <code>123.56</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE: <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE: <code>123.56</code><br />
+        JSON output: <code>123.56</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    <tr>
+      <td>
+        FLOAT<br />
+        DOUBLE
+      </td>
+      <td>
+        <p>number or string</p>
+        <p>
+          <code>+/-inf</code> and <code>NaN</code> are encoded as
+          <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>.
+          Otherwise, this value is encoded as a string.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>1.0</code><br />
+        JSON output: <code>1</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>9007199254740993</code><br />
+        <hr />
+        SQL input: <code>"+inf"</code><br />
+        JSON output: <code>"Infinity"</code><br />
+        <hr />
+        SQL input: <code>"-inf"</code><br />
+        JSON output: <code>"-Infinity"</code><br />
+        <hr />
+        SQL input: <code>"NaN"</code><br />
+        JSON output: <code>"NaN"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>STRING</td>
+      <td>
+        <p>string</p>
+        <p>
+          Encoded as a string, escaped according to the JSON standard.
+          Specifically, <code>"</code>, <code>\</code>, and the control
+          characters from <code>U+0000</code> to <code>U+001F</code> are
+          escaped.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>"abc"</code><br />
+        JSON output: <code>"abc"</code><br />
+        <hr />
+        SQL input: <code>"\"abc\""</code><br />
+        JSON output: <code>"\"abc\""</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>BYTES</td>
+      <td>
+        <p>string</p>
+        <p>Uses RFC 4648 Base64 data encoding.</p>
+      </td>
+      <td>
+        SQL input: <code>b"Google"</code><br />
+        JSON output: <code>"R29vZ2xl"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>ENUM</td>
+      <td>
+        <p>string</p>
+        <p>
+          Invalid enum values are encoded as their number, such as 0 or 42.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>Color.Red</code><br />
+        JSON output: <code>"Red"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>DATE</td>
+      <td>string</td>
+      <td>
+        SQL input: <code>DATE '2017-03-06'</code><br />
+        JSON output: <code>"2017-03-06"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>TIMESTAMP</td>
+      <td>
+        <p>string</p>
+        <p>
+          Encoded as ISO 8601 date and time, where T separates the date and
+          time and Z (Zulu/UTC) represents the time zone.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>TIMESTAMP '2017-03-06 12:34:56.789012'</code><br />
+        JSON output: <code>"2017-03-06T12:34:56.789012Z"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>DATETIME</td>
+      <td>
+        <p>string</p>
+        <p>
+          Encoded as ISO 8601 date and time, where T separates the date and
+          time.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>DATETIME '2017-03-06 12:34:56.789012'</code><br />
+        JSON output: <code>"2017-03-06T12:34:56.789012"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>TIME</td>
+      <td>
+        <p>string</p>
+        <p>Encoded as ISO 8601 time.</p>
+      </td>
+      <td>
+        SQL input: <code>TIME '12:34:56.789012'</code><br />
+        JSON output: <code>"12:34:56.789012"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>ARRAY</td>
+      <td>
+        <p>array</p>
+        <p>
+          Can contain zero or more elements. Each element is formatted according
+          to its type.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>["red", "blue", "green"]</code><br />
+        JSON output: <code>["red", "blue", "green"]</code><br />
+        <hr />
+        SQL input:<code>[1, 2, 3]</code><br />
+        JSON output:<code>[1, 2, 3]</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>STRUCT</td>
+      <td>
+        <p>object</p>
+        <p>
+          The object can contain zero or more key/value pairs.
+          Each value is formatted according to its type.
+        </p>
+        <p>
+          For <code>TO_JSON</code>, a field is
+          inluded in the output string and any duplicates of this field are
+          omitted.
+          For <code>TO_JSON_STRING</code>,
+          a field and any duplicates of this field are included in the
+          output string.
+        </p>
+        <p>
+          Anonymous fields are represented with <code>""</code>. If a field is
+          a non-empty array or object, elements/fields are indented
+          to the appropriate level.
+        </p>
+        <p>
+          Invalid UTF-8 field names might result in unparseable JSON. String
+          values are escaped according to the JSON standard. Specifically,
+          <code>"</code>, <code>\</code>, and the control characters from
+          <code>U+0000</code> to <code>U+001F</code> are escaped.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>STRUCT(12 AS purchases, TRUE AS inStock)</code><br />
+        JSON output: <code>{"purchases":12,"inStock": true}</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>PROTO</td>
+      <td>
+        <p>object</p>
+        <p>
+          The object can contain zero or more key/value pairs.
+          Each value is formatted according to its type.
+        </p>
+        <p>
+          Field names with underscores are converted to camel-case in accordance
+          with
+          <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+          protobuf json conversion</a>. Field values are formatted according to
+          <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+          protobuf json conversion</a>. If a <code>field_value</code> is a
+          non-empty repeated field or submessage, elements/fields are indented
+          to the appropriate level.
+        </p>
+        <ul>
+          <li>
+            Field names that are not valid UTF-8 might result in unparseable
+            JSON.
+          </li>
+          <li>Field annotations are ignored.</li>
+          <li>Repeated fields are represented as arrays.</li>
+          <li>Submessages are formatted as values of PROTO type.</li>
+          <li>
+            Extension fields are included in the output, where the extension
+            field name is enclosed in brackets and prefixed with the full name
+            of the extension type.
+          </li>
+          
+        </ul>
+      </td>
+      <td>
+        SQL input: <code>NEW Item(12 AS purchases,TRUE AS in_Stock)</code><br />
+        JSON output: <code>{"purchases":12,"inStock": true}</code><br />
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
 
 ### JSONPath 
 <a id="JSONPath_format"></a>
@@ -783,6 +1123,7 @@ returns `NULL`.
 
 If the JSONPath is invalid, the function raises an error.
 
+[json-encodings]: #json_encodings
 [JSONPath-format]: #JSONPath_format
 [json-path]: https://github.com/json-path/JSONPath#operators
 

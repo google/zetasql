@@ -1,0 +1,67 @@
+# This file contains specific tests for anonymous / duplicated column names in
+# TableScan. For these columns there is no way to reference them directly except
+# "select *", and TableScan.column_index_list is used to differentiate those
+# columns.
+
+# Star expansion on anonymous / duplicated column names cannot be unparsed.
+# Java does not support SpecialCatalog.
+[default use_catalog=SpecialCatalog]
+[default no_run_unparser]
+[default no_java]
+
+SELECT * FROM TableWithAnonymousAndDuplicatedColumnNames;
+--
+QueryStmt
++-output_column_list=
+| +-TableWithAnonymousAndDuplicatedColumnNames.key#1 AS key [INT32]
+| +-TableWithAnonymousAndDuplicatedColumnNames.$col2#2 AS `$col2` [INT32]
+| +-TableWithAnonymousAndDuplicatedColumnNames.DuplicatedColumnName#3 AS DuplicatedColumnName [INT32]
+| +-TableWithAnonymousAndDuplicatedColumnNames.DuplicatedColumnName#4 AS DuplicatedColumnName [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=TableWithAnonymousAndDuplicatedColumnNames.[key#1, $col2#2, DuplicatedColumnName#3, DuplicatedColumnName#4]
+    +-input_scan=
+      +-TableScan(column_list=TableWithAnonymousAndDuplicatedColumnNames.[key#1, $col2#2, DuplicatedColumnName#3, DuplicatedColumnName#4], table=TableWithAnonymousAndDuplicatedColumnNames, column_index_list=[0, 1, 2, 3])
+==
+
+select DuplicatedColumnName from (
+  select * from TableWithAnonymousAndDuplicatedColumnNames);
+--
+ERROR: Column name DuplicatedColumnName is ambiguous [at 1:8]
+select DuplicatedColumnName from (
+       ^
+==
+
+select DuplicatedColumnName from TableWithAnonymousAndDuplicatedColumnNames;
+--
+ERROR: Column name DuplicatedColumnName is ambiguous [at 1:8]
+select DuplicatedColumnName from TableWithAnonymousAndDuplicatedColumnNames;
+       ^
+==
+
+select `$col2` from TableWithAnonymousAndDuplicatedColumnNames;
+--
+ERROR: Unrecognized name: `$col2` [at 1:8]
+select `$col2` from TableWithAnonymousAndDuplicatedColumnNames;
+       ^
+==
+
+select `` from TableWithAnonymousAndDuplicatedColumnNames;
+--
+ERROR: Syntax error: Invalid empty identifier [at 1:8]
+select `` from TableWithAnonymousAndDuplicatedColumnNames;
+       ^
+==
+
+select * from TableWithTwoAnonymousColumns;
+--
+QueryStmt
++-output_column_list=
+| +-TableWithTwoAnonymousColumns.key#1 AS key [INT32]
+| +-TableWithTwoAnonymousColumns.$col2#2 AS `$col2` [INT32]
+| +-TableWithTwoAnonymousColumns.$col3#3 AS `$col3` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=TableWithTwoAnonymousColumns.[key#1, $col2#2, $col3#3]
+    +-input_scan=
+      +-TableScan(column_list=TableWithTwoAnonymousColumns.[key#1, $col2#2, $col3#3], table=TableWithTwoAnonymousColumns, column_index_list=[0, 1, 2])

@@ -1,0 +1,447 @@
+# All numerical column types support equality with all other numerical types.
+[language_features=FOREIGN_KEYS,NUMERIC_TYPE]
+create table t (
+  a {{int32|int64|uint32|uint64|float|double|numeric}},
+  foreign key (a) references SimpleTypes
+    ({{int32|int64|uint32|uint64|float|double|numeric}}));
+--
+ALTERNATION GROUP: int32,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int32,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int32,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int32,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int32,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int32,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int32,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: int64,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint32,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT32, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: uint64,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=UINT64, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: float,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=FLOAT, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: double,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=DOUBLE, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,int32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,int64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[1], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,uint32
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,uint64
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[3], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,float
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[7], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,double
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[8], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)
+--
+ALTERNATION GROUP: numeric,numeric
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=NUMERIC, column=t.a#1)
++-foreign_key_list=
+  +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=SimpleTypes, referenced_column_offset_list=[15], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=a)

@@ -35,6 +35,7 @@
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "zetasql/resolved_ast/test_utils.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -42,13 +43,13 @@
 
 namespace zetasql {
 
-using testing::ContainerEq;
-using testing::ElementsAre;
-using testing::HasSubstr;
-using testing::NotNull;
-using testing::UnorderedElementsAre;
-using testing::UnorderedElementsAreArray;
-using zetasql_base::testing::StatusIs;
+using ::testing::ContainerEq;
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::NotNull;
+using ::testing::UnorderedElementsAre;
+using ::testing::UnorderedElementsAreArray;
+using ::zetasql_base::testing::StatusIs;
 
 static const SimpleTable* t1 = new SimpleTable("T1");
 static const SimpleTable* t2 = new SimpleTable("T2");
@@ -154,6 +155,49 @@ FunctionCall(test_group:test(INT64, INT64) -> INT64)
 +-<nullptr AST node>
 )",
             absl::StrCat("\n", call->DebugString()));
+}
+
+TEST(ResolvedNodeDebugStringAnnotations, FunctionCall) {
+  TypeFactory type_factory;
+
+  std::unique_ptr<ResolvedFunctionCall> call =
+      zetasql::testing::WrapInFunctionCall(
+          &type_factory, MakeResolvedLiteral(Value::Int64(1)),
+          MakeResolvedLiteral(Value::Int64(2)),
+          MakeResolvedLiteral(Value::Int64(3)));
+  EXPECT_EQ(
+      R"(
+FunctionCall(test_group:test(INT64, INT64, INT64) -> INT64) (test - call root)
++-Literal(type=INT64, value=1) (test - arg 0)
++-Literal(type=INT64, value=2) (test - arg 1)
++-Literal(type=INT64, value=3)
+)",
+      absl::StrCat(absl::StrCat(
+          "\n", call->DebugString({{call->argument_list(0), "(test - arg 0)"},
+                                   {call->argument_list(1), "(test - arg 1)"},
+                                   {call.get(), "(test - call root)"}}))));
+}
+
+TEST(ResolvedASTDebugString, QueryStmt) {
+  IdStringPool pool;
+
+  std::unique_ptr<ResolvedQueryStmt> stmt = testing::MakeSelect1Stmt(pool);
+  EXPECT_EQ(
+      R"(
+QueryStmt (test - query)
++-output_column_list=
+| +-tbl.x#1 AS x [INT64] (test - output col)
++-query=
+  +-ProjectScan
+    +-column_list=[tbl.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+)",
+      absl::StrCat("\n", stmt->DebugString({{stmt.get(), "(test - query)"},
+                                            {stmt->output_column_list(0),
+                                             "(test - output col)"}})));
 }
 
 TEST(ResolvedAST, ReleaseAndSet) {

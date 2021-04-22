@@ -1,0 +1,232 @@
+# Tests for MODULE-related statements (MODULE and IMPORT).
+
+[default statement_context=module]
+[language_features={{|EXPERIMENTAL_MODULES}}]
+[supported_statement_kinds={{|MODULE|IMPORT}}]
+module foo;
+--
+ALTERNATION GROUPS:
+    <empty>
+    MODULE
+--
+ERROR: The MODULEs feature is not supported [at 1:1]
+module foo;
+^
+--
+ALTERNATION GROUPS:
+    IMPORT
+    EXPERIMENTAL_MODULES,IMPORT
+--
+ERROR: Statement not supported: ModuleStatement [at 1:1]
+module foo;
+^
+--
+ALTERNATION GROUPS:
+    EXPERIMENTAL_MODULES,
+    EXPERIMENTAL_MODULES,MODULE
+--
+ModuleStmt(name_path=foo)
+==
+
+[language_features={{|EXPERIMENTAL_MODULES}}]
+import module foo;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: The MODULEs feature is not supported, including IMPORT MODULE [at 1:1]
+import module foo;
+^
+--
+ALTERNATION GROUP: EXPERIMENTAL_MODULES
+--
+ImportStmt(import_kind=MODULE, name_path=foo, alias_path=foo)
+==
+
+# MODULE tests
+# Module names can be path expressions
+[default language_features=EXPERIMENTAL_MODULES]
+module a.b;
+--
+ModuleStmt(name_path=a.b)
+==
+
+# options are allowed
+module a.b options();
+--
+ModuleStmt(name_path=a.b)
+==
+
+module a.b options(a=b);
+--
+ModuleStmt
++-name_path=a.b
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+==
+
+# IMPORT tests
+[language_features={{|EXPERIMENTAL_MODULES}}]
+[supported_statement_kinds={{|MODULE|IMPORT}}]
+import module foo;
+--
+ALTERNATION GROUPS:
+    <empty>
+    IMPORT
+--
+ERROR: The MODULEs feature is not supported, including IMPORT MODULE [at 1:1]
+import module foo;
+^
+--
+ALTERNATION GROUPS:
+    MODULE
+    EXPERIMENTAL_MODULES,MODULE
+--
+ERROR: Statement not supported: ImportStatement [at 1:1]
+import module foo;
+^
+--
+ALTERNATION GROUPS:
+    EXPERIMENTAL_MODULES,
+    EXPERIMENTAL_MODULES,IMPORT
+--
+ImportStmt(import_kind=MODULE, name_path=foo, alias_path=foo)
+==
+
+import module foo.bar;
+--
+ImportStmt(import_kind=MODULE, name_path=foo.bar, alias_path=bar)
+==
+
+import module module;
+--
+ImportStmt(import_kind=MODULE, name_path=module, alias_path=module)
+==
+
+import module module.all;
+--
+ImportStmt(import_kind=MODULE, name_path=module.`all`, alias_path=`all`)
+==
+
+# aliases are allowed
+import module foo as bar;
+--
+ImportStmt(import_kind=MODULE, name_path=foo, alias_path=bar)
+==
+
+import module foo.bar as baz
+--
+ImportStmt(import_kind=MODULE, name_path=foo.bar, alias_path=baz)
+==
+
+import module foo.bar as `baz.zap`
+--
+ImportStmt(import_kind=MODULE, name_path=foo.bar, alias_path=`baz.zap`)
+==
+
+# options are allowed
+import module foo options ();
+--
+ImportStmt(import_kind=MODULE, name_path=foo, alias_path=foo)
+==
+
+import module foo options (a=b);
+--
+ImportStmt
++-import_kind=MODULE
++-name_path=foo
++-alias_path=foo
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+==
+
+import module foo as bar options (a=b);
+--
+ImportStmt
++-import_kind=MODULE
++-name_path=foo
++-alias_path=bar
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+==
+
+import module "string.literal";
+--
+ERROR: The IMPORT MODULE statement requires a path expression [at 1:15]
+import module "string.literal";
+              ^
+==
+
+import module "string.literal" as sl;
+--
+ERROR: The IMPORT MODULE statement requires a path expression [at 1:15]
+import module "string.literal" as sl;
+              ^
+==
+
+# IMPORT MODULE does not support INTO.
+import module a.b.c INTO d;
+--
+ERROR: The IMPORT MODULE statement does not support INTO alias; use AS alias instead [at 1:21]
+import module a.b.c INTO d;
+                    ^
+==
+
+import module "a/b/c" INTO d;
+--
+ERROR: The IMPORT MODULE statement requires a path expression [at 1:15]
+import module "a/b/c" INTO d;
+              ^
+==
+
+# CREATE PUBLIC and PRIVATE FUNCTION are supported inside modules.
+CREATE {{PUBLIC|PRIVATE}} FUNCTION foo (a int32) as (a);
+--
+ALTERNATION GROUP: PUBLIC
+--
+CreateFunctionStmt
++-name_path=foo
++-create_scope=CREATE_PUBLIC
++-return_type=INT32
++-argument_name_list=[a]
++-signature=(INT32 a) -> INT32
++-language="SQL"
++-code="a"
++-function_expression=
+  +-ArgumentRef(type=INT32, name="a")
+--
+ALTERNATION GROUP: PRIVATE
+--
+CreateFunctionStmt
++-name_path=foo
++-create_scope=CREATE_PRIVATE
++-return_type=INT32
++-argument_name_list=[a]
++-signature=(INT32 a) -> INT32
++-language="SQL"
++-code="a"
++-function_expression=
+  +-ArgumentRef(type=INT32, name="a")
+==
+
+# CREATE TEMP and <default> FUNCTION are not supported inside modules.
+CREATE {{|TEMP}} FUNCTION foo (a int32) as (a);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE FUNCTION requires the PUBLIC or PRIVATE modifier when used inside a module [at 1:1]
+CREATE  FUNCTION foo (a int32) as (a);
+^
+--
+ALTERNATION GROUP: TEMP
+--
+ERROR: CREATE FUNCTION requires the PUBLIC or PRIVATE modifier when used inside a module [at 1:1]
+CREATE TEMP FUNCTION foo (a int32) as (a);
+^
+==
+
+# Query parameters are not allowed inside of modules
+CREATE PUBLIC FUNCTION foo (a int32) as (a + @test_param_int32);
+--
+ERROR: Query parameter is not allowed in the body of SQL function 'foo': @test_param_int32 [at 1:46]
+CREATE PUBLIC FUNCTION foo (a int32) as (a + @test_param_int32);
+                                             ^

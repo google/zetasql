@@ -1,6 +1,6 @@
 alter table foo.bar drop;
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:25]
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:25]
 alter table foo.bar drop;
                         ^
 
@@ -101,3 +101,26 @@ AlterTableStatement [0-43]
       Identifier(baz) [40-43]
 --
 ALTER TABLE `foo-123`.bar DROP CONSTRAINT baz
+==
+
+ALTER TABLE t DROP PRIMARY KEY {{|IF EXISTS}}
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-30]
+  PathExpression [12-13]
+    Identifier(t) [12-13]
+  AlterActionList [14-30]
+    DropPrimaryKeyAction [14-30]
+--
+ALTER TABLE t DROP PRIMARY KEY
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterTableStatement [0-40]
+  PathExpression [12-13]
+    Identifier(t) [12-13]
+  AlterActionList [14-40]
+    DropPrimaryKeyAction(is_if_exists) [14-40]
+--
+ALTER TABLE t DROP PRIMARY KEY IF EXISTS

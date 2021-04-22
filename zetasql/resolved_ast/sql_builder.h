@@ -130,6 +130,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateSchemaStmt* node) override;
   absl::Status VisitResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* node) override;
+  absl::Status VisitResolvedCreateSnapshotTableStmt(
+      const ResolvedCreateSnapshotTableStmt* node) override;
   absl::Status VisitResolvedCreateTableAsSelectStmt(
       const ResolvedCreateTableAsSelectStmt* node) override;
   absl::Status VisitResolvedCreateViewStmt(
@@ -189,6 +191,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropMaterializedViewStmt* node) override;
   absl::Status VisitResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* node) override;
+  absl::Status VisitResolvedDropSnapshotTableStmt(
+      const ResolvedDropSnapshotTableStmt* node) override;
+  absl::Status VisitResolvedDropSearchIndexStmt(
+      const ResolvedDropSearchIndexStmt* node) override;
   absl::Status VisitResolvedTruncateStmt(
       const ResolvedTruncateStmt* node) override;
   absl::Status VisitResolvedUpdateStmt(

@@ -35,9 +35,10 @@ namespace functions {
 // Parses an input <timestamp_string> with the given input <format_string>,
 // and produces the appropriate timestamp as output. Timestamp parts that are
 // unspecified in the format are derived from 'current_year-current_month-01
-// 00:00:00.000000' at the <default_timezone>. Produces <timestamp> at
-// microseconds precision, and returns an error if the resulting timestamp is
-// not in the ZetaSQL valid range.
+// 00:00:00.000000' at the <default_timezone> ('current_year' and
+// 'current_month' are from <current_timestamp> at the <default_timezone>).
+// Produces <timestamp_micros> at microseconds precision, and returns an error
+// if the resulting timestamp is not in the ZetaSQL valid range.
 //
 // Requires that the string_view arguments are UTF8.
 //
@@ -146,11 +147,9 @@ absl::Status CastFormatTimeToString(absl::string_view format_string,
                                     const TimeValue& time, std::string* out);
 
 namespace cast_date_time_internal {
-enum class FormatElementType {
-  kFormatElementTypeUnspecified = 0,
+enum class FormatElementCategory {
+  kFormatElementCategoryUnspecified = 0,
   kLiteral,
-  kDoubleQuotedLiteral,
-  kWhitespace,
   kYear,
   kMonth,
   kDay,
@@ -166,19 +165,107 @@ enum class FormatElementType {
   kMisc,
 };
 
-struct FormatElement {
-  FormatElementType type;
-  // In case the format element is double quoted literal, the original string
-  // will be unquoted and unescaped, e.g. if the user input format string is
-  // "\"abc\\\\\"", the original_str for this format element would be "abc\\"
-  std::string original_str;
-  FormatElement() = default;
-  FormatElement(FormatElementType type_in, absl::string_view original_str_in)
-      : type(type_in), original_str(original_str_in) {}
-  std::string DebugString() const;
+enum class FormatElementType {
+  kFormatElementTypeUnspecified = 0,
+  kSimpleLiteral,
+  kDoubleQuotedLiteral,
+  kWhitespace,
+  kYYYY,
+  kYYY,
+  kYY,
+  kY,
+  kRRRR,
+  kRR,
+  kYCommaYYY,
+  kIYYY,
+  kIYY,
+  kIY,
+  kI,
+  kSYYYY,
+  kYEAR,
+  kSYEAR,
+  kMM,
+  kMON,
+  kMONTH,
+  kRM,
+  kDDD,
+  kDD,
+  kD,
+  kDAY,
+  kDY,
+  kJ,
+  kHH,
+  kHH12,
+  kHH24,
+  kMI,
+  kSS,
+  kSSSSS,
+  kFFN,
+  kAM,
+  kPM,
+  kAMWithDots,
+  kPMWithDots,
+  kTZH,
+  kTZM,
+  kCC,
+  kSCC,
+  kQ,
+  kIW,
+  kWW,
+  kW,
+  kAD,
+  kBC,
+  kADWithDots,
+  kBCWithDots,
+  kSP,
+  kTH,
+  kSPTH,
+  kTHSP,
+  kFM
 };
 
-zetasql_base::StatusOr<std::vector<FormatElement>> GetFormatElements(
+// This enum is used to specify the cases of the output letters when
+// formatting timestamp with the format element.
+enum FormatCasingType {
+  kFormatCasingTypeUnspecified = 0,
+  // Preserves casing of the output letters in the original input format string.
+  kPreserveCase,
+  // All of the letters in the output are capitalized, e.g.
+  // "TWELVE THIRTY-FOUR".
+  kAllLettersUppercase,
+  // For each word in the output, only the first letter is capitalized, and the
+  // other letters are lowercase, e.g. "Twelve Thirty-Four".
+  kOnlyFirstLetterUppercase,
+  // All of the letters in the output are lowercase, e.g. "twelve thirty-four".
+  kAllLettersLowercase
+};
+
+struct DateTimeFormatElement {
+  FormatElementType type = FormatElementType::kFormatElementTypeUnspecified;
+  FormatElementCategory category =
+      FormatElementCategory::kFormatElementCategoryUnspecified;
+  // Length of the original format element string in the input format string.
+  int len_in_format_str = 0;
+  FormatCasingType format_casing_type =
+      FormatCasingType::kFormatCasingTypeUnspecified;
+  // <literal_value> is set only for the format element of "kSimpleLiteral" or
+  // "kDoubleQuotedLiteral" type. If the element is of "kSimpleLiteral" type,
+  // <literal_value> is the same as the original format element string; if the
+  // element is of "kDoubleQuotedLiteral" type, format element string will be
+  // first unquoted and unescaped. For example, if the format element string is
+  // R"("abc\\")", the <literal_value> of the format element is R"(abc\)".
+  std::string literal_value;
+  // <subsecond_digit_count> is only set for elements of "kFFN" type to
+  // indicate number of digits of subsecond part.
+  int subsecond_digit_count = 0;
+  // Returns single quoted string to represent the format element. If the
+  // element is not in "kLiteral" category, the cases of output string may be
+  // different from its original form in the user input format string. The
+  // output string is intended to be visible to end users.
+  std::string ToString() const;
+};
+
+zetasql_base::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElements(
     absl::string_view format_str);
 
 }  // namespace cast_date_time_internal

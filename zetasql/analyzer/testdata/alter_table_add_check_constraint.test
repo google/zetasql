@@ -1,0 +1,6 @@
+# Alter table add check constraint is not supported in analyzer yet.
+alter table TwoIntegers add constraint a_gt_0 check(a > 0);
+--
+ERROR: CHECK CONSTRAINT is not supported [at 1:25]
+alter table TwoIntegers add constraint a_gt_0 check(a > 0);
+                        ^

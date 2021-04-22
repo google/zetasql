@@ -431,7 +431,7 @@ SELECT TO_PROTO(
 ### EXTRACT {#proto_extract}
 
 ```sql
-EXTRACT( extraction_type (field) FROM proto_expression )
+EXTRACT( extraction_type (proto_field) FROM proto_expression )
 
 extraction_type:
   { FIELD | RAW | HAS | ONEOF_CASE }
@@ -439,146 +439,156 @@ extraction_type:
 
 **Description**
 
-Extracts a value from a proto. `proto_expression` represents the expression
-that returns a proto, `field` represents the field of the proto to extract from,
-and `extraction_type` determines the type of data to return. `EXTRACT` can be
-used to get values of ambiguous fields. An alternative to `EXTRACT` is the
-[dot operator][querying-protocol-buffers].
+Extracts a value from a protocol buffer. `proto_expression` represents the
+expression that returns a protocol buffer, `proto_field` represents the field
+of the protocol buffer to extract from, and `extraction_type` determines the
+type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
+An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
 
 **Extraction Types**
 
 You can choose the type of information to get with `EXTRACT`. Your choices are:
 
-+  `FIELD`: Extract a value from a field.
-+  `RAW`: Extract an uninterpreted value from a field.
-   Raw values ignore any ZetaSQL type annotations.
-+  `HAS`: Returns `true` if a field is set in a proto message;
-   otherwise, `false`. Returns an error if this is used with a scalar proto3
++  `FIELD`: Extract a value from a protocol buffer field.
++  `RAW`: Extract an uninterpreted value from a
+    protocol buffer field. Raw values
+    ignore any ZetaSQL type annotations.
++  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
+   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
    field. Alternatively, use [`has_x`][has-value], to perform this task.
-+  `ONEOF_CASE`: Returns the name of the set field in a Oneof. If no field is
-   set, returns an empty string.
++  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
+   If no field is set, returns an empty string.
 
 **Return Type**
 
 The return type depends upon the extraction type in the query.
 
-+  `FIELD`: Type of proto field.
-+  `RAW`: Type of proto field, ignoring format annotations if present.
++  `FIELD`: Protocol buffer field type.
++  `RAW`: Protocol buffer field
+    type. Format annotations are
+    ignored.
 +  `HAS`: `BOOL`
 +  `ONEOF_CASE`: `STRING`
 
 **Examples**
 
-Extract the year from a proto called `Date`.
+The examples in this section reference two protocol buffers called `Album` and
+`Chart`, and one table called `AlbumList`.
 
-```sql
-SELECT EXTRACT(FIELD(year) FROM new google.type.Date(
-    2019 as year,
-    10 as month,
-    30 as day
-  )
-) as year;
-
-+------------------+
-| year             |
-+------------------+
-| 2019             |
-+------------------+
-```
-
-Set up a proto2 called `Book`.
-
-```sql
-message Book {
-  optional int32 publish_date = 1 [ (zetasql.format) = DATE ];
-}
-```
-
-Extract `publish_date` from a proto called `Book`.
-
-```sql
-SELECT EXTRACT(FIELD(publish_date) FROM new Book(
-    ‘1970-05-04’ as publish_date,
-  )
-) as release_date;
-
-+------------------+
-| release_date     |
-+------------------+
-| 1970-05-04       |
-+------------------+
-```
-
-Extract the uninterpreted `publish_date` from a proto called `Book`.
-In this example, the uninterpreted value is the number of days between
-1970-01-01 and 1970-05-04.
-
-```sql
-SELECT EXTRACT(RAW(publish_date) FROM new Book(
-    ‘1970-05-04’ as publish_date,
-  )
-) as release_date;
-
-+------------------+
-| release_date     |
-+------------------+
-| 123              |
-+------------------+
-```
-
-Check to see if `publish_date` is set in a proto2 called `Book`.
-In this example, `publish_date` is set to 1970-05-04.
-
-```sql
-SELECT EXTRACT(HAS(publish_date) FROM new Book(
-    ‘1970-05-04’ as publish_date,
-  )
-) as has_release_date;
-
-+------------------+
-| has_release_date |
-+------------------+
-| true             |
-+------------------+
-```
-
-Check to see if `publish_date` is set in a proto2 called `Book`.
-In this example, `publish_date` is not set.
-
-```sql
-SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
-
-+------------------+
-| has_release_date |
-+------------------+
-| false            |
-+------------------+
-```
-
-Set up a proto called `Vehicle`.
-
-```sql
-message Vehicle {
-  oneof brand {
-    string car = 1;
-    string bike = 2;
+```proto
+message Album {
+  optional string album_name = 1;
+  repeated string song = 2;
+  oneof group_name {
+    string solo = 3;
+    string duet = 4;
+    string band = 5;
   }
 }
 ```
 
-In the `Vehicle` proto, `brand` can either be `car` or `bike`. Assume that
-`bike` is the set brand.
+```proto
+message Chart {
+  optional int64 date = 1 [(zetasql.format) = DATE];
+  optional string chart_name = 2;
+  optional int64 rank = 3;
+}
+```
 
 ```sql
-SELECT EXTRACT(ONEOF_CASE(brand) FROM new Vehicle("schwinn" as bike)) as brand_field_name;
+WITH AlbumList AS (
+  SELECT
+    NEW Album(
+      'Beyonce' AS solo,
+      'Lemonade' AS album_name,
+      ['Sandcastles','Hold Up'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      '2016-04-23' AS date,
+      1 AS rank) AS chart_col
+    UNION ALL
+  SELECT
+    NEW Album(
+      'The Beetles' AS band,
+      'Rubber Soul' AS album_name,
+      ['The Word', 'Wait', 'Nowhere Man'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      1 as rank) AS chart_col
+)
+SELECT * FROM AlbumList
+```
+
+The following example extracts the album names from a table called `AlbumList`
+that contains a proto-typed column called `Album`.
+
+```sql
+SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
+FROM AlbumList
 
 +------------------+
-| brand_field_name |
+| name_of_album    |
 +------------------+
-| bike             |
+| Lemonade         |
+| Rubber Soul      |
 +------------------+
 ```
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying-protocol-buffers
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking-if-a-non-repeated-field-has-a-value
+A table called `AlbumList` contains a proto-typed column called `Album`.
+`Album` contains a field called `date`, which can store an integer. The
+`date` field has an annotated format called `DATE` assigned to it, which means
+that when you extract the value in this field, it returns a `DATE`, not an
+`INT64`.
+
+If you would like to return the value for `date` as an `INT64`, not
+as a `DATE`, use the `RAW` extraction type in your query. For example:
+
+```sql
+SELECT
+  EXTRACT(RAW(date) FROM chart_col) AS raw_date,
+  EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
+FROM AlbumList
+
++----------+----------------+
+| raw_date | formatted_date |
++----------+----------------+
+| 16914    | 2016-04-23     |
+| 0        | 1970-01-01     |
++----------+----------------+
+```
+
+The following example checks to see if release dates exist in a table called
+`AlbumList` that contains a protocol buffer called `Chart`.
+
+```sql
+SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
+FROM AlbumList
+
++------------------+
+| has_release_date |
++------------------+
+| TRUE             |
+| FALSE            |
++------------------+
+```
+
+The following example extracts the group name that is assigned to an artist in
+a table called `AlbumList`. The group name is set for exactly one
+protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
+exists inside the `Chart` protocol buffer.
+
+```sql
+SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
+FROM AlbumList;
+
++-------------+
+| artist_type |
++-------------+
+| solo        |
+| band        |
++-------------+
+```
+
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 

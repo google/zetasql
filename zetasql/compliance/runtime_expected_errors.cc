@@ -159,6 +159,14 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid input to PARSE_NUMERIC"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to PARSE_BIGNUMERIC"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid input to PARSE_JSON"));
+  // TO_JSON will return OUT_OF_RANGE error if the input type is
+  // numeric/bignumeric and FEATURE_JSON_STRICT_NUMBER_PARSING is enabled when
+  // there is precision loss.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Failed to convert type (NUMERIC|BIGNUMERIC) to JSON"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(

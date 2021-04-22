@@ -1,0 +1,58 @@
+DESCRIBE foo;
+--
+DescribeStmt(object_type="", name_path=foo)
+==
+
+{{DESCRIBE|DESC}} namespace.foo;
+--
+DescribeStmt(object_type="", name_path=namespace.foo)
+==
+
+{{describe|desc}} INDEX myindex;
+--
+
+DescribeStmt(object_type="INDEX", name_path=myindex)
+==
+
+describe INDEX mynamespace.myindex;
+--
+DescribeStmt(object_type="INDEX", name_path=mynamespace.myindex)
+==
+
+describe FUNCTION myfunction;
+--
+DescribeStmt(object_type="FUNCTION", name_path=myfunction)
+==
+
+describe FUNCTION mynamespace.myfunction;
+--
+DescribeStmt(object_type="FUNCTION", name_path=mynamespace.myfunction)
+==
+
+describe TYPE mytype;
+--
+DescribeStmt(object_type="TYPE", name_path=mytype)
+==
+
+describe TYPE mynamespace.mytype;
+--
+
+DescribeStmt(object_type="TYPE", name_path=mynamespace.mytype)
+==
+
+describe TYPE mytype FROM mynamespace;
+--
+
+DescribeStmt(object_type="TYPE", name_path=mytype, from_name_path=mynamespace)
+==
+
+describe COLUMN foo FROM namespace.T.suffix;
+--
+
+DescribeStmt(object_type="COLUMN", name_path=foo, from_name_path=namespace.T.suffix)
+==
+
+describe innernamespace.foo FROM mynamespace.mynestednamespace;
+--
+
+DescribeStmt(object_type="", name_path=innernamespace.foo, from_name_path=mynamespace.mynestednamespace)

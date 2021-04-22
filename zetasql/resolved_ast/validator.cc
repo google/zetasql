@@ -385,7 +385,8 @@ absl::Status Validator::ValidateResolvedExpr(
   ZETASQL_RET_CHECK(expr->type() != nullptr)
       << "ResolvedExpr does not have a Type:\n" << expr->DebugString();
   if (expr->type_annotation_map() != nullptr) {
-    ZETASQL_RET_CHECK(expr->type_annotation_map()->HasMatchingStructure(expr->type()));
+    ZETASQL_RET_CHECK(
+        expr->type_annotation_map()->HasCompatibleStructure(expr->type()));
   }
 
   // Do not add new checks inline here because they increase stack space used in
@@ -2091,6 +2092,10 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedCreateSchemaStmt(
           statement->GetAs<ResolvedCreateSchemaStmt>());
       break;
+    case RESOLVED_CREATE_SNAPSHOT_TABLE_STMT:
+      status = ValidateResolvedCreateSnapshotTableStmt(
+          statement->GetAs<ResolvedCreateSnapshotTableStmt>());
+      break;
     case RESOLVED_CREATE_TABLE_STMT:
       status = ValidateResolvedCreateTableStmt(
           statement->GetAs<ResolvedCreateTableStmt>());
@@ -2202,6 +2207,10 @@ absl::Status Validator::ValidateResolvedStatement(
       status = ValidateResolvedDropFunctionStmt(
           statement->GetAs<ResolvedDropFunctionStmt>());
       break;
+    case RESOLVED_DROP_SNAPSHOT_TABLE_STMT:
+      status = ValidateResolvedDropSnapshotTableStmt(
+          statement->GetAs<ResolvedDropSnapshotTableStmt>());
+      break;
     case RESOLVED_DROP_TABLE_FUNCTION_STMT:
       status = ValidateResolvedDropTableFunctionStmt(
           statement->GetAs<ResolvedDropTableFunctionStmt>());
@@ -2209,6 +2218,10 @@ absl::Status Validator::ValidateResolvedStatement(
     case RESOLVED_DROP_ROW_ACCESS_POLICY_STMT:
       status = ValidateResolvedDropRowAccessPolicyStmt(
           statement->GetAs<ResolvedDropRowAccessPolicyStmt>());
+      break;
+    case RESOLVED_DROP_SEARCH_INDEX_STMT:
+      status = ValidateResolvedDropSearchIndexStmt(
+          statement->GetAs<ResolvedDropSearchIndexStmt>());
       break;
     case RESOLVED_GRANT_STMT:
       status = ValidateResolvedGrantStmt(
@@ -2560,6 +2573,18 @@ absl::Status Validator::ValidateResolvedCreateTableStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedCreateSnapshotTableStmt(
+    const ResolvedCreateSnapshotTableStmt* stmt) {
+
+  ZETASQL_RET_CHECK(stmt->clone_from() != nullptr)
+      << "CLONE must be provided for CREATE SNAPSHOT TABLE";
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedCloneDataSource(stmt->clone_from()));
+
+  ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
+
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedGeneratedColumnInfo(
     const ResolvedColumnDefinition* column_definition,
     const std::set<ResolvedColumn>& visible_columns) {
@@ -2902,6 +2927,9 @@ absl::Status Validator::ValidateResolvedCreateProcedureStmt(
 absl::Status Validator::ValidateResolvedCreateEntityStmt(
     const ResolvedCreateEntityStmt* stmt) {
   ZETASQL_RET_CHECK(!stmt->entity_type().empty());
+  ZETASQL_RET_CHECK(stmt->entity_body_json().empty() ||
+            stmt->entity_body_text().empty())
+      << "At most one of JSON or TEXT literals can be non-empty";
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
   return absl::OkStatus();
 }
@@ -2909,6 +2937,15 @@ absl::Status Validator::ValidateResolvedCreateEntityStmt(
 absl::Status Validator::ValidateResolvedAlterEntityStmt(
     const ResolvedAlterEntityStmt* stmt) {
   ZETASQL_RET_CHECK(!stmt->entity_type().empty());
+  for (const auto& action : stmt->alter_action_list()) {
+    if (action->node_kind() == RESOLVED_SET_AS_ACTION) {
+      auto* set_as_action = action->GetAs<ResolvedSetAsAction>();
+      ZETASQL_RET_CHECK(set_as_action->entity_body_json().empty() !=
+                set_as_action->entity_body_text().empty())
+          << "Exactly one of JSON or TEXT literals should be non-empty";
+    }
+  }
+
   return absl::OkStatus();
 }
 
@@ -3086,6 +3123,11 @@ absl::Status Validator::ValidateResolvedDropTableFunctionStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedDropSnapshotTableStmt(
+    const ResolvedDropSnapshotTableStmt* stmt) {
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedDropMaterializedViewStmt(
     const ResolvedDropMaterializedViewStmt* stmt) {
   return absl::OkStatus();
@@ -3097,6 +3139,10 @@ absl::Status Validator::ValidateResolvedDropRowAccessPolicyStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedDropSearchIndexStmt(
+    const ResolvedDropSearchIndexStmt* stmt) {
+  return absl::OkStatus();
+}
 absl::Status Validator::ValidateResolvedGrantStmt(
     const ResolvedGrantStmt* stmt) {
   return absl::OkStatus();
@@ -4277,12 +4323,25 @@ absl::Status Validator::ValidateResolvedAlterAction(
     case RESOLVED_DROP_CONSTRAINT_ACTION:
       ZETASQL_RET_CHECK(!action->GetAs<ResolvedDropConstraintAction>()->name().empty());
       break;
+    case RESOLVED_DROP_PRIMARY_KEY_ACTION:
+      // Nothing to do
+      break;
     case RESOLVED_ALTER_COLUMN_OPTIONS_ACTION:
       ZETASQL_RET_CHECK(
           !action->GetAs<ResolvedAlterColumnOptionsAction>()->column().empty());
       ZETASQL_RETURN_IF_ERROR(ValidateHintList(
           action->GetAs<ResolvedAlterColumnOptionsAction>()->option_list()));
       break;
+    case RESOLVED_ALTER_COLUMN_SET_DATA_TYPE_ACTION: {
+      const auto* set_data_type =
+          action->GetAs<ResolvedAlterColumnSetDataTypeAction>();
+      ZETASQL_RET_CHECK(!set_data_type->column().empty());
+      ZETASQL_RET_CHECK(set_data_type->updated_type() != nullptr);
+      ZETASQL_RETURN_IF_ERROR(
+          set_data_type->updated_type()->ValidateResolvedTypeParameters(
+              set_data_type->updated_type_parameters(),
+              language_options_.product_mode()));
+    } break;
     case RESOLVED_ALTER_COLUMN_DROP_NOT_NULL_ACTION:
       ZETASQL_RET_CHECK(!action->GetAs<ResolvedAlterColumnDropNotNullAction>()
                      ->column()

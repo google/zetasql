@@ -1,0 +1,643 @@
+select kv1.key, kv2.key, kv3.key
+from KeyValue kv1, KeyValue kv2, KeyValue kv3;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#3 AS key [INT64]
+| +-KeyValue.Key#5 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#3, Key#5]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3, Key#5]
+        +-left_scan=
+        | +-JoinScan
+        |   +-column_list=KeyValue.[Key#1, Key#3]
+        |   +-left_scan=
+        |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        |   +-right_scan=
+        |     +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
+        +-right_scan=
+          +-TableScan(column_list=[KeyValue.Key#5], table=KeyValue, column_index_list=[0], alias="kv3")
+==
+
+select 1
+from KeyValue, KeyValue;
+--
+ERROR: Duplicate table alias KeyValue in the same FROM clause [at 2:16]
+from KeyValue, KeyValue;
+               ^
+==
+
+select 1
+from KeyValue kv, KeyValue kv2, KeyValue as kv;
+--
+ERROR: Duplicate table alias kv in the same FROM clause [at 2:45]
+from KeyValue kv, KeyValue kv2, KeyValue as kv;
+                                            ^
+==
+
+select 1
+from KeyValue kv cross join KeyValue kv2 cross join KeyValue kv;
+--
+ERROR: Duplicate table alias kv in the same FROM clause [at 2:62]
+from KeyValue kv cross join KeyValue kv2 cross join KeyValue kv;
+                                                             ^
+==
+
+select 1
+from KeyValue kv cross join (select 1 x) as kv
+--
+ERROR: Duplicate table alias kv in the same FROM clause [at 2:45]
+from KeyValue kv cross join (select 1 x) as kv
+                                            ^
+==
+
+select 1
+from KeyValue kv, (select 1 x) as kv
+--
+ERROR: Duplicate table alias kv in the same FROM clause [at 2:35]
+from KeyValue kv, (select 1 x) as kv
+                                  ^
+==
+
+select kv1.key, KeyValue.key
+from KeyValue kv1, KeyValue;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#3 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#3]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3]
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        +-right_scan=
+          +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0])
+==
+
+select kv1.key, KeyValue.key
+from KeyValue kv1, KeyValue
+where kv1.key = KeyValue.key;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#3 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=KeyValue.[Key#1, Key#3]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=KeyValue.[Key#1, Key#3]
+        |   +-left_scan=
+        |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        |   +-right_scan=
+        |     +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0])
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 ON true;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-left_scan=
+        | +-TableScan(table=KeyValue, alias="kv1")
+        +-right_scan=
+        | +-TableScan(table=KeyValue, alias="kv2")
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 ON kv1.key = kv2.key;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3]
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        +-right_scan=
+        | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 ON 5
+--
+ERROR: JOIN ON clause should return type BOOL, but returns INT64 [at 1:49]
+select 1 from KeyValue kv1 join KeyValue kv2 ON 5
+                                                ^
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 ON key = 5;
+--
+ERROR: Column name key is ambiguous [at 1:49]
+select 1 from KeyValue kv1 join KeyValue kv2 ON key = 5;
+                                                ^
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 using (key);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3]
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        +-right_scan=
+        | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+==
+
+select 1 from KeyValue kv1 natural join KeyValue kv2 using (key);
+--
+ERROR: Natural join not supported [at 1:28]
+select 1 from KeyValue kv1 natural join KeyValue kv2 using (key);
+                           ^
+==
+
+select 1 from KeyValue kv1 natural cross join KeyValue kv2;
+--
+ERROR: NATURAL cannot be used with CROSS JOIN [at 1:28]
+select 1 from KeyValue kv1 natural cross join KeyValue kv2;
+                           ^
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2;
+--
+ERROR: INNER JOIN must have an immediately following ON or USING clause [at 1:28]
+select 1 from KeyValue kv1 join KeyValue kv2;
+                           ^
+==
+
+select 1 from KeyValue kv1 right join KeyValue kv2;
+--
+ERROR: RIGHT JOIN must have an immediately following ON or USING clause [at 1:28]
+select 1 from KeyValue kv1 right join KeyValue kv2;
+                           ^
+==
+
+# There are more tests with non-left-deep joins in join_parenthesized.test.
+select 1
+from KeyValue kv1 cross join (KeyValue kv2 cross join KeyValue kv3);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#7 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#7]
+    +-expr_list=
+    | +-$col1#7 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-left_scan=
+        | +-TableScan(table=KeyValue, alias="kv1")
+        +-right_scan=
+          +-JoinScan
+            +-left_scan=
+            | +-TableScan(table=KeyValue, alias="kv2")
+            +-right_scan=
+              +-TableScan(table=KeyValue, alias="kv3")
+==
+
+select 1 from KeyValue kv1 cross join KeyValue kv2
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-left_scan=
+        | +-TableScan(table=KeyValue, alias="kv1")
+        +-right_scan=
+          +-TableScan(table=KeyValue, alias="kv2")
+==
+
+select 1 from KeyValue kv1 cross join KeyValue kv2 on true
+--
+ERROR: ON clause cannot be used with CROSS JOIN [at 1:52]
+select 1 from KeyValue kv1 cross join KeyValue kv2 on true
+                                                   ^
+==
+
+select 1 from KeyValue kv1 cross join KeyValue kv2 using (key)
+--
+ERROR: USING clause cannot be used with CROSS JOIN [at 1:52]
+select 1 from KeyValue kv1 cross join KeyValue kv2 using (key)
+                                                   ^
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 using (key) on true
+--
+ERROR: Syntax error: Expected end of input but got keyword ON [at 1:58]
+select 1 from KeyValue kv1 join KeyValue kv2 using (key) on true
+                                                         ^
+==
+
+select 1 from KeyValue kv1 join KeyValue kv2 on true using (key)
+--
+ERROR: Syntax error: Expected end of input but got keyword USING [at 1:54]
+select 1 from KeyValue kv1 join KeyValue kv2 on true using (key)
+                                                     ^
+==
+
+select 1 from KeyValue kv1 inner join KeyValue kv2 on true
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-left_scan=
+        | +-TableScan(table=KeyValue, alias="kv1")
+        +-right_scan=
+        | +-TableScan(table=KeyValue, alias="kv2")
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+select 1 from KeyValue kv1 left join KeyValue kv2 on 1=1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-join_type=LEFT
+        +-left_scan=
+        | +-TableScan(table=KeyValue, alias="kv1")
+        +-right_scan=
+        | +-TableScan(table=KeyValue, alias="kv2")
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-Literal(type=INT64, value=1)
+            +-Literal(type=INT64, value=1)
+==
+
+select 1 from KeyValue kv1 left join KeyValue kv2 on NULL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-join_type=LEFT
+        +-left_scan=
+        | +-TableScan(table=KeyValue, alias="kv1")
+        +-right_scan=
+        | +-TableScan(table=KeyValue, alias="kv2")
+        +-join_expr=
+          +-Literal(type=BOOL, value=NULL)
+==
+
+select 1 from KeyValue kv1 right join KeyValue
+  on concat(kv1.value, KeyValue.value) = 'abc'
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Value#2, Value#4]
+        +-join_type=RIGHT
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1], alias="kv1")
+        +-right_scan=
+        | +-TableScan(column_list=[KeyValue.Value#4], table=KeyValue, column_index_list=[1])
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+            | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            | +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+            +-Literal(type=STRING, value="abc")
+==
+
+select 1 from KeyValue kv1 full join KeyValue kv2 on kv1.key = kv2.key
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3]
+        +-join_type=FULL
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        +-right_scan=
+        | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+==
+
+SELECT k1.Value, k2.Value2
+FROM KeyValue k1
+FULL OUTER JOIN KeyValue2 k2 USING (Key);
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-KeyValue2.Value2#4 AS Value2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Value#2, KeyValue2.Value2#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue2.Key#3, KeyValue2.Value2#4, $full_join.Key#5]
+        +-expr_list=
+        | +-Key#5 :=
+        |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |     +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+        +-input_scan=
+          +-JoinScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue2.Key#3, KeyValue2.Value2#4]
+            +-join_type=FULL
+            +-left_scan=
+            | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="k1")
+            +-right_scan=
+            | +-TableScan(column_list=KeyValue2.[Key#3, Value2#4], table=KeyValue2, column_index_list=[0, 1], alias="k2")
+            +-join_expr=
+              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+==
+
+SELECT *
+FROM KeyValue k1
+FULL OUTER JOIN KeyValue2 k2 USING (Key);
+--
+QueryStmt
++-output_column_list=
+| +-$full_join.Key#5 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-KeyValue2.Value2#4 AS Value2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$full_join.Key#5, KeyValue.Value#2, KeyValue2.Value2#4]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue2.Key#3, KeyValue2.Value2#4, $full_join.Key#5]
+        +-expr_list=
+        | +-Key#5 :=
+        |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) INT64) -> INT64)
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |     +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+        +-input_scan=
+          +-JoinScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue2.Key#3, KeyValue2.Value2#4]
+            +-join_type=FULL
+            +-left_scan=
+            | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="k1")
+            +-right_scan=
+            | +-TableScan(column_list=KeyValue2.[Key#3, Value2#4], table=KeyValue2, column_index_list=[0, 1], alias="k2")
+            +-join_expr=
+              +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+                +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                +-ColumnRef(type=INT64, column=KeyValue2.Key#3)
+==
+
+# Test various combinations of join types, mixing comma and JOIN.
+# We can't do RIGHT/FULL JOIN after a comma join. (Tested elsewhere.)
+#
+# The unparsed query for this is so large that re-analysis overflows stack
+# (in debug mode only), so we skip testing the unparser here.
+[no_run_unparser]
+select kv1.key, kv2.key, kv3.key, kv4.key, kv5.key,
+       kv6.value, kv7.value, kv8.value
+from KeyValue kv1
+       join KeyValue kv2 on 1=1
+       cross join KeyValue kv3
+       left join KeyValue kv4 on 2=2
+       right outer join KeyValue kv5 on 3=4
+       full join KeyValue kv6 on 4=4,
+       KeyValue kv7
+       inner join KeyValue kv8 on 5=5,
+       KeyValue kv9
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#3 AS key [INT64]
+| +-KeyValue.Key#5 AS key [INT64]
+| +-KeyValue.Key#7 AS key [INT64]
+| +-KeyValue.Key#9 AS key [INT64]
+| +-KeyValue.Value#12 AS value [STRING]
+| +-KeyValue.Value#14 AS value [STRING]
+| +-KeyValue.Value#16 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7, Key#9, Value#12, Value#14, Value#16]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7, Key#9, Value#12, Value#14, Value#16]
+        +-left_scan=
+        | +-JoinScan
+        |   +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7, Key#9, Value#12, Value#14, Value#16]
+        |   +-left_scan=
+        |   | +-JoinScan
+        |   |   +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7, Key#9, Value#12, Value#14]
+        |   |   +-left_scan=
+        |   |   | +-JoinScan
+        |   |   |   +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7, Key#9, Value#12]
+        |   |   |   +-join_type=FULL
+        |   |   |   +-left_scan=
+        |   |   |   | +-JoinScan
+        |   |   |   |   +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7, Key#9]
+        |   |   |   |   +-join_type=RIGHT
+        |   |   |   |   +-left_scan=
+        |   |   |   |   | +-JoinScan
+        |   |   |   |   |   +-column_list=KeyValue.[Key#1, Key#3, Key#5, Key#7]
+        |   |   |   |   |   +-join_type=LEFT
+        |   |   |   |   |   +-left_scan=
+        |   |   |   |   |   | +-JoinScan
+        |   |   |   |   |   |   +-column_list=KeyValue.[Key#1, Key#3, Key#5]
+        |   |   |   |   |   |   +-left_scan=
+        |   |   |   |   |   |   | +-JoinScan
+        |   |   |   |   |   |   |   +-column_list=KeyValue.[Key#1, Key#3]
+        |   |   |   |   |   |   |   +-left_scan=
+        |   |   |   |   |   |   |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        |   |   |   |   |   |   |   +-right_scan=
+        |   |   |   |   |   |   |   | +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
+        |   |   |   |   |   |   |   +-join_expr=
+        |   |   |   |   |   |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   |   |   |   |       +-Literal(type=INT64, value=1)
+        |   |   |   |   |   |   |       +-Literal(type=INT64, value=1)
+        |   |   |   |   |   |   +-right_scan=
+        |   |   |   |   |   |     +-TableScan(column_list=[KeyValue.Key#5], table=KeyValue, column_index_list=[0], alias="kv3")
+        |   |   |   |   |   +-right_scan=
+        |   |   |   |   |   | +-TableScan(column_list=[KeyValue.Key#7], table=KeyValue, column_index_list=[0], alias="kv4")
+        |   |   |   |   |   +-join_expr=
+        |   |   |   |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   |   |       +-Literal(type=INT64, value=2)
+        |   |   |   |   |       +-Literal(type=INT64, value=2)
+        |   |   |   |   +-right_scan=
+        |   |   |   |   | +-TableScan(column_list=[KeyValue.Key#9], table=KeyValue, column_index_list=[0], alias="kv5")
+        |   |   |   |   +-join_expr=
+        |   |   |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |   |       +-Literal(type=INT64, value=3)
+        |   |   |   |       +-Literal(type=INT64, value=4)
+        |   |   |   +-right_scan=
+        |   |   |   | +-TableScan(column_list=[KeyValue.Value#12], table=KeyValue, column_index_list=[1], alias="kv6")
+        |   |   |   +-join_expr=
+        |   |   |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   |   |       +-Literal(type=INT64, value=4)
+        |   |   |       +-Literal(type=INT64, value=4)
+        |   |   +-right_scan=
+        |   |     +-TableScan(column_list=[KeyValue.Value#14], table=KeyValue, column_index_list=[1], alias="kv7")
+        |   +-right_scan=
+        |   | +-TableScan(column_list=[KeyValue.Value#16], table=KeyValue, column_index_list=[1], alias="kv8")
+        |   +-join_expr=
+        |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |       +-Literal(type=INT64, value=5)
+        |       +-Literal(type=INT64, value=5)
+        +-right_scan=
+          +-TableScan(table=KeyValue, alias="kv9")
+==
+
+select *
+  from (select *,* from KeyValue kv1)
+       join
+       (select *,* from KeyValue kv2) on true;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-KeyValue.Key#3 AS Key [INT64]
+| +-KeyValue.Value#4 AS Value [STRING]
+| +-KeyValue.Key#3 AS Key [INT64]
+| +-KeyValue.Value#4 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2, Key#1, Value#2, Key#3, Value#4, Key#3, Value#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Value#2, Key#1, Value#2, Key#3, Value#4, Key#3, Value#4]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=KeyValue.[Key#1, Value#2, Key#1, Value#2]
+        |   +-input_scan=
+        |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv1")
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=KeyValue.[Key#3, Value#4, Key#3, Value#4]
+        |   +-input_scan=
+        |     +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="kv2")
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+select *
+from KeyValue kv1 join KeyValue kv2 on count(*)=5
+--
+ERROR: Aggregate function COUNT(*) not allowed in JOIN ON clause [at 2:40]
+from KeyValue kv1 join KeyValue kv2 on count(*)=5
+                                       ^
+==
+
+[language_features={{|V_1_1_ARRAY_EQUALITY}}]
+select a.key, a.Int32Array, b.Int32Array
+from ComplexTypes a join ComplexTypes b on a.Int32Array = b.Int32Array;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Equality is not defined for arguments of type ARRAY<INT32> [at 2:44]
+from ComplexTypes a join ComplexTypes b on a.Int32Array = b.Int32Array;
+                                           ^
+--
+ALTERNATION GROUP: V_1_1_ARRAY_EQUALITY
+--
+QueryStmt
++-output_column_list=
+| +-ComplexTypes.key#1 AS key [INT32]
+| +-ComplexTypes.Int32Array#4 AS Int32Array [ARRAY<INT32>]
+| +-ComplexTypes.Int32Array#10 AS Int32Array [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=ComplexTypes.[key#1, Int32Array#4, Int32Array#10]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=ComplexTypes.[key#1, Int32Array#4, Int32Array#10]
+        +-left_scan=
+        | +-TableScan(column_list=ComplexTypes.[key#1, Int32Array#4], table=ComplexTypes, column_index_list=[0, 3], alias="a")
+        +-right_scan=
+        | +-TableScan(column_list=[ComplexTypes.Int32Array#10], table=ComplexTypes, column_index_list=[3], alias="b")
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(ARRAY<INT32>, ARRAY<INT32>) -> BOOL)
+            +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
+            +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#10)

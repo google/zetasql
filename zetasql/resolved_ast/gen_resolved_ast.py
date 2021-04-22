@@ -492,9 +492,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-
-          Next tag_id: 181
-
+          Next tag_id: 185.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2738,7 +2736,13 @@ right.
               to store type parameters of subfields of STRUCT or ARRAY. Users
               can access the full type parameters with child_list by calling
               ResolvedColumnDefinition.getFullTypeParameters() function.""")
-      ])
+      ],
+      extra_defs="""
+        // Get the full TypeParameters object for these annotations given a
+        // type, including parameters on nested fields.
+        zetasql_base::StatusOr<TypeParameters> GetFullTypeParameters(
+            const Type* type) const;
+      """)
 
   gen.AddNode(
       name='ResolvedGeneratedColumnInfo',
@@ -3837,6 +3841,42 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedCreateSnapshotTableStmt',
+      tag_id=182,
+      parent='ResolvedCreateStatement',
+      comment="""
+      This statement:
+        CREATE SNAPSHOT TABLE [IF NOT EXISTS] <name> [OPTIONS (...)]
+        CLONE <name>
+                [FOR SYSTEM_TIME AS OF <time_expr>]
+
+      <clone_from> the source data to clone data from.
+                   ResolvedTableScan will represent the source table, with an
+                   optional for_system_time_expr.
+                   The ResolvedTableScan may be wrapped inside a
+                   ResolvedFilterScan if the source table has a where clause.
+                   No other Scan types are allowed here.
+                   By default, all fields (column names, types, constraints,
+                   partition, clustering, options etc.) will be inherited from
+                   the source table. If table options are explicitly set, the
+                   explicit options will take precedence.
+                   The 'clone_from.column_list' field may be set, but should be
+                   ignored.
+            """,
+      fields=[
+          Field(
+              'clone_from',
+              'ResolvedScan',
+              tag_id=2),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=3,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
       name='ResolvedCreateExternalTableStmt',
       tag_id=42,
       parent='ResolvedCreateTableStmtBase',
@@ -4163,6 +4203,22 @@ right.
       parent='ResolvedStatement',
       comment="""
       This statement: DROP MATERIALIZED VIEW [IF EXISTS] <name_path>;
+
+      <name_path> is a vector giving the identifier path for the object to be
+                  dropped.
+      <is_if_exists> silently ignore the "name_path does not exist" error.
+              """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=3),
+          Field('name_path', SCALAR_STRING, tag_id=4, vector=True)
+      ])
+
+  gen.AddNode(
+      name='ResolvedDropSnapshotTableStmt',
+      tag_id=183,
+      parent='ResolvedStatement',
+      comment="""
+      This statement: DROP SNAPSHOT TABLE [IF EXISTS] <name_path>;
 
       <name_path> is a vector giving the identifier path for the object to be
                   dropped.
@@ -5397,6 +5453,17 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedDropPrimaryKeyAction',
+      tag_id=184,
+      parent='ResolvedAlterAction',
+      comment="""
+      DROP PRIMARY KEY [IF EXISTS] for ALTER TABLE statement
+              """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
+      ])
+
+  gen.AddNode(
       name='ResolvedAlterColumnOptionsAction',
       tag_id=169,
       parent='ResolvedAlterAction',
@@ -5444,6 +5511,45 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedAlterColumnSetDataTypeAction',
+      tag_id=181,
+      parent='ResolvedAlterAction',
+      comment="""
+      ALTER COLUMN SET DATA TYPE action for ALTER TABLE statement.
+              """,
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=2,
+              comment="""
+              Indicates whether the IF EXISTS clause was included in the
+              ALTER COLUMN expression.
+              """),
+          Field(
+              'column',
+              SCALAR_STRING,
+              tag_id=3,
+              comment='The name of the column whose data type is changing.'
+          ),
+          Field(
+              'updated_type',
+              SCALAR_TYPE,
+              tag_id=4,
+              comment='The new type for the column.'),
+          Field(
+              'updated_type_parameters',
+              SCALAR_TYPE_PARAMETERS,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              The new type parameters for the column, if the new type has
+              parameters. Note that unlike with CREATE TABLE, the child_list is
+              populated for ARRAY and STRUCT types.
+              """),
+      ])
+
+  gen.AddNode(
       name='ResolvedDropColumnAction',
       tag_id=132,
       parent='ResolvedAlterAction',
@@ -5463,8 +5569,10 @@ right.
       parent='ResolvedAlterAction',
       comment="""
       SET AS action for generic ALTER <entity_type> statement.
+      Exactly one of <entity_body_json>, <entity_body_text> should be non-empty.
 
       <entity_body_json> is a JSON literal to be interpreted by engine.
+      <entity_body_text> is a text literal to be interpreted by engine.
               """,
       fields=[
           # TODO: convert type into JSON literal type when it is
@@ -5473,6 +5581,11 @@ right.
               'entity_body_json',
               SCALAR_STRING,
               tag_id=2,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'entity_body_text',
+              SCALAR_STRING,
+              tag_id=3,
               ignorable=IGNORABLE_DEFAULT),
       ])
 
@@ -5615,6 +5728,30 @@ right.
               'name', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=4),
           Field(
               'target_name_path', SCALAR_STRING, tag_id=5, vector=True)
+      ])
+
+  gen.AddNode(
+      name='ResolvedDropSearchIndexStmt',
+      tag_id=190,
+      parent='ResolvedStatement',
+      comment="""
+      DROP SEARCH INDEX [IF EXISTS] <name> [ON <table_name_path>];
+
+      <name> is the name of the search index to be dropped.
+      <table_name_path> is a vector giving the identifier path of the target
+                        table.
+              """,
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=2),
+          Field('name', SCALAR_STRING, tag_id=3),
+          Field(
+              'table_name_path',
+              SCALAR_STRING,
+              tag_id=4,
+              vector=True)
       ])
 
   gen.AddNode(
@@ -6610,8 +6747,11 @@ ResolvedArgumentRef(y)
       [OPTIONS <option_list>]
       [AS <entity_body_json>];
 
+      At most one of <entity_body_json>, <entity_body_text> can be non-empty.
+
       <entity_type> engine-specific entity type to be created.
       <entity_body_json> is a JSON literal to be interpreted by engine.
+      <entity_body_text> is a text literal to be interpreted by engine.
       <option_list> has engine-specific directives for how to
                     create this entity.
               """,
@@ -6627,11 +6767,16 @@ ResolvedArgumentRef(y)
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT),
           Field(
+              'entity_body_text',
+              SCALAR_STRING,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
               'option_list',
               'ResolvedOption',
               tag_id=4,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(

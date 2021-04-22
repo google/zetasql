@@ -96,6 +96,10 @@ class Value {
  public:
   // Constructs an invalid value. Needed for using values with STL. All methods
   // other than is_valid() will crash if called on invalid values.
+  #ifndef SWIG
+  // SWIG has trouble with constexpr.
+  constexpr
+  #endif
   Value();
   Value(const Value& that);
   const Value& operator=(const Value& that);
@@ -581,6 +585,14 @@ class Value {
   // Constructs a typed NULL of the given 'type'.
   explicit Value(const Type* type)
       : Value(type, /*is_null=*/true, kPreservesOrder) {}
+#ifndef SWIG
+  // SWIG has trouble with constexpr.
+  constexpr
+#endif
+  explicit Value(TypeKind kind)
+      : metadata_(kind, /*is_null=*/true, kPreservesOrder,
+                  /*value_extended_content=*/0) {
+  }
 
   // Constructors for non-null atomic values.
   explicit Value(int32_t value);
@@ -750,14 +762,10 @@ class Value {
   //     nanoseconds for TYPE_TIMESTAMP, TYPE_TIME, TYPE_DATETIME types and
   //     value for ENUM type (pointer to enum is stored in 64-bit part).
   //
-  // As can be seen, Metadata can store either TypeKind or pointer to a Type
+  // As can be seen, Metadata can store either TypeKind or a pointer to a Type
   // directly. In the first case, it also can store 32-bit Value's part called
-  // value_extended_content. We expect that in the future we will store TypeKind
-  // in metadata only for simple built-in types and will store a pointer for all
-  // parameterized types (like proto, struct, etc.). Currently though, we are
-  // using pointer only for engine-defined types, because there are still some
-  // customer scenarios where a Value is used after referenced Type gets
-  // released.
+  // value_extended_content. Currently we store TypeKind for all simple built-in
+  // types and store a pointer for all other types.
   class Metadata {
    public:
     // Returns true if instance is valid: was initialized and references a valid
@@ -793,30 +801,33 @@ class Value {
 
     Metadata(const Type* type, bool is_null, bool preserves_order);
 
-    Metadata(TypeKind kind, bool is_null, bool preserves_order,
-             int32_t value_extended_content);
+    constexpr Metadata(TypeKind kind, bool is_null, bool preserves_order,
+                       int32_t value_extended_content);
 
     // Metadata for non-null Value with preserves_order = kPreservesOrder and
     // value_extended_content = 0.
+#ifndef SWIG
+    // SWIG has trouble with constexpr.
+    constexpr
+#endif
     explicit Metadata(TypeKind kind)
         : Metadata(kind, /*is_null=*/false, kPreservesOrder,
-                   /*value_extended_content=*/0) {}
+                   /*value_extended_content=*/0) {
+    }
 
     // Metadata for non-null Value with preserves_order = kPreservesOrder.
-    Metadata(TypeKind kind, int32_t value_extended_content)
+    constexpr Metadata(TypeKind kind, int32_t value_extended_content)
         : Metadata(kind, /*is_null=*/false, kPreservesOrder,
                    value_extended_content) {}
 
     Metadata(const Metadata& that) = default;
     Metadata& operator=(const Metadata& that) = default;
 
-    static Metadata Invalid() {
+    static constexpr Metadata Invalid() {
       return Metadata(static_cast<TypeKind>(kInvalidTypeKind));
     }
 
    private:
-    void SetFlags(bool is_null, bool preserves_order);
-
     // We use different field layouts depending on system bitness.
     template <const int byteness>
     struct ContentLayout;

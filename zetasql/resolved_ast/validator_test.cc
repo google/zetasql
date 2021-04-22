@@ -20,53 +20,15 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace zetasql {
+namespace testing {
 
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
-
-// Returns a hand-constructed resolved tree representing "SELECT 1 AS x".
-std::unique_ptr<ResolvedQueryStmt> MakeSelect1Stmt(IdStringPool& pool) {
-  std::vector<ResolvedColumn> empty_column_list;
-  std::unique_ptr<ResolvedSingleRowScan> input_scan =
-      MakeResolvedSingleRowScan(empty_column_list);
-
-  ResolvedColumn column_x =
-      ResolvedColumn(1, pool.Make("tbl"), pool.Make("x"), types::Int64Type());
-
-  std::vector<ResolvedColumn> column_list;
-  column_list.push_back(column_x);
-
-  std::unique_ptr<ResolvedProjectScan> project_scan = MakeResolvedProjectScan(
-      column_list,
-      MakeNodeVector(MakeResolvedComputedColumn(
-          column_list.back(), MakeResolvedLiteral(Value::Int64(1)))),
-      std::move(input_scan));
-
-  std::vector<std::unique_ptr<ResolvedOutputColumn>> output_column_list =
-      MakeNodeVector(MakeResolvedOutputColumn("x", column_x));
-
-  std::unique_ptr<ResolvedQueryStmt> query_stmt =
-      MakeResolvedQueryStmt(std::move(output_column_list),
-                            /*is_value_table=*/false, std::move(project_scan));
-  EXPECT_EQ(R"(
-QueryStmt
-+-output_column_list=
-| +-tbl.x#1 AS x [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[tbl.x#1]
-    +-expr_list=
-    | +-x#1 := Literal(type=INT64, value=1)
-    +-input_scan=
-      +-SingleRowScan
-)",
-            absl::StrCat("\n", query_stmt->DebugString()));
-  return query_stmt;
-}
 
 // Similar to MakeSelect1Stmt(), except the output column list in the returned
 // tree has a different column id from that produced by the ProjectScan.
@@ -266,4 +228,5 @@ TEST(ValidatorTest, InvalidStatementDueToDuplicateColumnIds) {
               StatusIs(absl::StatusCode::kInternal));
 }
 
+}  // namespace testing
 }  // namespace zetasql

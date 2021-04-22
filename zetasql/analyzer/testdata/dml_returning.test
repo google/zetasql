@@ -1,0 +1,1235 @@
+# DELETE
+
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
+--
+
+ERROR: THEN RETURN is not supported [at 1:50]
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
+                                                 ^
+
+==
+
+# "WITH ACTION" by default will use "action" as the output column name.
+# The resolver will fail on this because alias "action" is duplicated in
+# top-level output column list.
+
+DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION key as action, TestEnum
+--
+ERROR: THEN RETURN is not supported [at 1:34]
+DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION key as action, TestEnum
+                                 ^
+==
+
+# The resolver will fail on this because alias "myaction" is duplicated in
+# top-level output column list.
+
+DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION AS myaction key as myaction, TestEnum
+--
+ERROR: THEN RETURN is not supported [at 1:34]
+DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION AS myaction key as m...
+                                 ^
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-TestTable.key#1 AS key [INT32]
+|     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN WITH ACTION *
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-$with_action.ACTION#4 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#4)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN WITH ACTION AS myaction *
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-$with_action.myaction#4 AS myaction [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.myaction#4)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN key
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-TestTable.key#1 AS key [INT32]
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN WITH ACTION key+1 As newkey
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.newkey#4 AS newkey [INT64]
+|   | +-$with_action.ACTION#5 AS ACTION [STRING]
+|   +-action_column=
+|   | +-ColumnHolder(column=$with_action.ACTION#5)
+|   +-expr_list=
+|     +-newkey#4 :=
+|       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|         +-Cast(INT32 -> INT64)
+|         | +-ColumnRef(type=INT32, column=TestTable.key#1)
+|         +-Literal(type=INT64, value=1)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1
+THEN RETURN WITH ACTION key+1 As newkey, TestEnum
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.newkey#4 AS newkey [INT64]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-$with_action.ACTION#5 AS ACTION [STRING]
+|   +-action_column=
+|   | +-ColumnHolder(column=$with_action.ACTION#5)
+|   +-expr_list=
+|     +-newkey#4 :=
+|       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|         +-Cast(INT32 -> INT64)
+|         | +-ColumnRef(type=INT32, column=TestTable.key#1)
+|         +-Literal(type=INT64, value=1)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1
+THEN RETURN WITH ACTION AS action key+1 As newkey, TestEnum, abs(key) as abs_key
+--
+
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.newkey#4 AS newkey [INT64]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.abs_key#5 AS abs_key [INT32]
+|   | +-$with_action.action#6 AS action [STRING]
+|   +-action_column=
+|   | +-ColumnHolder(column=$with_action.action#6)
+|   +-expr_list=
+|     +-newkey#4 :=
+|     | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|     |   +-Cast(INT32 -> INT64)
+|     |   | +-ColumnRef(type=INT32, column=TestTable.key#1)
+|     |   +-Literal(type=INT64, value=1)
+|     +-abs_key#5 :=
+|       +-FunctionCall(ZetaSQL:abs(INT32) -> INT32)
+|         +-ColumnRef(type=INT32, column=TestTable.key#1)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+==
+
+[language_features=V_1_3_DML_RETURNING]
+DELETE TestTable WHERE KitchenSink.int32_val = 1
+THEN RETURN WITH ACTION abs(key) abs_key, *
+--
+
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.abs_key#4 AS abs_key [INT32]
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-$with_action.ACTION#5 AS ACTION [STRING]
+|   +-action_column=
+|   | +-ColumnHolder(column=$with_action.ACTION#5)
+|   +-expr_list=
+|     +-abs_key#4 :=
+|       +-FunctionCall(ZetaSQL:abs(INT32) -> INT32)
+|         +-ColumnRef(type=INT32, column=TestTable.key#1)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=1)
+
+==
+
+# UPDATE
+
+UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
+--
+
+ERROR: THEN RETURN is not supported [at 1:53]
+UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
+                                                    ^
+==
+
+# The resolver will fail on this because alias "myaction" is duplicated in
+# top-level output column list.
+
+UPDATE KeyValue SET key=1 WHERE TRUE THEN RETURN WITH ACTION AS myaction key as myaction
+--
+ERROR: THEN RETURN is not supported [at 1:38]
+UPDATE KeyValue SET key=1 WHERE TRUE THEN RETURN WITH ACTION AS myaction key ...
+                                     ^
+==
+
+# UPDATE
+[language_features=V_1_3_DML_RETURNING]
+UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-column_access_list=READ_WRITE,READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-where_expr=
+| +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   +-Literal(type=INT64, value=10)
++-update_item_list=
+  +-UpdateItem
+  | +-target=
+  | | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+  | +-set_value=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=INT64, value=1)
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="a")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN WITH ACTION *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-column_access_list=READ,READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#3 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#3)
++-where_expr=
+| +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   +-Literal(type=INT64, value=10)
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="a")
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN WITH ACTION AS myaction *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-column_access_list=READ,READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.myaction#3 AS myaction [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.myaction#3)
++-where_expr=
+| +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   +-Literal(type=INT64, value=10)
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="a")
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN key, value
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-column_access_list=READ,READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS key [INT64]
+|     +-KeyValue.Value#2 AS value [STRING]
++-where_expr=
+| +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   +-Literal(type=INT64, value=10)
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="a")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE KeyValue SET value="a" WHERE key > 10
+THEN RETURN WITH ACTION abs(key) abs_key, *
+--
+
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-column_access_list=READ,READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.abs_key#3 AS abs_key [INT64]
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#4 AS ACTION [STRING]
+|   +-action_column=
+|   | +-ColumnHolder(column=$with_action.ACTION#4)
+|   +-expr_list=
+|     +-abs_key#3 :=
+|       +-FunctionCall(ZetaSQL:abs(INT64) -> INT64)
+|         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
++-where_expr=
+| +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+|   +-Literal(type=INT64, value=10)
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="a")
+==
+
+# INSERT
+
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
+--
+ERROR: THEN RETURN is not supported [at 1:53]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
+                                                    ^
+
+==
+
+# The resolver will fail on this because alias "myaction" is duplicated in
+# top-level output column list.
+
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION AS myaction key as myaction;
+
+--
+ERROR: THEN RETURN is not supported [at 1:53]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION A...
+                                                    ^
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN *
+--
+
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
+--
+
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#3 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT INTO KeyValue (key, value) VALUES (1, "one")
+THEN RETURN WITH ACTION AS myaction *
+--
+
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.myaction#3 AS myaction [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.myaction#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN key
+--
+
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS key [INT64]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT {{| IGNORE| REPLACE| UPDATE}} INTO KeyValue (key, value)
+VALUES (1, "one"), (2, "two") THEN RETURN *
+--
+
+ALTERNATION GROUP: <empty>
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+--
+ALTERNATION GROUP:  IGNORE
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_mode=OR IGNORE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+--
+ALTERNATION GROUP:  REPLACE
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_mode=OR REPLACE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+--
+ALTERNATION GROUP:  UPDATE
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_mode=OR UPDATE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT {{| IGNORE| REPLACE| UPDATE}} INTO KeyValue (key, value)
+VALUES (1, "one"), (2, "two") THEN RETURN WITH ACTION *
+--
+ALTERNATION GROUP: <empty>
+
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#3 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+--
+ALTERNATION GROUP:  IGNORE
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_mode=OR IGNORE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#3 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+--
+ALTERNATION GROUP:  REPLACE
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_mode=OR REPLACE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#3 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+--
+ALTERNATION GROUP:  UPDATE
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_mode=OR UPDATE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.Key#1 AS Key [INT64]
+|   | +-KeyValue.Value#2 AS Value [STRING]
+|   | +-$with_action.ACTION#3 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#3)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |   | +-value=
+  |   |   +-Literal(type=INT64, value=1)
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=STRING, value="one")
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=2)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="two")
+==
+
+[language_features=V_1_3_DML_RETURNING]
+INSERT INTO KeyValue (key, value) VALUES (1, "one")
+THEN RETURN WITH ACTION abs(key) as newkey
+--
+
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.newkey#3 AS newkey [INT64]
+|   | +-$with_action.ACTION#4 AS ACTION [STRING]
+|   +-action_column=
+|   | +-ColumnHolder(column=$with_action.ACTION#4)
+|   +-expr_list=
+|     +-newkey#3 :=
+|       +-FunctionCall(ZetaSQL:abs(INT64) -> INT64)
+|         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")
+==
+
+# Nest DMLs
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE TestTable SET
+  KitchenSink.int32_val = 1,
+  (DELETE KitchenSink.repeated_int64_val
+   WHERE repeated_int64_val = 1
+   ASSERT_ROWS_MODIFIED 1 THEN RETURN *)
+WHERE true
+ASSERT_ROWS_MODIFIED 1
+--
+ERROR: THEN RETURN is not allowed in nested DELETE statements [at 5:27]
+   ASSERT_ROWS_MODIFIED 1 THEN RETURN *)
+                          ^
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE TestTable SET
+  KitchenSink.int32_val = 1,
+  (DELETE KitchenSink.repeated_int64_val
+   WHERE repeated_int64_val = 1
+   ASSERT_ROWS_MODIFIED 1)
+WHERE true
+ASSERT_ROWS_MODIFIED 1
+THEN RETURN WITH ACTION key, TestEnum
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-column_access_list=READ,READ,READ_WRITE
++-assert_rows_modified=
+| +-AssertRowsModified
+|   +-rows=
+|     +-Literal(type=INT64, value=1)
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-$with_action.ACTION#4 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#4)
++-where_expr=
+| +-Literal(type=BOOL, value=true)
++-update_item_list=
+  +-UpdateItem
+  | +-target=
+  | | +-GetProtoField
+  | |   +-type=INT32
+  | |   +-expr=
+  | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+  | |   +-field_descriptor=int32_val
+  | |   +-default_value=77
+  | +-set_value=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=INT32, value=1)
+  +-UpdateItem
+    +-target=
+    | +-GetProtoField
+    |   +-type=ARRAY<INT64>
+    |   +-expr=
+    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   +-field_descriptor=repeated_int64_val
+    |   +-default_value=[]
+    +-element_column=
+    | +-ColumnHolder(column=$array.repeated_int64_val#5)
+    +-delete_list=
+      +-DeleteStmt
+        +-assert_rows_modified=
+        | +-AssertRowsModified
+        |   +-rows=
+        |     +-Literal(type=INT64, value=1)
+        +-where_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$array.repeated_int64_val#5)
+            +-Literal(type=INT64, value=1)
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE TestTable SET
+  (UPDATE KitchenSink.repeated_int64_val SET
+     repeated_int64_val = NULL
+   WHERE repeated_int64_val < 2),
+  (UPDATE KitchenSink.repeated_int64_val SET
+     repeated_int64_val = NULL
+   WHERE repeated_int64_val >= 2 THEN RETURN *)
+WHERE true
+--
+ERROR: THEN RETURN is not allowed in nested UPDATE statements [at 7:34]
+   WHERE repeated_int64_val >= 2 THEN RETURN *)
+                                 ^
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE TestTable SET
+  (UPDATE KitchenSink.repeated_int64_val SET
+     repeated_int64_val = NULL
+   WHERE repeated_int64_val < 2),
+  (UPDATE KitchenSink.repeated_int64_val SET
+     repeated_int64_val = NULL
+   WHERE repeated_int64_val >= 2)
+WHERE true THEN RETURN *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-column_access_list=READ,READ,READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-TestTable.key#1 AS key [INT32]
+|     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
++-where_expr=
+| +-Literal(type=BOOL, value=true)
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-GetProtoField
+    |   +-type=ARRAY<INT64>
+    |   +-expr=
+    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   +-field_descriptor=repeated_int64_val
+    |   +-default_value=[]
+    +-element_column=
+    | +-ColumnHolder(column=$array.repeated_int64_val#4)
+    +-update_list=
+      +-UpdateStmt
+      | +-where_expr=
+      | | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+      | |   +-ColumnRef(type=INT64, column=$array.repeated_int64_val#4)
+      | |   +-Literal(type=INT64, value=2)
+      | +-update_item_list=
+      |   +-UpdateItem
+      |     +-target=
+      |     | +-ColumnRef(type=INT64, column=$array.repeated_int64_val#4)
+      |     +-set_value=
+      |       +-DMLValue
+      |         +-value=
+      |           +-Literal(type=INT64, value=NULL)
+      +-UpdateStmt
+        +-where_expr=
+        | +-FunctionCall(ZetaSQL:$greater_or_equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$array.repeated_int64_val#4)
+        |   +-Literal(type=INT64, value=2)
+        +-update_item_list=
+          +-UpdateItem
+            +-target=
+            | +-ColumnRef(type=INT64, column=$array.repeated_int64_val#4)
+            +-set_value=
+              +-DMLValue
+                +-value=
+                  +-Literal(type=INT64, value=NULL)
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE TestTable SET
+  KitchenSink.int32_val = 1,
+  (INSERT KitchenSink.repeated_int64_val
+   VALUES (1), (1 + 2), ((select 1))
+   ASSERT_ROWS_MODIFIED 1 THEN RETURN *)
+WHERE true
+ASSERT_ROWS_MODIFIED 1
+--
+ERROR: THEN RETURN is not allowed in nested INSERT statements [at 5:27]
+   ASSERT_ROWS_MODIFIED 1 THEN RETURN *)
+                          ^
+==
+
+[language_features=V_1_3_DML_RETURNING]
+UPDATE TestTable SET
+  KitchenSink.int32_val = 1,
+  (INSERT KitchenSink.repeated_int64_val
+   VALUES (1), (1 + 2), ((select 1))
+   ASSERT_ROWS_MODIFIED 1)
+WHERE true
+ASSERT_ROWS_MODIFIED 1
+THEN RETURN WITH ACTION *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
++-column_access_list=READ,READ,READ_WRITE
++-assert_rows_modified=
+| +-AssertRowsModified
+|   +-rows=
+|     +-Literal(type=INT64, value=1)
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-$with_action.ACTION#4 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#4)
++-where_expr=
+| +-Literal(type=BOOL, value=true)
++-update_item_list=
+  +-UpdateItem
+  | +-target=
+  | | +-GetProtoField
+  | |   +-type=INT32
+  | |   +-expr=
+  | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+  | |   +-field_descriptor=int32_val
+  | |   +-default_value=77
+  | +-set_value=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Literal(type=INT32, value=1)
+  +-UpdateItem
+    +-target=
+    | +-GetProtoField
+    |   +-type=ARRAY<INT64>
+    |   +-expr=
+    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   +-field_descriptor=repeated_int64_val
+    |   +-default_value=[]
+    +-element_column=
+    | +-ColumnHolder(column=$array.repeated_int64_val#5)
+    +-insert_list=
+      +-InsertStmt
+        +-assert_rows_modified=
+        | +-AssertRowsModified
+        |   +-rows=
+        |     +-Literal(type=INT64, value=1)
+        +-row_list=
+          +-InsertRow
+          | +-value_list=
+          |   +-DMLValue
+          |     +-value=
+          |       +-Literal(type=INT64, value=1)
+          +-InsertRow
+          | +-value_list=
+          |   +-DMLValue
+          |     +-value=
+          |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+          |         +-Literal(type=INT64, value=1)
+          |         +-Literal(type=INT64, value=2)
+          +-InsertRow
+            +-value_list=
+              +-DMLValue
+                +-value=
+                  +-SubqueryExpr
+                    +-type=INT64
+                    +-subquery_type=SCALAR
+                    +-subquery=
+                      +-ProjectScan
+                        +-column_list=[$expr_subquery.$col1#6]
+                        +-expr_list=
+                        | +-$col1#6 := Literal(type=INT64, value=1)
+                        +-input_scan=
+                          +-SingleRowScan
+
+==
+
+[language_features=DML_UPDATE_WITH_JOIN,V_1_3_DML_RETURNING]
+UPDATE SimpleTypes SET
+  int64 = 1
+FROM KeyValue
+WHERE int64 = Key
+THEN RETURN WITH ACTION *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
++-column_access_list=READ,READ_WRITE,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-SimpleTypes.int32#1 AS int32 [INT32]
+|   | +-SimpleTypes.int64#2 AS int64 [INT64]
+|   | +-SimpleTypes.uint32#3 AS uint32 [UINT32]
+|   | +-SimpleTypes.uint64#4 AS uint64 [UINT64]
+|   | +-SimpleTypes.string#5 AS string [STRING]
+|   | +-SimpleTypes.bytes#6 AS bytes [BYTES]
+|   | +-SimpleTypes.bool#7 AS bool [BOOL]
+|   | +-SimpleTypes.float#8 AS float [FLOAT]
+|   | +-SimpleTypes.double#9 AS double [DOUBLE]
+|   | +-SimpleTypes.date#10 AS date [DATE]
+|   | +-SimpleTypes.timestamp_seconds#11 AS timestamp_seconds [TIMESTAMP]
+|   | +-SimpleTypes.timestamp_millis#12 AS timestamp_millis [TIMESTAMP]
+|   | +-SimpleTypes.timestamp_micros#13 AS timestamp_micros [TIMESTAMP]
+|   | +-SimpleTypes.timestamp_nanos#14 AS timestamp_nanos [TIMESTAMP]
+|   | +-SimpleTypes.timestamp#15 AS timestamp [TIMESTAMP]
+|   | +-SimpleTypes.numeric#16 AS numeric [NUMERIC]
+|   | +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
+|   | +-SimpleTypes.json#18 AS json [JSON]
+|   | +-$with_action.ACTION#21 AS ACTION [STRING]
+|   +-action_column=
+|     +-ColumnHolder(column=$with_action.ACTION#21)
++-where_expr=
+| +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#19)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=[KeyValue.Key#19], table=KeyValue, column_index_list=[0])
+
+==
+
+[language_features=DML_UPDATE_WITH_JOIN,V_1_3_DML_RETURNING]
+UPDATE SimpleTypes SET
+  int64 = 1
+FROM KeyValue
+WHERE int64 = Key
+THEN RETURN Key
+--
+ERROR: Unrecognized name: Key [at 5:13]
+THEN RETURN Key
+            ^
+==
+
+[language_features=V_1_3_DML_RETURNING,V_1_3_PIVOT]
+DELETE KeyValue WHERE Value = 'Value_1'
+  THEN RETURN (SELECT k2 FROM (SELECT Key k1, Key k2 FROM KeyValue)
+               PIVOT (SUM(k1) FOR k1 IN (0,1)));
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-KeyValue.$col1#11 AS `$col1` [INT64]
+|   +-expr_list=
+|     +-$col1#11 :=
+|       +-SubqueryExpr
+|         +-type=INT64
+|         +-subquery_type=SCALAR
+|         +-subquery=
+|           +-ProjectScan
+|             +-column_list=[$groupby.k2#8]
+|             +-input_scan=
+|               +-PivotScan
+|                 +-column_list=[$groupby.k2#8]
+|                 +-input_scan=
+|                 | +-ProjectScan
+|                 |   +-column_list=$subquery1.[k1#5, k2#6]
+|                 |   +-expr_list=
+|                 |   | +-k1#5 := ColumnRef(type=INT64, column=KeyValue.Key#3)
+|                 |   | +-k2#6 := ColumnRef(type=INT64, column=KeyValue.Key#3)
+|                 |   +-input_scan=
+|                 |     +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0])
+|                 +-group_by_list=
+|                 | +-k2#8 := ColumnRef(type=INT64, column=$subquery1.k2#6)
+|                 +-pivot_expr_list=
+|                 | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+|                 |   +-parse_location=130-137
+|                 |   +-ColumnRef(type=INT64, column=$subquery1.k1#5)
+|                 +-for_expr=
+|                 | +-ColumnRef(type=INT64, column=$subquery1.k1#5)
+|                 +-pivot_value_list=
+|                   +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
+|                   +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-Literal(type=STRING, value="Value_1")

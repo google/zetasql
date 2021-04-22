@@ -367,3 +367,90 @@ AlterTableStatement [0-45]
             Identifier(STRING) [39-45]
 --
 ALTER TABLE `foo-bar-123` ADD COLUMN baz STRING
+==
+
+# ALTER TABLE add column with COLLATE
+ALTER TABLE foo ADD COLUMN column STRING COLLATE 'unicode:ci';
+--
+AlterTableStatement [0-61]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-61]
+    AddColumnAction [16-61]
+      ColumnDefinition [27-61]
+        Identifier(column) [27-33]
+        SimpleColumnSchema [34-61]
+          PathExpression [34-40]
+            Identifier(STRING) [34-40]
+          Collate [41-61]
+            StringLiteral('unicode:ci') [49-61]
+--
+ALTER TABLE foo ADD COLUMN column STRING COLLATE 'unicode:ci'
+==
+
+# ALTER TABLE add column with COLLATE with query parameters
+ALTER TABLE foo ADD COLUMN column STRING COLLATE {{@|@@}}a;
+--
+ALTERNATION GROUP: @
+--
+AlterTableStatement [0-51]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-51]
+    AddColumnAction [16-51]
+      ColumnDefinition [27-51]
+        Identifier(column) [27-33]
+        SimpleColumnSchema [34-51]
+          PathExpression [34-40]
+            Identifier(STRING) [34-40]
+          Collate [41-51]
+            ParameterExpr [49-51]
+              Identifier(a) [50-51]
+--
+ALTER TABLE foo ADD COLUMN column STRING COLLATE @a
+--
+ALTERNATION GROUP: @@
+--
+AlterTableStatement [0-52]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-52]
+    AddColumnAction [16-52]
+      ColumnDefinition [27-52]
+        Identifier(column) [27-33]
+        SimpleColumnSchema [34-52]
+          PathExpression [34-40]
+            Identifier(STRING) [34-40]
+          Collate [41-52]
+            SystemVariableExpr [49-52]
+              PathExpression [51-52]
+                Identifier(a) [51-52]
+--
+ALTER TABLE foo ADD COLUMN column STRING COLLATE @@a
+==
+
+# ALTER TABLE add column with COLLATE with unnamed parameter
+ALTER TABLE foo ADD COLUMN column STRING COLLATE ?;
+--
+AlterTableStatement [0-50]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-50]
+    AddColumnAction [16-50]
+      ColumnDefinition [27-50]
+        Identifier(column) [27-33]
+        SimpleColumnSchema [34-50]
+          PathExpression [34-40]
+            Identifier(STRING) [34-40]
+          Collate [41-50]
+            ParameterExpr(1) [49-50]
+--
+ALTER TABLE foo ADD COLUMN column STRING COLLATE ?
+==
+
+# ALTER TABLE add column with COLLATE with expressions
+ALTER TABLE foo ADD COLUMN column STRING COLLATE CONCAT('unicode', ':', 'ci');
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "CONCAT" [at 1:50]
+ALTER TABLE foo ADD COLUMN column STRING COLLATE CONCAT('unicode', ':', 'ci');
+                                                 ^

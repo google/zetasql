@@ -305,7 +305,7 @@ use a [timestamp][timestamp-type].
 ##### Canonical format
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
 ```
 
 <ul>
@@ -316,9 +316,10 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]]
     <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
     <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
     <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
 </ul>
 
 ## Enum type
@@ -953,16 +954,17 @@ an absolute point in time, use a [timestamp][timestamp-type].
 ##### Canonical format
 
 ```
-[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]
+[H]H:[M]M:[S]S[.DDDDDD|.F]
 ```
 
 <ul>
     <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
     <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
     <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
 </ul>
 
 ## Timestamp type
@@ -1009,7 +1011,7 @@ The range of subsecond precision is determined by the SQL engine.
 ##### Canonical format
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time zone]
 ```
 
 <ul>
@@ -1020,9 +1022,10 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.DDDDDD|.DDDDDDDDD]][time zone]
     <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
     <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
     <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    
-        <li><code>[.DDDDDDDDD|.DDDDDD]</code>: Up to six or nine fractional digits (microsecond or nanosecond precision)</li>
-    
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
     <li><code>[time zone]</code>: String representing the time zone.
                                   When a time zone is not explicitly specified, the
                                   default time zone, which is implementation defined, is used.
@@ -1126,6 +1129,7 @@ when there is a leap second.
 [date-type]: #date_type
 [datetime-type]: #datetime_type
 [time-type]: #time_type
+[interval-type]: #interval_type
 [protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 [lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals.md
 

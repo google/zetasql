@@ -58,16 +58,32 @@ void ResolvedNode::SetParseLocationRange(
 
 void ResolvedNode::ClearParseLocationRange() { parse_location_range_.reset(); }
 
-std::string ResolvedNode::DebugString() const {
+std::string ResolvedNode::DebugString(
+    absl::Span<const NodeAnnotation> annotations) const {
   std::string output;
-  DebugStringImpl(this, "" /* prefix1 */, "" /* prefix2 */, &output);
+  DebugStringImpl(this, annotations, /*prefix=1*/ "", /*prefix2=*/"", &output);
   return output;
 }
 
+void ResolvedNode::AppendAnnotations(
+    const ResolvedNode* node, absl::Span<const NodeAnnotation> annotations,
+    std::string* output) {
+  if (node == nullptr) {
+    return;
+  }
+  for (const NodeAnnotation& annotation : annotations) {
+    if (annotation.node == node) {
+      absl::StrAppend(output, " ", annotation.annotation);
+      return;
+    }
+  }
+}
+
 void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
-                            const std::string& prefix1,
-                            const std::string& prefix2,
-                            std::string* output) {
+                                   absl::Span<const NodeAnnotation> annotations,
+                                   const std::string& prefix1,
+                                   const std::string& prefix2,
+                                   std::string* output) {
   std::vector<DebugStringField> fields;
 
   // Trees containing nullptr AST nodes are not valid; however we still want
@@ -91,9 +107,12 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
   } else {
     absl::StrAppend(output, prefix2, "<nullptr AST node>");
   }
+
   if (fields.empty()) {
+    AppendAnnotations(node, annotations, output);
     *output += "\n";
   } else if (multiline) {
+    AppendAnnotations(node, annotations, output);
     *output += "\n";
     for (const DebugStringField& field : fields) {
       const bool print_field_name = !field.name.empty();
@@ -116,7 +135,8 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
           const std::string field_value_indent =
               (node != field.nodes.back() ? "| " : "  ");
 
-          DebugStringImpl(node,
+          DebugStringImpl(
+              node, annotations,
               absl::StrCat(prefix1, field_name_indent, field_value_indent),
               absl::StrCat(prefix1, field_name_indent, "+-"), output);
         }
@@ -132,7 +152,9 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
         absl::StrAppend(output, field.name, "=", field.value);
       }
     }
-    *output += ")\n";
+    *output += ")";
+    AppendAnnotations(node, annotations, output);
+    *output += "\n";
   }
 }
 
@@ -141,8 +163,8 @@ void ResolvedNode::CollectDebugStringFields(
   // Print parse_location if available.
   const auto location = GetParseLocationRangeOrNULL();
   if (location != nullptr) {
-    fields->push_back(DebugStringField("parse_location",
-                                       location->GetString()));
+    fields->push_back(
+        DebugStringField("parse_location", location->GetString()));
   }
 }
 
@@ -165,8 +187,7 @@ absl::Status ResolvedNode::CheckFieldsAccessed() const {
   return absl::OkStatus();
 }
 
-void ResolvedNode::ClearFieldsAccessed() const {
-}
+void ResolvedNode::ClearFieldsAccessed() const {}
 
 void ResolvedNode::MarkFieldsAccessed() const {}
 
@@ -294,8 +315,8 @@ void ResolvedComputedColumn::CollectDebugStringFields(
 }
 
 std::string ResolvedComputedColumn::GetNameForDebugString() const {
-  return GetNameForDebugStringWithNameFormat(
-      column_.ShortDebugString(), expr_.get());
+  return GetNameForDebugStringWithNameFormat(column_.ShortDebugString(),
+                                             expr_.get());
 }
 
 // ResolvedOutputColumn gets formatted as
@@ -605,42 +626,36 @@ std::string ResolvedImportStmt::GetImportKindString() const {
   return ImportKindToString(import_kind_);
 }
 
-static zetasql_base::StatusOr<TypeParameters> GetFullTypeParametersInternal(
-    const ResolvedColumnAnnotations* annotations, const Type* type) {
+zetasql_base::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(
+    const Type* type) const {
   // We need Type* to figure out the size of TypeParameters.child_list since
   // TypeParameters.child_list.size() is not equals to
   // ResolvedColumnAnnotations.child_list.size().
   // ResolvedColumnAnnotations.child_list will shrink the list size while
   // TypeParameters.child_list won't, see their contracts for details.
 
-  // Null annotations means empty TypeParameters.
-  if (annotations == nullptr) {
-    return TypeParameters();
-  }
-
   // Annotations with child_list describes complex type parameters, (e.g.
   // STRUCT<STRING(10)>). We reconstruct full type parameters recursively.
-  if (annotations->child_list_size() > 0) {
+  if (child_list_size() > 0) {
     std::vector<TypeParameters> child_parameters;
     if (type->IsArray()) {
-      ZETASQL_RET_CHECK_EQ(annotations->child_list_size(), 1);
-      ZETASQL_ASSIGN_OR_RETURN(
-          TypeParameters child_parameter,
-          GetFullTypeParametersInternal(annotations->child_list(0),
-                                        type->AsArray()->element_type()));
+      ZETASQL_RET_CHECK_EQ(child_list_size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(TypeParameters child_parameter,
+                       child_list(0)->GetFullTypeParameters(
+                           type->AsArray()->element_type()));
       child_parameters.push_back(child_parameter);
     } else if (type->IsStruct()) {
       const StructType* struct_type = type->AsStruct();
-      ZETASQL_RET_CHECK_LE(annotations->child_list_size(), struct_type->num_fields());
+      ZETASQL_RET_CHECK_LE(child_list_size(), struct_type->num_fields());
       // TypeParameters.child_list.size() is the same as number of subfields
-      // in the STRUCT, which may be longer than annotations.child_list.size().
+      // in the STRUCT, which may be longer than child_list.size().
       child_parameters.resize(struct_type->num_fields());
-      for (int field_index = 0; field_index < annotations->child_list_size();
+      for (int field_index = 0; field_index < child_list_size();
            ++field_index) {
-        ZETASQL_ASSIGN_OR_RETURN(child_parameters[field_index],
-                         GetFullTypeParametersInternal(
-                             annotations->child_list(field_index),
-                             struct_type->field(field_index).type));
+        ZETASQL_ASSIGN_OR_RETURN(
+            child_parameters[field_index],
+            child_list(field_index)
+                ->GetFullTypeParameters(struct_type->field(field_index).type));
       }
     } else {
       ZETASQL_RET_CHECK_FAIL() << "ResolvedColumnAnnotations has children, but type is "
@@ -657,7 +672,7 @@ static zetasql_base::StatusOr<TypeParameters> GetFullTypeParametersInternal(
 
     // If children has type parameters, make sure type parameters in root
     // annotation is empty.
-    ZETASQL_RET_CHECK(annotations->type_parameters().IsEmpty())
+    ZETASQL_RET_CHECK(type_parameters().IsEmpty())
         << "ResolvedColumnAnnotations can't have both child type parameters "
            "and root type parameters";
     return TypeParameters::MakeTypeParametersWithChildList(child_parameters);
@@ -665,8 +680,8 @@ static zetasql_base::StatusOr<TypeParameters> GetFullTypeParametersInternal(
 
   // Non-empty type_parameters means annotations with simple type
   // parameters. We directly return type_parameters here.
-  if (!annotations->type_parameters().IsEmpty()) {
-    return annotations->type_parameters();
+  if (!type_parameters().IsEmpty()) {
+    return type_parameters();
   }
 
   return TypeParameters();
@@ -677,7 +692,10 @@ static zetasql_base::StatusOr<TypeParameters> GetFullTypeParametersInternal(
 // TypeParameters.child_list instead of ResolvedColumnAnnotations.child_list.
 zetasql_base::StatusOr<TypeParameters> ResolvedColumnDefinition::GetFullTypeParameters()
     const {
-  return GetFullTypeParametersInternal(annotations(), type());
+  if (annotations() == nullptr) {
+    return TypeParameters();
+  }
+  return annotations()->GetFullTypeParameters(type());
 }
 
 }  // namespace zetasql

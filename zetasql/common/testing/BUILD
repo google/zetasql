@@ -31,12 +31,7 @@ cc_library(
         "-Wno-unused-function",
         "-Wnonnull-compare",
     ],
-    deps = [
-        "//zetasql/base",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest",
-        "@com_google_protobuf//:protobuf",
-    ],
+    deps = ["//zetasql/base/testing:proto_matchers"],
 )
 
 cc_library(
@@ -58,5 +53,84 @@ cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+proto_library(
+    name = "status_payload_matchers_test_proto",
+    testonly = 1,
+    srcs = ["status_payload_matchers_test.proto"],
+)
+
+cc_proto_library(
+    name = "status_payload_matchers_test_cc_proto",
+    testonly = 1,
+    deps = [":status_payload_matchers_test_proto"],
+)
+
+cc_library(
+    name = "status_payload_matchers",
+    testonly = 1,
+    srcs = [],
+    hdrs = ["status_payload_matchers.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":status_payload_matchers_oss",
+    ],
+)
+
+cc_library(
+    name = "status_payload_matchers_oss",
+    testonly = 1,
+    srcs = [],
+    hdrs = ["status_payload_matchers_oss.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:status_payload_utils",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "status_payload_matchers_oss_test",
+    size = "small",
+    srcs = ["status_payload_matchers_oss_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":status_payload_matchers_oss",
+        ":status_payload_matchers_test_cc_proto",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:proto_matchers_oss",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common:status_payload_utils",
+        "@com_google_absl//absl/status",
     ],
 )

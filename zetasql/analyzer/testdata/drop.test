@@ -1,0 +1,51 @@
+DROP TABLE foo;
+--
+DropStmt(object_type="TABLE", is_if_exists=FALSE, name_path=foo)
+==
+
+DROP TABLE namespace.foo;
+--
+DropStmt(object_type="TABLE", is_if_exists=FALSE, name_path=namespace.foo)
+==
+
+DROP VIEW bar;
+--
+
+DropStmt(object_type="VIEW", is_if_exists=FALSE, name_path=bar)
+==
+
+DROP VIEW namespace.bar;
+--
+DropStmt(object_type="VIEW", is_if_exists=FALSE, name_path=namespace.bar)
+==
+
+DROP TABLE IF EXISTS foo;
+--
+DropStmt(object_type="TABLE", is_if_exists=TRUE, name_path=foo)
+==
+
+DROP SCHEMA {{|IF EXISTS}} foo.bar {{|RESTRICT|CASCADE}};
+--
+ALTERNATION GROUP: <empty>
+--
+DropStmt(object_type="SCHEMA", is_if_exists=FALSE, name_path=foo.bar)
+--
+ALTERNATION GROUP: RESTRICT
+--
+DropStmt(object_type="SCHEMA", is_if_exists=FALSE, name_path=foo.bar, drop_mode=RESTRICT)
+--
+ALTERNATION GROUP: CASCADE
+--
+DropStmt(object_type="SCHEMA", is_if_exists=FALSE, name_path=foo.bar, drop_mode=CASCADE)
+--
+ALTERNATION GROUP: IF EXISTS,
+--
+DropStmt(object_type="SCHEMA", is_if_exists=TRUE, name_path=foo.bar)
+--
+ALTERNATION GROUP: IF EXISTS,RESTRICT
+--
+DropStmt(object_type="SCHEMA", is_if_exists=TRUE, name_path=foo.bar, drop_mode=RESTRICT)
+--
+ALTERNATION GROUP: IF EXISTS,CASCADE
+--
+DropStmt(object_type="SCHEMA", is_if_exists=TRUE, name_path=foo.bar, drop_mode=CASCADE)

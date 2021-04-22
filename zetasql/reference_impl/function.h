@@ -185,7 +185,7 @@ enum class FunctionKind {
   kSafeProtoMapAtKey,
   kContainsKey,
   kModifyMap,
-
+  // JSON functions
   kJsonExtract,
   kJsonExtractScalar,
   kJsonExtractArray,
@@ -196,11 +196,13 @@ enum class FunctionKind {
   kJsonValue,
   kToJson,
   kToJsonString,
+  kParseJson,
   // Proto functions
   kFromProto,
   kToProto,
   kMakeProto,
   kReplaceFields,
+  kFilterFields,
   // Enum functions
   kEnumValueDescriptorProto,
   // String functions
@@ -303,6 +305,9 @@ enum class FunctionKind {
   // Interval functions
   kIntervalCtor,
   kMakeInterval,
+  kJustifyHours,
+  kJustifyDays,
+  kJustifyInterval,
   // Net functions
   kNetFormatIP,
   kNetParseIP,
@@ -401,11 +406,9 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
 
   static zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCast(
       const LanguageOptions& language_options, const Type* output_type,
-      std::unique_ptr<ValueExpr> argument,
-      std::unique_ptr<ValueExpr> format,
-       std::unique_ptr<ValueExpr> time_zone,
-      bool return_null_on_error,
-      ResolvedFunctionCallBase::ErrorMode error_mode,
+      std::unique_ptr<ValueExpr> argument, std::unique_ptr<ValueExpr> format,
+      std::unique_ptr<ValueExpr> time_zone, const TypeParameters& type_params,
+      bool return_null_on_error, ResolvedFunctionCallBase::ErrorMode error_mode,
       std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator);
 
   // If 'arguments' is not empty, validates the types of the inputs. Currently
@@ -644,9 +647,11 @@ class CastFunction : public SimpleBuiltinScalarFunction {
  public:
   CastFunction(
       const Type* output_type,
-      std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator)
+      std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator,
+      const TypeParameters type_params)
       : SimpleBuiltinScalarFunction(FunctionKind::kCast, output_type),
-        extended_cast_evaluator_(std::move(extended_cast_evaluator)) {}
+        extended_cast_evaluator_(std::move(extended_cast_evaluator)),
+        type_params_(std::move(type_params)) {}
   CastFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {}
 
@@ -655,6 +660,7 @@ class CastFunction : public SimpleBuiltinScalarFunction {
 
  private:
   std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator_;
+  const TypeParameters type_params_;
 };
 
 class BitCastFunction : public BuiltinScalarFunction {
@@ -869,6 +875,50 @@ class MakeProtoFunction : public SimpleBuiltinScalarFunction {
 
  private:
   std::vector<FieldAndFormat> fields_;  // Not owned.
+};
+
+// This class is used to evaluate the FILTER_FIELDS() SQL function. The resolved
+// argument list contains only the root proto to be modified, the field paths of
+// the root object must be added before evaluation.
+class FilterFieldsFunction : public SimpleBuiltinScalarFunction {
+ public:
+  explicit FilterFieldsFunction(const Type* output_type);
+
+  ~FilterFieldsFunction() final;
+
+  // Add a field path that denotes the path to a proto field, `include` denotes
+  // whether the proto field is include or exclude.
+  absl::Status AddFieldPath(
+      bool include,
+      const std::vector<const google::protobuf::FieldDescriptor*>& field_path);
+
+  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+ private:
+  struct FieldPathTrieNode;
+  using TagToNodeMap =
+      absl::flat_hash_map<int, std::unique_ptr<FieldPathTrieNode>>;
+
+  // Recursively prune on a node. It is guaranteed that this node has children.
+  absl::Status RecursivelyPrune(const FieldPathTrieNode* node,
+                                google::protobuf::Message* message) const;
+
+  // Prune on an excluded message, may prune recursively on child nodes.
+  absl::Status HandleExcludedMessage(const TagToNodeMap& child_nodes,
+                                     google::protobuf::Message* message) const;
+
+  // Prune on an included message, may prune recursively on child nodes.
+  absl::Status HandleIncludedMessage(const TagToNodeMap& child_nodes,
+                                     google::protobuf::Message* message) const;
+
+  // Prune recursively on a message field.
+  absl::Status PruneOnMessageField(
+      const google::protobuf::Reflection& reflection, const FieldPathTrieNode* child,
+      const google::protobuf::FieldDescriptor* field_descriptor,
+      google::protobuf::Message* message) const;
+
+  std::unique_ptr<FieldPathTrieNode> root_node_;
 };
 
 // This class is used to evaluate the REPLACE_FIELDS() SQL function, given

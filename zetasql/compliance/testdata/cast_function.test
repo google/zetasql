@@ -948,13 +948,83 @@ ARRAY<STRUCT<STRING, STRING>>[{NULL, NULL}]
 # Test that the implementation is invoked.
 [required_features=V_1_3_FORMAT_IN_CAST,NUMERIC_TYPE,BIGNUMERIC_TYPE]
 [name=cast_number_to_string_simple]
-select cast(cast(1.23 as int32) as STRING format '99'),
-       cast(cast(1.23 as uint32) as STRING format '99'),
-       cast(cast(1.23 as int64) as STRING format '99'),
-       cast(cast(1.23 as uint64) as STRING format '99'),
-       cast(cast(1.23 as float) as STRING format '99'),
-       cast(cast(1.23 as double) as STRING format '99'),
-       cast(cast(1.23 as numeric) as STRING format '99'),
-       cast(cast(1.23 as bignumeric) as STRING format '99');
+select cast(cast(1.23 as int32) as STRING format '99.9'),
+       cast(cast(1.23 as uint32) as STRING format '99.9'),
+       cast(cast(1.23 as int64) as STRING format '99.9'),
+       cast(cast(1.23 as uint64) as STRING format '99.9'),
+       cast(cast(1.23 as float) as STRING format '99.9'),
+       cast(cast(1.23 as double) as STRING format '99.9'),
+       cast(cast(1.23 as numeric) as STRING format '99.9'),
+       cast(cast(1.23 as bignumeric) as STRING format '99.9');
 --
-ERROR: generic::invalid_argument: NumericalToStringWithFormat is not implemented
+ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING, STRING, STRING>>[
+  {"  1.0", "  1.0", "  1.0", "  1.0", "  1.2", "  1.2", "  1.2", "  1.2"}
+]
+==
+
+# Casting with type parameters succeeds.
+[required_features=PARAMETERIZED_TYPES,BIGNUMERIC_TYPE,NUMERIC_TYPE]
+[name=cast_struct_type_parameters_valid_input]
+select cast(([(BIGNUMERIC '0.12345', 'hey', null), (0.9876, 'hi', NUMERIC '0.55')], b'hello')
+as STRUCT<ARRAY<STRUCT<BIGNUMERIC(2, 2), STRING(4), NUMERIC(2, 1)>>, BYTES(5)>);
+--
+ARRAY<STRUCT<STRUCT<ARRAY<>, BYTES>>>[
+  {{ARRAY<STRUCT<BIGNUMERIC, STRING, NUMERIC>>[
+      {0.12, "hey", NULL},
+      {0.99, "hi", 0.6}
+    ],
+    b"hello"}}
+]
+==
+
+# Casting to STRING(L) fails if the casted string is longer than L.
+[required_features=PARAMETERIZED_TYPES]
+[name=cast_string_type_parameters_invalid_input]
+select cast(123456 as STRING(5));
+--
+ERROR: generic::out_of_range: STRING has maximum length 5 but got a value with length 6
+==
+
+# Casting to NUMERIC(P) fails if the casted numeric has more than P digits.
+[required_features=PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[name=cast_numeric_type_parameters_invalid_input]
+select cast(123456 as NUMERIC(5));
+--
+ERROR: generic::out_of_range: NUMERIC has precision 5 and scale 0 but got a value that is not in range of [-99999, 99999]
+==
+
+# Casting to an ARRAY fails if the elements of the ARRAY have type parameters
+# that are violated.
+[required_features=PARAMETERIZED_TYPES]
+[name=cast_array_type_parameters_invalid_input]
+select cast(['hello', 'hi'] as ARRAY<STRING(2)>);
+--
+ERROR: generic::out_of_range: STRING has maximum length 2 but got a value with length 5
+==
+
+[required_features=PARAMETERIZED_TYPES]
+[name=cast_struct_type_parameters_invalid_input]
+select cast((b'hey', 2) as STRUCT<BYTES(2), INT64>);
+--
+ERROR: generic::out_of_range: BYTES has maximum length 2 but got a value with length 3
+==
+
+[required_features=PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[name=cast_large_numeric_succeeds]
+select CAST(9999999999999999999999999999.999999999 as numeric);
+--
+ARRAY<STRUCT<NUMERIC>>[{9999999999999999999999999999.999999999}]
+==
+
+[required_features=PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[name=cast_numeric_max_value_succeeds]
+select CAST(99999999999999999999999999999.999999999 as numeric);
+--
+ARRAY<STRUCT<NUMERIC>>[{99999999999999999999999999999.999999999}]
+==
+
+[required_features=PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[name=cast_numeric_max_value_with_type_parameters_invalid_input]
+select CAST(9999999999999999999999999999.999999999 as numeric(29, 1));
+--
+ERROR: generic::out_of_range: NUMERIC has precision 29 and scale 1 but got a value that is not in range of [-9999999999999999999999999999.9, 9999999999999999999999999999.9]

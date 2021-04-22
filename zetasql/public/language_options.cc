@@ -37,7 +37,6 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       // Add new features here.
       features.insert(FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL);
       features.insert(FEATURE_V_1_3_EXTRACT_FROM_PROTO);
-      features.insert(FEATURE_V_1_3_DISALLOW_PROTO3_HAS_SCALAR_FIELD);
       features.insert(FEATURE_V_1_3_ARRAY_ORDERING);
       features.insert(FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST);
       features.insert(FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS);
@@ -71,6 +70,7 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_REPEAT);
       features.insert(FEATURE_V_1_3_COLUMN_DEFAULT_VALUE);
       features.insert(FEATURE_V_1_3_FOR_IN);
+      features.insert(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

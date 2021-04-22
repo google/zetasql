@@ -1,0 +1,196 @@
+# This file has tests that use AnalyzeNextStatement to parse blocks
+# of text that may contain multiple statements.  Most of the actual testing
+# for this is done in parser tests.
+
+# With no options, we use the regular AnalyzeStatement, which cannot handle
+# multiple statements.
+select 1;
+select 2;
+--
+ERROR: Syntax error: Expected end of input but got keyword SELECT [at 2:1]
+select 2;
+^
+==
+
+[default parse_multiple]
+
+select 1;
+select 2;
+select key from KeyValue;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+# Error in the first query.
+select xyz;
+select 5;
+--
+ERROR: Unrecognized name: xyz [at 1:8]
+select xyz;
+       ^
+==
+
+# No leakage of names.  Error in the second query.
+with t as (select 1) select * from t;
+select * from t;
+select 5;
+--
+QueryStmt
++-output_column_list=
+| +-t.$col1#2 AS `$col1` [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.$col1#2]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[t.$col1#1]
+    |       +-expr_list=
+    |       | +-$col1#1 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[t.$col1#2]
+        +-input_scan=
+          +-WithRefScan(column_list=[t.$col1#2], with_query_name="t")
+--
+ERROR: Table not found: t [at 2:15]
+select * from t;
+              ^
+==
+
+# Different statement types.
+# This option makes us use unique column_ids across statements.
+[use_shared_column_id_sequence_number]
+select 1;
+explain select 2;
+create table t as select 3 c
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ExplainStmt
++-statement=
+  +-QueryStmt
+    +-output_column_list=
+    | +-$query.$col1#2 AS `$col1` [INT64]
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.$col1#2]
+        +-expr_list=
+        | +-$col1#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+--
+CreateTableAsSelectStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="c", type=INT64, column=t.c#4)
++-output_column_list=
+| +-$create_as.c#3 AS c [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.c#3]
+    +-expr_list=
+    | +-c#3 := Literal(type=INT64, value=3)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Trailing comments and whitespace after the last query.
+select 1;
+select 2; /* comment */
+
+\# comment
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Empty statement.
+/* comment */
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:14]
+/* comment */
+             ^
+==
+
+# Parse error in a query.
+select
+1;  select
+  key xy zz from KeyValue; select 3;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ERROR: Syntax error: Expected end of input but got identifier "zz" [at 3:10]
+  key xy zz from KeyValue; select 3;
+         ^

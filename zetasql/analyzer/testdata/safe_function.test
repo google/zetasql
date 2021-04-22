@@ -1,0 +1,378 @@
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.concat("a")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.concat("a")
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:concat(STRING, repeated(0) STRING) -> STRING)
+    |     +-Literal(type=STRING, value="a")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.safe.concat("a")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.safe.concat("a")
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+ERROR: Function not found: safe.concat [at 1:8]
+select safe.safe.concat("a")
+       ^
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe("a")
+--
+ERROR: Function not found: safe; Did you mean date? [at 1:8]
+select safe("a")
+       ^
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.sum(key) from KeyValue kv
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.sum(key) from KeyValue kv
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv")
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.count(*) from KeyValue
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.count(*) from KeyValue
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-aggregate_list=
+          +-$agg1#3 := AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:$count_star() -> INT64)
+==
+
+[language_features=ANALYTIC_FUNCTIONS{{|,V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.sum(key) over () from KeyValue
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.sum(key) over () from KeyValue
+       ^
+--
+ALTERNATION GROUP: ,V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall({SAFE_ERROR_MODE} ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# TABLESAMPLE is not relevant here, but allows the use of comma.
+[language_features=TABLESAMPLE{{|,ANALYTIC_FUNCTIONS}}{{|,V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.rank() over (order by key) from KeyValue
+--
+ALTERNATION GROUPS:
+    <empty>
+    ,V_1_2_SAFE_FUNCTION_CALL
+--
+ERROR: Analytic functions not supported [at 1:8]
+select safe.rank() over (order by key) from KeyValue
+       ^
+--
+ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.rank() over (order by key) from KeyValue
+       ^
+--
+ALTERNATION GROUP: ,ANALYTIC_FUNCTIONS,,V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#4 := AnalyticFunctionCall({SAFE_ERROR_MODE} ZetaSQL:rank() -> INT64)
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.cast(1 as int64)
+--
+ERROR: Syntax error: Expected ")" but got keyword AS [at 1:20]
+select safe.cast(1 as int64)
+                   ^
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.timestamp_micros(12345)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.timestamp_micros(12345)
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:timestamp_micros(INT64) -> TIMESTAMP)
+    |     +-Literal(type=INT64, value=12345)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# IF is a parser special case for a reserved keyword that works as a function.
+# We don't have an unparser special case for this, so it generates SAFE.IF(...),
+# which won't re-parse.
+[no_run_unparser]
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.`if`(true, 1, 2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.`if`(true, 1, 2)
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |     +-Literal(type=BOOL, value=true)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Look up a SAFE function that doesn't exist.
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.bad_function_xxx()
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.bad_function_xxx()
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+ERROR: Function not found: bad_function_xxx [at 1:8]
+select safe.bad_function_xxx()
+       ^
+==
+
+# Show that suggestions still work with SAFE.
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select saFE.Concav('abc')
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select saFE.Concav('abc')
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+ERROR: Function not found: Concav; Did you mean saFE.concat? [at 1:8]
+select saFE.Concav('abc')
+       ^
+==
+
+# But suggestions don't work for an error in the SAFE keyword.
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select sale.concat('abc')
+--
+ERROR: Function not found: sale.concat [at 1:8]
+select sale.concat('abc')
+       ^
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.net.parse_ip('abc')
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.net.parse_ip('abc')
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:net.parse_ip(STRING) -> INT64)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.timestamp_add(TIMESTAMP "2017-09-15 23:59:59.999999 UTC", INTERVAL 10 DAY)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.timestamp_add(TIMESTAMP "2017-09-15 23:59:59.999999 UTC", INTERVA...
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:timestamp_add(TIMESTAMP, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> TIMESTAMP)
+    |     +-Literal(type=TIMESTAMP, value=2017-09-15 23:59:59.999999+00, has_explicit_type=TRUE)
+    |     +-Literal(type=INT64, value=10)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.safe_supported_function();
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.safe_supported_function();
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall({SAFE_ERROR_MODE} sample_functions:safe_supported_function() -> INT64)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features={{|V_1_2_SAFE_FUNCTION_CALL}}]
+select safe.safe_unsupported_function();
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function calls with SAFE are not supported [at 1:8]
+select safe.safe_unsupported_function();
+       ^
+--
+ALTERNATION GROUP: V_1_2_SAFE_FUNCTION_CALL
+--
+ERROR: Function safe_unsupported_function does not support SAFE error mode [at 1:8]
+select safe.safe_unsupported_function();
+       ^

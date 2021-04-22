@@ -16,70 +16,71 @@
 
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
+#include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/status_payload_matchers.h"
+#include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 
-namespace zetasql {
-
+using testing::AllOf;
+using testing::Contains;
 using testing::HasSubstr;
+using testing::IsEmpty;  // NOLINT(misc-unused-using-decls)
+using testing::IsSupersetOf;
+using testing::Not;
 using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;
+
+namespace zetasql {
+
+using execute_query::ParserErrorContext;
+using zetasql::testing::StatusHasPayload;
+using testing::EqualsProto;
 
 namespace {
 
 using ReadResultType = zetasql_base::StatusOr<absl::optional<std::string>>;
 
+struct CompletionReq {
+  size_t cursor_position;
+  ::testing::Matcher<zetasql_base::StatusOr<std::vector<std::string>>> matcher;
+};
+
 struct StmtPromptInput final {
   ReadResultType ret;
   bool want_continuation = false;
+  std::vector<CompletionReq> completions;
 };
 
 // Run ExecuteQueryStatementPrompt returning the given inputs and expecting the
 // given return values or parser errors. All inputs, return values and parser
 // errors must be consumed.
-void TestStmtPrompt(const std::vector<StmtPromptInput>& inputs,
-                    const std::vector<testing::Matcher<ReadResultType>>& want,
-                    const std::vector<std::pair<testing::Matcher<absl::Status>,
-                                                absl::optional<absl::Status>>>&
-                        want_parser_error = {}) {
+void TestStmtPrompt(
+    const std::vector<StmtPromptInput>& inputs,
+    const std::vector<::testing::Matcher<ReadResultType>>& want) {
+  std::unique_ptr<ExecuteQueryStatementPrompt> prompt;
+
   auto cur_input = inputs.cbegin();
-  auto readfunc = [&inputs, &cur_input](bool continuation) -> ReadResultType {
+  auto readfunc = [&prompt, &inputs,
+                   &cur_input](bool continuation) -> ReadResultType {
     EXPECT_NE(cur_input, inputs.cend()) << "Can't read beyond input";
     EXPECT_EQ(continuation, cur_input->want_continuation);
+
+    EXPECT_THAT(cur_input->completions, IsEmpty());
 
     return (cur_input++)->ret;
   };
 
-  auto cur_error = want_parser_error.cbegin();
-  auto parser_error_handler =
-      [&want_parser_error, &cur_error](absl::Status status) -> absl::Status {
-    ZETASQL_LOG(ERROR) << status;
-    EXPECT_NE(cur_error, want_parser_error.cend())
-        << "Can't read beyond end of wanted parser errors";
-
-    const auto [matcher, override_status] = *cur_error++;
-
-    EXPECT_THAT(status, matcher);
-
-    if (override_status.has_value()) {
-      return *override_status;
-    }
-
-    return status;
-  };
-
-  ExecuteQueryStatementPrompt prompt{readfunc, parser_error_handler};
+  prompt = std::make_unique<ExecuteQueryStatementPrompt>(readfunc);
 
   for (const auto& matcher : want) {
-    EXPECT_THAT(prompt.Read(), matcher);
+    EXPECT_THAT(prompt->Read(), matcher);
   }
 
   EXPECT_EQ(cur_input, inputs.cend()) << "Not all inputs have been consumed";
-  EXPECT_EQ(cur_error, want_parser_error.cend())
-      << "Not all parser errors have been consumed";
 }
 
 }  // namespace
@@ -144,7 +145,7 @@ TEST(ExecuteQueryStatementPrompt, FaultyMixedWithValid) {
 
           // Unclosed string literal followed by legal statement (the latter is
           // dropped due to the error)
-          {.ret = "\";\nSELECT 123;"},
+          {.ret = "\";\nSELECT 123; "},
 
           {.ret = "SELECT\nsomething;"},
 
@@ -168,28 +169,26 @@ TEST(ExecuteQueryStatementPrompt, FaultyMixedWithValid) {
       },
       {
           IsOkAndHolds("SELECT 1, (2 +\n  3);"),
-          StatusIs(absl::StatusCode::kInvalidArgument,
-                   HasSubstr(": Unclosed string literal")),
+          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(": Unclosed string literal")),
+                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "\";\nSELECT 123;"
+                )pb"))),
           IsOkAndHolds("SELECT\nsomething;"),
-          StatusIs(absl::StatusCode::kInvalidArgument,
-                   HasSubstr(": Missing whitespace between literal and alias")),
+          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(
+                             ": Missing whitespace between literal and alias")),
+                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "SELECT 1x;"
+                )pb"))),
           IsOkAndHolds("DROP TABLE MyTable;"),
-          StatusIs(absl::StatusCode::kInvalidArgument,
-                   HasSubstr(": Missing whitespace between literal and alias")),
+          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(
+                             ": Missing whitespace between literal and alias")),
+                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "SELECT (\"\"), 1x);"
+                )pb"))),
           IsOkAndHolds(absl::nullopt),
-      },
-      {
-          {StatusIs(absl::StatusCode::kInvalidArgument,
-                    HasSubstr(": Unclosed string literal")),
-           {}},
-          {StatusIs(
-               absl::StatusCode::kInvalidArgument,
-               HasSubstr(": Missing whitespace between literal and alias")),
-           {}},
-          {StatusIs(
-               absl::StatusCode::kInvalidArgument,
-               HasSubstr(": Missing whitespace between literal and alias")),
-           {}},
       });
 }
 
@@ -307,25 +306,23 @@ TEST(ExecuteQueryStatementPrompt, SplitKeyword) {
 TEST(ExecuteQueryStatementPrompt, SplitString) {
   TestStmtPrompt(
       {
-          {.ret = "SELECT \"val"},
+          {.ret = "\tSELECT \"val"},
           {.ret = "ue"},
-          {.ret = "\";", .want_continuation = true},
+          {.ret = "\" ;", .want_continuation = true},
           {.ret = absl::nullopt},
       },
       {
-          StatusIs(absl::StatusCode::kInvalidArgument,
-                   HasSubstr(": Unclosed string literal")),
-          StatusIs(absl::StatusCode::kInvalidArgument,
-                   HasSubstr(": Unclosed string literal")),
+          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(": Unclosed string literal")),
+                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "SELECT \"val"
+                )pb"))),
+          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(": Unclosed string literal")),
+                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "ue\" ;"
+                )pb"))),
           IsOkAndHolds(absl::nullopt),
-      },
-      {
-          {StatusIs(absl::StatusCode::kInvalidArgument,
-                    HasSubstr(": Unclosed string literal")),
-           {}},
-          {StatusIs(absl::StatusCode::kInvalidArgument,
-                    HasSubstr(": Unclosed string literal")),
-           {}},
       });
 }
 
@@ -403,37 +400,13 @@ TEST(ExecuteQueryStatementPrompt, RecoverAfterUnclosedString) {
           {.ret = absl::nullopt},
       },
       {
+          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
+                         HasSubstr(": Unclosed string literal")),
+                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "\";"
+                )pb"))),
           IsOkAndHolds("SELECT 123;"),
           IsOkAndHolds(absl::nullopt),
-      },
-      {
-          {StatusIs(absl::StatusCode::kInvalidArgument,
-                    HasSubstr(": Unclosed string literal")),
-           absl::OkStatus()},
-      });
-}
-
-TEST(ExecuteQueryStatementPrompt, RecoverWithOtherError) {
-  TestStmtPrompt(
-      {
-          {.ret = "SELECT 0;"},
-          {.ret = "SELECT );"},
-          {.ret = "SELECT 200x;"},
-          {.ret = "SELECT 1 AS END;"},
-          {.ret = absl::nullopt},
-      },
-      {
-          IsOkAndHolds("SELECT 0;"),
-          IsOkAndHolds("SELECT );"),
-          StatusIs(absl::StatusCode::kNotFound, "test"),
-          IsOkAndHolds("SELECT 1 AS END;"),
-          IsOkAndHolds(absl::nullopt),
-      },
-      {
-          {StatusIs(
-               absl::StatusCode::kInvalidArgument,
-               HasSubstr(": Missing whitespace between literal and alias")),
-           absl::NotFoundError("test")},
       });
 }
 

@@ -25,6 +25,8 @@
 
 namespace zetasql {
 
+class Value;
+
 // SimpleType includes all the non-parameterized builtin types (all scalar types
 // except enum).
 class SimpleType : public Type {
@@ -84,6 +86,11 @@ class SimpleType : public Type {
   bool EqualsForSameKind(const Type* that, bool equivalent) const override {
     return true;
   }
+
+  friend class Value;
+  static void ClearValueContent(TypeKind kind, const ValueContent& value);
+  static void CopyValueContent(TypeKind kind, const ValueContent& from,
+                               ValueContent* to);
 
   void CopyValueContent(const ValueContent& from,
                         ValueContent* to) const override;

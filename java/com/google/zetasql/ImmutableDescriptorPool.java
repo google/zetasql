@@ -241,7 +241,7 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
     return ImmutableList.copyOf(fileDescriptorsByNameInDependencyOrder.values());
   }
 
-  private static FileDescriptor resolveFileDescriptor(
+  static FileDescriptor resolveFileDescriptor(
       String filename,
       Map<String, FileDescriptorProto> fileDescriptorProtosByName,
       Map<String, FileDescriptor> resolvedFileDescriptorsByName) {
@@ -371,6 +371,12 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
     }
 
     @Override
+    public ImmutableZetaSQLOneofDescriptor findOneofByIndex(int index) {
+      OneofDescriptor oneof = getDescriptor().getOneofs().get(index);
+      return ImmutableZetaSQLOneofDescriptor.create(getDescriptorPool(), oneof);
+    }
+
+    @Override
     public abstract DescriptorPool getDescriptorPool();
 
     @Override
@@ -399,5 +405,29 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
 
     @Override
     public abstract FieldDescriptor getDescriptor();
+  }
+
+  /**
+   * Wrapped {@code OneofDescriptor} with the {@code ZetaSQLDescriptorPool} from which it was
+   * created.
+   */
+  @AutoValue
+  abstract static class ImmutableZetaSQLOneofDescriptor
+      implements DescriptorPool.ZetaSQLOneofDescriptor {
+    /**
+     * Creates an {@code ImmutableZetaSQLOneofDescriptor}, note, this doesn't add it to the given
+     * pool.
+     */
+    public static ImmutableZetaSQLOneofDescriptor create(
+        DescriptorPool pool, OneofDescriptor descriptor) {
+      return new AutoValue_ImmutableDescriptorPool_ImmutableZetaSQLOneofDescriptor(
+          pool, descriptor);
+    }
+
+    @Override
+    public abstract DescriptorPool getDescriptorPool();
+
+    @Override
+    public abstract OneofDescriptor getDescriptor();
   }
 }

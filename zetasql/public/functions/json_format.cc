@@ -390,6 +390,9 @@ absl::Status JsonFromValue(const Value& value,
     case TYPE_INTERVAL:
       ZETASQL_RETURN_IF_ERROR(JsonFromInterval(value.interval_value(), output));
       break;
+    case TYPE_JSON:
+      absl::StrAppend(output, value.json_string());
+      break;
     case TYPE_STRUCT: {
       if (value.fields().empty()) {
         absl::StrAppend(output, "{}");

@@ -158,9 +158,14 @@ ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
       }
     }
   }
-  return ResolvedColumn(max_col_id_,
-                        zetasql::IdString::MakeGlobal(table_name),
-                        zetasql::IdString::MakeGlobal(col_name), type);
+  if (id_string_pool_ != nullptr) {
+    return ResolvedColumn(max_col_id_, id_string_pool_->Make(table_name),
+                          id_string_pool_->Make(col_name), type);
+  } else {
+    return ResolvedColumn(max_col_id_,
+                          zetasql::IdString::MakeGlobal(table_name),
+                          zetasql::IdString::MakeGlobal(col_name), type);
+  }
 }
 
 zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(

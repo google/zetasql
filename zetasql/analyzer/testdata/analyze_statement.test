@@ -1,0 +1,147 @@
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(int32,int64,double)
+--
+AnalyzeStmt
++-option_list=
+| +-p1 := Literal(type=STRING, value="a1")
+| +-p2 := Literal(type=STRING, value="a2")
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes, column_index_list=[0, 1, 8])
+==
+
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(int32,int64,double), SimpleTypesWithAnonymizationUid(string,double)
+--
+AnalyzeStmt
++-option_list=
+| +-p1 := Literal(type=STRING, value="a1")
+| +-p2 := Literal(type=STRING, value="a2")
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes, column_index_list=[0, 1, 8])
+  +-TableAndColumnInfo(table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 8])
+==
+
+analyze OPTIONS(p1=a1,p2=a2) non_exists_table(int32,int64,double), SimpleTypes(string,double)
+--
+ERROR: Table not found: non_exists_table [at 1:30]
+analyze OPTIONS(p1=a1,p2=a2) non_exists_table(int32,int64,double), SimpleType...
+                             ^
+==
+
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(int32,non_exists_column,double), SimpleTypesWithAnonymizationUid(string,double)
+--
+ERROR: Column not found: non_exists_column [at 1:30]
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(int32,non_exists_column,double), Sim...
+                             ^
+==
+
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes, SimpleTypesWithAnonymizationUid(string,double)
+--
+AnalyzeStmt
++-option_list=
+| +-p1 := Literal(type=STRING, value="a1")
+| +-p2 := Literal(type=STRING, value="a2")
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes)
+  +-TableAndColumnInfo(table=SimpleTypesWithAnonymizationUid, column_index_list=[4, 8])
+==
+
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(string), SimpleTypes(string, double), SimpleTypesWithAnonymizationUid(string,double)
+--
+ERROR: The ANALYZE statement allows each table to be specified only once, but found duplicate table SimpleTypes [at 1:51]
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(string), SimpleTypes(string, double)...
+                                                  ^
+==
+
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(string), SimpleTypes(double), SimpleTypesWithAnonymizationUid(string,double)
+--
+ERROR: The ANALYZE statement allows each table to be specified only once, but found duplicate table SimpleTypes [at 1:51]
+analyze OPTIONS(p1=a1,p2=a2) SimpleTypes(string), SimpleTypes(double), Simple...
+                                                  ^
+==
+
+analyze SimpleTypes(string,double,int32)
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes, column_index_list=[0, 4, 8])
+==
+
+analyze SimpleTypes(double,int32,double)
+--
+ERROR: The table column list of an ANALYZE statement can only contain each column once, but found duplicate column double [at 1:34]
+analyze SimpleTypes(double,int32,double)
+                                 ^
+==
+
+analyze SimpleTypes
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes)
+==
+
+analyze SimpleTypes, SimpleTypesWithAnonymizationUid
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=SimpleTypes)
+  +-TableAndColumnInfo(table=SimpleTypesWithAnonymizationUid)
+==
+
+analyze OPTIONS()
+--
+AnalyzeStmt
+==
+
+analyze OPTIONS(p1=a1,p2=a2)
+--
+AnalyzeStmt
++-option_list=
+  +-p1 := Literal(type=STRING, value="a1")
+  +-p2 := Literal(type=STRING, value="a2")
+==
+
+analyze
+--
+AnalyzeStmt
+==
+
+analyze OPTIONS(p1=a1,p2=a2) AllPseudoColumns(Key, Value)
+--
+ERROR: Cannot ANALYZE pseudo-column Key [at 1:30]
+analyze OPTIONS(p1=a1,p2=a2) AllPseudoColumns(Key, Value)
+                             ^
+==
+
+analyze AllPseudoColumns;
+--
+AnalyzeStmt
++-table_and_column_index_list=
+  +-TableAndColumnInfo(table=AllPseudoColumns)
+==
+
+analyze SimpleTypes(int32, string), SimpleTypes(double)
+--
+ERROR: The ANALYZE statement allows each table to be specified only once, but found duplicate table SimpleTypes [at 1:37]
+analyze SimpleTypes(int32, string), SimpleTypes(double)
+                                    ^
+==
+
+analyze SimpleTypes(int32, double), SimpleTypes(double, string)
+--
+ERROR: The ANALYZE statement allows each table to be specified only once, but found duplicate table SimpleTypes [at 1:37]
+analyze SimpleTypes(int32, double), SimpleTypes(double, string)
+                                    ^
+==
+
+analyze SimpleTypes, SimpleTypes(double)
+--
+ERROR: The ANALYZE statement allows each table to be specified only once, but found duplicate table SimpleTypes [at 1:22]
+analyze SimpleTypes, SimpleTypes(double)
+                     ^
+==
+
+analyze KitchenSinkValueTable(int32_val, double_val)
+--
+ERROR: ANALYZE is not supported on a value table KitchenSinkValueTable yet [at 1:9]
+analyze KitchenSinkValueTable(int32_val, double_val)
+        ^

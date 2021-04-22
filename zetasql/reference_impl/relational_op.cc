@@ -4509,7 +4509,13 @@ class LoopTupleIterator : public TupleIterator {
         }
       }
       ZETASQL_ASSIGN_OR_RETURN(data, BeginNextIteration());
-      return data;
+
+      if (!first_iteration_ || data != nullptr) {
+        return data;
+      }
+      if (first_iteration_) {
+        first_iteration_ = false;
+      }
     }
     // An iteration is already in progress; fetch the next tuple.
     data = iter_->Next();
@@ -4586,6 +4592,8 @@ class LoopTupleIterator : public TupleIterator {
 
   // Current status of loop iteration.
   absl::Status status_;
+
+  bool first_iteration_ = true;
 };
 
 }  // namespace

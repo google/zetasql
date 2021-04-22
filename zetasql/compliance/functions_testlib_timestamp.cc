@@ -6020,9 +6020,10 @@ GetCastStringToDateTimestampCommonTests() {
   const char kTestExpected19700101[] = "1970-01-01";
   const char* kTestExpectedDefault = kTestExpected19700101;
   const char* dummy_input_timestamp = "1";
-  int32_t date_2002_1_1, date_2002_2_2;
+  int32_t date_2002_1_1, date_2002_2_2, date_2299_2_1;
   ZETASQL_CHECK_OK(functions::ConstructDate(2002, 1, 1, &date_2002_1_1));
   ZETASQL_CHECK_OK(functions::ConstructDate(2002, 2, 2, &date_2002_2_2));
+  ZETASQL_CHECK_OK(functions::ConstructDate(2299, 2, 1, &date_2299_2_1));
 
   std::vector<CastStringToDateTimestampCommonTest> tests({
       // Any unspecified field is initialized from
@@ -6100,6 +6101,106 @@ GetCastStringToDateTimestampCommonTests() {
       // Trailing empty format elements in the format string.
       {"--.\"\"\"\"", TEST_FORMAT_ANY, "--.", kTestExpectedDefault},
 
+      // Elements of "kYear" type.
+      // "YYYY" - year value.
+      // TODO: "YYYY"/"RRRR" can successfully match integer strings
+      // whose values are 0 ("0", "00", etc.) or 10000 with other format
+      // elements. Change related cases when elements of "TIMEZONE" type are
+      // added.
+      {"YYYY", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "0", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "1", "0001-01-01"},
+      {"YYYY", TEST_FORMAT_DATE, "12", "0012-01-01"},
+      {"YYYY", TEST_FORMAT_DATE, "123", "0123-01-01"},
+      {"YYYY", TEST_FORMAT_DATE, "1234", "1234-01-01"},
+      {"YYYY", TEST_FORMAT_DATE, "01234", "1234-01-01"},
+      {"YYYY", TEST_FORMAT_DATE, "001234", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "10000", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "10001", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "123456", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "1234", date_2002_2_2, "1234-02-01"},
+      // "YYY" - the last 3 digits of the year value.
+      {"YYY", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"YYY", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"YYY", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
+      {"YYY", TEST_FORMAT_DATE, "0", "1000-01-01"},
+      {"YYY", TEST_FORMAT_DATE, "1", "1001-01-01"},
+      {"YYY", TEST_FORMAT_DATE, "12", "1012-01-01"},
+      {"YYY", TEST_FORMAT_DATE, "123", "1123-01-01"},
+      {"YYY", TEST_FORMAT_DATE, "0123", EXPECT_ERROR},
+      {"YYY", TEST_FORMAT_DATE, "00123", EXPECT_ERROR},
+      {"YYY", TEST_FORMAT_DATE, "123", date_2002_2_2, "2123-02-01"},
+      // "YY" - the last 2 digits of the year value.
+      {"YY", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"YY", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"YY", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
+      {"YY", TEST_FORMAT_DATE, "0", "1900-01-01"},
+      {"YY", TEST_FORMAT_DATE, "1", "1901-01-01"},
+      {"YY", TEST_FORMAT_DATE, "12", "1912-01-01"},
+      {"YY", TEST_FORMAT_DATE, "012", EXPECT_ERROR},
+      {"YY", TEST_FORMAT_DATE, "0012", EXPECT_ERROR},
+      {"YY", TEST_FORMAT_DATE, "12", date_2002_2_2, "2012-02-01"},
+      // "Y" - the last digit of the year value.
+      {"Y", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"Y", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"Y", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
+      {"Y", TEST_FORMAT_DATE, "0", "1970-01-01"},
+      {"Y", TEST_FORMAT_DATE, "1", "1971-01-01"},
+      {"Y", TEST_FORMAT_DATE, "01", EXPECT_ERROR},
+      {"Y", TEST_FORMAT_DATE, "001", EXPECT_ERROR},
+      {"Y", TEST_FORMAT_DATE, "1", date_2002_2_2, "2001-02-01"},
+      // "RRRR" - year value. It has the same behavior as format element "YYYY".
+      {"RRRR", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "0", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "1", "0001-01-01"},
+      {"RRRR", TEST_FORMAT_DATE, "12", "0012-01-01"},
+      {"RRRR", TEST_FORMAT_DATE, "123", "0123-01-01"},
+      {"RRRR", TEST_FORMAT_DATE, "1234", "1234-01-01"},
+      {"RRRR", TEST_FORMAT_DATE, "01234", "1234-01-01"},
+      {"RRRR", TEST_FORMAT_DATE, "001234", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "10000", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "10001", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "123456", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "1234", date_2002_2_2, "1234-02-01"},
+      // "RR" - the last 2 digits of the year value. The first 2 digits of the
+      // output year value can be different from that of the current year from
+      // <current_date> (more details at (broken link))
+      {"RR", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"RR", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"RR", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
+      {"RR", TEST_FORMAT_DATE, "0", date_2002_1_1, "2000-01-01"},
+      {"RR", TEST_FORMAT_DATE, "12", date_2002_1_1, "2012-01-01"},
+      {"RR", TEST_FORMAT_DATE, "51", date_2002_1_1, "1951-01-01"},
+      {"RR", TEST_FORMAT_DATE, "12", date_2299_2_1, "2312-02-01"},
+      {"RR", TEST_FORMAT_DATE, "51", date_2299_2_1, "2251-02-01"},
+      {"RR", TEST_FORMAT_DATE, "051", date_2299_2_1, EXPECT_ERROR},
+      {"RR", TEST_FORMAT_DATE, "0051", date_2299_2_1, EXPECT_ERROR},
+      // "Y,YYY" - year value in the pattern of "X,XXX" or "XX,XXX".
+      {"Y,YYY", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "-0,001", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "0,000", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, ",111", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "0,111", "0111-01-01"},
+      {"Y,YYY", TEST_FORMAT_DATE, "1,000", "1000-01-01"},
+      {"Y,YYY", TEST_FORMAT_DATE, "01,000", "1000-01-01"},
+      {"Y,YYY", TEST_FORMAT_DATE, "001,000", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "0001,000", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,222", "9222-01-01"},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,2", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,22", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,2222", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,22222", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "1,012", "1012-01-01"},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,999", "9999-01-01"},
+      {"Y,YYY", TEST_FORMAT_DATE, "10,000", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "10,001", EXPECT_ERROR},
+      {"Y,YYY", TEST_FORMAT_DATE, "9,999", date_2002_2_2, "9999-02-01"},
       // Error cases.
       // Returns error if input strings are not valid UTF-8.
       {"£\xff£", TEST_FORMAT_ANY, "£\xff£", EXPECT_ERROR},
@@ -6204,11 +6305,50 @@ GetCastStringToTimestampCommonTests() {
   return tests;
 }
 
+absl::Time GetCurrentTimestamp(int32_t current_date,
+                               absl::string_view timezone_string) {
+  absl::Time current_timestamp;
+  ZETASQL_CHECK_OK(functions::ConvertDateToTimestamp(current_date, timezone_string,
+                                             &current_timestamp));
+  return current_timestamp;
+}
+
 static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
   absl::Time ts_1970_1_1_utc;
   ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
       "1970-01-01", absl::UTCTimeZone(), kNanoseconds, true, &ts_1970_1_1_utc));
+  int32_t date_2002_1_1;
+  ZETASQL_CHECK_OK(functions::ConstructDate(2002, 1, 1, &date_2002_1_1));
   std::vector<CastStringToTimestampTest> tests({
+      // Test cases under <default_time_zone> different from "UTC". The current
+      // timestamp "1970-1-1 UTC" is "1969-12-31 -01:00" under timezone
+      // "-01:00", so the default year and default month become 1969 and 12 for
+      // the test cases with "-01:00" as <default_time_zone> string (note
+      // default day value is always 1).
+      {"YYYY", "1234", "-01:00", ts_1970_1_1_utc, "1234-12-01 00:00:00-01:00"},
+      {"YYY", "123", "-01:00", ts_1970_1_1_utc, "1123-12-01 00:00:00-01:00"},
+      {"YY", "12", "-01:00", ts_1970_1_1_utc, "1912-12-01 00:00:00-01:00"},
+      {"Y", "1", "-01:00", ts_1970_1_1_utc, "1961-12-01 00:00:00-01:00"},
+      {"RRRR", "1234", "-01:00", ts_1970_1_1_utc, "1234-12-01 00:00:00-01:00"},
+      {"RR", "12", "-01:00", ts_1970_1_1_utc, "2012-12-01 00:00:00-01:00"},
+      {"Y,YYY", "1,234", "-01:00", ts_1970_1_1_utc,
+       "1234-12-01 00:00:00-01:00"},
+      // Boundary cases.
+      {"YYYY", "1", "UTC", ts_1970_1_1_utc, "0001-01-01 00:00:00 UTC"},
+      {"YYYY", "0", "UTC", ts_1970_1_1_utc, EXPECT_ERROR},
+      {"YYYY", "9999", "UTC", ts_1970_1_1_utc, "9999-01-01 00:00:00 UTC"},
+      {"YYYY", "10000", "UTC", ts_1970_1_1_utc, EXPECT_ERROR},
+      // 'YYYY'/'RRRR' format elements can match integer values of 10000 by
+      // changing <default_timezone> values. The <default_timzone> is
+      // "+1:00" and the <current_timestamp> is "2002-1-1 +1:00", so the
+      // default year and default month (which depends on the
+      // <current_timestamp> under <default_timzone>) are 2002 and 1.
+      {"YYYY", "10000", "+1:00", GetCurrentTimestamp(date_2002_1_1, "+1:00"),
+       "9999-12-31 23:00:00 UTC"},
+      {"RRRR", "10000", "+1:00", GetCurrentTimestamp(date_2002_1_1, "+1:00"),
+       "9999-12-31 23:00:00 UTC"},
+      {"Y,YYY", "10,000", "+1:00", GetCurrentTimestamp(date_2002_1_1, "+1:00"),
+       "9999-12-31 23:00:00 UTC"},
       // Invalid default time zones.
       {"", "", "£\xff£", ts_1970_1_1_utc, EXPECT_ERROR},
       {"", "", "", ts_1970_1_1_utc, EXPECT_ERROR},

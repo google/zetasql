@@ -1002,8 +1002,7 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     }
   }
 
-  if (argument_literal != nullptr && format == nullptr &&
-      type_params.IsEmpty()) {
+  if (argument_literal != nullptr && format == nullptr) {
     std::unique_ptr<const ResolvedLiteral> converted_literal;
     ZETASQL_RETURN_IF_ERROR(ConvertLiteralToType(
         ast_location, argument_literal, target_type, scan,
@@ -1015,7 +1014,7 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
   ZETASQL_ASSIGN_OR_RETURN(
       const bool type_assigned,
       resolver_->MaybeAssignTypeToUndeclaredParameter(argument, target_type));
-  if (type_assigned) {
+  if (type_assigned && type_params.IsEmpty()) {
     return absl::OkStatus();
   }
 
@@ -1156,7 +1155,8 @@ absl::Status FunctionResolver::ConvertLiteralToType(
   // The float literal cache entry (if there is one) is no longer valid after
   // replacement.
   resolver_->float_literal_images_.erase(argument_literal->float_literal_id());
-  if (resolver_->analyzer_options_.record_parse_locations()) {
+  if (resolver_->analyzer_options_.parse_location_options()
+          .record_parse_locations) {
     // Copy parse location to the replacement literal.
     if (argument_literal->GetParseLocationRangeOrNULL() != nullptr) {
       replacement_literal->SetParseLocationRange(
@@ -1598,8 +1598,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   if (ast_location->node_kind() == zetasql::ASTNodeKind::AST_FUNCTION_CALL) {
     auto ast_function_call = ast_location->GetAs<ASTFunctionCall>();
-    resolver_->MaybeRecordParseLocation(ast_function_call->function(),
-                                        resolved_expr_out->get());
+    resolver_->MaybeRecordFunctionCallParseLocation(ast_function_call,
+                                                    resolved_expr_out->get());
   }
   return absl::OkStatus();
 }

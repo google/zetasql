@@ -1,0 +1,229 @@
+[default language_features=ALTER_COLUMN_SET_DATA_TYPE,CREATE_TABLE_FIELD_ANNOTATIONS,NUMERIC_TYPE,PARAMETERIZED_TYPES]
+
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC;
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC)
+
+==
+
+# Column names are case-insensitive
+ALTER TABLE KeyValue ALTER COLUMN kEY SET DATA TYPE NUMERIC;
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="kEY", updated_type=NUMERIC)
+==
+
+# INT64 -> NUMERIC(P,S)
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC(5,1);
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC, updated_type_parameters=(precision=5,scale=1))
+
+==
+
+# Multiple columns
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC,
+    ALTER COLUMN Value SET DATA TYPE STRING(42);
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC)
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRING, updated_type_parameters=(max_length=42))
+
+==
+
+# STRUCT<INT32,STRING> -> STRUCT<NUMERIC,STRING>
+ALTER TABLE TestStructValueTable
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a NUMERIC, b STRING>;
+--
+AlterTableStmt
++-name_path=TestStructValueTable
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>)
+==
+
+# STRUCT<INT32,STRING> -> STRUCT<NUMERIC,STRING(42)>
+ALTER TABLE TestStructValueTable
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a NUMERIC, b STRING(42)>;
+--
+AlterTableStmt
++-name_path=TestStructValueTable
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>, updated_type_parameters=[null,(max_length=42)])
+==
+
+# STRUCT<INT32,STRING> -> STRUCT<NUMERIC(5,1),STRING>
+ALTER TABLE TestStructValueTable
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a NUMERIC(5,1), b STRING>;
+--
+AlterTableStmt
++-name_path=TestStructValueTable
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>, updated_type_parameters=[(precision=5,scale=1),null])
+==
+
+# STRUCT<INT32,STRING> -> STRUCT<NUMERIC(5,1),STRING(42)>
+ALTER TABLE TestStructValueTable
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a NUMERIC(5,1), b STRING(42)>;
+--
+AlterTableStmt
++-name_path=TestStructValueTable
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>, updated_type_parameters=[(precision=5,scale=1),(max_length=42)])
+==
+
+# STRUCT<INT32,STRUCT<INT32,STRING>> -> STRUCT<INT32,STRUCT<NUMERIC,STRING(42)>>
+ALTER TABLE ComplexTypes ALTER COLUMN TestStruct
+    SET DATA TYPE STRUCT<c INT32, d STRUCT<a NUMERIC, b STRING(42)>>;
+--
+AlterTableStmt
++-name_path=ComplexTypes
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="TestStruct", updated_type=STRUCT<c INT32, d STRUCT<a NUMERIC, b STRING>>, updated_type_parameters=[null,[null,(max_length=42)]])
+==
+
+# ARRAY<INT32> -> ARRAY<NUMERIC(6,2)>
+ALTER TABLE ComplexTypes
+    ALTER COLUMN Int32Array SET DATA TYPE ARRAY<NUMERIC(6,2)>;
+--
+ERROR: ALTER TABLE ALTER COLUMN SET DATA TYPE requires that the existing column type (ARRAY<INT32>) is assignable to the new type (ARRAY<NUMERIC>) [at 2:5]
+    ALTER COLUMN Int32Array SET DATA TYPE ARRAY<NUMERIC(6,2)>;
+    ^
+==
+
+# ARRAY<STRUCT<a INT32, b STRING>> -> ARRAY<STRUCT<a NUMERIC, b STRING>>
+ALTER TABLE ArrayTypes ALTER COLUMN StructArray
+    SET DATA TYPE ARRAY<STRUCT<a NUMERIC, b STRING>>;
+--
+ERROR: ALTER TABLE ALTER COLUMN SET DATA TYPE requires that the existing column type (ARRAY<STRUCT<a INT32, b STRING>>) is assignable to the new type (ARRAY<STRUCT<a NUMERIC, b STRING>>) [at 1:24]
+ALTER TABLE ArrayTypes ALTER COLUMN StructArray
+                       ^
+==
+
+# STRING -> STRING(42)
+ALTER TABLE KeyValue ALTER COLUMN Value SET DATA TYPE STRING(42);
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRING, updated_type_parameters=(max_length=42))
+==
+
+# Column doesn't exist (IF EXISTS)
+ALTER TABLE KeyValue ALTER COLUMN IF EXISTS qux SET DATA TYPE NUMERIC;
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction(is_if_exists=TRUE, column="qux", updated_type=NUMERIC)
+==
+
+# Old type not assignable to new type
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE STRING;
+--
+ERROR: ALTER TABLE ALTER COLUMN SET DATA TYPE requires that the existing column type (INT64) is assignable to the new type (STRING) [at 1:22]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE STRING;
+                     ^
+==
+
+# Can't assign INT64 -> ARRAY<INT64>
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE ARRAY<INT64>;
+--
+ERROR: ALTER TABLE ALTER COLUMN SET DATA TYPE requires that the existing column type (INT64) is assignable to the new type (ARRAY<INT64>) [at 1:22]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE ARRAY<INT64>;
+                     ^
+==
+
+# Can't assign ARRAY<INT32> -> INT32 (even though the element types are assignable)
+ALTER TABLE ComplexTypes ALTER COLUMN Int32Array SET DATA TYPE INT32;
+--
+ERROR: ALTER TABLE ALTER COLUMN SET DATA TYPE requires that the existing column type (ARRAY<INT32>) is assignable to the new type (INT32) [at 1:26]
+ALTER TABLE ComplexTypes ALTER COLUMN Int32Array SET DATA TYPE INT32;
+                         ^
+==
+
+# Qualified column name not supported
+ALTER TABLE KeyValue ALTER COLUMN KeyValue.Key SET DATA TYPE NUMERIC;
+--
+ERROR: Syntax error: Expected keyword DROP or keyword SET but got "." [at 1:43]
+ALTER TABLE KeyValue ALTER COLUMN KeyValue.Key SET DATA TYPE NUMERIC;
+                                          ^
+==
+
+# Column doesn't exist
+ALTER TABLE KeyValue ALTER COLUMN qux SET DATA TYPE NUMERIC;
+--
+ERROR: Column not found: qux [at 1:22]
+ALTER TABLE KeyValue ALTER COLUMN qux SET DATA TYPE NUMERIC;
+                     ^
+==
+
+# Change to invalid type
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE FOO;
+--
+ERROR: Type not found: FOO [at 1:53]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE FOO;
+                                                    ^
+==
+
+# Change to invalid ANY type
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE ANY TYPE;
+--
+ERROR: Syntax error: Unexpected keyword ANY [at 1:53]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE ANY TYPE;
+                                                    ^
+==
+
+# Change to invalid parameterized type
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE INT64(10);
+--
+ERROR: INT64 does not support type parameters [at 1:58]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE INT64(10);
+                                                         ^
+==
+
+# Can't change NULL constraint
+# STRUCT<INT32,STRING> -> STRUCT<INT64 NOT NULL, STRING>
+ALTER TABLE TestStructValueTable
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a INT64 NOT NULL, b STRING>;
+--
+ERROR: NOT NULL constraint is unsupported [at 2:53]
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a INT64 NOT NULL, b STRING>;
+                                                    ^
+==
+
+# Can't change OPTIONS STRUCT<INT32,STRING>
+# -> STRUCT<INT64 OPTIONS (description="new description"), STRING>
+ALTER TABLE TestStructValueTable ALTER COLUMN Value SET DATA TYPE
+    STRUCT<a INT64 OPTIONS (description="new description"), b STRING>;
+--
+ERROR: For ALTER TABLE ALTER COLUMN SET DATA TYPE, the updated data type cannot contain OPTIONS [at 2:5]
+    STRUCT<a INT64 OPTIONS (description="new description"), b STRING>;
+    ^
+==
+
+# Feature disabled
+[language_features=NUMERIC_TYPE]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC;
+--
+ERROR: ALTER TABLE does not support ALTER COLUMN SET DATA TYPE [at 1:22]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC;
+                     ^
+==
+
+# Parameterized types feature disabled
+[language_features=ALTER_COLUMN_SET_DATA_TYPE,CREATE_TABLE_FIELD_ANNOTATIONS,NUMERIC_TYPE]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC(3,1);
+--
+ERROR: Parameterized types are not supported [at 1:60]
+ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC(3,1);
+                                                           ^
+==

@@ -356,19 +356,28 @@ static bool DoesValueContentUseSimpleReferenceCounted(TypeKind kind) {
   }
 }
 
-void SimpleType::CopyValueContent(const ValueContent& from,
-                                  ValueContent* to) const {
-  if (DoesValueContentUseSimpleReferenceCounted(kind())) {
+void SimpleType::CopyValueContent(TypeKind kind, const ValueContent& from,
+                                  ValueContent* to) {
+  if (DoesValueContentUseSimpleReferenceCounted(kind)) {
     from.GetAs<zetasql_base::SimpleReferenceCounted*>()->Ref();
   }
 
   *to = from;
 }
 
-void SimpleType::ClearValueContent(const ValueContent& value) const {
-  if (DoesValueContentUseSimpleReferenceCounted(kind())) {
+void SimpleType::CopyValueContent(const ValueContent& from,
+                                  ValueContent* to) const {
+  CopyValueContent(kind(), from, to);
+}
+
+void SimpleType::ClearValueContent(TypeKind kind, const ValueContent& value) {
+  if (DoesValueContentUseSimpleReferenceCounted(kind)) {
     value.GetAs<zetasql_base::SimpleReferenceCounted*>()->Unref();
   }
+}
+
+void SimpleType::ClearValueContent(const ValueContent& value) const {
+  ClearValueContent(kind(), value);
 }
 
 uint64_t SimpleType::GetValueContentExternallyAllocatedByteSize(

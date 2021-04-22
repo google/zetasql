@@ -1,0 +1,498 @@
+# LIMIT and OFFSET tests.
+SELECT 1 LIMIT 1;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Literal(type=INT64, value=1)
+==
+
+SELECT Key, Value
+FROM KeyValue
+LIMIT 0;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-limit=
+      +-Literal(type=INT64, value=0)
+==
+
+SELECT Key, Value
+FROM KeyValue
+LIMIT 0 OFFSET 0;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-limit=
+    | +-Literal(type=INT64, value=0)
+    +-offset=
+      +-Literal(type=INT64, value=0)
+==
+
+# Offset without limit is invalid.
+select key from KeyValue offset 5;
+--
+ERROR: Syntax error: Expected end of input but got integer literal "5" [at 1:33]
+select key from KeyValue offset 5;
+                                ^
+==
+
+select key from KeyValue order by 1 offset 5;
+--
+ERROR: Syntax error: Expected end of input but got keyword OFFSET [at 1:37]
+select key from KeyValue order by 1 offset 5;
+                                    ^
+==
+
+SELECT Key, Value
+FROM KeyValue
+LIMIT -1;
+--
+ERROR: Syntax error: Unexpected "-" [at 3:7]
+LIMIT -1;
+      ^
+==
+
+SELECT Key, Value
+FROM KeyValue
+LIMIT 0 OFFSET -1;
+--
+ERROR: Syntax error: Unexpected "-" [at 3:16]
+LIMIT 0 OFFSET -1;
+               ^
+==
+
+SELECT 1 LIMIT 1 OFFSET 1;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Literal(type=INT64, value=1)
+==
+
+SELECT 1 LIMIT @test_param_int32;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Cast(INT32 -> INT64)
+        +-Parameter(type=INT32, name="test_param_int32")
+==
+
+SELECT 1 LIMIT @test_param_int64;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Parameter(type=INT64, name="test_param_int64")
+==
+
+SELECT 1 LIMIT @test_param_uint32;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Cast(UINT32 -> INT64)
+        +-Parameter(type=UINT32, name="test_param_uint32")
+==
+
+SELECT 1 LIMIT @test_param_uint64;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Cast(UINT64 -> INT64)
+        +-Parameter(type=UINT64, name="test_param_uint64")
+==
+
+SELECT 1 LIMIT 1 OFFSET @test_param_int32;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Cast(INT32 -> INT64)
+        +-Parameter(type=INT32, name="test_param_int32")
+==
+
+SELECT 1 LIMIT 1 OFFSET @test_param_int64;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Parameter(type=INT64, name="test_param_int64")
+==
+
+SELECT 1 LIMIT 1 OFFSET @test_param_uint32;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Cast(UINT32 -> INT64)
+        +-Parameter(type=UINT32, name="test_param_uint32")
+==
+
+SELECT 1 LIMIT 1 OFFSET @test_param_uint64;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Cast(UINT64 -> INT64)
+        +-Parameter(type=UINT64, name="test_param_uint64")
+==
+
+# Casting of literals to integer and parameters to int64 works.
+select 1 limit cast(1 as int32) offset cast(@test_param_int32 as int64)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Cast(INT32 -> INT64)
+        +-Parameter(type=INT32, name="test_param_int32")
+==
+
+select 1 limit cast(@test_param_int32 as int32)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[$query.$col1#1]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[$query.$col1#1]
+    |   +-expr_list=
+    |   | +-$col1#1 := Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-SingleRowScan
+    +-limit=
+      +-Cast(INT32 -> INT64)
+        +-Parameter(type=INT32, name="test_param_int32")
+==
+
+select 1 limit cast(@test_param_int64 as int32)
+--
+ERROR: LIMIT expects an integer literal or parameter [at 1:16]
+select 1 limit cast(@test_param_int64 as int32)
+               ^
+==
+
+# Casting of other expressions does not work.
+select 1 limit cast(`key` as int64)
+from KeyValue
+--
+ERROR: Syntax error: Expected "@" or "@@" or integer literal but got identifier `key` [at 1:21]
+select 1 limit cast(`key` as int64)
+                    ^
+==
+
+SELECT *
+FROM (SELECT Key, Value
+      FROM KeyValue
+      LIMIT 10)
+LIMIT 5 OFFSET 5
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-LimitOffsetScan
+    |       +-column_list=KeyValue.[Key#1, Value#2]
+    |       +-input_scan=
+    |       | +-ProjectScan
+    |       |   +-column_list=KeyValue.[Key#1, Value#2]
+    |       |   +-input_scan=
+    |       |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    |       +-limit=
+    |         +-Literal(type=INT64, value=10)
+    +-limit=
+    | +-Literal(type=INT64, value=5)
+    +-offset=
+      +-Literal(type=INT64, value=5)
+==
+
+select *
+from KeyValue kv1
+limit 1 offset 2;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=KeyValue.[Key#1, Value#2]
+    |   +-input_scan=
+    |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv1")
+    +-limit=
+    | +-Literal(type=INT64, value=1)
+    +-offset=
+      +-Literal(type=INT64, value=2)
+==
+
+select * from KeyValue kv1
+UNION ALL
+SELECT * from KeyValue kv2
+LIMIT 5 OFFSET 1;
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.Key#5 AS Key [INT64]
+| +-$union_all.Value#6 AS Value [STRING]
++-query=
+  +-LimitOffsetScan
+    +-column_list=$union_all.[Key#5, Value#6]
+    +-input_scan=
+    | +-SetOperationScan
+    |   +-column_list=$union_all.[Key#5, Value#6]
+    |   +-op_type=UNION_ALL
+    |   +-input_item_list=
+    |     +-SetOperationItem
+    |     | +-scan=
+    |     | | +-ProjectScan
+    |     | |   +-column_list=KeyValue.[Key#1, Value#2]
+    |     | |   +-input_scan=
+    |     | |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv1")
+    |     | +-output_column_list=KeyValue.[Key#1, Value#2]
+    |     +-SetOperationItem
+    |       +-scan=
+    |       | +-ProjectScan
+    |       |   +-column_list=KeyValue.[Key#3, Value#4]
+    |       |   +-input_scan=
+    |       |     +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="kv2")
+    |       +-output_column_list=KeyValue.[Key#3, Value#4]
+    +-limit=
+    | +-Literal(type=INT64, value=5)
+    +-offset=
+      +-Literal(type=INT64, value=1)
+==
+
+# Expected to fail
+select * from KeyValue kv1
+LIMIT 5 OFFSET 1
+UNION ALL
+SELECT * from KeyValue kv2
+LIMIT 5 OFFSET 1;
+--
+ERROR: Syntax error: Expected end of input but got keyword UNION [at 3:1]
+UNION ALL
+^
+==
+
+select key from KeyValue order by 1 limit 3;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[KeyValue.Key#1]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-OrderByScan
+    |   +-column_list=[KeyValue.Key#1]
+    |   +-is_ordered=TRUE
+    |   +-input_scan=
+    |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    |   +-order_by_item_list=
+    |     +-OrderByItem
+    |       +-column_ref=
+    |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-limit=
+      +-Literal(type=INT64, value=3)
+==
+
+select key from KeyValue order by 1 limit 3 offset 5;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-LimitOffsetScan
+    +-column_list=[KeyValue.Key#1]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-OrderByScan
+    |   +-column_list=[KeyValue.Key#1]
+    |   +-is_ordered=TRUE
+    |   +-input_scan=
+    |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    |   +-order_by_item_list=
+    |     +-OrderByItem
+    |       +-column_ref=
+    |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-limit=
+    | +-Literal(type=INT64, value=3)
+    +-offset=
+      +-Literal(type=INT64, value=5)
+==
+
+# Offset without limit is invalid.
+select key from KeyValue order by 1 offset 5;
+--
+ERROR: Syntax error: Expected end of input but got keyword OFFSET [at 1:37]
+select key from KeyValue order by 1 offset 5;
+                                    ^

@@ -1,0 +1,1022 @@
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} if exists a.b.c.T set options (x = 5, y = abc, z = ("def", 1))
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database if exists a.b.c.T set options (x = 5, y = abc, z = ("def", 1))
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema if exists a.b.c.T set options (x = 5, y = abc, z = ("def", 1))
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.b.c.T
++-option_list=
+| +-x := Literal(type=INT64, value=5)
+| +-y := Literal(type=STRING, value="abc")
+| +-z := Literal(type=STRUCT<STRING, INT64>, value={"def", 1})
++-is_if_exists=TRUE
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view if exists a.b.c.T set options (x = 5, y = abc, z = ("def", 1))
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view if exists a.b.c.T set options (x = 5, y = abc, z = ("...
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.b.c.T
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-x := Literal(type=INT64, value=5)
+|     +-y := Literal(type=STRING, value="abc")
+|     +-z := Literal(type=STRUCT<STRING, INT64>, value={"def", 1})
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.b.c.T
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-x := Literal(type=INT64, value=5)
+|     +-y := Literal(type=STRING, value="abc")
+|     +-z := Literal(type=STRUCT<STRING, INT64>, value={"def", 1})
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.b.c.T
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-x := Literal(type=INT64, value=5)
+|     +-y := Literal(type=STRING, value="abc")
+|     +-z := Literal(type=STRUCT<STRING, INT64>, value={"def", 1})
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-x := Literal(type=INT64, value=5)
+|     +-y := Literal(type=STRING, value="abc")
+|     +-z := Literal(type=STRUCT<STRING, INT64>, value={"def", 1})
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-x := Literal(type=INT64, value=5)
+|     +-y := Literal(type=STRING, value="abc")
+|     +-z := Literal(type=STRUCT<STRING, INT64>, value={"def", 1})
++-is_if_exists=TRUE
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.b.c.T set options (x = NULL)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.b.c.T set options (x = NULL)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.b.c.T set options (x = NULL)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.b.c.T
++-option_list=
+  +-x := Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.b.c.T set options (x = NULL)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.b.c.T set options (x = NULL)
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.b.c.T set options (x = NULL, x = 2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.b.c.T set options (x = NULL, x = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.b.c.T set options (x = NULL, x = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.b.c.T
++-option_list=
+  +-x := Literal(type=INT64, value=NULL)
+  +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.b.c.T set options (x = NULL, x = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.b.c.T set options (x = NULL, x = 2)
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.b.c.T set options (x = ENUM_1)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.b.c.T set options (x = ENUM_1)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.b.c.T set options (x = ENUM_1)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.b.c.T
++-option_list=
+  +-x := Literal(type=STRING, value="ENUM_1")
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.b.c.T set options (x = ENUM_1)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.b.c.T set options (x = ENUM_1)
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=STRING, value="ENUM_1")
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=STRING, value="ENUM_1")
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=STRING, value="ENUM_1")
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=STRING, value="ENUM_1")
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=STRING, value="ENUM_1")
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.b.c.T set options
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStmt [at 1:1]
+alter database a.b.c.T set options
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStmt [at 1:1]
+alter schema a.b.c.T set options
+^
+--
+ALTERNATION GROUP: ALTER_TABLE_SET_OPTIONS,table
+--
+ERROR: Statement not supported: AlterTableStmt [at 1:1]
+alter table a.b.c.T set options
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStmt [at 1:1]
+alter view a.b.c.T set options
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStmt [at 1:1]
+alter materialized view a.b.c.T set options
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE,table
+    table
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:32]
+alter table a.b.c.T set options
+                               ^
+--
+ALTERNATION GROUP: database
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:35]
+alter database a.b.c.T set options
+                                  ^
+--
+ALTERNATION GROUP: schema
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:33]
+alter schema a.b.c.T set options
+                                ^
+--
+ALTERNATION GROUP: view
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:31]
+alter view a.b.c.T set options
+                              ^
+--
+ALTERNATION GROUP: materialized view
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:44]
+alter materialized view a.b.c.T set options
+                                           ^
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.T set options ()
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.T set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.T set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt(name_path=a.T)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.T set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.T set options ()
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} if exists a.T set options ()
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database if exists a.T set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema if exists a.T set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt(name_path=a.T, is_if_exists=TRUE)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view if exists a.T set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view if exists a.T set options ()
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.T
++-alter_action_list=
+| +-SetOptionsAction
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.T
++-alter_action_list=
+| +-SetOptionsAction
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.T
++-alter_action_list=
+| +-SetOptionsAction
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.T
++-alter_action_list=
+| +-SetOptionsAction
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.T
++-alter_action_list=
+| +-SetOptionsAction
++-is_if_exists=TRUE
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.T set options (), set options ()
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.T set options (), set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.T set options (), set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt(name_path=a.T)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.T set options (), set options ()
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.T set options (), set options ()
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.T set options (a = 1), set options (b = 2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.T set options (a = 1), set options (b = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.T set options (a = 1), set options (b = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.T
++-option_list=
+  +-a := Literal(type=INT64, value=1)
+  +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.T set options (a = 1), set options (b = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.T set options (a = 1), set options (b = 2)
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.T set options (), set options (a = 'foo', b = 2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.T set options (), set options (a = 'foo', b = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.T set options (), set options (a = 'foo', b = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.T
++-option_list=
+  +-a := Literal(type=STRING, value="foo")
+  +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.T set options (), set options (a = 'foo', b = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.T set options (), set options (a = 'foo', b = 2)
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+    +-option_list=
+      +-a := Literal(type=STRING, value="foo")
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+    +-option_list=
+      +-a := Literal(type=STRING, value="foo")
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+    +-option_list=
+      +-a := Literal(type=STRING, value="foo")
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+    +-option_list=
+      +-a := Literal(type=STRING, value="foo")
+      +-b := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.T
++-alter_action_list=
+  +-SetOptionsAction
+  +-SetOptionsAction
+    +-option_list=
+      +-a := Literal(type=STRING, value="foo")
+      +-b := Literal(type=INT64, value=2)
+==
+
+[supported_statement_kinds={{ALTER_TABLE_SET_OPTIONS|ALTER_TABLE|}}]
+alter {{database|schema|table|view|materialized view}} a.b.c.T set options (x = NULL, x = 2), set options (x = NULL, x = 2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,database
+    ALTER_TABLE,database
+--
+ERROR: Statement not supported: AlterDatabaseStatement [at 1:1]
+alter database a.b.c.T set options (x = NULL, x = 2), set options (x = NULL, ...
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,schema
+    ALTER_TABLE,schema
+--
+ERROR: Statement not supported: AlterSchemaStatement [at 1:1]
+alter schema a.b.c.T set options (x = NULL, x = 2), set options (x = NULL, x ...
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,table
+    table
+--
+AlterTableSetOptionsStmt
++-name_path=a.b.c.T
++-option_list=
+  +-x := Literal(type=INT64, value=NULL)
+  +-x := Literal(type=INT64, value=2)
+  +-x := Literal(type=INT64, value=NULL)
+  +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,view
+    ALTER_TABLE,view
+--
+ERROR: Statement not supported: AlterViewStatement [at 1:1]
+alter view a.b.c.T set options (x = NULL, x = 2), set options (x = NULL, x = 2)
+^
+--
+ALTERNATION GROUPS:
+    ALTER_TABLE_SET_OPTIONS,materialized view
+    ALTER_TABLE,materialized view
+--
+ERROR: Statement not supported: AlterMaterializedViewStatement [at 1:1]
+alter materialized view a.b.c.T set options (x = NULL, x = 2), set options (x...
+^
+--
+ALTERNATION GROUP: ALTER_TABLE,table
+--
+AlterTableStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=NULL)
+  |   +-x := Literal(type=INT64, value=2)
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: database
+--
+AlterDatabaseStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=NULL)
+  |   +-x := Literal(type=INT64, value=2)
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: schema
+--
+AlterSchemaStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=NULL)
+  |   +-x := Literal(type=INT64, value=2)
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: view
+--
+AlterViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=NULL)
+  |   +-x := Literal(type=INT64, value=2)
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=a.b.c.T
++-alter_action_list=
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-x := Literal(type=INT64, value=NULL)
+  |   +-x := Literal(type=INT64, value=2)
+  +-SetOptionsAction
+    +-option_list=
+      +-x := Literal(type=INT64, value=NULL)
+      +-x := Literal(type=INT64, value=2)

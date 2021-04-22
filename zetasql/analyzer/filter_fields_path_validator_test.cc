@@ -181,4 +181,87 @@ TEST_F(FilterFieldsPathValidatorTest, FailWhenNotOverridingTopLevelMessage) {
       StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST_F(FilterFieldsPathValidatorTest, FailWhenClearingRequiredFields) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(
+      validator.ValidateFieldPath(
+          /*include=*/false,
+          {KitchenSinkPB::descriptor()->FindFieldByName("int64_key_1")}));
+  EXPECT_THAT(validator.ValidateRequiredFields(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(FilterFieldsPathValidatorTest, FailWhenClearingRequiredMessage) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/false,
+      {KitchenSinkPB::descriptor()->FindFieldByName(
+           "nested_with_required_fields"),
+       KitchenSinkPB::NestedWithRequiredMessageFields::descriptor()
+           ->FindFieldByName("nested_required_value")}));
+  EXPECT_THAT(validator.ValidateRequiredFields(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(FilterFieldsPathValidatorTest, ClearingNestedFieldsInRequiredMessage) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/false,
+      {KitchenSinkPB::descriptor()->FindFieldByName(
+           "nested_with_required_fields"),
+       KitchenSinkPB::NestedWithRequiredMessageFields::descriptor()
+           ->FindFieldByName("nested_required_value"),
+       KitchenSinkPB::Nested::descriptor()->FindFieldByName("nested_int64")}));
+  ZETASQL_EXPECT_OK(validator.ValidateRequiredFields());
+}
+
+TEST_F(FilterFieldsPathValidatorTest,
+       IncludeNestedFieldsInExcludedRequiredMessage) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/false,
+      {KitchenSinkPB::descriptor()->FindFieldByName(
+           "nested_with_required_fields"),
+       KitchenSinkPB::NestedWithRequiredMessageFields::descriptor()
+           ->FindFieldByName("nested_required_value")}));
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/true,
+      {KitchenSinkPB::descriptor()->FindFieldByName(
+           "nested_with_required_fields"),
+       KitchenSinkPB::NestedWithRequiredMessageFields::descriptor()
+           ->FindFieldByName("nested_required_value"),
+       KitchenSinkPB::Nested::descriptor()->FindFieldByName("nested_int64")}));
+  ZETASQL_EXPECT_OK(validator.ValidateRequiredFields());
+}
+
+TEST_F(FilterFieldsPathValidatorTest,
+       ExcludeMessageWhoHasRequiredFields) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/false, {KitchenSinkPB::descriptor()->FindFieldByName(
+                             "nested_with_required_fields")}));
+  ZETASQL_EXPECT_OK(validator.ValidateRequiredFields());
+}
+
+TEST_F(FilterFieldsPathValidatorTest, FailWhenSkippingRequiredFields) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/true,
+      {KitchenSinkPB::descriptor()->FindFieldByName("int32_val")}));
+  EXPECT_THAT(validator.ValidateRequiredFields(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(FilterFieldsPathValidatorTest, FailWhenSkippingRequiredMessage) {
+  FilterFieldsPathValidator validator(KitchenSinkPB::descriptor());
+  ZETASQL_EXPECT_OK(validator.ValidateFieldPath(
+      /*include=*/true,
+      {KitchenSinkPB::descriptor()->FindFieldByName(
+           "nested_with_required_fields"),
+       KitchenSinkPB::NestedWithRequiredMessageFields::descriptor()
+           ->FindFieldByName("nested_int32_val")}));
+  EXPECT_THAT(validator.ValidateRequiredFields(),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 }  // namespace zetasql

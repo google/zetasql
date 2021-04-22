@@ -26,6 +26,7 @@ package(
 
 TYPES_SRCS = [
     "ArrayType.java",
+    "BuiltinDescriptorPool.java",
     "CivilTimeEncoder.java",
     "EnumType.java",
     "FileDescriptorSetsBuilder.java",
@@ -54,7 +55,10 @@ java_library(
         "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/public:value_java_proto",
+        "//zetasql/public/functions:datetime_java_proto",
+        "//zetasql/public/functions:normalize_mode_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
+        "@com_google_api_grpc_proto_google_common_protos//jar",
         "@com_google_auto_value",
         "@com_google_code_findbugs_jsr305//jar",
         "@com_google_errorprone_error_prone_annotations//jar",  # buildcleaner: keep
@@ -358,6 +362,7 @@ java_library(
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # buildcleaner: keep
         "@com_google_guava_guava//jar",
+        "@com_google_protobuf//:protobuf_java",
         "@io_grpc_grpc_core//jar",
     ],
 )

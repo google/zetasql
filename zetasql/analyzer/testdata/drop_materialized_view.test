@@ -1,0 +1,18 @@
+DROP MATERIALIZED VIEW table;
+--
+DropMaterializedViewStmt(is_if_exists=FALSE, name_path=table)
+==
+
+DROP MATERIALIZED VIEW namespace.table;
+--
+DropMaterializedViewStmt(is_if_exists=FALSE, name_path=namespace.table)
+==
+
+DROP MATERIALIZED VIEW IF EXISTS table;
+--
+DropMaterializedViewStmt(is_if_exists=TRUE, name_path=table)
+==
+
+DROP MATERIALIZED VIEW IF EXISTS namespace.table;
+--
+DropMaterializedViewStmt(is_if_exists=TRUE, name_path=namespace.table)

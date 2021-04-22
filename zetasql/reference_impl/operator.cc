@@ -60,6 +60,14 @@ RelationalOp* AlgebraArg::mutable_relational_op() {
   return node() ? mutable_node()->AsMutableRelationalOp() : nullptr;
 }
 
+const InlineLambdaExpr* AlgebraArg::inline_lambda_expr() const {
+  return node() ? node()->AsInlineLambdaExpr() : nullptr;
+}
+
+InlineLambdaExpr* AlgebraArg::mutable_inline_lambda_expr() {
+  return node() ? mutable_node()->AsMutableInlineLambdaExpr() : nullptr;
+}
+
 std::string AlgebraArg::DebugString(bool verbose) const {
   return this->DebugInternal("\n", verbose);
 }
@@ -126,6 +134,12 @@ ExprArg::ExprArg(std::unique_ptr<ValueExpr> expr)
 }
 
 // -------------------------------------------------------
+// InlineLambdaArg
+// -------------------------------------------------------
+InlineLambdaArg::InlineLambdaArg(std::unique_ptr<InlineLambdaExpr> lambda)
+    : AlgebraArg(VariableId(), std::move(lambda)) {}
+
+// -------------------------------------------------------
 // AlgebraNode
 // -------------------------------------------------------
 
@@ -147,6 +161,16 @@ const RelationalOp* AlgebraNode::AsRelationalOp() const {
 }
 
 RelationalOp* AlgebraNode::AsMutableRelationalOp() {
+  ZETASQL_LOG(FATAL);
+  return nullptr;
+}
+
+const InlineLambdaExpr* AlgebraNode::AsInlineLambdaExpr() const {
+  ZETASQL_LOG(FATAL);
+  return nullptr;
+}
+
+InlineLambdaExpr* AlgebraNode::AsMutableInlineLambdaExpr() {
   ZETASQL_LOG(FATAL);
   return nullptr;
 }

@@ -114,7 +114,7 @@ message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
 
-// Next ID to use: 109
+// Next ID to use: 110
 message KitchenSinkPB {
   required int64 int64_key_1 = 1;
   required int64 int64_key_2 = 2;
@@ -167,6 +167,14 @@ message KitchenSinkPB {
 
   optional Nested nested_value = 33;
   repeated Nested nested_repeated_value = 34;
+
+  message NestedWithRequiredMessageFields {
+    required Nested nested_required_value = 1;
+    optional int32 nested_int32_val = 2;
+    optional Nested nested_value = 3;
+  }
+
+  optional NestedWithRequiredMessageFields nested_with_required_fields = 109;
 
   repeated RepeatedHolderPB repeated_holder = 35;
 

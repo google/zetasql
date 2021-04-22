@@ -49,6 +49,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/testdata/populate_sample_tables.h"
 #include "zetasql/testdata/sample_catalog.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -3315,6 +3316,16 @@ TEST(PreparedQuery, ExecuteAfterPrepareOnlyNamedParams) {
   EXPECT_EQ(Int64(123), iter->GetValue(0));
   EXPECT_FALSE(iter->NextRow());
   ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST(PreparedQuery, ExecuteAfterPrepareBuiltinFunction) {
+  PreparedQuery query("select 1 + 2 as x", EvaluatorOptions());
+
+  AnalyzerOptions analyzer_options;
+  ZETASQL_EXPECT_OK(query.Prepare(analyzer_options));
+  SQLBuilder sql_builder;
+  ZETASQL_ASSERT_OK(query.resolved_query_stmt()->Accept(&sql_builder));
+  ASSERT_EQ(sql_builder.sql(), "SELECT 1 + 2 AS x");
 }
 
 }  // namespace

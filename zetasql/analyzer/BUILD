@@ -15,9 +15,15 @@
 #
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load(":builddefs.bzl", "gen_analyzer_test")
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
+)
+
+filegroup(
+    name = "analyzer_test_files",
+    srcs = glob(["testdata/*.test"]),
 )
 
 cc_library(
@@ -387,6 +393,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:statusor",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -594,4 +601,105 @@ cc_library(
         "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/strings",
     ],
+)
+
+cc_library(
+    name = "analyzer_test_options",
+    testonly = 1,
+    srcs = ["analyzer_test_options.cc"],
+    hdrs = ["analyzer_test_options.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base",
+        "//zetasql/base:status",
+        "//zetasql/public:type",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
+    ],
+)
+
+cc_library(
+    name = "run_analyzer_test_lib",
+    testonly = 1,
+    srcs = ["run_analyzer_test.cc"],
+    hdrs = ["run_analyzer_test.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer_test_options",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/common:status_payload_utils",
+        "//zetasql/parser",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:catalog",
+        "//zetasql/public:error_helpers",
+        "//zetasql/public:function",
+        "//zetasql/public:language_options",
+        "//zetasql/public:literal_remover",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_helpers",
+        "//zetasql/public:parse_resume_location",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:sql_formatter",
+        "//zetasql/public:strings",
+        "//zetasql/public:templated_sql_function",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public:type",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:date_time_util",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:comparator",
+        "//zetasql/resolved_ast:resolved_ast_cc_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/resolved_ast:sql_builder",
+        "//zetasql/resolved_ast:validator",
+        "//zetasql/testdata:bad_test_schema_cc_proto",
+        "//zetasql/testdata:sample_catalog",
+        "//zetasql/testdata:sample_system_variables",
+        "//zetasql/testdata:special_catalog",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_file_based_test_driver//file_based_test_driver",
+        "@com_google_file_based_test_driver//file_based_test_driver:run_test_case_result",
+        "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
+        "@com_google_googletest//:gtest",
+        "@com_google_protobuf//:protobuf",
+        "@com_googlesource_code_re2//:re2",
+    ],
+)
+
+[gen_analyzer_test(
+    filename = f.split("/")[-1],
+) for f in glob(["testdata/*.test"])]
+
+bzl_library(
+    name = "builddefs_bzl",
+    srcs = ["builddefs.bzl"],
 )

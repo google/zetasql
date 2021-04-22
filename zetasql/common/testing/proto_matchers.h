@@ -17,36 +17,6 @@
 #ifndef ZETASQL_COMMON_TESTING_PROTO_MATCHERS_H_
 #define ZETASQL_COMMON_TESTING_PROTO_MATCHERS_H_
 
-#include "gmock/gmock.h"  
-
-#include "zetasql/base/logging.h"
-#include "google/protobuf/text_format.h"
-#include "google/protobuf/util/message_differencer.h"
-#include "absl/strings/string_view.h"
-
-namespace zetasql {
-namespace proto_matchers_internal {
-
-bool InternalProtoEqual(const google::protobuf::Message& msg1,
-                        const google::protobuf::Message& msg2) {
-  return google::protobuf::util::MessageDifferencer::Equals(msg1, msg2);
-}
-
-bool InternalProtoEqual(const google::protobuf::Message& msg1,
-                        absl::string_view msg2_text) {
-  google::protobuf::Message* msg2 = msg1.New();
-  ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(std::string(msg2_text), msg2));
-  return InternalProtoEqual(msg1, *msg2);
-}
-}  // namespace proto_matchers_internal
-
-namespace testing {
-
-MATCHER_P(EqualsProto, expected, "") {
-  return ::zetasql::proto_matchers_internal::InternalProtoEqual(arg, expected);
-}
-
-}  // namespace testing
-}  // namespace zetasql
+#include "zetasql/base/testing/proto_matchers.h"
 
 #endif  // ZETASQL_COMMON_TESTING_PROTO_MATCHERS_H_

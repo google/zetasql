@@ -21,6 +21,8 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
+#include "gtest/gtest.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 
 namespace zetasql {
@@ -30,170 +32,409 @@ namespace {
 using testing::HasSubstr;
 using zetasql_base::testing::StatusIs;
 
-using cast_date_time_internal::FormatElement;
+using cast_date_time_internal::DateTimeFormatElement;
+using cast_date_time_internal::FormatCasingType;
+using cast_date_time_internal::FormatElementCategory;
 using cast_date_time_internal::FormatElementType;
-using cast_date_time_internal::GetFormatElements;
+using cast_date_time_internal::GetDateTimeFormatElements;
 
-static void ExecuteFormatElementParsingTest(
+static void ExecuteDateTimeFormatElementParsingTest(
     absl::string_view format_str,
-    const std::vector<FormatElement>& expected_format_elements,
+    const std::vector<DateTimeFormatElement>& expected_format_elements,
     std::string error_message) {
   std::string upper_format_str_temp = absl::AsciiStrToUpper(format_str);
 
   if (error_message.empty()) {
-    auto status_or_format_elements = GetFormatElements(format_str);
+    auto status_or_format_elements = GetDateTimeFormatElements(format_str);
     ZETASQL_EXPECT_OK(status_or_format_elements);
 
-    std::vector<FormatElement>& format_elements =
+    std::vector<DateTimeFormatElement>& format_elements =
         status_or_format_elements.value();
 
     EXPECT_EQ(format_elements.size(), expected_format_elements.size());
     for (size_t i = 0; i < format_elements.size(); ++i) {
       EXPECT_EQ(format_elements[i].type, expected_format_elements[i].type);
-      EXPECT_EQ(format_elements[i].original_str,
-                expected_format_elements[i].original_str);
+      EXPECT_EQ(format_elements[i].category,
+                expected_format_elements[i].category);
+      EXPECT_EQ(format_elements[i].len_in_format_str,
+                expected_format_elements[i].len_in_format_str);
+      EXPECT_EQ(format_elements[i].format_casing_type,
+                expected_format_elements[i].format_casing_type);
+      if (expected_format_elements[i].type ==
+              FormatElementType::kSimpleLiteral ||
+          expected_format_elements[i].type ==
+              FormatElementType::kDoubleQuotedLiteral) {
+        EXPECT_EQ(format_elements[i].literal_value,
+                  expected_format_elements[i].literal_value);
+      }
+      if (expected_format_elements[i].type == FormatElementType::kFFN) {
+        EXPECT_EQ(format_elements[i].subsecond_digit_count,
+                  expected_format_elements[i].subsecond_digit_count);
+      }
     }
   } else {
-    auto status_or_format_elements = GetFormatElements(format_str);
+    auto status_or_format_elements = GetDateTimeFormatElements(format_str);
     EXPECT_THAT(
         status_or_format_elements.status(),
         StatusIs(absl::StatusCode::kOutOfRange, HasSubstr(error_message)));
   }
 }
 
-static std::vector<FormatElement> GetAllSupportedFormatElements() {
-  std::vector<FormatElement> all_format_elements;
-  /*Literals*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, "-"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, "."));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, "/"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, ","));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, "'"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, ";"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kLiteral, ":"));
-  // the first output character of Text format element could be a number
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kDoubleQuotedLiteral, "abc"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kWhitespace, " "));
+static std::vector<std::pair<std::string, DateTimeFormatElement>>
+GetAllSupportedDateTimeFormatElementStringObjectPairs() {
+  std::vector<std::pair<std::string, DateTimeFormatElement>>
+      all_format_element_string_object_pairs = {
+          /*Simple Literals*/
+          {"-",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = "-"}},
+          {".",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = "."}},
+          {"/",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = "/"}},
+          {",",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = ","}},
+          {"'",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = "'"}},
+          {";",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = ";"}},
+          {":",
+           {.type = FormatElementType::kSimpleLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = ":"}},
 
-  /*Year*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kYear, "YYYY"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kYear, "RRRR"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "YYY"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "RR"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "YY"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kYear, "SYEAR"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kYear, "Y,YYY"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "Y"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "IYY"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "IY"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kYear, "I"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kYear, "SYYYY"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kYear, "YEAR"));
+          /*Double Quoted Literal*/
+          {R"("abc")",
+           {.type = FormatElementType::kDoubleQuotedLiteral,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 5,
+            .format_casing_type = FormatCasingType::kPreserveCase,
+            .literal_value = "abc"}},
 
-  /*Month*/
-  all_format_elements.push_back(FormatElement(FormatElementType::kMonth, "MM"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMonth, "MON"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMonth, "MONTH"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kMonth, "RM"));
+          /*Whitespace*/
+          {"      ",
+           {.type = FormatElementType::kWhitespace,
+            .category = FormatElementCategory::kLiteral,
+            .len_in_format_str = 6,
+            .format_casing_type = FormatCasingType::kPreserveCase}},
 
-  /*Day*/
-  all_format_elements.push_back(FormatElement(FormatElementType::kDay, "DDD"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kDay, "DAY"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kDay, "DD"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kDay, "J"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kDay, "DY"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kDay, "D"));
+          /*Year*/
+          {"YYYY",
+           {.type = FormatElementType::kYYYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"YYY",
+           {.type = FormatElementType::kYYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"YY",
+           {.type = FormatElementType::kYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"Y",
+           {.type = FormatElementType::kY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"RRRR",
+           {.type = FormatElementType::kRRRR,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"RR",
+           {.type = FormatElementType::kRR,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"Y,YYY",
+           {.type = FormatElementType::kYCommaYYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 5,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"IYYY",
+           {.type = FormatElementType::kIYYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"IYY",
+           {.type = FormatElementType::kIYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"IY",
+           {.type = FormatElementType::kIY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"I",
+           {.type = FormatElementType::kI,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"SYYYY",
+           {.type = FormatElementType::kSYYYY,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 5,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"YEAR",
+           {.type = FormatElementType::kYEAR,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"SYEAR",
+           {.type = FormatElementType::kSYEAR,
+            .category = FormatElementCategory::kYear,
+            .len_in_format_str = 5,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
 
-  /*Hour*/
-  all_format_elements.push_back(FormatElement(FormatElementType::kHour, "HH"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kHour, "HH12"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kHour, "HH24"));
+          /*Month*/
+          {"MM",
+           {.type = FormatElementType::kMM,
+            .category = FormatElementCategory::kMonth,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"MON",
+           {.type = FormatElementType::kMON,
+            .category = FormatElementCategory::kMonth,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"MONTH",
+           {.type = FormatElementType::kMONTH,
+            .category = FormatElementCategory::kMonth,
+            .len_in_format_str = 5,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"RM",
+           {.type = FormatElementType::kRM,
+            .category = FormatElementCategory::kMonth,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
 
-  /*Minute*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMinute, "MI"));
+          /*Day*/
+          {"DDD",
+           {.type = FormatElementType::kDDD,
+            .category = FormatElementCategory::kDay,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"DD",
+           {.type = FormatElementType::kDD,
+            .category = FormatElementCategory::kDay,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"D",
+           {.type = FormatElementType::kD,
+            .category = FormatElementCategory::kDay,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"DAY",
+           {.type = FormatElementType::kDAY,
+            .category = FormatElementCategory::kDay,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"DY",
+           {.type = FormatElementType::kDY,
+            .category = FormatElementCategory::kDay,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"J",
+           {.type = FormatElementType::kJ,
+            .category = FormatElementCategory::kDay,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
 
-  /*Second*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kSecond, "SSSSS"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kSecond, "SS"));
-  // FF1~FF9
-  for (int i = 1; i < 10; ++i) {
-    all_format_elements.push_back(
-        FormatElement(FormatElementType::kSecond, absl::StrCat("FF", i)));
+          /*Hour*/
+          {"HH",
+           {.type = FormatElementType::kHH,
+            .category = FormatElementCategory::kHour,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"HH12",
+           {.type = FormatElementType::kHH12,
+            .category = FormatElementCategory::kHour,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"HH24",
+           {.type = FormatElementType::kHH24,
+            .category = FormatElementCategory::kHour,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Minute*/
+          {"MI",
+           {.type = FormatElementType::kMI,
+            .category = FormatElementCategory::kMinute,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Second*/
+          {"SS",
+           {.type = FormatElementType::kSS,
+            .category = FormatElementCategory::kSecond,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"SSSSS",
+           {.type = FormatElementType::kSSSSS,
+            .category = FormatElementCategory::kSecond,
+            .len_in_format_str = 5,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Meridian indicator*/
+          {"AM",
+           {.type = FormatElementType::kAM,
+            .category = FormatElementCategory::kMeridianIndicator,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"PM",
+           {.type = FormatElementType::kPM,
+            .category = FormatElementCategory::kMeridianIndicator,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"A.M.",
+           {.type = FormatElementType::kAMWithDots,
+            .category = FormatElementCategory::kMeridianIndicator,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"P.M.",
+           {.type = FormatElementType::kPMWithDots,
+            .category = FormatElementCategory::kMeridianIndicator,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Time zone*/
+          {"TZH",
+           {.type = FormatElementType::kTZH,
+            .category = FormatElementCategory::kTimeZone,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"TZM",
+           {.type = FormatElementType::kTZM,
+            .category = FormatElementCategory::kTimeZone,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Century*/
+          {"CC",
+           {.type = FormatElementType::kCC,
+            .category = FormatElementCategory::kCentury,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"SCC",
+           {.type = FormatElementType::kSCC,
+            .category = FormatElementCategory::kCentury,
+            .len_in_format_str = 3,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Quarter*/
+          {"Q",
+           {.type = FormatElementType::kQ,
+            .category = FormatElementCategory::kQuarter,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Week*/
+          {"IW",
+           {.type = FormatElementType::kIW,
+            .category = FormatElementCategory::kWeek,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"WW",
+           {.type = FormatElementType::kWW,
+            .category = FormatElementCategory::kWeek,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"W",
+           {.type = FormatElementType::kW,
+            .category = FormatElementCategory::kWeek,
+            .len_in_format_str = 1,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Era Indicator*/
+          {"AD",
+           {.type = FormatElementType::kAD,
+            .category = FormatElementCategory::kEraIndicator,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"BC",
+           {.type = FormatElementType::kBC,
+            .category = FormatElementCategory::kEraIndicator,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"A.D.",
+           {.type = FormatElementType::kADWithDots,
+            .category = FormatElementCategory::kEraIndicator,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"B.C.",
+           {.type = FormatElementType::kBCWithDots,
+            .category = FormatElementCategory::kEraIndicator,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+
+          /*Misc*/
+          {"SP",
+           {.type = FormatElementType::kSP,
+            .category = FormatElementCategory::kMisc,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"TH",
+           {.type = FormatElementType::kTH,
+            .category = FormatElementCategory::kMisc,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"SPTH",
+           {.type = FormatElementType::kSPTH,
+            .category = FormatElementCategory::kMisc,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"THSP",
+           {.type = FormatElementType::kTHSP,
+            .category = FormatElementCategory::kMisc,
+            .len_in_format_str = 4,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+          {"FM",
+           {.type = FormatElementType::kFM,
+            .category = FormatElementCategory::kMisc,
+            .len_in_format_str = 2,
+            .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+      };
+  for (int i = 1; i <= 9; ++i) {
+    // Element formats "FF1" to "FF9".
+    all_format_element_string_object_pairs.push_back(
+        {absl::StrCat("FF", i),
+         {.type = FormatElementType::kFFN,
+          .category = FormatElementCategory::kSecond,
+          .len_in_format_str = 3,
+          .format_casing_type = FormatCasingType::kAllLettersUppercase,
+          .subsecond_digit_count = i}});
   }
-
-  /*Meridian indicator*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMeridianIndicator, "A.M."));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMeridianIndicator, "AM"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMeridianIndicator, "P.M."));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMeridianIndicator, "PM"));
-
-  /*Time zone*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kTimeZone, "TZH"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kTimeZone, "TZM"));
-
-  /*Century*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kCentury, "CC"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kCentury, "SCC"));
-
-  /*Quarter*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kQuarter, "Q"));
-
-  /*Week*/
-  all_format_elements.push_back(FormatElement(FormatElementType::kWeek, "IW"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kWeek, "WW"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kWeek, "W"));
-
-  /*Era Indicator*/
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kEraIndicator, "AD"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kEraIndicator, "BC"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kEraIndicator, "A.D."));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kEraIndicator, "B.C."));
-
-  /*Misc*/
-  all_format_elements.push_back(FormatElement(FormatElementType::kMisc, "SP"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kMisc, "FM"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMisc, "SPTH"));
-  all_format_elements.push_back(FormatElement(FormatElementType::kMisc, "TH"));
-  all_format_elements.push_back(
-      FormatElement(FormatElementType::kMisc, "THSP"));
-
-  return all_format_elements;
+  return all_format_element_string_object_pairs;
 }
 
 static void TestCastStringToTimestamp(const FunctionTestCall& test) {
@@ -416,64 +657,63 @@ TEST(StringToTimestampTests, ValidateFormatStringForParsing) {
                                      "Cannot find matched format element");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "DAY",
-      "Format Element 'DAY' is not supported for parsing");
+      "Format element 'DAY' is not supported for parsing");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "MiMI",
-      "More than one format element in upper case form MI exist: 'Mi', 'MI'");
+      "Format element 'MI' appears more than once in the format string");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "fF2Ff2",
-      "More than one format element in upper case form "
-      "FF2 exist: 'fF2', 'Ff2'");
+      "Format element 'FF2' appears more than once in the format string");
   // The single occurrence limit of distinct uppercase forms only applies to
   // non-literal format elements.
   TestValidateFormatStringForParsing(TYPE_TIMESTAMP, R"(Mi"MI")", "");
   TestValidateFormatStringForParsing(TYPE_TIMESTAMP, "- -", "");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "YYYYRR",
-      "More than one format element of type YEAR exist: 'YYYY' and 'RR'");
+      "More than one format element in category YEAR exist: 'YYYY' and 'RR'");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "MonthMM",
-      "More than one format element of type MONTH exist: 'Month' and 'MM'");
+      "More than one format element in category MONTH exist: 'MONTH' and 'MM'");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "DDDDd",
-      "More than one format element of type DAY exist: 'DDD' and 'Dd'");
+      "More than one format element in category DAY exist: 'DDD' and 'DD'");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "HH24HH",
-      "More than one format element of type HOUR exist: 'HH24' and 'HH'");
+      "More than one format element in category HOUR exist: 'HH24' and 'HH'");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "HH24hh12",
-      "More than one format element of type HOUR exist: 'HH24' and 'hh12'");
+      "More than one format element in category HOUR exist: 'HH24' and 'HH12'");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "MonDDD",
-      "Format element of type MONTH ('Mon') and format "
+      "Format element in category MONTH ('MON') and format "
       "element 'DDD' cannot exist simultaneously");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "HH24A.M.",
-      "Format element of type MERIDIAN_INDICATOR ('A.M.') and format "
+      "Format element in category MERIDIAN_INDICATOR ('A.M.') and format "
       "element 'HH24' cannot exist simultaneously");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "hh",
-      "Format element of type MERIDIAN_INDICATOR is required when format "
-      "element 'hh' exists");
+      "Format element in category MERIDIAN_INDICATOR is required when format "
+      "element 'HH' exists");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "Hh12",
-      "Format element of type MERIDIAN_INDICATOR is required when format "
-      "element 'Hh12' exists");
+      "Format element in category MERIDIAN_INDICATOR is required when format "
+      "element 'HH12' exists");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "AM",
-      "Format element in the form of 'HH'/'HH12' is required when format "
-      "element of type MERIDIAN_INDICATOR ('AM') exists");
+      "Format element of type HH/HH12 is required when format "
+      "element in category MERIDIAN_INDICATOR ('AM') exists");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "SSSSSHH12AM",
-      "Format element of type HOUR ('HH12') and format "
+      "Format element in category HOUR ('HH12') and format "
       "element 'SSSSS' cannot exist simultaneously");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "SSSSSMi",
-      "Format element of type MINUTE ('Mi') and format "
+      "Format element in category MINUTE ('MI') and format "
       "element 'SSSSS' cannot exist simultaneously");
   TestValidateFormatStringForParsing(
       TYPE_TIMESTAMP, "SsYYSSSSS",
-      "Format elements 'SSSSS' and 'Ss' cannot exist simultaneously");
+      "Format elements 'SSSSS' and 'SS' cannot exist simultaneously");
   TestValidateFormatStringForParsing(TYPE_INT64, "",
                                      "Unsupported output type for validation",
                                      absl::StatusCode::kInvalidArgument);
@@ -515,14 +755,14 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingDate) {
   for (const auto& element : GetTimeElements()) {
     TestValidateFormatStringForFormatting(
         TYPE_DATE, element,
-        absl::Substitute("DATE does not support $0", element));
+        absl::Substitute("DATE does not support '$0'", element));
   }
 
   // Time zone elements are not allowed for DATE
   for (const auto& element : GetTimeZoneElements()) {
     TestValidateFormatStringForFormatting(
         TYPE_DATE, element,
-        absl::Substitute("DATE does not support $0", element));
+        absl::Substitute("DATE does not support '$0'", element));
   }
 
   // Format string is not valid utf-8 string
@@ -547,7 +787,7 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingDateTime) {
   for (const auto& element : GetTimeZoneElements()) {
     TestValidateFormatStringForFormatting(
         TYPE_DATETIME, element,
-        absl::Substitute("DATETIME does not support $0", element));
+        absl::Substitute("DATETIME does not support '$0'", element));
   }
 
   // Format string is not valid utf-8 string
@@ -569,14 +809,14 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingTime) {
   for (const auto& element : GetDateElements()) {
     TestValidateFormatStringForFormatting(
         TYPE_TIME, element,
-        absl::Substitute("TIME does not support $0", element));
+        absl::Substitute("TIME does not support '$0'", element));
   }
 
   // Time zone elements are not allowed for TIME
   for (const auto& element : GetTimeZoneElements()) {
     TestValidateFormatStringForFormatting(
         TYPE_TIME, element,
-        absl::Substitute("TIME does not support $0", element));
+        absl::Substitute("TIME does not support '$0'", element));
   }
 
   // Format string is not valid utf-8 string
@@ -615,85 +855,235 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormatting) {
       absl::StatusCode::kInvalidArgument);
 }
 
-TEST(DateTimeUtilTest, FormatElementParsing) {
-  ExecuteFormatElementParsingTest(
+TEST(DateTimeUtilTest, DateTimeFormatElementParsing) {
+  ExecuteDateTimeFormatElementParsingTest(
       "YYYYYYY",
-      {FormatElement(FormatElementType::kYear, "YYYY"),
-       FormatElement(FormatElementType::kYear, "YYY")},
+      {{.type = FormatElementType::kYYYY,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 4,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kYYY,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 3,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase}},
       "");
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       "DDDDAYDYDD",
-      {FormatElement(FormatElementType::kDay, "DDD"),
-       FormatElement(FormatElementType::kDay, "DAY"),
-       FormatElement(FormatElementType::kDay, "DY"),
-       FormatElement(FormatElementType::kDay, "DD")},
+      {{.type = FormatElementType::kDDD,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 3,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kDAY,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 3,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kDY,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kDD,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase}},
       "");
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       "YYYY-YYY",
-      {FormatElement(FormatElementType::kYear, "YYYY"),
-       FormatElement(FormatElementType::kLiteral, "-"),
-       FormatElement(FormatElementType::kYear, "YYY")},
+      {{.type = FormatElementType::kYYYY,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 4,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kSimpleLiteral,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 1,
+        .format_casing_type = FormatCasingType::kPreserveCase,
+        .literal_value = "-"},
+       {.type = FormatElementType::kYYY,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 3,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase}},
       "");
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       "YYYY    YYY",
-      {FormatElement(FormatElementType::kYear, "YYYY"),
-       FormatElement(FormatElementType::kWhitespace, "    "),
-       FormatElement(FormatElementType::kYear, "YYY")},
+      {{.type = FormatElementType::kYYYY,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 4,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kWhitespace,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 4,
+        .format_casing_type = FormatCasingType::kPreserveCase},
+       {.type = FormatElementType::kYYY,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 3,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase}},
       "");
   // Sequence of whitespace other than ' ' (ASCII 32) will not be parsed as
   // elemenet of "kWhitespace" type. "\u1680" refers to a Unicode whitespace
   // "U+1680".
-  ExecuteFormatElementParsingTest(
-      "YYYY\n\r\t\u1680YYY",
-      {}, "Cannot find matched format element at 4");
-  ExecuteFormatElementParsingTest(
-      R"(-MMD"abc")",
-      {FormatElement(FormatElementType::kLiteral, "-"),
-       FormatElement(FormatElementType::kMonth, "MM"),
-       FormatElement(FormatElementType::kDay, "D"),
-       FormatElement(FormatElementType::kDoubleQuotedLiteral, R"(abc)")},
+  ExecuteDateTimeFormatElementParsingTest(
+      "YYYY\n\r\t\u1680YYY", {}, "Cannot find matched format element at 4");
+  ExecuteDateTimeFormatElementParsingTest(
+      R"(MMD"abc")",
+      {{.type = FormatElementType::kMM,
+        .category = FormatElementCategory::kMonth,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kD,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 1,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kDoubleQuotedLiteral,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 5,
+        .format_casing_type = FormatCasingType::kPreserveCase,
+        .literal_value = R"(abc)"}},
       "");
-  ExecuteFormatElementParsingTest(
-      "YYyy-yYy",
-      {FormatElement(FormatElementType::kYear, "YYyy"),
-       FormatElement(FormatElementType::kLiteral, "-"),
-       FormatElement(FormatElementType::kYear, "yYy")},
-      "");
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       R"("abc\\")",
-      {FormatElement(FormatElementType::kDoubleQuotedLiteral, R"(abc\)")}, "");
-  ExecuteFormatElementParsingTest(
+      {{.type = FormatElementType::kDoubleQuotedLiteral,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 7,
+        .format_casing_type = FormatCasingType::kPreserveCase,
+        .literal_value = R"(abc\)"}},
+      "");
+  ExecuteDateTimeFormatElementParsingTest(
       R"("def\"")",
-      {FormatElement(FormatElementType::kDoubleQuotedLiteral, R"(def")")}, "");
-  ExecuteFormatElementParsingTest("random_str", {},
-                                  "Cannot find matched format element at 0");
+      {{.type = FormatElementType::kDoubleQuotedLiteral,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 7,
+        .format_casing_type = FormatCasingType::kPreserveCase,
+        .literal_value = R"(def")"}},
+      "");
+  // Test cases for <format_casing_type> in DateTimeFormatElement.
+  ExecuteDateTimeFormatElementParsingTest(
+      "dydYDYDy",
+      {{.type = FormatElementType::kDY,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase},
+       {.type = FormatElementType::kDY,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase},
+       {.type = FormatElementType::kDY,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kDY,
+        .category = FormatElementCategory::kDay,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kOnlyFirstLetterUppercase}},
+      "");
+  // <format_casing_type> is decided by the case of the first character for
+  // elements in "kMeridianIndicator" or "kEraIndicator" category, or the length
+  // of format element string is 1.
+  ExecuteDateTimeFormatElementParsingTest(
+      "amaMAMAm",
+      {{.type = FormatElementType::kAM,
+        .category = FormatElementCategory::kMeridianIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase},
+       {.type = FormatElementType::kAM,
+        .category = FormatElementCategory::kMeridianIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase},
+       {.type = FormatElementType::kAM,
+        .category = FormatElementCategory::kMeridianIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kAM,
+        .category = FormatElementCategory::kMeridianIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+      "");
+  ExecuteDateTimeFormatElementParsingTest(
+      "adaDADAd",
+      {{.type = FormatElementType::kAD,
+        .category = FormatElementCategory::kEraIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase},
+       {.type = FormatElementType::kAD,
+        .category = FormatElementCategory::kEraIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase},
+       {.type = FormatElementType::kAD,
+        .category = FormatElementCategory::kEraIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kAD,
+        .category = FormatElementCategory::kEraIndicator,
+        .len_in_format_str = 2,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase}},
+      "");
+  ExecuteDateTimeFormatElementParsingTest(
+      "Ii",
+      {{.type = FormatElementType::kI,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 1,
+        .format_casing_type = FormatCasingType::kAllLettersUppercase},
+       {.type = FormatElementType::kI,
+        .category = FormatElementCategory::kYear,
+        .len_in_format_str = 1,
+        .format_casing_type = FormatCasingType::kAllLettersLowercase}},
+      "");
+  // <format_casing_type> is kPreserveCase for literal format elements.
+  ExecuteDateTimeFormatElementParsingTest(
+      R"(-   "123")",
+      {{.type = FormatElementType::kSimpleLiteral,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 1,
+        .format_casing_type = FormatCasingType::kPreserveCase,
+        .literal_value = "-"},
+       {.type = FormatElementType::kWhitespace,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 3,
+        .format_casing_type = FormatCasingType::kPreserveCase},
+       {.type = FormatElementType::kDoubleQuotedLiteral,
+        .category = FormatElementCategory::kLiteral,
+        .len_in_format_str = 5,
+        .format_casing_type = FormatCasingType::kPreserveCase,
+        .literal_value = "123"}},
+      "");
+  ExecuteDateTimeFormatElementParsingTest(
+      "random_str", {}, "Cannot find matched format element at 0");
 
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       R"(")", {}, "Cannot find matching \" for quoted literal at 0");
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       R"("abc\)", {}, "Cannot find matching \" for quoted literal at 0");
 
   // Actually what user passed in is '"abc\"', since the ending '"' is escaped
   // by the preceding '\', so it cannot be considered to be the ending '"' of
   // the text element
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       R"("abc\")", {}, "Cannot find matching \" for quoted literal at 0");
-  ExecuteFormatElementParsingTest(
+  ExecuteDateTimeFormatElementParsingTest(
       R"("abc\t")", {}, "Unsupported escape sequence \\t in text at 0");
-  const std::vector<FormatElement>& all_format_elements =
-      GetAllSupportedFormatElements();
+
+  const std::vector<std::pair<std::string, DateTimeFormatElement>>&
+      all_format_element_string_object_pairs =
+          GetAllSupportedDateTimeFormatElementStringObjectPairs();
+  std::vector<DateTimeFormatElement> all_format_elements;
   std::string all_format_elements_format_string = "";
-  for (auto& format_element : all_format_elements) {
-    if (format_element.type != FormatElementType::kDoubleQuotedLiteral) {
-      absl::StrAppend(&all_format_elements_format_string,
-                      format_element.original_str);
-    } else {
-      absl::StrAppend(&all_format_elements_format_string,
-                      "\"" + format_element.original_str + "\"");
-    }
+  for (auto& format_element_string_object_pair :
+       all_format_element_string_object_pairs) {
+    absl::StrAppend(&all_format_elements_format_string,
+                    format_element_string_object_pair.first);
+    all_format_elements.push_back(format_element_string_object_pair.second);
+
+    // We use comma characters to make format elements delimited in the format
+    // string, so the parsing result is more obvious even though we are using
+    // longest matching rule in parsing.
+    absl::StrAppend(&all_format_elements_format_string, ",");
+    all_format_elements.push_back(
+        {.type = FormatElementType::kSimpleLiteral,
+         .category = FormatElementCategory::kLiteral,
+         .len_in_format_str = 1,
+         .format_casing_type = FormatCasingType::kPreserveCase,
+         .literal_value = ","});
   }
-  ExecuteFormatElementParsingTest(all_format_elements_format_string,
-                                  all_format_elements, "");
+  ExecuteDateTimeFormatElementParsingTest(all_format_elements_format_string,
+                                          all_format_elements, "");
 }
 
 TEST(DateTimeUtilTest, BasicCastFormatTimestampTest) {
@@ -776,7 +1166,7 @@ TEST(DateTimeUtilTest, UnsupportedCastFormatTimestampTest) {
     auto status = CastFormatTimestampToString(test, timestamp,
                                               absl::UTCTimeZone(), &output);
     EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
-                                 HasSubstr("Unsupported format")));
+                                 HasSubstr("Unsupported format element")));
   }
 }
 

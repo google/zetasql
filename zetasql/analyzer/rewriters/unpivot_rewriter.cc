@@ -22,6 +22,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -51,10 +52,12 @@ namespace {
 class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   UnpivotRewriterVisitor(const AnalyzerOptions* analyzer_options,
-                         Catalog* catalog, TypeFactory* type_factory)
+                         Catalog* catalog, TypeFactory* type_factory,
+                         absl::Span<const Rewriter* const> rewriters)
       : analyzer_options_(analyzer_options),
         catalog_(catalog),
-        type_factory_(type_factory) {}
+        type_factory_(type_factory),
+        rewriters_(rewriters) {}
 
   UnpivotRewriterVisitor(const UnpivotRewriterVisitor&) = delete;
   UnpivotRewriterVisitor& operator=(const UnpivotRewriterVisitor&) = delete;
@@ -79,6 +82,7 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   const AnalyzerOptions* analyzer_options_;
   Catalog* const catalog_;
   TypeFactory* type_factory_;
+  absl::Span<const Rewriter* const> rewriters_;
   // id used to assign a sequence number to element_column of ArrayScan of
   // unpivot rewrite tree. This helps to identify the column in the case of
   // multiple unpivots in the query (while debugging).
@@ -96,23 +100,106 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
   // the element_column of the ArrayScan and puts their values into the new
   // unpivot value and name columns, in that order.
   std::vector<std::unique_ptr<ResolvedComputedColumn>> expr_list;
+  std::vector<const ResolvedGetStructField*> value_column_struct_fields;
   ResolvedColumn unnest_column = struct_elements_array_scan->element_column();
+  ZETASQL_RET_CHECK(struct_type->fields().size() ==
+            node->value_column_list_size() + 1 /*for label column*/);
   for (int i = 0; i <= node->value_column_list_size(); ++i) {
     std::unique_ptr<ResolvedExpr> column_expr = MakeResolvedGetStructField(
         struct_type->field(i).type,
         MakeResolvedColumnRef(unnest_column.type(), unnest_column,
                               /*is_correlated=*/false),
         i);
-    expr_list.push_back(MakeResolvedComputedColumn(
+    std::unique_ptr<ResolvedComputedColumn> col = MakeResolvedComputedColumn(
         i < node->value_column_list_size() ? node->value_column_list(i)
                                            : node->label_column(),
-        std::move(column_expr)));
+        std::move(column_expr));
+    // Only struct fields for value-columns are included for EXCLUDE NULLS
+    // filter as the label column value is not checked for this filter.
+    if (i < node->value_column_list_size()) {
+      value_column_struct_fields.push_back(
+          col->expr()->GetAs<ResolvedGetStructField>());
+    }
+    expr_list.push_back(std::move(col));
   }
+
+  if (node->include_nulls()) {
+    PushNodeToStack(
+        MakeResolvedProjectScan(node->column_list(), std::move(expr_list),
+                                std::move(struct_elements_array_scan)));
+    return absl::OkStatus();
+  }
+
+  // If INCLUDE NULLS is not explicitly specified, add filter to only include
+  // the rows in the output where at least one unpivot value columns is
+  // "not null". We do this by concatenating the checks for struct fields (that
+  // result in output value columns) with "or" function.
+  std::vector<std::unique_ptr<ResolvedExpr>> or_function_args;
+  for (const zetasql::ResolvedExpr* value_column_struct_field :
+       value_column_struct_fields) {
+    std::vector<std::unique_ptr<ResolvedExpr>> is_null_args;
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> value_struct_expr,
+                     ProcessNode(value_column_struct_field));
+    is_null_args.push_back(std::move(value_struct_expr));
+    const Function* is_null_function;
+    ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$is_null"}, &is_null_function,
+                                        /*options=*/{}));
+    // The null function checks that the struct field that holds the values for
+    // the unpivot value columns is null. We then use a not function since we
+    // want to add a filter for this value to not be null.
+    std::unique_ptr<ResolvedExpr> is_null_function_expr =
+        MakeResolvedFunctionCall(
+            types::BoolType(), is_null_function,
+            FunctionSignature(
+                FunctionArgumentType(types::BoolType(), /*num_occurrences=*/1),
+                {FunctionArgumentType(value_column_struct_field->type(),
+                                      /*num_occurrences=*/1)},
+                FN_IS_NULL),
+            std::move(is_null_args), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+
+    const Function* is_not_function;
+    ZETASQL_RET_CHECK_OK(
+        catalog_->FindFunction({"$not"}, &is_not_function, /*options=*/{}));
+    std::vector<std::unique_ptr<ResolvedExpr>> is_not_args;
+    is_not_args.push_back(std::move(is_null_function_expr));
+    std::unique_ptr<ResolvedExpr> is_not_function_expr =
+        MakeResolvedFunctionCall(
+            types::BoolType(), is_not_function,
+            FunctionSignature(
+                FunctionArgumentType(types::BoolType(), /*num_occurrences=*/1),
+                {FunctionArgumentType(types::BoolType(),
+                                      /*num_occurrences=*/1)},
+                FN_NOT),
+            std::move(is_not_args), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+    // Add all the "x is not null" expressions to concatenate with "or"
+    // function.
+    or_function_args.push_back(std::move(is_not_function_expr));
+  }
+  const Function* or_function;
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$or"}, &or_function, /*options=*/{}));
+  std::unique_ptr<const ResolvedExpr> or_function_expr =
+      MakeResolvedFunctionCall(
+          types::BoolType(), or_function,
+          FunctionSignature(
+              FunctionArgumentType(types::BoolType(), /*num_occurrences=*/1),
+              {FunctionArgumentType(
+                  types::BoolType(), FunctionArgumentType::REPEATED,
+                  /*num_occurrences=*/
+                  static_cast<int>(node->value_column_list_size()))},
+              FN_OR),
+          std::move(or_function_args),
+          ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+
+  std::vector<ResolvedColumn> array_scan_output_columns =
+      struct_elements_array_scan->column_list();
+  std::unique_ptr<zetasql::ResolvedFilterScan> exclude_nulls_filter_scan =
+      MakeResolvedFilterScan(array_scan_output_columns,
+                             std::move(struct_elements_array_scan),
+                             std::move(or_function_expr));
 
   PushNodeToStack(
       MakeResolvedProjectScan(node->column_list(), std::move(expr_list),
-                              std::move(struct_elements_array_scan)));
-
+                              std::move(exclude_nulls_filter_scan)));
   return absl::OkStatus();
 }
 
@@ -159,21 +246,22 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
 
   // The make_array_function takes struct elements and constructs an array for
   // them.
-  const Function* make_array_func;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$make_array"}, &make_array_func))
+  const Function* make_array_function;
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$make_array"}, &make_array_function))
       << "UNPIVOT is not supported since the engine does not support "
          "make_array function";
-  ZETASQL_RET_CHECK_NE(make_array_func, nullptr);
+  ZETASQL_RET_CHECK_NE(make_array_function, nullptr);
   FunctionArgumentType function_arg(
       *struct_type, FunctionArgumentType::REPEATED,
       static_cast<int>(struct_elements_list.size()));
-  ZETASQL_RET_CHECK_EQ(make_array_func->signatures().size(), 1);
-  FunctionSignature signature(struct_array_type, {function_arg},
-                              make_array_func->GetSignature(0)->context_id());
+  ZETASQL_RET_CHECK_EQ(make_array_function->signatures().size(), 1);
+  FunctionSignature signature(
+      struct_array_type, {function_arg},
+      make_array_function->GetSignature(0)->context_id());
   signature.SetConcreteResultType(struct_array_type);
   std::unique_ptr<const ResolvedExpr> resolved_function_call =
-      MakeResolvedFunctionCall(struct_array_type, make_array_func, signature,
-                               std::move(struct_elements_list),
+      MakeResolvedFunctionCall(struct_array_type, make_array_function,
+                               signature, std::move(struct_elements_list),
                                ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
 
   // Construct element column for array scan that'll hold the newly generated
@@ -210,7 +298,8 @@ class UnpivotRewriter : public Rewriter {
       absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
-    UnpivotRewriterVisitor visitor(&options, &catalog, &type_factory);
+    UnpivotRewriterVisitor visitor(&options, &catalog, &type_factory,
+                                   rewriters);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&visitor));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      visitor.ConsumeRootNode<ResolvedStatement>());

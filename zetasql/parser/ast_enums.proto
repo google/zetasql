@@ -1,0 +1,107 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+syntax = "proto2";
+
+package zetasql;
+
+message ASTBinaryExpressionEnums {
+  // All supported operators.
+  enum Op {
+    NOT_SET = 0;
+    LIKE = 1;          // "LIKE"
+    IS = 2;            // "IS"
+    EQ = 3;            // "="
+    NE = 4;            // "!="
+    NE2 = 5;           // "<>"
+    GT = 6;            // ">"
+    LT = 7;            // "<"
+    GE = 8;            // ">="
+    LE = 9;            // "<="
+    BITWISE_OR = 10;   // "|"
+    BITWISE_XOR = 11;  // "^"
+    BITWISE_AND = 12;  // "&"
+    PLUS = 13;         // "+"
+    MINUS = 14;        // "-"
+    MULTIPLY = 15;     // "*"
+    DIVIDE = 16;       // "/"
+    CONCAT_OP = 17;    // "||"
+    DISTINCT = 18;     // "IS DISTINCT FROM"
+  }
+}
+
+message ASTOrderingExpressionEnums {
+  enum OrderingSpec {
+    NOT_SET = 0;
+    ASC = 1;
+    DESC = 2;
+    UNSPECIFIED = 3;
+  }
+}
+message ASTJoinEnums {
+  enum JoinType {
+    DEFAULT_JOIN_TYPE = 0;
+    COMMA = 1;
+    CROSS = 2;
+    FULL = 3;
+    INNER = 4;
+    LEFT = 5;
+    RIGHT = 6;
+  }
+  enum JoinHint {
+    NO_JOIN_HINT = 0;
+    HASH = 1;
+    LOOKUP = 2;
+  }
+}
+message ASTSelectAsEnums {
+  // AS <mode> kind.
+  enum AsMode {
+    NOT_SET = 0;
+    STRUCT = 1;     // AS STRUCT
+    VALUE = 2;      // AS VALUE
+    TYPE_NAME = 3;  // AS <type name>
+  }
+}
+message ASTFunctionCallEnums {
+  enum NullHandlingModifier {
+    DEFAULT_NULL_HANDLING = 0;
+    IGNORE_NULLS = 1;
+    RESPECT_NULLS = 2;
+  }
+}
+message ASTExpressionSubqueryEnums {
+  enum Modifier {
+    NONE = 0;    // (select ...)
+    ARRAY = 1;   // ARRAY(select ...)
+    EXISTS = 2;  // EXISTS(select ...)
+  }
+}
+message ASTHavingModifierEnums {
+  enum ModifierKind {
+    NOT_SET = 0;
+    MIN = 1;
+    MAX = 2;
+  }
+}
+message ASTSetOperationEnums {
+  enum OperationType {
+    NOT_SET = 0;
+    UNION = 1;      // UNION ALL/DISTINCT
+    EXCEPT = 2;     // EXCEPT ALL/DISTINCT
+    INTERSECT = 4;  // INTERSECT ALL/DISTINCT
+  }
+}

@@ -65,7 +65,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 22
+// next id: 23
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -75,6 +75,15 @@ message AnalyzerOptionsProto {
   message SystemVariableProto {
     repeated string name_path = 1;
     optional TypeProto type = 2;
+  }
+
+  message ParseLocationOptionsProto {
+    optional bool record_parse_locations = 1;
+    enum FunctionCallRecordType {
+      FUNCTION_NAME = 0;
+      FUNCTION_CALL = 1;
+    }
+    optional FunctionCallRecordType function_call_record_type = 2;
   }
 
   optional LanguageOptionsProto language_options = 1;
@@ -89,7 +98,8 @@ message AnalyzerOptionsProto {
   optional ErrorMessageMode error_message_mode = 6;
   // In the form that can be parsed by C++ absl::LoadTimeZone().
   optional string default_timezone = 7;
-  optional bool record_parse_locations = 8;
+  optional bool record_parse_locations = 8 [deprecated = true];
+  optional ParseLocationOptionsProto parse_location_options = 22;
   optional bool create_new_column_for_each_projected_output = 20;
   optional bool prune_unused_columns = 9;
   optional bool allow_undeclared_parameters = 10;

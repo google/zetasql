@@ -16,6 +16,7 @@
 
 #include "zetasql/public/interval_value.h"
 
+#include <cctype>
 #include <cmath>
 
 #include "zetasql/public/functions/arithmetics.h"
@@ -76,6 +77,40 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() con
   return IntervalValue::FromMonthsDaysNanos(static_cast<int64_t>(months_),
                                             static_cast<int64_t>(days_),
                                             static_cast<__int128>(nanos_));
+}
+
+zetasql_base::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
+    int64_t count) const {
+  ZETASQL_DCHECK_GT(count, 0);
+
+  // AVG(interval) = SUM(interval) / count, but SUM(interval) may not be a
+  // valid interval (because of overflow), so we do manual division of parts
+  // instead of building interval object and using it's division operator.
+  __int128 months = months_ / count;
+  __int128 months_remainder = months_ % count;
+  __int128 adjusted_days =
+      days_ + (months_remainder * IntervalValue::kDaysInMonth);
+  __int128 days = adjusted_days / count;
+  __int128 days_reminder = adjusted_days % count;
+  FixedInt<64, 3> adjusted_nanos = FixedInt<64, 3>(nanos_);
+  adjusted_nanos += FixedInt<64, 3>(days_reminder * IntervalValue::kNanosInDay);
+  FixedInt<64, 3> nanos = adjusted_nanos;
+  nanos /= FixedInt<64, 3>(count);
+
+  // It is unlikely that months/days will overflow int64_t, and that nanos will
+  // overflow int128 - but check it nevertheless.
+  if (months > std::numeric_limits<int64_t>::max() ||
+      months < std::numeric_limits<int64_t>::min() ||
+      days > std::numeric_limits<int64_t>::max() ||
+      days < std::numeric_limits<int64_t>::min() ||
+      nanos > FixedInt<64, 3>(FixedInt<64, 2>::max()) ||
+      nanos < FixedInt<64, 3>(FixedInt<64, 2>::min())) {
+    return absl::OutOfRangeError("Interval overflow during Avg operation");
+  }
+
+  return IntervalValue::FromMonthsDaysNanos(static_cast<int64_t>(months),
+                                            static_cast<int64_t>(days),
+                                            static_cast<__int128>(nanos));
 }
 
 void IntervalValue::SerializeAndAppendToBytes(std::string* bytes) const {
@@ -599,6 +634,210 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromString(
   return MakeEvalError() << "Invalid interval literal: '" << input << "'";
 }
 
+namespace {
+
+const LazyRE2 kRENumber = {R"((\d+)(\.|\,)?(\d+)?)"};
+
+// Parser for ISO 8601 Duration format with following modifications:
+// - negative datetime parts are allowed
+// - multiple dateparts of same type are allowed
+// - order of dateparts can be arbitrary
+// - 'W' can be used for weeks in the date portion
+// - Only seconds can have fractional numbers
+class ISO8601Parser {
+  const char kEof = '\0';
+
+ public:
+  zetasql_base::StatusOr<IntervalValue> Parse(absl::string_view input) {
+    input_ = input;
+    char c = GetChar();
+    if (c != 'P') {
+      return MakeEvalError() << "Interval must start with 'P'";
+    }
+    if (input_.empty()) {
+      return MakeEvalError()
+             << "At least one datetime part must be defined in the interval";
+    }
+    absl::Status status;
+
+    // When true - parsing time part (after T), when false - parsing date part.
+    bool in_time_part = false;
+    int64_t years = 0;
+    int64_t months = 0;
+    int64_t weeks = 0;
+    int64_t days = 0;
+    int64_t hours = 0;
+    int64_t minutes = 0;
+    int64_t seconds = 0;
+    int64_t nano_fractions = 0;
+    for (;;) {
+      int64_t sign = false;
+      c = PeekChar();
+      if (!std::isdigit(c)) {
+        GetChar();
+        if (c == '-') {
+          // Proceed to parse the number and make it negative later
+          sign = true;
+        } else if (c == 'T') {
+          // Switching from date to time part
+          if (in_time_part) {
+            return MakeEvalError() << "Unexpected duplicate time separator 'T'";
+          }
+          in_time_part = true;
+          continue;
+        } else if (c == kEof) {
+          break;
+        } else {
+          return MakeEvalError() << "Unexpected " << PrintChar(c);
+        }
+      }
+      // We now expect to see positive number (possibly with fractional digits)
+      // followed by datetime part letter.
+      ZETASQL_RETURN_IF_ERROR(ParseNumber());
+      int64_t number;
+      if (!absl::SimpleAtoi(digits_, &number)) {
+        return MakeEvalError()
+               << "Cannot convert '" << digits_ << "' to integer";
+      }
+      // number couldn't have been negative, so no worries about underflow
+      // of int64_t::min
+      if (sign) number = -number;
+      c = GetChar();
+      if (!in_time_part) {
+        switch (c) {
+          case 'Y':
+            if (!functions::Add(years, number, &years, &status)) {
+              return status;
+            }
+            break;
+          case 'M':
+            if (!functions::Add(months, number, &months, &status)) {
+              return status;
+            }
+            break;
+          case 'W':
+            if (!functions::Add(weeks, number, &weeks, &status)) {
+              return status;
+            }
+            break;
+          case 'D':
+            if (!functions::Add(days, number, &days, &status)) {
+              return status;
+            }
+            break;
+          default:
+            return MakeEvalError() << "Unexpected " << PrintChar(c)
+                                   << " in the date portion of interval";
+        }
+      } else {
+        switch (c) {
+          case 'H':
+            if (!functions::Add(hours, number, &hours, &status)) {
+              return status;
+            }
+            break;
+          case 'M':
+            if (!functions::Add(minutes, number, &minutes, &status)) {
+              return status;
+            }
+            break;
+          case 'S':
+            if (!functions::Add(seconds, number, &seconds, &status)) {
+              return status;
+            }
+            if (!decimal_point_.empty()) {
+              ZETASQL_ASSIGN_OR_RETURN(
+                  number, NanosFromFractionDigits(input_, decimal_digits_));
+              if (sign) number = -number;
+              nano_fractions += number;
+            }
+            break;
+          default:
+            return MakeEvalError() << "Unexpected " << PrintChar(c)
+                                   << " in the time portion of interval";
+        }
+      }
+      if (!decimal_point_.empty() && c != 'S') {
+        return MakeEvalError() << "Fractional values are only allowed for "
+                                  "seconds part 'S', but were used for "
+                               << PrintChar(c);
+      }
+    }
+
+    int64_t year_months;
+    if (!functions::Multiply(IntervalValue::kMonthsInYear, years, &year_months,
+                             &status)) {
+      return status;
+    }
+    if (!functions::Add(months, year_months, &months, &status)) {
+      return status;
+    }
+
+    int64_t week_days;
+    if (!functions::Multiply(IntervalValue::kDaysInWeek, weeks, &week_days,
+                             &status)) {
+      return status;
+    }
+    if (!functions::Add(days, week_days, &days, &status)) {
+      return status;
+    }
+
+    // Int128 math cannot overflow
+    __int128 nanos = IntervalValue::kNanosInHour * hours +
+                     IntervalValue::kNanosInMinute * minutes +
+                     IntervalValue::kNanosInSecond * seconds + nano_fractions;
+    return IntervalValue::FromMonthsDaysNanos(months, days, nanos);
+  }
+
+ private:
+  absl::Status ParseNumber() {
+    digits_ = {};
+    decimal_point_ = {};
+    decimal_digits_ = {};
+    if (!RE2::Consume(&input_, *kRENumber, &digits_, &decimal_point_,
+                      &decimal_digits_)) {
+      return MakeEvalError() << "Expected number";
+    }
+    return absl::OkStatus();
+  }
+
+  char PeekChar() const {
+    if (input_.empty()) {
+      return kEof;
+    }
+    return input_[0];
+  }
+
+  char GetChar() {
+    char c = PeekChar();
+    input_.remove_prefix(1);
+    return c;
+  }
+
+  std::string PrintChar(char c) {
+    if (c == kEof) return "end of input";
+    return absl::StrCat("'", std::string(1, c), "'");
+  }
+
+  // Points to the current position being parsed in input
+  absl::string_view input_;
+
+  // Parsed digits before decimal dot
+  absl::string_view digits_;
+  // Decimal dot itself (needed to detect trailing dot)
+  absl::string_view decimal_point_;
+  // Digits after the decimal dot
+  absl::string_view decimal_digits_;
+};
+
+}  // namespace
+
+zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromISO8601(
+    absl::string_view input) {
+  ISO8601Parser parser;
+  return parser.Parse(input);
+}
+
 zetasql_base::StatusOr<IntervalValue> IntervalValue::FromInteger(
     int64_t value, functions::DateTimestampPart part) {
   switch (part) {
@@ -702,6 +941,59 @@ zetasql_base::StatusOr<int64_t> IntervalValue::Extract(
 
 std::ostream& operator<<(std::ostream& out, IntervalValue value) {
   return out << value.ToString();
+}
+
+zetasql_base::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v) {
+  __int128 nanos = v.get_nanos();
+  int64_t days = v.get_days() + nanos / IntervalValue::kNanosInDay;
+  nanos = nanos % IntervalValue::kNanosInDay;
+  if (days > 0 && nanos < 0) {
+    nanos += IntervalValue::kNanosInDay;
+    days--;
+  } else if (days < 0 && nanos > 0) {
+    nanos -= IntervalValue::kNanosInDay;
+    days++;
+  }
+  return IntervalValue::FromMonthsDaysNanos(v.get_months(), days, nanos);
+}
+
+zetasql_base::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v) {
+  int64_t months = v.get_months() + v.get_days() / IntervalValue::kDaysInMonth;
+  int64_t days = v.get_days() % IntervalValue::kDaysInMonth;
+  if (months > 0 && days < 0) {
+    days += IntervalValue::kDaysInMonth;
+    months--;
+  } else if (months < 0 && days > 0) {
+    days -= IntervalValue::kDaysInMonth;
+    months++;
+  }
+  return IntervalValue::FromMonthsDaysNanos(months, days, v.get_nanos());
+}
+
+zetasql_base::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v) {
+  __int128 nanos = v.get_nanos();
+  int64_t days = v.get_days() + nanos / IntervalValue::kNanosInDay;
+  nanos = nanos % IntervalValue::kNanosInDay;
+  int64_t months = v.get_months() + days / IntervalValue::kDaysInMonth;
+  days = days % IntervalValue::kDaysInMonth;
+  // This logic might be non-intuitive, but it repeats the logic in Postgres
+  // for making sure all datetime parts have same sign.
+  if (months > 0 && (days < 0 || (days == 0 && nanos < 0))) {
+    days += IntervalValue::kDaysInMonth;
+    months--;
+  } else if (months < 0 && (days > 0 || (days == 0 && nanos > 0))) {
+    days -= IntervalValue::kDaysInMonth;
+    months++;
+  }
+
+  if (days > 0 && nanos < 0) {
+    nanos += IntervalValue::kNanosInDay;
+    days--;
+  } else if (days < 0 && nanos > 0) {
+    nanos -= IntervalValue::kNanosInDay;
+    days++;
+  }
+  return IntervalValue::FromMonthsDaysNanos(months, days, nanos);
 }
 
 }  // namespace zetasql

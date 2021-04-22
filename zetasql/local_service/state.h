@@ -24,7 +24,6 @@
 #include <memory>
 #include <type_traits>
 
-#include <cstdint>
 #include "absl/base/thread_annotations.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/map_util.h"
@@ -45,7 +44,27 @@ class SharedStatePool {
 
   // Register a state object into the pool. The pool takes ownership.
   // Will return -1 if the state is null or already registered.
-  int Register(T* state) {
+  int64_t Register(std::shared_ptr<T> state) {
+    if (state == nullptr) {
+      return -1;
+    }
+
+    absl::MutexLock lock(&mutex_);
+    int64_t id = next_id_++;
+    if (!state->SetId(id)) {
+      return -1;
+    }
+    saved_states_[id] = state;
+    return id;
+  }
+
+  // Register a state object into the pool. The pool takes ownership.
+  // Will return -1 if the state is null or already registered.
+  int64_t Register(T* state) {
+    // We reimplement this, because calling the shared_ptr<T> version would
+    // pass ownership to a shared_ptr, which can deallocate in the case of error
+    // So, if someone registers twice, it will deallocate rather than just
+    // returning -1 as expected.
     if (state == nullptr) {
       return -1;
     }
@@ -105,13 +124,14 @@ class SharedStatePool {
 // Base class of saved states with an int64_t id.
 class GenericState {
  public:
-  GenericState() : id_(-1) {}
+  GenericState() = default;
   virtual ~GenericState() {}
 
   int64_t GetId() const { return id_; }
+  bool IsRegistered() { return id_ != -1; }
 
  private:
-  int64_t id_;
+  int64_t id_ = -1;
 
   // Should only be called by SharedStatePool.
   bool SetId(int64_t id) {

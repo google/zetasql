@@ -454,22 +454,6 @@ class Type {
   // generated using Type::ShortTypeName(<mode>).
   static std::string TypeListToString(TypeListView types, ProductMode mode);
 
-  ABSL_DEPRECATED(
-      "Use ResolveBuiltinTypeNameToKindIfSimple(type_name, mode) instead")
-  // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
-  // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
-  // 'type_name' is case-insensitive.
-  static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
-                                      ProductMode mode);
-  ABSL_DEPRECATED(
-      "Use ResolveBuiltinTypeNameToKindIfSimple(type_name, language_options) "
-      "instead")
-  // Returns the type kind if 'type_name' is a simple type given
-  // 'language_options', or TYPE_UNKNOWN otherwise.
-  // 'type_name' is case-insensitive.
-  static TypeKind GetTypeKindIfSimple(absl::string_view type_name,
-                                      const LanguageOptions& language_options);
-
   // Returns the type kind if 'type_name' is a simple type in 'mode', assuming
   // all language features are enabled. Returns TYPE_UNKNOWN otherwise.
   // 'type_name' is case-insensitive. Note that we return a simple type only if

@@ -40,6 +40,45 @@ ARRAY<STRUCT<rowid INT64, x INT64, y INT64, z INT64>>[
 ]
 ==
 
+[prepare_database]
+CREATE TABLE TableFloat64AllValuesWithNullBinaryStat AS
+SELECT CAST(1 as int64) as row_id, CAST(2 AS FLOAT64) as x, CAST(4 AS FLOAT64) as y UNION ALL
+SELECT CAST(2 as int64)          , CAST(1 AS FLOAT64)     , CAST(-2 AS FLOAT64)     UNION ALL
+SELECT CAST(3 as int64)          , CAST(0 AS FLOAT64)     , CAST(2 AS FLOAT64)      UNION ALL
+SELECT CAST(4 as int64)          , CAST(2 AS FLOAT64)     , CAST(0 AS FLOAT64)      UNION ALL
+SELECT CAST(5 as int64)          , CAST(0 AS FLOAT64)     , CAST(1 AS FLOAT64)      UNION ALL
+SELECT CAST(6 as int64)          , CAST(0 AS FLOAT64)     , CAST(NULL AS FLOAT64)   UNION ALL
+SELECT CAST(7 as int64)          , CAST(NULL AS FLOAT64)  , CAST(1 AS FLOAT64)   UNION ALL
+SELECT CAST(8 as int64)          , CAST(0 AS FLOAT64)     , CAST(NULL AS FLOAT64) UNION ALL
+SELECT CAST(9 as int64) as row_id, CAST(2 AS FLOAT64) as x, CAST(4 AS FLOAT64) as y UNION ALL
+SELECT CAST(10 as int64)          , CAST(1 AS FLOAT64)     , CAST(-2 AS FLOAT64)     UNION ALL
+SELECT CAST(11 as int64)          , CAST(0 AS FLOAT64)     , CAST(2 AS FLOAT64)      UNION ALL
+SELECT CAST(12 as int64)          , CAST(2 AS FLOAT64)     , CAST(0 AS FLOAT64)      UNION ALL
+SELECT CAST(13 as int64)          , CAST(0 AS FLOAT64)     , CAST(1 AS FLOAT64)      UNION ALL
+SELECT CAST(14 as int64)          , CAST(0 AS FLOAT64)     , CAST(NULL AS FLOAT64)   UNION ALL
+SELECT CAST(15 as int64)          , CAST(NULL AS FLOAT64)  , CAST(1 AS FLOAT64)   UNION ALL
+SELECT CAST(16 as int64)          , CAST(0 AS FLOAT64)     , CAST(NULL AS FLOAT64)
+--
+ARRAY<STRUCT<row_id INT64, x DOUBLE, y DOUBLE>>[
+  {1, 2, 4},
+  {2, 1, -2},
+  {3, 0, 2},
+  {4, 2, 0},
+  {5, 0, 1},
+  {6, 0, NULL},
+  {7, NULL, 1},
+  {8, 0, NULL},
+  {9, 2, 4},
+  {10, 1, -2},
+  {11, 0, 2},
+  {12, 2, 0},
+  {13, 0, 1},
+  {14, 0, NULL},
+  {15, NULL, 1},
+  {16, 0, NULL}
+]
+==
+
 [name=pivot_sum]
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(SUM(z - 1000) FOR y IN (100, 101, 103, NULL));
@@ -243,11 +282,36 @@ ARRAY<STRUCT<
 ==
 
 [required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=pivot_string_agg_with_delimiter]
+SELECT * FROM (SELECT rowid, x, y, z FROM t1)
+  PIVOT(
+    STRING_AGG(CAST(z AS STRING), '-' ORDER BY rowid) AS pivot_concat
+    FOR y IN (100, 101, 103 AS yy103yy, NULL, NULL AS yyNULLyy));
+--
+ARRAY<STRUCT<
+        x INT64,
+        pivot_concat_100 STRING,
+        pivot_concat_101 STRING,
+        pivot_concat_yy103yy STRING,
+        pivot_concat_NULL STRING,
+        pivot_concat_yyNULLyy STRING
+      >>
+[{
+   1,
+   "1000-1000-1001-1002-1003-1004",
+   "1000-1001-1002",
+   NULL,
+   NULL,
+   NULL
+ },
+ {2, "1000", "1001", NULL, "1002-1002", "1002-1002"}]
+==
+
+[required_features=V_1_3_PIVOT,V_1_1_ORDER_BY_IN_AGGREGATE]
 [name=pivot_string_agg_with_order_by]
 SELECT * FROM (SELECT x, y, z FROM t1)
   PIVOT(
     STRING_AGG(CONCAT(CAST(z AS STRING), '_') ORDER BY z) AS pivot_concat
-
     FOR y IN (100, 101, 103 AS yy103yy, NULL, NULL AS yyNULLyy));
 --
 ARRAY<STRUCT<
@@ -269,9 +333,8 @@ ARRAY<STRUCT<
  {2, "1000_", "1001_", NULL, "1002_,1002_", "1002_,1002_"}]
 ==
 
-# If the same pivot value is repeated, nondeterministic input columns should
-# evaluate to the same thing whether the row is used in the first pivot value
-# or the second pivot value.
+# Non-deterministic input columns should produce the same result in all PIVOT
+# columns, even if a pivot value is repeated.
 [name=pivot_nondeterminstic_input_column]
 SELECT
   min_x_1 = min_x_2,
@@ -280,6 +343,34 @@ FROM (SELECT x, RAND() AS r FROM t1)
   PIVOT(MIN(r) AS min, MAX(r) AS max FOR x IN (1 AS x_1, 1 AS x_2))
 --
 ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+
+# Non-deterministic aggregate arguments in pivot expressions should produce the
+# same result in all PIVOT columns referring to the same set of input rows.
+[name=pivot_nondeterministic_pivot_expr]
+SELECT
+  -- Same pivot expr, same pivot value
+  sum_rand1_a = sum_rand1_b,
+  sum_rand2_a = sum_rand2_b,
+
+  -- Different pivot expr, same pivot value
+  sum_rand1_a != sum_rand2_a,
+  sum_rand1_b != sum_rand2_b,
+  sum_rand1_c != sum_rand2_c,
+
+  -- Same pivot expr, different pivot value
+  sum_rand1_a != sum_rand1_c,
+  sum_rand2_a != sum_rand2_c,
+FROM (SELECT x FROM t1)
+  PIVOT (
+      SUM(RAND()) AS sum_rand1,
+      SUM(RAND()) AS sum_rand2
+    FOR x IN (1 AS a, 1 AS b, 2 AS c)
+  );
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, true, true, true, true, true, true}
+]
 ==
 
 [required_features=V_1_3_PIVOT,V_1_1_LIMIT_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
@@ -328,15 +419,24 @@ ARRAY<STRUCT<x INT64, _1000 ARRAY<>, z_1001 ARRAY<>, _1002 ARRAY<>, z_null ARRAY
 ]
 ==
 
+# Aggregate functions with multiple arguments.
 [required_features=V_1_3_PIVOT]
-[name=pivot_corr]
-SELECT * FROM (
-  (SELECT x, y, z FROM t1) UNION ALL (SELECT x, y, z FROM t1))
-  PIVOT(CORR(x, y)
-  FOR z IN (1000, 1001 AS z_1001, 1002, NULL AS z_null));
+[name=pivot_multiarg]
+SELECT * FROM TableFloat64AllValuesWithNullBinaryStat
+PIVOT(
+  COVAR_SAMP(y,x) AS cs_yx, COVAR_POP(y,x) AS cp_yx,
+  CORR(x,x) AS corr_xx, CORR(y,y) AS corr_yy
+  FOR (row_id <= 8) IN (TRUE, FALSE));
 --
-ARRAY<STRUCT<_1000 DOUBLE, z_1001 DOUBLE, _1002 DOUBLE, z_null DOUBLE>>[
-  {-0.33333333333332887, 0.49999999999999994, 0.86602540378443893, nan}
+ARRAY<STRUCT<cs_yx_true DOUBLE,
+             cp_yx_true DOUBLE,
+             corr_xx_true DOUBLE,
+             corr_yy_true DOUBLE,
+             cs_yx_false DOUBLE,
+             cp_yx_false DOUBLE,
+             corr_xx_false DOUBLE,
+             corr_yy_false DOUBLE>>[
+  {0.25, 0.2, 0.99999999999999989, 1, 0.25, 0.2, 0.99999999999999989, 1}
 ]
 ==
 
@@ -349,4 +449,31 @@ SELECT * FROM (SELECT x, y, z FROM t1)
 ARRAY<STRUCT<x INT64, _100 INT64, _101 INT64, _103 INT64, NULL INT64>>[
   {1, 10, 3, NULL, NULL},
   {2, 0, 1, NULL, 4}
+]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_subquery_in_pivot_expr]
+SELECT * FROM t1
+  PIVOT(
+    SUM((SELECT SUM(y) FROM t1))
+    FOR x IN (0,1));
+--
+ARRAY<STRUCT<rowid INT64, y INT64, z INT64, _0 INT64, _1 INT64>>[
+  {1, 100, 1000, NULL, 1410},
+  {2, 100, 1000, NULL, 1410},
+  {3, 100, 1001, NULL, 1410},
+  {4, 100, 1002, NULL, 1410},
+  {5, 100, 1003, NULL, 1410},
+  {6, 100, 1004, NULL, 1410},
+  {7, 101, 1000, NULL, 1410},
+  {8, 101, 1001, NULL, 1410},
+  {9, 101, 1002, NULL, 1410},
+  {10, 100, 1000, NULL, NULL},
+  {11, 101, 1001, NULL, NULL},
+  {12, 102, 1002, NULL, NULL},
+  {13, 102, NULL, NULL, NULL},
+  {14, 102, NULL, NULL, NULL},
+  {15, NULL, 1002, NULL, NULL},
+  {16, NULL, 1002, NULL, NULL}
 ]

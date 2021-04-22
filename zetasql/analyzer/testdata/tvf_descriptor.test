@@ -1,0 +1,297 @@
+# Tests for resolving table-valued functions including relation arguments and descriptor.
+#
+################################################################################
+#
+# Positive and negative test cases
+#
+################################################################################
+# TODO: Enable Java support.
+[default no_java]
+[default language_features=TABLE_VALUED_FUNCTIONS,TABLESAMPLE,TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,V_1_1_WITH_ON_SUBQUERY]
+select * from tvf_one_descriptor_resolved_names_one_relation_arg_ambiguous_naming(
+    descriptor(int64a), (select cast(42 as int64) as int64a, cast(60 as int64) as int64a))
+--
+ERROR: DESCRIPTOR specifies int64a, which is ambiguous in the table passed as argument 2 [at 2:16]
+    descriptor(int64a), (select cast(42 as int64) as int64a, cast(60 as int64...
+               ^
+==
+
+select * from tvf_one_descriptor_resolved_names_one_relation_arg(
+ descriptor(int64a, int64b), (select key as int64a, key as int64b from KeyValue))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bool#3 AS column_bool [BOOL]
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_one_descriptor_resolved_names_one_relation_arg((ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-descriptor_arg=
+        | |   +-Descriptor(descriptor_column_list=KeyValue.[Key#1, Key#1], descriptor_column_name_list=[int64a, int64b])
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=KeyValue.[Key#1, Key#1]
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        |   +-argument_column_list=KeyValue.[Key#1, Key#1]
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_relation_arg_one_descriptor(
+    (select cast(42 as int64) as int64a), descriptor(test_col))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_relation_arg_one_descriptor.column_bool#2 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_one_descriptor.column_bytes#3 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_relation_arg_one_descriptor.[column_bool#2, column_bytes#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_relation_arg_one_descriptor.[column_bool#2, column_bytes#3]
+        +-tvf=tvf_one_relation_arg_one_descriptor((TABLE<int64a INT64>, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<int64a INT64>, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.int64a#1]
+        | | |   +-expr_list=
+        | | |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.int64a#1]
+        | +-FunctionArgument
+        |   +-descriptor_arg=
+        |     +-Descriptor(descriptor_column_name_list=[test_col])
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_two_relations_arg_two_descriptors_resolved_names(
+    (select cast(42 as int64) as int64a), (select cast(42 as int64) as int64b),
+    descriptor(int64a), descriptor(int64b))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_relations_arg_two_descriptors_resolved_names.column_bool#3 AS column_bool [BOOL]
+| +-tvf_two_relations_arg_two_descriptors_resolved_names.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_relations_arg_two_descriptors_resolved_names.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_relations_arg_two_descriptors_resolved_names.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_two_relations_arg_two_descriptors_resolved_names((TABLE<int64a INT64>, TABLE<int64b INT64>, ANY DESCRIPTOR, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<int64a INT64>, TABLE<int64b INT64>, ANY DESCRIPTOR, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.int64a#1]
+        | | |   +-expr_list=
+        | | |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.int64a#1]
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery2.int64b#2]
+        | | |   +-expr_list=
+        | | |   | +-int64b#2 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery2.int64b#2]
+        | +-FunctionArgument
+        | | +-descriptor_arg=
+        | |   +-Descriptor(descriptor_column_list=[$subquery1.int64a#1], descriptor_column_name_list=[int64a])
+        | +-FunctionArgument
+        |   +-descriptor_arg=
+        |     +-Descriptor(descriptor_column_list=[$subquery2.int64b#2], descriptor_column_name_list=[int64b])
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_relation_arg_one_descriptor_resolved_names(
+    (select cast(42 as int64) as int64a), descriptor(int64a))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_relation_arg_one_descriptor_resolved_names.column_bool#2 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_one_descriptor_resolved_names.column_bytes#3 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_relation_arg_one_descriptor_resolved_names.[column_bool#2, column_bytes#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_relation_arg_one_descriptor_resolved_names.[column_bool#2, column_bytes#3]
+        +-tvf=tvf_one_relation_arg_one_descriptor_resolved_names((TABLE<int64a INT64>, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<int64a INT64>, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.int64a#1]
+        | | |   +-expr_list=
+        | | |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.int64a#1]
+        | +-FunctionArgument
+        |   +-descriptor_arg=
+        |     +-Descriptor(descriptor_column_list=[$subquery1.int64a#1], descriptor_column_name_list=[int64a])
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_descriptor_resolved_names_one_relation_arg(
+   descriptor(int64a, int64b), (select cast(42 as int64) as int64a, cast(64 as int64) as int64b))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bool#3 AS column_bool [BOOL]
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_one_descriptor_resolved_names_one_relation_arg((ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-descriptor_arg=
+        | |   +-Descriptor(descriptor_column_list=$subquery1.[int64a#1, int64b#2], descriptor_column_name_list=[int64a, int64b])
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[int64a#1, int64b#2]
+        |   |   +-expr_list=
+        |   |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        |   |   | +-int64b#2 := Literal(type=INT64, value=64, has_explicit_type=TRUE)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[int64a#1, int64b#2]
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_descriptor_resolved_names_one_relation_arg(
+   descriptor(int64a, int64b), (select cast(42 as int64) as int64a, cast(64 as int64) as int64b))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bool#3 AS column_bool [BOOL]
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_one_descriptor_resolved_names_one_relation_arg((ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-descriptor_arg=
+        | |   +-Descriptor(descriptor_column_list=$subquery1.[int64a#1, int64b#2], descriptor_column_name_list=[int64a, int64b])
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[int64a#1, int64b#2]
+        |   |   +-expr_list=
+        |   |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        |   |   | +-int64b#2 := Literal(type=INT64, value=64, has_explicit_type=TRUE)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[int64a#1, int64b#2]
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_descriptor_resolved_names_one_relation_arg(
+   descriptor(int64b, int64a), (select cast(42 as int64) as int64a, cast(64 as int64) as int64b))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bool#3 AS column_bool [BOOL]
+| +-tvf_one_descriptor_resolved_names_one_relation_arg.column_bytes#4 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg.[column_bool#3, column_bytes#4]
+        +-tvf=tvf_one_descriptor_resolved_names_one_relation_arg((ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(ANY DESCRIPTOR, TABLE<int64a INT64, int64b INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-descriptor_arg=
+        | |   +-Descriptor(descriptor_column_list=$subquery1.[int64b#2, int64a#1], descriptor_column_name_list=[int64b, int64a])
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=$subquery1.[int64a#1, int64b#2]
+        |   |   +-expr_list=
+        |   |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        |   |   | +-int64b#2 := Literal(type=INT64, value=64, has_explicit_type=TRUE)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=$subquery1.[int64a#1, int64b#2]
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_descriptor_resolved_names_one_relation_arg(
+   descriptor(int64b, int64c), (select cast(42 as int64) as int64a, cast(64 as int64) as int64b))
+--
+ERROR: DESCRIPTOR specifies int64c, which does not exist in the table passed as argument 2 [at 2:23]
+   descriptor(int64b, int64c), (select cast(42 as int64) as int64a, cast(64 a...
+                      ^
+==
+
+select * from tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg(
+   descriptor(int64a), (select cast(42 as int64) as int64a), descriptor(int64b))
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg.column_bool#2 AS column_bool [BOOL]
+| +-tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg.column_bytes#3 AS column_bytes [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg.[column_bool#2, column_bytes#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg.[column_bool#2, column_bytes#3]
+        +-tvf=tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg((ANY DESCRIPTOR, TABLE<int64a INT64>, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(ANY DESCRIPTOR, TABLE<int64a INT64>, ANY DESCRIPTOR) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-descriptor_arg=
+        | |   +-Descriptor(descriptor_column_list=[$subquery1.int64a#1], descriptor_column_name_list=[int64a])
+        | +-FunctionArgument
+        | | +-scan=
+        | | | +-ProjectScan
+        | | |   +-column_list=[$subquery1.int64a#1]
+        | | |   +-expr_list=
+        | | |   | +-int64a#1 := Literal(type=INT64, value=42, has_explicit_type=TRUE)
+        | | |   +-input_scan=
+        | | |     +-SingleRowScan
+        | | +-argument_column_list=[$subquery1.int64a#1]
+        | +-FunctionArgument
+        |   +-descriptor_arg=
+        |     +-Descriptor(descriptor_column_name_list=[int64b])
+        +-column_index_list=[0, 1]
+==
+
+select * from tvf_one_relation_arg_one_descriptor_resolved_names(
+    (select cast(42 as int64) as int64a), descriptor(int64c))
+--
+ERROR: DESCRIPTOR specifies int64c, which does not exist in the table passed as argument 1 [at 2:54]
+    (select cast(42 as int64) as int64a), descriptor(int64c))
+                                                     ^

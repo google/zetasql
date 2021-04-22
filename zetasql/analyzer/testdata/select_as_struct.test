@@ -1,0 +1,294 @@
+# NOTE: Many similar struct construction tests exist in expr_subquery.test
+# and exercise most of the same code.
+
+select as struct 1 a, 2 b, 3 c
+--
+QueryStmt
++-output_column_list=
+| +-$make_struct.$struct#4 AS `$struct` [STRUCT<a INT64, b INT64, c INT64>]
++-is_value_table=TRUE
++-query=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#4]
+    +-expr_list=
+    | +-$struct#4 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<a INT64, b INT64, c INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$query.a#1)
+    |       +-ColumnRef(type=INT64, column=$query.b#2)
+    |       +-ColumnRef(type=INT64, column=$query.c#3)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$query.[a#1, b#2, c#3]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        | +-c#3 := Literal(type=INT64, value=3)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# This makes a struct with one anonymous field.
+select as struct 5
+--
+QueryStmt
++-output_column_list=
+| +-$make_struct.$struct#2 AS `$struct` [STRUCT<INT64>]
++-is_value_table=TRUE
++-query=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#2]
+    +-expr_list=
+    | +-$struct#2 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$query.$col1#1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=5)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select as struct null
+--
+QueryStmt
++-output_column_list=
+| +-$make_struct.$struct#2 AS `$struct` [STRUCT<INT64>]
++-is_value_table=TRUE
++-query=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#2]
+    +-expr_list=
+    | +-$struct#2 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$query.$col1#1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=NULL)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select as struct null as col
+--
+QueryStmt
++-output_column_list=
+| +-$make_struct.$struct#2 AS `$struct` [STRUCT<col INT64>]
++-is_value_table=TRUE
++-query=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#2]
+    +-expr_list=
+    | +-$struct#2 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<col INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$query.col#1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.col#1]
+        +-expr_list=
+        | +-col#1 := Literal(type=INT64, value=NULL)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select as struct null N from KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$make_struct.$struct#4 AS `$struct` [STRUCT<N INT64>]
++-is_value_table=TRUE
++-query=
+  +-ProjectScan
+    +-column_list=[$make_struct.$struct#4]
+    +-expr_list=
+    | +-$struct#4 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<N INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=$query.N#3)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.N#3]
+        +-expr_list=
+        | +-N#3 := Literal(type=INT64, value=NULL)
+        +-input_scan=
+          +-TableScan(table=KeyValue)
+==
+
+# We can't select anything by name in a struct with only anonymous fields.
+select (select as struct 5).f
+--
+ERROR: Field name f does not exist in STRUCT<INT64> [at 1:29]
+select (select as struct 5).f
+                            ^
+==
+
+# ProjectScan into a named struct type.
+# TODO Make this work, and test it matches columns by
+# name and coerces types.
+select as TestStruct 1 key, "v" value
+--
+ERROR: Constructing named STRUCT types in subqueries not implemented yet [at 1:11]
+select as TestStruct 1 key, "v" value
+          ^
+==
+
+select *, '--', S.* from (select as struct 1 abc) S
+--
+QueryStmt
++-output_column_list=
+| +-$query.abc#3 AS abc [INT64]
+| +-$query.$col2#4 AS `$col2` [STRING]
+| +-$query.abc#5 AS abc [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[abc#3, $col2#4, abc#5]
+    +-expr_list=
+    | +-abc#3 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<abc INT64>, column=$make_struct.$struct#2)
+    | |   +-field_idx=0
+    | +-$col2#4 := Literal(type=STRING, value="--")
+    | +-abc#5 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<abc INT64>, column=$make_struct.$struct#2)
+    |     +-field_idx=0
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$make_struct.$struct#2]
+        +-expr_list=
+        | +-$struct#2 :=
+        |   +-MakeStruct
+        |     +-type=STRUCT<abc INT64>
+        |     +-field_list=
+        |       +-ColumnRef(type=INT64, column=S.abc#1)
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[S.abc#1]
+            +-expr_list=
+            | +-abc#1 := Literal(type=INT64, value=1)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+select st.a, st.c, st.e.y
+from (select (select AS STRUCT 1 a, 1.5 b, 'abc' c, null d,
+                               (select AS STRUCT 1 x, 2 y) e) st)
+--
+QueryStmt
++-output_column_list=
+| +-$query.a#11 AS a [INT64]
+| +-$query.c#12 AS c [STRING]
+| +-$query.y#13 AS y [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[a#11, c#12, y#13]
+    +-expr_list=
+    | +-a#11 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b DOUBLE, c STRING, d INT64, e STRUCT<x INT64, y INT64>>, column=$subquery1.st#10)
+    | |   +-field_idx=0
+    | +-c#12 :=
+    | | +-GetStructField
+    | |   +-type=STRING
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<a INT64, b DOUBLE, c STRING, d INT64, e STRUCT<x INT64, y INT64>>, column=$subquery1.st#10)
+    | |   +-field_idx=2
+    | +-y#13 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-GetStructField
+    |     |   +-type=STRUCT<x INT64, y INT64>
+    |     |   +-expr=
+    |     |   | +-ColumnRef(type=STRUCT<a INT64, b DOUBLE, c STRING, d INT64, e STRUCT<x INT64, y INT64>>, column=$subquery1.st#10)
+    |     |   +-field_idx=4
+    |     +-field_idx=1
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.st#10]
+        +-expr_list=
+        | +-st#10 :=
+        |   +-SubqueryExpr
+        |     +-type=STRUCT<a INT64, b DOUBLE, c STRING, d INT64, e STRUCT<x INT64, y INT64>>
+        |     +-subquery_type=SCALAR
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$make_struct.$struct#9]
+        |         +-expr_list=
+        |         | +-$struct#9 :=
+        |         |   +-MakeStruct
+        |         |     +-type=STRUCT<a INT64, b DOUBLE, c STRING, d INT64, e STRUCT<x INT64, y INT64>>
+        |         |     +-field_list=
+        |         |       +-ColumnRef(type=INT64, column=$expr_subquery.a#4)
+        |         |       +-ColumnRef(type=DOUBLE, column=$expr_subquery.b#5)
+        |         |       +-ColumnRef(type=STRING, column=$expr_subquery.c#6)
+        |         |       +-ColumnRef(type=INT64, column=$expr_subquery.d#7)
+        |         |       +-ColumnRef(type=STRUCT<x INT64, y INT64>, column=$expr_subquery.e#8)
+        |         +-input_scan=
+        |           +-ProjectScan
+        |             +-column_list=$expr_subquery.[a#4, b#5, c#6, d#7, e#8]
+        |             +-expr_list=
+        |             | +-a#4 := Literal(type=INT64, value=1)
+        |             | +-b#5 := Literal(type=DOUBLE, value=1.5)
+        |             | +-c#6 := Literal(type=STRING, value="abc")
+        |             | +-d#7 := Literal(type=INT64, value=NULL)
+        |             | +-e#8 :=
+        |             |   +-SubqueryExpr
+        |             |     +-type=STRUCT<x INT64, y INT64>
+        |             |     +-subquery_type=SCALAR
+        |             |     +-subquery=
+        |             |       +-ProjectScan
+        |             |         +-column_list=[$make_struct.$struct#3]
+        |             |         +-expr_list=
+        |             |         | +-$struct#3 :=
+        |             |         |   +-MakeStruct
+        |             |         |     +-type=STRUCT<x INT64, y INT64>
+        |             |         |     +-field_list=
+        |             |         |       +-ColumnRef(type=INT64, column=$expr_subquery.x#1)
+        |             |         |       +-ColumnRef(type=INT64, column=$expr_subquery.y#2)
+        |             |         +-input_scan=
+        |             |           +-ProjectScan
+        |             |             +-column_list=$expr_subquery.[x#1, y#2]
+        |             |             +-expr_list=
+        |             |             | +-x#1 := Literal(type=INT64, value=1)
+        |             |             | +-y#2 := Literal(type=INT64, value=2)
+        |             |             +-input_scan=
+        |             |               +-SingleRowScan
+        |             +-input_scan=
+        |               +-SingleRowScan
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select st.z
+from (select (select AS STRUCT 1 a, 1.5 b) st)
+--
+ERROR: Field name z does not exist in STRUCT<a INT64, b DOUBLE> [at 1:11]
+select st.z
+          ^
+==
+
+select st.a
+from (select (select AS STRUCT 1 a, 'abc' a) st)
+--
+ERROR: Struct field name a is ambiguous [at 1:11]
+select st.a
+          ^

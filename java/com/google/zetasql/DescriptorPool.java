@@ -120,6 +120,8 @@ public interface DescriptorPool extends Serializable {
     default ZetaSQLFieldDescriptor findFieldByNumber(int number) {
       return getDescriptorPool().findFieldByNumber(this, number);
     }
+
+    ZetaSQLOneofDescriptor findOneofByIndex(int index);
   }
 
   /**
@@ -136,6 +138,19 @@ public interface DescriptorPool extends Serializable {
     DescriptorPool getDescriptorPool();
 
     FieldDescriptor getDescriptor();
+  }
+
+  /** Wrapped {@link OneofDescriptor} with the {@link DescriptorPool} from which it was created. */
+  public interface ZetaSQLOneofDescriptor {
+    /** @deprecated use {@link #getDescriptorPool()} */
+    @Deprecated
+    default DescriptorPool getZetaSQLDescriptorPool() {
+      return getDescriptorPool();
+    }
+
+    DescriptorPool getDescriptorPool();
+
+    OneofDescriptor getDescriptor();
   }
 
   /**

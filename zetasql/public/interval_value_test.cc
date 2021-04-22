@@ -711,7 +711,7 @@ TEST(IntervalValueTest, Extract) {
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
-TEST(IntervalValueTest, SumAggregator) {
+TEST(IntervalValueTest, SumAggregatorSum) {
   IntervalValue::SumAggregator agg;
   // Max years
   agg.Add(Years(10000));
@@ -727,6 +727,52 @@ TEST(IntervalValueTest, SumAggregator) {
   agg.Add(-Months(2));
   ZETASQL_ASSERT_OK(agg.GetSum());
   EXPECT_EQ(YMDHMS(9999, 11, 100, 0, 10, 0), *agg.GetSum());
+}
+
+TEST(IntervalValueTest, SumAggregatorAverage) {
+  IntervalValue::SumAggregator agg;
+  // Total number of years is 30,000 - more than maximum of 10,000
+  agg.Add(Years(10000));
+  agg.Add(Years(10000));
+  agg.Add(Years(10000));
+  // Sum, and Average of less than 3 elements overflow
+  EXPECT_THAT(agg.GetSum(), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(agg.GetAverage(1), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(agg.GetAverage(2), StatusIs(absl::StatusCode::kOutOfRange));
+  // But Average of 3 or more elements works
+  EXPECT_EQ(Years(10000), *agg.GetAverage(3));
+  EXPECT_EQ(Years(7500), *agg.GetAverage(4));
+  EXPECT_EQ(Years(2500), *agg.GetAverage(12));
+  EXPECT_EQ(Years(30), *agg.GetAverage(1000));
+  EXPECT_EQ(Years(3), *agg.GetAverage(10000));
+  EXPECT_EQ(Years(1), *agg.GetAverage(30000));
+  // Spillover into other parts
+  EXPECT_EQ(Interval("83-4"), *agg.GetAverage(360));
+  EXPECT_EQ(Interval("8-4"), *agg.GetAverage(3600));
+  EXPECT_EQ(Interval("0-10"), *agg.GetAverage(36000));
+  EXPECT_EQ(Days(1), *agg.GetAverage(10800000));
+  EXPECT_EQ(Hours(1), *agg.GetAverage(259200000));
+  EXPECT_EQ(Minutes(1), *agg.GetAverage(15552000000));
+  EXPECT_EQ(Interval("125-6 8 6:49:42.426778242"), *agg.GetAverage(239));
+  EXPECT_EQ(Interval("2-5 4 20:21:17.278250303"), *agg.GetAverage(12345));
+  EXPECT_EQ(Interval("2:5:58.272068780"), *agg.GetAverage(123456789));
+
+  // Fractions of nanos are rounded
+  IntervalValue::SumAggregator agg2;
+  agg2.Add(Nanos(5));
+  EXPECT_EQ(Nanos(5), *agg2.GetAverage(1));
+  EXPECT_EQ(Nanos(2), *agg2.GetAverage(2));
+  EXPECT_EQ(Nanos(1), *agg2.GetAverage(3));
+  EXPECT_EQ(Nanos(1), *agg2.GetAverage(4));
+  EXPECT_EQ(Nanos(1), *agg2.GetAverage(5));
+  EXPECT_EQ(Nanos(0), *agg2.GetAverage(6));
+  agg2.Add(Nanos(-10));
+  EXPECT_EQ(Nanos(-5), *agg2.GetAverage(1));
+  EXPECT_EQ(Nanos(-2), *agg2.GetAverage(2));
+  EXPECT_EQ(Nanos(-1), *agg2.GetAverage(3));
+  EXPECT_EQ(Nanos(-1), *agg2.GetAverage(4));
+  EXPECT_EQ(Nanos(-1), *agg2.GetAverage(5));
+  EXPECT_EQ(Nanos(0), *agg2.GetAverage(6));
 }
 
 TEST(IntervalValueTest, ToString) {
@@ -1582,8 +1628,9 @@ TEST(IntervalValueTest, ParseFromString) {
 
 void ExpectToISO8601(absl::string_view expected, IntervalValue interval) {
   EXPECT_EQ(expected, interval.ToISO8601());
-  // TODO: Once parsing is implemented, parse back and compare with
-  // the original interval.
+  // Check roundtriping by parsing the expected string back and comparing with
+  // original interval.
+  EXPECT_EQ(interval, *IntervalValue::ParseFromISO8601(expected));
 }
 
 TEST(IntervalValueTest, ToISO8601) {
@@ -1676,6 +1723,84 @@ TEST(IntervalValueTest, ToISO8601) {
                   Interval("-1-2 -3 -4:5:6.7891234"));
   ExpectToISO8601("P-1Y-2M-3DT-4H-5M-6.789123456S",
                   Interval("-1-2 -3 -4:5:6.789123456"));
+}
+
+void ExpectFromISO8601(absl::string_view expected, absl::string_view input) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval,
+                       IntervalValue::ParseFromISO8601(input));
+  EXPECT_EQ(expected, interval.ToString());
+}
+
+void ExpectFromISO8601Error(absl::string_view input,
+                            const std::string& error_text) {
+  EXPECT_THAT(
+      IntervalValue::ParseFromISO8601(input),
+      StatusIs(absl::StatusCode::kOutOfRange, testing::HasSubstr(error_text)))
+      << input;
+}
+
+TEST(IntervalValueTest, ParseFromISO8601) {
+  ExpectFromISO8601("0-0 0 0:0:0", "PT");
+  ExpectFromISO8601("0-0 0 0:0:0", "P0Y");
+  ExpectFromISO8601("0-0 0 0:0:0", "P-1Y2Y-1Y");
+  ExpectFromISO8601("1-0 0 0:0:0", "P1Y");
+  ExpectFromISO8601("-1-0 0 0:0:0", "P-1Y");
+  ExpectFromISO8601("1-0 0 0:0:0", "P100Y1M-1M-99Y");
+  ExpectFromISO8601("0-2 0 0:0:0", "P2M");
+  ExpectFromISO8601("-0-2 0 0:0:0", "P2M-4M");
+  ExpectFromISO8601("2-1 0 0:0:0", "P25M");
+  ExpectFromISO8601("0-11 0 0:0:0", "P1Y-1M");
+  ExpectFromISO8601("0-0 70 0:0:0", "P10W");
+  ExpectFromISO8601("0-0 -70 0:0:0", "P-10W");
+  ExpectFromISO8601("0-0 3 0:0:0", "P3D");
+  ExpectFromISO8601("0-0 -3 0:0:0", "P-1D-1D-1D");
+  ExpectFromISO8601("0-0 123456 0:0:0", "P123456D");
+  ExpectFromISO8601("0-0 0 -4:0:0", "PT-4H");
+  ExpectFromISO8601("0-0 0 4:0:0", "PT3H60M");
+  ExpectFromISO8601("0-0 0 100000:0:0", "PT100000H");
+  ExpectFromISO8601("0-0 0 0:5:0", "PT5M");
+  ExpectFromISO8601("0-0 0 -0:5:0", "PT5M-10M");
+  ExpectFromISO8601("0-0 0 0:0:6", "PT6S");
+  ExpectFromISO8601("0-0 0 -0:0:6", "PT-6S");
+  ExpectFromISO8601("0-0 0 0:0:0.100", "PT0.1S");
+  ExpectFromISO8601("0-0 0 -0:0:0.100", "PT-0,1S");
+  ExpectFromISO8601("0-0 0 0:0:1.234", "PT1.234S");
+  ExpectFromISO8601("0-0 0 0:0:10.987654321", "PT10,987654321S");
+  ExpectFromISO8601("1-2 3 4:5:6.789", "P3D2M1YT6,789S5M4H");
+  ExpectFromISO8601("-1-2 -3 -4:5:6.789", "P-3D-2M-1YT-6.789S-5M-4H");
+
+  // Errors
+  ExpectFromISO8601Error("", "Interval must start with 'P'");
+  ExpectFromISO8601Error("1Y", "Interval must start with 'P'");
+  ExpectFromISO8601Error("T", "Interval must start with 'P'");
+  ExpectFromISO8601Error("P", "At least one datetime part must be defined");
+  ExpectFromISO8601Error("P--1Y", "Expected number");
+  ExpectFromISO8601Error("P-", "Expected number");
+  ExpectFromISO8601Error("P1", "Unexpected end of input in the date portion");
+  ExpectFromISO8601Error("PTT", "Unexpected duplicate time separator");
+  ExpectFromISO8601Error("PT1HT1M", "Unexpected duplicate time separator");
+  ExpectFromISO8601Error("P1YM", "Unexpected 'M'");
+  ExpectFromISO8601Error("P1YT2MS", "Unexpected 'S'");
+  ExpectFromISO8601Error("P1M ", "Unexpected ' '");
+  ExpectFromISO8601Error("PT.1S", "Unexpected '.'");
+  ExpectFromISO8601Error("PT99999999999999999999999999999H", "Cannot convert");
+  ExpectFromISO8601Error("PT-99999999999999999999999999999H", "Cannot convert");
+  ExpectFromISO8601Error("P-1S", "Unexpected 'S' in the date portion");
+  ExpectFromISO8601Error("P1H2", "Unexpected 'H' in the date portion");
+  ExpectFromISO8601Error("PT1D", "Unexpected 'D' in the time portion");
+  ExpectFromISO8601Error("P123", "Unexpected end of input in the date portion");
+  ExpectFromISO8601Error("P9223372036854775807D1D", "int64 overflow");
+  ExpectFromISO8601Error("PT0.1234567890S", "Invalid interval");
+  ExpectFromISO8601Error("PT1.S", "Invalid interval");
+  ExpectFromISO8601Error("P1.Y", "Fractional values are only allowed");
+  ExpectFromISO8601Error("PT1.M", "Fractional values are only allowed");
+  ExpectFromISO8601Error("P9223372036854775807Y", "int64 overflow");
+  ExpectFromISO8601Error("P9223372036854775807W", "int64 overflow");
+  ExpectFromISO8601Error("P9223372036854775807D1W", "int64 overflow");
+  ExpectFromISO8601Error("P-10001Y", "is out of range");
+  ExpectFromISO8601Error("P-9999999M", "is out of range");
+  ExpectFromISO8601Error("P-987654321D", "is out of range");
+  ExpectFromISO8601Error("PT-99999999999H", "is out of range");
 }
 
 std::vector<IntervalValue>* kInterestingIntervals =
@@ -1812,6 +1937,90 @@ TEST(IntervalValueTest, FromInteger) {
   ExpectFromIntegerError(0, functions::WEEK_THURSDAY);
   ExpectFromIntegerError(0, functions::WEEK_FRIDAY);
   ExpectFromIntegerError(0, functions::WEEK_SATURDAY);
+}
+
+TEST(IntervalTest, JustifyHours) {
+  EXPECT_EQ(*JustifyHours(Interval("0 12:0:0")), Interval("0 12:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 -12:0:0")), Interval("0 -12:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 24:0:0")), Interval("1 0:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 -24:0:0")), Interval("-1 0:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 24:0:0.1")), Interval("1 0:0:0.1"));
+  EXPECT_EQ(*JustifyHours(Interval("0 -24:0:0.1")), Interval("-1 -0:0:0.1"));
+  EXPECT_EQ(*JustifyHours(Interval("0 25:0:0")), Interval("1 1:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 -25:0:0")), Interval("-1 -1:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 240:0:0")), Interval("10 0:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("0 -240:0:0")), Interval("-10 -0:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("1 25:0:0")), Interval("2 1:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("-1 -25:0:0")), Interval("-2 -1:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("1 -1:0:0")), Interval("0 23:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("-1 1:0:0")), Interval("0 -23:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("3660000 -0:0:0.000001")),
+            Interval("3659999 23:59:59.999999"));
+  EXPECT_EQ(*JustifyHours(Interval("-3660000 0:0:0.000001")),
+            Interval("-3659999 -23:59:59.999999"));
+  EXPECT_EQ(*JustifyHours(Interval("1 0 -1:0:0")), Interval("1 0 -1:0:0"));
+  EXPECT_EQ(*JustifyHours(Interval("-1 0 1:0:0")), Interval("-1 0 1:0:0"));
+
+  EXPECT_THAT(JustifyHours(Interval("0 3660000 24:0:0")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(JustifyHours(Interval("0 -3660000 -24:0:0")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalTest, JustifyDays) {
+  EXPECT_EQ(*JustifyDays(Interval("0-0 29")), Interval("0-0 29"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 -29")), Interval("0-0 -29"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 30")), Interval("0-1 0"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 -30")), Interval("-0-1 0"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 31")), Interval("0-1 1"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 -31")), Interval("-0-1 -1"));
+  EXPECT_EQ(*JustifyDays(Interval("0-1 30")), Interval("0-2 0"));
+  EXPECT_EQ(*JustifyDays(Interval("-0-1 -30")), Interval("-0-2 0"));
+  EXPECT_EQ(*JustifyDays(Interval("1-11 30")), Interval("2-0 0"));
+  EXPECT_EQ(*JustifyDays(Interval("-1-11 -30")), Interval("-2-0 0"));
+  EXPECT_EQ(*JustifyDays(Interval("0-1 -1")), Interval("0-0 29"));
+  EXPECT_EQ(*JustifyDays(Interval("-0-1 1")), Interval("0-0 -29"));
+  EXPECT_EQ(*JustifyDays(Interval("10000-0 -1")), Interval("9999-11 29"));
+  EXPECT_EQ(*JustifyDays(Interval("-10000-0 1")), Interval("-9999-11 -29"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 3600000")), Interval("10000-0 0"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 -3600000")), Interval("-10000-0 0"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 3600010")), Interval("10000-0 10"));
+  EXPECT_EQ(*JustifyDays(Interval("0-0 -3600010")), Interval("-10000-0 -10"));
+  EXPECT_EQ(*JustifyDays(Interval("29 240:0:0")), Interval("29 240:0:0"));
+  EXPECT_EQ(*JustifyDays(Interval("-29 -240:0:0")), Interval("-29 -240:0:0"));
+
+  EXPECT_THAT(JustifyDays(Interval("10000-0 30")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(JustifyDays(Interval("-10000-0 -30")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(JustifyDays(Interval("0-0 3660000")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(JustifyDays(Interval("0-0 -3660000")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalTest, JustifyInterval) {
+  EXPECT_EQ(*JustifyInterval(Interval("0 0 23")), Interval("0 0 23"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 0 -23")), Interval("0 0 -23"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 0 24")), Interval("0 1 0"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 0 -24")), Interval("0 -1 0"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 29 24")), Interval("1 0 0"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 -29 -24")), Interval("-1 0 0"));
+  EXPECT_EQ(*JustifyInterval(Interval("1 0 -1")), Interval("0 29 23"));
+  EXPECT_EQ(*JustifyInterval(Interval("-1 0 1")), Interval("0 -29 -23"));
+  EXPECT_EQ(*JustifyInterval(Interval("1 -1 1")), Interval("0 29 1"));
+  EXPECT_EQ(*JustifyInterval(Interval("-1 1 -1")), Interval("0 -29 -1"));
+  EXPECT_EQ(*JustifyInterval(Interval("1 -1 -1")), Interval("0 28 23"));
+  EXPECT_EQ(*JustifyInterval(Interval("-1 1 1")), Interval("0 -28 -23"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 3600000 241")),
+            Interval("10000-0 10 1"));
+  EXPECT_EQ(*JustifyInterval(Interval("0 -3600000 -241")),
+            Interval("-10000-0 -10 -1"));
+
+  EXPECT_THAT(JustifyInterval(Interval("10000-0 29 24:0:0")),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(JustifyInterval(Interval("-10000-0 -29 -24:0:0")),
+              StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 }  // namespace

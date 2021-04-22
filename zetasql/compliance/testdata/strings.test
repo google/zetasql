@@ -1085,11 +1085,10 @@ ERROR: generic::invalid_argument: Number of arguments does not match for functio
 ==
 [name=json_extract_one_argument]
 select
-  json_extract('{"a": "foo"}'),
-  json_extract_scalar('{"a": "foo"}')
+  json_extract('{"a": "foo"}')
 --
 ERROR: generic::invalid_argument: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 2:3]
-  json_extract('{"a": "foo"}'),
+  json_extract('{"a": "foo"}')
   ^
 ==
 [name=json_extract_array_literal_path]
@@ -1308,3 +1307,9 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
     "2"
   }
 ]
+==
+[name=json_extract_scalar_json_value_one_argument]
+SELECT JSON_EXTRACT_SCALAR('"extract scalar"'), JSON_VALUE('"extract value"')
+--
+ARRAY<STRUCT<STRING, STRING>>[{"extract scalar", "extract value"}]
+==

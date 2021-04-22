@@ -1,0 +1,127 @@
+# This file has some tests specifically for name scoping issues.
+
+[default show_strict_mode]
+
+select value from KeyValue kv1, KeyValue kv2
+--
+ERROR: Column name value is ambiguous [at 1:8]
+select value from KeyValue kv1, KeyValue kv2
+       ^
+==
+
+select value from KeyValue kv1, KeyValue kv2, KeyValue kv3
+--
+ERROR: Column name value is ambiguous [at 1:8]
+select value from KeyValue kv1, KeyValue kv2, KeyValue kv3
+       ^
+==
+
+select value from KeyValue kv1, KeyValue kv2, (select 1 value) kv3
+--
+ERROR: Column name value is ambiguous [at 1:8]
+select value from KeyValue kv1, KeyValue kv2, (select 1 value) kv3
+       ^
+==
+
+# Range variables take precedence over columns with the same name.
+select value, value.value, kv.value from KeyValue value, KeyValue kv
+--
+QueryStmt
++-output_column_list=
+| +-$query.value#6 AS value [STRUCT<Key INT64, Value STRING>]
+| +-KeyValue.Value#2 AS value [STRING]
+| +-KeyValue.Value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.value#6, KeyValue.Value#2, KeyValue.Value#4]
+    +-expr_list=
+    | +-value#6 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<Key INT64, Value STRING>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Value#2, Value#4]
+        +-left_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="value")
+        +-right_scan=
+          +-TableScan(column_list=[KeyValue.Value#4], table=KeyValue, column_index_list=[1], alias="kv")
+==
+
+# Duplicate range variables are never allowed.
+select value from KeyValue xvALue, KeyValue xvalUE
+--
+ERROR: Duplicate table alias xvalUE in the same FROM clause [at 1:45]
+select value from KeyValue xvALue, KeyValue xvalUE
+                                            ^
+==
+
+# Same as above, except the duplicate range variable happens to also equal
+# a column name that was previously in scope.  This hits a case in
+# NameScope::AddNameTarget where we overwrite an existing name with a
+# range variable.  When that happens, we don't want the range variable to
+# inherit the case of the original column name.
+select value from KeyValue vALue, KeyValue valUE
+--
+ERROR: Duplicate table alias valUE in the same FROM clause [at 1:44]
+select value from KeyValue vALue, KeyValue valUE
+                                           ^
+==
+
+select value from (select 1 value), (select 2) value
+--
+QueryStmt
++-output_column_list=
+| +-$query.value#4 AS value [STRUCT<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.value#4]
+    +-expr_list=
+    | +-value#4 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<INT64>
+    |     +-field_list=
+    |       +-ColumnRef(type=INT64, column=value.$col1#2)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$subquery1.value#1, value.$col1#2]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.value#1]
+        |   +-expr_list=
+        |   | +-value#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-right_scan=
+          +-ProjectScan
+            +-column_list=[value.$col1#2]
+            +-expr_list=
+            | +-$col1#2 := Literal(type=INT64, value=2)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+with q1 as (select k.key, * from KeyValue k)
+select {{key|q1.key}} from q1
+--
+ALTERNATION GROUP: key
+--
+STRICT MODE ERROR: SELECT * is not allowed in strict name resolution mode [at 1:27]
+with q1 as (select k.key, * from KeyValue k)
+                          ^
+--
+ERROR: Column name key is ambiguous [at 2:8]
+select key from q1
+       ^
+--
+ALTERNATION GROUP: q1.key
+--
+STRICT MODE ERROR: SELECT * is not allowed in strict name resolution mode [at 1:27]
+with q1 as (select k.key, * from KeyValue k)
+                          ^
+--
+ERROR: Name key is ambiguous inside q1 [at 2:11]
+select q1.key from q1
+          ^

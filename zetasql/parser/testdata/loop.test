@@ -1332,3 +1332,13 @@ END FOR;
 ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got ")" [at 1:11]
 FOR x IN ()
           ^
+==
+
+# Non-query loop query
+FOR x IN (INSERT INTO t(z) VALUES (2))
+DO
+END FOR;
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got keyword INSERT [at 1:11]
+FOR x IN (INSERT INTO t(z) VALUES (2))
+          ^

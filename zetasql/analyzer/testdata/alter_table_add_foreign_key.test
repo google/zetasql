@@ -1,0 +1,135 @@
+[default language_features=FOREIGN_KEYS]
+[show_unparsed]
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+  +-AddConstraintAction
+    +-is_if_not_exists=FALSE
+    +-constraint=
+    | +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=FourIntegers, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key)
+    +-table=TwoIntegers
+
+[UNPARSED_SQL]
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED;
+==
+
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(key, value) REFERENCES FourIntegers(key1, key2);
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+  +-AddConstraintAction
+    +-is_if_not_exists=FALSE
+    +-constraint=
+    | +-ForeignKey(constraint_name="", referencing_column_offset_list=[0, 1], referenced_table=FourIntegers, referenced_column_offset_list=[0, 2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key.value)
+    +-table=TwoIntegers
+==
+
+ALTER TABLE TwoIntegers ADD CONSTRAINT foo FOREIGN KEY(key, value) REFERENCES FourIntegers(key1, key2);
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+  +-AddConstraintAction
+    +-is_if_not_exists=FALSE
+    +-constraint=
+    | +-ForeignKey(constraint_name="foo", referencing_column_offset_list=[0, 1], referenced_table=FourIntegers, referenced_column_offset_list=[0, 2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key.value)
+    +-table=TwoIntegers
+==
+
+ALTER TABLE TwoIntegers ADD CONSTRAINT foo FOREIGN KEY(key) REFERENCES FourIntegers(key1) NOT ENFORCED;
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+  +-AddConstraintAction
+    +-is_if_not_exists=FALSE
+    +-constraint=
+    | +-ForeignKey(constraint_name="foo", referencing_column_offset_list=[0], referenced_table=FourIntegers, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=FALSE, referencing_column_list=key)
+    +-table=TwoIntegers
+==
+
+ALTER TABLE TwoIntegers ADD CONSTRAINT foo FOREIGN KEY(key) REFERENCES FourIntegers(key1) MATCH FULL ON UPDATE CASCADE ON DELETE CASCADE ENFORCED;
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+  +-AddConstraintAction
+    +-is_if_not_exists=FALSE
+    +-constraint=
+    | +-ForeignKey(constraint_name="foo", referencing_column_offset_list=[0], referenced_table=FourIntegers, referenced_column_offset_list=[0], match_mode=FULL, update_action=CASCADE, delete_action=CASCADE, enforced=TRUE, referencing_column_list=key)
+    +-table=TwoIntegers
+==
+
+ALTER TABLE IF EXISTS nonexistent_table ADD FOREIGN KEY(key) REFERENCES TwoIntegers(key);
+--
+AlterTableStmt
++-name_path=nonexistent_table
++-alter_action_list=
+| +-AddConstraintAction
+|   +-is_if_not_exists=FALSE
+|   +-constraint=
+|     +-ForeignKey(constraint_name="", referencing_column_offset_list=[0], referenced_table=TwoIntegers, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key)
++-is_if_exists=TRUE
+
+==
+
+ALTER TABLE IF EXISTS TwoIntegers ADD FOREIGN KEY(key, value) REFERENCES FourIntegers(key1, key2);
+--
+AlterTableStmt
++-name_path=TwoIntegers
++-alter_action_list=
+| +-AddConstraintAction
+|   +-is_if_not_exists=FALSE
+|   +-constraint=
+|   | +-ForeignKey(constraint_name="", referencing_column_offset_list=[0, 1], referenced_table=FourIntegers, referenced_column_offset_list=[0, 2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key.value)
+|   +-table=TwoIntegers
++-is_if_exists=TRUE
+
+==
+
+ALTER TABLE IF EXISTS nonexistent_table ADD FOREIGN KEY(key, value) REFERENCES FourIntegers(key1, key2);
+--
+AlterTableStmt
++-name_path=nonexistent_table
++-alter_action_list=
+| +-AddConstraintAction
+|   +-is_if_not_exists=FALSE
+|   +-constraint=
+|     +-ForeignKey(constraint_name="", referencing_column_offset_list=[0, 1], referenced_table=FourIntegers, referenced_column_offset_list=[0, 2], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=key.value)
++-is_if_exists=TRUE
+
+==
+
+ALTER TABLE IF EXISTS TwoIntegers ADD FOREIGN KEY(nonexistent_column) REFERENCES FourIntegers(key1);
+--
+ERROR: Unsupported foreign key column nonexistent_column either does not exist or is a pseudocolumn [at 1:51]
+ALTER TABLE IF EXISTS TwoIntegers ADD FOREIGN KEY(nonexistent_column) REFEREN...
+                                                  ^
+
+==
+
+ALTER TABLE IF EXISTS nonexistent_table ADD FOREIGN KEY(key, value) REFERENCES FourIntegers(key1, nonexistent_column);
+--
+ERROR: Column nonexistent_column not found in table FourIntegers [at 1:99]
+...KEY(key, value) REFERENCES FourIntegers(key1, nonexistent_column);
+                                                 ^
+
+==
+
+ALTER TABLE IF EXISTS TwoIntegers ADD FOREIGN KEY(key) REFERENCES nonexistent_table (key);
+--
+ERROR: Table not found: nonexistent_table [at 1:67]
+...EXISTS TwoIntegers ADD FOREIGN KEY(key) REFERENCES nonexistent_table (key);
+                                                      ^
+
+==
+
+[language_features=]
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
+--
+ERROR: FOREIGN KEY is not supported [at 1:25]
+ALTER TABLE TwoIntegers ADD FOREIGN KEY(key) REFERENCES FourIntegers(key1);
+                        ^

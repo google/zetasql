@@ -465,6 +465,7 @@ cc_library(
         "//zetasql/public:civil_time",
         "//zetasql/public:interval_value",
         "//zetasql/public:interval_value_test_util",
+        "//zetasql/public:json_value",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:type",

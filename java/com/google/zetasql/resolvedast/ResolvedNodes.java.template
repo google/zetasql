@@ -152,7 +152,7 @@ public final class ResolvedNodes {
 
   static TVFSignatureProto serialize(
       TVFSignature tvfSignature, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return tvfSignature.serialize();
+    return tvfSignature.serialize(fileDescriptorSetsBuilder);
   }
 
   static TableValuedFunctionRefProto serialize(

@@ -37,9 +37,19 @@ message AnnotationProto {
 // This represents the serialized form of the annotation map for
 // zetasql::AnnotatedType.
 message AnnotationMapProto {
+  // Indicates that an element of array or a field of struct is null. In
+  // ArrayAnnotationMap and StructAnnotationMap class, a null element/field
+  // indicates that the AnnotationMap for the element/field (and all its
+  // children if applicable) is empty.
+  // <is_null> can only be true for struct field or array element, or an error
+  // is throw during deserialization. If <is_null> is true, the rest of this
+  // proto is ignored.
+  optional bool is_null = 4;
+
   repeated AnnotationProto annotations = 1;
-  // If AnnotatedType is a complex type, then one (and only one) of these
-  // will be populated.
+
+  // If AnnotatedType is a complex type, then exactly one of the two
+  // fields will be populated.
   optional AnnotationMapProto array_element = 2;
   repeated AnnotationMapProto struct_fields = 3;
 }

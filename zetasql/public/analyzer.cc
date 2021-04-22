@@ -554,6 +554,7 @@ zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymiz
   ZETASQL_RET_CHECK_NE(analyzer_output->resolved_statement(), nullptr);
 
   ColumnFactory column_factory(analyzer_output->max_column_id(),
+                               analyzer_output->id_string_pool().get(),
                                analyzer_options.column_id_sequence_number());
   ZETASQL_ASSIGN_OR_RETURN(
       RewriteForAnonymizationOutput anonymized_output,

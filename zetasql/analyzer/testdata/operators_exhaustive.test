@@ -1,0 +1,4332 @@
+# This file fairly exhaustively tests arithmetic between different combinations
+# of literals and non-literals of different numeric types.  The tests are
+# roughly structured/ordered as follows:
+#
+# 1) Basic operator tests between non-literals of different types
+#    a) Addition positive then error tests
+#    b) Subtraction positive then error tests
+#    c) Multiplication positive then error tests
+#    d) Division tests
+# 2) Addition tests between a non-literal and small literal
+# 3) Division between a non-literal and small literal
+# 4) Addition between a non-literal and NULL
+# 5) Addition between literals of different size/value.
+# 6) Addition between non-literal and literals of different size/value.
+#
+# Note that tests 2-6 don't test every operator, and assume that the same
+# behavior results for other operators as was previously illustrated in
+# the first set of tests.
+
+# Arithmetic between UINT64 and signed ints is invalid.  Those error tests
+# follow this one.
+[language_features={{NUMERIC_TYPE|}}]
+select `int32` + `int32`,
+       `int32` + `int64`,
+       `int32` + `uint32`,
+       `int32` + `float`,
+       `int32` + `double`,
+       `int32` + `numeric`,
+       "-----------------------------------------" as separator,
+       `int64` + `int32`,
+       `int64` + `int64`,
+       `int64` + `uint32`,
+       `int64` + `float`,
+       `int64` + `double`,
+       `int64` + `numeric`,
+       "-----------------------------------------" as separator,
+       `uint32` + `int32`,
+       `uint32` + `int64`,
+       `uint32` + `uint32`,
+       `uint32` + `uint64`,
+       `uint32` + `float`,
+       `uint32` + `double`,
+       `uint32` + `numeric`,
+       "-----------------------------------------" as separator,
+       `uint64` + `uint32`,
+       `uint64` + `uint64`,
+       `uint64` + `float`,
+       `uint64` + `double`,
+       `uint64` + `numeric`,
+       "-----------------------------------------" as separator,
+       `float` + `int32`,
+       `float` + `int64`,
+       `float` + `uint32`,
+       `float` + `uint64`,
+       `float` + `float`,
+       `float` + `double`,
+       `float` + `numeric`,
+       "-----------------------------------------" as separator,
+       `double` + `int32`,
+       `double` + `int64`,
+       `double` + `uint32`,
+       `double` + `uint64`,
+       `double` + `float`,
+       `double` + `double`,
+       `double` + `numeric`,
+       "-----------------------------------------" as separator,
+       `numeric` + `int64`,
+       `numeric` + `uint64`,
+       `numeric` + `float`,
+       `numeric` + `double`,
+       `numeric` + `numeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col2#20 AS `$col2` [INT64]
+| +-$query.$col3#21 AS `$col3` [INT64]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [NUMERIC]
+| +-$query.separator#25 AS separator [STRING]
+| +-$query.$col8#26 AS `$col8` [INT64]
+| +-$query.$col9#27 AS `$col9` [INT64]
+| +-$query.$col10#28 AS `$col10` [INT64]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [NUMERIC]
+| +-$query.separator#32 AS separator [STRING]
+| +-$query.$col15#33 AS `$col15` [INT64]
+| +-$query.$col16#34 AS `$col16` [INT64]
+| +-$query.$col17#35 AS `$col17` [UINT64]
+| +-$query.$col18#36 AS `$col18` [UINT64]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [NUMERIC]
+| +-$query.separator#40 AS separator [STRING]
+| +-$query.$col23#41 AS `$col23` [UINT64]
+| +-$query.$col24#42 AS `$col24` [UINT64]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [NUMERIC]
+| +-$query.separator#46 AS separator [STRING]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [DOUBLE]
+| +-$query.$col32#50 AS `$col32` [DOUBLE]
+| +-$query.$col33#51 AS `$col33` [DOUBLE]
+| +-$query.$col34#52 AS `$col34` [DOUBLE]
+| +-$query.$col35#53 AS `$col35` [DOUBLE]
+| +-$query.separator#54 AS separator [STRING]
+| +-$query.$col37#55 AS `$col37` [DOUBLE]
+| +-$query.$col38#56 AS `$col38` [DOUBLE]
+| +-$query.$col39#57 AS `$col39` [DOUBLE]
+| +-$query.$col40#58 AS `$col40` [DOUBLE]
+| +-$query.$col41#59 AS `$col41` [DOUBLE]
+| +-$query.$col42#60 AS `$col42` [DOUBLE]
+| +-$query.$col43#61 AS `$col43` [DOUBLE]
+| +-$query.separator#62 AS separator [STRING]
+| +-$query.$col45#63 AS `$col45` [NUMERIC]
+| +-$query.$col46#64 AS `$col46` [NUMERIC]
+| +-$query.$col47#65 AS `$col47` [DOUBLE]
+| +-$query.$col48#66 AS `$col48` [DOUBLE]
+| +-$query.$col49#67 AS `$col49` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, separator#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, separator#32, $col15#33, $col16#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, separator#40, $col23#41, $col24#42, $col25#43, $col26#44, $col27#45, separator#46, $col29#47, $col30#48, $col31#49, $col32#50, $col33#51, $col34#52, $col35#53, separator#54, $col37#55, $col38#56, $col39#57, $col40#58, $col41#59, $col42#60, $col43#61, separator#62, $col45#63, $col46#64, $col47#65, $col48#66, $col49#67]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT32 -> INT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#25 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col8#26 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT32 -> INT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#32 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Cast(UINT32 -> INT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col16#34 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Cast(UINT32 -> INT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#40 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col24#42 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#46 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col31#49 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col32#50 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col33#51 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col34#52 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col35#53 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#54 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col37#55 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col38#56 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col39#57 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col40#58 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col41#59 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col42#60 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col43#61 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#62 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col45#63 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col46#64 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col47#65 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col48#66 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col49#67 :=
+    |   +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator + for argument types: INT32, NUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 6:8]
+       `int32` + `numeric`,
+       ^
+==
+
+[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
+select `int32` + `bignumeric`,
+       `uint32` + `bignumeric`,
+       `int64` + `bignumeric`,
+       `uint64` + `bignumeric`,
+       `float` + `bignumeric`,
+       `double` + `bignumeric`,
+       `numeric` + `bignumeric`,
+       "-----------------------------------------" as separator,
+       `bignumeric` + `int32`,
+       `bignumeric` + `uint32`,
+       `bignumeric` + `int64`,
+       `bignumeric` + `uint64`,
+       `bignumeric` + `float`,
+       `bignumeric` + `double`,
+       `bignumeric` + `numeric`,
+       `bignumeric` + `bignumeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.$col2#20 AS `$col2` [BIGNUMERIC]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.$col4#22 AS `$col4` [BIGNUMERIC]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [BIGNUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [BIGNUMERIC]
+| +-$query.$col10#28 AS `$col10` [BIGNUMERIC]
+| +-$query.$col11#29 AS `$col11` [BIGNUMERIC]
+| +-$query.$col12#30 AS `$col12` [BIGNUMERIC]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [BIGNUMERIC]
+| +-$query.$col16#34 AS `$col16` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, $col16#34]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-$col16#34 :=
+    |   +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+ERROR: No matching signature for operator + for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE; NUMERIC + NUMERIC [at 1:8]
+select `int32` + `bignumeric`,
+       ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator + for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `int32` + `bignumeric`,
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `int32` + `uint64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator + for argument types: INT32, UINT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `int32` + `uint64`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `int64` + `uint64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator + for argument types: INT64, UINT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `int64` + `uint64`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `uint64` + `int32`
+from SimpleTypes
+--
+ERROR: No matching signature for operator + for argument types: UINT64, INT32. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `uint64` + `int32`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `uint64` + `int64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator + for argument types: UINT64, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select `uint64` + `int64`
+       ^
+==
+
+[language_features={{NUMERIC_TYPE|}}]
+select `int32` - `int32`,
+       `int32` - `int64`,
+       `int32` - `uint32`,
+       `int32` - `float`,
+       `int32` - `double`,
+       `int32` - `numeric`,
+       "-----------------------------------------" as separator,
+       `int64` - `int32`,
+       `int64` - `int64`,
+       `int64` - `uint32`,
+       `int64` - `float`,
+       `int64` - `double`,
+       `int64` - `numeric`,
+       "-----------------------------------------" as separator,
+       `uint32` - `int32`,
+       `uint32` - `int64`,
+       `uint32` - `uint32`,
+       `uint32` - `uint64`,
+       `uint32` - `float`,
+       `uint32` - `double`,
+       `uint32` - `numeric`,
+       "-----------------------------------------" as separator,
+       `uint64` - `uint32`,
+       `uint64` - `uint64`,
+       `uint64` - `float`,
+       `uint64` - `double`,
+       `uint64` - `numeric`,
+       "-----------------------------------------" as separator,
+       `float` - `int32`,
+       `float` - `int64`,
+       `float` - `uint32`,
+       `float` - `uint64`,
+       `float` - `float`,
+       `float` - `double`,
+       `float` - `numeric`,
+       "-----------------------------------------" as separator,
+       `double` - `int32`,
+       `double` - `int64`,
+       `double` - `uint32`,
+       `double` - `uint64`,
+       `double` - `float`,
+       `double` - `double`,
+       `double` - `numeric`,
+       "-----------------------------------------" as separator,
+       `numeric` - `int32`,
+       `numeric` - `int64`,
+       `numeric` - `uint32`,
+       `numeric` - `uint64`,
+       `numeric` - `float`,
+       `numeric` - `double`,
+       `numeric` - `numeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col2#20 AS `$col2` [INT64]
+| +-$query.$col3#21 AS `$col3` [INT64]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [NUMERIC]
+| +-$query.separator#25 AS separator [STRING]
+| +-$query.$col8#26 AS `$col8` [INT64]
+| +-$query.$col9#27 AS `$col9` [INT64]
+| +-$query.$col10#28 AS `$col10` [INT64]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [NUMERIC]
+| +-$query.separator#32 AS separator [STRING]
+| +-$query.$col15#33 AS `$col15` [INT64]
+| +-$query.$col16#34 AS `$col16` [INT64]
+| +-$query.$col17#35 AS `$col17` [INT64]
+| +-$query.$col18#36 AS `$col18` [INT64]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [NUMERIC]
+| +-$query.separator#40 AS separator [STRING]
+| +-$query.$col23#41 AS `$col23` [INT64]
+| +-$query.$col24#42 AS `$col24` [INT64]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [NUMERIC]
+| +-$query.separator#46 AS separator [STRING]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [DOUBLE]
+| +-$query.$col32#50 AS `$col32` [DOUBLE]
+| +-$query.$col33#51 AS `$col33` [DOUBLE]
+| +-$query.$col34#52 AS `$col34` [DOUBLE]
+| +-$query.$col35#53 AS `$col35` [DOUBLE]
+| +-$query.separator#54 AS separator [STRING]
+| +-$query.$col37#55 AS `$col37` [DOUBLE]
+| +-$query.$col38#56 AS `$col38` [DOUBLE]
+| +-$query.$col39#57 AS `$col39` [DOUBLE]
+| +-$query.$col40#58 AS `$col40` [DOUBLE]
+| +-$query.$col41#59 AS `$col41` [DOUBLE]
+| +-$query.$col42#60 AS `$col42` [DOUBLE]
+| +-$query.$col43#61 AS `$col43` [DOUBLE]
+| +-$query.separator#62 AS separator [STRING]
+| +-$query.$col45#63 AS `$col45` [NUMERIC]
+| +-$query.$col46#64 AS `$col46` [NUMERIC]
+| +-$query.$col47#65 AS `$col47` [NUMERIC]
+| +-$query.$col48#66 AS `$col48` [NUMERIC]
+| +-$query.$col49#67 AS `$col49` [DOUBLE]
+| +-$query.$col50#68 AS `$col50` [DOUBLE]
+| +-$query.$col51#69 AS `$col51` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, separator#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, separator#32, $col15#33, $col16#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, separator#40, $col23#41, $col24#42, $col25#43, $col26#44, $col27#45, separator#46, $col29#47, $col30#48, $col31#49, $col32#50, $col33#51, $col34#52, $col35#53, separator#54, $col37#55, $col38#56, $col39#57, $col40#58, $col41#59, $col42#60, $col43#61, separator#62, $col45#63, $col46#64, $col47#65, $col48#66, $col49#67, $col50#68, $col51#69]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT32 -> INT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#25 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col8#26 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT32 -> INT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#32 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-Cast(UINT32 -> INT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col16#34 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    | |   +-Cast(UINT32 -> INT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(UINT64, UINT64) -> INT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(UINT64, UINT64) -> INT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#40 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(UINT64, UINT64) -> INT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col24#42 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(UINT64, UINT64) -> INT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#46 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col31#49 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col32#50 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col33#51 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col34#52 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col35#53 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#54 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col37#55 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col38#56 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col39#57 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col40#58 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col41#59 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col42#60 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col43#61 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#62 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col45#63 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col46#64 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col47#65 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col48#66 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col49#67 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col50#68 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col51#69 :=
+    |   +-FunctionCall(ZetaSQL:$subtract(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator - for argument types: INT32, NUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 6:8]
+       `int32` - `numeric`,
+       ^
+==
+
+[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
+select `int32` - `bignumeric`,
+       `uint32` - `bignumeric`,
+       `int64` - `bignumeric`,
+       `uint64` - `bignumeric`,
+       `float` - `bignumeric`,
+       `double` - `bignumeric`,
+       `numeric` - `bignumeric`,
+       "-----------------------------------------" as separator,
+       `bignumeric` - `int32`,
+       `bignumeric` - `uint32`,
+       `bignumeric` - `int64`,
+       `bignumeric` - `uint64`,
+       `bignumeric` - `float`,
+       `bignumeric` - `double`,
+       `bignumeric` - `numeric`,
+       `bignumeric` - `bignumeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.$col2#20 AS `$col2` [BIGNUMERIC]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.$col4#22 AS `$col4` [BIGNUMERIC]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [BIGNUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [BIGNUMERIC]
+| +-$query.$col10#28 AS `$col10` [BIGNUMERIC]
+| +-$query.$col11#29 AS `$col11` [BIGNUMERIC]
+| +-$query.$col12#30 AS `$col12` [BIGNUMERIC]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [BIGNUMERIC]
+| +-$query.$col16#34 AS `$col16` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, $col16#34]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-$col16#34 :=
+    |   +-FunctionCall(ZetaSQL:$subtract(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+ERROR: No matching signature for operator - for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; NUMERIC - NUMERIC; DOUBLE - DOUBLE [at 1:8]
+select `int32` - `bignumeric`,
+       ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator - for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `int32` - `bignumeric`,
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `int32` - `uint64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator - for argument types: INT32, UINT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `int32` - `uint64`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `int64` - `uint64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator - for argument types: INT64, UINT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `int64` - `uint64`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `uint64` - `int32`
+from SimpleTypes
+--
+ERROR: No matching signature for operator - for argument types: UINT64, INT32. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `uint64` - `int32`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `uint64` - `int64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator - for argument types: UINT64, INT64. Supported signatures: INT64 - INT64; UINT64 - UINT64; DOUBLE - DOUBLE [at 1:8]
+select `uint64` - `int64`
+       ^
+==
+
+[language_features={{NUMERIC_TYPE|}}]
+select `int32` * `int32`,
+       `int32` * `int64`,
+       `int32` * `uint32`,
+       `int32` * `float`,
+       `int32` * `double`,
+       `int32` * `numeric`,
+       "-----------------------------------------" as separator,
+       `int64` * `int32`,
+       `int64` * `int64`,
+       `int64` * `uint32`,
+       `int64` * `float`,
+       `int64` * `double`,
+       `int64` * `numeric`,
+       "-----------------------------------------" as separator,
+       `uint32` * `int32`,
+       `uint32` * `int64`,
+       `uint32` * `uint32`,
+       `uint32` * `uint64`,
+       `uint32` * `float`,
+       `uint32` * `double`,
+       `uint32` * `numeric`,
+       "-----------------------------------------" as separator,
+       `uint64` * `uint32`,
+       `uint64` * `uint64`,
+       `uint64` * `float`,
+       `uint64` * `double`,
+       `uint64` * `numeric`,
+       "-----------------------------------------" as separator,
+       `float` * `int32`,
+       `float` * `int64`,
+       `float` * `uint32`,
+       `float` * `uint64`,
+       `float` * `float`,
+       `float` * `double`,
+       `float` * `numeric`,
+       "-----------------------------------------" as separator,
+       `double` * `int32`,
+       `double` * `int64`,
+       `double` * `uint32`,
+       `double` * `uint64`,
+       `double` * `float`,
+       `double` * `double`,
+       `double` * `numeric`,
+       "-----------------------------------------" as separator,
+       `numeric` * `int32`,
+       `numeric` * `int64`,
+       `numeric` * `uint32`,
+       `numeric` * `uint64`,
+       `numeric` * `float`,
+       `numeric` * `double`,
+       `numeric` * `numeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col2#20 AS `$col2` [INT64]
+| +-$query.$col3#21 AS `$col3` [INT64]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [NUMERIC]
+| +-$query.separator#25 AS separator [STRING]
+| +-$query.$col8#26 AS `$col8` [INT64]
+| +-$query.$col9#27 AS `$col9` [INT64]
+| +-$query.$col10#28 AS `$col10` [INT64]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [NUMERIC]
+| +-$query.separator#32 AS separator [STRING]
+| +-$query.$col15#33 AS `$col15` [INT64]
+| +-$query.$col16#34 AS `$col16` [INT64]
+| +-$query.$col17#35 AS `$col17` [UINT64]
+| +-$query.$col18#36 AS `$col18` [UINT64]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [NUMERIC]
+| +-$query.separator#40 AS separator [STRING]
+| +-$query.$col23#41 AS `$col23` [UINT64]
+| +-$query.$col24#42 AS `$col24` [UINT64]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [NUMERIC]
+| +-$query.separator#46 AS separator [STRING]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [DOUBLE]
+| +-$query.$col32#50 AS `$col32` [DOUBLE]
+| +-$query.$col33#51 AS `$col33` [DOUBLE]
+| +-$query.$col34#52 AS `$col34` [DOUBLE]
+| +-$query.$col35#53 AS `$col35` [DOUBLE]
+| +-$query.separator#54 AS separator [STRING]
+| +-$query.$col37#55 AS `$col37` [DOUBLE]
+| +-$query.$col38#56 AS `$col38` [DOUBLE]
+| +-$query.$col39#57 AS `$col39` [DOUBLE]
+| +-$query.$col40#58 AS `$col40` [DOUBLE]
+| +-$query.$col41#59 AS `$col41` [DOUBLE]
+| +-$query.$col42#60 AS `$col42` [DOUBLE]
+| +-$query.$col43#61 AS `$col43` [DOUBLE]
+| +-$query.separator#62 AS separator [STRING]
+| +-$query.$col45#63 AS `$col45` [NUMERIC]
+| +-$query.$col46#64 AS `$col46` [NUMERIC]
+| +-$query.$col47#65 AS `$col47` [NUMERIC]
+| +-$query.$col48#66 AS `$col48` [NUMERIC]
+| +-$query.$col49#67 AS `$col49` [DOUBLE]
+| +-$query.$col50#68 AS `$col50` [DOUBLE]
+| +-$query.$col51#69 AS `$col51` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, separator#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, separator#32, $col15#33, $col16#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, separator#40, $col23#41, $col24#42, $col25#43, $col26#44, $col27#45, separator#46, $col29#47, $col30#48, $col31#49, $col32#50, $col33#51, $col34#52, $col35#53, separator#54, $col37#55, $col38#56, $col39#57, $col40#58, $col41#59, $col42#60, $col43#61, separator#62, $col45#63, $col46#64, $col47#65, $col48#66, $col49#67, $col50#68, $col51#69]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT32 -> INT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#25 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col8#26 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT32 -> INT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#32 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-Cast(UINT32 -> INT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col16#34 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    | |   +-Cast(UINT32 -> INT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(UINT64, UINT64) -> UINT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(UINT64, UINT64) -> UINT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#40 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col24#42 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#46 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col31#49 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col32#50 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col33#51 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col34#52 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col35#53 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#54 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col37#55 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col38#56 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col39#57 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col40#58 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col41#59 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col42#60 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col43#61 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#62 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col45#63 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col46#64 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col47#65 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col48#66 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col49#67 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col50#68 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col51#69 :=
+    |   +-FunctionCall(ZetaSQL:$multiply(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator * for argument types: INT32, NUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 6:8]
+       `int32` * `numeric`,
+       ^
+==
+
+[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|NUMERIC_TYPE|}}]
+select `int32` * `bignumeric`,
+       `uint32` * `bignumeric`,
+       `int64` * `bignumeric`,
+       `uint64` * `bignumeric`,
+       `float` * `bignumeric`,
+       `double` * `bignumeric`,
+       `numeric` * `bignumeric`,
+       "-----------------------------------------" as separator,
+       `bignumeric` * `int32`,
+       `bignumeric` * `uint32`,
+       `bignumeric` * `int64`,
+       `bignumeric` * `uint64`,
+       `bignumeric` * `float`,
+       `bignumeric` * `double`,
+       `bignumeric` * `numeric`,
+       `bignumeric` * `bignumeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.$col2#20 AS `$col2` [BIGNUMERIC]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.$col4#22 AS `$col4` [BIGNUMERIC]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [BIGNUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [BIGNUMERIC]
+| +-$query.$col10#28 AS `$col10` [BIGNUMERIC]
+| +-$query.$col11#29 AS `$col11` [BIGNUMERIC]
+| +-$query.$col12#30 AS `$col12` [BIGNUMERIC]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [BIGNUMERIC]
+| +-$query.$col16#34 AS `$col16` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, $col16#34]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-$col16#34 :=
+    |   +-FunctionCall(ZetaSQL:$multiply(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+ERROR: No matching signature for operator * for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE; NUMERIC * NUMERIC [at 1:8]
+select `int32` * `bignumeric`,
+       ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator * for argument types: INT32, BIGNUMERIC. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `int32` * `bignumeric`,
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `int32` * `uint64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator * for argument types: INT32, UINT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `int32` * `uint64`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `int64` * `uint64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator * for argument types: INT64, UINT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `int64` * `uint64`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `uint64` * `int32`
+from SimpleTypes
+--
+ERROR: No matching signature for operator * for argument types: UINT64, INT32. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `uint64` * `int32`
+       ^
+==
+
+# Arithmetic between UINT64 and signed ints is invalid.
+select `uint64` * `int64`
+from SimpleTypes
+--
+ERROR: No matching signature for operator * for argument types: UINT64, INT64. Supported signatures: INT64 * INT64; UINT64 * UINT64; DOUBLE * DOUBLE [at 1:8]
+select `uint64` * `int64`
+       ^
+==
+
+# The division operator is different from the rest of arithmetic operations
+# when it comes to handling DOUBLEs. The {DOUBLE, DOUBLE} signature for the
+# division is returned even if no input parameter is a DOUBLE. This explains
+# the difference in behavior when a NUMERIC argument is present. If the
+# NUMERIC_TYPE language feature is turned off then the signature {NUMERIC,
+# NUMERIC} is not produced and the coercer would cast the NUMERIC input
+# argument to DOUBLE and so you see that the {DOUBLE, DOUBLE} -> DOUBLE
+# division overload is used (using other arithmetic operations produce an error
+# here because the DOUBLE signature is not available and the coercer cannot
+# find a suitable supertype that is supported by the arithmetic op). If the
+# NUMERIC_TYPE language feature is turned on then the signature {NUMERIC,
+# NUMERIC} is added to the supported set and that variant of division is
+# selected resulting in the NUMERIC division result type.
+[language_features={{NUMERIC_TYPE|}}]
+select `int32` / `int32`,
+       `int32` / `int64`,
+       `int32` / `uint32`,
+       `int32` / `uint64`,
+       `int32` / `float`,
+       `int32` / `double`,
+       `int32` / `numeric`,
+       "-----------------------------------------" as separator,
+       `int64` / `int32`,
+       `int64` / `int64`,
+       `int64` / `uint32`,
+       `int64` / `uint64`,
+       `int64` / `float`,
+       `int64` / `double`,
+       `int64` / `numeric`,
+       "-----------------------------------------" as separator,
+       `uint32` / `int32`,
+       `uint32` / `int64`,
+       `uint32` / `uint32`,
+       `uint32` / `uint64`,
+       `uint32` / `float`,
+       `uint32` / `double`,
+       `uint32` / `numeric`,
+       "-----------------------------------------" as separator,
+       `uint64` / `int32`,
+       `uint64` / `int64`,
+       `uint64` / `uint32`,
+       `uint64` / `uint64`,
+       `uint64` / `float`,
+       `uint64` / `double`,
+       `uint64` / `numeric`,
+       "-----------------------------------------" as separator,
+       `float` / `int32`,
+       `float` / `int64`,
+       `float` / `uint32`,
+       `float` / `uint64`,
+       `float` / `float`,
+       `float` / `double`,
+       `float` / `numeric`,
+       "-----------------------------------------" as separator,
+       `double` / `int32`,
+       `double` / `int64`,
+       `double` / `uint32`,
+       `double` / `uint64`,
+       `double` / `float`,
+       `double` / `double`,
+       `double` / `numeric`,
+       "-----------------------------------------" as separator,
+       `numeric` / `int32`,
+       `numeric` / `int64`,
+       `numeric` / `uint32`,
+       `numeric` / `uint64`,
+       `numeric` / `float`,
+       `numeric` / `double`,
+       `numeric` / `numeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [NUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [DOUBLE]
+| +-$query.$col10#28 AS `$col10` [DOUBLE]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [NUMERIC]
+| +-$query.separator#34 AS separator [STRING]
+| +-$query.$col17#35 AS `$col17` [DOUBLE]
+| +-$query.$col18#36 AS `$col18` [DOUBLE]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [DOUBLE]
+| +-$query.$col22#40 AS `$col22` [DOUBLE]
+| +-$query.$col23#41 AS `$col23` [NUMERIC]
+| +-$query.separator#42 AS separator [STRING]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [DOUBLE]
+| +-$query.$col28#46 AS `$col28` [DOUBLE]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [NUMERIC]
+| +-$query.separator#50 AS separator [STRING]
+| +-$query.$col33#51 AS `$col33` [DOUBLE]
+| +-$query.$col34#52 AS `$col34` [DOUBLE]
+| +-$query.$col35#53 AS `$col35` [DOUBLE]
+| +-$query.$col36#54 AS `$col36` [DOUBLE]
+| +-$query.$col37#55 AS `$col37` [DOUBLE]
+| +-$query.$col38#56 AS `$col38` [DOUBLE]
+| +-$query.$col39#57 AS `$col39` [DOUBLE]
+| +-$query.separator#58 AS separator [STRING]
+| +-$query.$col41#59 AS `$col41` [DOUBLE]
+| +-$query.$col42#60 AS `$col42` [DOUBLE]
+| +-$query.$col43#61 AS `$col43` [DOUBLE]
+| +-$query.$col44#62 AS `$col44` [DOUBLE]
+| +-$query.$col45#63 AS `$col45` [DOUBLE]
+| +-$query.$col46#64 AS `$col46` [DOUBLE]
+| +-$query.$col47#65 AS `$col47` [DOUBLE]
+| +-$query.separator#66 AS separator [STRING]
+| +-$query.$col49#67 AS `$col49` [NUMERIC]
+| +-$query.$col50#68 AS `$col50` [NUMERIC]
+| +-$query.$col51#69 AS `$col51` [NUMERIC]
+| +-$query.$col52#70 AS `$col52` [NUMERIC]
+| +-$query.$col53#71 AS `$col53` [DOUBLE]
+| +-$query.$col54#72 AS `$col54` [DOUBLE]
+| +-$query.$col55#73 AS `$col55` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, separator#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, $col22#40, $col23#41, separator#42, $col25#43, $col26#44, $col27#45, $col28#46, $col29#47, $col30#48, $col31#49, separator#50, $col33#51, $col34#52, $col35#53, $col36#54, $col37#55, $col38#56, $col39#57, separator#58, $col41#59, $col42#60, $col43#61, $col44#62, $col45#63, $col46#64, $col47#65, separator#66, $col49#67, $col50#68, $col51#69, $col52#70, $col53#71, $col54#72, $col55#73]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#34 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col22#40 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#42 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col28#46 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col31#49 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#50 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col33#51 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col34#52 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col35#53 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col36#54 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col37#55 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col38#56 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col39#57 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#58 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col41#59 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col42#60 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col43#61 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col44#62 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col45#63 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col46#64 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col47#65 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#66 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col49#67 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT32 -> NUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col50#68 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT64 -> NUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col51#69 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT32 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col52#70 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT64 -> NUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col53#71 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col54#72 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col55#73 :=
+    |   +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [DOUBLE]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [DOUBLE]
+| +-$query.$col10#28 AS `$col10` [DOUBLE]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [DOUBLE]
+| +-$query.separator#34 AS separator [STRING]
+| +-$query.$col17#35 AS `$col17` [DOUBLE]
+| +-$query.$col18#36 AS `$col18` [DOUBLE]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [DOUBLE]
+| +-$query.$col22#40 AS `$col22` [DOUBLE]
+| +-$query.$col23#41 AS `$col23` [DOUBLE]
+| +-$query.separator#42 AS separator [STRING]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [DOUBLE]
+| +-$query.$col28#46 AS `$col28` [DOUBLE]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [DOUBLE]
+| +-$query.separator#50 AS separator [STRING]
+| +-$query.$col33#51 AS `$col33` [DOUBLE]
+| +-$query.$col34#52 AS `$col34` [DOUBLE]
+| +-$query.$col35#53 AS `$col35` [DOUBLE]
+| +-$query.$col36#54 AS `$col36` [DOUBLE]
+| +-$query.$col37#55 AS `$col37` [DOUBLE]
+| +-$query.$col38#56 AS `$col38` [DOUBLE]
+| +-$query.$col39#57 AS `$col39` [DOUBLE]
+| +-$query.separator#58 AS separator [STRING]
+| +-$query.$col41#59 AS `$col41` [DOUBLE]
+| +-$query.$col42#60 AS `$col42` [DOUBLE]
+| +-$query.$col43#61 AS `$col43` [DOUBLE]
+| +-$query.$col44#62 AS `$col44` [DOUBLE]
+| +-$query.$col45#63 AS `$col45` [DOUBLE]
+| +-$query.$col46#64 AS `$col46` [DOUBLE]
+| +-$query.$col47#65 AS `$col47` [DOUBLE]
+| +-$query.separator#66 AS separator [STRING]
+| +-$query.$col49#67 AS `$col49` [DOUBLE]
+| +-$query.$col50#68 AS `$col50` [DOUBLE]
+| +-$query.$col51#69 AS `$col51` [DOUBLE]
+| +-$query.$col52#70 AS `$col52` [DOUBLE]
+| +-$query.$col53#71 AS `$col53` [DOUBLE]
+| +-$query.$col54#72 AS `$col54` [DOUBLE]
+| +-$query.$col55#73 AS `$col55` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, separator#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, $col22#40, $col23#41, separator#42, $col25#43, $col26#44, $col27#45, $col28#46, $col29#47, $col30#48, $col31#49, separator#50, $col33#51, $col34#52, $col35#53, $col36#54, $col37#55, $col38#56, $col39#57, separator#58, $col41#59, $col42#60, $col43#61, $col44#62, $col45#63, $col46#64, $col47#65, separator#66, $col49#67, $col50#68, $col51#69, $col52#70, $col53#71, $col54#72, $col55#73]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#34 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col22#40 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#42 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col28#46 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col31#49 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#50 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col33#51 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col34#52 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col35#53 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col36#54 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col37#55 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col38#56 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col39#57 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#58 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col41#59 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col42#60 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col43#61 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col44#62 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col45#63 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col46#64 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col47#65 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#66 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col49#67 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col50#68 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col51#69 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col52#70 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col53#71 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col54#72 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col55#73 :=
+    |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Cast(NUMERIC -> DOUBLE)
+    |     | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    |     +-Cast(NUMERIC -> DOUBLE)
+    |       +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+==
+
+# The division operator is different from the rest of arithmetic operations
+# when it comes to handling DOUBLEs. The {DOUBLE, DOUBLE} signature for the
+# division is returned even if no input parameter is a DOUBLE. This explains
+# the difference in behavior when a BIGNUMERIC argument is present. If the
+# BIGNUMERIC_TYPE language feature is turned off then the signature {BIGNUMERIC,
+# BIGNUMERIC} is not produced and the coercer would cast the BIGNUMERIC input
+# argument to DOUBLE and so you see that the {DOUBLE, DOUBLE} -> DOUBLE
+# division overload is used (using other arithmetic operations produce an error
+# here because the DOUBLE signature is not available and the coercer cannot
+# find a suitable supertype that is supported by the arithmetic op). If the
+# BIGNUMERIC_TYPE language feature is turned on then the signature {BIGNUMERIC,
+# BIGNUMERIC} is added to the supported set and that variant of division is
+# selected resulting in the BIGNUMERIC division result type.
+[language_features={{BIGNUMERIC_TYPE,NUMERIC_TYPE|}}]
+select `int32` / `bignumeric`,
+       `uint32` / `bignumeric`,
+       `int64` / `bignumeric`,
+       `uint64` / `bignumeric`,
+       `float` / `bignumeric`,
+       `double` / `bignumeric`,
+       `numeric` / `bignumeric`,
+       "-----------------------------------------" as separator,
+       `bignumeric` / `int32`,
+       `bignumeric` / `uint32`,
+       `bignumeric` / `int64`,
+       `bignumeric` / `uint64`,
+       `bignumeric` / `float`,
+       `bignumeric` / `double`,
+       `bignumeric` / `numeric`,
+       `bignumeric` / `bignumeric`
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE,NUMERIC_TYPE
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.$col2#20 AS `$col2` [BIGNUMERIC]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.$col4#22 AS `$col4` [BIGNUMERIC]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [BIGNUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [BIGNUMERIC]
+| +-$query.$col10#28 AS `$col10` [BIGNUMERIC]
+| +-$query.$col11#29 AS `$col11` [BIGNUMERIC]
+| +-$query.$col12#30 AS `$col12` [BIGNUMERIC]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [BIGNUMERIC]
+| +-$query.$col16#34 AS `$col16` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, $col16#34]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT32 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT64 -> BIGNUMERIC)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(NUMERIC -> BIGNUMERIC)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-$col16#34 :=
+    |   +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [DOUBLE]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [DOUBLE]
+| +-$query.$col10#28 AS `$col10` [DOUBLE]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [DOUBLE]
+| +-$query.$col16#34 AS `$col16` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, $col16#34]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#26 := Literal(type=STRING, value="-----------------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-$col16#34 :=
+    |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Cast(BIGNUMERIC -> DOUBLE)
+    |     | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-Cast(BIGNUMERIC -> DOUBLE)
+    |       +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15, 16])
+==
+
+# The signatures for +, -, * are all the same so we will assume they all behave
+# the same way.
+[language_features={{NUMERIC_TYPE|}}]
+select int32 + 1, int64 + 1, uint32 + 1, uint64 + 1, float + 1, double + 1,
+       numeric + 1,
+       '---------------------------------' as separator,
+       1 + int32, 1 + int64, 1 + uint32, 1 + uint64,  1 + float,  1 + double,
+       1 + numeric,
+       '---------------------------------' as separator,
+       int32 + 1.0, int64 + 1.0, uint32 + 1.0, uint64 + 1.0, float + 1.0,
+       double + 1.0, numeric + 1.0,
+       '---------------------------------' as separator,
+       1.0 + int32, 1.0 + int64, 1.0 + uint32, 1.0 + uint64, 1.0 + float,
+       1.0 + double, 1.0 + numeric
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col2#20 AS `$col2` [INT64]
+| +-$query.$col3#21 AS `$col3` [UINT64]
+| +-$query.$col4#22 AS `$col4` [UINT64]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [NUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [INT64]
+| +-$query.$col10#28 AS `$col10` [INT64]
+| +-$query.$col11#29 AS `$col11` [UINT64]
+| +-$query.$col12#30 AS `$col12` [UINT64]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [NUMERIC]
+| +-$query.separator#34 AS separator [STRING]
+| +-$query.$col17#35 AS `$col17` [DOUBLE]
+| +-$query.$col18#36 AS `$col18` [DOUBLE]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [DOUBLE]
+| +-$query.$col22#40 AS `$col22` [DOUBLE]
+| +-$query.$col23#41 AS `$col23` [NUMERIC]
+| +-$query.separator#42 AS separator [STRING]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [DOUBLE]
+| +-$query.$col28#46 AS `$col28` [DOUBLE]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, separator#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, $col22#40, $col23#41, separator#42, $col25#43, $col26#44, $col27#45, $col28#46, $col29#47, $col30#48, $col31#49]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Cast(INT32 -> INT64)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=INT64, value=1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=INT64, value=1)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=UINT64, value=1)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=UINT64, value=1)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | +-separator#26 := Literal(type=STRING, value="---------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Cast(INT32 -> INT64)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-Literal(type=UINT64, value=1)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-Literal(type=UINT64, value=1)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#34 := Literal(type=STRING, value="---------------------------------")
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=1)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=2)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=3)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=4)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=5)
+    | +-$col22#40 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=6)
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | +-separator#42 := Literal(type=STRING, value="---------------------------------")
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=10)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col28#46 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=11)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=12)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=13)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col31#49 :=
+    |   +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-Literal(type=NUMERIC, value=1)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator + for argument types: NUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 2:8]
+       numeric + 1,
+       ^
+==
+
+[language_features={{BIGNUMERIC_TYPE|}}]
+select bignumeric + 1,
+       '---------------------------------' as separator,
+       1 + bignumeric,
+       '---------------------------------' as separator,
+       bignumeric + 1.0,
+       '---------------------------------' as separator,
+       1.0 + bignumeric
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.separator#20 AS separator [STRING]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.separator#22 AS separator [STRING]
+| +-$query.$col5#23 AS `$col5` [BIGNUMERIC]
+| +-$query.separator#24 AS separator [STRING]
+| +-$query.$col7#25 AS `$col7` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, separator#20, $col3#21, separator#22, $col5#23, separator#24, $col7#25]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | +-separator#20 := Literal(type=STRING, value="---------------------------------")
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#22 := Literal(type=STRING, value="---------------------------------")
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | +-separator#24 := Literal(type=STRING, value="---------------------------------")
+    | +-$col7#25 :=
+    |   +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-Literal(type=BIGNUMERIC, value=1)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bignumeric#17], table=SimpleTypes, column_index_list=[16])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator + for argument types: BIGNUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select bignumeric + 1,
+       ^
+==
+
+[language_features={{NUMERIC_TYPE|}}]
+select int32 / 1, int64 / 1, uint32 / 1, uint64 / 1, float / 1, double / 1,
+       numeric / 1,
+       '---------------------------------' as separator,
+       1 / int32, 1 / int64, 1 / uint32, 1 / uint64, 1 / float, 1 / double,
+       1 / numeric,
+       '---------------------------------' as separator,
+       int32 / 1.0, int64 / 1.0, uint32 / 1.0, uint64 / 1.0, float / 1.0,
+       double / 1.0, numeric / 1.0,
+       '---------------------------------' as separator,
+       1.0 / int32, 1.0 / int64, 1.0 / uint32, 1.0 / uint64, 1.0 / float,
+       1.0 / double, 1.0 / numeric
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [NUMERIC]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [DOUBLE]
+| +-$query.$col10#28 AS `$col10` [DOUBLE]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [NUMERIC]
+| +-$query.separator#34 AS separator [STRING]
+| +-$query.$col17#35 AS `$col17` [DOUBLE]
+| +-$query.$col18#36 AS `$col18` [DOUBLE]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [DOUBLE]
+| +-$query.$col22#40 AS `$col22` [DOUBLE]
+| +-$query.$col23#41 AS `$col23` [NUMERIC]
+| +-$query.separator#42 AS separator [STRING]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [DOUBLE]
+| +-$query.$col28#46 AS `$col28` [DOUBLE]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, separator#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, $col22#40, $col23#41, separator#42, $col25#43, $col26#44, $col27#45, $col28#46, $col29#47, $col30#48, $col31#49]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | +-separator#26 := Literal(type=STRING, value="---------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#34 := Literal(type=STRING, value="---------------------------------")
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=1)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=2)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=3)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=4)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=5)
+    | +-$col22#40 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=6)
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | +-separator#42 := Literal(type=STRING, value="---------------------------------")
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=8)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=9)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=10)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col28#46 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=11)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=12)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=13)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col31#49 :=
+    |   +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-Literal(type=NUMERIC, value=1)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
+| +-$query.$col7#25 AS `$col7` [DOUBLE]
+| +-$query.separator#26 AS separator [STRING]
+| +-$query.$col9#27 AS `$col9` [DOUBLE]
+| +-$query.$col10#28 AS `$col10` [DOUBLE]
+| +-$query.$col11#29 AS `$col11` [DOUBLE]
+| +-$query.$col12#30 AS `$col12` [DOUBLE]
+| +-$query.$col13#31 AS `$col13` [DOUBLE]
+| +-$query.$col14#32 AS `$col14` [DOUBLE]
+| +-$query.$col15#33 AS `$col15` [DOUBLE]
+| +-$query.separator#34 AS separator [STRING]
+| +-$query.$col17#35 AS `$col17` [DOUBLE]
+| +-$query.$col18#36 AS `$col18` [DOUBLE]
+| +-$query.$col19#37 AS `$col19` [DOUBLE]
+| +-$query.$col20#38 AS `$col20` [DOUBLE]
+| +-$query.$col21#39 AS `$col21` [DOUBLE]
+| +-$query.$col22#40 AS `$col22` [DOUBLE]
+| +-$query.$col23#41 AS `$col23` [DOUBLE]
+| +-$query.separator#42 AS separator [STRING]
+| +-$query.$col25#43 AS `$col25` [DOUBLE]
+| +-$query.$col26#44 AS `$col26` [DOUBLE]
+| +-$query.$col27#45 AS `$col27` [DOUBLE]
+| +-$query.$col28#46 AS `$col28` [DOUBLE]
+| +-$query.$col29#47 AS `$col29` [DOUBLE]
+| +-$query.$col30#48 AS `$col30` [DOUBLE]
+| +-$query.$col31#49 AS `$col31` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, separator#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32, $col15#33, separator#34, $col17#35, $col18#36, $col19#37, $col20#38, $col21#39, $col22#40, $col23#41, separator#42, $col25#43, $col26#44, $col27#45, $col28#46, $col29#47, $col30#48, $col31#49]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-separator#26 := Literal(type=STRING, value="---------------------------------")
+    | +-$col9#27 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col10#28 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col11#29 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col12#30 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col13#31 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col14#32 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col15#33 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-separator#34 := Literal(type=STRING, value="---------------------------------")
+    | +-$col17#35 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col18#36 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col19#37 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col20#38 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col21#39 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col22#40 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col23#41 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-separator#42 := Literal(type=STRING, value="---------------------------------")
+    | +-$col25#43 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |     +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col26#44 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col27#45 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col28#46 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col29#47 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |     +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col30#48 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col31#49 :=
+    |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Literal(type=DOUBLE, value=1)
+    |     +-Cast(NUMERIC -> DOUBLE)
+    |       +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, float#8, double#9, numeric#16], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 7, 8, 15])
+==
+
+[language_features={{BIGNUMERIC_TYPE|}}]
+select bignumeric / 1,
+       '---------------------------------' as separator,
+       1 / bignumeric,
+       '---------------------------------' as separator,
+       bignumeric / 1.0,
+       '---------------------------------' as separator,
+       1.0 / bignumeric
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.separator#20 AS separator [STRING]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.separator#22 AS separator [STRING]
+| +-$query.$col5#23 AS `$col5` [BIGNUMERIC]
+| +-$query.separator#24 AS separator [STRING]
+| +-$query.$col7#25 AS `$col7` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, separator#20, $col3#21, separator#22, $col5#23, separator#24, $col7#25]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | +-separator#20 := Literal(type=STRING, value="---------------------------------")
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#22 := Literal(type=STRING, value="---------------------------------")
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | +-separator#24 := Literal(type=STRING, value="---------------------------------")
+    | +-$col7#25 :=
+    |   +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-Literal(type=BIGNUMERIC, value=1)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bignumeric#17], table=SimpleTypes, column_index_list=[16])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.separator#20 AS separator [STRING]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.separator#22 AS separator [STRING]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.separator#24 AS separator [STRING]
+| +-$query.$col7#25 AS `$col7` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, separator#20, $col3#21, separator#22, $col5#23, separator#24, $col7#25]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-separator#20 := Literal(type=STRING, value="---------------------------------")
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-separator#22 := Literal(type=STRING, value="---------------------------------")
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(BIGNUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-separator#24 := Literal(type=STRING, value="---------------------------------")
+    | +-$col7#25 :=
+    |   +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Literal(type=DOUBLE, value=1)
+    |     +-Cast(BIGNUMERIC -> DOUBLE)
+    |       +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bignumeric#17], table=SimpleTypes, column_index_list=[16])
+==
+
+select {{int32|int64|uint32|uint64|float|double}} + NULL from SimpleTypes;
+--
+ALTERNATION GROUP: int32
+--
+ERROR: Operands of + cannot be literal NULL [at 1:16]
+select int32 + NULL from SimpleTypes;
+               ^
+--
+ALTERNATION GROUP: int64
+--
+ERROR: Operands of + cannot be literal NULL [at 1:16]
+select int64 + NULL from SimpleTypes;
+               ^
+--
+ALTERNATION GROUP: uint32
+--
+ERROR: Operands of + cannot be literal NULL [at 1:17]
+select uint32 + NULL from SimpleTypes;
+                ^
+--
+ALTERNATION GROUP: uint64
+--
+ERROR: Operands of + cannot be literal NULL [at 1:17]
+select uint64 + NULL from SimpleTypes;
+                ^
+--
+ALTERNATION GROUP: float
+--
+ERROR: Operands of + cannot be literal NULL [at 1:16]
+select float + NULL from SimpleTypes;
+               ^
+--
+ALTERNATION GROUP: double
+--
+ERROR: Operands of + cannot be literal NULL [at 1:17]
+select double + NULL from SimpleTypes;
+                ^
+==
+
+[language_features=NUMERIC_TYPE]
+select numeric + NULL from SimpleTypes;
+--
+ERROR: Operands of + cannot be literal NULL [at 1:18]
+select numeric + NULL from SimpleTypes;
+                 ^
+==
+
+[language_features=BIGNUMERIC_TYPE]
+select bignumeric + NULL from SimpleTypes;
+--
+ERROR: Operands of + cannot be literal NULL [at 1:21]
+select bignumeric + NULL from SimpleTypes;
+                    ^
+==
+
+select NULL = {{int32|int64|uint32|uint64|float|double}} from SimpleTypes;
+--
+ALTERNATION GROUP: int32
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = int32 from SimpleTypes;
+       ^
+--
+ALTERNATION GROUP: int64
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = int64 from SimpleTypes;
+       ^
+--
+ALTERNATION GROUP: uint32
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = uint32 from SimpleTypes;
+       ^
+--
+ALTERNATION GROUP: uint64
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = uint64 from SimpleTypes;
+       ^
+--
+ALTERNATION GROUP: float
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = float from SimpleTypes;
+       ^
+--
+ALTERNATION GROUP: double
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = double from SimpleTypes;
+       ^
+==
+
+[language_features=NUMERIC_TYPE]
+select NULL = numeric from SimpleTypes;
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = numeric from SimpleTypes;
+       ^
+==
+
+[language_features=BIGNUMERIC_TYPE]
+select NULL = bignumeric from SimpleTypes;
+--
+ERROR: Operands of = cannot be literal NULL [at 1:8]
+select NULL = bignumeric from SimpleTypes;
+       ^
+==
+
+# All binary operators (except IS) give errors on literal NULLs.
+select 1 {{+|-|*|/|=|<|<=|>|>=|<>|!=|^|&}} NULL
+--
+ALTERNATION GROUP: +
+--
+ERROR: Operands of + cannot be literal NULL [at 1:12]
+select 1 + NULL
+           ^
+--
+ALTERNATION GROUP: -
+--
+ERROR: Operands of - cannot be literal NULL [at 1:12]
+select 1 - NULL
+           ^
+--
+ALTERNATION GROUP: *
+--
+ERROR: Operands of * cannot be literal NULL [at 1:12]
+select 1 * NULL
+           ^
+--
+ALTERNATION GROUP: /
+--
+ERROR: Operands of / cannot be literal NULL [at 1:12]
+select 1 / NULL
+           ^
+--
+ALTERNATION GROUP: =
+--
+ERROR: Operands of = cannot be literal NULL [at 1:12]
+select 1 = NULL
+           ^
+--
+ALTERNATION GROUP: <
+--
+ERROR: Operands of < cannot be literal NULL [at 1:12]
+select 1 < NULL
+           ^
+--
+ALTERNATION GROUP: <=
+--
+ERROR: Operands of <= cannot be literal NULL [at 1:13]
+select 1 <= NULL
+            ^
+--
+ALTERNATION GROUP: >
+--
+ERROR: Operands of > cannot be literal NULL [at 1:12]
+select 1 > NULL
+           ^
+--
+ALTERNATION GROUP: >=
+--
+ERROR: Operands of >= cannot be literal NULL [at 1:13]
+select 1 >= NULL
+            ^
+--
+ALTERNATION GROUP: <>
+--
+ERROR: Operands of <> cannot be literal NULL [at 1:13]
+select 1 <> NULL
+            ^
+--
+ALTERNATION GROUP: !=
+--
+ERROR: Operands of != cannot be literal NULL [at 1:13]
+select 1 != NULL
+            ^
+--
+ALTERNATION GROUP: ^
+--
+ERROR: Operands of ^ cannot be literal NULL [at 1:12]
+select 1 ^ NULL
+           ^
+--
+ALTERNATION GROUP: &
+--
+ERROR: Operands of & cannot be literal NULL [at 1:12]
+select 1 & NULL
+           ^
+==
+
+select 1 | NULL
+--
+ERROR: Operands of | cannot be literal NULL [at 1:12]
+select 1 | NULL
+           ^
+==
+
+select 'abc' LIKE NULL
+--
+ERROR: Operands of LIKE cannot be literal NULL [at 1:19]
+select 'abc' LIKE NULL
+                  ^
+==
+
+# All unary operators give errors on literal NULLs.
+select {{-|+|~}} NULL
+--
+ALTERNATION GROUP: -
+--
+ERROR: Operands of - cannot be literal NULL [at 1:10]
+select - NULL
+         ^
+--
+ALTERNATION GROUP: +
+--
+ERROR: Operands of + cannot be literal NULL [at 1:10]
+select + NULL
+         ^
+--
+ALTERNATION GROUP: ~
+--
+ERROR: Operands of ~ cannot be literal NULL [at 1:10]
+select ~ NULL
+         ^
+==
+
+# Additional tests for arithmetic between signed/unsigned non-literal/literal
+# integers.  We expect '+', '-', '*' to behave identically (as tested earlier),
+# so we only test '+' here.  We also expect behavior to be commutative
+# (also tested earlier) so don't test all orders of arguments.
+#
+# Note the following literal values:
+# a) 4 - INT64 literal, fits in int32, uint32, int64, uint64
+# b) 3000000000 - INT64 literal, fits in uint32, int64, uint64
+# c) 2000000000000 - INT64 literal, fits in int64, uint64
+# d) 10000000000000000000 - UINT64 literal, fits in uint64
+#
+# The design for arithmetic between two literals is that it should behave the
+# same as for arithmetic between non-literals.  Since all of these are either
+# INT64 or UINT64 literals, then most of these should result in INT64, except
+# INT64/UINT64 combinations result in an error and adding two UINT64s yields
+# UINT64.
+select 4 + 4,
+       4 + 3000000000,
+       4 + 2000000000000,
+       3000000000 + 3000000000,
+       3000000000 + 2000000000000,
+       2000000000000 + 2000000000000,
+       10000000000000000000 + 10000000000000000000
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.$col2#2 AS `$col2` [INT64]
+| +-$query.$col3#3 AS `$col3` [INT64]
+| +-$query.$col4#4 AS `$col4` [INT64]
+| +-$query.$col5#5 AS `$col5` [INT64]
+| +-$query.$col6#6 AS `$col6` [INT64]
+| +-$query.$col7#7 AS `$col7` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=4)
+    | |   +-Literal(type=INT64, value=4)
+    | +-$col2#2 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=4)
+    | |   +-Literal(type=INT64, value=3000000000)
+    | +-$col3#3 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=4)
+    | |   +-Literal(type=INT64, value=2000000000000)
+    | +-$col4#4 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=3000000000)
+    | |   +-Literal(type=INT64, value=3000000000)
+    | +-$col5#5 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=3000000000)
+    | |   +-Literal(type=INT64, value=2000000000000)
+    | +-$col6#6 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=2000000000000)
+    | |   +-Literal(type=INT64, value=2000000000000)
+    | +-$col7#7 :=
+    |   +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    |     +-Literal(type=UINT64, value=10000000000000000000)
+    |     +-Literal(type=UINT64, value=10000000000000000000)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+select 4 + 10000000000000000000
+--
+ERROR: Could not cast literal 10000000000000000000 to type INT64 [at 1:12]
+select 4 + 10000000000000000000
+           ^
+==
+
+select 3000000000 + 10000000000000000000
+--
+ERROR: Could not cast literal 10000000000000000000 to type INT64 [at 1:21]
+select 3000000000 + 10000000000000000000
+                    ^
+==
+
+select 2000000000000 + 10000000000000000000
+--
+ERROR: Could not cast literal 10000000000000000000 to type INT64 [at 1:24]
+select 2000000000000 + 10000000000000000000
+                       ^
+==
+
+# Generally, signature matching for +,-,* is of the form <op>(T,T) -> T.  When
+# one of the arguments is a literal, then T is the type of the non-literal
+# argument.  The implication is that if the literal does not fit into type T,
+# then the query fails.  This is illustrated in the following tests for literal
+# values that do not fit into int32, int64, and uint32 types.
+select int32 + 4
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-Literal(type=INT64, value=4)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+==
+
+select int32 + 3000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-Literal(type=INT64, value=3000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+==
+
+select int32 + 2000000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-Literal(type=INT64, value=2000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+==
+
+select int32 + 10000000000000000000
+from SimpleTypes;
+--
+ERROR: Could not cast literal 10000000000000000000 to type INT64 [at 1:16]
+select int32 + 10000000000000000000
+               ^
+==
+
+select int64 + 4,
+       int64 + 3000000000,
+       int64 + 2000000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
+| +-$query.$col2#20 AS `$col2` [INT64]
+| +-$query.$col3#21 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=INT64, value=4)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=INT64, value=3000000000)
+    | +-$col3#21 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-Literal(type=INT64, value=2000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+==
+
+select int64 + 10000000000000000000
+from SimpleTypes;
+--
+ERROR: Could not cast literal 10000000000000000000 to type INT64 [at 1:16]
+select int64 + 10000000000000000000
+               ^
+==
+
+select uint32 + 4,
+       uint32 + 3000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col2#20 AS `$col2` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-Cast(UINT32 -> UINT64)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=UINT64, value=4)
+    | +-$col2#20 :=
+    |   +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    |     +-Cast(UINT32 -> UINT64)
+    |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    |     +-Literal(type=UINT64, value=3000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
+==
+
+select uint32 + 2000000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    |     +-Cast(UINT32 -> UINT64)
+    |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    |     +-Literal(type=UINT64, value=2000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
+==
+
+select uint32 + 10000000000000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    |     +-Cast(UINT32 -> UINT64)
+    |     | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    |     +-Literal(type=UINT64, value=10000000000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
+==
+
+select uint64 + 4,
+       uint64 + 3000000000,
+       uint64 + 2000000000000,
+       uint64 + 10000000000000000000
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [UINT64]
+| +-$query.$col2#20 AS `$col2` [UINT64]
+| +-$query.$col3#21 AS `$col3` [UINT64]
+| +-$query.$col4#22 AS `$col4` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=UINT64, value=4)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=UINT64, value=3000000000)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=UINT64, value=2000000000000)
+    | +-$col4#22 :=
+    |   +-FunctionCall(ZetaSQL:$add(UINT64, UINT64) -> UINT64)
+    |     +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    |     +-Literal(type=UINT64, value=10000000000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.uint64#4], table=SimpleTypes, column_index_list=[3])
+==
+
+# Tests numeric column plus INT64/UINT64 literal.
+[language_features={{NUMERIC_TYPE|}}]
+select numeric + 2000000000000,
+       numeric + 10000000000000000000
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [NUMERIC]
+| +-$query.$col2#20 AS `$col2` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=NUMERIC, value=2000000000000)
+    | +-$col2#20 :=
+    |   +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    |     +-Literal(type=NUMERIC, value=10000000000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.numeric#16], table=SimpleTypes, column_index_list=[15])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator + for argument types: NUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select numeric + 2000000000000,
+       ^
+==
+
+# Tests bignumeric column plus INT64/UINT64 literal.
+[language_features={{BIGNUMERIC_TYPE|}}]
+select bignumeric + 2000000000000,
+       bignumeric + 10000000000000000000
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.$col2#20 AS `$col2` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | |   +-Literal(type=BIGNUMERIC, value=2000000000000)
+    | +-$col2#20 :=
+    |   +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-Literal(type=BIGNUMERIC, value=10000000000000000000)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.bignumeric#17], table=SimpleTypes, column_index_list=[16])
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: No matching signature for operator + for argument types: BIGNUMERIC, INT64. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:8]
+select bignumeric + 2000000000000,
+       ^
+==
+
+# Some more tests with negative integer literals.
+select int32 + (-1)
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    |     +-Literal(type=INT64, value=-1)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
+==
+
+select int64 + (-1)
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    |     +-Literal(type=INT64, value=-1)
+    +-input_scan=
+      +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+==
+
+select uint32 + (-1)
+from SimpleTypes;
+--
+ERROR: Could not cast literal -1 to type UINT64 [at 1:18]
+select uint32 + (-1)
+                 ^
+==
+
+select uint64 + (-1)
+from SimpleTypes;
+--
+ERROR: Could not cast literal -1 to type UINT64 [at 1:18]
+select uint64 + (-1)
+                 ^
+==
+
+select (-1) + 4,
+       (-1) + 3000000000,
+       (-1) + 2000000000000
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.$col2#2 AS `$col2` [INT64]
+| +-$query.$col3#3 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=-1)
+    | |   +-Literal(type=INT64, value=4)
+    | +-$col2#2 :=
+    | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |   +-Literal(type=INT64, value=-1)
+    | |   +-Literal(type=INT64, value=3000000000)
+    | +-$col3#3 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-Literal(type=INT64, value=-1)
+    |     +-Literal(type=INT64, value=2000000000000)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# An error because we have INT64 and UINT64 arguments.
+select (-1) + 10000000000000000000
+--
+ERROR: Could not cast literal 10000000000000000000 to type INT64 [at 1:15]
+select (-1) + 10000000000000000000
+              ^
+==
+
+# Tests with float/double types and double literals.
+#
+# Tests double literals, with integer literals
+select 1.0 + 1.0,
+       1.0 + 2000000000000,
+       1.0 + 10000000000000000000
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
+| +-$query.$col2#2 AS `$col2` [DOUBLE]
+| +-$query.$col3#3 AS `$col3` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col2#2 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Literal(type=DOUBLE, value=2000000000000)
+    | +-$col3#3 :=
+    |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Literal(type=DOUBLE, value=1)
+    |     +-Literal(type=DOUBLE, value=1e+19)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Tests float/double column plus INT64/UINT64/DOUBLE literal.
+select float + 2000000000000,
+       float + 10000000000000000000,
+       float + 1.0,
+       double + 2000000000000,
+       double + 10000000000000000000,
+       double + 1.0
+from SimpleTypes;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=2000000000000)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1e+19)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(FLOAT -> DOUBLE)
+    | |   | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=2000000000000)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | |   +-Literal(type=DOUBLE, value=1e+19)
+    | +-$col6#24 :=
+    |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    |     +-Literal(type=DOUBLE, value=1)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[float#8, double#9], table=SimpleTypes, column_index_list=[7, 8])
+==
+
+# Tests integer columns with double literals.
+[language_features={{NUMERIC_TYPE,BIGNUMERIC_TYPE|}}]
+select int32 + 1.0,
+       int64 + 1.0,
+       uint32 + 1.0,
+       uint64 + 1.0,
+       numeric + 1.0,
+       bignumeric + 1.0
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE,BIGNUMERIC_TYPE
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [NUMERIC]
+| +-$query.$col6#24 AS `$col6` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=3)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=4)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | +-$col6#24 :=
+    |   +-FunctionCall(ZetaSQL:$add(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-Literal(type=BIGNUMERIC, value=1)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 15, 16])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [DOUBLE]
+| +-$query.$col6#24 AS `$col6` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(INT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT32 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(UINT64 -> DOUBLE)
+    | |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Cast(NUMERIC -> DOUBLE)
+    | |   | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | +-$col6#24 :=
+    |   +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Cast(BIGNUMERIC -> DOUBLE)
+    |     | +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    |     +-Literal(type=DOUBLE, value=1)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, numeric#16, bignumeric#17], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 15, 16])
+==
+
+# Tests literal division
+[language_features={{NUMERIC_TYPE|}}]
+select 1 / 2, 1.0 / 2, 1 / 2.0, 1.0 / 2.0,
+       numeric '1' / 2, numeric '1' / 2.1,
+       1 / numeric '2', 1.1 / numeric '2.1'
+from SimpleTypes;
+--
+ALTERNATION GROUP: NUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [DOUBLE]
+| +-$query.$col2#20 AS `$col2` [DOUBLE]
+| +-$query.$col3#21 AS `$col3` [DOUBLE]
+| +-$query.$col4#22 AS `$col4` [DOUBLE]
+| +-$query.$col5#23 AS `$col5` [NUMERIC]
+| +-$query.$col6#24 AS `$col6` [NUMERIC]
+| +-$query.$col7#25 AS `$col7` [NUMERIC]
+| +-$query.$col8#26 AS `$col8` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, $col8#26]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=1)
+    | |   +-Literal(type=DOUBLE, value=2)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1)
+    | |   +-Literal(type=DOUBLE, value=2, float_literal_id=2)
+    | +-$col4#22 :=
+    | | +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=1, float_literal_id=3)
+    | |   +-Literal(type=DOUBLE, value=2, float_literal_id=4)
+    | +-$col5#23 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Literal(type=NUMERIC, value=1, has_explicit_type=TRUE)
+    | |   +-Literal(type=NUMERIC, value=2)
+    | +-$col6#24 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Literal(type=NUMERIC, value=1, has_explicit_type=TRUE)
+    | |   +-Literal(type=NUMERIC, value=2.1)
+    | +-$col7#25 :=
+    | | +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    | |   +-Literal(type=NUMERIC, value=1)
+    | |   +-Literal(type=NUMERIC, value=2, has_explicit_type=TRUE)
+    | +-$col8#26 :=
+    |   +-FunctionCall(ZetaSQL:$divide(NUMERIC, NUMERIC) -> NUMERIC)
+    |     +-Literal(type=NUMERIC, value=1.1)
+    |     +-Literal(type=NUMERIC, value=2.1, has_explicit_type=TRUE)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: NUMERIC literals are not supported [at 2:8]
+       numeric '1' / 2, numeric '1' / 2.1,
+       ^
+==
+
+[language_features={{BIGNUMERIC_TYPE|}}]
+select bignumeric '1' / 2, bignumeric '1' / 2.1,
+       1 / bignumeric '2', 1.1 / bignumeric '2.1'
+from SimpleTypes;
+--
+ALTERNATION GROUP: BIGNUMERIC_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BIGNUMERIC]
+| +-$query.$col2#20 AS `$col2` [BIGNUMERIC]
+| +-$query.$col3#21 AS `$col3` [BIGNUMERIC]
+| +-$query.$col4#22 AS `$col4` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Literal(type=BIGNUMERIC, value=1, has_explicit_type=TRUE)
+    | |   +-Literal(type=BIGNUMERIC, value=2)
+    | +-$col2#20 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Literal(type=BIGNUMERIC, value=1, has_explicit_type=TRUE)
+    | |   +-Literal(type=BIGNUMERIC, value=2.1)
+    | +-$col3#21 :=
+    | | +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    | |   +-Literal(type=BIGNUMERIC, value=1)
+    | |   +-Literal(type=BIGNUMERIC, value=2, has_explicit_type=TRUE)
+    | +-$col4#22 :=
+    |   +-FunctionCall(ZetaSQL:$divide(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
+    |     +-Literal(type=BIGNUMERIC, value=1.1)
+    |     +-Literal(type=BIGNUMERIC, value=2.1, has_explicit_type=TRUE)
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: BIGNUMERIC literals are not supported [at 1:8]
+select bignumeric '1' / 2, bignumeric '1' / 2.1,
+       ^

@@ -120,6 +120,48 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 +--------------------------------------------------+
 ```
 
+### ARRAY_FILTER
+
+```sql
+ARRAY_FILTER(array_expression, lambda_expression)
+
+lambda_expression:
+  { e->boolean_expression | (e, i)->boolean_expression }
+```
+
+**Description**
+
+Takes an array, filters out unwanted elements, and returns the results in a new
+array.
+
++   `array_expression`: The array to filter.
++   `lambda_expression`: Each element in `array_expression` is evaluated against
+    the [lambda expression][lambda-definition]. If the expression evaluates to
+    `FALSE` or `NULL`, the element is removed from the resulting array.
++   `e`: An array element.
++   `i`: The zero-based offset of the array element.
++   `boolean_expression`: The predicate used to filter the array elements.
+
+Returns `NULL` if the `array_expression` is `NULL`.
+
+**Return type**
+
+ARRAY
+
+**Example**
+
+```sql
+SELECT
+  ARRAY_FILTER([1,2,3], e->e>1) AS a1,
+  ARRAY_FILTER([0,2,3], (e, i)->e>i) AS a2;
+
++-------+-------+
+| a1    | a2    |
++-------+-------+
+| [2,3] | [2,3] |
++-------+-------+
+```
+
 ### ARRAY_LENGTH
 
 ```sql
@@ -207,6 +249,47 @@ FROM items;
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
+```
+
+### ARRAY_TRANSFORM
+
+```sql
+ARRAY_TRANSFORM(array_expression, lambda_expression)
+
+lambda_expression:
+  { e->transform_expression | (e, i)->transform_expression }
+```
+
+**Description**
+
+Takes an array, transforms the elements, and returns the results in a new array.
+
++   `array_expression`: The array to transform.
++   `lambda_expression`: Each element in `array_expression` is evaluated against
+    the [lambda expression][lambda-definition]. The evaluation results are
+    returned in a new array.
++   `e`: An array element.
++   `i`: The zero-based offset of the array element.
++   `transform_expression`: The expression used to transform the array elements.
+
+Returns `NULL` if the `array_expression` is `NULL`.
+
+**Return type**
+
+ARRAY
+
+**Example**
+
+```sql
+SELECT
+  ARRAY_TRANSFORM([1,2,3], e->e+1) AS a1,
+  ARRAY_TRANSFORM([1,2,3], (e, i)->e+i) AS a2;
+
++---------+---------+
+| a1      | a2      |
++---------+---------+
+| [2,3,4] | [1,3,5] |
++---------+---------+
 ```
 
 ### FLATTEN
@@ -1030,4 +1113,7 @@ FROM items;
 [flatten-tree-to-array]:https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
+
+ [lambda-definition]:
+https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas 
 

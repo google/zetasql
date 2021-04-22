@@ -1,0 +1,198 @@
+
+# With PARTITION BY and CLUSTER BY
+[default language_features=CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
+create materialized view mv
+partition by c1
+cluster by c2
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-output_column_list=
+| +-SimpleTypes.timestamp#15 AS c1 [TIMESTAMP]
+| +-SimpleTypes.string#5 AS c2 [STRING]
+| +-SimpleTypes.int32#1 AS c3 [INT32]
++-query=
+| +-ProjectScan
+|   +-column_list=SimpleTypes.[timestamp#15, string#5, int32#1]
+|   +-input_scan=
+|     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
++-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
++-partition_by_list=
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
++-cluster_by_list=
+  +-ColumnRef(type=STRING, column=mv.c2#20)
+==
+
+# With PARTITION BY and CLUSTER BY and OPTIONS
+create materialized view mv
+partition by c1
+cluster by c2
+options (abc=def)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-option_list=
+| +-abc := Literal(type=STRING, value="def")
++-output_column_list=
+| +-SimpleTypes.timestamp#15 AS c1 [TIMESTAMP]
+| +-SimpleTypes.string#5 AS c2 [STRING]
+| +-SimpleTypes.int32#1 AS c3 [INT32]
++-query=
+| +-ProjectScan
+|   +-column_list=SimpleTypes.[timestamp#15, string#5, int32#1]
+|   +-input_scan=
+|     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
++-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
++-partition_by_list=
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
++-cluster_by_list=
+  +-ColumnRef(type=STRING, column=mv.c2#20)
+==
+
+# With PARTITION BY and CLUSTER BY on computed columns
+create materialized view mv
+partition by c1
+cluster by c3
+as select timestamp_add(timestamp, interval 1 minute) as c1, string as c2,
+  int32+1 as c3 from SimpleTypes
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-output_column_list=
+| +-$view.c1#19 AS c1 [TIMESTAMP]
+| +-SimpleTypes.string#5 AS c2 [STRING]
+| +-$view.c3#20 AS c3 [INT64]
++-query=
+| +-ProjectScan
+|   +-column_list=[$view.c1#19, SimpleTypes.string#5, $view.c3#20]
+|   +-expr_list=
+|   | +-c1#19 :=
+|   | | +-FunctionCall(ZetaSQL:timestamp_add(TIMESTAMP, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> TIMESTAMP)
+|   | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
+|   | |   +-Literal(type=INT64, value=1)
+|   | |   +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
+|   | +-c3#20 :=
+|   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+|   |     +-Cast(INT32 -> INT64)
+|   |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+|   |     +-Literal(type=INT64, value=1)
+|   +-input_scan=
+|     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
++-sql="select timestamp_add(timestamp, interval 1 minute) as c1, string as c2,\n  int32+1 as c3 from SimpleTypes"
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#21)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#22)
+| +-ColumnDefinition(name="c3", type=INT64, column=mv.c3#23)
++-partition_by_list=
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#21)
++-cluster_by_list=
+  +-ColumnRef(type=INT64, column=mv.c3#23)
+==
+
+# With PARTITION BY and CLUSTER BY on computed expressions
+create materialized view mv
+partition by timestamp_add(c1, interval 1 minute)
+cluster by (c3+1)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-output_column_list=
+| +-SimpleTypes.timestamp#15 AS c1 [TIMESTAMP]
+| +-SimpleTypes.string#5 AS c2 [STRING]
+| +-SimpleTypes.int32#1 AS c3 [INT32]
++-query=
+| +-ProjectScan
+|   +-column_list=SimpleTypes.[timestamp#15, string#5, int32#1]
+|   +-input_scan=
+|     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
++-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
++-partition_by_list=
+| +-FunctionCall(ZetaSQL:timestamp_add(TIMESTAMP, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> TIMESTAMP)
+|   +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
+|   +-Literal(type=INT64, value=1)
+|   +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
++-cluster_by_list=
+  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    +-Cast(INT32 -> INT64)
+    | +-ColumnRef(type=INT32, column=mv.c3#21)
+    +-Literal(type=INT64, value=1)
+==
+
+# With PARTITION BY referencing unknown column
+create materialized view mv
+partition by (xyz+1)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+ERROR: Unrecognized name: xyz [at 2:15]
+partition by (xyz+1)
+              ^
+==
+
+# With CLUSTER BY referencing unknown column
+create materialized view mv
+cluster by (xyz+1)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+ERROR: Unrecognized name: xyz [at 2:13]
+cluster by (xyz+1)
+            ^
+==
+
+# With PARTITION BY / CLUSTER BY language features on and off
+[language_features={{|CREATE_MATERIALIZED_VIEW_PARTITION_BY|CREATE_MATERIALIZED_VIEW_CLUSTER_BY|CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY}}]
+create materialized view mv
+partition by c1
+cluster by c2
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+ALTERNATION GROUPS:
+    <empty>
+    CREATE_MATERIALIZED_VIEW_CLUSTER_BY
+--
+ERROR: CREATE MATERIALIZED VIEW with PARTITION BY is unsupported [at 2:1]
+partition by c1
+^
+--
+ALTERNATION GROUP: CREATE_MATERIALIZED_VIEW_PARTITION_BY
+--
+ERROR: CREATE MATERIALIZED VIEW with CLUSTER BY is unsupported [at 3:1]
+cluster by c2
+^
+--
+ALTERNATION GROUP: CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY
+--
+CreateMaterializedViewStmt
++-name_path=mv
++-output_column_list=
+| +-SimpleTypes.timestamp#15 AS c1 [TIMESTAMP]
+| +-SimpleTypes.string#5 AS c2 [STRING]
+| +-SimpleTypes.int32#1 AS c3 [INT32]
++-query=
+| +-ProjectScan
+|   +-column_list=SimpleTypes.[timestamp#15, string#5, int32#1]
+|   +-input_scan=
+|     +-TableScan(column_list=SimpleTypes.[int32#1, string#5, timestamp#15], table=SimpleTypes, column_index_list=[0, 4, 14])
++-sql="select timestamp as c1, string as c2, int32 as c3 from SimpleTypes"
++-column_definition_list=
+| +-ColumnDefinition(name="c1", type=TIMESTAMP, column=mv.c1#19)
+| +-ColumnDefinition(name="c2", type=STRING, column=mv.c2#20)
+| +-ColumnDefinition(name="c3", type=INT32, column=mv.c3#21)
++-partition_by_list=
+| +-ColumnRef(type=TIMESTAMP, column=mv.c1#19)
++-cluster_by_list=
+  +-ColumnRef(type=STRING, column=mv.c2#20)

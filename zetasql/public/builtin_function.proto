@@ -45,11 +45,11 @@ enum FunctionSignatureId {
   // 1300-1399 Math functions                 (Fully used)
   // 1400-1499 Aggregate functions            (NextId: 1490)
   // 1500-1599 Analytic functions             (NextId: 1513)
-  // 1600-1699 Misc functions                 (NextId: 1698)
+  // 1600-1699 Misc functions                 (NextId: 1699)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1858)
+  // 1800-1899 More time functions            (NextId: 1861)
   // 1900-1999 Hashing/encryption functions   (NextId: 1928)
-  // 2000-2199 Geography functions            (NextId: 2068)
+  // 2000-2199 Geography functions            (NextId: 2078)
   // 2200-2299 Anonymization functions        (NextId: 2208)
   // 2300-2499 Numeric & more math functions  (NextId: 2316)
   // 2500-2599 Array and proto map functions  (NextId: 2510)
@@ -402,6 +402,9 @@ enum FunctionSignatureId {
 
   FN_INTERVAL_CONSTRUCTOR = 1855;  // $interval
   FN_MAKE_INTERVAL = 1856;         // make_interval
+  FN_JUSTIFY_HOURS = 1858;         // justify_hours
+  FN_JUSTIFY_DAYS = 1859;          // justify_days
+  FN_JUSTIFY_INTERVAL = 1860;      // justify_interval
 
   // Math functions
   FN_ABS_INT32 = 1300;        // abs
@@ -707,8 +710,9 @@ enum FunctionSignatureId {
   FN_TO_JSON = 1697;                // to_json(any[, bool]) -> json
   FN_JSON_QUERY = 1623;             // json_query(string, string) -> string
   FN_JSON_QUERY_JSON = 1686;        // json_query(json, string) -> json
-  FN_JSON_VALUE = 1624;             // json_value(string, string) -> string
-  FN_JSON_VALUE_JSON = 1687;        // json_value(json, string) -> string
+  FN_JSON_VALUE = 1624;             // json_value(string[, string]) -> string
+  FN_JSON_VALUE_JSON = 1687;        // json_value(json[, string]) -> string
+  FN_PARSE_JSON = 1698;             // parse_json(string) -> json
   FN_FROM_PROTO_TIMESTAMP =
       1626;  // from_proto(google.protobuf.Timestamp) -> timestamp
   FN_FROM_PROTO_DATE = 1627;  // from_proto(google.type.Date) -> date
@@ -897,6 +901,9 @@ enum FunctionSignatureId {
   FN_ST_DIMENSION = 2032;
   FN_ST_NUM_POINTS = 2033;
   FN_ST_DUMP = 2064;
+  FN_ST_POINT_N = 2075;
+  FN_ST_START_POINT = 2076;
+  FN_ST_END_POINT = 2077;
 
   // Measures
   FN_ST_LENGTH = 2040;

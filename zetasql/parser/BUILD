@@ -79,11 +79,29 @@ py_binary(
     data = ["parse_tree_generated.h.template"],
     main = "gen_parse_tree.py",
     deps = [
+        ":ast_enums_py_pb2",
         ":generator_utils",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/flags",
         "@jinja//:jinja2",
     ],
+)
+
+proto_library(
+    name = "ast_enums_proto",
+    srcs = ["ast_enums.proto"],
+)
+
+cc_proto_library(
+    name = "ast_enums_cc_proto",
+    deps = [":ast_enums_proto"],
+)
+
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+
+py_proto_library(
+    name = "ast_enums_py_pb2",
+    srcs = ["ast_enums.proto"],
 )
 
 cc_library(
@@ -118,6 +136,7 @@ cc_library(
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
+        ":ast_enums_cc_proto",
         ":bison_parser_generated_lib",
         ":keywords",
         ":parse_tree",
@@ -243,6 +262,7 @@ cc_library(
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
+        ":ast_enums_cc_proto",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",

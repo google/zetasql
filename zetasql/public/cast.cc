@@ -207,7 +207,6 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     BOOL,       EXPLICIT);
   ADD_TO_MAP(STRING,     NUMERIC,    EXPLICIT);
   ADD_TO_MAP(STRING,     BIGNUMERIC, EXPLICIT);
-  ADD_TO_MAP(STRING,     JSON,       EXPLICIT);
 
   ADD_TO_MAP(BYTES,      BYTES,      IMPLICIT);
   ADD_TO_MAP(BYTES,      STRING,     EXPLICIT);
@@ -241,7 +240,6 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(GEOGRAPHY,  GEOGRAPHY,  IMPLICIT);
 
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
-  ADD_TO_MAP(JSON,       STRING,     EXPLICIT);
 
   ADD_TO_MAP(TOKENSET,   TOKENSET,   IMPLICIT);
 
@@ -539,14 +537,15 @@ static absl::Status ConvertStringToTimestampWithFormat(absl::string_view str,
 }
 
 zetasql_base::StatusOr<Value> NumericToStringWithFormat(const Value& v,
-                                                absl::string_view format) {
+                                                absl::string_view format,
+                                                ProductMode product_mode) {
   if (v.is_null()) {
     return Value::NullString();
   }
 
-  ZETASQL_ASSIGN_OR_RETURN(
-      const std::string str,
-      zetasql::functions::NumericalToStringWithFormat(v, format));
+  ZETASQL_ASSIGN_OR_RETURN(const std::string str,
+                   zetasql::functions::NumericalToStringWithFormat(
+                       v, format, product_mode));
   return Value::String(str);
 }
 
@@ -617,7 +616,12 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_INT32, TYPE_DOUBLE):
       return NumericCast<int32_t, double>(v);
     case FCT(TYPE_INT32, TYPE_STRING):
-      return NumericToString<int32_t>(v);
+      if (format.has_value()) {
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
+      } else {
+        return NumericToString<int32_t>(v);
+      }
     case FCT(TYPE_INT32, TYPE_NUMERIC):
       return NumericCast<int32_t, NumericValue>(v);
     case FCT(TYPE_INT32, TYPE_BIGNUMERIC):
@@ -637,7 +641,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       return NumericCast<uint32_t, double>(v);
     case FCT(TYPE_UINT32, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<uint32_t>(v);
       }
@@ -660,7 +665,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       return NumericCast<int64_t, double>(v);
     case FCT(TYPE_INT64, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<int64_t>(v);
       }
@@ -683,7 +689,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       return NumericCast<uint64_t, double>(v);
     case FCT(TYPE_UINT64, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<uint64_t>(v);
       }
@@ -713,7 +720,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_FLOAT, TYPE_DOUBLE): return NumericCast<float, double>(v);
     case FCT(TYPE_FLOAT, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<float>(v);
       }
@@ -733,7 +741,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_DOUBLE, TYPE_FLOAT): return NumericCast<double, float>(v);
     case FCT(TYPE_DOUBLE, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<double>(v);
       }
@@ -826,23 +835,6 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
               &timestamp));
         }
         return Value::TimestampFromUnixMicros(timestamp);
-      }
-    }
-    case FCT(TYPE_STRING, TYPE_JSON): {
-      if (language_options().LanguageFeatureEnabled(
-              FEATURE_JSON_NO_VALIDATION)) {
-        return Value::UnvalidatedJsonString(v.string_value());
-      } else {
-        auto json_value = JSONValue::ParseJSONString(
-            v.string_value(),
-            JSONParsingOptions{language_options().LanguageFeatureEnabled(
-                                   FEATURE_JSON_LEGACY_PARSE),
-                               language_options().LanguageFeatureEnabled(
-                                   FEATURE_JSON_STRICT_NUMBER_PARSING)});
-        if (!json_value.ok()) {
-          return MakeEvalError() << json_value.status().message();
-        }
-        return Value::Json(std::move(json_value.value()));
       }
     }
 
@@ -1159,7 +1151,8 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       return NumericCast<NumericValue, BigNumericValue>(v);
     case FCT(TYPE_NUMERIC, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<NumericValue>(v);
       }
@@ -1179,13 +1172,11 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       return NumericCast<BigNumericValue, NumericValue>(v);
     case FCT(TYPE_BIGNUMERIC, TYPE_STRING):
       if (format.has_value()) {
-        return NumericToStringWithFormat(v, format.value());
+        return NumericToStringWithFormat(v, format.value(),
+                                         language_options().product_mode());
       } else {
         return NumericToString<BigNumericValue>(v);
       }
-    case FCT(TYPE_JSON, TYPE_STRING): {
-      return Value::String(v.json_string());
-    }
 
     default:
       return ::zetasql_base::UnimplementedErrorBuilder()

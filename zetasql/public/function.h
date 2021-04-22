@@ -515,14 +515,16 @@ class Function {
   // * Scalar functions cannot support the OVER clause.
   // * Analytic functions must support OVER clause.
   // * Signatures must satisfy FunctionSignature::IsValidForFunction().
-  Function(const std::string& name, const std::string& group, Mode mode,
-           const FunctionOptions& function_options = FunctionOptions());
-  Function(const std::string& name, const std::string& group, Mode mode,
-           const std::vector<FunctionSignature>& function_signatures,
-           const FunctionOptions& function_options = FunctionOptions());
-  Function(const std::vector<std::string>& name_path, const std::string& group,
-           Mode mode, const std::vector<FunctionSignature>& function_signatures,
-           const FunctionOptions& function_options = FunctionOptions());
+  Function(absl::string_view name, absl::string_view group, Mode mode,
+           FunctionOptions function_options = {});
+  Function(absl::string_view name, absl::string_view group, Mode mode,
+           std::vector<FunctionSignature> function_signatures,
+           FunctionOptions function_options = {});
+
+  Function(std::vector<std::string> name_path, absl::string_view group,
+           Mode mode, std::vector<FunctionSignature> function_signatures,
+           FunctionOptions function_options = {});
+
   Function(const Function&) = delete;
   Function& operator=(const Function&) = delete;
   virtual ~Function() {}

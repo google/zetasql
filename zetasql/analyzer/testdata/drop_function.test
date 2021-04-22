@@ -1,0 +1,267 @@
+# Incomplete statement
+
+[default language_features=TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION]
+drop function ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:15]
+drop function ;
+              ^
+==
+
+# All overloads, simple name.
+drop function foo ;
+--
+DropFunctionStmt(is_if_exists=FALSE, name_path=foo)
+==
+
+# All overloads, multi-part name.
+drop function do.foo.too ;
+--
+DropFunctionStmt(is_if_exists=FALSE, name_path=do.foo.too)
+==
+
+# All overloads, if exists.
+drop function if exists do.foo.too ;
+--
+DropFunctionStmt(is_if_exists=TRUE, name_path=do.foo.too)
+==
+
+# No-arg overload.
+drop function foo() ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
++-signature=
+  +-FunctionSignatureHolder(signature=() -> <void>)
+==
+
+# Single unnamed arg.
+drop function foo(string) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRING)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRING) -> <void>)
+==
+
+# Single named arg.
+drop function foo(s string) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRING)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRING) -> <void>)
+==
+
+# Single unnamed struct arg.
+drop function foo(struct<string, int32, boolean>) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRUCT<STRING, INT32, BOOL>)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRUCT<STRING, INT32, BOOL>) -> <void>)
+==
+
+# Single named struct arg.
+drop function foo(struct<a string, b int32, c boolean>) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRUCT<a STRING, b INT32, c BOOL>)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRUCT<a STRING, b INT32, c BOOL>) -> <void>)
+==
+
+# Multiple named args.
+drop function foo(s string, i int32, x struct<a string, b int32, c boolean>) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRING)
+|     +-ArgumentDef(type=INT32)
+|     +-ArgumentDef(type=STRUCT<a STRING, b INT32, c BOOL>)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRING, INT32, STRUCT<a STRING, b INT32, c BOOL>) -> <void>)
+==
+
+# Multiple unnamed args.
+drop function foo(string, int32, struct<string, int32, boolean>) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRING)
+|     +-ArgumentDef(type=INT32)
+|     +-ArgumentDef(type=STRUCT<STRING, INT32, BOOL>)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRING, INT32, STRUCT<STRING, INT32, BOOL>) -> <void>)
+==
+
+# Mix of named and unnamed args.
+drop function foo(s string, int32, struct<a string, int32, c boolean>) ;
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRING)
+|     +-ArgumentDef(type=INT32)
+|     +-ArgumentDef(type=STRUCT<a STRING, INT32, c BOOL>)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRING, INT32, STRUCT<a STRING, INT32, c BOOL>) -> <void>)
+==
+
+# NOT AGGREGATE is allowed on arguments but is ignored.
+drop function foo(s string, int32 NOT AGGREGATE);
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=foo
++-arguments=
+| +-ArgumentList
+|   +-arg_list=
+|     +-ArgumentDef(type=STRING)
+|     +-ArgumentDef(type=INT32)
++-signature=
+  +-FunctionSignatureHolder(signature=(STRING, INT32) -> <void>)
+==
+
+# AS alias is not supported for non-templated parameters.
+drop function foo(int32 as type_alias);
+--
+ERROR: Non-templated arguments in DROP FUNCTION do not support type aliases [at 1:25]
+drop function foo(int32 as type_alias);
+                        ^
+==
+
+# Templated parameters are not supported yet.
+drop function foo(a ANY TYPE);
+--
+ERROR: Templated arguments in DROP FUNCTION are not supported yet [at 1:21]
+drop function foo(a ANY TYPE);
+                    ^
+==
+
+# Neither templated parameters nor AS alias is supported yet.
+drop function foo(a ANY TYPE as type_alias);
+--
+ERROR: Templated arguments with type aliases are not supported yet [at 1:30]
+drop function foo(a ANY TYPE as type_alias);
+                             ^
+==
+
+# ANY TABLE is supported as a templated function parameter type.
+[no_java]
+drop function f(x any table);
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=f
++-arguments=
+| +-ArgumentList
++-signature=
+  +-FunctionSignatureHolder(signature=(ANY TABLE) -> <void>)
+==
+
+# A combination of ANY TABLE and concrete table parameters are supported.
+[no_java]
+[no_run_deserializer]
+drop function f(x any table, y table<z int64>);
+--
+DropFunctionStmt
++-is_if_exists=FALSE
++-name_path=f
++-arguments=
+| +-ArgumentList
++-signature=
+  +-FunctionSignatureHolder(signature=(ANY TABLE, TABLE<z INT64>) -> <void>)
+==
+
+# Fails when statement is not supported
+[supported_statement_kinds=CREATE_TABLE_FUNCTION]
+drop table function do.foo.too ;
+--
+ERROR: Statement not supported: DropTableFunctionStatement [at 1:1]
+drop table function do.foo.too ;
+^
+==
+
+# Incomplete statement
+drop table function ;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:21]
+drop table function ;
+                    ^
+==
+
+# simple name.
+drop table function foo ;
+--
+DropTableFunctionStmt(is_if_exists=FALSE, name_path=foo)
+==
+
+# multi-part name.
+drop table function do.foo.too ;
+--
+DropTableFunctionStmt(is_if_exists=FALSE, name_path=do.foo.too)
+==
+
+# if exists.
+drop table function if exists do.foo.too ;
+--
+DropTableFunctionStmt(is_if_exists=TRUE, name_path=do.foo.too)
+==
+
+# Empty argument list not supported
+drop table function foo() ;
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:24]
+drop table function foo() ;
+                       ^
+==
+
+# Argument list not supported
+drop table function foo(string) ;
+--
+ERROR: Syntax error: Parameters are not supported for DROP TABLE FUNCTION because table functions don't support overloading [at 1:24]
+drop table function foo(string) ;
+                       ^
+==
+
+# Type parameters not supported in drop function
+drop function foo(string(10)) ;
+--
+ERROR: Parameterized types are not supported in function arguments [at 1:25]
+drop function foo(string(10)) ;
+                        ^

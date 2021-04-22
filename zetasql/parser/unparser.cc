@@ -258,6 +258,10 @@ void Unparser::visitASTFunctionParameter(
   if (node->alias() != nullptr) {
     node->alias()->Accept(this, data);
   }
+  if (node->default_value() != nullptr) {
+    print("DEFAULT");
+    node->default_value()->Accept(this, data);
+  }
   if (node->is_not_aggregate()) {
     print("NOT AGGREGATE");
   }
@@ -464,6 +468,9 @@ void Unparser::visitASTCreateSchemaStatement(
     const ASTCreateSchemaStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "SCHEMA"));
   node->name()->Accept(this, data);
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
   if (node->options_list() != nullptr) {
     println();
     print("OPTIONS");
@@ -514,6 +521,9 @@ void Unparser::visitASTCreateTableStatement(
     println();
     node->table_element_list()->Accept(this, data);
   }
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
   if (node->like_table_name() != nullptr) {
     println("LIKE");
     node->like_table_name()->Accept(this, data);
@@ -551,6 +561,11 @@ void Unparser::visitASTCreateEntityStatement(
     println();
     print("AS ");
     node->json_body()->Accept(this, data);
+  }
+  if (node->text_body() != nullptr) {
+    println();
+    print("AS");
+    node->text_body()->Accept(this, data);
   }
 }
 
@@ -700,6 +715,9 @@ void Unparser::visitASTCreateExternalTableStatement(
     println();
     node->table_element_list()->Accept(this, data);
   }
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
   if (node->like_table_name() != nullptr) {
     println("LIKE");
     node->like_table_name()->Accept(this, data);
@@ -707,6 +725,21 @@ void Unparser::visitASTCreateExternalTableStatement(
   if (node->with_partition_columns_clause() != nullptr) {
     node->with_partition_columns_clause()->Accept(this, data);
   }
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTCreateSnapshotTableStatement(
+    const ASTCreateSnapshotTableStatement* node, void* data) {
+  print("CREATE");
+  if (node->is_or_replace()) print("OR REPLACE");
+  print("SNAPSHOT TABLE");
+  if (node->is_if_not_exists()) print("IF NOT EXISTS");
+  node->name()->Accept(this, data);
+  print("CLONE");
+  node->clone_data_source()->Accept(this, data);
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
@@ -1000,9 +1033,31 @@ void Unparser::visitASTDropAllRowAccessPoliciesStatement(
   node->table_name()->Accept(this, data);
 }
 
+void Unparser::visitASTDropSearchIndexStatement(
+    const ASTDropSearchIndexStatement* node, void* data) {
+  print("DROP SEARCH INDEX");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
+  if (node->table_name() != nullptr) {
+    print("ON");
+    node->table_name()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTDropMaterializedViewStatement(
     const ASTDropMaterializedViewStatement* node, void* data) {
   print("DROP MATERIALIZED VIEW");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
+}
+
+void Unparser::visitASTDropSnapshotTableStatement(
+    const ASTDropSnapshotTableStatement* node, void* data) {
+  print("DROP SNAPSHOT TABLE");
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
@@ -1127,7 +1182,12 @@ void Unparser::visitASTSetOperation(const ASTSetOperation* node, void* data) {
 
 void Unparser::visitASTSetAsAction(const ASTSetAsAction* node, void* data) {
   print("SET AS ");
-  node->json_body()->Accept(this, data);
+  if (node->json_body() != nullptr) {
+    node->json_body()->Accept(this, data);
+  }
+  if (node->text_body() != nullptr) {
+    node->text_body()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTSelect(const ASTSelect* node, void* data) {
@@ -1826,6 +1886,49 @@ void Unparser::visitASTInList(const ASTInList* node, void* data) {
   print(")");
 }
 
+void Unparser::visitASTLikeExpression(const ASTLikeExpression* node,
+                                      void* data) {
+  PrintOpenParenIfNeeded(node);
+  node->lhs()->Accept(this, data);
+  print(absl::StrCat(node->is_not() ? "NOT " : "", "LIKE"));
+  node->op()->Accept(this, data);
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+  if (node->query() != nullptr) {
+    print("(");
+    {
+      Formatter::Indenter indenter(&formatter_);
+      node->query()->Accept(this, data);
+    }
+    print(")");
+  }
+  if (node->in_list() != nullptr) {
+    node->in_list()->Accept(this, data);
+  }
+  if (node->unnest_expr() != nullptr) {
+    node->unnest_expr()->Accept(this, data);
+  }
+  PrintCloseParenIfNeeded(node);
+}
+
+void Unparser::visitASTAnySomeAllOp(const ASTAnySomeAllOp* node, void* data) {
+  switch (node->op()) {
+    case ASTAnySomeAllOp::kUninitialized:
+      print("UNINITIALIZED");
+      break;
+    case ASTAnySomeAllOp::kAny:
+      print("ANY");
+      break;
+    case ASTAnySomeAllOp::kSome:
+      print("SOME");
+      break;
+    case ASTAnySomeAllOp::kAll:
+      print("ALL");
+      break;
+  }
+}
+
 void Unparser::visitASTBetweenExpression(const ASTBetweenExpression* node,
                                          void* data) {
   PrintOpenParenIfNeeded(node);
@@ -2048,6 +2151,9 @@ void Unparser::UnparseColumnSchema(const ASTColumnSchema* node, void* data) {
   if (node->default_expression() != nullptr) {
     print("DEFAULT ");
     node->default_expression()->Accept(this, data);
+  }
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
   }
   if (node->attributes() != nullptr) {
     node->attributes()->Accept(this, data);
@@ -2724,12 +2830,18 @@ void Unparser::visitASTAlterDatabaseStatement(
 void Unparser::visitASTAlterSchemaStatement(
     const ASTAlterSchemaStatement* node, void* data) {
   print("ALTER SCHEMA");
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
   VisitAlterStatementBase(node, data);
 }
 
 void Unparser::visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                            void* data) {
   print("ALTER TABLE");
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
   VisitAlterStatementBase(node, data);
 }
 
@@ -2792,6 +2904,14 @@ void Unparser::visitASTDropConstraintAction(const ASTDropConstraintAction* node,
   node->constraint_name()->Accept(this, data);
 }
 
+void Unparser::visitASTDropPrimaryKeyAction(const ASTDropPrimaryKeyAction* node,
+                                            void* data) {
+  print("DROP PRIMARY KEY");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+}
+
 void Unparser::visitASTAlterConstraintEnforcementAction(
     const ASTAlterConstraintEnforcementAction* node, void* data) {
   print("ALTER CONSTRAINT");
@@ -2848,6 +2968,17 @@ void Unparser::visitASTDropColumnAction(const ASTDropColumnAction* node,
   node->column_name()->Accept(this, data);
 }
 
+void Unparser::visitASTRenameColumnAction(const ASTRenameColumnAction* node,
+                                          void* data) {
+  print("RENAME COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->column_name()->Accept(this, data);
+  print("TO");
+  node->new_column_name()->Accept(this, data);
+}
+
 void Unparser::visitASTAlterColumnOptionsAction(
     const ASTAlterColumnOptionsAction* node, void* data) {
   print("ALTER COLUMN");
@@ -2878,6 +3009,9 @@ void Unparser::visitASTAlterColumnTypeAction(
   node->column_name()->Accept(this, data);
   print("SET DATA TYPE");
   node->schema()->Accept(this, data);
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
 }
 
 void Unparser::visitASTRevokeFromClause(const ASTRevokeFromClause* node,
@@ -2896,6 +3030,12 @@ void Unparser::visitASTRenameToClause(const ASTRenameToClause* node,
                                       void* data) {
   print("RENAME TO");
   node->new_name()->Accept(this, data);
+}
+
+void Unparser::visitASTSetCollateClause(const ASTSetCollateClause* node,
+                                        void* data) {
+  print("SET");
+  visitASTCollate(node->collate(), data);
 }
 
 void Unparser::visitASTAlterActionList(const ASTAlterActionList* node,

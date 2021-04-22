@@ -1,0 +1,111 @@
+# The ExtractTableNames tests don't generally work on these queries because
+# these tables are listed in the catalog under multiple names, and FullName()
+# doesn't match what shows up in the query.
+[default no_test_extract_table_names]
+
+select key from NestedKeyValue;
+--
+ERROR: Table not found: NestedKeyValue; Did you mean nested_catalog.KeyValue? [at 1:17]
+select key from NestedKeyValue;
+                ^
+==
+
+select key from nested_catalog.NestedKeyValue;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+select key from nested_catalog;
+--
+ERROR: Table not found: nested_catalog [at 1:17]
+select key from nested_catalog;
+                ^
+==
+
+select nested_catalog;
+--
+ERROR: Unrecognized name: nested_catalog [at 1:8]
+select nested_catalog;
+       ^
+==
+
+# Java does not support recursive catalog.
+[no_java]
+select key from recursive_catalog.nested_catalog;
+--
+ERROR: Table not found: recursive_catalog.nested_catalog [at 1:17]
+select key from recursive_catalog.nested_catalog;
+                ^
+==
+
+# Java does not support recursive catalog.
+[no_java]
+select key
+from recursive_catalog.recursive_catalog.`bad name`.NestedKeyValue;
+--
+ERROR: Table not found: recursive_catalog.recursive_catalog.`bad name`.NestedKeyValue [at 2:6]
+from recursive_catalog.recursive_catalog.`bad name`.NestedKeyValue;
+     ^
+==
+
+# Java does not support recursive catalog.
+[no_java]
+select NestedKeyValue.key from
+recursive_catalog.recursive_catalog.recursive_catalog.nested_catalog.NestedKeyValue;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+select kv1.key, kv2.key
+from KeyValue kv1, nested_catalog.KeyValue kv2,
+     nested_catalog.NestedKeyValue kv3;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#3 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#3]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3]
+        +-left_scan=
+        | +-JoinScan
+        |   +-column_list=KeyValue.[Key#1, Key#3]
+        |   +-left_scan=
+        |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+        |   +-right_scan=
+        |     +-TableScan(column_list=[KeyValue.Key#3], table=KeyValue, column_index_list=[0], alias="kv2")
+        +-right_scan=
+          +-TableScan(table=KeyValue, alias="kv3")
+==
+
+select 1 from KeyValue.nested.key;
+--
+ERROR: Table not found: KeyValue.nested.key [at 1:15]
+select 1 from KeyValue.nested.key;
+              ^
+==
+
+# TODO Should have better error here that says column Key cannot
+# be referenced in FROM clause.
+select 1 from KeyValue.Key;
+--
+ERROR: Table not found: KeyValue.Key [at 1:15]
+select 1 from KeyValue.Key;
+              ^

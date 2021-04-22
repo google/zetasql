@@ -157,7 +157,20 @@ class ResolvedNode {
   static zetasql_base::StatusOr<std::unique_ptr<ResolvedNode>> RestoreFrom(
       const AnyResolvedNodeProto& proto, const RestoreParams& params);
 
-  std::string DebugString() const;
+  // Specifies that <node> should be annotated with <annotation> in its tree
+  // dump.
+  struct NodeAnnotation {
+    const ResolvedNode* node;
+    absl::string_view annotation;
+  };
+
+  // Returns a string representation of this tree and all descendants, for
+  // testing and debugging purposes. Each entry in <annotations> will cause the
+  // subtree <annotation.node> to be annotated with the string
+  // <annotation.annotation>. This can be used to explain the context of
+  // certain individual nodes in the tree.
+  std::string DebugString(
+      absl::Span<const NodeAnnotation> annotations = {}) const;
 
   // Check if any semantically meaningful fields have not been accessed in
   // this node or its children. If so, return a descriptive error indicating
@@ -325,12 +338,17 @@ class ResolvedNode {
 
  private:
   // Print the tree recursively.
+  // annotations specifies additional annotations to display for specific nodes
   // prefix1 is the indentation to attach to child nodes.
   // prefix2 is the indentation to attach to the root of this tree.
   static void DebugStringImpl(const ResolvedNode* node,
+                              absl::Span<const NodeAnnotation> annotations,
                               const std::string& prefix1,
-                              const std::string& prefix2,
-                              std::string* output);
+                              const std::string& prefix2, std::string* output);
+
+  static void AppendAnnotations(const ResolvedNode* node,
+                                absl::Span<const NodeAnnotation> annotations,
+                                std::string* output);
 
   // DebugString on these call protected methods.
   friend class ResolvedComputedColumn;

@@ -35,32 +35,32 @@ ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo set timestamp;
 --
 ALTERNATION GROUP: DATABASE
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:24]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got keyword TIMESTAMP [at 1:24]
 ALTER DATABASE foo set timestamp;
                        ^
 
 --
 ALTERNATION GROUP: SCHEMA
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:22]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got keyword TIMESTAMP [at 1:22]
 ALTER SCHEMA foo set timestamp;
                      ^
 --
 ALTERNATION GROUP: TABLE
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:21]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got keyword TIMESTAMP [at 1:21]
 ALTER TABLE foo set timestamp;
                     ^
 --
 ALTERNATION GROUP: VIEW
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:20]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got keyword TIMESTAMP [at 1:20]
 ALTER VIEW foo set timestamp;
                    ^
 --
 ALTERNATION GROUP: MATERIALIZED VIEW
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got keyword TIMESTAMP [at 1:33]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got keyword TIMESTAMP [at 1:33]
 ALTER MATERIALIZED VIEW foo set timestamp;
                                 ^
 ==
@@ -69,31 +69,31 @@ ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo drop;
 --
 ALTERNATION GROUP: DATABASE
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:24]
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:24]
 ALTER DATABASE foo drop;
                        ^
 --
 ALTERNATION GROUP: SCHEMA
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:22]
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:22]
 ALTER SCHEMA foo drop;
                      ^
 --
 ALTERNATION GROUP: TABLE
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:21]
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:21]
 ALTER TABLE foo drop;
                     ^
 --
 ALTERNATION GROUP: VIEW
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:20]
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:20]
 ALTER VIEW foo drop;
                    ^
 --
 ALTERNATION GROUP: MATERIALIZED VIEW
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT but got ";" [at 1:33]
+ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:33]
 ALTER MATERIALIZED VIEW foo drop;
                                 ^
 ==
@@ -1101,30 +1101,30 @@ ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (a = 'a',
 --
 ALTERNATION GROUP: DATABASE
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:53]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got end of statement [at 1:53]
 ALTER DATABASE foo SET OPTIONS (a = 'a', b = 1), SET
                                                     ^
 --
 ALTERNATION GROUP: SCHEMA
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:51]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got end of statement [at 1:51]
 ALTER SCHEMA foo SET OPTIONS (a = 'a', b = 1), SET
                                                   ^
 --
 ALTERNATION GROUP: TABLE
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:50]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got end of statement [at 1:50]
 ALTER TABLE foo SET OPTIONS (a = 'a', b = 1), SET
                                                  ^
 --
 ALTERNATION GROUP: VIEW
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:49]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got end of statement [at 1:49]
 ALTER VIEW foo SET OPTIONS (a = 'a', b = 1), SET
                                                 ^
 --
 ALTERNATION GROUP: MATERIALIZED VIEW
 --
-ERROR: Syntax error: Expected keyword AS or keyword OPTIONS but got end of statement [at 1:62]
+ERROR: Syntax error: Expected keyword AS or keyword COLLATE or keyword OPTIONS but got end of statement [at 1:62]
 ALTER MATERIALIZED VIEW foo SET OPTIONS (a = 'a', b = 1), SET
                                                              ^

@@ -1230,7 +1230,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractScalar, 1) {
 namespace {
 
 // Wraps test cases with FEATURE_JSON_ARRAY_FUNCTIONS.
-std::vector<FunctionTestCall> EnableJsonArrayFunctionsForTest(
+std::vector<FunctionTestCall> EnableStringJsonArrayFunctionsForTest(
     std::vector<FunctionTestCall> tests) {
   for (auto& test_case : tests) {
     test_case.params =
@@ -1243,8 +1243,8 @@ std::vector<FunctionTestCall> EnableJsonArrayFunctionsForTest(
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonQueryArray, 1) {
   SetNamePrefix("StringJsonQueryArray");
-  RunFunctionCalls(Shard(
-      EnableJsonArrayFunctionsForTest(GetFunctionTestsStringJsonQueryArray())));
+  RunFunctionCalls(Shard(EnableStringJsonArrayFunctionsForTest(
+      GetFunctionTestsStringJsonQueryArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
@@ -1254,21 +1254,34 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractArray, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonValueArray, 1) {
   SetNamePrefix("StringJsonValueArray");
-  RunFunctionCalls(Shard(
-      EnableJsonArrayFunctionsForTest(GetFunctionTestsStringJsonValueArray())));
+  RunFunctionCalls(Shard(EnableStringJsonArrayFunctionsForTest(
+      GetFunctionTestsStringJsonValueArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestStringJsonExtractStringArray, 1) {
   SetNamePrefix("StringJsonExtractStringArray");
-  RunFunctionCalls(Shard(EnableJsonArrayFunctionsForTest(
+  RunFunctionCalls(Shard(EnableStringJsonArrayFunctionsForTest(
       GetFunctionTestsStringJsonExtractStringArray())));
 }
 
 namespace {
 
-// Wraps test cases with FEATURE_JSON_TYPE and FEATURE_JSON_ARRAY_FUNCTIONS.
+// Wraps test cases with FEATURE_JSON_TYPE.
 // If a test case already has a feature set, do not wrap it.
 std::vector<FunctionTestCall> EnableJsonFeatureForTest(
+    std::vector<FunctionTestCall> tests) {
+  for (auto& test_case : tests) {
+    if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
+      test_case.params =
+          test_case.params.WrapWithFeatureSet({FEATURE_JSON_TYPE});
+    }
+  }
+  return tests;
+}
+
+// Wraps test cases with FEATURE_JSON_TYPE and FEATURE_JSON_ARRAY_FUNCTIONS.
+// If a test case already has a feature set, do not wrap it.
+std::vector<FunctionTestCall> EnableNativeJsonArrayFunctionsForTest(
     std::vector<FunctionTestCall> tests) {
   for (auto& test_case : tests) {
     if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
@@ -1307,25 +1320,25 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractScalar, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonQueryArray, 1) {
   SetNamePrefix("NativeJsonQueryArray");
-  RunFunctionCalls(
-      Shard(EnableJsonFeatureForTest(GetFunctionTestsNativeJsonQueryArray())));
+  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
+      GetFunctionTestsNativeJsonQueryArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractArray, 1) {
   SetNamePrefix("NativeJsonExtractArray");
-  RunFunctionCalls(Shard(
-      EnableJsonFeatureForTest(GetFunctionTestsNativeJsonExtractArray())));
+  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
+      GetFunctionTestsNativeJsonExtractArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonValueArray, 1) {
   SetNamePrefix("NativeJsonValueArray");
-  RunFunctionCalls(
-      Shard(EnableJsonFeatureForTest(GetFunctionTestsNativeJsonValueArray())));
+  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
+      GetFunctionTestsNativeJsonValueArray())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNativeJsonExtractStringArray, 1) {
   SetNamePrefix("NativeJsonExtractStringArray");
-  RunFunctionCalls(Shard(EnableJsonFeatureForTest(
+  RunFunctionCalls(Shard(EnableNativeJsonArrayFunctionsForTest(
       GetFunctionTestsNativeJsonExtractStringArray())));
 }
 
@@ -1347,6 +1360,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 1) {
   RunFunctionTestsCustom(Shard(EnableJsonFeatureForTest(GetFunctionTestsToJson(
                              DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS)))),
                          to_json_fct);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestParseJson, 1) {
+  SetNamePrefix("ParseJson");
+  RunFunctionCalls(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsParseJson())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -2174,6 +2193,16 @@ SHARDED_TEST_F(ComplianceCodebasedTests, ExtractFromInterval, 1) {
     return absl::Substitute("EXTRACT($0 FROM @p0)", p.param(1).string_value());
   };
   RunStatementTestsCustom(Shard(GetFunctionTestsExtractInterval()), extract_fn);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, JustifyInterval, 1) {
+  SetNamePrefix("JustifyInterval");
+  auto fn = [](const FunctionTestCall& f) {
+    // Test cases expect result to be interval converted to string to compare
+    // exact datetime parts.
+    return absl::Substitute("CAST($0(@p0) AS STRING)", f.function_name);
+  };
+  RunFunctionTestsCustom(Shard(GetFunctionTestsJustifyInterval()), fn);
 }
 
 // Wrap the proto field test cases with civil time typed values. If the type of

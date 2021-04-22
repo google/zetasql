@@ -1,0 +1,69 @@
+DROP ROW ACCESS POLICY foo ON bar;
+--
+DropRowAccessPolicyStmt(name="foo", target_name_path=bar)
+==
+
+DROP ROW ACCESS POLICY foo ON namespace.`all`;
+--
+DropRowAccessPolicyStmt(name="foo", target_name_path=namespace.`all`)
+==
+
+DROP ROW ACCESS POLICY IF EXISTS foo ON bar;
+--
+DropRowAccessPolicyStmt(is_if_exists=TRUE, name="foo", target_name_path=bar)
+==
+
+DROP ROW ACCESS POLICY `IF EXISTS foo` ON bar;
+--
+DropRowAccessPolicyStmt(name="IF EXISTS foo", target_name_path=bar)
+==
+
+DROP ROW ACCESS POLICY IF EXISTS `all` ON bar;
+--
+DropRowAccessPolicyStmt(is_if_exists=TRUE, name="all", target_name_path=bar)
+==
+
+DROP ALL ROW POLICIES ON bar;
+--
+ERROR: Expected keyword ACCESS between ROW and POLICY [at 1:1]
+DROP ALL ROW POLICIES ON bar;
+^
+==
+
+DROP ALL ROW POLICIES ON namespace.`all table`;
+--
+ERROR: Expected keyword ACCESS between ROW and POLICY [at 1:1]
+DROP ALL ROW POLICIES ON namespace.`all table`;
+^
+==
+
+DROP ALL ROW ACCESS POLICIES ON bar;
+--
+DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=bar)
+==
+
+DROP ALL ROW ACCESS POLICIES ON namespace.`all table`;
+--
+DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=namespace.`all table`)
+==
+
+# Test that the ACCESS keyword can be included without the feature.
+[language_features={{ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX|}}]
+DROP ALL ROW ACCESS POLICIES ON bar;
+--
+DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=bar)
+==
+
+# Test that the ACCESS keyword must be included with the feature.
+[language_features={{ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX|}}]
+DROP ALL ROW POLICIES ON bar;
+--
+ALTERNATION GROUP: ALLOW_LEGACY_ROW_ACCESS_POLICY_SYNTAX
+--
+DropRowAccessPolicyStmt(is_drop_all=TRUE, target_name_path=bar)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Expected keyword ACCESS between ROW and POLICY [at 1:1]
+DROP ALL ROW POLICIES ON bar;
+^

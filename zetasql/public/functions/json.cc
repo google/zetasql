@@ -72,16 +72,17 @@ absl::Status JsonPathEvaluator::Extract(absl::string_view json,
 
 absl::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
     JSONValueConstRef input) const {
+  bool first_token = true;
   for (path_iterator_->Rewind(); !path_iterator_->End(); ++(*path_iterator_)) {
     const ValidJSONPathIterator::Token& token = *(*path_iterator_);
 
-    if (token.empty()) {
+    if (first_token) {
       // The JSONPath "$.a[1].b" will result in the following list of tokens:
       // "", "a", "1", "b". The first token is always the empty token
       // corresponding to the whole JSON document, and we don't need to do
-      // anything in that iteration. There shouldn't be any empty tokens after
-      // the first one as ValidJSONPathIterator would reject those invalid
-      // paths.
+      // anything in that iteration. There can be other empty tokens after
+      // the first one (empty keys are valid).
+      first_token = false;
       continue;
     }
 
@@ -253,7 +254,10 @@ zetasql_base::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
   for (; !iterator->End(); ++(*iterator)) {
     // Token is unescaped.
     absl::string_view token = **iterator;
-    if (!RE2::PartialMatch(token, kSpecialCharsPattern)) {
+    if (token.empty()) {
+      // Special case: empty token needs to be escaped.
+      absl::StrAppend(&new_json_path, ".\"\"");
+    } else if (!RE2::PartialMatch(token, kSpecialCharsPattern)) {
       // No special characters. Can be field access or array element access.
       // Note that '$[0]' is equivalent to '$.0'.
       absl::StrAppend(&new_json_path, ".", token);

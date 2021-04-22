@@ -38,22 +38,84 @@ namespace zetasql {
 // impact on stack size while still using the same initializer list.
 class FunctionSignatureOnHeap {
  public:
-  FunctionSignatureOnHeap(const FunctionArgumentType& result_type,
-                          const FunctionArgumentTypeList& arguments,
-                          int64_t context_id)
-      : signature_(new FunctionSignature(result_type, arguments, context_id)) {}
+  FunctionSignatureOnHeap(FunctionArgumentType result_type,
+                          FunctionArgumentTypeList arguments, int64_t context_id)
+      : signature_(new FunctionSignature(std::move(result_type),
+                                         std::move(arguments), context_id)) {}
 
-  FunctionSignatureOnHeap(const FunctionArgumentType& result_type,
-                          const FunctionArgumentTypeList& arguments,
-                          int64_t context_id,
-                          const FunctionSignatureOptions& options)
-      : signature_(new FunctionSignature(result_type, arguments, context_id,
-                                         options)) {}
+  FunctionSignatureOnHeap(FunctionArgumentType result_type,
+                          FunctionArgumentTypeList arguments, int64_t context_id,
+                          FunctionSignatureOptions options)
+      : signature_(new FunctionSignature(std::move(result_type),
+                                         std::move(arguments), context_id,
+                                         std::move(options))) {}
 
   const FunctionSignature& Get() const { return *signature_; }
 
  private:
   std::shared_ptr<FunctionSignature> signature_;
+};
+
+// A proxy object representing a simple FunctionArgumentType object, one that
+// can be constructed very easily and cheaply, but lacking the full
+// expressiveness of an actual FunctionArgumentType.
+// If you need to specify a FunctionArgumentTypeOptions, you can't use the
+// 'Simple' methods.
+struct FunctionArgumentTypeProxy {
+  FunctionArgumentTypeProxy(
+      SignatureArgumentKind kind,
+      FunctionArgumentType::ArgumentCardinality cardinality)
+      : kind(kind), cardinality(cardinality) {}
+  // NOLINTNEXTLINE: runtime/explicit
+  FunctionArgumentTypeProxy(SignatureArgumentKind kind) : kind(kind) {}
+
+  FunctionArgumentTypeProxy(
+      const Type* type, FunctionArgumentType::ArgumentCardinality cardinality)
+      : type(type), cardinality(cardinality) {}
+
+  FunctionArgumentTypeProxy(const Type* type)  // NOLINT: runtime/explicit
+      : type(type) {}
+
+  SignatureArgumentKind kind = ARG_TYPE_FIXED;
+  const Type* type = nullptr;
+  FunctionArgumentType::ArgumentCardinality cardinality =
+      FunctionEnums::REQUIRED;
+
+  operator FunctionArgumentType() const {  // NOLINT: runtime/explicit
+    if (type == nullptr) {
+      return FunctionArgumentType(kind, cardinality);
+    } else {
+      return FunctionArgumentType(type, cardinality);
+    }
+  }
+};
+
+// A proxy object representing a simple FunctionSignature object, one that
+// can be constructed very easily and cheaply, but lacking the full
+// expressiveness of an actual FunctionSignature.
+// If you need to specify a FunctionSignatureOptions, you can't use the 'Simple'
+// methods.
+struct FunctionSignatureProxy {
+  FunctionArgumentTypeProxy result_type;
+  std::initializer_list<FunctionArgumentTypeProxy> arguments;
+  FunctionSignatureId context_id;
+
+  // Implicit conversion to a FunctionSignature object.
+  operator FunctionSignature() const {  // NOLINT: runtime/explicit
+    std::vector<FunctionArgumentType> argument_vec(arguments.begin(),
+                                                   arguments.end());
+    return FunctionSignature(result_type, std::move(argument_vec), context_id);
+  }
+
+  // Implicit conversion to a FunctionSignatureOnHeap. This is occasionally
+  // useful when you want to _mostly_ use FunctionSignatureProxy, but must
+  // fallback to FunctionSignatureOnHeap for a few signatures.
+  operator FunctionSignatureOnHeap() const {  // NOLINT: runtime/explicit
+    std::vector<FunctionArgumentType> argument_vec(arguments.begin(),
+                                                   arguments.end());
+    return FunctionSignatureOnHeap(result_type, std::move(argument_vec),
+                                   context_id);
+  }
 };
 
 using FunctionIdToNameMap =
@@ -406,32 +468,64 @@ void InsertCreatedFunction(NameToFunctionMap* functions,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            Function* function_in);
 
-void InsertFunctionImpl(
-    NameToFunctionMap* functions,
-    const ZetaSQLBuiltinFunctionOptions& options,
-    const std::vector<std::string>& name, Function::Mode mode,
-    const std::vector<FunctionSignatureOnHeap>& signatures_on_heap,
-    const FunctionOptions& function_options);
-
 void InsertFunction(NameToFunctionMap* functions,
                     const ZetaSQLBuiltinFunctionOptions& options,
-                    const std::string& name, Function::Mode mode,
+                    absl::string_view name, Function::Mode mode,
                     const std::vector<FunctionSignatureOnHeap>& signatures,
-                    const FunctionOptions& function_options);
+                    FunctionOptions function_options);
 
 // Note: This function is intentionally overloaded to prevent a default
 // FunctionOptions object to be allocated on the callers stack.
 void InsertFunction(NameToFunctionMap* functions,
                     const ZetaSQLBuiltinFunctionOptions& options,
-                    const std::string& name, Function::Mode mode,
+                    absl::string_view name, Function::Mode mode,
                     const std::vector<FunctionSignatureOnHeap>& signatures);
+
+void InsertSimpleFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures,
+    const FunctionOptions& function_options);
+
+// Note: This function is intentionally overloaded to prevent a default
+// FunctionOptions object to be allocated on the callers stack.
+void InsertSimpleFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures);
 
 void InsertNamespaceFunction(
     NameToFunctionMap* functions,
-    const ZetaSQLBuiltinFunctionOptions& options, const std::string& space,
-    const std::string& name, Function::Mode mode,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
+    const std::vector<FunctionSignatureOnHeap>& signatures);
+
+// Note: This function is intentionally overloaded to prevent a default
+// FunctionOptions object to be allocated on the callers stack.
+void InsertNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
     const std::vector<FunctionSignatureOnHeap>& signatures,
-    const FunctionOptions& function_options = FunctionOptions());
+    FunctionOptions function_options);
+
+void InsertSimpleNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures);
+
+// Note: This function is intentionally overloaded to prevent a default
+// FunctionOptions object to be allocated on the callers stack.
+void InsertSimpleNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures,
+    FunctionOptions function_options);
+
 void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                                  const ZetaSQLBuiltinFunctionOptions& options,
                                  NameToFunctionMap* functions);

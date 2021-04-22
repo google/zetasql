@@ -23,9 +23,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # by defining the repo first.
 load("@com_google_zetasql//bazel:zetasql_bazel_version.bzl", "zetasql_bazel_version")
 
-def zetasql_deps_step_1():
-    zetasql_bazel_version()
-
+def zetasql_deps_step_1(add_bazel_version = True):
+    if add_bazel_version:
+        zetasql_bazel_version()
     if not native.existing_rule("rules_foreign_cc"):
         http_archive(
             name = "rules_foreign_cc",

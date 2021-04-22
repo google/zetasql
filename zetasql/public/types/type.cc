@@ -154,26 +154,16 @@ bool Type::IsSupportedSimpleTypeKind(TypeKind kind,
   return type->IsSupportedType(language_options);
 }
 
-TypeKind Type::GetTypeKindIfSimple(absl::string_view type_name,
-                                   ProductMode mode) {
-  return SimpleType::GetTypeKindIfSimple(type_name, mode);
-}
-
-TypeKind Type::GetTypeKindIfSimple(absl::string_view type_name,
-                                   const LanguageOptions& language_options) {
-  return SimpleType::GetTypeKindIfSimple(
-      type_name, language_options.product_mode(),
-      &language_options.GetEnabledLanguageFeatures());
-}
-
 TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(absl::string_view type_name,
                                                     ProductMode mode) {
-  return Type::GetTypeKindIfSimple(type_name, mode);
+  return SimpleType::GetTypeKindIfSimple(type_name, mode);
 }
 
 TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(
     absl::string_view type_name, const LanguageOptions& language_options) {
-  return Type::GetTypeKindIfSimple(type_name, language_options);
+  return SimpleType::GetTypeKindIfSimple(
+      type_name, language_options.product_mode(),
+      &language_options.GetEnabledLanguageFeatures());
 }
 
 std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {

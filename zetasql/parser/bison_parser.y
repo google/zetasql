@@ -886,6 +886,7 @@ using zetasql::ASTDropStatement;
 %token KW_SECURITY "SECURITY"
 %token KW_SHOW "SHOW"
 %token KW_SIMPLE "SIMPLE"
+%token KW_SNAPSHOT "SNAPSHOT"
 %token KW_SOURCE "SOURCE"
 %token KW_SQL "SQL"
 %token KW_STABLE "STABLE"
@@ -937,6 +938,7 @@ using zetasql::ASTDropStatement;
 %type <node> abort_batch_statement
 %type <node> alter_statement
 %type <node> analyze_statement
+%type <node> any_some_all
 %type <node> array_column_schema_inner
 %type <expression> array_constructor
 %type <expression> array_constructor_prefix
@@ -976,6 +978,7 @@ using zetasql::ASTDropStatement;
 %type <node> create_schema_statement
 %type <node> create_table_function_statement
 %type <node> create_model_statement
+%type <node> create_snapshot_table_statement
 %type <node> create_table_statement
 %type <node> create_view_statement
 %type <node> create_entity_statement
@@ -1115,6 +1118,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_clamped_between_modifier
 %type <node> opt_clone_table
 %type <node> opt_cluster_by_clause_no_hint
+%type <node> collate_clause
 %type <node> opt_collate_clause
 %type <node> opt_column_list
 %type <node> opt_constraint_identity
@@ -1126,6 +1130,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_format
 %type <drop_mode> opt_drop_mode
 %type <node> opt_else
+%type <node> opt_on_path_expression
 %type <node> opt_foreign_key_actions
 %type <node> opt_from_clause
 %type <expression> opt_from_path_expression
@@ -1530,6 +1535,7 @@ sql_statement_body:
     | create_external_table_function_statement
     | create_model_statement
     | create_schema_statement
+    | create_snapshot_table_statement
     | create_table_function_statement
     | create_table_statement
     | create_view_statement
@@ -1589,6 +1595,12 @@ alter_action:
         node->set_is_if_exists($3);
         $$ = node;
       }
+    | "DROP" "PRIMARY" "KEY" opt_if_exists
+      {
+        auto* node = MAKE_NODE(ASTDropPrimaryKeyAction, @$, {});
+        node->set_is_if_exists($4);
+        $$ = node;
+      }
     | "ALTER" "CONSTRAINT" opt_if_exists identifier constraint_enforcement
       {
         auto* node =
@@ -1617,9 +1629,16 @@ alter_action:
         node->set_is_if_exists($3);
         $$ = node;
       }
-    | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DATA" "TYPE" column_schema_inner
+    | "RENAME" "COLUMN" opt_if_exists identifier "TO" identifier
       {
-        auto* node = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$4, $8});
+        auto* node = MAKE_NODE(ASTRenameColumnAction, @$, {$4, $6});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
+    | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DATA" "TYPE"
+          column_schema_inner opt_collate_clause
+      {
+        auto* node = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$4, $8, $9});
         node->set_is_if_exists($3);
         $$ = node;
       }
@@ -1638,6 +1657,10 @@ alter_action:
     | "RENAME" "TO" path_expression
       {
         $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
+      }
+    | "SET" collate_clause
+      {
+        $$ = MAKE_NODE(ASTSetCollateClause, @$, {$2});
       }
     ;
 
@@ -1698,8 +1721,9 @@ row_access_policy_alter_action_list:
 //   ALTER and DROP require very different syntax for ROW ACCESS POLICY as
 //   compared to other object kinds.  So we do not want to match
 //   ROW ACCESS POLICY here.
-// - TABLE and TABLE FUNCTION, since we use different production for table path
-//   expressions (one which may contain dashes).
+// - TABLE, TABLE FUNCTION, and SNAPSHOT TABLE since we use different production
+//   for table path expressions (one which may contain dashes).
+// - SEARCH INDEX since the DROP SEARCH INDEX has an optional ON <table> clause.
 schema_object_kind:
     "AGGREGATE" "FUNCTION"
       { $$ = zetasql::SchemaObjectKind::kAggregateFunction; }
@@ -2066,10 +2090,10 @@ function_declaration:
 
 function_parameter:
     identifier type_or_tvf_schema opt_as_alias_with_required_as
-    opt_not_aggregate
+      opt_default_expression opt_not_aggregate
       {
-        auto* parameter = MAKE_NODE(ASTFunctionParameter, @$, {$1, $2, $3});
-        parameter->set_is_not_aggregate($4);
+        auto* parameter = MAKE_NODE(ASTFunctionParameter, @$, {$1, $2, $3, $4});
+        parameter->set_is_not_aggregate($5);
         $$ = parameter;
       }
     | type_or_tvf_schema opt_as_alias_with_required_as opt_not_aggregate
@@ -2378,17 +2402,17 @@ opt_with_partition_columns_clause:
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
     "TABLE" opt_if_not_exists maybe_dashed_path_expression
-    opt_table_element_list opt_like_path_expression
+    opt_table_element_list opt_like_path_expression opt_collate_clause
     opt_with_partition_columns_clause opt_options_list
       {
-        if ($11 == nullptr) {
+        if ($12 == nullptr) {
           YYERROR_AND_ABORT_AT(
-              @11,
+              @12,
               "Syntax error: Expected keyword OPTIONS");
         }
         auto* create =
             MAKE_NODE(ASTCreateExternalTableStatement, @$,
-            {$7, $8, $9, $10, $11});
+            {$7, $8, $9, $10, $11, $12});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
@@ -2426,11 +2450,33 @@ create_index_statement:
     ;
 
 create_schema_statement:
-    "CREATE" opt_or_replace "SCHEMA" opt_if_not_exists path_expression opt_options_list
+    "CREATE" opt_or_replace "SCHEMA" opt_if_not_exists path_expression opt_collate_clause opt_options_list
       {
-        auto* create = MAKE_NODE(ASTCreateSchemaStatement, @$, {$5, $6});
+        auto* create = MAKE_NODE(ASTCreateSchemaStatement, @$, {$5, $6, $7});
         create->set_is_or_replace($2);
         create->set_is_if_not_exists($4);
+        $$ = create;
+      }
+    ;
+
+create_snapshot_table_statement:
+    "CREATE" opt_or_replace "SNAPSHOT" "TABLE" opt_if_not_exists maybe_dashed_path_expression
+     "CLONE" clone_data_source opt_options_list
+      {
+        if ($8 == nullptr) {
+          YYERROR_AND_ABORT_AT(
+              @8,
+              "Syntax error: Expected keyword CLONE");
+        }
+        if ($2) {
+          YYERROR_AND_ABORT_AT(
+              @2,
+              "Syntax error: OR REPLACE clause is not supported with CREATE SNAPSHOT TABLE");
+        }
+        auto* create =
+            MAKE_NODE(ASTCreateSnapshotTableStatement, @$, {$6, $8, $9});
+        create->set_is_if_not_exists($5);
+        create->set_is_or_replace($2);
         $$ = create;
       }
     ;
@@ -2474,12 +2520,12 @@ create_table_function_statement:
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
     maybe_dashed_path_expression opt_table_element_list
-    opt_like_path_expression opt_clone_table
+    opt_like_path_expression opt_clone_table opt_collate_clause
     opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
     opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13});
+            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13, $14});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($5);
@@ -2508,6 +2554,10 @@ generic_entity_body:
     json_literal
       {
         $$ = $json_literal;
+      }
+    | string_literal
+      {
+        $$ = $string_literal;
       }
     ;
 
@@ -2624,16 +2674,20 @@ table_column_definition:
     ;
 
 table_column_schema:
-    column_schema_inner opt_column_info
+    column_schema_inner opt_column_info opt_collate_clause
       {
         if ($2.generated_column_info != nullptr) {
           $$ = WithEndLocation(
               WithExtraChildren($1, {$2.generated_column_info,
-                                     /*default_expression=*/nullptr}), @$);
+                                     /*default_expression=*/nullptr, $3}), @$);
         } else if ($2.default_expression != nullptr) {
           $$ = WithEndLocation(
               WithExtraChildren($1, {/*generated_column_info=*/nullptr,
-                                     $2.default_expression}), @$);
+                                     $2.default_expression, $3}), @$);
+        } else {
+          $$ = WithEndLocation(
+              WithExtraChildren($1, {/*generated_column_info=*/nullptr,
+                                     /*default_expression=*/nullptr, $3}), @$);
         }
       }
     | generated_column_info
@@ -2681,9 +2735,9 @@ struct_column_field:
     //
     // For a similar reason, the only supported field attribute is NOT NULL,
     // which have reserved keywords.
-    column_schema_inner opt_field_attributes
+    column_schema_inner opt_collate_clause opt_field_attributes
       {
-        auto* schema = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        auto* schema = WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
         $$ = MAKE_NODE(ASTStructColumnField, @$, {schema});
       }
     | identifier field_schema
@@ -2815,9 +2869,10 @@ opt_column_info:
     }
   ;
 
-field_schema: column_schema_inner opt_field_attributes opt_options_list
+field_schema:
+  column_schema_inner opt_collate_clause opt_field_attributes opt_options_list
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
+      $$ = WithEndLocation(WithExtraChildren($1, {$2, $3, $4}), @$);
     }
     ;
 
@@ -5012,11 +5067,14 @@ string_literal_or_parameter:
     | parameter_expression
     | system_variable_expression;
 
-opt_collate_clause:
+collate_clause:
     "COLLATE" string_literal_or_parameter
       {
         $$ = MAKE_NODE(ASTCollate, @$, {$2});
       }
+
+opt_collate_clause:
+    collate_clause
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -5177,6 +5235,46 @@ shift_operator:
 import_type:
     "MODULE" { $$ = ImportType::kModule; }
     | "PROTO" { $$ = ImportType::kProto; }
+    ;
+
+// This returns an AnySomeAllOp to indicate what keyword was present.
+any_some_all:
+    "ANY"
+      {
+       if (parser->language_options() == nullptr ||
+            !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+          YYERROR_AND_ABORT_AT(@1, "LIKE ANY is not supported");
+        }
+        auto* op =
+            MAKE_NODE(ASTAnySomeAllOp, @$, {});
+        op->set_op(zetasql::ASTAnySomeAllOp::kAny);
+        $$ = op;
+      }
+    | "SOME"
+      {
+       if (parser->language_options() == nullptr ||
+            !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+          YYERROR_AND_ABORT_AT(@1, "LIKE SOME is not supported");
+        }
+        auto* op =
+            MAKE_NODE(ASTAnySomeAllOp, @$, {});
+        op->set_op(zetasql::ASTAnySomeAllOp::kSome);
+        $$ = op;
+      }
+    | "ALL"
+      {
+       if (parser->language_options() == nullptr ||
+            !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+          YYERROR_AND_ABORT_AT(@1, "LIKE ALL is not supported");
+        }
+        auto* op =
+            MAKE_NODE(ASTAnySomeAllOp, @$, {});
+        op->set_op(zetasql::ASTAnySomeAllOp::kAll);
+        $$ = op;
+      }
     ;
 
 // Returns NotKeywordPresence to indicate whether NOT was present.
@@ -5352,6 +5450,47 @@ expression:
         not_expr->set_op(zetasql::ASTUnaryExpression::NOT);
         $$ = not_expr;
       }
+    | expression like_operator any_some_all opt_hint unnest_expression %prec "LIKE"
+        {
+          if ($4) {
+            YYERROR_AND_ABORT_AT(@4,
+                                 "Syntax error: HINTs cannot be specified on "
+                                 "LIKE clause with UNNEST");
+          }
+          // Bison allows some cases like IN on the left hand side because it's
+          // not ambiguous. The language doesn't allow this.
+          if (!$1->IsAllowedInComparison()) {
+            YYERROR_AND_ABORT_AT(@2,
+                                 "Syntax error: Expression to the left of LIKE "
+                                 "must be parenthesized");
+          }
+          auto* like_expression = MAKE_NODE(ASTLikeExpression, @2, @5, {$1, $3, $5});
+          like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
+          $$ = like_expression;
+        }
+    | expression like_operator any_some_all opt_hint parenthesized_in_rhs %prec "LIKE"
+        {
+          // Bison allows some cases like IN on the left hand side because it's
+          // not ambiguous. The language doesn't allow this.
+          if (!$1->IsAllowedInComparison()) {
+            YYERROR_AND_ABORT_AT(@2,
+                                "Syntax error: Expression to the left of LIKE "
+                                "must be parenthesized");
+          }
+          zetasql::ASTLikeExpression* like_expression = nullptr;
+          if ($5->node_kind() == zetasql::AST_QUERY) {
+            like_expression = MAKE_NODE(ASTLikeExpression, @2, @5, {$1, $3, $4, $5});
+          } else {
+            if($4) {
+              YYERROR_AND_ABORT_AT(@4,
+                                  "Syntax error: HINTs cannot be specified on "
+                                  "LIKE clause with value list");
+            }
+            like_expression = MAKE_NODE(ASTLikeExpression, @2, @5, {$1, $3, $5});
+          }
+          like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
+          $$ = like_expression;
+        }
     | expression like_operator expression %prec "LIKE"
         {
           // NOT has lower precedence but can be parsed unparenthesized in the
@@ -7173,6 +7312,7 @@ keyword_as_identifier:
     | "SECURITY"
     | "SHOW"
     | "SIMPLE"
+    | "SNAPSHOT"
     | "SOURCE"
     | "SQL"
     | "STABLE"
@@ -7977,6 +8117,17 @@ on_path_expression:
       }
     ;
 
+opt_on_path_expression:
+    "ON" path_expression
+      {
+        $$ = $2;
+      }
+    | /* Nothing */
+      {
+        $$ = nullptr;
+      }
+    ;
+
 opt_drop_mode:
     "RESTRICT" { $$ = zetasql::ASTDropStatement::DropMode::RESTRICT; }
     | "CASCADE" { $$ = zetasql::ASTDropStatement::DropMode::CASCADE; }
@@ -7995,6 +8146,14 @@ drop_statement:
             ASTDropRowAccessPolicyStatement, @$, {path_expression, $7});
         drop_row_access_policy->set_is_if_exists($5);
         $$ = drop_row_access_policy;
+      }
+    | "DROP" "SEARCH" "INDEX" opt_if_exists path_expression
+      opt_on_path_expression
+      {
+        auto* drop_search_index = MAKE_NODE(
+            ASTDropSearchIndexStatement, @$, {$5, $6});
+        drop_search_index->set_is_if_exists($4);
+        $$ = drop_search_index;
       }
     | "DROP" table_or_table_function opt_if_exists maybe_dashed_path_expression
       opt_function_parameters
@@ -8025,6 +8184,12 @@ drop_statement:
           drop->set_is_if_exists($3);
           $$ = drop;
         }
+      }
+    | "DROP" "SNAPSHOT" "TABLE" opt_if_exists maybe_dashed_path_expression
+      {
+        auto* drop = MAKE_NODE(ASTDropSnapshotTableStatement, @$, {$5});
+        drop->set_is_if_exists($4);
+        $$ = drop;
       }
     | "DROP" generic_entity_type opt_if_exists path_expression
       {
@@ -8468,6 +8633,8 @@ next_statement_kind_without_hint:
       }
     | "DROP" "ROW" "ACCESS" "POLICY"
       { $$ = zetasql::ASTDropRowAccessPolicyStatement::kConcreteNodeKind; }
+    | "DROP" "SEARCH" "INDEX"
+      { $$ = zetasql::ASTDropSearchIndexStatement::kConcreteNodeKind; }
     | "DROP" table_or_table_function
       {
         if ($2 == TableOrTableFunctionKeywords::kTableAndFunctionKeywords) {
@@ -8476,6 +8643,8 @@ next_statement_kind_without_hint:
           $$ = zetasql::ASTDropStatement::kConcreteNodeKind;
         }
       }
+    | "DROP" "SNAPSHOT" "TABLE"
+      { $$ = zetasql::ASTDropSnapshotTableStatement::kConcreteNodeKind; }
     | "DROP" generic_entity_type
       { $$ = zetasql::ASTDropEntityStatement::kConcreteNodeKind; }
     | "DROP" schema_object_kind
@@ -8556,7 +8725,7 @@ next_statement_kind_without_hint:
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list
-      opt_like_path_expression opt_clone_table
+      opt_like_path_expression opt_clone_table opt_collate_clause
       opt_partition_by_clause_no_hint
       opt_cluster_by_clause_no_hint opt_options_list
       next_statement_kind_create_table_opt_as_or_semicolon
@@ -8584,6 +8753,8 @@ next_statement_kind_without_hint:
       }
     | "CREATE" opt_or_replace "MATERIALIZED" opt_recursive "VIEW"
       { $$ = zetasql::ASTCreateMaterializedViewStatement::kConcreteNodeKind; }
+    | "CREATE" opt_or_replace "SNAPSHOT" "TABLE"
+      { $$ = zetasql::ASTCreateSnapshotTableStatement::kConcreteNodeKind; }
     | "CALL"
       { $$ = zetasql::ASTCallStatement::kConcreteNodeKind; }
     | "RETURN"

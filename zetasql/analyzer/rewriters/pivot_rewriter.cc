@@ -35,6 +35,9 @@
 namespace zetasql {
 namespace {
 
+constexpr char kPivot[] = "$pivot";
+constexpr char kPivotExprArg[] = "$pivot_expr_arg";
+
 class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit PivotRewriterVisitor(Catalog* catalog, TypeFactory* type_factory,
@@ -53,29 +56,58 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  private:
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
 
-  // Returns an aggregate expression representing the result of a single pivot
-  // expression, <pivot_expr> against the subset of input where <pivot_column>
-  // matches a single pivot value, defined by <pivot_value_expr>, which is
-  // assumed to be constant.
+  // Returns an aggregate function call representing a single pivot expression
+  // over a subset of input where <pivot_value_expr> matches <pivot_column>.
+  // If <agg_fn_arg_column> is present, the argument to the aggregate function
+  // will be a column ref to this column, rather than using the subtree inside
+  // of <pivot_expr> itself; this ensures that non-deterministic expressions
+  // evaluate the same for each row, even across different pivot columns.
+  //
+  // For example, in this query:
+  //   SELECT * FROM t PIVOT(SUM(x + 1) s, COUNT(*) c FOR y + 1 IN (0, 1));
+  //
+  // MakeAggregateExpr() will be called four times. The first two times:
+  // - <pivot_expr> will be SUM(x)
+  // - <pivot_value_expr> will be 0 (1st time) or 1 (2nd time)
+  // - <pivot_column> will hold the result of (y + 1)
+  // - <agg_fn_arg_column> will hold the result of x + 1
+  //
+  // And, the next two times:
+  // - <pivot_expr> will be COUNT(*)
+  // - <pivot_value_expr> will be 0 (3rd time) or 1 (4th time)
+  // - <pivot_column> will hold the result of (y + 1)
+  // - <agg_fn_arg_column> will be absl::nullopt (since there's no argument).
   zetasql_base::StatusOr<std::unique_ptr<const ResolvedExpr>> MakeAggregateExpr(
       const ResolvedExpr* pivot_expr, const ResolvedExpr* pivot_value_expr,
-      const ResolvedColumn& pivot_column);
+      const ResolvedColumn& pivot_column,
+      const std::vector<ResolvedColumn>& agg_fn_arg_columns);
 
-  // Wraps the input scan of a pivot with a project scan adding the pivot's
-  // FOR expression as a computed column. This will be used as the input to
-  // the aggregate scan representing the pivot output.
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>> AddForExprColumnToPivotInput(
+  // Wraps the input scan of a pivot with a project scan, adding computed
+  // columns holding the result of the FOR expression, plus each argument to the
+  // aggregate function in each PIVOT expression. The resultant scan will be
+  // used as the input to the AggregateScan used to represent the rewritten
+  // PivotScan.
+  //
+  // <pivot_expr_arg_columns> is an output parameter, which is modified to hold
+  // the argument columns to each pivot expression.
+  // On output, the i'th element is the single argument to the i'th pivot
+  // expression. If a given pivot expression does not take an argument (e.g. it
+  // is "COUNT(*)"), the ResolvedColumn is blank.
+  zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>> AddExprColumnsToPivotInput(
       const ResolvedPivotScan* pivot_scan,
-      const ResolvedColumn& for_expr_column);
+      const ResolvedColumn& for_expr_column,
+      std::vector<std::vector<ResolvedColumn>>& pivot_expr_arg_columns);
 
   // Verifies that <call> is supported by this rewriter implementation.
-  // Only function calls which consume exactly one argument and are known to
-  // ignore rows where the input argument is NULL are supported.
-  // (except for COUNT(*) which is special-cased, even though it has zero
-  //  arguments instead of 1).
   //
-  // Returns an error with a location defined by <call> if the call is
-  // unsupported.
+  // A aggregate function call is supported as a pivot expression if all of
+  // the following conditions apply:
+  //  - Function call has exactly one argument
+  //  - Function is known to ignore all input rows where the argument is NULL
+  //  - The HAVING MIN and HAVING MAX clauses are not present.
+  //
+  // There is one exception to the above; COUNT(*) is supported, in spite of
+  // having zero arguments instead of one.
   absl::Status VerifyAggregateFunctionIsSupported(
       const ResolvedAggregateFunctionCall* call);
 
@@ -96,9 +128,9 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 };
 
 zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>>
-PivotRewriterVisitor::AddForExprColumnToPivotInput(
-    const ResolvedPivotScan* pivot_scan,
-    const ResolvedColumn& for_expr_column) {
+PivotRewriterVisitor::AddExprColumnsToPivotInput(
+    const ResolvedPivotScan* pivot_scan, const ResolvedColumn& for_expr_column,
+    std::vector<std::vector<ResolvedColumn>>& pivot_expr_arg_columns) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> input_scan_copy,
                    ProcessNode(pivot_scan->input_scan()));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> for_expr_copy,
@@ -113,6 +145,39 @@ PivotRewriterVisitor::AddForExprColumnToPivotInput(
   expr_list.push_back(
       MakeResolvedComputedColumn(for_expr_column, std::move(for_expr_copy)));
 
+  for (const auto& pivot_expr : pivot_scan->pivot_expr_list()) {
+    const ResolvedAggregateFunctionCall* call =
+        pivot_expr->GetAs<ResolvedAggregateFunctionCall>();
+    ZETASQL_RETURN_IF_ERROR(VerifyAggregateFunctionIsSupported(call));
+    pivot_expr_arg_columns.emplace_back();
+
+    for (const auto& arg : call->argument_list()) {
+      if (IsConstantExpression(arg.get())) {
+        // Constant expressions are ok to clone, rather than project. In most
+        // cases, this doesn't matter, but some functions take constant
+        // arguments that can't be read from a projected column (the delimiter
+        // argument of STRING_AGG() is one such example). For simplicity, we
+        // take the clone approach for all constant expressions, whether needed
+        // or not.
+        //
+        // In this case, just push a dummy column into the projected column list
+        // for the current pivot expr. We'll copy the argument later, where it
+        // is used.
+        pivot_expr_arg_columns.back().emplace_back();
+        continue;
+      }
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> argument_copy,
+                       ProcessNode(arg.get()));
+
+      ResolvedColumn projected_arg_col = column_factory_->MakeCol(
+          kPivot, kPivotExprArg, argument_copy->type());
+      expr_list.push_back(MakeResolvedComputedColumn(projected_arg_col,
+                                                     std::move(argument_copy)));
+      pivot_expr_arg_columns.back().push_back(projected_arg_col);
+      column_list.push_back(projected_arg_col);
+    }
+  }
+
   return MakeResolvedProjectScan(column_list, std::move(expr_list),
                                  std::move(input_scan_copy));
 }
@@ -122,8 +187,11 @@ absl::Status PivotRewriterVisitor::VisitResolvedPivotScan(
   ResolvedColumn pivot_col = column_factory_->MakeCol("$pivot", "$pivot_value",
                                                       node->for_expr()->type());
 
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> input_with_pivot_column,
-                   AddForExprColumnToPivotInput(node, pivot_col));
+  std::vector<std::vector<ResolvedColumn>> agg_fn_argument_columns;
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedScan> input_with_pivot_column,
+      AddExprColumnsToPivotInput(node, pivot_col, agg_fn_argument_columns));
 
   std::vector<std::unique_ptr<ResolvedComputedColumn>> aggregate_list;
 
@@ -133,9 +201,14 @@ absl::Status PivotRewriterVisitor::VisitResolvedPivotScan(
     const ResolvedExpr* pivot_value_expr =
         node->pivot_value_list()[pivot_column->pivot_value_index()].get();
     const ResolvedColumn& output_col = pivot_column->column();
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ResolvedExpr> agg_expr,
-        MakeAggregateExpr(pivot_expr, pivot_value_expr, pivot_col));
+
+    ZETASQL_CHECK_LE(pivot_column->pivot_expr_index(), agg_fn_argument_columns.size());
+    const std::vector<ResolvedColumn>& agg_fn_arg_columns =
+        agg_fn_argument_columns[pivot_column->pivot_expr_index()];
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> agg_expr,
+                     MakeAggregateExpr(pivot_expr, pivot_value_expr, pivot_col,
+                                       agg_fn_arg_columns));
     std::unique_ptr<ResolvedComputedColumn> agg_computed_column =
         MakeResolvedComputedColumn(output_col, std::move(agg_expr));
     aggregate_list.push_back(std::move(agg_computed_column));
@@ -163,9 +236,9 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
     // COUNT(*) has special implementation and is supported.
     return absl::OkStatus();
   }
-  if (!call->signature().IsConcrete() ||
-      call->signature().NumConcreteArguments() != 1) {
-    // Only signatures which take exactly one argument are supported.
+  ZETASQL_RET_CHECK(call->signature().IsConcrete());
+  if (call->signature().NumConcreteArguments() == 0) {
+    // Zero-argument signatures other than COUNT(*) are not supported.
     return MakeUnimplementedErrorAtPoint(
                call->GetParseLocationOrNULL()->start())
            << "Use of aggregate function " << call->function()->SQLName()
@@ -259,9 +332,10 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
 }
 
 zetasql_base::StatusOr<std::unique_ptr<const ResolvedExpr>>
-PivotRewriterVisitor::MakeAggregateExpr(const ResolvedExpr* pivot_expr,
-                                        const ResolvedExpr* pivot_value_expr,
-                                        const ResolvedColumn& pivot_column) {
+PivotRewriterVisitor::MakeAggregateExpr(
+    const ResolvedExpr* pivot_expr, const ResolvedExpr* pivot_value_expr,
+    const ResolvedColumn& pivot_column,
+    const std::vector<ResolvedColumn>& agg_fn_arg_columns) {
   // This condition guaranteed by the resolver and this check
   // really belongs in the validator; however, the validator currently has no
   // way to call IsConstantExpression() without creating a circular build
@@ -295,20 +369,44 @@ PivotRewriterVisitor::MakeAggregateExpr(const ResolvedExpr* pivot_expr,
   // checked that these are single-argument functions which ignore null inputs.
   std::unique_ptr<ResolvedExpr> pivot_column_ref = MakeResolvedColumnRef(
       pivot_column.type(), pivot_column, /*is_correlated=*/false);
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> orig_arg,
-                   ProcessNode(call->argument_list(0)));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ResolvedExpr> agg_fn_arg,
-      AnalyzeSubstitute(
-          *analyzer_options_, rewriters_, *catalog_, *type_factory_,
-          "IF(pivot_column IS NOT DISTINCT FROM pivot_value, orig_arg, NULL)",
-          {{"pivot_column", pivot_column_ref.get()},
-           {"pivot_value", pivot_value_expr_copy.get()},
-           {"orig_arg", orig_arg.get()}}),
-      _.With(ExpectAnalyzeSubstituteSuccess));
-
   std::vector<std::unique_ptr<const ResolvedExpr>> agg_fn_args;
-  agg_fn_args.push_back(std::move(agg_fn_arg));
+
+  // Because "ignores nulls" behavior means skipping rows when *any* input
+  // argument is NULL, we only need to add the IF clause to check the pivot
+  // value on the first argument. The rest can just be used directly.
+  if (!agg_fn_arg_columns.empty()) {
+    std::unique_ptr<ResolvedExpr> orig_arg;
+    if (agg_fn_arg_columns[0].IsInitialized()) {
+      orig_arg = MakeResolvedColumnRef(agg_fn_arg_columns[0].type(),
+                                       agg_fn_arg_columns[0],
+                                       /*is_correlated=*/false);
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(orig_arg, ProcessNode(call->argument_list(0)));
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedExpr> agg_fn_arg,
+        AnalyzeSubstitute(
+            *analyzer_options_, rewriters_, *catalog_, *type_factory_,
+            "IF(pivot_column IS NOT DISTINCT FROM pivot_value, orig_arg, NULL)",
+            {{"pivot_column", pivot_column_ref.get()},
+             {"pivot_value", pivot_value_expr_copy.get()},
+             {"orig_arg", orig_arg.get()}}),
+        _.With(ExpectAnalyzeSubstituteSuccess));
+
+    agg_fn_args.push_back(std::move(agg_fn_arg));
+
+    for (int i = 1; i < agg_fn_arg_columns.size(); ++i) {
+      if (agg_fn_arg_columns[i].IsInitialized()) {
+        agg_fn_args.push_back(MakeResolvedColumnRef(
+            agg_fn_arg_columns[i].type(), agg_fn_arg_columns[i],
+            /*is_correlated=*/false));
+      } else {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> arg_copy,
+                         ProcessNode(call->argument_list(i)));
+        agg_fn_args.push_back(std::move(arg_copy));
+      }
+    }
+  }
 
   return MakeResolvedAggregateFunctionCall(
       call->type(), call->function(), call->signature(), std::move(agg_fn_args),
@@ -335,7 +433,8 @@ class PivotRewriter : public Rewriter {
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
-    ColumnFactory column_factory(0, options.column_id_sequence_number());
+    ColumnFactory column_factory(0, options.id_string_pool().get(),
+                                 options.column_id_sequence_number());
 
     // Force-enable IS NOT DISTINCT FROM, since we make use of it in subqueries
     // we pass to AnalyzeSubstitute(). It is assumed that any engine making use

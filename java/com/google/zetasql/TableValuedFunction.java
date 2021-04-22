@@ -115,7 +115,7 @@ public abstract class TableValuedFunction implements Serializable {
           relationBuilder.addColumn(
               TVFRelationColumnProto.newBuilder()
                   .setName(column.getName())
-                  .setType(column.getType().serialize())
+                  .setType(column.getType().serialize(fileDescriptorSetsBuilder))
                   .build());
         }
         builder.setCustomContext(new String(relationBuilder.build().toByteArray(), UTF_8));

@@ -33,11 +33,39 @@ class ColumnFactory {
  public:
   // Creates columns using column ids starting above the max seen column id.
   //
+  // IdString's for column names are allocated from the IdStringPool provided,
+  // which must outlive this ColumnFactory object.
+  //
   // If 'sequence' is provided, it's used to do the allocations. IDs from the
   // sequence that are not above 'max_col_id' are discarded.
+  ColumnFactory(int max_col_id, IdStringPool* id_string_pool,
+                zetasql_base::SequenceNumber* sequence = nullptr)
+      : max_col_id_(max_col_id),
+        id_string_pool_(id_string_pool),
+        sequence_(sequence) {
+    // The implementation assumes that a nullptr <id_string_pool_> indicates
+    // that the ColumnFactory was created with the legacy constructor that uses
+    // the global string pool.
+    //
+    // This check ensures that it is safe to remove this assumption, once the
+    // legacy constructor is removed and all callers have been migrated.
+    ZETASQL_CHECK(id_string_pool != nullptr);
+  }
+
+  // Similar to the above constructor, except allocates column ids on the global
+  // string pool.
+  //
+  // WARNING: Column factories produced by this constructor will leak memory
+  // each time a column is created. To avoid this, use the above constructor
+  // overload instead and supply an IdStringPool.
+  ABSL_DEPRECATED(
+      "This constructor will result in a ColumnFactory that leaks "
+      "memory. Use overload that consumes an IdStringPool instead")
   explicit ColumnFactory(int max_col_id,
                          zetasql_base::SequenceNumber* sequence = nullptr)
-      : max_col_id_(max_col_id), sequence_(sequence) {}
+      : max_col_id_(max_col_id),
+        id_string_pool_(nullptr),
+        sequence_(sequence) {}
 
   ColumnFactory(const ColumnFactory&) = delete;
   ColumnFactory& operator=(const ColumnFactory&) = delete;
@@ -51,6 +79,7 @@ class ColumnFactory {
 
  private:
   int max_col_id_;
+  IdStringPool* id_string_pool_;
   zetasql_base::SequenceNumber* sequence_;
 };
 

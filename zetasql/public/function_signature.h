@@ -31,6 +31,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
@@ -403,7 +404,7 @@ class FunctionArgumentType {
                        ArgumentCardinality cardinality,
                        int num_occurrences = -1);
   FunctionArgumentType(SignatureArgumentKind kind,
-                       const FunctionArgumentTypeOptions& options,
+                       FunctionArgumentTypeOptions options,
                        int num_occurrences = -1);
   FunctionArgumentType(SignatureArgumentKind kind,  // implicit; NOLINT
                        int num_occurrences = -1);
@@ -411,8 +412,7 @@ class FunctionArgumentType {
   // Does not take ownership of <type>.
   FunctionArgumentType(const Type* type, ArgumentCardinality cardinality,
                        int num_occurrences = -1);
-  FunctionArgumentType(const Type* type,
-                       const FunctionArgumentTypeOptions& options,
+  FunctionArgumentType(const Type* type, FunctionArgumentTypeOptions options,
                        int num_occurrences = -1);
   FunctionArgumentType(const Type* type,  // implicit; NOLINT
                        int num_occurrences = -1);
@@ -666,23 +666,6 @@ class FunctionArgumentType::ArgumentTypeLambda {
 using FunctionSignatureArgumentConstraintsCallback = std::function<bool(
     const FunctionSignature&, const std::vector<InputArgumentType>&)>;
 
-// Specifies the default null-handling behavior of an aggregate function when
-// neither IGNORE NULLS nor RESPECT NULLS are specified.
-enum class DefaultNullHandlingBehavior {
-  // Null-handling behavior is unspecified. All non-aggregate functions and
-  // functions which do not take exactly one aggregate argument should use this
-  // option.
-  kUnspecified,
-
-  // The function ignores rows where the aggregate argument is NULL, as if
-  // IGNORE NULLS were specified.
-  kIgnoreNulls,
-
-  // Rows where the aggregate argument is NULL may affect the function's
-  // behavior, as if RESPECT NULLS were specified.
-  kRespectNulls,
-};
-
 class FunctionSignatureOptions {
  public:
   FunctionSignatureOptions() {}
@@ -775,16 +758,6 @@ class FunctionSignatureOptions {
 
   void Serialize(FunctionSignatureOptionsProto* proto) const;
 
-  DefaultNullHandlingBehavior default_null_handling() const {
-    return default_null_handling_;
-  }
-
-  FunctionSignatureOptions& set_default_null_handling(
-      DefaultNullHandlingBehavior default_null_handling) {
-    default_null_handling_ = default_null_handling;
-    return *this;
-  }
-
  private:
   friend class FunctionSerializationTests;
 
@@ -807,11 +780,6 @@ class FunctionSignatureOptions {
   // function name - there could be multiple function names for same id, but
   // the one with is_aliased_signature = false should be picked as primary.
   bool is_aliased_signature_ = false;
-
-  // For aggregate functions, specifies the function's default null-handling
-  // behavior.
-  DefaultNullHandlingBehavior default_null_handling_ =
-      DefaultNullHandlingBehavior::kUnspecified;
 
   // Copyable.
 };
@@ -850,18 +818,15 @@ class FunctionSignatureOptions {
 class FunctionSignature {
  public:
   // Does not take ownership of <context_ptr>.
-  FunctionSignature(const FunctionArgumentType& result_type,
-                    const FunctionArgumentTypeList& arguments,
-                    void* context_ptr);
+  FunctionSignature(FunctionArgumentType result_type,
+                    FunctionArgumentTypeList arguments, void* context_ptr);
 
-  FunctionSignature(const FunctionArgumentType& result_type,
-                    const FunctionArgumentTypeList& arguments,
-                    int64_t context_id);
+  FunctionSignature(FunctionArgumentType result_type,
+                    FunctionArgumentTypeList arguments, int64_t context_id);
 
-  FunctionSignature(const FunctionArgumentType& result_type,
-                    const FunctionArgumentTypeList& arguments,
-                    int64_t context_id,
-                    const FunctionSignatureOptions& options);
+  FunctionSignature(FunctionArgumentType result_type,
+                    FunctionArgumentTypeList arguments, int64_t context_id,
+                    FunctionSignatureOptions options);
 
   // Copy a FunctionSignature, assigning a new context_ptr or context_id.
   FunctionSignature(const FunctionSignature& old, void* context_ptr)
@@ -1023,6 +988,15 @@ class FunctionSignature {
       }
     }
     return false;
+  }
+
+  // Returns true if all the arguments in the signature have default values.
+  // Note this function returns true when the signature has no arguments.
+  bool AllArgumentsHaveDefaults() const {
+    return absl::c_all_of(arguments(),
+                          [](const FunctionArgumentType& arg_type) {
+                            return arg_type.HasDefault();
+                          });
   }
 
  private:

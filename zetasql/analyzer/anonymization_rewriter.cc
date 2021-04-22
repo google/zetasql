@@ -1421,7 +1421,8 @@ class AnonymizationRewriter : public Rewriter {
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.AllArenasAreInitialized());
-    ColumnFactory column_factory(0, options.column_id_sequence_number());
+    ColumnFactory column_factory(0, options.id_string_pool().get(),
+                                 options.column_id_sequence_number());
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedNode> node,
         RewriteInternal(

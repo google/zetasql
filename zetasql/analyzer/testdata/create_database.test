@@ -1,0 +1,37 @@
+create database db;
+--
+CreateDatabaseStmt(name_path=db)
+==
+
+# One option.
+create database db options(db_option=1);
+--
+CreateDatabaseStmt
++-name_path=db
++-option_list=
+  +-db_option := Literal(type=INT64, value=1)
+==
+
+# Multiple options.
+create database db options(option_1=1,option_2='2');
+--
+CreateDatabaseStmt
++-name_path=db
++-option_list=
+  +-option_1 := Literal(type=INT64, value=1)
+  +-option_2 := Literal(type=STRING, value="2")
+==
+
+# Use a path expression for database name.
+create database a.b.db;
+--
+CreateDatabaseStmt(name_path=a.b.db)
+==
+
+# Invalid option.
+create database db options(db_option=1+'2');
+--
+ERROR: No matching signature for operator + for argument types: INT64, STRING. Supported signatures: INT64 + INT64; UINT64 + UINT64; DOUBLE + DOUBLE [at 1:38]
+create database db options(db_option=1+'2');
+                                     ^
+==

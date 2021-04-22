@@ -1,0 +1,287 @@
+# Specify WITH ANONYMIZATION with various values of kappa.
+#
+# Base case, with kappa set.  We inject a SampleScan to ensure that
+# each user only contributes to one group.
+[default language_features=ANONYMIZATION]
+[default enable_ast_rewrites]
+
+select with anonymization options(kappa = 1) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+group by int64;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="a")
+        +-group_by_list=
+        | +-int64#14 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-kappa := Literal(type=INT64, value=1)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-SampleScan
+        |   +-column_list=[$aggregate.$agg1_partial#17, $groupby.int64_partial#18, $group_by.$uid#19]
+        |   +-input_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$aggregate.$agg1_partial#17, $groupby.int64_partial#18, $group_by.$uid#19]
+        |   |   +-input_scan=
+        |   |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
+        |   |   +-group_by_list=
+        |   |   | +-int64_partial#18 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |   |   | +-$uid#19 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#15)
+        |   |   +-aggregate_list=
+        |   |     +-$agg1_partial#17 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=1)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=$group_by.$uid#19)
+        +-group_by_list=
+        | +-int64#14 := ColumnRef(type=INT64, column=$groupby.int64_partial#18)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#17)
+        | +-$k_threshold_col#22 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#22)
+        +-anonymization_option_list=
+          +-kappa := Literal(type=INT64, value=1)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10], alias="a")
+}
+==
+
+# Kappa set, in the presence of a join.  Kappa is 3, so we inject a
+# SampleScan to ensure that each user only contributes to 3 groups.
+select with anonymization options(kappa = 3)
+    anon_count(* CLAMPED BETWEEN 0 AND 100)
+from SimpleTypesWithAnonymizationUid a, SimpleTypes b
+group by b.int64;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#31 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#31]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#31]
+        +-input_scan=
+        | +-JoinScan
+        |   +-column_list=[SimpleTypes.int64#14]
+        |   +-left_scan=
+        |   | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        |   +-right_scan=
+        |     +-TableScan(column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
+        +-group_by_list=
+        | +-int64#32 := ColumnRef(type=INT64, column=SimpleTypes.int64#14)
+        +-aggregate_list=
+        | +-$agg1#31 :=
+        |   +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=100)
+        +-anonymization_option_list=
+          +-kappa := Literal(type=INT64, value=3)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#31 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#31]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#31]
+        +-input_scan=
+        | +-SampleScan
+        |   +-column_list=[$aggregate.$agg1_partial#35, $groupby.int64_partial#36, $group_by.$uid#37]
+        |   +-input_scan=
+        |   | +-AggregateScan
+        |   |   +-column_list=[$aggregate.$agg1_partial#35, $groupby.int64_partial#36, $group_by.$uid#37]
+        |   |   +-input_scan=
+        |   |   | +-JoinScan
+        |   |   |   +-column_list=[SimpleTypes.int64#14, SimpleTypesWithAnonymizationUid.uid#33]
+        |   |   |   +-left_scan=
+        |   |   |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |   |   |   +-right_scan=
+        |   |   |     +-TableScan(column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
+        |   |   +-group_by_list=
+        |   |   | +-int64_partial#36 := ColumnRef(type=INT64, column=SimpleTypes.int64#14)
+        |   |   | +-$uid#37 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#33)
+        |   |   +-aggregate_list=
+        |   |     +-$agg1_partial#35 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-method="RESERVOIR"
+        |   +-size=
+        |   | +-Literal(type=INT64, value=3)
+        |   +-unit=ROWS
+        |   +-partition_by_list=
+        |     +-ColumnRef(type=INT64, column=$group_by.$uid#37)
+        +-group_by_list=
+        | +-int64#32 := ColumnRef(type=INT64, column=$groupby.int64_partial#36)
+        +-aggregate_list=
+        | +-$agg1#31 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#35)
+        | |   +-Literal(type=INT64, value=0)
+        | |   +-Literal(type=INT64, value=100)
+        | +-$k_threshold_col#40 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+        | +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#40)
+        +-anonymization_option_list=
+          +-kappa := Literal(type=INT64, value=3)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#33], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+}
+==
+
+# Invalid Kappa < 1
+select with anonymization options(kappa = 0) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-kappa := Literal(type=INT64, value=0)
+
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+==
+
+# The privacy libraries only support kappa as an 'int', not as INT64, so
+# kappa > max(int32) is not valid.
+select with anonymization options(kappa = 2147483648) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-kappa := Literal(type=INT64, value=2147483648)
+
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+==
+
+# Invalid Kappa type
+select with anonymization options(kappa = 2.0) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: Option kappa value has type DOUBLE which cannot be coerced to expected type INT64 [at 1:43]
+select with anonymization options(kappa = 2.0) anon_count(*)
+                                          ^
+==
+
+# Invalid Kappa, non-literal
+select with anonymization options(kappa = 1+2) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-kappa :=
+            +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=INT64, value=2)
+
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+==
+
+# Invalid Kappa, parameter
+select with anonymization options(kappa = @test_param_int64) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        +-aggregate_list=
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        +-anonymization_option_list=
+          +-kappa := Parameter(type=INT64, name="test_param_int64")
+
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+==
+
+# Invalid Kappa, specified twice
+select with anonymization options(kappa = 1, kappa = 1) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
+--
+ERROR: Duplicate anonymization option specified for 'kappa' [at 1:46]
+select with anonymization options(kappa = 1, kappa = 1) anon_count(*)
+                                             ^

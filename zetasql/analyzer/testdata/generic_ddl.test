@@ -1,0 +1,178 @@
+[default supported_generic_entity_types=RESERVATION,EXPLORE]
+
+CREATE RESERVATION myProject.myReservation
+--
+CreateEntityStmt(name_path=myProject.myReservation, entity_type="RESERVATION")
+==
+
+CREATE OR REPLACE RESERVATION myProject.myReservation
+OPTIONS(a=b, c=d)
+AS JSON '{"key": "value"}'
+--
+CreateEntityStmt
++-name_path=myProject.myReservation
++-create_mode=CREATE_OR_REPLACE
++-entity_type="RESERVATION"
++-entity_body_json='{"key":"value"}'
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+CREATE OR REPLACE EXPLORE myProject.myExplore
+OPTIONS(a=b, c=d)
+AS """ explore: test_explore { } """
+--
+CreateEntityStmt
++-name_path=myProject.myExplore
++-create_mode=CREATE_OR_REPLACE
++-entity_type="EXPLORE"
++-entity_body_text=" explore: test_explore { } "
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+CREATE RESERVATION IF NOT EXISTS myProject.myReservation
+OPTIONS(a=b, c=d)
+AS JSON
+"""
+{
+  "key": "value"
+}
+"""
+--
+CreateEntityStmt
++-name_path=myProject.myReservation
++-create_mode=CREATE_IF_NOT_EXISTS
++-entity_type="RESERVATION"
++-entity_body_json='{"key":"value"}'
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+ALTER RESERVATION myProject.myReservation SET OPTIONS (a="b")
+--
+AlterEntityStmt
++-name_path=myProject.myReservation
++-alter_action_list=
+| +-SetOptionsAction
+|   +-option_list=
+|     +-a := Literal(type=STRING, value="b")
++-entity_type="RESERVATION"
+==
+
+[language_features=JSON_NO_VALIDATION]
+ALTER RESERVATION myProject.myReservation
+  SET AS JSON '{key: "value"}';
+--
+AlterEntityStmt
++-name_path=myProject.myReservation
++-alter_action_list=
+| +-SetAsAction(entity_body_json='{key: "value"}')
++-entity_type="RESERVATION"
+==
+
+ALTER RESERVATION myProject.myReservation SET AS JSON '{"key": "value"}';
+--
+AlterEntityStmt
++-name_path=myProject.myReservation
++-alter_action_list=
+| +-SetAsAction(entity_body_json='{"key":"value"}')
++-entity_type="RESERVATION"
+==
+
+[language_features=JSON_NO_VALIDATION]
+CREATE RESERVATION IF NOT EXISTS myProject.myReservation
+AS JSON
+"""
+{
+  key: "value"
+}
+"""
+--
+CreateEntityStmt(name_path=myProject.myReservation, create_mode=CREATE_IF_NOT_EXISTS, entity_type="RESERVATION", entity_body_json='\n{\n  key: "value"\n}\n')
+==
+
+CREATE RESERVATION IF NOT EXISTS myProject.myReservation
+OPTIONS(a=b, c=d)
+AS JSON
+"""
+{
+  "key": "value"
+}
+"""
+--
+CreateEntityStmt
++-name_path=myProject.myReservation
++-create_mode=CREATE_IF_NOT_EXISTS
++-entity_type="RESERVATION"
++-entity_body_json='{"key":"value"}'
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+# Only JSON literal is supported
+ALTER RESERVATION myProject.myReservation
+  SET OPTIONS (a="b"),
+  SET AS JSON_QUERY(JSON '{"config": {"key": "value"}}', '$.config');
+--
+ERROR: Syntax error: Expected keyword JSON or string literal but got identifier "JSON_QUERY" [at 3:10]
+  SET AS JSON_QUERY(JSON '{"config": {"key": "value"}}', '$.config');
+         ^
+==
+
+# Json keys must be quoted
+CREATE OR REPLACE RESERVATION myProject.myReservation
+OPTIONS(a=b, c=d)
+AS JSON '{key: "value"}'
+--
+ERROR: Invalid JSON literal: parse error at line 1, column 2: syntax error while parsing object key - invalid literal; last read: '{k'; expected string literal [at 3:4]
+AS JSON '{key: "value"}'
+   ^
+==
+
+ALTER EXPLORE myProject.myExplore SET AS " explore: test_explore { } "
+--
+AlterEntityStmt
++-name_path=myProject.myExplore
++-alter_action_list=
+| +-SetAsAction(entity_body_text=" explore: test_explore { } ")
++-entity_type="EXPLORE"
+==
+
+ALTER EXPLORE myProject.myExplore SET AS ""
+--
+ERROR: ALTER SET AS requires JSON or TEXT body literal [at 1:35]
+ALTER EXPLORE myProject.myExplore SET AS ""
+                                  ^
+==
+
+# SET AS is not supported by other ALTER statement
+ALTER {{TABLE|VIEW}} myProject.myReservation
+  SET AS JSON '{"key": "value"}';
+--
+ALTERNATION GROUP: TABLE
+--
+ERROR: ALTER TABLE does not support SET AS [at 2:3]
+  SET AS JSON '{"key": "value"}';
+  ^
+--
+ALTERNATION GROUP: VIEW
+--
+ERROR: ALTER VIEW does not support SET AS [at 2:3]
+  SET AS JSON '{"key": "value"}';
+  ^
+==
+
+DROP RESERVATION myProject.myReservation
+--
+DropStmt(object_type="RESERVATION", is_if_exists=FALSE, name_path=myProject.myReservation)
+==
+
+DROP RESERVATION IF EXISTS myProject.myReservation
+--
+DropStmt(object_type="RESERVATION", is_if_exists=TRUE, name_path=myProject.myReservation)
+

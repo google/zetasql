@@ -177,7 +177,8 @@ class SimpleCatalog : public EnumerableCatalog {
   // Types
   void AddType(const std::string& name, const Type* type)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  bool AddTypeIfNotPresent(const std::string& name, const Type* type);
+  bool AddTypeIfNotPresent(const std::string& name, const Type* type)
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Catalogs
   void AddCatalog(const std::string& name, Catalog* catalog)
@@ -398,8 +399,6 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddOwnedTableValuedFunctionLocked(
       const std::string& name,
       std::unique_ptr<const TableValuedFunction> table_function)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
-  void AddTypeLocked(const std::string& name, const Type* type)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddConstantLocked(const std::string& name, const Constant* constant)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);

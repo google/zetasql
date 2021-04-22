@@ -1,0 +1,162 @@
+# Tests for resolving table-valued functions with connection arguments.
+#
+################################################################################
+#
+# Positive test cases
+#
+################################################################################
+#
+[default no_java]
+[default language_features=TABLE_VALUED_FUNCTIONS]
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection connection1)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_connection_arg_with_fixed_output.string#1 AS string [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_one_connection_arg_with_fixed_output.string#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_one_connection_arg_with_fixed_output.string#1]
+        +-tvf=tvf_one_connection_arg_with_fixed_output((ANY CONNECTION) -> TABLE<string STRING>)
+        +-signature=(ANY CONNECTION) -> TABLE<string STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-connection=
+        |     +-Connection(connection=connection1)
+        +-column_index_list=[0]
+==
+
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(
+    connection nested_catalog.NestedConnection)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_connection_arg_with_fixed_output.string#1 AS string [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_one_connection_arg_with_fixed_output.string#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_one_connection_arg_with_fixed_output.string#1]
+        +-tvf=tvf_one_connection_arg_with_fixed_output((ANY CONNECTION) -> TABLE<string STRING>)
+        +-signature=(ANY CONNECTION) -> TABLE<string STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-connection=
+        |     +-Connection(connection=connection2)
+        +-column_index_list=[0]
+
+==
+
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(
+    connection nested_catalog.connection2)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_connection_arg_with_fixed_output.string#1 AS string [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[tvf_one_connection_arg_with_fixed_output.string#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[tvf_one_connection_arg_with_fixed_output.string#1]
+        +-tvf=tvf_one_connection_arg_with_fixed_output((ANY CONNECTION) -> TABLE<string STRING>)
+        +-signature=(ANY CONNECTION) -> TABLE<string STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-connection=
+        |     +-Connection(connection=connection2)
+        +-column_index_list=[0]
+
+==
+
+SELECT * FROM tvf_one_connection_one_string_arg_with_fixed_output(
+    connection connection1, "SELECT 1")
+--
+QueryStmt
++-output_column_list=
+| +-tvf_one_connection_one_string_arg_with_fixed_output.int64#1 AS int64 [INT64]
+| +-tvf_one_connection_one_string_arg_with_fixed_output.string#2 AS string [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_one_connection_one_string_arg_with_fixed_output.[int64#1, string#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_one_connection_one_string_arg_with_fixed_output.[int64#1, string#2]
+        +-tvf=tvf_one_connection_one_string_arg_with_fixed_output((ANY CONNECTION, STRING) -> TABLE<int64 INT64, string STRING>)
+        +-signature=(ANY CONNECTION, literal STRING) -> TABLE<int64 INT64, string STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-connection=
+        | |   +-Connection(connection=connection1)
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="SELECT 1")
+        +-column_index_list=[0, 1]
+==
+
+SELECT * FROM tvf_two_connections_with_fixed_output(
+    connection connection1, connection connection2)
+--
+QueryStmt
++-output_column_list=
+| +-tvf_two_connections_with_fixed_output.double#1 AS double [DOUBLE]
+| +-tvf_two_connections_with_fixed_output.string#2 AS string [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=tvf_two_connections_with_fixed_output.[double#1, string#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=tvf_two_connections_with_fixed_output.[double#1, string#2]
+        +-tvf=tvf_two_connections_with_fixed_output((ANY CONNECTION, ANY CONNECTION) -> TABLE<double DOUBLE, string STRING>)
+        +-signature=(ANY CONNECTION, ANY CONNECTION) -> TABLE<double DOUBLE, string STRING>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-connection=
+        | |   +-Connection(connection=connection1)
+        | +-FunctionArgument
+        |   +-connection=
+        |     +-Connection(connection=connection2)
+        +-column_index_list=[0, 1]
+==
+
+################################################################################
+#
+# Negative test cases
+#
+################################################################################
+
+# A table cannot be passed instead of a connection.
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(table keyvalue)
+--
+ERROR: No matching signature for tvf_one_connection_arg_with_fixed_output for argument types: TABLE<Key INT64, Value STRING>. Supported signature: TVF_ONE_CONNECTION_ARG_WITH_FIXED_OUTPUT(CONNECTION) [at 1:15]
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(table keyvalue)
+              ^
+==
+
+# Non-existant connections are detected.
+SELECT * FROM tvf_one_connection_arg_with_fixed_output(connection randomconnection)
+--
+ERROR: Connection not found: randomconnection [at 1:67]
+...tvf_one_connection_arg_with_fixed_output(connection randomconnection)
+                                                       ^
+==
+
+# Passing one connection to a TVF that expects two connections.
+SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
+--
+ERROR: No matching signature for tvf_two_connections_with_fixed_output for argument types: CONNECTION. Supported signature: TVF_TWO_CONNECTIONS_WITH_FIXED_OUTPUT(CONNECTION, CONNECTION) [at 1:15]
+SELECT * FROM tvf_two_connections_with_fixed_output(connection connection1)
+              ^
+
+==
+
+# Passing connection to a TVF that does not accept a connection.
+select * from tvf_one_relation_arg_with_fixed_output(connection connection1)
+--
+ERROR: No matching signature for tvf_one_relation_arg_with_fixed_output for argument types: CONNECTION. Supported signature: TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT(TABLE) [at 1:15]
+select * from tvf_one_relation_arg_with_fixed_output(connection connection1)
+              ^
+

@@ -18,8 +18,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT32
-+ UINT32
++ `INT32`
++ `UINT32`
 
 **Return Data Type**
 
@@ -51,8 +51,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT64
-+ UINT64
++ `INT64`
++ `UINT64`
 
 **Return Data Type**
 
@@ -84,8 +84,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT32
-+ UINT32
++ `INT32`
++ `UINT32`
 
 **Return Data Type**
 
@@ -117,8 +117,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT64
-+ UINT64
++ `INT64`
++ `UINT64`
 
 **Return Data Type**
 

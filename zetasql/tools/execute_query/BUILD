@@ -17,6 +17,16 @@ package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],
 )
 
+proto_library(
+    name = "execute_query_proto",
+    srcs = ["execute_query.proto"],
+)
+
+cc_proto_library(
+    name = "execute_query_cc_proto",
+    deps = [":execute_query_proto"],
+)
+
 cc_library(
     name = "output_query_result",
     srcs = ["output_query_result.cc"],
@@ -139,8 +149,10 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":execute_query_cc_proto",
         "//zetasql/base:status",
         "//zetasql/base:statusor",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/public:parse_helpers",
         "//zetasql/public:parse_resume_location",
         "@com_google_absl//absl/functional:bind_front",
@@ -166,9 +178,12 @@ cc_test(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":execute_query_cc_proto",
         ":execute_query_prompt",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/common/testing:proto_matchers",
+        "//zetasql/common/testing:status_payload_matchers",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest",

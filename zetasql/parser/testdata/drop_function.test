@@ -304,6 +304,13 @@ DROP FUNCTION foo.bar(a int32 NOT AGGREGATE as x)
                                             ^
 ==
 
+# Function parameters not supported in drop procedure
+drop procedure foo(string) ;
+--
+ERROR: Syntax error: Parameters are only supported for DROP FUNCTION [at 1:19]
+drop procedure foo(string) ;
+                  ^
+==
 
 # Missing function name.
 DROP TABLE FUNCTION ;

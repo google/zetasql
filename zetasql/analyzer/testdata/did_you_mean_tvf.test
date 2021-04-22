@@ -1,0 +1,62 @@
+#########################################################################
+# Table-valued function name suggestions.
+#
+# I separate it from did_you_mean.test to enable TVF language feature, as
+# enabling it also needs to enable no_java.
+#
+# TODO: Enable Java support.
+
+[default no_java]
+[default language_features=TABLE_VALUED_FUNCTIONS]
+
+select column_bool from foo(true)
+--
+ERROR: Table-valued function not found: foo [at 1:25]
+select column_bool from foo(true)
+                        ^
+==
+
+select column_bool from TVF_exactly_1_bol_arg(true)
+--
+ERROR: Table-valued function not found: TVF_exactly_1_bol_arg; Did you mean tvf_exactly_1_bool_arg? [at 1:25]
+select column_bool from TVF_exactly_1_bol_arg(true)
+                        ^
+==
+
+select column_bool from tvf_exactly_1_int_arg(cast(42 as int32))
+--
+ERROR: Table-valued function not found: tvf_exactly_1_int_arg; Did you mean tvf_exactly_1_int32_arg? [at 1:25]
+select column_bool from tvf_exactly_1_int_arg(cast(42 as int32))
+                        ^
+==
+
+select * from nested_catalog.nested_tvf_0ne(table EnumTable)
+--
+ERROR: Table-valued function not found: nested_catalog.nested_tvf_0ne; Did you mean nested_catalog.nested_tvf_one? [at 1:15]
+select * from nested_catalog.nested_tvf_0ne(table EnumTable)
+              ^
+==
+
+select * from nested_catalog.nested_nested_catalog.nest_tvf_two(
+    table EnumTable)
+--
+ERROR: Table-valued function not found: nested_catalog.nested_nested_catalog.nest_tvf_two; Did you mean nested_catalog.nested_nested_catalog.nested_tvf_two? [at 1:15]
+select * from nested_catalog.nested_nested_catalog.nest_tvf_two(
+              ^
+==
+
+# We do not give any suggestions for mistypes in catalog names or paths.
+select * from nested_catal0g.nested_nested_catalog.nested_tvf_two(
+    table EnumTable)
+--
+ERROR: Table-valued function not found: nested_catal0g.nested_nested_catalog.nested_tvf_two [at 1:15]
+select * from nested_catal0g.nested_nested_catalog.nested_tvf_two(
+              ^
+==
+
+select * from nested_catalog.nested_nested_catal0g.nested_tvf_two(
+    table EnumTable)
+--
+ERROR: Table-valued function not found: nested_catalog.nested_nested_catal0g.nested_tvf_two [at 1:15]
+select * from nested_catalog.nested_nested_catal0g.nested_tvf_two(
+              ^

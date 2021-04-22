@@ -32,6 +32,7 @@ import com.google.zetasql.ImmutableDescriptorPool.ImmutableZetaSQLDescriptor;
 import com.google.zetasql.ImmutableDescriptorPool.ImmutableZetaSQLEnumDescriptor;
 import com.google.zetasql.ImmutableDescriptorPool.ImmutableZetaSQLFieldDescriptor;
 import com.google.zetasql.ImmutableDescriptorPool.ImmutableZetaSQLFileDescriptor;
+import com.google.zetasql.ImmutableDescriptorPool.ImmutableZetaSQLOneofDescriptor;
 import com.google.zetasqltest.TestSchemaProto.AnotherTestEnum;
 import com.google.zetasqltest.TestSchemaProto.KitchenSinkPB;
 import com.google.zetasqltest.TestSchemaProto.MessageWithMapField;
@@ -165,6 +166,29 @@ public class ImmutableDescriptorPoolTest {
             ImmutableZetaSQLFieldDescriptor.create(pool, descriptor1))
         .addEqualityGroup(ImmutableZetaSQLFieldDescriptor.create(pool, descriptor2))
         .addEqualityGroup(ImmutableZetaSQLFieldDescriptor.create(pool2, descriptor1))
+        .testEquals();
+  }
+
+  @Test
+  public void testImmutableZetaSQLOneofDescriptorHashEquals() {
+    ImmutableDescriptorPool pool = ImmutableDescriptorPool.builder().build();
+    ImmutableDescriptorPool pool2 = ImmutableDescriptorPool.builder().build();
+
+    // int32_one_of and string_one_of are both members of one_of_field
+    OneofDescriptor descriptor1 =
+        KitchenSinkPB.getDescriptor().findFieldByName("int32_one_of").getContainingOneof();
+    OneofDescriptor descriptor1a =
+        KitchenSinkPB.getDescriptor().findFieldByName("string_one_of").getContainingOneof();
+    // int64_one_of is a member of one_of_field2
+    OneofDescriptor descriptor2 =
+        KitchenSinkPB.getDescriptor().findFieldByName("int64_one_of").getContainingOneof();
+    new EqualsTester()
+        .addEqualityGroup(
+            ImmutableZetaSQLOneofDescriptor.create(pool, descriptor1),
+            ImmutableZetaSQLOneofDescriptor.create(pool, descriptor1),
+            ImmutableZetaSQLOneofDescriptor.create(pool, descriptor1a))
+        .addEqualityGroup(ImmutableZetaSQLOneofDescriptor.create(pool, descriptor2))
+        .addEqualityGroup(ImmutableZetaSQLOneofDescriptor.create(pool2, descriptor1))
         .testEquals();
   }
 }

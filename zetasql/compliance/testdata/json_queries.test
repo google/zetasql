@@ -37,14 +37,6 @@ SELECT JSON 'null' IS NULL, JSON_EXTRACT(JSON 'null', "$") IS NULL,
 --
 ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{false, false, true}]
 ==
-[name=json_cast]
-SELECT CAST(NULL AS JSON), CAST('1' AS JSON), CAST('"foo"' AS JSON),
-       CAST('null' AS JSON), CAST('{"a": [1, 2]}' AS JSON)
---
-ARRAY<STRUCT<JSON, JSON, JSON, JSON, JSON>>[
-  {NULL, 1, "foo", null, {"a":[1,2]}}
-]
-==
 [name=json_extract]
 SELECT JSON_EXTRACT(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$[a][1]['b.c']")
 --
@@ -65,6 +57,11 @@ ARRAY<STRUCT<JSON>>[{[10,20]}]
 SELECT JSON_VALUE(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"[0]")
 --
 ARRAY<STRUCT<STRING>>[{"10"}]
+==
+[name=json_extract_scalar_json_value_one_argument]
+SELECT JSON_EXTRACT_SCALAR(JSON '"hello there"'), JSON_VALUE(JSON '"my friend"')
+--
+ARRAY<STRUCT<STRING, STRING>>[{"hello there", "my friend"}]
 ==
 [name=json_extract_array]
 SELECT JSON_EXTRACT_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$['a.b']")

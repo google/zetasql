@@ -326,11 +326,15 @@ TEST(JsonTest, StringJsonCompliance) {
   for (const std::vector<FunctionTestCall>& tests : all_tests) {
     for (const FunctionTestCall& test : tests) {
       if (test.params.params()[0].is_null() ||
-          test.params.params()[1].is_null()) {
+          (test.params.params().size() > 1 &&
+           test.params.params()[1].is_null())) {
         continue;
       }
+
       const std::string json = test.params.param(0).string_value();
-      const std::string json_path = test.params.param(1).string_value();
+      const std::string json_path = (test.params.params().size() > 1)
+                                        ? test.params.param(1).string_value()
+                                        : "$";
       SCOPED_TRACE(absl::Substitute("$0('$1', '$2')", test.function_name, json,
                                     json_path));
 
@@ -374,7 +378,8 @@ TEST(JsonTest, NativeJsonCompliance) {
   for (const std::vector<FunctionTestCall>& tests : all_tests) {
     for (const FunctionTestCall& test : tests) {
       if (test.params.params()[0].is_null() ||
-          test.params.params()[1].is_null()) {
+          (test.params.params().size() > 1 &&
+           test.params.params()[1].is_null())) {
         continue;
       }
       if (test.params.param(0).is_unparsed_json()) {
@@ -383,7 +388,9 @@ TEST(JsonTest, NativeJsonCompliance) {
         continue;
       }
       const JSONValueConstRef json = test.params.param(0).json_value();
-      const std::string json_path = test.params.param(1).string_value();
+      const std::string json_path = (test.params.params().size() > 1)
+                                        ? test.params.param(1).string_value()
+                                        : "$";
       SCOPED_TRACE(absl::Substitute("$0('$1', '$2')", test.function_name,
                                     json.ToString(), json_path));
 
@@ -543,6 +550,7 @@ TEST(JsonTest, ConvertJSONPathToSqlStandardMode) {
 
   std::vector<std::pair<std::string, std::string>> json_paths = {
       {"$", "$"},
+      {"$['']", "$.\"\""},
       {"$.a", "$.a"},
       {"$[a]", "$.a"},
       {"$['a']", "$.a"},
@@ -767,6 +775,38 @@ TEST(JsonPathExtractorTest, EscapedPathTokensStandard) {
   std::vector<ValidJSONPathIterator::Token> tokens;
   for (; !itr.End(); ++itr) {
     tokens.push_back(*itr);
+  }
+
+  EXPECT_THAT(tokens, ElementsAreArray(gold));
+}
+
+TEST(JsonPathExtractorTest, EmptyPathTokens) {
+  std::string esc_text("$.a[''].g[1]");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> iter,
+      ValidJSONPathIterator::Create(esc_text, /*sql_standard_mode=*/false));
+  const std::vector<ValidJSONPathIterator::Token> gold = {"", "a", "", "g",
+                                                          "1"};
+
+  std::vector<ValidJSONPathIterator::Token> tokens;
+  for (; !iter->End(); ++(*iter)) {
+    tokens.push_back(**iter);
+  }
+
+  EXPECT_THAT(tokens, ElementsAreArray(gold));
+}
+
+TEST(JsonPathExtractorTest, EmptyPathTokensStandard) {
+  std::string esc_text("$.a.\"\".g[1]");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValidJSONPathIterator> iter,
+      ValidJSONPathIterator::Create(esc_text, /*sql_standard_mode=*/true));
+  const std::vector<ValidJSONPathIterator::Token> gold = {"", "a", "", "g",
+                                                          "1"};
+
+  std::vector<ValidJSONPathIterator::Token> tokens;
+  for (; !iter->End(); ++(*iter)) {
+    tokens.push_back(**iter);
   }
 
   EXPECT_THAT(tokens, ElementsAreArray(gold));

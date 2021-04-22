@@ -45,6 +45,7 @@
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/unparser.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -226,6 +227,14 @@ absl::Status Resolver::ResolveStatement(
         ZETASQL_RETURN_IF_ERROR(ResolveCreateMaterializedViewStatement(
             statement->GetAsOrDie<ASTCreateMaterializedViewStatement>(),
             &stmt));
+      }
+      break;
+
+    case AST_CREATE_SNAPSHOT_TABLE_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_CREATE_SNAPSHOT_TABLE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreateSnapshotTableStatement(
+            statement->GetAsOrDie<ASTCreateSnapshotTableStatement>(), &stmt));
       }
       break;
 
@@ -439,6 +448,20 @@ absl::Status Resolver::ResolveStatement(
           RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveDropMaterializedViewStatement(
             statement->GetAsOrDie<ASTDropMaterializedViewStatement>(), &stmt));
+      }
+      break;
+
+    case AST_DROP_SNAPSHOT_TABLE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_DROP_SNAPSHOT_TABLE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropSnapshotTableStatement(
+            statement->GetAsOrDie<ASTDropSnapshotTableStatement>(), &stmt));
+      }
+      break;
+
+    case AST_DROP_SEARCH_INDEX_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_DROP_SEARCH_INDEX_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropSearchIndexStatement(
+            statement->GetAsOrDie<ASTDropSearchIndexStatement>(), &stmt));
       }
       break;
 
@@ -703,7 +726,7 @@ absl::Status Resolver::ResolveCreateStatementLikeTableName(
 }
 
 absl::Status Resolver::ResolveCreateStatementOptions(
-    const ASTCreateStatement* ast_statement, const std::string& statement_type,
+    const ASTCreateStatement* ast_statement, absl::string_view statement_type,
     ResolvedCreateStatement::CreateScope* create_scope,
     ResolvedCreateStatement::CreateMode* create_mode) const {
   *create_scope = ResolvedCreateStatement::CREATE_DEFAULT_SCOPE;
@@ -1093,6 +1116,10 @@ absl::Status Resolver::ResolveColumnSchema(
     std::unique_ptr<ResolvedGeneratedColumnInfo>* generated_column_info,
     std::unique_ptr<const ResolvedExpr>* default_expression) {
   const ASTColumnAttributeList* attributes = schema->attributes();
+  if (schema->collate() != nullptr) {
+      return MakeSqlErrorAt(schema->collate())
+          << "COLLATE is unsupported";
+  }
   if (annotations == nullptr) {
     if (attributes != nullptr) {
       return MakeSqlErrorAt(attributes)
@@ -1721,6 +1748,10 @@ absl::Status Resolver::ResolveCreateSchemaStatement(
     std::unique_ptr<ResolvedStatement>* output) {
   ResolvedCreateStatement::CreateScope create_scope;
   ResolvedCreateStatement::CreateMode create_mode;
+  if (ast_statement->collate() != nullptr) {
+      return MakeSqlErrorAt(ast_statement->collate())
+          << "COLLATE is unsupported";
+  }
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, "CREATE SCHEMA",
                                                 &create_scope, &create_mode));
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
@@ -2150,7 +2181,7 @@ absl::Status Resolver::ResolveWithPartitionColumns(
 
 absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
     const ASTCreateTableStmtBase* ast_statement,
-    const std::string& statement_type, const ASTPathExpression* like_table_name,
+    absl::string_view statement_type, const ASTPathExpression* like_table_name,
     const ASTQuery* query, const ASTPartitionBy* partition_by,
     const ASTClusterBy* cluster_by,
     const ASTWithPartitionColumnsClause* with_partition_columns_clause,
@@ -2167,6 +2198,7 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
   bool has_primary_key = false;
   bool has_foreign_key = false;
   bool has_check_constraint = false;
+  const ASTCollate* collate = ast_statement->collate();
 
   // Sanity check for duplicate constraint names. Constraint names are required
   // to be unique within the containing schema. But ZetaSQL cannot enforce
@@ -2175,6 +2207,9 @@ absl::Status Resolver::ResolveCreateTableStmtBaseProperties(
   // checks for uniqueness at schema level.
   std::set<std::string, zetasql_base::StringCaseLess> constraint_names;
 
+  if (collate != nullptr) {
+    return MakeSqlErrorAt(collate) << "COLLATE is unsupported";
+  }
   if (table_element_list != nullptr) {
     if (!resolved_properties_control_args.table_element_list_enabled) {
       return MakeSqlErrorAt(table_element_list)
@@ -2671,7 +2706,7 @@ absl::Status Resolver::ResolveAndAdaptQueryAndOutputColumns(
 
 absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
     const ASTCreateViewStatementBase* ast_statement,
-    const std::string& statement_type, absl::string_view object_type,
+    absl::string_view statement_type, absl::string_view object_type,
     std::vector<std::string>* table_name,
     ResolvedCreateStatement::CreateScope* create_scope,
     ResolvedCreateStatement::CreateMode* create_mode,
@@ -2682,8 +2717,7 @@ absl::Status Resolver::ResolveCreateViewStatementBaseProperties(
     std::vector<std::unique_ptr<const ResolvedColumnDefinition>>*
         column_definition_list,
     std::unique_ptr<const ResolvedScan>* query_scan, std::string* view_sql,
-    bool* is_value_table,
-    bool* recursive) {
+    bool* is_value_table, bool* recursive) {
   *recursive = ast_statement->recursive();
   bool actually_recursive = false;
   if (ast_statement->recursive()) {
@@ -2894,6 +2928,49 @@ absl::Status Resolver::ResolveCreateExternalTableStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveCreateSnapshotTableStatement(
+    const ASTCreateSnapshotTableStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  constexpr absl::string_view statement_type = "CREATE SNAPSHOT TABLE";
+  std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+  std::unique_ptr<const ResolvedScan> clone_from;
+
+  if (!language().LanguageFeatureEnabled(FEATURE_CREATE_SNAPSHOT_TABLE)) {
+    return MakeSqlErrorAt(ast_statement)
+           << "CREATE SNAPSHOT TABLE is not supported";
+  }
+
+  // Snapshots are immutable, so we don't support replacing an existing
+  // snapshot.
+  ZETASQL_RET_CHECK(!ast_statement->is_or_replace());
+
+  ZETASQL_RET_CHECK(ast_statement->name() != nullptr);
+  const std::vector<IdString> table_name_id =
+      ast_statement->name()->ToIdStringVector();
+  std::vector<std::string> table_name =
+      ast_statement->name()->ToIdentifierVector();
+
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_type,
+                                                &create_scope, &create_mode));
+
+  // CLONE clause is required for snapshots.
+  ZETASQL_RET_CHECK(ast_statement->clone_data_source() != nullptr);
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveCloneDataSource(ast_statement->clone_data_source(), &clone_from));
+  ZETASQL_RET_CHECK(!clone_from->column_list().empty());
+
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveOptionsList(ast_statement->options_list(), &resolved_options));
+
+  *output = MakeResolvedCreateSnapshotTableStmt(
+      table_name, create_scope, create_mode, std::move(clone_from),
+      std::move(resolved_options));
+
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveCreateConstantStatement(
     const ASTCreateConstantStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -3017,7 +3094,8 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   const bool has_explicit_return_type = ast_statement->return_type() != nullptr;
   bool has_return_type = false;
   if (has_explicit_return_type) {
-    ZETASQL_RETURN_IF_ERROR(ResolveType(ast_statement->return_type(), &return_type));
+    ZETASQL_RETURN_IF_ERROR(ResolveType(ast_statement->return_type(), &return_type,
+                                "function signatures"));
     has_return_type = true;
   }
 
@@ -3443,10 +3521,10 @@ absl::Status Resolver::ResolveTVFSchema(
       ast_tvf_schema->columns()[0]->name() == nullptr) {
     ZETASQL_RET_CHECK(ast_tvf_schema->columns()[0]->type() != nullptr);
     const Type* resolved_type = nullptr;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveType(ast_tvf_schema->columns()[0]->type(), &resolved_type));
+    ZETASQL_RETURN_IF_ERROR(ResolveType(ast_tvf_schema->columns()[0]->type(),
+                                &resolved_type, "table function signatures"));
     TVFRelation::Column column("", resolved_type);
-    if (analyzer_options_.record_parse_locations()) {
+    if (analyzer_options_.parse_location_options().record_parse_locations) {
       RecordTVFRelationColumnParseLocationsIfPresent(
           *ast_tvf_schema->columns()[0], &column);
     }
@@ -3457,14 +3535,14 @@ absl::Status Resolver::ResolveTVFSchema(
   for (const ASTTVFSchemaColumn* ast_tvf_schema_column :
        ast_tvf_schema->columns()) {
     const Type* resolved_type = nullptr;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveType(ast_tvf_schema_column->type(), &resolved_type));
+    ZETASQL_RETURN_IF_ERROR(ResolveType(ast_tvf_schema_column->type(), &resolved_type,
+                                "table function signatures"));
     std::string name;
     if (ast_tvf_schema_column->name() != nullptr) {
       name = ast_tvf_schema_column->name()->GetAsString();
     }
     TVFRelation::Column column(name, resolved_type);
-    if (analyzer_options_.record_parse_locations()) {
+    if (analyzer_options_.parse_location_options().record_parse_locations) {
       RecordTVFRelationColumnParseLocationsIfPresent(*ast_tvf_schema_column,
                                                      &column);
     }
@@ -3801,6 +3879,7 @@ absl::Status Resolver::ResolveFunctionParameters(
     const ASTFunctionParameters* ast_function_parameters,
     ResolveFunctionDeclarationType function_type,
     FunctionArgumentInfo* arg_info) {
+  bool default_arg_exists = false;
   for (const ASTFunctionParameter* function_param :
        ast_function_parameters->parameter_entries()) {
     ZETASQL_RET_CHECK(function_param != nullptr);
@@ -3850,7 +3929,7 @@ absl::Status Resolver::ResolveFunctionParameters(
                 "functions created with CREATE AGGREGATE FUNCTION";
     }
     FunctionArgumentTypeOptions argument_type_options;
-    if (analyzer_options_.record_parse_locations()) {
+    if (analyzer_options_.parse_location_options().record_parse_locations) {
       RecordArgumentParseLocationsIfPresent(*function_param,
                                             &argument_type_options);
     }
@@ -3881,6 +3960,15 @@ absl::Status Resolver::ResolveFunctionParameters(
                << "TABLE parameters are not allowed in CREATE FUNCTION "
                   "statement";
       }
+      if (function_param->default_value() != nullptr) {
+        return MakeSqlErrorAt(function_param)
+            << "TABLE parameters are not allowed to have default values";
+      }
+      if (default_arg_exists) {
+        return MakeSqlErrorAt(function_param)
+               << "Function parameter with a default value cannot be followed "
+                  "by non-default parameters";
+      }
       if (is_any_table_arg) {
         ZETASQL_RETURN_IF_ERROR(arg_info->AddRelationArg(
             name, FunctionArgumentType(ARG_TYPE_RELATION, argument_type_options,
@@ -3896,7 +3984,7 @@ absl::Status Resolver::ResolveFunctionParameters(
       argument_type_options = FunctionArgumentTypeOptions(
           resolved_tvf_relation,
           /*extra_relation_input_columns_allowed=*/true);
-      if (analyzer_options_.record_parse_locations()) {
+      if (analyzer_options_.parse_location_options().record_parse_locations) {
         RecordArgumentParseLocationsIfPresent(*function_param,
                                               &argument_type_options);
       }
@@ -3904,16 +3992,79 @@ absl::Status Resolver::ResolveFunctionParameters(
           name,
           FunctionArgumentType(ARG_TYPE_RELATION, argument_type_options)));
     } else {
+      absl::optional<Value> default_value;
+      if (function_param->default_value() != nullptr) {
+        std::unique_ptr<const ResolvedExpr> resolved_expr;
+        ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(
+            function_param->default_value(), empty_name_scope_.get(),
+            "function parameter", &resolved_expr));
+        if (resolved_expr == nullptr ||
+            resolved_expr->node_kind() != RESOLVED_LITERAL) {
+          return MakeSqlErrorAt(function_param->default_value())
+                 << "Function parameter default value must be a literal";
+        }
+        const ResolvedLiteral* resolved_literal =
+            resolved_expr->GetAs<ResolvedLiteral>();
+        ZETASQL_RET_CHECK(resolved_literal != nullptr);
+
+        default_value = resolved_literal->value();
+        default_arg_exists = true;
+      } else if (default_arg_exists) {
+        return MakeSqlErrorAt(function_param)
+               << "Function parameter with a default value cannot be followed "
+                  "by non-default parameters";
+      }
+
       if (is_any_type_arg) {
+        if (default_value.has_value()) {
+          argument_type_options.set_default(std::move(*default_value));
+          argument_type_options.set_cardinality(FunctionArgumentType::OPTIONAL);
+        }
         ZETASQL_RETURN_IF_ERROR(arg_info->AddScalarArg(
             name, arg_kind,
             FunctionArgumentType(ARG_TYPE_ARBITRARY, argument_type_options,
                                  /*num_occurrences=*/1)));
         continue;
       }
+
       ZETASQL_RET_CHECK(function_param->type() != nullptr);
       const Type* resolved_type = nullptr;
-      ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type));
+      ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type,
+                                  "function arguments"));
+      if (default_value.has_value()) {
+        if (!resolved_type->Equals(default_value->type())) {
+          if (function_param->default_value()->node_kind() ==
+              AST_NULL_LITERAL) {
+            // Special handling for literal NULL (untyped NULL), as
+            // <default_value> is having its type as INT64 now.
+            default_value = Value::Null(resolved_type);
+          } else {
+            InputArgumentType arg(*default_value,
+                                  /*is_default_argument_value=*/true);
+            SignatureMatchResult match_result;
+            if (!coercer_.AssignableTo(arg, resolved_type, /*is_explicit=*/true,
+                                       &match_result)) {
+              return MakeSqlErrorAt(function_param->default_value())
+                     << "Default argument value does not match the argument "
+                        "type. Got: "
+                     << default_value->type()->ShortTypeName(
+                            analyzer_options_.language().product_mode())
+                     << ", expected: "
+                     << resolved_type->ShortTypeName(
+                            analyzer_options_.language().product_mode());
+            }
+            ZETASQL_ASSIGN_OR_RETURN(
+                default_value,
+                CastValue(*default_value, analyzer_options_.default_time_zone(),
+                          analyzer_options_.language(), resolved_type),
+                _.Attach(GetErrorLocationPoint(function_param->default_value(),
+                                               /*include_leftmost_child=*/true)
+                             .ToInternalErrorLocation()));
+          }
+        }
+        argument_type_options.set_default(std::move(*default_value));
+        argument_type_options.set_cardinality(FunctionArgumentType::OPTIONAL);
+      }
       ZETASQL_RETURN_IF_ERROR(arg_info->AddScalarArg(
           name, arg_kind,
           FunctionArgumentType(resolved_type, argument_type_options)));
@@ -4711,7 +4862,8 @@ absl::Status Resolver::ResolveDropFunctionStatement(
                 /*extra_relation_input_columns_allowed=*/false));
       } else {
         const Type* resolved_type;
-        ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type));
+        ZETASQL_RETURN_IF_ERROR(ResolveType(function_param->type(), &resolved_type,
+                                    "function arguments"));
         // Argument names are ignored for DROP FUNCTION statements, and are
         // always provided as an empty string.  Argument kinds are also ignored.
         auto argument_def = MakeResolvedArgumentDef(
@@ -4789,6 +4941,35 @@ absl::Status Resolver::ResolveDropMaterializedViewStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveDropSnapshotTableStatement(
+    const ASTDropSnapshotTableStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  *output = MakeResolvedDropSnapshotTableStmt(
+      ast_statement->is_if_exists(),
+      ast_statement->name()->ToIdentifierVector());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveDropSearchIndexStatement(
+    const ASTDropSearchIndexStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  // The parser would fail if the index name was missing.
+  ZETASQL_RET_CHECK(ast_statement->name() != nullptr);
+
+  if (ast_statement->name()->names().size() != 1) {
+    return MakeSqlErrorAt(ast_statement->name())
+           << "The DROP SEARCH INDEX statement requires an index name, not a "
+              "path";
+  }
+  std::vector<std::string> table_name;
+  if (ast_statement->table_name() != nullptr) {
+    table_name = ast_statement->table_name()->ToIdentifierVector();
+  }
+  *output = MakeResolvedDropSearchIndexStmt(
+      ast_statement->is_if_exists(),
+      ast_statement->name()->first_name()->GetAsString(), table_name);
+  return absl::OkStatus();
+}
 absl::Status Resolver::ResolveAlterViewStatement(
     const ASTAlterViewStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -4923,7 +5104,7 @@ absl::Status Resolver::ResolveImportStatement(
   *output =
       MakeResolvedImportStmt(kind, name_path, file_path, alias_path,
                              into_alias_path, std::move(resolved_options));
-  if (analyzer_options_.record_parse_locations()) {
+  if (analyzer_options_.parse_location_options().record_parse_locations) {
     (*output)->SetParseLocationRange(import_path_location_range);
   }
   return absl::OkStatus();
@@ -5135,13 +5316,24 @@ absl::Status Resolver::ResolveCreateEntityStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(), &options));
   std::string entity_body_json;
   if (ast_statement->json_body() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(ast_statement->json_body()->image(),
-                                       &entity_body_json));
+    // TODO: Use ResolveExpr() once JSON goes GA.
+    ZETASQL_ASSIGN_OR_RETURN(auto json_literal,
+                     ResolveJsonLiteral(ast_statement->json_body()));
+    entity_body_json = json_literal->value().json_string();
   }
+  std::string entity_body_text;
+  if (ast_statement->text_body() != nullptr) {
+    entity_body_text = ast_statement->text_body()->string_value();
+  }
+  if (!entity_body_text.empty() && !entity_body_json.empty()) {
+    return MakeSqlErrorAt(ast_statement)
+           << "CREATE ENTITY should have at most one JSON or TEXT body literal";
+  }
+
   auto resolved_stmt = MakeResolvedCreateEntityStmt(
       ast_statement->name()->ToIdentifierVector(), create_scope, create_mode,
       ast_statement->type()->GetAsString(), std::move(entity_body_json),
-      std::move(options));
+      std::move(entity_body_text), std::move(options));
   *output = std::move(resolved_stmt);
   return absl::OkStatus();
 }

@@ -1,0 +1,106 @@
+[default language_features=V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+
+select string_ci, string_cs from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-CollatedTable.string_ci#1{COLLATION:"unicode:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_cs#2{COLLATION:"unicode"} AS string_cs [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=CollatedTable.[string_ci#1, string_cs#2]
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2], table=CollatedTable, column_index_list=[0, 1])
+==
+
+select struct_with_string_ci, struct_with_string_ci.b from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
+| +-$query.b#4{COLLATION:"unicode:ci"} AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}>, $query.b#4{COLLATION:"unicode:ci"}]
+    +-expr_list=
+    | +-b#4 :=
+    |   +-GetStructField
+    |     +-type=STRING
+    |     +-type_annotation_map={COLLATION:"unicode:ci"}
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<{},{COLLATION:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}>)
+    |     +-field_idx=1
+    +-input_scan=
+      +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}>], table=CollatedTable, column_index_list=[2])
+==
+
+# In Collation Support phase 1, collation doesn't propagate through functions.
+select concat(string_ci, string_ci)
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    |     +-ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+    |     +-ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+    +-input_scan=
+      +-TableScan(column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
+==
+
+select string_ci
+from CollatedTable
+order by string_ci
+--
+QueryStmt
++-output_column_list=
+| +-CollatedTable.string_ci#1{COLLATION:"unicode:ci"} AS string_ci [STRING]
++-query=
+  +-OrderByScan
+    +-column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-TableScan(column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+==
+
+select string_ci
+from CollatedTable
+group by string_ci
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string_ci#4{COLLATION:"unicode:ci"} AS string_ci [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string_ci#4{COLLATION:"unicode:ci"}]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.string_ci#4{COLLATION:"unicode:ci"}]
+        +-input_scan=
+        | +-TableScan(column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
+        +-group_by_list=
+          +-string_ci#4 := ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+==
+
+ALTER TABLE entity SET COLLATE 'unicode:ci';
+--
+ERROR: ALTER TABLE does not support SET COLLATE action. [at 1:20]
+ALTER TABLE entity SET COLLATE 'unicode:ci';
+                   ^
+==
+
+ALTER SCHEMA entity SET COLLATE 'unicode:ci';
+--
+ERROR: ALTER SCHEMA does not support SET COLLATE action. [at 1:21]
+ALTER SCHEMA entity SET COLLATE 'unicode:ci';
+                    ^
+==

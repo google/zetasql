@@ -25,6 +25,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/language_options.h"
@@ -295,6 +296,18 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CREATE_SNAPSHOT_TABLE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_SNAPSHOT_TABLE_STMT)) {
+        const ASTCreateSnapshotTableStatement* stmt =
+            statement->GetAs<ASTCreateSnapshotTableStatement>();
+        const ASTCloneDataSource* clone_data_source = stmt->clone_data_source();
+        ZETASQL_RETURN_IF_ERROR(ResolveTablePath(
+            clone_data_source->path_expr()->ToIdentifierVector(),
+            clone_data_source->for_system_time()));
+        return absl::OkStatus();
+      }
+      break;
     case AST_CREATE_TABLE_STATEMENT: {
       const ASTCreateTableStatement* stmt =
           statement->GetAs<ASTCreateTableStatement>();
@@ -561,6 +574,16 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_DROP_SNAPSHOT_TABLE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_DROP_SNAPSHOT_TABLE_STMT)) {
+        // Note that for a DROP SNAPSHOT TABLE statement, the table name is not
+        // inserted into table_names_. Engines that need to know about a table
+        // referenced by DROP TABLE should handle that themselves.
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_DROP_FUNCTION_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DROP_FUNCTION_STMT)) {
@@ -583,6 +606,16 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         // statement, the table name is not inserted into table_names_. Engines
         // that need to know about the target table should handle that
         // themselves.
+        return absl::OkStatus();
+      }
+      break;
+
+    case AST_DROP_SEARCH_INDEX_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_DROP_SEARCH_INDEX_STMT)) {
+        // For a "DROP SEARCH INDEX <name> [ON <table>]" statement, the table
+        // name is not inserted into table_names_. Engines that need to know
+        // about the target table should handle that themselves.
         return absl::OkStatus();
       }
       break;
@@ -827,7 +860,7 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
   // This statement is not currently supported so we return an error here.
   return MakeSqlErrorAt(statement)
          << "Statement not supported: " << statement->GetNodeKindString();
-}
+}  // NOLINT(readability/fn_size)
 
 absl::Status TableNameResolver::FindInQueryStatement(
     const ASTQueryStatement* statement) {
@@ -1223,6 +1256,12 @@ absl::Status TableNameResolver::FindInTVF(
       }
     }
   }
+
+  if (tvf->pivot_clause() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        FindInExpressionsUnder(tvf->pivot_clause(), external_visible_aliases));
+  }
+
   if (tvf->alias() != nullptr) {
     local_visible_aliases->insert(
         absl::AsciiStrToLower(tvf->alias()->GetAsString()));
@@ -1237,6 +1276,11 @@ absl::Status TableNameResolver::FindInTableSubquery(
 
   ZETASQL_RETURN_IF_ERROR(FindInQuery(table_subquery->subquery(),
                               external_visible_aliases));
+
+  if (table_subquery->pivot_clause() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(table_subquery->pivot_clause(),
+                                           external_visible_aliases));
+  }
 
   if (table_subquery->alias() != nullptr) {
     zetasql_base::InsertIfNotPresent(
@@ -1326,6 +1370,11 @@ absl::Status TableNameResolver::FindInTablePathExpression(
              ? (!zetasql_base::ContainsKey(local_table_aliases_, first_identifier))
              : (!zetasql_base::ContainsKey(*visible_aliases, first_identifier)))) {
       ZETASQL_RETURN_IF_ERROR(ResolveTablePath(path, table_ref->for_system_time()));
+    }
+
+    if (table_ref->pivot_clause() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          FindInExpressionsUnder(table_ref->pivot_clause(), *visible_aliases));
     }
 
     if (alias.empty()) {

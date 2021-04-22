@@ -25,6 +25,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -43,6 +44,7 @@
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/extension_set.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/reflection.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/cast.h"
@@ -79,6 +81,7 @@
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/proto_util.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
+#include "zetasql/reference_impl/type_parameter_constraints.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/memory/memory.h"
@@ -515,6 +518,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kToJson, "to_json", "ToJson");
     RegisterFunction(FunctionKind::kToJsonString, "to_json_string",
                      "ToJsonString");
+    RegisterFunction(FunctionKind::kParseJson, "parse_json",
+                     "ParseJson");
     RegisterFunction(FunctionKind::kGreatest, "greatest", "Greatest");
   }();
   [this]() {
@@ -711,6 +716,12 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kIntervalCtor, "$interval", "$interval");
     RegisterFunction(FunctionKind::kMakeInterval, "make_interval",
                      "make_interval");
+    RegisterFunction(FunctionKind::kJustifyHours, "justify_hours",
+                     "justify_hours");
+    RegisterFunction(FunctionKind::kJustifyDays, "justify_days",
+                     "justify_days");
+    RegisterFunction(FunctionKind::kJustifyInterval, "justify_interval",
+                     "justify_interval");
     RegisterFunction(FunctionKind::kFromProto, "from_proto", "From_proto");
     RegisterFunction(FunctionKind::kToProto, "to_proto", "To_proto");
     RegisterFunction(FunctionKind::kEnumValueDescriptorProto,
@@ -1421,11 +1432,9 @@ static absl::Status ValidateSupportedTypes(
 zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 BuiltinScalarFunction::CreateCast(
     const LanguageOptions& language_options, const Type* output_type,
-    std::unique_ptr<ValueExpr> argument,
-    std::unique_ptr<ValueExpr> format,
-    std::unique_ptr<ValueExpr> time_zone,
-    bool return_null_on_error,
-    ResolvedFunctionCallBase::ErrorMode error_mode,
+    std::unique_ptr<ValueExpr> argument, std::unique_ptr<ValueExpr> format,
+    std::unique_ptr<ValueExpr> time_zone, const TypeParameters& type_params,
+    bool return_null_on_error, ResolvedFunctionCallBase::ErrorMode error_mode,
     std::unique_ptr<ExtendedCompositeCastEvaluator> extended_cast_evaluator) {
   ZETASQL_ASSIGN_OR_RETURN(auto null_on_error_exp,
                    ConstExpr::Create(Value::Bool(return_null_on_error)));
@@ -1445,7 +1454,8 @@ BuiltinScalarFunction::CreateCast(
 
   return ScalarFunctionCallExpr::Create(
       absl::make_unique<CastFunction>(output_type,
-                                      std::move(extended_cast_evaluator)),
+                                      std::move(extended_cast_evaluator),
+                                      std::move(type_params)),
       std::move(args), error_mode);
 }
 
@@ -1663,6 +1673,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kJsonValueArray:
     case FunctionKind::kToJson:
     case FunctionKind::kToJsonString:
+    case FunctionKind::kParseJson:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kArrayConcat:
       return new ArrayConcatFunction(kind, output_type);
@@ -1755,6 +1766,9 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new ParseTimestampFunction(kind, output_type);
     case FunctionKind::kIntervalCtor:
     case FunctionKind::kMakeInterval:
+    case FunctionKind::kJustifyHours:
+    case FunctionKind::kJustifyDays:
+    case FunctionKind::kJustifyInterval:
       return new IntervalFunction(kind, output_type);
     case FunctionKind::kNetFormatIP:
     case FunctionKind::kNetParseIP:
@@ -3031,6 +3045,13 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
   if (HasFloatingPoint(v.type()) &&
       !HasFloatingPoint(output_type())) {
     context->SetNonDeterministicOutput();
+  }
+  if (!type_params_.IsEmpty() && status_or.ok()) {
+    Value casted_value = status_or.value();
+    ZETASQL_RETURN_IF_ERROR(ApplyConstraints(
+        type_params_, context->GetLanguageOptions().product_mode(),
+        casted_value));
+    return casted_value;
   }
   return status_or;
 }
@@ -5419,6 +5440,139 @@ zetasql_base::StatusOr<Value> MakeProtoFunction::Eval(
   return Value::Proto(output_type()->AsProto(), proto_cord);
 }
 
+struct FilterFieldsFunction::FieldPathTrieNode {
+  // nullptr for the root node.
+  const google::protobuf::FieldDescriptor* const field_descriptor;
+  // Indicates whether this node is include or exclude.
+  bool include;
+  // Child nodes which are keyed by proto field tag numbers.
+  absl::flat_hash_map<int, std::unique_ptr<FieldPathTrieNode>> children;
+};
+
+FilterFieldsFunction::FilterFieldsFunction(const Type* output_type)
+    : SimpleBuiltinScalarFunction(FunctionKind::kFilterFields, output_type) {}
+
+FilterFieldsFunction::~FilterFieldsFunction() {}
+
+absl::Status FilterFieldsFunction::RecursivelyPrune(
+    const FieldPathTrieNode* node, google::protobuf::Message* message) const {
+  ZETASQL_RET_CHECK(node) << "FilterFieldsFunction is uninitialized!";
+  ZETASQL_RET_CHECK(!node->children.empty());
+  if (node->include) {
+    return HandleIncludedMessage(node->children, message);
+  } else {
+    return HandleExcludedMessage(node->children, message);
+  }
+  return absl::OkStatus();
+}
+
+absl::Status FilterFieldsFunction::PruneOnMessageField(
+    const google::protobuf::Reflection& reflection, const FieldPathTrieNode* child,
+    const google::protobuf::FieldDescriptor* field_descriptor,
+    google::protobuf::Message* message) const {
+  if (!field_descriptor->is_repeated()) {
+    ZETASQL_RETURN_IF_ERROR(RecursivelyPrune(
+        child, reflection.MutableMessage(message, field_descriptor)));
+  } else {
+    int field_size = reflection.FieldSize(*message, field_descriptor);
+    for (int i = 0; i < field_size; ++i) {
+      ZETASQL_RETURN_IF_ERROR(RecursivelyPrune(
+          child,
+          reflection.MutableRepeatedMessage(message, field_descriptor, i)));
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status FilterFieldsFunction::HandleIncludedMessage(
+    const TagToNodeMap& child_nodes, google::protobuf::Message* message) const {
+  const google::protobuf::Reflection& reflection = *message->GetReflection();
+  // In an inclusive node, fields in children is either:
+  // * fully exclusive, to be cleared
+  // * partially exclusive, to be pruned recursively
+  for (const auto& [tag, child_node] : child_nodes) {
+    const google::protobuf::FieldDescriptor* child_descriptor =
+        child_node->field_descriptor;
+    if (child_node->children.empty()) {
+      ZETASQL_RET_CHECK(!child_node->include);
+      reflection.ClearField(message, child_descriptor);
+      continue;
+    }
+    ZETASQL_RET_CHECK(child_descriptor->message_type())
+        << child_descriptor->DebugString();
+
+    // Prune recursively.
+    ZETASQL_RETURN_IF_ERROR(PruneOnMessageField(reflection, child_node.get(),
+                                        child_descriptor, message));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status FilterFieldsFunction::HandleExcludedMessage(
+    const TagToNodeMap& child_nodes, google::protobuf::Message* message) const {
+  const google::protobuf::Reflection& reflection = *message->GetReflection();
+  std::vector<const google::protobuf::FieldDescriptor*> fields;
+  reflection.ListFields(*message, &fields);
+  // In an exclusive node, clear all fields except for those who have a child
+  // node which we'll process accordingly.
+  for (const google::protobuf::FieldDescriptor* field_descriptor : fields) {
+    const auto child_it = child_nodes.find(field_descriptor->number());
+    if (child_it == child_nodes.end()) {
+      reflection.ClearField(message, field_descriptor);
+      continue;
+    }
+    if (child_it->second->children.empty()) {
+      ZETASQL_RET_CHECK(child_it->second->include);
+      continue;
+    }
+
+    // Prune recursively.
+    ZETASQL_RETURN_IF_ERROR(PruneOnMessageField(reflection, child_it->second.get(),
+                                        field_descriptor, message));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status FilterFieldsFunction::AddFieldPath(
+    bool include,
+    const std::vector<const google::protobuf::FieldDescriptor*>& field_path) {
+  if (root_node_ == nullptr) {
+    // Root node has the reverse inclusive/exclusive status with first inserted
+    // field path.
+    root_node_ = absl::WrapUnique<FieldPathTrieNode>(
+        new FieldPathTrieNode{nullptr, !include, {}});
+  }
+  FieldPathTrieNode* node = root_node_.get();
+  for (int i = 0; i < field_path.size(); ++i) {
+    const google::protobuf::FieldDescriptor* field_descriptor = field_path[i];
+    std::unique_ptr<FieldPathTrieNode>& child_node =
+        node->children[field_descriptor->number()];
+    if (child_node != nullptr) {
+      ZETASQL_RET_CHECK_NE(i, field_path.size() - 1);
+    } else {
+      ZETASQL_RET_CHECK_NE(node->include, include);
+      child_node = absl::WrapUnique<FieldPathTrieNode>(
+          new FieldPathTrieNode{field_descriptor, node->include, {}});
+    }
+    node = child_node.get();
+  }
+  // Override inclusion/exclusion status inherited from parent node.
+  node->include = include;
+  return absl::OkStatus();
+}
+
+zetasql_base::StatusOr<Value> FilterFieldsFunction::Eval(
+    absl::Span<const Value> args, EvaluationContext* context) const {
+  ZETASQL_RET_CHECK(args[0].type()->IsProto());
+  google::protobuf::DynamicMessageFactory factory;
+  std::unique_ptr<google::protobuf::Message> mutable_root_message =
+      absl::WrapUnique(args[0].ToMessage(&factory));
+  ZETASQL_RETURN_IF_ERROR(
+      RecursivelyPrune(root_node_.get(), mutable_root_message.get()));
+  return Value::Proto(args[0].type()->AsProto(),
+                      absl::Cord(mutable_root_message->SerializeAsString()));
+}
+
 // Sets the proto field denoted by <path> to <new_field_value>. The first proto
 // field in <path> is looked up with regards to <parent_proto>.
 static zetasql_base::StatusOr<Value> ReplaceProtoFields(
@@ -6633,6 +6787,18 @@ zetasql_base::StatusOr<Value> IntervalFunction::Eval(absl::Span<const Value> arg
                            args[0].int64_value(), args[1].int64_value(),
                            args[2].int64_value(), args[3].int64_value(),
                            args[4].int64_value(), args[5].int64_value()));
+      break;
+    }
+    case FunctionKind::kJustifyHours: {
+      ZETASQL_ASSIGN_OR_RETURN(interval, JustifyHours(args[0].interval_value()));
+      break;
+    }
+    case FunctionKind::kJustifyDays: {
+      ZETASQL_ASSIGN_OR_RETURN(interval, JustifyDays(args[0].interval_value()));
+      break;
+    }
+    case FunctionKind::kJustifyInterval: {
+      ZETASQL_ASSIGN_OR_RETURN(interval, JustifyInterval(args[0].interval_value()));
       break;
     }
     default:

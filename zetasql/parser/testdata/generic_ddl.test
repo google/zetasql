@@ -1,4 +1,4 @@
-[default supported_generic_entity_types=RESERVATION,SUPPORTED_ENTITY]
+[default supported_generic_entity_types=RESERVATION,EXPLORE,SUPPORTED_ENTITY]
 
 CREATE {{RESERVATION|reSERVAtion|SUPPORTED_ENTITY}} myProject.myReservation
 --
@@ -57,6 +57,44 @@ CreateEntityStatement(is_or_replace, is_if_not_exists) [0-112]
 CREATE OR REPLACE RESERVATION IF NOT EXISTS myProject.myReservation
 OPTIONS(a = b, c = d)
 AS JSON '{"key": "value"}'
+==
+
+# Generic CREATE with text literal body, instead of json
+CREATE EXPLORE myProject.myExplore
+OPTIONS(a=b, c=d)
+AS """
+explore: test_explore {
+
+}
+""";
+--
+CreateEntityStatement [0-90]
+  Identifier(EXPLORE) [7-14]
+  PathExpression [15-34]
+    Identifier(myProject) [15-24]
+    Identifier(myExplore) [25-34]
+  OptionsList [42-52]
+    OptionsEntry [43-46]
+      Identifier(a) [43-44]
+      PathExpression [45-46]
+        Identifier(b) [45-46]
+    OptionsEntry [48-51]
+      Identifier(c) [48-49]
+      PathExpression [50-51]
+        Identifier(d) [50-51]
+  StringLiteral("""
+explore: test_explore {
+
+}
+""") [56-90]
+--
+CREATE EXPLORE myProject.myExplore
+OPTIONS(a = b, c = d)
+AS """
+explore: test_explore {
+
+}
+"""
 ==
 
 # Generic CREATE doesn't support multi-parts entity type
@@ -150,6 +188,20 @@ AlterEntityStatement [0-95]
       JSONLiteral('{"key": "value"}') [72-95]
 --
 ALTER RESERVATION myProject.myReservation SET OPTIONS(a = b), SET AS JSON '{"key": "value"}'
+==
+
+ALTER EXPLORE myProject.myExplore SET AS "explore: test_explore { }";
+--
+AlterEntityStatement [0-68]
+  Identifier(EXPLORE) [6-13]
+  PathExpression [14-33]
+    Identifier(myProject) [14-23]
+    Identifier(myExplore) [24-33]
+  AlterActionList [34-68]
+    SetAsOperation [34-68]
+      StringLiteral("explore: test_explore { }") [41-68]
+--
+ALTER EXPLORE myProject.myExplore SET AS "explore: test_explore { }"
 ==
 
 # Incomplete generic ALTER statement

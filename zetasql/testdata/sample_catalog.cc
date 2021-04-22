@@ -2865,7 +2865,7 @@ void SampleCatalog::LoadTableValuedFunctions2() {
                                               FunctionArgumentType::OPTIONAL)},
                         context_id++)));
 
-  // Add one TVF for with three arguments: The first one is required model; The
+  // Add one TVF with three arguments: The first one is required model; The
   // second is optional table; The third is optional struct.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_model_evaluation_args"},
@@ -3636,6 +3636,313 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_one_relation_arg_output_schema_is_input_schema_deprecation"},
       forward_deprecation_signature));
+
+  // Add a TVF with three arguments: The first one is required model; The
+  // second is optional table; The third is named optional struct.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_model_optional_table_named_struct"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyModel(),
+           FunctionArgumentType(ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_STRUCT_ANY,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with two arguments: The first is named optional struct. The
+  // second is a named optional table;
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_struct_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(
+               ARG_STRUCT_ANY,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("barfoo")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with two arguments: The first is named optional struct. The
+  // second is a named optional table;
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_named_proto_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(
+               ARG_PROTO_ANY,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("barfoo")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required model; The
+  // second is optional scalar; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_model_optional_scalar_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyModel(),
+           FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first two are optional scalars; The
+  // third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_scalars_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required table; The
+  // second is optional scalar; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_table_optional_scalar_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyRelation(),
+           FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is optional table; The
+  // second is optional scalar; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_table_optional_scalar_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required scalar; The
+  // second is optional model; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_scalar_optional_model_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY),
+           FunctionArgumentType(ARG_TYPE_MODEL, FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required scalar; The
+  // second is optional model; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_scalar_optional_model_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(ARG_TYPE_MODEL, FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is optional scalar; The
+  // second is named optional table; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_scalar_named_tables"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("barfoo")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is optional scalar; The
+  // second is named optional model; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_scalar_named_model_named_table"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               ARG_TYPE_MODEL,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("barfoo")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with a required table, a named optional table, a mandatory
+  // named table and a required mandatory named table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_required_named_optional_required_tables"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_RELATION,
+                                FunctionArgumentType::REQUIRED),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("table2")
+                   .set_argument_name_is_mandatory(true)
+                   .set_cardinality(FunctionArgumentType::REQUIRED)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("table3")
+                   .set_cardinality(FunctionArgumentType::OPTIONAL)),
+           FunctionArgumentType(
+               ARG_TYPE_RELATION,
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("table4")
+                   .set_argument_name_is_mandatory(true)
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required model; The
+  // second is optional string; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_model_optional_string_optional_table"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_two_types,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        {FunctionArgumentType::AnyModel(),
+                         FunctionArgumentType(zetasql::types::StringType(),
+                                              FunctionArgumentType::OPTIONAL),
+                         FunctionArgumentType(ARG_TYPE_RELATION,
+                                              FunctionArgumentType::OPTIONAL)},
+                        context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required model; The
+  // second is optional table; The third is named optional string with default.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_model_optional_table_named_string_default"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::AnyModel(),
+           FunctionArgumentType(ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               zetasql::types::StringType(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_default(zetasql::values::String("default"))
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
+
+  // Add a TVF with three arguments: The first one is required model; The
+  // second is a string with default; The third is named optional table.
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_optional_table_default_mandatory_string"},
+      FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType(ARG_TYPE_RELATION,
+                                FunctionArgumentType::OPTIONAL),
+           FunctionArgumentType(
+               zetasql::types::StringType(),
+               FunctionArgumentTypeOptions()
+                   .set_argument_name("foobar")
+                   .set_argument_name_is_mandatory(true)
+                   .set_default(zetasql::values::String("default"))
+                   .set_cardinality(FunctionArgumentType::OPTIONAL))},
+          context_id++),
+      output_schema_two_types));
 }
 
 void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {

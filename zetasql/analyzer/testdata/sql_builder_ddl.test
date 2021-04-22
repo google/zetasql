@@ -1,0 +1,710 @@
+# Use (broken link) for pretty-printing the generated sql.
+[default show_unparsed]
+[default no_show_resolved_ast]
+
+CREATE TABLE t1 (a int32);
+--
+[UNPARSED_SQL]
+CREATE TABLE t1
+(
+  a INT32
+);
+==
+
+CREATE TABLE t1 (a int32, b int64 HIDDEN);
+--
+[UNPARSED_SQL]
+CREATE TABLE t1
+(
+  a INT32,
+  b INT64 HIDDEN
+);
+==
+
+[language_features=UNENFORCED_PRIMARY_KEYS]
+CREATE TABLE t1 (a int32, b int64 PRIMARY KEY{{| ENFORCED| NOT ENFORCED}} HIDDEN);
+--
+ALTERNATION GROUPS:
+    <empty>
+     ENFORCED
+--
+[UNPARSED_SQL]
+CREATE TABLE t1
+(
+  a INT32,
+  b INT64 HIDDEN,
+  PRIMARY KEY(b)
+);
+--
+ALTERNATION GROUP:  NOT ENFORCED
+--
+[UNPARSED_SQL]
+CREATE TABLE t1
+(
+  a INT32,
+  b INT64 HIDDEN,
+  PRIMARY KEY(b) NOT ENFORCED
+);
+==
+
+CREATE TABLE t1 (a int32 PRIMARY KEY, b int64 HIDDEN);
+--
+[UNPARSED_SQL]
+CREATE TABLE t1
+(
+  a INT32,
+  b INT64 HIDDEN,
+  PRIMARY KEY(a)
+);
+==
+
+# Generated Columns: Simple
+[language_features=V_1_2_GENERATED_COLUMNS]
+[no_enable_literal_replacement]
+create table t (a int32 AS (CAST(1 as INT32)));
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT32 AS (CAST(1 AS INT32))
+);
+==
+
+# Generated Columns: Without expression type
+[language_features=V_1_2_GENERATED_COLUMNS]
+[no_enable_literal_replacement]
+create table t (a AS (CAST(1 as INT32)));
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT32 AS (CAST(1 AS INT32))
+);
+==
+
+# Generated Columns: With Stored
+[language_features=V_1_2_GENERATED_COLUMNS]
+[no_enable_literal_replacement]
+create table t (a AS (CAST(1 as INT32)) STORED);
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT32 AS (CAST(1 AS INT32)) STORED
+);
+==
+
+# Generated Columns: More complex test
+[language_features=V_1_2_GENERATED_COLUMNS]
+[no_enable_literal_replacement]
+create table t (
+  a INT32,
+  b INT32,
+  c as (COALESCE(a+b, 0)),
+  d as (CAST(RAND() AS INT32)) HIDDEN,
+  e as (CAST(1 as INT32)) STORED HIDDEN);
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT32,
+  b INT32,
+  c INT64 AS (COALESCE(CAST(a AS INT64) + CAST(b AS INT64), 0)),
+  d INT32 AS (CAST(RAND() AS INT32)) HIDDEN,
+  e INT32 AS (CAST(1 AS INT32)) STORED HIDDEN
+);
+==
+
+[language_features=FOREIGN_KEYS,CREATE_TABLE_NOT_NULL]
+create table t (
+  a int64
+    hidden
+    constraint c
+      references KeyValue (Key)
+      match full
+      not enforced
+    not null,
+  b string references KeyValue (Value),
+  c string,
+  foreign key (a, b)
+    references KeyValue (Key, Value)
+    match not distinct
+    on update cascade
+    on delete set null,
+  constraint k
+    foreign key (c, a)
+    references KeyValue (Value, Key)
+    match simple
+    on update no action
+    on delete restrict
+    enforced
+);
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT64 HIDDEN NOT NULL,
+  b STRING,
+  c STRING,
+  CONSTRAINT c FOREIGN KEY(a) REFERENCES KeyValue(Key) MATCH FULL ON UPDATE NO ACTION ON DELETE NO ACTION NOT ENFORCED,
+  FOREIGN KEY(b) REFERENCES KeyValue(Value) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED,
+  FOREIGN KEY(a, b) REFERENCES KeyValue(Key, Value) MATCH NOT DISTINCT ON UPDATE CASCADE ON DELETE SET NULL ENFORCED,
+  CONSTRAINT k FOREIGN KEY(c, a) REFERENCES KeyValue(Value, Key) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE RESTRICT ENFORCED
+);
+==
+
+[language_features=CHECK_CONSTRAINT]
+create table t (
+  a int64,
+  b int64,
+  check (a < b),
+  check (a < b) enforced,
+  check (a < b) not enforced,
+  constraint check_a_and_b_1 check (a < b),
+  constraint check_a_and_b_2 check (a < b) enforced,
+  constraint check_a_and_b_3 check (a < b) not enforced,
+  constraint with_options check (a < b) options(foo=1)
+);
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  a INT64,
+  b INT64,
+  CHECK(a < b) ENFORCED,
+  CHECK(a < b) ENFORCED,
+  CHECK(a < b) NOT ENFORCED,
+  CONSTRAINT check_a_and_b_1 CHECK(a < b) ENFORCED,
+  CONSTRAINT check_a_and_b_2 CHECK(a < b) ENFORCED,
+  CONSTRAINT check_a_and_b_3 CHECK(a < b) NOT ENFORCED,
+  CONSTRAINT with_options CHECK(a < b) ENFORCED OPTIONS(foo = 1)
+);
+==
+
+create table t as select Key, Value from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t AS
+SELECT
+  keyvalue_3.a_1 AS Key,
+  keyvalue_3.a_2 AS Value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+  ) AS keyvalue_3;
+==
+
+create table t as select * from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t AS
+SELECT
+  keyvalue_3.a_1 AS Key,
+  keyvalue_3.a_2 AS Value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+  ) AS keyvalue_3;
+==
+
+# CTAS with redundant column list (same as SELECT output). Expectation: column
+# definitions are not printed.
+[language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST]
+create table t
+(
+  Key int64,
+  Value string
+) as select Key, Value from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t AS
+SELECT
+  keyvalue_3.a_1 AS Key,
+  keyvalue_3.a_2 AS Value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+  ) AS keyvalue_3;
+==
+
+# CTAS with column list that is different than the output from SELECT - requires
+# position/type matching/coercion. Expectation: column definitions are not
+# printed.
+[language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST]
+create table t
+(
+  Key1 int32,
+  Value1 string
+) as select Key, Value from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t AS
+SELECT
+  CAST(projectscan_4.a_1 AS INT32) AS Key1,
+  projectscan_4.a_2 AS Value1
+FROM
+  (
+    SELECT
+      keyvalue_3.a_1 AS a_1,
+      keyvalue_3.a_2 AS a_2
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ) AS projectscan_4;
+==
+
+# CTAS with column list that has additional information. Expectation: column
+# definitions are printed with the additional information.
+[language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST]
+create table t
+(
+  Key int64,
+  Value string HIDDEN
+) as select Key, Value from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  Key INT64,
+  Value STRING HIDDEN
+) AS
+SELECT
+  keyvalue_3.a_1 AS Key,
+  keyvalue_3.a_2 AS Value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+  ) AS keyvalue_3;
+==
+
+# CTAS with both column list and table constraints. Expectation: columns
+# definitions are printed unless b/114772419 is fixed.
+[language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,FOREIGN_KEYS,CHECK_CONSTRAINT]
+[no_enable_literal_replacement]
+create table t
+(
+  Key1 int32,
+  Value1 string,
+  foreign key (Key1) references KeyValue (Key),
+  check (Key1 > 100)
+) as select Key, Value from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  Key1 INT32,
+  Value1 STRING,
+  FOREIGN KEY(Key1) REFERENCES KeyValue(Key) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED,
+  CHECK(Key1 > CAST(100 AS INT32)) ENFORCED
+) AS
+SELECT
+  CAST(projectscan_4.a_1 AS INT32) AS Key1,
+  projectscan_4.a_2 AS Value1
+FROM
+  (
+    SELECT
+      keyvalue_3.a_1 AS a_1,
+      keyvalue_3.a_2 AS a_2
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ) AS projectscan_4;
+==
+
+# CTAS with both column list and table constraints, and some columns have
+# additional information. Expectation: column definitions are printed.
+[language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,FOREIGN_KEYS,CHECK_CONSTRAINT]
+[no_enable_literal_replacement]
+create table t
+(
+  Key1 int32,
+  Value1 string HIDDEN,
+  foreign key (Key1) references KeyValue (Key),
+  check (Key1 > 100)
+) as select Key, Value from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  Key1 INT32,
+  Value1 STRING HIDDEN,
+  FOREIGN KEY(Key1) REFERENCES KeyValue(Key) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION ENFORCED,
+  CHECK(Key1 > CAST(100 AS INT32)) ENFORCED
+) AS
+SELECT
+  CAST(projectscan_4.a_1 AS INT32) AS Key1,
+  projectscan_4.a_2 AS Value1
+FROM
+  (
+    SELECT
+      keyvalue_3.a_1 AS a_1,
+      keyvalue_3.a_2 AS a_2
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_1,
+          KeyValue.Value AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ) AS projectscan_4;
+==
+
+# CTAS with only table constraints. Expectation: column definitions are printed
+# unless b/114772419 is fixed.
+[language_features=CREATE_TABLE_AS_SELECT_COLUMN_LIST,CHECK_CONSTRAINT]
+[no_enable_literal_replacement]
+create table t
+(
+  check (Key > 100),
+  check (length(Value) < 3)
+) as select * from KeyValue;
+--
+[UNPARSED_SQL]
+CREATE TABLE t
+(
+  Key INT64,
+  Value STRING,
+  CHECK(Key > 100) ENFORCED,
+  CHECK((LENGTH(Value)) < 3) ENFORCED
+) AS
+SELECT
+  keyvalue_3.a_1 AS Key,
+  keyvalue_3.a_2 AS Value
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+  ) AS keyvalue_3;
+==
+
+# Create index without storing clause.
+[no_enable_literal_replacement]
+create index TestTableByEnumStoringPath on TestTable(TestEnum);
+--
+[UNPARSED_SQL]
+CREATE INDEX TestTableByEnumStoringPath ON TestTable(TestEnum);
+==
+
+# Create index with storing clause.
+[no_enable_literal_replacement]
+create index TestTableByEnumStoringPath on TestTable(TestEnum) storing(KitchenSink.int32_val);
+--
+[UNPARSED_SQL]
+CREATE INDEX TestTableByEnumStoringPath ON TestTable(TestEnum)
+STORING(KitchenSink.int32_val);
+==
+
+# CMV with PARTITION BY and CLUSTER BY
+[language_features=CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
+create materialized view mv
+partition by c1
+cluster by c2
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv PARTITION BY c1 CLUSTER BY c2 AS
+SELECT
+  simpletypes_4.a_3 AS c1,
+  simpletypes_4.a_2 AS c2,
+  simpletypes_4.a_1 AS c3
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_1,
+      SimpleTypes.string AS a_2,
+      SimpleTypes.timestamp AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
+==
+
+# CMV with PARTITION BY and CLUSTER BY and OPTIONS
+[language_features=CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
+create materialized view mv
+partition by c1
+cluster by c2
+options(abc=xyz)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv PARTITION BY c1 CLUSTER BY c2 OPTIONS(abc = "xyz") AS
+SELECT
+  simpletypes_4.a_3 AS c1,
+  simpletypes_4.a_2 AS c2,
+  simpletypes_4.a_1 AS c3
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_1,
+      SimpleTypes.string AS a_2,
+      SimpleTypes.timestamp AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
+==
+
+# CMV with PARTITION BY and CLUSTER BY on computed columns
+[language_features=CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
+create materialized view mv
+partition by c1
+cluster by c3
+as select timestamp_add(timestamp, interval 1 minute) as c1, string as c2,
+  int32+1 as c3 from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv PARTITION BY c1 CLUSTER BY c3 AS
+SELECT
+  TIMESTAMP_ADD(simpletypes_4.a_3, INTERVAL 1 MINUTE) AS c1,
+  simpletypes_4.a_2 AS c2,
+  CAST(simpletypes_4.a_1 AS INT64) + 1 AS c3
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_1,
+      SimpleTypes.string AS a_2,
+      SimpleTypes.timestamp AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
+==
+
+# CMV with PARTITION BY and CLUSTER BY on computed expressions
+[language_features=CREATE_MATERIALIZED_VIEW_PARTITION_BY,CREATE_MATERIALIZED_VIEW_CLUSTER_BY]
+create materialized view mv
+partition by timestamp_add(c1, interval 1 minute)
+cluster by (c3+1)
+as select timestamp as c1, string as c2, int32 as c3 from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv PARTITION BY TIMESTAMP_ADD(c1, INTERVAL 1 MINUTE) CLUSTER BY CAST(c3 AS INT64) +
+1 AS
+SELECT
+  simpletypes_4.a_3 AS c1,
+  simpletypes_4.a_2 AS c2,
+  simpletypes_4.a_1 AS c3
+FROM
+  (
+    SELECT
+      SimpleTypes.int32 AS a_1,
+      SimpleTypes.string AS a_2,
+      SimpleTypes.timestamp AS a_3
+    FROM
+      SimpleTypes
+  ) AS simpletypes_4;
+==
+
+# CV without column list
+[language_features=CREATE_VIEW_WITH_COLUMN_LIST]
+create view mv
+as select timestamp, string from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE VIEW mv AS
+SELECT
+  simpletypes_3.a_2 AS timestamp,
+  simpletypes_3.a_1 AS string
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+==
+
+# CV with column list
+[language_features=CREATE_VIEW_WITH_COLUMN_LIST]
+create view mv(c1, c2)
+as select timestamp, string from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE VIEW mv(c1, c2) AS
+SELECT
+  simpletypes_3.a_2 AS c1,
+  simpletypes_3.a_1 AS c2
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+==
+
+# CMV without column list
+[language_features=CREATE_VIEW_WITH_COLUMN_LIST]
+create materialized view mv
+as select timestamp, string from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv AS
+SELECT
+  simpletypes_3.a_2 AS timestamp,
+  simpletypes_3.a_1 AS string
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+==
+
+# CMV with column list
+[language_features=CREATE_VIEW_WITH_COLUMN_LIST]
+create materialized view mv(c1, c2)
+as select timestamp, string from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv(c1, c2) AS
+SELECT
+  simpletypes_3.a_2 AS c1,
+  simpletypes_3.a_1 AS c2
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+==
+
+# CV without column list
+create view mv
+as select timestamp AS c1, string AS c2 from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE VIEW mv AS
+SELECT
+  simpletypes_3.a_2 AS c1,
+  simpletypes_3.a_1 AS c2
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+==
+
+# CMV without column list
+create materialized view mv
+as select timestamp AS c1, string AS c2 from SimpleTypes
+--
+[UNPARSED_SQL]
+CREATE MATERIALIZED VIEW mv AS
+SELECT
+  simpletypes_3.a_2 AS c1,
+  simpletypes_3.a_1 AS c2
+FROM
+  (
+    SELECT
+      SimpleTypes.string AS a_1,
+      SimpleTypes.timestamp AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+==
+
+# CREATE TABLE CLONE
+
+[language_features=CREATE_TABLE_CLONE]
+CREATE TABLE t1 CLONE KeyValue
+--
+[UNPARSED_SQL]
+CREATE TABLE t1 CLONE
+KeyValue;
+==
+
+# CREATE TABLE CLONE with FOR SYSTEM_TIME
+
+[language_features=CREATE_TABLE_CLONE]
+CREATE TABLE t1 CLONE KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP()
+--
+[UNPARSED_SQL]
+CREATE TABLE t1 CLONE
+KeyValue
+  FOR SYSTEM_TIME AS OF `CURRENT_TIMESTAMP`();
+==
+
+# CREATE TABLE CLONE with WHERE clause
+
+[language_features=CREATE_TABLE_CLONE]
+CREATE TABLE t1 CLONE KeyValue WHERE key = 1
+--
+[UNPARSED_SQL]
+CREATE TABLE t1 CLONE
+KeyValue
+  WHERE
+    (KeyValue.Key) = 1;
+==
+
+# CREATE SNAPSHOT TABLE
+
+[language_features=CREATE_SNAPSHOT_TABLE]
+CREATE SNAPSHOT TABLE s1 CLONE KeyValue
+--
+[UNPARSED_SQL]
+CREATE SNAPSHOT TABLE s1 CLONE KeyValue;
+==
+
+# CREATE SNAPSHOT TABLE with FOR SYSTEM_TIME
+
+[language_features=CREATE_SNAPSHOT_TABLE]
+create snapshot table s1 clone KeyValue for system_time as of CURRENT_TIMESTAMP()
+--
+[UNPARSED_SQL]
+CREATE SNAPSHOT TABLE s1 CLONE KeyValue
+  FOR SYSTEM_TIME AS OF `CURRENT_TIMESTAMP`();
+==
+
+# CREATE SNAPSHOT TABLE with OPTIONS
+
+[language_features=CREATE_SNAPSHOT_TABLE]
+CREATE SNAPSHOT TABLE s1 CLONE KeyValue OPTIONS(
+    expiration_timestamp=TIMESTAMP "2019-05-22 00:00:00 UTC",
+    description="mydataset.source_table snapshot",
+    label=[("experiments")])
+--
+[UNPARSED_SQL]
+CREATE SNAPSHOT TABLE s1 CLONE KeyValue
+OPTIONS(expiration_timestamp = "2019-05-22 00:00:00+00", description = "mydataset.source_table snapshot",
+  label = ARRAY< STRING >["experiments"]);
+==

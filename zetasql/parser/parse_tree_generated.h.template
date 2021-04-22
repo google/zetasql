@@ -23,9 +23,11 @@
 #ifndef ZETASQL_PARSER_PARSE_TREE_GENERATED_H_
 #define ZETASQL_PARSER_PARSE_TREE_GENERATED_H_
 
+#include "zetasql/parser/ast_enums.pb.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/parse_tree_decls.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/type.pb.h"
 
 // NOLINTBEGIN(whitespace/line_length)
 
@@ -41,7 +43,7 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
   explicit {{node.name}}(ASTNodeKind kind) : {{node.parent}}(kind) {}
 {{blank_line}}
  # else
-  static constexpr ASTNodeKind kConcreteNodeKind = {{node.enum_name}};
+  static constexpr ASTNodeKind kConcreteNodeKind = {{node.node_kind}};
 {{blank_line}}
   {{node.name}}() : {{node.parent}}(kConcreteNodeKind) {}
  # endif
@@ -50,38 +52,61 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
   zetasql_base::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
-{{blank_line}}
-# endif
-
-# if node.use_custom_debug_string
-  std::string SingleNodeDebugString() const override;
-# endif
-
- {# setters and getters for primitives #}
- # if node.fields
-  # for field in node.fields
-   # if field.gen_setters_and_getters and not field.is_node_ptr and not field.is_vector
-{{blank_line}}
-  void set_{{field.name}}({{field.member_type}} {{field.name}}) { {{field.member_name}} = {{field.name}}; }
-  {{field.member_type}} {{field.name}}() const { return {{field.member_name}}; }
-   # endif
-  # endfor
-{{blank_line}}
  # endif
 
- {# getters for non-primitives scalars.. #}
+ # if node.use_custom_debug_string
+{{blank_line}}
+  std::string SingleNodeDebugString() const override;
+ # endif
+ # for enum_def in node.enum_defs
+{{blank_line}}
+  {{enum_def}}
+ # endfor
+
+ {# setters and getters for primitives and enums #}
+ {% set ns = namespace(section_blank_line=true) %}
  # for field in node.fields
-  # if field.gen_setters_and_getters and field.is_node_ptr and not field.is_vector
-   # if field.comment
-{{field.comment}}
+  # if field.gen_setters_and_getters and not field.is_node_ptr and not field.is_vector
+   # if ns.section_blank_line
+{{blank_line}}
+   # set ns.section_blank_line = false
    # endif
+   # if field.comment
+{{blank_line}}
+{{field.comment}}
+   # set ns.section_blank_line = true
+   # endif
+  void set_{{field.name}}({{field.member_type}} {{field.name}}) { {{field.member_name}} = {{field.name}}; }
   {{field.member_type}} {{field.name}}() const { return {{field.member_name}}; }
   # endif
  # endfor
 
+
+ {# getters for non-primitives scalars.. #}
+ {% set ns = namespace(section_blank_line=true) %}
+ # for field in node.fields
+  # if field.gen_setters_and_getters and field.is_node_ptr and not field.is_vector
+   # if ns.section_blank_line
+{{blank_line}}
+   # set ns.section_blank_line = false
+   # endif
+   # if field.comment
+{{blank_line}}
+{{field.comment}}
+   # set ns.section_blank_line = true
+   # endif
+  {{field.member_type}} {{field.name}}() const {{field.getter_override}}{ return {{field.member_name}}; }
+  # endif
+ # endfor
+
 {# getters for non-primitive vectors.. #}
+ {% set ns = namespace(section_blank_line=true) %}
  # for field in node.fields
   # if field.gen_setters_and_getters and field.is_vector
+   # if ns.section_blank_line
+{{blank_line}}
+   # set ns.section_blank_line = false
+   # endif
   const {{field.member_type}}& {{field.name}}() const {
     return {{field.member_name}};
   }
@@ -94,7 +119,7 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 {{node.extra_defs}}
  # endif
 
- # if node.fields
+ # if node.fields or node.extra_private_defs
 {{blank_line}}
  private:
   # if node.gen_init_fields
@@ -105,18 +130,39 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
      # if field.field_loader == 'REQUIRED'
     fl.AddRequired(&{{field.member_name}});
      # elif field.field_loader == 'OPTIONAL'
-    fl.AddOptional(&{{field.member_name}}, {{field.enum_name}});
+    fl.AddOptional(&{{field.member_name}}, {{field.node_kind}});
      # elif field.field_loader == 'REST_AS_REPEATED'
     fl.AddRestAsRepeated(&{{field.member_name}});
+     # elif field.field_loader == 'OPTIONAL_EXPRESSION'
+    fl.AddOptionalExpression(&{{field.member_name}});
+     # elif field.field_loader == 'REPEATING_WHILE_IS_NODE_KIND'
+    fl.AddRepeatedWhileIsNodeKind(&{{field.member_name}}, {{field.node_kind}});
+     # elif field.field_loader == 'REPEATING_WHILE_IS_EXPRESSION'
+    fl.AddRepeatedWhileIsExpression(&{{field.member_name}});
      # endif
     # endif
    # endfor
   }
+  # endif
+  # if node.gen_init_fields and node.fields
 {{blank_line}}
   # endif
+{% set ns = namespace(section_blank_line=false) %}
   # for field in node.fields
+   # if ns.section_blank_line
+{{blank_line}}
+   # set ns.section_blank_line = false
+   # endif
+   # if field.private_comment
+{{blank_line}}
+{{field.private_comment}}
+   # set ns.section_blank_line = true
+   # endif
   {{field.member_type}} {{field.member_name}}{%if field.cpp_default%} = {{field.cpp_default}}{%endif%};
   # endfor
+  # if node.extra_private_defs
+{{node.extra_private_defs}}
+  # endif
  # endif
 };
 

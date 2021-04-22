@@ -261,9 +261,12 @@ public abstract class Type implements Serializable {
   /**
    * Serialize this type into self-contained protobuf.
    *
+   * <p>Note, self-contained protos should never be used by the zetasql library itself (they break
+   * local-service state management and proto equality).
+   *
    * @return The serialized protobuf.
    */
-  public TypeProto serialize() {
+  public final TypeProto serialize() {
     TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
@@ -274,22 +277,34 @@ public abstract class Type implements Serializable {
   }
 
   /**
-   * Serialize the this type to a non-self-contained TypeProto and an array of
-   * FileDescriptorSet using the given builders. To deserialize the Type, the
-   * FileDescriptorSet array must be provided together with TypeProto.
+   * Serialize the this type to a non-self-contained TypeProto and an array of FileDescriptorSet
+   * using the given builders. To deserialize the Type, the FileDescriptorSet array must be provided
+   * together with TypeProto.
    *
-   * <p>To efficiently serialize multiple Types, one can use this method with
-   * the same FileDescriptorSetsBuilder, the built List&lt;FileDescriptorSet&rt;
-   * will then include all FileDescriptors that are required to deserialize all
-   * the Types. This effectively avoids duplicates in multiple self-contained
-   * TypeProtos.
+   * <p>To efficiently serialize multiple Types, one can use this method with the same
+   * FileDescriptorSetsBuilder, the built List&lt;FileDescriptorSet&rt; will then include all
+   * FileDescriptors that are required to deserialize all the Types. This effectively avoids
+   * duplicates in multiple self-contained TypeProtos.
+   */
+  public final TypeProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
+    this.serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
+    return typeProtoBuilder.build();
+  }
+
+  /**
+   * Serialize the this type to a non-self-contained TypeProto and an array of FileDescriptorSet
+   * using the given builders. To deserialize the Type, the FileDescriptorSet array must be provided
+   * together with TypeProto.
    *
-   * @param typeProtoBuilder
-   * @param fileDescriptorSetsBuilder
+   * <p>To efficiently serialize multiple Types, one can use this method with the same
+   * FileDescriptorSetsBuilder, the built List&lt;FileDescriptorSet&rt; will then include all
+   * FileDescriptors that are required to deserialize all the Types. This effectively avoids
+   * duplicates in multiple self-contained TypeProtos.
+   *
    */
   public abstract void serialize(
-      TypeProto.Builder typeProtoBuilder,
-      FileDescriptorSetsBuilder fileDescriptorSetsBuilder);
+      TypeProto.Builder typeProtoBuilder, FileDescriptorSetsBuilder fileDescriptorSetsBuilder);
 
   /**
    * Compare types for equivalence.  Equivalent types can be used

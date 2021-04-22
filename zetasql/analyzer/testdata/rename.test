@@ -1,0 +1,28 @@
+RENAME TABLE foo TO bar;
+--
+RenameStmt(object_type="TABLE", old_name_path=foo, new_name_path=bar)
+==
+
+RENAME TABLE namespace.foo TO namespace2.bar;
+--
+RenameStmt(object_type="TABLE", old_name_path=namespace.foo, new_name_path=namespace2.bar)
+==
+
+RENAME VIEW bar TO baz;
+--
+RenameStmt(object_type="VIEW", old_name_path=bar, new_name_path=baz)
+==
+
+RENAME VIEW namespace.bar TO namespace2.baz;
+--
+RenameStmt(object_type="VIEW", old_name_path=namespace.bar, new_name_path=namespace2.baz)
+==
+
+RENAME `temporary table` foo TO bar;
+--
+RenameStmt(object_type="temporary table", old_name_path=foo, new_name_path=bar)
+==
+
+RENAME foo `bar 1` TO `bar 2`;
+--
+RenameStmt(object_type="foo", old_name_path=`bar 1`, new_name_path=`bar 2`)

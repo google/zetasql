@@ -261,14 +261,21 @@ class IntervalValue final {
 
   // Aggregates multiple INTERVAL values and produces sum and average of all
   // values. This class handles a temporary overflow while adding values.
-  // OUT_OF_RANGE error is generated only when retrieving the sum and only if
-  // the final sum is outside of the valid INTERVAL range.
+  // OUT_OF_RANGE error is generated only if the result is outside of the valid
+  // INTERVAL range.
   class SumAggregator final {
    public:
     // Adds a INTERVAL value to the sum.
     void Add(IntervalValue value);
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
     zetasql_base::StatusOr<IntervalValue> GetSum() const;
+
+    // Returns sum of all input values divided by the specified divisor.
+    // Returns OUT_OF_RANGE error on overflow of the division result.
+    // Note, that with the proper invocation of AVG function, overflow is not
+    // possible.
+    // Caller must ensure that count is positive non-zero.
+    zetasql_base::StatusOr<IntervalValue> GetAverage(int64_t count) const;
 
    private:
     __int128 months_ = 0;
@@ -310,6 +317,10 @@ class IntervalValue final {
   static zetasql_base::StatusOr<IntervalValue> ParseFromString(
       absl::string_view input, functions::DateTimestampPart from,
       functions::DateTimestampPart to);
+
+  // Parses interval from ISO 8601 Duration.
+  static zetasql_base::StatusOr<IntervalValue> ParseFromISO8601(
+      absl::string_view input);
 
   // Interval constructor from integer for given datetime part field.
   static zetasql_base::StatusOr<IntervalValue> FromInteger(
@@ -383,6 +394,18 @@ inline H AbslHashValue(H h, const IntervalValue& v) {
 
 // Allow INTERVAL values to be logged.
 std::ostream& operator<<(std::ostream& out, IntervalValue value);
+
+// Normalizes 24 hour time periods into full days. Adjusts nanos and days to
+// have the same sign.
+zetasql_base::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v);
+
+// Normalizes 30 day time periods into full months. Adjusts days and months to
+// have the same sign.
+zetasql_base::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v);
+
+// Normalizes 24 hour time periods into full days, and after thatn 30 day time
+// periods into full months. Adjusts all date parts to have the same sign.
+zetasql_base::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v);
 
 }  // namespace zetasql
 

@@ -1,0 +1,575 @@
+# Valid function calls
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string clamped between 0 and 1), ANON_COUNT(* clamped between 0 and 1) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg2#20 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#19, $agg2#20]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+        +-aggregate_list=
+          +-$agg1#19 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_count(STRING, optional(1) INT64, optional(1) INT64) -> INT64)
+          |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+          |   +-Literal(type=INT64, value=0)
+          |   +-Literal(type=INT64, value=1)
+          +-$agg2#20 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+==
+
+# Invalid function call with extra argument
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string, 1.0 clamped between 0 and 1), ANON_COUNT(*, 1.0 clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 2 arguments [at 1:8]
+select ANON_COUNT(string, 1.0 clamped between 0 and 1), ANON_COUNT(*, 1.0 cla...
+       ^
+==
+
+# Invalid function call with extra arguments
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string, 1.0, string clamped between 0 and 1), ANON_COUNT(*, 1.0, string clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 3 arguments [at 1:8]
+select ANON_COUNT(string, 1.0, string clamped between 0 and 1), ANON_COUNT(*,...
+       ^
+==
+
+# Reject ANON_COUNT() using old style invocation with no CLAMPED BETWEEN
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string, 0, 1, 1.0, string) from SimpleTypes
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 5 arguments [at 1:8]
+select ANON_COUNT(string, 0, 1, 1.0, string) from SimpleTypes
+       ^
+==
+
+# Reject ANON_COUNT() with no arguments
+[language_features=ANONYMIZATION]
+select ANON_COUNT() from SimpleTypes
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 0 arguments [at 1:8]
+select ANON_COUNT() from SimpleTypes
+       ^
+==
+
+# Reject ANON_COUNT() with two arguments (and no CLAMPED clause)
+[language_features=ANONYMIZATION]
+select ANON_COUNT(int64, 1) from SimpleTypes
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 2 arguments [at 1:8]
+select ANON_COUNT(int64, 1) from SimpleTypes
+       ^
+==
+
+# Reject ANON_COUNT() with three arguments (and no CLAMPED clause)
+[language_features=ANONYMIZATION]
+select ANON_COUNT(int64, 1, string) from SimpleTypes
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 3 arguments [at 1:8]
+select ANON_COUNT(int64, 1, string) from SimpleTypes
+       ^
+==
+
+# DISTINCT is not supported for ANON_COUNT()
+[language_features=DISALLOW_GROUP_BY_FLOAT,ANONYMIZATION]
+select ANON_COUNT(DISTINCT string clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Aggregate function ANON_COUNT does not support DISTINCT in arguments [at 1:8]
+select ANON_COUNT(DISTINCT string clamped between 0 and 1) from SimpleTypes
+       ^
+==
+
+# Calling ANON_COUNT(*) without any optional arguments works.
+[language_features=DISALLOW_GROUP_BY_FLOAT,ANONYMIZATION]
+select ANON_COUNT(*) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+==
+
+# Specify a non-constant expression for clamped bounds
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string clamped between {{0|int64}} and {{1|int64}}) from SimpleTypes
+--
+ALTERNATION GROUP: 0,1
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_count(STRING, optional(1) INT64, optional(1) INT64) -> INT64)
+              +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: 0,int64
+--
+ERROR: Upper bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:48]
+select ANON_COUNT(string clamped between 0 and int64) from SimpleTypes
+                                               ^
+--
+ALTERNATION GROUP: int64,1
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:42]
+select ANON_COUNT(string clamped between int64 and 1) from SimpleTypes
+                                         ^
+--
+ALTERNATION GROUP: int64,int64
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:42]
+select ANON_COUNT(string clamped between int64 and int64) from SimpleTypes
+                                         ^
+==
+
+# Specify a non-constant expression for clamped bounds
+[language_features=ANONYMIZATION]
+select ANON_COUNT(* clamped between {{0|int64}} and {{1|int64}}) from SimpleTypes
+--
+ALTERNATION GROUP: 0,1
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: 0,int64
+--
+ERROR: Upper bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:43]
+select ANON_COUNT(* clamped between 0 and int64) from SimpleTypes
+                                          ^
+--
+ALTERNATION GROUP: int64,1
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:37]
+select ANON_COUNT(* clamped between int64 and 1) from SimpleTypes
+                                    ^
+--
+ALTERNATION GROUP: int64,int64
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:37]
+select ANON_COUNT(* clamped between int64 and int64) from SimpleTypes
+                                    ^
+==
+
+# Non-INT64 argument for clamp bounds.
+[language_features=ANONYMIZATION]
+select ANON_COUNT(* clamped between {{0|"abc"}} and {{1|"def"}}) from SimpleTypes
+--
+ALTERNATION GROUP: 0,1
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: 0,"def"
+--
+ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: INT64, STRING. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(* clamped between 0 and "def") from SimpleTypes
+       ^
+--
+ALTERNATION GROUP: "abc",1
+--
+ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: STRING, INT64. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(* clamped between "abc" and 1) from SimpleTypes
+       ^
+--
+ALTERNATION GROUP: "abc","def"
+--
+ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: STRING, STRING. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(* clamped between "abc" and "def") from SimpleTypes
+       ^
+==
+
+# Reject non-const bounds
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string clamped between int64 and 5) from SimpleTypes
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 1:42]
+select ANON_COUNT(string clamped between int64 and 5) from SimpleTypes
+                                         ^
+==
+
+# Non-INT64 argument for clamp bounds.
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string clamped between {{0|"abc"}} and {{1|"def"}}) from SimpleTypes
+--
+ALTERNATION GROUP: 0,1
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_count(STRING, optional(1) INT64, optional(1) INT64) -> INT64)
+              +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: 0,"def"
+--
+ERROR: No matching signature for aggregate function ANON_COUNT for argument types: STRING, INT64, STRING. Supported signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(string clamped between 0 and "def") from SimpleTypes
+       ^
+--
+ALTERNATION GROUP: "abc",1
+--
+ERROR: No matching signature for aggregate function ANON_COUNT for argument types: STRING, STRING, INT64. Supported signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(string clamped between "abc" and 1) from SimpleTypes
+       ^
+--
+ALTERNATION GROUP: "abc","def"
+--
+ERROR: No matching signature for aggregate function ANON_COUNT for argument types: STRING, STRING, STRING. Supported signature: ANON_COUNT(ANY [CLAMPED BETWEEN INT64 AND INT64]) [at 1:8]
+select ANON_COUNT(string clamped between "abc" and "def") from SimpleTypes
+       ^
+==
+
+# Accept const parameter bounds
+[language_features=ANONYMIZATION]
+select ANON_COUNT({{*|string}} clamped between @test_param_int64 and 6) from SimpleTypes
+--
+ALTERNATION GROUP: *
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Literal(type=INT64, value=6)
+--
+ALTERNATION GROUP: string
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_count(STRING, optional(1) INT64, optional(1) INT64) -> INT64)
+              +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Literal(type=INT64, value=6)
+==
+
+# Support GROUP BY
+[language_features=ANONYMIZATION]
+select ANON_COUNT(string clamped between 0 and 1), ANON_COUNT(* clamped between 0 and 1) from SimpleTypes
+group by int64
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg2#20 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#19, $agg2#20]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#19, $agg2#20]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, string#5], table=SimpleTypes, column_index_list=[1, 4])
+        +-group_by_list=
+        | +-int64#21 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+        +-aggregate_list=
+          +-$agg1#19 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_count(STRING, optional(1) INT64, optional(1) INT64) -> INT64)
+          |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+          |   +-Literal(type=INT64, value=0)
+          |   +-Literal(type=INT64, value=1)
+          +-$agg2#20 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+==
+
+# ANON_SUM should reject exprs other than int64, uint64, double & numeric
+[language_features=ANONYMIZATION]
+select ANON_SUM(string clamped between 0 and 1) from SimpleTypes
+--
+ERROR: No matching signature for aggregate function ANON_SUM for argument types: STRING, INT64, INT64. Supported signatures: ANON_SUM(INT64 [CLAMPED BETWEEN INT64 AND INT64]), ANON_SUM(UINT64 [CLAMPED BETWEEN UINT64 AND UINT64]), ANON_SUM(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:8]
+select ANON_SUM(string clamped between 0 and 1) from SimpleTypes
+       ^
+==
+
+# ANON_AVG should reject exprs other than int64, uint64, double & numeric
+[language_features=ANONYMIZATION]
+select ANON_AVG(string clamped between 0 and 1) from SimpleTypes
+--
+ERROR: No matching signature for aggregate function ANON_AVG for argument types: STRING, INT64, INT64. Supported signature: ANON_AVG(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:8]
+select ANON_AVG(string clamped between 0 and 1) from SimpleTypes
+       ^
+==
+
+# Valid ANON_SUM function call
+[language_features=ANONYMIZATION]
+select ANON_SUM(int64 clamped between 0 and 1), ANON_SUM(uint64 clamped between 0 and 1), ANON_SUM(double clamped between 0 and 1),
+ANON_SUM(numeric clamped between 0 and 1) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
+| +-$aggregate.$agg2#20 AS `$col2` [UINT64]
+| +-$aggregate.$agg3#21 AS `$col3` [DOUBLE]
+| +-$aggregate.$agg4#22 AS `$col4` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, uint64#4, double#9, numeric#16], table=SimpleTypes, column_index_list=[1, 3, 8, 15])
+        +-aggregate_list=
+          +-$agg1#19 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+          |   +-Literal(type=INT64, value=0)
+          |   +-Literal(type=INT64, value=1)
+          +-$agg2#20 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_sum(UINT64, optional(1) UINT64, optional(1) UINT64) -> UINT64)
+          |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+          |   +-Literal(type=UINT64, value=0)
+          |   +-Literal(type=UINT64, value=1)
+          +-$agg3#21 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_sum(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+          |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+          |   +-Literal(type=DOUBLE, value=0)
+          |   +-Literal(type=DOUBLE, value=1)
+          +-$agg4#22 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+              +-Cast(NUMERIC -> DOUBLE)
+              | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+              +-Literal(type=DOUBLE, value=0)
+              +-Literal(type=DOUBLE, value=1)
+==
+
+# Valid ANON_AVG function call
+[language_features=ANONYMIZATION]
+select ANON_AVG(int64 clamped between 0 and 1), ANON_AVG(uint64 clamped between 0 and 1), ANON_AVG(double clamped between 0 and 1),
+ANON_AVG(numeric clamped between 0 and 1) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [DOUBLE]
+| +-$aggregate.$agg2#20 AS `$col2` [DOUBLE]
+| +-$aggregate.$agg3#21 AS `$col3` [DOUBLE]
+| +-$aggregate.$agg4#22 AS `$col4` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#19, $agg2#20, $agg3#21, $agg4#22]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, uint64#4, double#9, numeric#16], table=SimpleTypes, column_index_list=[1, 3, 8, 15])
+        +-aggregate_list=
+          +-$agg1#19 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_avg(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+          |   +-Cast(INT64 -> DOUBLE)
+          |   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+          |   +-Literal(type=DOUBLE, value=0)
+          |   +-Literal(type=DOUBLE, value=1)
+          +-$agg2#20 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_avg(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+          |   +-Cast(UINT64 -> DOUBLE)
+          |   | +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+          |   +-Literal(type=DOUBLE, value=0)
+          |   +-Literal(type=DOUBLE, value=1)
+          +-$agg3#21 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_avg(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+          |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+          |   +-Literal(type=DOUBLE, value=0)
+          |   +-Literal(type=DOUBLE, value=1)
+          +-$agg4#22 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_avg(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+              +-Cast(NUMERIC -> DOUBLE)
+              | +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+              +-Literal(type=DOUBLE, value=0)
+              +-Literal(type=DOUBLE, value=1)
+==
+
+# HAVING modifier is currently disabled for ANON functions, this is because the
+# SQL builder will append all present modifiers to the last argument.
+# In the case of the CLAMPED BETWEEN modifier this could potentially produce
+# invalid syntax when performing an unparse.
+[language_features=ANONYMIZATION,V_1_1_HAVING_IN_AGGREGATE]
+select ANON_SUM(int64 having max 1 clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Aggregate function ANON_SUM does not support HAVING in arguments [at 1:23]
+select ANON_SUM(int64 having max 1 clamped between 0 and 1) from SimpleTypes
+                      ^
+==
+
+# HAVING modifier is currently disabled for ANON functions, this is because the
+# SQL builder will append all present modifiers to the last argument.
+# In the case of the CLAMPED BETWEEN modifier this could potentially produce
+# invalid syntax when performing an unparse.
+[language_features=ANONYMIZATION,V_1_1_HAVING_IN_AGGREGATE]
+select ANON_AVG(int64 having max 1 clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Aggregate function ANON_AVG does not support HAVING in arguments [at 1:23]
+select ANON_AVG(int64 having max 1 clamped between 0 and 1) from SimpleTypes
+                      ^
+==
+
+# Non-ANON functions do not accept the CLAMPED BETWEEN clause
+SELECT SUM(int64 clamped between 0 and 1) from SimpleTypes;
+--
+ERROR: The CLAMPED BETWEEN clause is not allowed in the function call arguments for function SUM [at 1:8]
+SELECT SUM(int64 clamped between 0 and 1) from SimpleTypes;
+       ^
+==
+
+# Non-ANON functions do not accept the CLAMPED BETWEEN clause
+SELECT AVG(int64 clamped between 0 and 1) from SimpleTypes;
+--
+ERROR: The CLAMPED BETWEEN clause is not allowed in the function call arguments for function AVG [at 1:8]
+SELECT AVG(int64 clamped between 0 and 1) from SimpleTypes;
+       ^
+==
+
+# Valid ANON_SUM function call
+[language_features=ANONYMIZATION,V_1_2_SAFE_FUNCTION_CALL]
+select {{|WITH ANONYMIZATION}} safe.ANON_SUM(int64 clamped between 0 and 1)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=1)
+==
+
+# DISTINCT is not supported for anonymized aggregate functions
+[language_features=DISALLOW_GROUP_BY_FLOAT,ANONYMIZATION]
+select ANON_SUM(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Aggregate function ANON_SUM does not support DISTINCT in arguments [at 1:8]
+select ANON_SUM(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
+       ^
+==
+
+# Valid ANON_AVG function call
+[language_features=ANONYMIZATION,V_1_2_SAFE_FUNCTION_CALL]
+select {{|WITH ANONYMIZATION}} safe.ANON_AVG(int64 clamped between 0 and 1)
+from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall({SAFE_ERROR_MODE} ZetaSQL:anon_avg(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> DOUBLE)
+              +-Cast(INT64 -> DOUBLE)
+              | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-Literal(type=DOUBLE, value=0)
+              +-Literal(type=DOUBLE, value=1)
+==
+
+# DISTINCT is not supported for anonymized aggregate functions
+[language_features=DISALLOW_GROUP_BY_FLOAT,ANONYMIZATION]
+select ANON_AVG(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
+--
+ERROR: Aggregate function ANON_AVG does not support DISTINCT in arguments [at 1:8]
+select ANON_AVG(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
+       ^

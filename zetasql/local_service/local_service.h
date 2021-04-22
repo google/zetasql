@@ -119,10 +119,27 @@ class ZetaSqlLocalServiceImpl {
                                   AnalyzerOptionsProto* response);
 
  private:
+  // Fetches the descriptor pools for the given descriptor_pool_list.
+  // descriptor_pools is a view into pool_states_out, and is returned as a
+  // convenience for calls into the google Deserialize calls..
+  // This will _not_ register the returned states, although it will retrieve
+  // states based on registered_id as necessary.
   absl::Status GetDescriptorPools(
       const DescriptorPoolListProto& descriptor_pool_list,
       std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>&
-          pool_states_out);
+          pool_states_out,
+      std::vector<const google::protobuf::DescriptorPool*>& descriptor_pools);
+
+  // Registers each entry in <descriptor_pool_states> if not already registered
+  // and returns a list of the newly registered objects in
+  // <owned_descriptor_pool_ids>.
+  // Also sets <descriptor_pool_id_list> to the appropriate ids as a
+  // convenience.
+  absl::Status RegisterNewDescriptorPools(
+      std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>&
+          descriptor_pool_states,
+      absl::flat_hash_set<int64_t>& registered_descriptor_pool_ids,
+      DescriptorPoolIdList& descriptor_pool_id_list);
 
   template <typename RequestProto>
   absl::Status GetCatalogState(
@@ -134,10 +151,19 @@ class ZetaSqlLocalServiceImpl {
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
 
-  absl::Status RegisterPrepared(std::unique_ptr<PreparedExpressionState>& state,
-                                PreparedState* response);
+  absl::Status RegisterPrepared(
+      std::shared_ptr<PreparedExpressionState>& state,
+      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      PreparedState* response);
+
+  void CleanupDescriptorPools(
+      absl::flat_hash_set<int64_t>* descriptor_pool_ids);
+
+  void CleanupCatalog(absl::optional<int64_t>* catalog_id);
 
   // For testing.
+  size_t NumRegisteredDescriptorPools() const;
+  size_t NumRegisteredCatalogs() const;
   size_t NumSavedPreparedExpression() const;
 
   friend class ZetaSqlLocalServiceImplTest;

@@ -181,7 +181,7 @@ class IsOkAndHoldsMatcherImpl
     const bool matches = inner_matcher_.MatchAndExplain(
         actual_value.ValueOrDie(), &inner_listener);
     const std::string inner_explanation = inner_listener.str();
-    if (inner_explanation != "") {
+    if (inner_explanation.empty()) {
       *result_listener << "which contains value "
                        << ::testing::PrintToString(actual_value.ValueOrDie())
                        << ", " << inner_explanation;

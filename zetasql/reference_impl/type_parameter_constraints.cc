@@ -29,7 +29,7 @@ namespace {
 absl::Status CheckMaxLength(int64_t max_length, int64_t length,
                             absl::string_view type_name) {
   if (max_length < length) {
-    return absl::InvalidArgumentError(absl::Substitute(
+    return absl::OutOfRangeError(absl::Substitute(
         "$0 has maximum length $1 but got a value with length $2", type_name,
         max_length, length));
   }
@@ -70,7 +70,7 @@ zetasql_base::StatusOr<T> ApplyPrecisionScale(T value, int64_t precision,
     type_name = "BIGNUMERIC";
   }
   if (!(lower_bound <= value && value <= upper_bound)) {
-    return absl::InvalidArgumentError(absl::Substitute(
+    return absl::OutOfRangeError(absl::Substitute(
         "$0 has precision $1 and scale $2 but got a value that is "
         "not in range of [$3, $4]",
         type_name, precision, scale, lower_bound.ToString(),
@@ -81,8 +81,8 @@ zetasql_base::StatusOr<T> ApplyPrecisionScale(T value, int64_t precision,
 
 }  // namespace
 
-absl::Status ApplyConstraints(Value& value, const TypeParameters& type_params,
-                              ProductMode mode) {
+absl::Status ApplyConstraints(const TypeParameters& type_params,
+                              ProductMode mode, Value& value) {
   if (type_params.IsEmpty() || value.is_null()) {
     return absl::OkStatus();
   }
@@ -145,7 +145,7 @@ absl::Status ApplyConstraints(Value& value, const TypeParameters& type_params,
       for (int i = 0; i < value.num_fields(); ++i) {
         Value new_field_value = value.field(i);
         ZETASQL_RETURN_IF_ERROR(
-            ApplyConstraints(new_field_value, type_params.child(i), mode));
+            ApplyConstraints(type_params.child(i), mode, new_field_value));
         new_fields.push_back(new_field_value);
       }
       value = Value::Struct(value.type()->AsStruct(), new_fields);
@@ -156,7 +156,7 @@ absl::Status ApplyConstraints(Value& value, const TypeParameters& type_params,
       new_elements.reserve(value.num_elements());
       for (Value new_element_value : value.elements()) {
         ZETASQL_RETURN_IF_ERROR(
-            ApplyConstraints(new_element_value, type_params.child(0), mode));
+            ApplyConstraints(type_params.child(0), mode, new_element_value));
         new_elements.push_back(new_element_value);
       }
       value = Value::Array(value.type()->AsArray(), new_elements);

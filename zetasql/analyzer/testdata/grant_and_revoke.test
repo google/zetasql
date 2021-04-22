@@ -1,0 +1,92 @@
+grant all on KeyValue to "mdbuser/user";
+--
+GrantStmt(object_type="", name_path=KeyValue, grantee_list=[`mdbuser/user`])
+==
+
+grant select on KeyValue to "mdbuser/user";
+--
+GrantStmt
++-privilege_list=
+| +-Privilege(action_type="select", unit_list=)
++-object_type=""
++-name_path=KeyValue
++-grantee_list=[`mdbuser/user`]
+==
+
+[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+revoke select,insert on KeyValue
+from "mdbuser/user", @test_param_string, "mdbgroup/group";
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: The GRANTEE list only supports string literals, not parameters [at 2:22]
+from "mdbuser/user", @test_param_string, "mdbgroup/group";
+                     ^
+--
+ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
+--
+RevokeStmt
++-privilege_list=
+| +-Privilege(action_type="select", unit_list=)
+| +-Privilege(action_type="insert", unit_list=)
++-object_type=""
++-name_path=KeyValue
++-grantee_expr_list=
+  +-Literal(type=STRING, value="mdbuser/user")
+  +-Parameter(type=STRING, name="test_param_string")
+  +-Literal(type=STRING, value="mdbgroup/group")
+==
+
+# System variables are also allowed.  `sysvar.with.dots` is a system variable
+# of STRING type.
+[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+revoke select,insert on KeyValue
+from "mdbuser/user", "mdbgroup/group", @@`sysvar.with.dots`;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: The GRANTEE list only supports string literals, not system variables [at 2:40]
+from "mdbuser/user", "mdbgroup/group", @@`sysvar.with.dots`;
+                                       ^
+--
+ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
+--
+RevokeStmt
++-privilege_list=
+| +-Privilege(action_type="select", unit_list=)
+| +-Privilege(action_type="insert", unit_list=)
++-object_type=""
++-name_path=KeyValue
++-grantee_expr_list=
+  +-Literal(type=STRING, value="mdbuser/user")
+  +-Literal(type=STRING, value="mdbgroup/group")
+  +-SystemVariable(`sysvar.with.dots`, type=STRING)
+==
+
+revoke select(col1, col2),insert(col2) on table KeyValue from "user@google.com";
+--
+RevokeStmt
++-privilege_list=
+| +-Privilege(action_type="select", unit_list=col1.col2)
+| +-Privilege(action_type="insert", unit_list=col2)
++-object_type="table"
++-name_path=KeyValue
++-grantee_list=[`user@google.com`]
+==
+
+# Test with parameter of non-string type.
+[language_features={{|PARAMETERS_IN_GRANTEE_LIST}}]
+revoke select,insert on KeyValue
+from @test_param_int64;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: The GRANTEE list only supports string literals, not parameters [at 2:6]
+from @test_param_int64;
+     ^
+--
+ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
+--
+ERROR: Query parameters in the GRANTEE list must be STRING type [at 2:6]
+from @test_param_int64;
+     ^

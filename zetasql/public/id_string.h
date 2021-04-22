@@ -70,7 +70,10 @@ class IdString {
   // Create an empty string.
   IdString() : IdString(*kEmptyString) {}
 
-  // Create an IdString in the global IdStringPool.  Memory will never be freed.
+  // Create an IdString in the global IdStringPool.
+  //
+  // WARNING: Memory allocated this way will never be freed.
+  // Do NOT use for any allocations that are done on a per-query basis.
   static IdString MakeGlobal(absl::string_view str);
 
   void clear() { *this = *kEmptyString; }
@@ -417,8 +420,11 @@ class IdStringPool {
 #endif
   }
 
-  // Create an IdString in the global IdStringPool.  Memory will never be freed.
+  // Create an IdString in the global IdStringPool.
   // This function is thread safe.
+  //
+  // WARNING: Memory allocated this way will never be freed.
+  // Do NOT use for any allocations that are done on a per-query basis.
   static IdString MakeGlobal(absl::string_view str);
 
  private:

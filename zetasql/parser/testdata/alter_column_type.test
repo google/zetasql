@@ -220,3 +220,40 @@ AlterTableStatement [0-56]
       Identifier(bar) [39-42]
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP NOT NULL
+==
+
+# ALTER TABLE to set column type with COLLATE.
+ALTER TABLE foo ALTER COLUMN {{|IF EXISTS}} bar SET DATA TYPE STRING COLLATE 'unicode:ci';
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-75]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-75]
+    AlterColumnTypeAction [16-75]
+      Identifier(bar) [30-33]
+      SimpleColumnSchema [48-54]
+        PathExpression [48-54]
+          Identifier(STRING) [48-54]
+      Collate [55-75]
+        StringLiteral('unicode:ci') [63-75]
+--
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING COLLATE 'unicode:ci'
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterTableStatement [0-84]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-84]
+    AlterColumnTypeAction(is_if_exists) [16-84]
+      Identifier(bar) [39-42]
+      SimpleColumnSchema [57-63]
+        PathExpression [57-63]
+          Identifier(STRING) [57-63]
+      Collate [64-84]
+        StringLiteral('unicode:ci') [72-84]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING COLLATE 'unicode:ci'
+==

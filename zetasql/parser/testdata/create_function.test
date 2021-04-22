@@ -929,3 +929,140 @@ CreateFunctionStatement [0-42]
 --
 CREATE FUNCTION myfunc()
 RETURNS interval
+==
+
+# Create a scalar function with a default argument.
+create function myfunc(a int64, b string default "abc") returns double
+--
+CreateFunctionStatement [0-70]
+  FunctionDeclaration [16-55]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [22-55]
+      FunctionParameter [23-30]
+        Identifier(a) [23-24]
+        SimpleType [25-30]
+          PathExpression [25-30]
+            Identifier(int64) [25-30]
+      FunctionParameter(default_value=(StringLiteral("abc"))) [32-54]
+        Identifier(b) [32-33]
+        SimpleType [34-40]
+          PathExpression [34-40]
+            Identifier(string) [34-40]
+        StringLiteral("abc") [49-54]
+  SimpleType [64-70]
+    PathExpression [64-70]
+      Identifier(double) [64-70]
+--
+CREATE FUNCTION myfunc(a int64, b string DEFAULT "abc")
+RETURNS double
+==
+
+# Create a scalar function with multiple default arguments.
+CREATE FUNCTION myfunc(a int64 DEFAULT -314,
+                       b string DEFAULT "abc",
+                       c double DEFAULT 3.14)
+returns double
+--
+CreateFunctionStatement [0-152]
+  FunctionDeclaration [16-137]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [22-137]
+      FunctionParameter(default_value=(UnaryExpression(-))) [23-43]
+        Identifier(a) [23-24]
+        SimpleType [25-30]
+          PathExpression [25-30]
+            Identifier(int64) [25-30]
+        UnaryExpression(-) [39-43]
+          IntLiteral(314) [40-43]
+      FunctionParameter(default_value=(StringLiteral("abc"))) [68-90]
+        Identifier(b) [68-69]
+        SimpleType [70-76]
+          PathExpression [70-76]
+            Identifier(string) [70-76]
+        StringLiteral("abc") [85-90]
+      FunctionParameter(default_value=(FloatLiteral(3.14))) [115-136]
+        Identifier(c) [115-116]
+        SimpleType [117-123]
+          PathExpression [117-123]
+            Identifier(double) [117-123]
+        FloatLiteral(3.14) [132-136]
+  SimpleType [146-152]
+    PathExpression [146-152]
+      Identifier(double) [146-152]
+--
+CREATE FUNCTION myfunc(a int64 DEFAULT - 314, b string DEFAULT "abc", c double DEFAULT 3.14)
+RETURNS double
+==
+
+# Create a scalar function with templated default arguments.
+Create Function myfunc(a int64,
+                       b ANY TYPE Default "abc",
+                       c ANY TYPE Default 3.14)
+returns double
+--
+CreateFunctionStatement [0-143]
+  FunctionDeclaration [16-128]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [22-128]
+      FunctionParameter [23-30]
+        Identifier(a) [23-24]
+        SimpleType [25-30]
+          PathExpression [25-30]
+            Identifier(int64) [25-30]
+      FunctionParameter(default_value=(StringLiteral("abc"))) [55-79]
+        Identifier(b) [55-56]
+        TemplatedParameterType [57-65]
+        StringLiteral("abc") [74-79]
+      FunctionParameter(default_value=(FloatLiteral(3.14))) [104-127]
+        Identifier(c) [104-105]
+        TemplatedParameterType [106-114]
+        FloatLiteral(3.14) [123-127]
+  SimpleType [137-143]
+    PathExpression [137-143]
+      Identifier(double) [137-143]
+--
+CREATE FUNCTION myfunc(a int64, b ANY TYPE DEFAULT "abc", c ANY TYPE DEFAULT 3.14)
+RETURNS double
+==
+
+# Create a scalar function with a default argument.
+# This is an edge case that has multiple 'default's.
+CREATE FUNCTION myfunc(default string default 'default')
+as (default);
+--
+ERROR: Syntax error: Unexpected keyword DEFAULT [at 1:24]
+CREATE FUNCTION myfunc(default string default 'default')
+                       ^
+==
+
+# Create a scalar function with a default argument, but forget the 'default'
+# keyword.
+CREATE FUNCTION myfunc(x INT64 5)
+as (x);
+--
+ERROR: Syntax error: Expected ")" or "," but got integer literal "5" [at 1:32]
+CREATE FUNCTION myfunc(x INT64 5)
+                               ^
+==
+
+# Create a scalar function with a default argument, but incorrectly use a '='
+# instead of 'default'.
+CREATE FUNCTION myfunc(x INT64 = 5)
+as (x);
+--
+ERROR: Syntax error: Expected ")" or "," but got "=" [at 1:32]
+CREATE FUNCTION myfunc(x INT64 = 5)
+                               ^
+==
+
+# Create a scalar function with a default argument, but the 'default' keyword
+# and the value are in the wrong order.
+CREATE FUNCTION myfunc(x INT64 5 DEFAULT)
+as (x);
+--
+ERROR: Syntax error: Expected ")" or "," but got integer literal "5" [at 1:32]
+CREATE FUNCTION myfunc(x INT64 5 DEFAULT)
+                               ^

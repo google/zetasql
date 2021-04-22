@@ -40,14 +40,22 @@ absl::Status ExecuteQueryLoop(
     ExecuteQueryWriter& writer,
     const ExecuteQueryLoopStatusHandler status_handler) {
   for (;;) {
-    ZETASQL_ASSIGN_OR_RETURN(const std::optional<std::string> sql, prompt.Read());
+    const zetasql_base::StatusOr<std::optional<std::string>> input = prompt.Read();
 
-    if (!sql.has_value()) {
+    if (!input.ok()) {
+      ZETASQL_RETURN_IF_ERROR(status_handler(input.status(), ""));
+      continue;
+    }
+
+    if (!input->has_value()) {
       // Reached end of input
       return absl::OkStatus();
     }
 
-    ZETASQL_RETURN_IF_ERROR(status_handler(ExecuteQuery(*sql, config, writer), *sql));
+    // TODO: Use error payload instead of passing statement as
+    // parameter (there's no valid value in case reading failed)
+    ZETASQL_RETURN_IF_ERROR(
+        status_handler(ExecuteQuery(**input, config, writer), **input));
   }
 }
 

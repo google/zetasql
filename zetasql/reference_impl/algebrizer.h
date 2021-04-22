@@ -193,6 +193,12 @@ class Algebrizer {
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCast(
       const ResolvedCast* cast);
 
+  zetasql_base::StatusOr<std::unique_ptr<InlineLambdaExpr>> AlgebrizeLambda(
+      const ResolvedInlineLambda* inline_lambda);
+
+  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFunctionCallWithLambda(
+      const ResolvedFunctionCall* function_call);
+
   zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFunctionCall(
       const ResolvedFunctionCall* function_call);
 
@@ -224,6 +230,12 @@ class Algebrizer {
                                       const ResolvedGetStructField*>>& path);
 
   // Algebrize specific expressions.
+  zetasql_base::StatusOr<std::unique_ptr<AggregateArg>>
+  AlgebrizeAggregateFnWithAlgebrizedArguments(
+      const VariableId& variable,
+      absl::optional<AnonymizationOptions> anonymization_options,
+      std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
+      std::vector<std::unique_ptr<ValueExpr>> arguments);
   zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
       const VariableId& variable,
       absl::optional<AnonymizationOptions> anonymization_options,

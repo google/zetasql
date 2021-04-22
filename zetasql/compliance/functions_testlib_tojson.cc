@@ -30,6 +30,7 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
+#include "re2/re2.h"
 
 namespace zetasql {
 
@@ -388,7 +389,8 @@ void AddStringByteEnumDateTimestampTestCases(
   }
 
   if (is_to_json) {
-    all_tests.push_back({"to_json", {Null(test_enum0.type())}, NullJson()});
+    all_tests.push_back(
+        {"to_json", {Null(test_enum0.type())}, Value::Json(JSONValue())});
     all_tests.push_back(
         {"to_json",
          {String(R"(a"in"between\slashes\\)")},
@@ -503,13 +505,70 @@ void AddInternvalValueTestCases(bool is_to_json,
   if (is_to_json) {
     all_tests.emplace_back(
         "to_json",
-        QueryParamsWithResult({Value::NullInterval()}, Value::NullJson())
+        QueryParamsWithResult({Value::NullInterval()},
+                              Value::Value::Json(JSONValue()))
             .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_INTERVAL_TYPE}));
   } else {
     all_tests.emplace_back(
         "to_json_string",
         WrapResultForInterval({Value::NullInterval()},
                               QueryParamsWithResult::Result(String("null"))));
+  }
+}
+
+void AddJsonTestCases(bool is_to_json,
+                      std::vector<FunctionTestCall>& all_tests) {
+  constexpr absl::string_view kJsonValueString =
+      R"({
+          "array_val": [
+            null,
+            3,
+            "world"
+          ],
+          "bool_val": true,
+          "int64_val_1": 1,
+          "int64_val_2": 2,
+          "json_val": {
+            "bool_val": false,
+            "string_value": "hello"
+          },
+          "string_val": "foo"
+        })";
+  const Value json_value =
+      Json(JSONValue::ParseJSONString(kJsonValueString).value());
+  // Clean up the string to make it the same as FORMAT %p output.
+  std::string json_value_str(kJsonValueString);
+  // Remove all spaces.
+  RE2::GlobalReplace(&json_value_str, " *", "");
+  // Remove all newlines.
+  RE2::GlobalReplace(&json_value_str, "\n", "");
+
+  // Tests for different escaping characters and embedded quotes.
+  constexpr absl::string_view kEscapeCharsJsonValueString =
+      R"({"int64_val'_1":1,)"
+      R"("string_val_1":"foo'bar",)"
+      R"("string_val_2":"foo''bar",)"
+      R"("string_val_3":"foo`bar",)"
+      R"("string_val_4":"foo``bar",)"
+      R"("string_val_5":"foo\"bar",)"
+      R"("string_val_6":"foo\\bar"})";
+  const Value escape_chars_json_value =
+      Json(JSONValue::ParseJSONString(kEscapeCharsJsonValueString).value());
+  const std::string escape_chars_json_str(kEscapeCharsJsonValueString);
+
+  const std::vector<std::pair<Value, std::string>> json_test_cases = {
+      {values::Json(JSONValue(int64_t{1})), "1"},
+      {values::Json(JSONValue(uint64_t{123})), "123"},
+      {values::Json(JSONValue(std::string("string"))), "\"string\""},
+      {json_value, json_value_str},
+      {escape_chars_json_value, escape_chars_json_str}};
+  for (const auto& test_case : json_test_cases) {
+    all_tests.emplace_back(
+        is_to_json ? "to_json" : "to_json_string",
+        QueryParamsWithResult(
+            {test_case.first},
+            is_to_json ? test_case.first : values::String(test_case.second))
+            .WrapWithFeatureSet({FEATURE_JSON_TYPE}));
   }
 }
 
@@ -753,6 +812,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
   AddCivilAndNanoTestCases(/*is_to_json=*/false, include_nano_timestamp,
                            all_tests);
   AddInternvalValueTestCases(/*is_to_json=*/false, all_tests);
+  AddJsonTestCases(/*is_to_json=*/false, all_tests);
   return all_tests;
 }
 
@@ -764,13 +824,13 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
     bool include_nano_timestamp) {
   std::vector<FunctionTestCall> all_tests = {
       // NULL value
-      {"to_json", {NullInt64()}, NullJson()},
-      {"to_json", {NullString()}, NullJson()},
-      {"to_json", {NullDouble()}, NullJson()},
-      {"to_json", {NullTimestamp()}, NullJson()},
-      {"to_json", {NullDate()}, NullJson()},
-      {"to_json", {Null(Int64ArrayType())}, NullJson()},
-      {"to_json", {Null(EmptyStructType())}, NullJson()},
+      {"to_json", {NullInt64()}, Value::Json(JSONValue())},
+      {"to_json", {NullString()}, Value::Json(JSONValue())},
+      {"to_json", {NullDouble()}, Value::Json(JSONValue())},
+      {"to_json", {NullTimestamp()}, Value::Json(JSONValue())},
+      {"to_json", {NullDate()}, Value::Json(JSONValue())},
+      {"to_json", {Null(Int64ArrayType())}, Value::Json(JSONValue())},
+      {"to_json", {Null(EmptyStructType())}, Value::Json(JSONValue())},
 
       {"to_json",
        QueryParamsWithResult({Int64(0), NullBool()}, NullJson())
@@ -980,7 +1040,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
       // DATETIME and TIME tests are defined below.
 
       // JSON
-      {"to_json", {NullJson()}, NullJson()},
+      {"to_json", {NullJson()}, Value::Json(JSONValue())},
       {"to_json",
        {values::Json(JSONValue(true))},
        values::Json(JSONValue(true))},
@@ -1217,16 +1277,17 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
   }
   all_tests.emplace_back(
       "to_json",
-      QueryParamsWithResult({Value::NullNumeric()}, NullJson())
+      QueryParamsWithResult({Value::NullNumeric()}, Value::Json(JSONValue()))
           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE}));
   all_tests.emplace_back(
       "to_json",
-      QueryParamsWithResult({Value::NullBigNumeric()}, NullJson())
+      QueryParamsWithResult({Value::NullBigNumeric()}, Value::Json(JSONValue()))
           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_BIGNUMERIC_TYPE}));
   // Adds additional JSON_STRICT_NUMBER_PARSING test case.
   all_tests.emplace_back(
       "to_json",
-      QueryParamsWithResult({NumericValue::MaxValue()}, NullJson(), kOutOfRange)
+      QueryParamsWithResult({NumericValue::MaxValue()},
+                            Value::Json(JSONValue()), kOutOfRange)
           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
                                FEATURE_BIGNUMERIC_TYPE,
                                FEATURE_JSON_STRICT_NUMBER_PARSING}));
@@ -1236,7 +1297,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
                                  "-10000000000000000000000000000000000000."
                                  "00000000000000000000000000000000000001")
                                  .value()},
-                            NullJson(), kOutOfRange)
+                            Value::Json(JSONValue()), kOutOfRange)
           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
                                FEATURE_BIGNUMERIC_TYPE,
                                FEATURE_JSON_STRICT_NUMBER_PARSING}));
@@ -1244,6 +1305,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
   AddCivilAndNanoTestCases(/*is_to_json=*/true, include_nano_timestamp,
                            all_tests);
   AddInternvalValueTestCases(/*is_to_json=*/true, all_tests);
+  AddJsonTestCases(/*is_to_json=*/true, all_tests);
 
   return all_tests;
 }

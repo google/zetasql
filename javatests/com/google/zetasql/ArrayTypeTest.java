@@ -24,6 +24,7 @@ import static com.google.zetasql.TypeTestBase.checkTypeSerializationAndDeseriali
 import static org.junit.Assert.fail;
 
 import com.google.common.testing.EqualsTester;
+import com.google.zetasql.ZetaSQLDescriptorPool.GeneratedDescriptorPool;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.ArrayTypeProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -51,6 +52,11 @@ public class ArrayTypeTest {
     checkTypeSerializationAndDeserialization(
         TypeFactory.createArrayType(TypeFactory.createSimpleType(TypeKind.TYPE_INT32)));
     ProtoType protoType = factory.createProtoType(TypeProto.class);
+    assertThat(
+            GeneratedDescriptorPool.getGeneratedPool()
+                .findMessageTypeByName(TypeProto.getDescriptor().getFullName()))
+        .isNotNull();
+
     checkSerializable(TypeFactory.createArrayType(protoType));
   }
 

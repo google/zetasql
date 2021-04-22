@@ -645,6 +645,33 @@ absl::Status Resolver::ResolveScalarExpr(
   return ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out);
 }
 
+zetasql_base::StatusOr<std::unique_ptr<const ResolvedLiteral>>
+Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
+  std::string unquoted_image;
+  ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(json_literal->image(), &unquoted_image));
+  if (language().LanguageFeatureEnabled(FEATURE_JSON_NO_VALIDATION)) {
+    return MakeResolvedLiteral(
+        json_literal, types::JsonType(),
+        Value::UnvalidatedJsonString(std::move(unquoted_image)),
+        /*has_explicit_type=*/true);
+  } else {
+    auto status_or_value = JSONValue::ParseJSONString(
+        unquoted_image,
+        JSONParsingOptions{
+            language().LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+            language().LanguageFeatureEnabled(
+                FEATURE_JSON_STRICT_NUMBER_PARSING)});
+    if (!status_or_value.ok()) {
+      return MakeSqlErrorAt(json_literal)
+             << "Invalid JSON literal: " << status_or_value.status().message();
+    }
+    return MakeResolvedLiteral(
+        json_literal, types::JsonType(),
+        Value::Json(std::move(status_or_value.ValueOrDie())),
+        /*has_explicit_type=*/true);
+  }
+}
+
 absl::Status Resolver::ResolveExpr(
     const ASTExpression* ast_expr,
     ExprResolutionInfo* parent_expr_resolution_info,
@@ -976,29 +1003,7 @@ absl::Status Resolver::ResolveLiteralExpr(
       if (!language().LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
         return MakeSqlErrorAt(literal) << "JSON literals are not supported";
       }
-      std::string unquoted_image;
-      ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(literal->image(), &unquoted_image));
-      if (language().LanguageFeatureEnabled(FEATURE_JSON_NO_VALIDATION)) {
-        *resolved_expr_out = MakeResolvedLiteral(
-            ast_expr, types::JsonType(),
-            Value::UnvalidatedJsonString(std::move(unquoted_image)),
-            /*has_explicit_type=*/true);
-      } else {
-        auto status_or_value = JSONValue::ParseJSONString(
-            unquoted_image,
-            JSONParsingOptions{
-                language().LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
-                language().LanguageFeatureEnabled(
-                    FEATURE_JSON_STRICT_NUMBER_PARSING)});
-        if (!status_or_value.ok()) {
-          return MakeSqlErrorAt(literal) << "Invalid JSON literal: "
-                                         << status_or_value.status().message();
-        }
-        *resolved_expr_out =
-            MakeResolvedLiteral(ast_expr, types::JsonType(),
-                                Value::Json(std::move(status_or_value.value())),
-                                /*has_explicit_type=*/true);
-      }
+      ZETASQL_ASSIGN_OR_RETURN(*resolved_expr_out, ResolveJsonLiteral(literal));
       return absl::OkStatus();
     }
 
@@ -1531,8 +1536,8 @@ absl::Status Resolver::ResolveParameterExpr(
   }
   if (analyzing_check_constraint_expression_) {
     return MakeSqlErrorAt(param_expr)
-           << "Query parameters cannot be used inside ZETASQL_CHECK constraint "
-           << "expression";
+           << "Query parameters cannot be used inside CHECK"
+           << " constraint expression";
   }
   if (column_default_expression_validator_.has_value()) {
     return MakeSqlErrorAt(param_expr)
@@ -1727,7 +1732,7 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
     if (lhs_proto->file()->syntax() == google::protobuf::FileDescriptor::SYNTAX_PROTO3 &&
         field->type() != google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
         language().LanguageFeatureEnabled(
-            FEATURE_V_1_3_DISALLOW_PROTO3_HAS_SCALAR_FIELD)) {
+            FEATURE_DEPRECATED_DISALLOW_PROTO3_HAS_SCALAR_FIELD)) {
       return MakeSqlErrorAt(identifier)
              << "Checking the presence of scalar field " << field->full_name()
              << " is not supported for proto3";
@@ -2484,6 +2489,9 @@ absl::Status Resolver::ResolveFilterFieldsExpression(
     filter_field_args.push_back(MakeResolvedFilterFieldArg(
         filter_field_arg->filter_type() == ASTFilterFieldsArg::INCLUDE,
         field_descriptor_path));
+  }
+  if (absl::Status status = validator.ValidateRequiredFields(); !status.ok()) {
+    return MakeSqlErrorAt(ast_filter_fields) << status.message();
   }
 
   *resolved_expr_out = MakeResolvedFilterField(
@@ -4311,7 +4319,8 @@ absl::Status Resolver::ResolveExplicitCast(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Type* resolved_cast_type;
   std::unique_ptr<const ResolvedExpr> resolved_argument;
-  ZETASQL_RETURN_IF_ERROR(ResolveType(cast->type(), &resolved_cast_type));
+  ZETASQL_RETURN_IF_ERROR(ResolveType(cast->type(), &resolved_cast_type,
+                              absl::optional<absl::string_view>()));
   ZETASQL_ASSIGN_OR_RETURN(TypeParameters resolved_type_params,
                    ResolveTypeParameters(*cast->type(), *resolved_cast_type));
   ZETASQL_RETURN_IF_ERROR(
@@ -4939,8 +4948,12 @@ absl::Status Resolver::ResolveNewConstructor(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
   const Type* resolved_type;
+  ZETASQL_RET_CHECK(ast_new_constructor->type_name()->type_parameters() == nullptr)
+      << "The parser does not support type parameters in new constructor "
+         "syntax";
   ZETASQL_RETURN_IF_ERROR(ResolveSimpleType(ast_new_constructor->type_name(),
-                                    &resolved_type));
+                                    &resolved_type, "new constructors"));
+
   if (!resolved_type->IsProto()) {
     return MakeSqlErrorAt(ast_new_constructor->type_name())
            << "NEW constructors are not allowed for type "
@@ -5004,8 +5017,8 @@ absl::Status Resolver::ResolveArrayConstructor(
   // Indicates whether the array constructor has an explicit element type.
   bool has_explicit_type = false;
   if (ast_array_constructor->type() != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveArrayType(ast_array_constructor->type(), &array_type));
+    ZETASQL_RETURN_IF_ERROR(ResolveArrayType(ast_array_constructor->type(), &array_type,
+                                     "literal value construction"));
     has_explicit_type = true;
   }
 
@@ -5272,7 +5285,8 @@ absl::Status Resolver::ResolveStructConstructorImpl(
   // names and types and make a new StructType below.
   const StructType* struct_type = nullptr;
   if (ast_struct_type != nullptr) {
-    ZETASQL_RETURN_IF_ERROR(ResolveStructType(ast_struct_type, &struct_type));
+    ZETASQL_RETURN_IF_ERROR(ResolveStructType(ast_struct_type, &struct_type,
+                                      "literal value construction"));
   }
 
   bool struct_has_explicit_type = false;
@@ -5777,8 +5791,8 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       std::move(with_group_rows_subquery));
   resolved_agg_call->set_with_group_rows_parameter_list(
       std::move(with_group_rows_correlation_references));
-  MaybeRecordParseLocation(ast_function_call->function(),
-                           resolved_agg_call.get());
+  MaybeRecordFunctionCallParseLocation(ast_function_call,
+                                       resolved_agg_call.get());
 
   // If this <ast_function_call> is the top level function call in
   // <expr_resolution_info> and it has an alias, then use that alias.
@@ -6038,7 +6052,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
       function->function_options().volatility != FunctionEnums::IMMUTABLE) {
     return MakeSqlErrorAt(ast_location)
            << function->QualifiedSQLName(/* capitalize_qualifier= */ true)
-           << " is not allowed in ZETASQL_CHECK constraint expression as each "
+           << " is not allowed in CHECK"
+           << " constraint expression as each "
            << "invocation might return a different value";
   }
 

@@ -1,0 +1,100 @@
+show TABLES;
+--
+ShowStmt(identifier="TABLES")
+==
+
+show TABLES from adwords;
+--
+ShowStmt(identifier="TABLES", name_path=adwords)
+==
+
+show TABLES from catalog.adwords;
+--
+ShowStmt(identifier="TABLES", name_path=catalog.adwords)
+==
+
+show TABLES like 'KitchenSync%';
+--
+ShowStmt
++-identifier="TABLES"
++-like_expr=
+  +-Literal(type=STRING, value="KitchenSync%")
+==
+
+show COLUMNS from KitchenSync;
+--
+ShowStmt(identifier="COLUMNS", name_path=KitchenSync)
+==
+
+show INDEXES from myschema.MyTable;
+--
+ShowStmt(identifier="INDEXES", name_path=myschema.MyTable)
+==
+
+show STATUS;
+--
+ShowStmt(identifier="STATUS")
+==
+
+show VARIABLES like 'server_name';
+--
+ShowStmt
++-identifier="VARIABLES"
++-like_expr=
+  +-Literal(type=STRING, value="server_name")
+==
+
+show TABLES like '';
+--
+ShowStmt
++-identifier="TABLES"
++-like_expr=
+  +-Literal(type=STRING, value="")
+==
+
+show TABLES from adwords like b'abc%'
+--
+ERROR: Syntax error: Expected string literal but got bytes literal b'abc%' [at 1:31]
+show TABLES from adwords like b'abc%'
+                              ^
+==
+
+show TABLES from catalog.adwords like 'KitchenSync%';
+--
+ShowStmt
++-identifier="TABLES"
++-name_path=catalog.adwords
++-like_expr=
+  +-Literal(type=STRING, value="KitchenSync%")
+==
+
+SHOW MATERIALIZED VIEWS;
+--
+ShowStmt(identifier="MATERIALIZED VIEWS")
+==
+
+SHOW MATERIALIZED VIEWS like 'KitchenSync%';
+--
+ShowStmt
++-identifier="MATERIALIZED VIEWS"
++-like_expr=
+  +-Literal(type=STRING, value="KitchenSync%")
+==
+
+SHOW `MATERIALIZED VIEWS`;
+--
+ShowStmt(identifier="MATERIALIZED VIEWS")
+==
+
+SHOW MATERIALIZED VIEWS from KitchenSync;
+--
+ShowStmt(identifier="MATERIALIZED VIEWS", name_path=KitchenSync)
+==
+
+SHOW MATERIALIZED VIEWS from KitchenSync like '%foo%';
+--
+ShowStmt
++-identifier="MATERIALIZED VIEWS"
++-name_path=KitchenSync
++-like_expr=
+  +-Literal(type=STRING, value="%foo%")

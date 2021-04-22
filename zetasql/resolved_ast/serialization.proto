@@ -28,7 +28,7 @@ option java_package = "com.google.zetasql";
 option java_multiple_files = true;
 option java_outer_classname = "ZetaSQLSerialization";
 
-// Reference to a ResolvedColumn.
+// Proto representation of zetasql::ResolvedColumn.
 message ResolvedColumnProto {
   optional int64 column_id = 1;
   optional string table_name = 2;
@@ -104,4 +104,10 @@ message OneofDescriptorRefProto {
 
 message ProcedureRefProto {
   optional string name = 1;
+}
+
+// Proto representation of zetasql::ResolvedCollation.
+message ResolvedCollationProto {
+  optional string collation_name = 1;
+  repeated ResolvedCollationProto child_list = 2;
 }

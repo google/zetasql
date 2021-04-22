@@ -124,6 +124,8 @@ class RunParserTest : public ::testing::Test {
   const std::string kAllowColumnDefaultValue = "allow_column_default_value";
   // Allows FOR...IN statement
   const std::string kAllowForIn = "allow_for_in";
+  // Allows LIKE/ANY/SOME/ALL expressions
+  const std::string kAllowLikeAnySomeAll = "allow_like_any_some_all";
 
   RunParserTest() {
     test_case_options_.RegisterString(kModeOption, "statement");
@@ -141,6 +143,7 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
     test_case_options_.RegisterBool(kAllowColumnDefaultValue, true);
     test_case_options_.RegisterBool(kAllowForIn, true);
+    test_case_options_.RegisterBool(kAllowLikeAnySomeAll, true);
 
     // Force a blank line at the start of every test case.
     absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
@@ -629,6 +632,9 @@ class RunParserTest : public ::testing::Test {
     }
     if (test_case_options_.GetBool(kAllowForIn)) {
       language_options_->EnableLanguageFeature(FEATURE_V_1_3_FOR_IN);
+    }
+    if (test_case_options_.GetBool(kAllowLikeAnySomeAll)) {
+      language_options_->EnableLanguageFeature(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
     }
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);

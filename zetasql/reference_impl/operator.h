@@ -85,6 +85,8 @@ class AnalyticFunctionBody;
 class AnalyticFunctionCallExpr;
 class CppValueArg;
 class ExprArg;
+class InlineLambdaArg;
+class InlineLambdaExpr;
 class KeyArg;
 class RelationalArg;
 class RelationalOp;
@@ -112,6 +114,8 @@ class AlgebraArg {
   // Downcasts the argument to RelationalArg or nullptr.
   virtual const RelationalArg* AsRelationalArg() const { return nullptr; }
 
+  virtual const InlineLambdaArg* AsInlineLambdaArg() const { return nullptr; }
+
   // Argument kind is usually set from an enum defined in the subclass of
   // AlgebraNode. Its interpretation is operator-specific.
   int kind() const { return kind_; }
@@ -131,6 +135,9 @@ class AlgebraArg {
   // Convenience method, returns node()->AsRelationalOp() or nullptr.
   const RelationalOp* relational_op() const;
   RelationalOp* mutable_relational_op();
+  // Convenience method, returns InlineLambdaExpr or nullptr.
+  const InlineLambdaExpr* inline_lambda_expr() const;
+  InlineLambdaExpr* mutable_inline_lambda_expr();
 
   // Returns a string representation of the operator for debugging. If
   // 'verbose' is true, prints more information.
@@ -162,7 +169,7 @@ class AlgebraArg {
 // Concrete implementation of CppValueBase; uses templates to store a value of
 // an arbitrary C++ type.
 template <typename T>
-class CppValue : public CppValueBase {
+class CppValue final : public CppValueBase {
  public:
   template <class... Args>
   explicit CppValue(Args&&... args) : value_(args...) {}
@@ -241,8 +248,22 @@ class ExprArg : public AlgebraArg {
   const Type* type_;
 };
 
+// Representing a lambda function argument.
+class InlineLambdaArg : public AlgebraArg {
+ public:
+  InlineLambdaArg(const InlineLambdaArg&) = delete;
+  InlineLambdaArg& operator=(const InlineLambdaArg&) = delete;
+
+  // Creates an argument from 'expr', no variable.
+  explicit InlineLambdaArg(std::unique_ptr<InlineLambdaExpr> lambda);
+
+  ~InlineLambdaArg() override {}
+
+  const InlineLambdaArg* AsInlineLambdaArg() const override { return this; }
+};
+
 // Operator argument class used by SortOp and AggregateOp for key arguments.
-class KeyArg : public ExprArg {
+class KeyArg final : public ExprArg {
  public:
   enum SortOrder { kNotApplicable, kAscending, kDescending };
   enum NullOrder { kDefaultNullOrder, kNullsFirst, kNullsLast };
@@ -308,7 +329,7 @@ struct AnalyticWindow {
 
 // Window frame boundary argument that contains the boundary type and
 // a boundary expression.
-class WindowFrameBoundaryArg : public AlgebraArg {
+class WindowFrameBoundaryArg final : public AlgebraArg {
  public:
   enum BoundaryType {
     kUnboundedPreceding,
@@ -498,7 +519,7 @@ class WindowFrameBoundaryArg : public AlgebraArg {
 };
 
 // Window frame argument in an analytic function call expression.
-class WindowFrameArg : public AlgebraArg {
+class WindowFrameArg final : public AlgebraArg {
  public:
   enum WindowFrameType { kRows, kRange };
 
@@ -609,7 +630,7 @@ class WindowFrameArg : public AlgebraArg {
 };
 
 // Concrete base class for arguments containing relational operators.
-class RelationalArg : public AlgebraArg {
+class RelationalArg final : public AlgebraArg {
  public:
   // Creates an argument from 'op', no variable.
   explicit RelationalArg(std::unique_ptr<RelationalOp> op);
@@ -657,7 +678,7 @@ class AggregateArgAccumulator {
 };
 
 // Operator argument class used by AggregateOp for aggregated arguments.
-class AggregateArg : public ExprArg {
+class AggregateArg final : public ExprArg {
  public:
   // kDistinct means that the input values to the aggregate are deduped.
   enum Distinctness { kAll, kDistinct };
@@ -806,7 +827,7 @@ class AnalyticArg : public ExprArg {
 };
 
 // Aggregate analytic expression argument.
-class AggregateAnalyticArg : public AnalyticArg {
+class AggregateAnalyticArg final : public AnalyticArg {
  public:
   // 'window_frame' cannot be nullptr, because all aggregate functions must
   // support window framing.
@@ -850,7 +871,7 @@ class AggregateAnalyticArg : public AnalyticArg {
 };
 
 // Non-aggregate analytic expression argument.
-class NonAggregateAnalyticArg : public AnalyticArg {
+class NonAggregateAnalyticArg final : public AnalyticArg {
  public:
   NonAggregateAnalyticArg(const NonAggregateAnalyticArg&) = delete;
   NonAggregateAnalyticArg& operator=(const NonAggregateAnalyticArg&) = delete;
@@ -919,7 +940,7 @@ class ColumnFilterArg : public AlgebraArg {
 };
 
 // Represents a ColumnFilter of the form $column IN <array>.
-class InArrayColumnFilterArg : public ColumnFilterArg {
+class InArrayColumnFilterArg final : public ColumnFilterArg {
  public:
   InArrayColumnFilterArg(const InArrayColumnFilterArg&) = delete;
   InArrayColumnFilterArg& operator=(const InArrayColumnFilterArg&) = delete;
@@ -953,7 +974,7 @@ class InArrayColumnFilterArg : public ColumnFilterArg {
 // <list>. InArrayColumnFilterArg cannot be used for this purpose because the
 // element type of <list> may be an array, and ZetaSQL does not support arrays
 // of arrays.
-class InListColumnFilterArg : public ColumnFilterArg {
+class InListColumnFilterArg final : public ColumnFilterArg {
  public:
   InListColumnFilterArg(const InListColumnFilterArg&) = delete;
   InListColumnFilterArg& operator=(const InListColumnFilterArg&) = delete;
@@ -984,7 +1005,7 @@ class InListColumnFilterArg : public ColumnFilterArg {
 };
 
 // Represents a ColumnFilter for (-infinity, <arg>] or [<arg>, infinity).
-class HalfUnboundedColumnFilterArg : public ColumnFilterArg {
+class HalfUnboundedColumnFilterArg final : public ColumnFilterArg {
  public:
   enum Kind { kLE, kGE };
 
@@ -1045,6 +1066,8 @@ class AlgebraNode {
   virtual ValueExpr* AsMutableValueExpr();
   virtual const RelationalOp* AsRelationalOp() const;
   virtual RelationalOp* AsMutableRelationalOp();
+  virtual const InlineLambdaExpr* AsInlineLambdaExpr() const;
+  virtual InlineLambdaExpr* AsMutableInlineLambdaExpr();
 
   // Value and aggregator operators have an output type.
   virtual const Type* output_type() const = 0;
@@ -1263,7 +1286,7 @@ class RelationalOp : public AlgebraNode {
 
 // Produces a relation from a Table (possibly with more data than can
 // simultaneously fit in memory).
-class EvaluatorTableScanOp : public RelationalOp {
+class EvaluatorTableScanOp final : public RelationalOp {
  public:
   EvaluatorTableScanOp(const EvaluatorTableScanOp&) = delete;
   EvaluatorTableScanOp& operator=(const EvaluatorTableScanOp&) = delete;
@@ -1319,7 +1342,7 @@ class EvaluatorTableScanOp : public RelationalOp {
 
 // Evaluates some expressions and makes them available to 'body'. Each
 // expression is allowed to depend on the results of the previous expressions.
-class LetOp : public RelationalOp {
+class LetOp final : public RelationalOp {
  public:
   LetOp(const LetOp&) = delete;
   LetOp& operator=(const LetOp&) = delete;
@@ -1391,7 +1414,7 @@ class LetOp : public RelationalOp {
 // have correlated parameters; their inputs must be evaluated only once for
 // correctness. Correlated input of cross/outer apply may be evaluated multiple
 // times even if no correlated references are present.
-class JoinOp : public RelationalOp {
+class JoinOp final : public RelationalOp {
  public:
   enum JoinKind {
     kInnerJoin,
@@ -1494,7 +1517,7 @@ class JoinOp : public RelationalOp {
 
 // Partitions the input using 'keys' and returns tuples constructed from
 // 'aggregators' evaluated on each partition.
-class AggregateOp : public RelationalOp {
+class AggregateOp final : public RelationalOp {
  public:
   AggregateOp(const AggregateOp&) = delete;
   AggregateOp& operator=(const AggregateOp&) = delete;
@@ -1553,7 +1576,7 @@ class AggregateOp : public RelationalOp {
 //
 // Note that this operator assumes that the input relation is ordered by
 // <partition_keys> and <order_keys>.
-class AnalyticOp : public RelationalOp {
+class AnalyticOp final : public RelationalOp {
  public:
   AnalyticOp(const AnalyticOp&) = delete;
   AnalyticOp& operator=(const AnalyticOp&) = delete;
@@ -1607,7 +1630,7 @@ class AnalyticOp : public RelationalOp {
 };
 
 // Sorts 'values' in 'input' using 'keys'.
-class SortOp : public RelationalOp {
+class SortOp final : public RelationalOp {
  public:
   SortOp(const SortOp&) = delete;
   SortOp& operator=(const SortOp&) = delete;
@@ -1690,7 +1713,7 @@ class SortOp : public RelationalOp {
 // pairs (which are useful for scanning a table represented as an array of
 // structs in the compliance test framework). field_index refers to the field
 // number in the struct type inside the array type.
-class ArrayScanOp : public RelationalOp {
+class ArrayScanOp final : public RelationalOp {
  public:
   // When ArrayScanOp is used to represent a scan of a table represented by an
   // array of structs (e.g., in the compliance tests), this class is used to
@@ -1756,7 +1779,7 @@ class ArrayScanOp : public RelationalOp {
 // Evaluates a set of keys for each row produced by an input iterator.
 // Emits a tuple for each key-set which is unique across all DistinctOp
 // evaluations made using the same DistinctScope.
-class DistinctOp : public RelationalOp {
+class DistinctOp final : public RelationalOp {
  public:
   // <input>: Input operation, whose rows to enumerate
   // <keys>: Evaluated for each row produced by <input>. Duplicate rows (as
@@ -1814,7 +1837,7 @@ class DistinctOp : public RelationalOp {
 // constructed by evaluating M value operators. (The resolved AST allows for
 // union operations to arbitrarily remap the columns in an underlying scan,
 // although there may not be syntax to fully exploit that generality.)
-class UnionAllOp : public RelationalOp {
+class UnionAllOp final : public RelationalOp {
  public:
   UnionAllOp(const UnionAllOp&) = delete;
   UnionAllOp& operator=(const UnionAllOp&) = delete;
@@ -1864,9 +1887,10 @@ class UnionAllOp : public RelationalOp {
 //
 // The recursion is initialized by creating new variables defined by each
 // variable in <initial_assign>. Then, RecursiveOp executes the body in a loop,
-// which continues until the body returns zero rows. After each run through the
-// body which returns at least one row, the assignments in <loop_assign> are
-// executed to advance the state for the next iteration.
+// which continues until the body returns zero rows, with the exception of the
+// first iteration, which will always continue the loop, even if zero rows are
+// emitted. After each run through the body, before advancing to the next
+// iteration, the assignments in <loop_assign> are executed.
 //
 // Variables are available in an expressions and in the body, once initialized.
 //
@@ -1875,18 +1899,22 @@ class UnionAllOp : public RelationalOp {
 // FOR EACH ExprArg a IN <initial_assign>:
 //   SET <a.variable()> = <a.value().Eval()>
 //
+// BOOL first_iteration = true;
 // LOOP
 //   BOOL any_rows = false;
 //   FOR EACH TupleData row IN <body>:
 //     YIELD RETURN row;
 //     any_rows = true;
-//   IF (!any_rows):
+//   IF (!any_rows && !first_iteration):
 //     BREAK;
+//
+//   IF (first_iteration):
+//     first_iteration = false;
 //
 //   FOR EACH ExprArg a IN <loop_assign>:
 //     SET <a.variable()> = <a.value().Eval()>
 // END LOOP
-class LoopOp : public RelationalOp {
+class LoopOp final : public RelationalOp {
  public:
   static zetasql_base::StatusOr<std::unique_ptr<LoopOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> initial_assign,
@@ -1946,7 +1974,7 @@ class LoopOp : public RelationalOp {
 
 // Augments the tuples from 'input' by 'map' slots computed for each tuple.
 // map[i + 1] may depend on variables produced by map[0]...map[i].
-class ComputeOp : public RelationalOp {
+class ComputeOp final : public RelationalOp {
  public:
   ComputeOp(const ComputeOp&) = delete;
   ComputeOp& operator=(const ComputeOp&) = delete;
@@ -1988,7 +2016,7 @@ class ComputeOp : public RelationalOp {
 };
 
 // Discards tuples of 'input' on which 'predicate' evaluates to false or NULL.
-class FilterOp : public RelationalOp {
+class FilterOp final : public RelationalOp {
  public:
   FilterOp(const FilterOp&) = delete;
   FilterOp& operator=(const FilterOp&) = delete;
@@ -2030,7 +2058,7 @@ class FilterOp : public RelationalOp {
 
 // Skips 'offset' tuples of 'input' and returns the next 'row_count' tuples.
 // Produces non-deterministic result if the order of the input is unspecified.
-class LimitOp : public RelationalOp {
+class LimitOp final : public RelationalOp {
  public:
   LimitOp(const LimitOp&) = delete;
   LimitOp& operator=(const LimitOp&) = delete;
@@ -2079,7 +2107,7 @@ class LimitOp : public RelationalOp {
 // Discards tuples of 'input' depending on 'method' and 'size'. Produces
 // deterministic results if 'repeatable' is set. Not deterministic across engine
 // versions.
-class SampleScanOp : public RelationalOp {
+class SampleScanOp final : public RelationalOp {
  public:
   enum class Method {
     // Filter using bernoulli sampling. 'size' is a percentage in the range
@@ -2158,7 +2186,7 @@ class SampleScanOp : public RelationalOp {
 // expression. If N is negative, returns 0 rows. This operator is used to
 // represent a single-row relation (e.g., in SELECT 1) and N-row relations in
 // EXCEPT ALL / INTERSECT ALL queries.
-class EnumerateOp : public RelationalOp {
+class EnumerateOp final : public RelationalOp {
  public:
   EnumerateOp(const EnumerateOp&) = delete;
   EnumerateOp& operator=(const EnumerateOp&) = delete;
@@ -2198,7 +2226,7 @@ class EnumerateOp : public RelationalOp {
 // -------------------------------------------------------
 
 // Returns the contents of a table 'table_name' as an array.
-class TableAsArrayExpr : public ValueExpr {
+class TableAsArrayExpr final : public ValueExpr {
  public:
   TableAsArrayExpr(const TableAsArrayExpr&) = delete;
   TableAsArrayExpr& operator=(const TableAsArrayExpr&) = delete;
@@ -2225,7 +2253,7 @@ class TableAsArrayExpr : public ValueExpr {
 };
 
 // Returns the value of variable (or attribute) 'name' of the given 'type'.
-class DerefExpr : public ValueExpr {
+class DerefExpr final : public ValueExpr {
  public:
   DerefExpr(const DerefExpr&) = delete;
   DerefExpr& operator=(const DerefExpr&) = delete;
@@ -2255,7 +2283,7 @@ class DerefExpr : public ValueExpr {
 };
 
 // Returns field 'field_name' (or 'field_index') from 'expr'.
-class FieldValueExpr : public ValueExpr {
+class FieldValueExpr final : public ValueExpr {
  public:
   FieldValueExpr(const FieldValueExpr&) = delete;
   FieldValueExpr& operator=(const FieldValueExpr&) = delete;
@@ -2381,7 +2409,7 @@ class ProtoFieldReader {
 // Value from a row, and one of the ProtoFieldReaders stores information
 // alongside it corresponding to all of the fields in the corresponding
 // FieldRegistry.
-class GetProtoFieldExpr : public ValueExpr {
+class GetProtoFieldExpr final : public ValueExpr {
  public:
   GetProtoFieldExpr(const GetProtoFieldExpr&) = delete;
   GetProtoFieldExpr& operator=(const GetProtoFieldExpr&) = delete;
@@ -2418,7 +2446,7 @@ class GetProtoFieldExpr : public ValueExpr {
 
 // Handles evaluating a flatten which merges the results over nested arrays.
 // See (broken link)
-class FlattenExpr : public ValueExpr {
+class FlattenExpr final : public ValueExpr {
  public:
   FlattenExpr(const FlattenExpr&) = delete;
   FlattenExpr& operator=(const FlattenExpr&) = delete;
@@ -2455,7 +2483,7 @@ class FlattenExpr : public ValueExpr {
 
 // Returns the value as provided by '*input_'.
 // This is the argument for a given flatten evaluation.
-class FlattenedArgExpr : public ValueExpr {
+class FlattenedArgExpr final : public ValueExpr {
  public:
   FlattenedArgExpr(const FlattenedArgExpr&) = delete;
   FlattenedArgExpr& operator=(const FlattenedArgExpr&) = delete;
@@ -2493,7 +2521,7 @@ class FlattenedArgExpr : public ValueExpr {
 // Nests 'element's of 'input' as an array. 'is_with_table' is true if this
 // operator corresponds to the table in a WITH clause (which affects the memory
 // bound that is applied to the output).
-class ArrayNestExpr : public ValueExpr {
+class ArrayNestExpr final : public ValueExpr {
  public:
   ArrayNestExpr(const ArrayNestExpr&) = delete;
   ArrayNestExpr& operator=(const ArrayNestExpr&) = delete;
@@ -2533,7 +2561,7 @@ class ArrayNestExpr : public ValueExpr {
 
 // Constructs a struct of the given 'type' and 'args'. Number and order of
 // fields must match the type definition.
-class NewStructExpr : public ValueExpr {
+class NewStructExpr final : public ValueExpr {
  public:
   NewStructExpr(const NewStructExpr&) = delete;
   NewStructExpr& operator=(const NewStructExpr&) = delete;
@@ -2562,7 +2590,7 @@ class NewStructExpr : public ValueExpr {
 };
 
 // Constructs an array from the given 'elements'.
-class NewArrayExpr : public ValueExpr {
+class NewArrayExpr final : public ValueExpr {
  public:
   NewArrayExpr(const NewArrayExpr&) = delete;
   NewArrayExpr& operator=(const NewArrayExpr&) = delete;
@@ -2592,7 +2620,7 @@ class NewArrayExpr : public ValueExpr {
 };
 
 // Produces a constant 'value'.
-class ConstExpr : public ValueExpr {
+class ConstExpr final : public ValueExpr {
  public:
   ConstExpr(const ConstExpr&) = delete;
   ConstExpr& operator=(const ConstExpr&) = delete;
@@ -2625,7 +2653,7 @@ class ConstExpr : public ValueExpr {
 // Produces a single value from the variable ranging over the given 'input'
 // relation, or NULL if the 'input' is empty. Sets an error if the 'input' has
 // more than one element.
-class SingleValueExpr : public ValueExpr {
+class SingleValueExpr final : public ValueExpr {
  public:
   SingleValueExpr(const SingleValueExpr&) = delete;
   SingleValueExpr& operator=(const SingleValueExpr&) = delete;
@@ -2658,7 +2686,7 @@ class SingleValueExpr : public ValueExpr {
 
 // Returns Bool(true) if the relation has at least one row. Otherwise returns
 // Bool(false).
-class ExistsExpr : public ValueExpr {
+class ExistsExpr final : public ValueExpr {
  public:
   ExistsExpr(const ExistsExpr&) = delete;
   ExistsExpr& operator=(const ExistsExpr&) = delete;
@@ -2799,7 +2827,7 @@ class AggregateFunctionBody : public FunctionBody {
 };
 
 // Evaluates a scalar function of the given 'function' and 'arguments'.
-class ScalarFunctionCallExpr : public ValueExpr {
+class ScalarFunctionCallExpr final : public ValueExpr {
  public:
   static zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> Create(
       std::unique_ptr<const ScalarFunctionBody> function,
@@ -2836,7 +2864,7 @@ class ScalarFunctionCallExpr : public ValueExpr {
 // Defines an aggregate function call with the given 'exprs' and 'arguments'.
 // Note that it cannot evaluate the aggregate function, which is computed
 // in AggregateArg.
-class AggregateFunctionCallExpr : public ValueExpr {
+class AggregateFunctionCallExpr final : public ValueExpr {
  public:
   static zetasql_base::StatusOr<std::unique_ptr<AggregateFunctionCallExpr>> Create(
       std::unique_ptr<const AggregateFunctionBody> function,
@@ -2928,7 +2956,7 @@ class AnalyticFunctionBody : public FunctionBody {
 };
 
 // Defines a non-aggregate analytic function call expression.
-class AnalyticFunctionCallExpr : public ValueExpr {
+class AnalyticFunctionCallExpr final : public ValueExpr {
  public:
   AnalyticFunctionCallExpr(const AnalyticFunctionCallExpr&) = delete;
   AnalyticFunctionCallExpr& operator=(const AnalyticFunctionCallExpr&) = delete;
@@ -2977,7 +3005,7 @@ class AnalyticFunctionCallExpr : public ValueExpr {
 // 'condition' is true returns 'true_value', else 'false_value'. It is not a
 // regular function since its true/false inputs cannot be evaluated prior to
 // evaluating the operator.
-class IfExpr : public ValueExpr {
+class IfExpr final : public ValueExpr {
  public:
   IfExpr(const IfExpr&) = delete;
   IfExpr& operator=(const IfExpr&) = delete;
@@ -3026,7 +3054,7 @@ class IfExpr : public ValueExpr {
 // LetExpr(x:=expr,y:=x+1, ...).
 // LetExpr can also be used to represent the WITH statement if we are
 // representing the results as a Value (instead of a TupleIterator).
-class LetExpr: public ValueExpr {
+class LetExpr final : public ValueExpr {
  public:
   LetExpr(const LetExpr&) = delete;
   LetExpr& operator=(const LetExpr&) = delete;
@@ -3056,6 +3084,107 @@ class LetExpr: public ValueExpr {
 
   const ValueExpr* body() const;
   ValueExpr* mutable_body();
+};
+
+// Class representing a lambda. A lambda has a list of arguments and body, for
+// example: e->e+1.
+class InlineLambdaExpr : public AlgebraNode {
+ public:
+  InlineLambdaExpr(const InlineLambdaExpr&) = delete;
+  InlineLambdaExpr& operator=(const InlineLambdaExpr&) = delete;
+
+  ~InlineLambdaExpr() override {}
+
+  static std::unique_ptr<InlineLambdaExpr> Create(
+      absl::Span<const VariableId> arguments, std::unique_ptr<ValueExpr> body);
+
+  const InlineLambdaExpr* AsInlineLambdaExpr() const override { return this; }
+
+  InlineLambdaExpr* AsMutableInlineLambdaExpr() override { return this; }
+
+  const Type* output_type() const override {
+    ZETASQL_LOG(FATAL) << "Relational operators have no type";
+  }
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas);
+
+  // Evaluates the lambda body with `arg_values` as argument values.
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status, absl::Span<const Value> arg_values) const;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+  size_t num_args() const;
+
+ private:
+  InlineLambdaExpr(absl::Span<const VariableId> arguments,
+                   std::unique_ptr<ValueExpr> body);
+
+  enum ArgKind { kArguments, kBody };
+
+  const ValueExpr* body() const;
+
+  ValueExpr* mutable_body();
+};
+
+// Class for array functions with one input array and one lambda. For example,
+// ARRAY_FILTER and ARRAY_TRANSFORM.
+// These function loops through the array elements and evaluates the lambda for
+// each element and offset and take different actions according to the function
+// spec. Specific actions taken can be specified as subclasses of
+// LambdaResultHandler.
+class ArrayFunctionWithLambdaExpr : public ValueExpr {
+ public:
+  ArrayFunctionWithLambdaExpr(const ArrayFunctionWithLambdaExpr&) = delete;
+  ArrayFunctionWithLambdaExpr& operator=(const ArrayFunctionWithLambdaExpr&) =
+      delete;
+
+  ~ArrayFunctionWithLambdaExpr() override {}
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            EvaluationContext* context, VirtualTupleSlot* result,
+            absl::Status* status) const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+  class LambdaResultHandler {
+   public:
+    virtual ~LambdaResultHandler() {}
+
+    virtual void OnLambdaEvaluation(const Value& element,
+                                    const Value& lambda_body) = 0;
+
+    virtual Value GetReturnValue(const Type* output_type) = 0;
+  };
+
+  using LambdaResultHandlerCreator =
+      std::function<std::unique_ptr<LambdaResultHandler>()>;
+
+  static zetasql_base::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>> Create(
+      absl::string_view func_name,
+      std::vector<std::unique_ptr<AlgebraArg>> args, const Type* output_type);
+
+ protected:
+  ArrayFunctionWithLambdaExpr(
+      absl::string_view func_name, std::unique_ptr<AlgebraArg> input_array,
+      std::unique_ptr<AlgebraArg> lambda, const Type* output_type,
+      LambdaResultHandlerCreator lambda_handler_creator);
+
+ private:
+  enum ArgKind { kInputArray, kLambda };
+
+  ValueExpr* mutable_input_array();
+  InlineLambdaExpr* mutable_lambda();
+
+  std::string func_name_;
+  LambdaResultHandlerCreator lambda_handler_creator_;
 };
 
 // Maps all ResolvedScan descendants of a node (except those that are also
@@ -3244,7 +3373,7 @@ class DMLValueExpr : public ValueExpr {
 };
 
 // Represents a DML DELETE statement.
-class DMLDeleteValueExpr : public DMLValueExpr {
+class DMLDeleteValueExpr final : public DMLValueExpr {
  public:
   DMLDeleteValueExpr(const DMLDeleteValueExpr&) = delete;
   DMLDeleteValueExpr& operator=(const DMLDeleteValueExpr&) = delete;
@@ -3293,7 +3422,7 @@ class DMLDeleteValueExpr : public DMLValueExpr {
 };
 
 // Represents a DML UPDATE statement.
-class DMLUpdateValueExpr : public DMLValueExpr {
+class DMLUpdateValueExpr final : public DMLValueExpr {
  public:
   DMLUpdateValueExpr(const DMLUpdateValueExpr&) = delete;
   DMLUpdateValueExpr& operator=(const DMLUpdateValueExpr&) = delete;
@@ -3666,7 +3795,7 @@ class DMLUpdateValueExpr : public DMLValueExpr {
 };
 
 // Represents a DML INSERT statement.
-class DMLInsertValueExpr : public DMLValueExpr {
+class DMLInsertValueExpr final : public DMLValueExpr {
  public:
   DMLInsertValueExpr(const DMLInsertValueExpr&) = delete;
   DMLInsertValueExpr& operator=(const DMLInsertValueExpr&) = delete;
@@ -3790,7 +3919,7 @@ struct RootData {
 
 // A dummy root object that wraps up a RelationalOp along with ownership of
 // shared objects in the tree.
-class RootOp : public RelationalOp {
+class RootOp final : public RelationalOp {
  public:
   RootOp(const RootOp&) = delete;
   RootOp& operator=(const RootOp&) = delete;
@@ -3827,7 +3956,7 @@ class RootOp : public RelationalOp {
 
 // A dummy root object that wraps up a ValueExpr along with ownership of
 // shared objects in the tree.
-class RootExpr : public ValueExpr {
+class RootExpr final : public ValueExpr {
  public:
   RootExpr(const RootExpr&) = delete;
   RootExpr& operator=(const RootExpr&) = delete;

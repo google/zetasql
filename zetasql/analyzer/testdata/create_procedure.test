@@ -1,0 +1,271 @@
+# valid minimum statement
+CREATE PROCEDURE procedure_name()
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[], signature=() -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# valid mininum statement with all optional clause
+CREATE TEMP PROCEDURE IF NOT EXISTS procedure_name()
+OPTIONS()
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, create_scope=CREATE_TEMP, create_mode=CREATE_IF_NOT_EXISTS, argument_name_list=[], signature=() -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# valid statement with options and RETURN
+CREATE PROCEDURE procedure_name()
+OPTIONS(a=1, b="2")
+BEGIN
+  SELECT 1;
+  RETURN;
+END;
+--
+CreateProcedureStmt
++-name_path=procedure_name
++-argument_name_list=[]
++-signature=() -> <void>
++-option_list=
+| +-a := Literal(type=INT64, value=1)
+| +-b := Literal(type=STRING, value="2")
++-procedure_body="BEGIN\n  SELECT 1;\n  RETURN;\nEND"
+==
+
+# valid statement with multiple arguments
+CREATE PROCEDURE procedure_name(
+  param_a string,
+  param_b int32,
+  param_c float64,
+  param_e ANY TYPE
+  )
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a, param_b, param_c, param_e], signature=(STRING param_a, INT32 param_b, DOUBLE param_c, ANY TYPE param_e) -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# valid statement with table-valued arguments
+# TODO: Enable Java support for table-valued arguments
+[no_java]
+CREATE PROCEDURE procedure_name(
+  param_d table<col_a int32, col_b int32>,
+  param_f ANY TABLE
+  )
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_d, param_f], signature=(TABLE<col_a INT32, col_b INT32>, ANY TABLE param_f) -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# valid statement with procedure body
+CREATE PROCEDURE procedure_name(OUT param_a string)
+BEGIN
+  DECLARE a int32;
+  SET a = 1;
+  SET param_a = "test";
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a], signature=(STRING {procedure_argument_mode: OUT} param_a) -> <void>, procedure_body='BEGIN\n  DECLARE a int32;\n  SET a = 1;\n  SET param_a = "test";\nEND')
+==
+
+# valid statement with options
+CREATE PROCEDURE procedure_name(OUT param_a string)
+OPTIONS (a = 'option a', b = 100, c = @test_param_string)
+BEGIN
+  SET param_a = "test";
+END;
+--
+CreateProcedureStmt
++-name_path=procedure_name
++-argument_name_list=[param_a]
++-signature=(STRING {procedure_argument_mode: OUT} param_a) -> <void>
++-option_list=
+| +-a := Literal(type=STRING, value="option a")
+| +-b := Literal(type=INT64, value=100)
+| +-c := Parameter(type=STRING, name="test_param_string")
++-procedure_body='BEGIN\n  SET param_a = "test";\nEND'
+==
+
+# valid parameter with empty mode and backtick-quoted parameter name
+CREATE PROCEDURE procedure_name (`OUT` int32)
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[`OUT`], signature=(INT32 OUT) -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# valid parameter with mode and "OUT" as parameter name
+CREATE PROCEDURE procedure_name (OUT OUT int32)
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[`OUT`], signature=(INT32 {procedure_argument_mode: OUT} OUT) -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# valid parameter with IN/OUT/INOUT and empty mode
+CREATE PROCEDURE procedure_name ({{IN|OUT|INOUT|}} param_a int32)
+BEGIN
+END;
+--
+ALTERNATION GROUP: IN
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a], signature=(INT32 {procedure_argument_mode: IN} param_a) -> <void>, procedure_body="BEGIN\nEND")
+--
+ALTERNATION GROUP: OUT
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a], signature=(INT32 {procedure_argument_mode: OUT} param_a) -> <void>, procedure_body="BEGIN\nEND")
+--
+ALTERNATION GROUP: INOUT
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a], signature=(INT32 {procedure_argument_mode: INOUT} param_a) -> <void>, procedure_body="BEGIN\nEND")
+--
+ALTERNATION GROUP: <empty>
+--
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_a], signature=(INT32 param_a) -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# Procedure name being OUT
+CREATE PROCEDURE OUT(param_1 INT32)
+BEGIN
+END;
+--
+CreateProcedureStmt(name_path=`OUT`, argument_name_list=[param_1], signature=(INT32 param_1) -> <void>, procedure_body="BEGIN\nEND")
+==
+
+# invalid statement with unknown type
+CREATE PROCEDURE procedure_name(
+  param_a unknown_type
+  )
+BEGIN
+END;
+--
+ERROR: Type not found: unknown_type [at 2:11]
+  param_a unknown_type
+          ^
+==
+
+# invalid statement with duplicated parameter name
+CREATE PROCEDURE procedure_name(
+  param_a int64,
+  param_a float64
+  )
+BEGIN
+END;
+--
+ERROR: Duplicate argument name param_a [at 3:3]
+  param_a float64
+  ^
+==
+
+# invalid statement with table valued argument with OUT/INOUT mode
+CREATE PROCEDURE procedure_name(
+  {{OUT|INOUT}} param_a {{table<col_a int32, col_b int32>|ANY TABLE}}
+  )
+BEGIN
+END;
+--
+ALTERNATION GROUP: OUT,table<col_a int32, col_b int32>
+--
+ERROR: Table parameters cannot have OUT or INOUT mode [at 2:3]
+  OUT param_a table<col_a int32, col_b int32>
+  ^
+--
+ALTERNATION GROUP: OUT,ANY TABLE
+--
+ERROR: Table parameters cannot have OUT or INOUT mode [at 2:3]
+  OUT param_a ANY TABLE
+  ^
+--
+ALTERNATION GROUP: INOUT,table<col_a int32, col_b int32>
+--
+ERROR: Table parameters cannot have OUT or INOUT mode [at 2:3]
+  INOUT param_a table<col_a int32, col_b int32>
+  ^
+--
+ALTERNATION GROUP: INOUT,ANY TABLE
+--
+ERROR: Table parameters cannot have OUT or INOUT mode [at 2:3]
+  INOUT param_a ANY TABLE
+  ^
+==
+
+# query parameter is not allowed in procedure body
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT @param_a;
+END;
+--
+ERROR: Query parameter is not allowed in the body of procedure 'procedure_name': @param_a [at 3:10]
+  SELECT @param_a;
+         ^
+==
+
+# query parameter is not allowed in procedure body
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT col_a
+  FROM table_a
+  WHERE col_b < ?;
+END;
+--
+ERROR: Query parameter is not allowed in the body of procedure 'procedure_name': ? [at 5:17]
+  WHERE col_b < ?;
+                ^
+
+==
+
+# [Error] Variable redefinition of an argument
+CREATE PROCEDURE procedure_name(abc INT64)
+BEGIN
+  DECLARE ABC FLOAT64;
+END;
+--
+ERROR: Variable 'ABC' previously declared as an argument [at 3:11]
+  DECLARE ABC FLOAT64;
+          ^
+
+==
+
+# [Error] Variable redefinition of a variable
+CREATE PROCEDURE procedure_name()
+BEGIN
+  DECLARE ABC FLOAT64;
+  BEGIN
+    DECLARE abc INT64;
+  END;
+END;
+--
+ERROR: Variable 'abc' redeclaration [at 5:13]
+    DECLARE abc INT64;
+            ^
+abc previously declared here [at 3:11]
+  DECLARE ABC FLOAT64;
+          ^
+
+==
+
+# [Error] DECLARE is not at the start of a block.
+CREATE PROCEDURE procedure_name()
+BEGIN
+  SELECT 1;
+  DECLARE ABC FLOAT64;
+END;
+--
+ERROR: Variable declarations are allowed only at the start of a block or script [at 4:3]
+  DECLARE ABC FLOAT64;
+  ^
+==
+
+# Type parameters are not supported.
+CREATE PROCEDURE procedure_name(OUT param_a string(10))
+BEGIN
+  DECLARE a int32;
+  SET a = 1;
+  SET param_a = "test";
+END;
+--
+ERROR: Parameterized types are not supported in function arguments [at 1:51]
+CREATE PROCEDURE procedure_name(OUT param_a string(10))
+                                                  ^

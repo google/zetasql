@@ -35,7 +35,8 @@ namespace {
 // for compliance tests, so that the result of executing the query through the
 // rewriter can be compared to it.
 constexpr ResolvedASTRewrite kReferenceImplOptionalRewrites[] = {
-    REWRITE_FLATTEN, REWRITE_PROTO_MAP_FNS, REWRITE_PIVOT};
+    REWRITE_FLATTEN, REWRITE_PROTO_MAP_FNS, REWRITE_PIVOT,
+    REWRITE_ARRAY_FUNCTIONS_WITH_LAMBDA};
 
 RewriteHashSet DefaultRewrites() {
   return RewriteHashSet(AnalyzerOptions().enabled_rewrites());

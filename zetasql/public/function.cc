@@ -128,39 +128,43 @@ const FunctionEnums::Mode Function::SCALAR;
 const FunctionEnums::Mode Function::AGGREGATE;
 const FunctionEnums::Mode Function::ANALYTIC;
 
-Function::Function(const std::string& name, const std::string& group, Mode mode,
-                   const FunctionOptions& function_options)
-    : group_(group), mode_(mode), function_options_(function_options) {
-  function_name_path_.push_back(name);
+Function::Function(absl::string_view name, absl::string_view group, Mode mode,
+                   FunctionOptions function_options)
+    : group_(group),
+      mode_(mode),
+      function_options_(std::move(function_options)) {
+  function_name_path_.emplace_back(name);
   ZETASQL_CHECK_OK(CheckWindowSupportOptions());
   ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
 }
 
-Function::Function(const std::string& name, const std::string& group, Mode mode,
-                   const std::vector<FunctionSignature>& function_signatures,
-                   const FunctionOptions& function_options)
-    : group_(group), mode_(mode), function_options_(function_options) {
-  function_name_path_.push_back(name);
-  function_signatures_ = function_signatures;
+Function::Function(absl::string_view name, absl::string_view group, Mode mode,
+                   std::vector<FunctionSignature> function_signatures,
+                   FunctionOptions function_options)
+    : group_(group),
+      mode_(mode),
+      function_signatures_(std::move(function_signatures)),
+      function_options_(std::move(function_options)) {
+  function_name_path_.emplace_back(name);
   ZETASQL_CHECK_OK(CheckWindowSupportOptions());
-  for (const FunctionSignature& signature : function_signatures) {
+  for (const FunctionSignature& signature : function_signatures_) {
     ZETASQL_CHECK_OK(signature.IsValidForFunction())
         << signature.DebugString(FullName());
   }
   ZETASQL_CHECK_OK(CheckMultipleSignatureMatchingSameFunctionCall());
 }
 
-Function::Function(const std::vector<std::string>& name_path,
-                   const std::string& group, Mode mode,
-                   const std::vector<FunctionSignature>& function_signatures,
-                   const FunctionOptions& function_options)
-    : function_name_path_(name_path),
-      group_(group),
+Function::Function(std::vector<std::string> name_path, absl::string_view group,
+                   Mode mode,
+                   std::vector<FunctionSignature> function_signatures,
+                   FunctionOptions function_options)
+    : function_name_path_(std::move(name_path)),
+      group_(std::move(group)),
       mode_(mode),
-      function_options_(function_options) {
-  function_signatures_ = function_signatures;
+      function_signatures_(std::move(function_signatures)),
+      function_options_(std::move(function_options)) {
   ZETASQL_CHECK_OK(CheckWindowSupportOptions());
-  for (const FunctionSignature& signature : function_signatures) {
+  for (const FunctionSignature& signature : function_signatures_) {
     ZETASQL_CHECK_OK(signature.IsValidForFunction())
         << signature.DebugString(FullName());
   }

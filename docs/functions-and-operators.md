@@ -22,6 +22,32 @@ in the function description:
   description), the default time zone, which is implementation defined, is used if a time
   zone is not specified.
 
+## Lambdas 
+<a id="lambdas"></a>
+
+**Syntax:**
+
+```sql
+(arg[, ...]) -> body_expression
+```
+
+```sql
+arg -> body_expression
+```
+
+**Description**
+
+For some functions, ZetaSQL supports lambdas as builtin function
+arguments. A lambda takes a list of arguments and an expression as the lambda
+body.
+
++   `arg`:
+    +   Name of the lambda argument is defined by the user.
+    +   No type is specified for the lambda argument. The type is inferred from
+        the context.
++   `body_expression`:
+    +   The lambda body can be any valid scalar expression.
+
 ## SAFE. prefix
 
 **Syntax:**
@@ -3425,8 +3451,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT32
-+ UINT32
++ `INT32`
++ `UINT32`
 
 **Return Data Type**
 
@@ -3458,8 +3484,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT64
-+ UINT64
++ `INT64`
++ `UINT64`
 
 **Return Data Type**
 
@@ -3491,8 +3517,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT32
-+ UINT32
++ `INT32`
++ `UINT32`
 
 **Return Data Type**
 
@@ -3524,8 +3550,8 @@ those bytes represent.
 
 The `value` parameter can represent:
 
-+ INT64
-+ UINT64
++ `INT64`
++ `UINT64`
 
 **Return Data Type**
 
@@ -3646,7 +3672,7 @@ CAST(expression AS ARRAY<element_type>)
 ZetaSQL supports [casting][con-func-cast] to ARRAY. The `expression`
 parameter can represent an expression for these data types:
 
-+ ARRAY
++ `ARRAY`
 
 **Conversion rules**
 
@@ -3686,15 +3712,15 @@ CAST(expression AS BIGNUMERIC)
 ZetaSQL supports [casting][con-func-cast] to BIGNUMERIC. The
 `expression` parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ FLOAT
-+ DOUBLE
-+ NUMERIC
-+ BIGNUMERIC
-+ STRING
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `FLOAT`
++ `DOUBLE`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `STRING`
 
 **Conversion rules**
 
@@ -3748,12 +3774,12 @@ CAST(expression AS BOOL)
 ZetaSQL supports [casting][con-func-cast] to BOOL. The
 `expression` parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ BOOL
-+ STRING
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `BOOL`
++ `STRING`
 
 **Conversion rules**
 
@@ -3796,16 +3822,16 @@ ZetaSQL supports [casting][con-func-cast] to BOOL. The
 ZetaSQL supports [casting][con-func-cast] to BYTES. The
 `expression` parameter can represent an expression for these data types:
 
-+ BYTES
-+ STRING
-+ PROTO
++ `BYTES`
++ `STRING`
++ `PROTO`
 
 **Format clause**
 
 When an expression of one type is cast to another type, you can use the
 [format clause][formatting-syntax] to provide instructions for how to conduct
-the cast. You can use the format clause in this section with these formatting
-types.
+the cast. You can use the format clause in this section if `expression` is a
+`STRING`.
 
 + [Format string as bytes][format-string-as-bytes]
 
@@ -3842,19 +3868,28 @@ types.
 
 ### CAST AS DATE
 
-```sql
-CAST(expression AS DATE)
-```
+<pre class="lang-sql prettyprint">
+<code>CAST(expression AS DATE [<a href="#formatting_syntax">format_clause</a>])</code>
+</pre>
 
 **Description**
 
 ZetaSQL supports [casting][con-func-cast] to DATE. The `expression`
 parameter can represent an expression for these data types:
 
-+ STRING
-+ TIME
-+ DATETIME
-+ TIMESTAMP
++ `STRING`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Format clause**
+
+When an expression of one type is cast to another type, you can use the
+[format clause][formatting-syntax] to provide instructions for how to conduct
+the cast. You can use the format clause in this section if `expression` is a
+`STRING`.
+
++ [Format string as date and time][format-string-as-date-time]
 
 **Conversion rules**
 
@@ -3888,19 +3923,28 @@ parameter can represent an expression for these data types:
 
 ### CAST AS DATETIME
 
-```sql
-CAST(expression AS DATETIME)
-```
+<pre class="lang-sql prettyprint">
+<code>CAST(expression AS DATETIME [<a href="#formatting_syntax">format_clause</a>])</code>
+</pre>
 
 **Description**
 
 ZetaSQL supports [casting][con-func-cast] to DATETIME. The
 `expression` parameter can represent an expression for these data types:
 
-+ STRING
-+ TIME
-+ DATETIME
-+ TIMESTAMP
++ `STRING`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Format clause**
+
+When an expression of one type is cast to another type, you can use the
+[format clause][formatting-syntax] to provide instructions for how to conduct
+the cast. You can use the format clause in this section if `expression` is a
+`STRING`.
+
++ [Format string as date and time][format-string-as-date-time]
 
 **Conversion rules**
 
@@ -3943,12 +3987,12 @@ CAST(expression AS ENUM)
 ZetaSQL supports [casting][con-func-cast] to ENUM. The `expression`
 parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ STRING
-+ ENUM
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `STRING`
++ `ENUM`
 
 **Conversion rules**
 
@@ -3981,15 +4025,15 @@ CAST(expression AS FLOAT)
 ZetaSQL supports [casting][con-func-cast] to floating point types.
 The `expression` parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ FLOAT
-+ DOUBLE
-+ NUMERIC
-+ BIGNUMERIC
-+ STRING
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `FLOAT`
++ `DOUBLE`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `STRING`
 
 **Conversion rules**
 
@@ -4065,17 +4109,17 @@ CAST(expression AS UINT64)
 ZetaSQL supports [casting][con-func-cast] to integer types.
 The `expression` parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ FLOAT
-+ DOUBLE
-+ NUMERIC
-+ BIGNUMERIC
-+ ENUM
-+ BOOL
-+ STRING
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `FLOAT`
++ `DOUBLE`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `ENUM`
++ `BOOL`
++ `STRING`
 
 **Conversion rules**
 
@@ -4155,15 +4199,15 @@ CAST(expression AS NUMERIC)
 ZetaSQL supports [casting][con-func-cast] to NUMERIC. The
 `expression` parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ FLOAT
-+ DOUBLE
-+ NUMERIC
-+ BIGNUMERIC
-+ STRING
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `FLOAT`
++ `DOUBLE`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `STRING`
 
 **Conversion rules**
 
@@ -4215,9 +4259,9 @@ CAST(expression AS PROTO)
 ZetaSQL supports [casting][con-func-cast] to PROTO. The `expression`
 parameter can represent an expression for these data types:
 
-+ STRING
-+ BYTES
-+ PROTO
++ `STRING`
++ `BYTES`
++ `PROTO`
 
 **Conversion rules**
 
@@ -4256,7 +4300,7 @@ parameter can represent an expression for these data types:
 <a id="cast_as_string"></a>
 
 <pre class="lang-sql prettyprint">
-<code>CAST(expression AS STRING [<a href="#formatting_syntax">format_clause</a>])</code>
+<code>CAST(expression AS STRING [<a href="#formatting_syntax">format_clause</a> [AT TIME ZONE timezone_expr]])</code>
 </pre>
 
 **Description**
@@ -4264,31 +4308,46 @@ parameter can represent an expression for these data types:
 ZetaSQL supports [casting][con-func-cast] to STRING. The
 `expression` parameter can represent an expression for these data types:
 
-+ INT32
-+ UINT32
-+ INT64
-+ UINT64
-+ FLOAT
-+ DOUBLE
-+ NUMERIC
-+ BIGNUMERIC
-+ ENUM
-+ BOOL
-+ BYTES
-+ PROTO
-+ TIME
-+ DATE
-+ DATETIME
-+ TIMESTAMP
-+ STRING
++ `INT32`
++ `UINT32`
++ `INT64`
++ `UINT64`
++ `FLOAT`
++ `DOUBLE`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `ENUM`
++ `BOOL`
++ `BYTES`
++ `PROTO`
++ `TIME`
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
++ `STRING`
 
 **Format clause**
 
 When an expression of one type is cast to another type, you can use the
 format clause to provide instructions for how to conduct the cast.
-You can use the format clause in this section with these formatting types.
+You can use the format clause in this section if `expression` is one of these
+data types:
+
++ `BYTES`
++ `TIME`
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+The format clause for `STRING` has an additional optional clause called
+`AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
+to use during formatting of a `TIMESTAMP`. If this optional clause is not
+included when formatting a `TIMESTAMP`, your current time zone is used.
+
+For more information, see the following topics:
 
 + [Format bytes as string][format-bytes-as-string]
++ [Format date and time as string][format-date-time-as-string]
 
 **Conversion rules**
 
@@ -4387,7 +4446,7 @@ You can use the format clause in this section with these formatting types.
 **Examples**
 
 ```sql
-CAST(CURRENT_DATE() AS STRING) AS current_date
+SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
 
 +---------------+
 | current_date  |
@@ -4397,13 +4456,40 @@ CAST(CURRENT_DATE() AS STRING) AS current_date
 ```
 
 ```sql
-CAST(CURRENT_DATE() AS STRING FORMAT DAY) AS current_day
+SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
 
 +-------------+
 | current_day |
 +-------------+
 | MONDAY      |
 +-------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP '2008-12-25 00:00:00+00:00'
+  AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS date_time_to_string
+
+-- Results depend upon where this query was executed.
++------------------------------+
+| date_time_to_string          |
++------------------------------+
+| 2008-12-24 16:00:00 -08:00   |
++------------------------------+
+```
+
+```sql
+SELECT CAST(
+  TIMESTAMP '2008-12-25 00:00:00+00:00'
+  AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM'
+  AT TIME ZONE 'Asia/Kolkata') AS date_time_to_string
+
+-- Because the time zone is specified, the result is always the same.
++------------------------------+
+| date_time_to_string          |
++------------------------------+
+| 2008-12-25 05:30:00 +05:30   |
++------------------------------+
 ```
 
 ### CAST AS STRUCT
@@ -4417,7 +4503,7 @@ CAST(expression AS STRUCT)
 ZetaSQL supports [casting][con-func-cast] to STRUCT. The `expression`
 parameter can represent an expression for these data types:
 
-+ STRUCT
++ `STRUCT`
 
 **Conversion rules**
 
@@ -4450,19 +4536,28 @@ parameter can represent an expression for these data types:
 
 ### CAST AS TIME
 
-```sql
-CAST(expression AS TIME)
-```
+<pre class="lang-sql prettyprint">
+<code>CAST(expression AS TIME [<a href="#formatting_syntax">format_clause</a>])</code>
+</pre>
 
 **Description**
 
 ZetaSQL supports [casting][con-func-cast] to TIME. The `expression`
 parameter can represent an expression for these data types:
 
-+ STRING
-+ TIME
-+ DATETIME
-+ TIMESTAMP
++ `STRING`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Format clause**
+
+When an expression of one type is cast to another type, you can use the
+[format clause][formatting-syntax] to provide instructions for how to conduct
+the cast. You can use the format clause in this section if `expression` is a
+`STRING`.
+
++ [Format string as date and time][format-string-as-date-time]
 
 **Conversion rules**
 
@@ -4486,19 +4581,33 @@ parameter can represent an expression for these data types:
 
 ### CAST AS TIMESTAMP
 
-```sql
-CAST(expression AS TIMESTAMP)
-```
+<pre class="lang-sql prettyprint">
+<code>CAST(expression AS TIMESTAMP [<a href="#formatting_syntax">format_clause</a> [AT TIME ZONE timezone_expr]])</code>
+</pre>
 
 **Description**
 
 ZetaSQL supports [casting][con-func-cast] to TIMESTAMP. The
 `expression` parameter can represent an expression for these data types:
 
-+ STRING
-+ TIME
-+ DATETIME
-+ TIMESTAMP
++ `STRING`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Format clause**
+
+When an expression of one type is cast to another type, you can use the
+[format clause][formatting-syntax] to provide instructions for how to conduct
+the cast. You can use the format clause in this section if `expression` is a
+`STRING`.
+
++ [Format string as date and time][format-string-as-date-time]
+
+The format clause for `TIMESTAMP` has an additional optional clause called
+`AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
+to use during formatting. If this optional clause is not included, your
+current time zone is used.
 
 **Conversion rules**
 
@@ -4551,6 +4660,36 @@ ZetaSQL supports [casting][con-func-cast] to TIMESTAMP. The
   </tr>
   
 </table>
+
+**Examples**
+
+The following example casts a string-formatted timestamp as a timestamp:
+
+```sql
+SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
+
+-- Results depend upon where this query was executed.
++----------------------------+
+| as_timestamp               |
++----------------------------+
+| 2020-06-03 00:00:53.110+00 |
++----------------------------+
+```
+
+The following examples cast a string-formatted date and time as a timestamp.
+These examples return the same output as the previous example.
+
+```sql
+SELECT CAST("06/02/2020 17:00:53.110" AS TIMESTAMP FORMAT 'MM/DD/YYYY HH:MI:SS' AT TIME ZONE 'America/Los_Angeles') AS as_timestamp
+```
+
+```sql
+SELECT CAST("06/02/2020 17:00:53.110" AS TIMESTAMP FORMAT 'MM/DD/YYYY HH:MI:SS' AT TIME ZONE '00') AS as_timestamp
+```
+
+```sql
+SELECT CAST('06/02/2020 17:00:53.110 +00' AS TIMESTAMP FORMAT 'YYYY-MM-DD HH:MI:SS TZH') AS as_timestamp
+```
 
 ### SAFE_CAST 
 <a id="safe_casting"></a>
@@ -4740,13 +4879,13 @@ result is `NULL`. Format elements are case-insensitive.
 **Example**
 
 ```sql
-SELECT CAST('Hello' AS BYTES FORMAT 'ASCII') AS string_to_bytes
+SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
 
-+-------------------------+
-| string_to_bytes         |
-+-------------------------+
-| b'\x48\x65\x6c\x6c\x6f' |
-+-------------------------+
++-----------------+
+| bytes_to_string |
++-----------------+
+| Hello           |
++-----------------+
 ```
 
 ### Format string as bytes 
@@ -4855,14 +4994,1845 @@ if the `BASE64` or `BASE64M` format element is used.
 **Example**
 
 ```sql
-SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
+SELECT CAST('Hello' AS BYTES FORMAT 'ASCII') AS string_to_bytes
 
-+-----------------+
-| bytes_to_string |
-+-----------------+
-| Hello           |
-+-----------------+
++-------------------------+
+| string_to_bytes         |
++-------------------------+
+| b'\x48\x65\x6c\x6c\x6f' |
++-------------------------+
 ```
+
+### Format date and time as string 
+<a id="format_date_time_as_string"></a>
+
+You can format these date and time parts as a string:
+
++ [Format year part as string][format-year-as-string]
++ [Format month part as string][format-month-as-string]
++ [Format day part as string][format-day-as-string]
++ [Format hour part as string][format-hour-as-string]
++ [Format minute part as string][format-minute-as-string]
++ [Format second part as string][format-second-as-string]
++ [Format meridian indicator as string][format-meridian-as-string]
++ [Format time zone as string][format-tz-as-string]
++ [Format literal as string][format-literal-as-string]
+
+Case matching is supported when you format some date or time parts as a string
+and the output contains letters. To learn more,
+see [Case matching][case-matching-date-time].
+
+#### Case matching 
+<a id="case_matching_date_time"></a>
+
+When the output of some format element contains letters, the letter cases of
+the output is matched with the letter cases of the format element,
+meaning the words in the output are capitalized according to how the
+format element is capitalized. This is called case matching. The rules are:
+
++ If the first two letters of the element are both upper case, the words in
+  the output are capitalized. For example `DAY` = `THURSDAY`.
++ If the first letter of the element is upper case, and the second letter is
+  lowercase, the first letter of each word in the output is capitalized and
+  other letters are lowercase. For example `Day` = `Thursday`.
++ If the first letter of the element is lowercase, then all letters in the
+  output are lowercase. For example, `day` = `thursday`.
+
+#### Format year part as string 
+<a id="format_year_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the year part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the year
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the year format element.
+
+These data types include a year part:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>YYYY</td>
+      <td>Year, 4 or more digits.</td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: 2018
+        <hr />
+        Input: DATE '76-01-30'<br />
+        Output: 0076
+        <hr />
+        Input: DATE '10000-01-30'<br />
+        Output: 10000
+      </td>
+    </tr>
+    <tr>
+      <td>YYY</td>
+      <td>Year, last 3 digits only.</td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: 018
+        <hr />
+        Input: DATE '98-01-30'<br />
+        Output: 098
+      </td>
+    </tr>
+    <tr>
+      <td>YY</td>
+      <td>Year, last 2 digits only.</td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: 18
+        <hr />
+        Input: DATE '8-01-30'<br />
+        Output: 08
+      </td>
+    </tr>
+    <tr>
+      <td>Y</td>
+      <td>Year, last digit only.</td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: 8
+      </td>
+    </tr>
+    <tr>
+      <td>RRRR</td>
+      <td>Same behavior as YYYY.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>RR</td>
+      <td>Same behavior as YY.</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Example**
+
+```sql
+SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'YYYY') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 2018                |
++---------------------+
+```
+
+#### Format month part as string 
+<a id="format_month_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the month part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the month
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the month format element.
+
+These data types include a month part:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MM</td>
+      <td>Month, 2 digits.</td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: 01
+      </td>
+    </tr>
+    <tr>
+      <td>MON</td>
+      <td>
+        Abbreviated, 3-character name of the month. The abbreviated month names
+        for locale en-US are: JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP, OCT,
+        NOV, DEC. <a href="#case_matching_date_time">Case matching</a> is
+        supported.
+      </td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: JAN
+      </td>
+    </tr>
+    <tr>
+      <td>MONTH</td>
+      <td>
+        Name of the month.
+        <a href="#case_matching_date_time">Case matching</a> is supported.
+      </td>
+      <td>
+        Input: DATE '2018-01-30'<br />
+        Output: JANUARY
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Example**
+
+```sql
+SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'MONTH') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| JANUARY             |
++---------------------+
+```
+
+#### Format day part as string 
+<a id="format_day_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the day part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the day
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the day format element.
+
+These data types include a day part:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DAY</td>
+      <td>
+        Name of the day of the week, localized. Spaces are padded on the right
+        side to make the output size exactly 9.
+        <a href="#case_matching_date_time">Case matching</a> is supported.
+      </td>
+      <td>
+        Input: DATE '2020-12-31'<br />
+        Output: THURSDAY
+      </td>
+    </tr>
+    <tr>
+      <td>DY</td>
+      <td>
+        Abbreviated, 3-character name of the weekday, localized.
+        The abbreviated weekday names for locale en-US are: MON, TUE, WED, THU,
+        FRI, SAT, SUN.
+        <a href="#case_matching_date_time">Case matching</a> is supported.
+      </td>
+      <td>
+        Input: DATE '2020-12-31'<br />
+        Output: THU
+      </td>
+    </tr>
+    <tr>
+      <td>D</td>
+      <td>Day of the week (1 to 7), starting with Sunday as 1.</td>
+      <td>
+        Input: DATE '2020-12-31'<br />
+        Output: 4
+      </td>
+    </tr>
+    <tr>
+      <td>DD</td>
+      <td>2-digit day of the month.</td>
+      <td>
+        Input: DATE '2018-12-02'<br />
+        Output: 02
+      </td>
+    </tr>
+    <tr>
+      <td>DDD</td>
+      <td>3-digit day of the year.</td>
+      <td>
+        Input: DATE '2018-02-03'<br />
+        Output: 034
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Example**
+
+```sql
+SELECT CAST(DATE '2018-02-15' AS STRING FORMAT 'DD') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 15                  |
++---------------------+
+```
+
+#### Format hour part as string 
+<a id="format_hour_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the hour part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the hour
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the hour format element.
+
+These data types include a hour part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HH</td>
+      <td>Hour of the day, 12-hour clock, 2 digits.</td>
+      <td>
+        Input: TIME '21:30:00'<br />
+        Output: 09
+      </td>
+    </tr>
+    <tr>
+      <td>HH12</td>
+      <td>
+        Hour of the day, 12-hour clock.
+      </td>
+      <td>
+        Input: TIME '21:30:00'<br />
+        Output: 09
+      </td>
+    </tr>
+    <tr>
+      <td>HH24</td>
+      <td>
+        Hour of the day, 24-hour clock, 2 digits.
+      </td>
+      <td>
+        Input: TIME '21:30:00'<br />
+        Output: 21
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH24') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 21                  |
++---------------------+
+```
+
+```sql
+SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH12') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 09                  |
++---------------------+
+```
+
+#### Format minute part as string 
+<a id="format_minute_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the minute part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the minute
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the minute format element.
+
+These data types include a minute part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MI</td>
+      <td>Minute, 2 digits.</td>
+      <td>
+        Input: TIME '01:02:03'<br />
+        Output: 02
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Example**
+
+```sql
+SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'MI') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 30                  |
++---------------------+
+```
+
+#### Format second part as string 
+<a id="format_second_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the second part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the second
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the second format element.
+
+These data types include a second part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SS</td>
+      <td>Seconds of the minute, 2 digits.</td>
+      <td>
+        Input: TIME '01:02:03'<br />
+        Output: 03
+      </td>
+    </tr>
+    <tr>
+      <td>SSSSS</td>
+      <td>Seconds of the day, 5 digits.</td>
+      <td>
+        Input: TIME '01:02:03'<br />
+        Output: 03723
+      </td>
+    </tr>
+    <tr>
+      <td>FFn</td>
+      <td>
+        Fractional part of the second, <code>n</code> digits long.
+        Replace <code>n</code> with a value from 1 to 9. For example, FF5.
+        The fractional part of the second is rounded
+        to fit the size of the output.
+      </td>
+      <td>
+        Input for FF1: TIME '01:05:07.16'<br />
+        Output: 1
+        <hr />
+        Input for FF2: TIME '01:05:07.16'<br />
+        Output: 16
+        <hr />
+        Input for FF3: TIME '01:05:07.16'<br />
+        Output: 016
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'SS') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 25                  |
++---------------------+
+```
+
+```sql
+SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'FF2') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| 16                  |
++---------------------+
+```
+
+#### Format meridian indicator part as string 
+<a id="format_meridian_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the meridian indicator part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the meridian indicator
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the meridian indicator format element.
+
+These data types include a meridian indicator part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A.M.</td>
+      <td>
+        A.M. if the time is less than 12, otherwise P.M.
+        The letter case of the output is determined by the first letter case
+        of the format element.
+      </td>
+      <td>
+        Input for A.M.: TIME '01:02:03'<br />
+        Output: A.M.
+        <hr />
+        Input for A.M.: TIME '16:02:03'<br />
+        Output: P.M.
+        <hr />
+        Input for a.m.: TIME '01:02:03'<br />
+        Output: a.m.
+        <hr />
+        Input for a.M.: TIME '01:02:03'<br />
+        Output: a.m.
+      </td>
+    </tr>
+    <tr>
+      <td>AM</td>
+      <td>
+        AM if the time is less than 12, otherwise PM.
+        The letter case of the output is determined by the first letter case
+        of the format element.
+      </td>
+      <td>
+        Input for AM: TIME '01:02:03'<br />
+        Output: AM
+        <hr />
+        Input for AM: TIME '16:02:03'<br />
+        Output: PM
+        <hr />
+        Input for am: TIME '01:02:03'<br />
+        Output: am
+        <hr />
+        Input for aM: TIME '01:02:03'<br />
+        Output: am
+      </td>
+    </tr>
+    <tr>
+      <td>P.M.</td>
+      <td>Output is the same as A.M. format element.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>PM</td>
+      <td>Output is the same as AM format element.</td>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
+SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| PM                  |
++---------------------+
+```
+
+```sql
+SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
+SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
+
++---------------------+
+| date_time_to_string |
++---------------------+
+| AM                  |
++---------------------+
+```
+
+#### Format time zone part as string 
+<a id="format_tz_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+Casts a data type that contains the time zone part to a string. Includes
+format elements, which provide instructions for how to conduct the cast.
+
++ `expression`: This expression contains the data type with the time zone
+  that you need to format.
++ `format_string_expression`: A string which contains format elements, including
+  the time zone format element.
+
+These data types include a time zone part:
+
++ `DATE`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If `expression` or `format_string_expression` is `NULL` the return value is
+`NULL`. If `format_string_expression` is an empty string, the output is an
+empty string. An error is generated if a value that is not a supported
+format element appears in `format_string_expression` or `expression` does not
+contain a value specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TZH</td>
+      <td>
+        Hour offset for a time zone. This includes the <code>+/-</code> sign and
+        2-digit hour.
+      </td>
+      <td>
+        Inputstamp: TIMESTAMP '2008-12-25 05:30:00+00'
+        Output: −08
+      </td>
+    </tr>
+    <tr>
+      <td>TZM</td>
+      <td>
+        Minute offset for a time zone. This includes only the 2-digit minute.
+      </td>
+      <td>
+        Inputstamp: TIMESTAMP '2008-12-25 05:30:00+00'
+        Output: 00
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH') AS date_time_to_string;
+
+-- Results depend upon where this query was executed.
++---------------------+
+| date_time_to_string |
++---------------------+
+| -08                 |
++---------------------+
+```
+
+```sql
+SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH' AT TIME ZONE 'Asia/Kolkata')
+AS date_time_to_string;
+
+-- Because the time zone is specified, the result is always the same.
++---------------------+
+| date_time_to_string |
++---------------------+
+| +05                 |
++---------------------+
+```
+
+```sql
+SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM') AS date_time_to_string;
+
+-- Results depend upon where this query was executed.
++---------------------+
+| date_time_to_string |
++---------------------+
+| 00                  |
++---------------------+
+```
+
+```sql
+SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM' AT TIME ZONE 'Asia/Kolkata')
+AS date_time_to_string;
+
+-- Because the time zone is specified, the result is always the same.
++---------------------+
+| date_time_to_string |
++---------------------+
+| 30                  |
++---------------------+
+```
+
+#### Format literal as string 
+<a id="format_literal_as_string"></a>
+
+```sql
+CAST(expression AS STRING FORMAT format_string_expression)
+```
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>-</td>
+      <td>Output is the same as the input.</td>
+      <td>-</td>
+    </tr>
+    <tr>
+      <td>.</td>
+      <td>Output is the same as the input.</td>
+      <td>.</td>
+    </tr>
+    <tr>
+      <td>/</td>
+      <td>Output is the same as the input.</td>
+      <td>/</td>
+    </tr>
+    <tr>
+      <td>,</td>
+      <td>Output is the same as the input.</td>
+      <td>,</td>
+    </tr>
+    <tr>
+      <td>'</td>
+      <td>Output is the same as the input.</td>
+      <td>'</td>
+    </tr>
+    <tr>
+      <td>;</td>
+      <td>Output is the same as the input.</td>
+      <td>;</td>
+    </tr>
+    <tr>
+      <td>:</td>
+      <td>Output is the same as the input.</td>
+      <td>:</td>
+    </tr>
+    <tr>
+      <td>Whitespace</td>
+      <td>
+        Output is the same as the input.
+        Whitespace means the space character, ASCII 32. It does not mean
+        other types of space like tab or new line. Any whitespace character
+        that is not the ASCII 32 character in the format model generates
+        an error.
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>"text"</td>
+      <td>
+        Output is the value within the double quotes. To preserve a double
+        quote or backslash character, use the <code>\"</code> or <code>\\</code>
+        escape sequence. Other escape sequences are not supported.
+      </td>
+      <td>
+        Input: "abc"<br />
+        Output: abc
+        <hr />
+        Input: "a\"b\\c"<br />
+        Output: a"b\c
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+### Format string as date and time 
+<a id="format_string_as_datetime"></a>
+
+You can format a string with these date and time parts:
+
++ [Format string as year part][format-string-as-year]
++ [Format string as month part][format-string-as-month]
++ [Format string as day part][format-string-as-day]
++ [Format string as hour part][format-string-as-hour]
++ [Format string as minute part][format-string-as-minute]
++ [Format string as second part][format-string-as-second]
++ [Format string as meridian indicator part][format-string-as-meridian]
++ [Format string as time zone part][format-string-as-tz]
++ [Format string as literal part][format-string-as-literal]
+
+When formatting a string with date and time parts, you must follow the
+[format model rules][format-model-rules-date-time].
+
+#### Format model rules 
+<a id="format_model_rules_date_time"></a>
+
+When casting a string to date and time parts, you must ensure the _format model_
+is valid. The format model represents the elements passed into
+`CAST(string_expression AS type FORMAT format_string_expression)` as the
+`format_string_expression` and is validated according to the following
+rules:
+
++ It contains at most one of each of the following parts:
+  meridian indicator, year, month, day, hour.
++ A non-literal, non-whitespace format element cannot appear more than once.
++ If it contains the day of year format element, `DDD`,  then it cannot contain
+  the month.
++ If it contains the 24-hour format element, `HH24`,  then it cannot contain the
+  12-hour format element or a meridian indicator.
++ If it contains the 12-hour format element, `HH12` or `HH`,  then it must also
+  contain a meridian indicator.
++ If it contains a meridian indicator, then it must also contain a 12-hour
+  format element.
++ If it contains the second of the day format element, `SSSSS`,  then it cannot
+  contain any of the following: hour, minute, second, or meridian indicator.
++ It cannot contain a format element such that the value it sets does not exist
+  in the target type. For example, an hour format element such as `HH24` cannot
+  appear in a string you are casting as a `DATE`.
+
+#### Format string as year part 
+<a id="format_string_as_year"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted year to a data type that contains
+the year part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the year
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the year
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the year format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a year part:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+If the `YEAR` part is missing from `string_expression` and the return type
+includes this part, `YEAR` is set to the current year.
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>YYYY</td>
+      <td>
+        If it is delimited, matches 1 to 5 digits. If it is not delimited,
+        matches 4 digits. Sets the year part to the matched number.
+      </td>
+      <td>
+        Input for MM-DD-YYYY: '03-12-2018'<br />
+        Output as DATE: 2018-12-03
+        <hr />
+        Input for YYYY-MMDD: '10000-1203'<br />
+        Output as DATE: 10000-12-03
+        <hr />
+        Input for YYYY: '18'<br />
+        Output as DATE: 2018-03-01 (Assume current date is March 23, 2021)
+      </td>
+    </tr>
+    <tr>
+      <td>YYY</td>
+      <td>
+        Matches 3 digits. Sets the last 3 digits of the year part to the
+        matched number.
+      </td>
+      <td>
+        Input for YYY-MM-DD: '018-12-03'<br />
+        Output as DATE: 2018-12-03
+        <hr />
+        Input for YYY-MM-DD: '038-12-03'<br />
+        Output as DATE: 2038-12-03
+      </td>
+    </tr>
+    <tr>
+      <td>YY</td>
+      <td>
+        Matches 2 digits. Sets the last 2 digits of the year part to the
+        matched number.
+      </td>
+      <td>
+        Input for YY-MM-DD: '18-12-03'<br />
+        Output as DATE: 2018-12-03
+        <hr />
+        Input for YY-MM-DD: '38-12-03'<br />
+        Output as DATE: 2038-12-03
+      </td>
+    </tr>
+    <tr>
+      <td>Y</td>
+      <td>
+        Matches 1 digit. Sets the last digit of the year part to the matched
+        number.
+      </td>
+      <td>
+        Input for Y-MM-DD: '8-12-03'<br />
+        Output as DATE: 2008-12-03
+      </td>
+    </tr>
+
+    <tr>
+      <td>RRRR</td>
+      <td>Same behavior as YYYY.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>RR</td>
+      <td>
+        <p>
+          Matches 2 digits.
+        </p>
+        <p>
+          If the 2 digits entered are between 00 and 49 and the
+          last 2 digits of the current year are between 00 and 49, the
+          returned year has the same first 2 digits as the current year.
+          If the last 2 digits of the current year are between 50 and 99,
+          the first 2 digits of the returned year is 1 greater than the first 2
+          digits of the current year.
+        </p>
+        <p>
+          If the 2 digits entered are between 50 and 99 and the
+          last 2 digits of the current year are between 00 and 49, the first
+          2 digits of the returned year are 1 less than the first 2 digits of
+          the current year. If the last 2 digits of the current year are
+          between 50 and 99, the returned year has the same first 2 digits
+          as the current year.
+        </p>
+      </td>
+      <td>
+        Input for RR-MM-DD: '18-12-03'<br />
+        Output as DATE: 2018-12-03 (executed in the year 2021)
+        Output as DATE: 2118-12-03 (executed in the year 2050)
+        <hr />
+        Input for RR-MM-DD: '50-12-03'<br />
+        Output as DATE: 2050-12-03 (executed in the year 2021)
+        Output as DATE: 2050-12-03 (executed in the year 2050)
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 2018-02-03          |
++---------------------+
+```
+
+#### Format string as month part 
+<a id="format_string_as_month"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted month to a data type that contains
+the month part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the month
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the month
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the month format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a month part:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+If the `MONTH` part is missing from `string_expression` and the return type
+includes this part, `MONTH` is set to the current month.
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MM</td>
+      <td>
+        Matches 2 digits. Sets the month part to the matched number.
+      </td>
+      <td>
+        Input for MM-DD-YYYY: '03-12-2018'<br />
+        Output as DATE: 2018-12-03
+      </td>
+    </tr>
+    <tr>
+      <td>MON</td>
+      <td>
+        Matches 3 letters. Sets the month part to the matched string interpreted
+        as the abbreviated name of the month.
+      </td>
+      <td>
+        Input for MON DD, YYYY: 'DEC 03, 2018'<br />
+        Output as DATE: 2018-12-03
+      </td>
+    </tr>
+    <tr>
+      <td>MONTH</td>
+      <td>
+        Matches 9 letters. Sets the month part to the matched string interpreted
+        as the name of the month.
+      </td>
+      <td>
+        Input for MONTH DD, YYYY: 'DECEMBER 03, 2018'<br />
+        Output as DATE: 2018-12-03
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 2018-12-03          |
++---------------------+
+```
+
+#### Format string as day part 
+<a id="format_string_as_day"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted day to a data type that contains
+the day part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the day
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the day
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the day format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a day part:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+If the `DAY` part is missing from `string_expression` and the return type
+includes this part, `DAY` is set to `1`.
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DD</td>
+      <td>Matches 2 digits. Sets the day part to the matched number.</td>
+      <td>
+        Input for MONTH DD, YYYY: 'DECEMBER 03, 2018'<br />
+        Output as DATE: 2018-12-03
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `DATE`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 2018-12-03          |
++---------------------+
+```
+
+#### Format string as hour part 
+<a id="format_string_as_hour"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted hour to a data type that contains
+the hour part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the hour
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the hour
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the hour format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a hour part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If the `HOUR` part is missing from `string_expression` and the return type
+includes this part, `HOUR` is set to `0`.
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HH</td>
+      <td>
+        Matches 2 digits. If the matched number <code>n</code> is <code>12</code>,
+        sets <code>temp = 0</code>; otherwise, sets <code>temp = n</code>. If
+        the matched value of the AM/PM format element is PM, sets
+        <code>temp = n + 12</code>. Sets the hour part to <code>temp</code>.
+        A meridian indicator must be present in the format model, when
+        HH is present.
+      </td>
+      <td>
+        Input for HH:MI PM: '03:30 PM'<br />
+        Output as TIME: 15:30:00
+      </td>
+    </tr>
+    <tr>
+      <td>HH12</td>
+      <td>
+        Same behavior as HH.
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>HH24</td>
+      <td>
+        Matches 2 digits. Sets the hour part to the matched number.
+      </td>
+      <td>
+        Input for HH24:MI: '15:30'<br />
+        Output as TIME: 15:30:00
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('15:30' AS TIME FORMAT 'HH24:MI') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 15:30:00            |
++---------------------+
+```
+
+#### Format string as minute part 
+<a id="format_string_as_minute"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted minute to a data type that contains
+the minute part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the minute
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the minute
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the minute format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a minute part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If the `MINUTE` part is missing from `string_expression` and the return type
+includes this part, `MINUTE` is set to `0`.
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>MI</td>
+      <td>
+        Matches 2 digits. Sets the minute part to the matched number.
+      </td>
+      <td>
+        Input for HH:MI PM: '03:30 PM'<br />
+        Output as TIME: 15:30:00
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('03:30 PM' AS TIME FORMAT 'HH:MI PM') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 15:30:00            |
++---------------------+
+```
+
+#### Format string as second part 
+<a id="format_string_as_second"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted second to a data type that contains
+the second part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the second
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the second
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the second format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a second part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+If the `SECOND` part is missing from `string_expression` and the return type
+includes this part, `SECOND` is set to `0`.
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>SS</td>
+      <td>
+        Matches 2 digits. Sets the second part to the matched number.
+      </td>
+      <td>
+        Input for HH:MI:SS PM: '03:30:02 PM'<br />
+        Output as TIME: 15:30:02
+      </td>
+    </tr>
+    <tr>
+      <td>SSSSS</td>
+      <td>
+        Matches 5 digits. Sets the hour, minute and second parts by interpreting
+        the matched number as the number of seconds past midnight.
+      </td>
+      <td>
+        Input for SSSSS: '03723'<br />
+        Output as TIME: 01:02:03
+      </td>
+    </tr>
+    <tr>
+      <td>FFn</td>
+      <td>
+        Matches <code>n</code> digits, where <code>n</code> is the number
+        following FF in the format element. Sets the fractional part of the
+        second part to the matched number.
+      </td>
+      <td>
+        Input for HH24:MI:SS.FF1: '01:05:07.16'<br />
+        Output as TIME: 01:05:07.2
+        <hr />
+        Input for HH24:MI:SS.FF2: '01:05:07.16'<br />
+        Output as TIME: 01:05:07.16
+        <hr />
+        Input for HH24:MI:SS.FF3: 'FF3: 01:05:07.16'<br />
+        Output as TIME: 01:05:07.160
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('01:05:07.16' AS TIME FORMAT 'HH24:MI:SS.FF1') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 01:05:07.2          |
++---------------------+
+```
+
+#### Format string as meridian indicator part 
+<a id="format_string_as_meridian"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted meridian indicator to a data type that contains
+the meridian indicator part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the meridian indicator
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the meridian indicator
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the meridian indicator format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a meridian indicator part:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A.M. or P.M.</td>
+      <td>
+        Matches using the regular expression <code>'(A|P)\.M\.'</code>.
+      </td>
+      <td>
+        Input for HH:MI A.M.: '03:30 A.M.'<br />
+        Output as TIME: 03:30:00
+        <hr />
+        Input for HH:MI P.M.: '03:30 P.M.'<br />
+        Output as TIME: 15:30:00
+        <hr />
+        Input for HH:MI P.M.: '03:30 A.M.'<br />
+        Output as TIME: 03:30:00
+        <hr />
+        Input for HH:MI A.M.: '03:30 P.M.'<br />
+        Output as TIME: 15:30:00
+        <hr />
+        Input for HH:MI a.m.: '03:30 a.m.'<br />
+        Output as TIME: 03:30:00
+      </td>
+    </tr>
+    <tr>
+      <td>AM or PM</td>
+      <td>
+        Matches using the regular expression <code>'(A|P)M'</code>.
+      </td>
+      <td>
+        Input for HH:MI AM: '03:30 AM'<br />
+        Output as TIME: 03:30:00
+        <hr />
+        Input for HH:MI PM: '03:30 PM'<br />
+        Output as TIME: 15:30:00
+        <hr />
+        Input for HH:MI PM: '03:30 AM'<br />
+        Output as TIME: 03:30:00
+        <hr />
+        Input for HH:MI AM: '03:30 PM'<br />
+        Output as TIME: 15:30:00
+        <hr />
+        Input for HH:MI am: '03:30 am'<br />
+        Output as TIME: 03:30:00
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI A.M.') AS string_to_date_time
+
++---------------------+
+| string_to_date_time |
++---------------------+
+| 15:30:00            |
++---------------------+
+```
+
+#### Format string as time zone part 
+<a id="format_string_as_tz"></a>
+
+```sql
+CAST(string_expression AS type FORMAT format_string_expression)
+```
+
+Casts a string-formatted time zone to a data type that contains
+the time zone part. Includes format elements, which provide instructions for how
+to conduct the cast.
+
++ `string_expression`: This expression contains the string with the time zone
+  that you need to format.
++ `type`: The data type to which you are casting. Must include the time zone
+  part.
++ `format_string_expression`: A string which contains format elements, including
+  the time zone format element. The formats elements in this string are
+  defined collectively as the format model, which must follow
+  [these rules][format-model-rules-date-time].
+
+These data types include a time zone part:
+
++ `DATE`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+An error is generated if a value that is not a supported format element appears
+in `format_string_expression` or `string_expression` does not contain a value
+specified by a format element.
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>TZH</td>
+      <td>
+        Matches using the regular expression <code>'(\+|\-| )[0-9]{2}'</code>.
+        Sets the time zone and hour parts to the matched sign and number.
+        Sets the time zone sign to be the first letter of the matched string.
+        The number 2 means matching up to 2 digits for non-exact matching, and
+        exactly 2 digits for exact matching.
+      </td>
+      <td>
+        Input for YYYY-MM-DD HH:MI:SSTZH: '2008-12-25 05:30:00-08'<br />
+        Output as TIMESTAMP: 2008-12-25 05:30:00-08
+      </td>
+    </tr>
+    <tr>
+      <td>TZM</td>
+      <td>
+        Matches 2 digits. Let <code>n</code> be the matched number. If the
+        time zone sign is the minus sign, sets the time zone minute part to
+        <code>-n</code>. Otherwise, sets the time zone minute part to
+        <code>n</code>.
+      </td>
+      <td>
+        Input for YYYY-MM-DD HH:MI:SSTZH: '2008-12-25 05:30:00+05.30'<br />
+        Output as TIMESTAMP: 2008-12-25 05:30:00+05.30
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+**Return type**
+
+The data type to which the string was cast. This can be:
+
++ `DATE`
++ `TIME`
++ `DATETIME`
++ `TIMESTAMP`
+
+**Examples**
+
+```sql
+SELECT CAST('2020.06.03 00:00:53+00' AS TIMESTAMP FORMAT 'YYYY.MM.DD HH:MI:SSTZH') AS string_to_date_time
+
++----------------------------+
+| as_timestamp               |
++----------------------------+
+| 2020-06-03 00:00:53.110+00 |
++----------------------------+
+```
+
+#### Format string as literal 
+<a id="format_string_as_literal"></a>
+
+```sql
+CAST(string_expression AS data_type FORMAT format_string_expression)
+```
+
+<table>
+  <thead>
+    <tr>
+      <th width='100px'>Format element</th>
+      <th width='400px'>Returns</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>-</td>
+      <td>Output is the same as the input.</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>.</td>
+      <td>Output is the same as the input.</td>
+      <td>.</td>
+    </tr>
+    <tr>
+      <td>/</td>
+      <td>Output is the same as the input.</td>
+      <td>/</td>
+    </tr>
+    <tr>
+      <td>,</td>
+      <td>Output is the same as the input.</td>
+      <td>,</td>
+    </tr>
+    <tr>
+      <td>'</td>
+      <td>Output is the same as the input.</td>
+      <td>'</td>
+    </tr>
+    <tr>
+      <td>;</td>
+      <td>Output is the same as the input.</td>
+      <td>;</td>
+    </tr>
+    <tr>
+      <td>:</td>
+      <td>Output is the same as the input.</td>
+      <td>:</td>
+    </tr>
+    <tr>
+      <td>Whitespace</td>
+      <td>
+        A consecutive sequence of one or more spaces in the format model
+        is matched with one or more consecutive Unicode whitespace characters
+        in the input. Space means the ASCII 32 space character.
+        It does not mean the general whitespace such as a tab or new line.
+        Any whitespace character that is not the ASCII 32 character in the
+        format model generates an error.
+      </td>
+      <td></td>
+    </tr>
+    <tr>
+      <td>"text"</td>
+      <td>
+        Output generated by the format element in formatting, using this
+        regular expression, with <code>s</code> representing the string input:
+        <code>regex.escape(s)</code>.
+      </td>
+      <td>
+        Input: "abc"<br />
+        Output: abc
+        <hr />
+        Input: "a\"b\\c"<br />
+        Output: a"b\c
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 ### About BASE encoding 
 <a id="about_basex_encoding"></a>
@@ -4880,11 +6850,36 @@ the Latin letters in the input string are case-insensitive. For example, both
 "3a" and "3A" are valid input strings for BASE16/Hexadecimal decoding, and
 will output the same result.
 
+[formatting-syntax]: #formatting_syntax
+
 [rfc-4648]: https://tools.ietf.org/html/rfc4648#section-3.3
 [about-basex-encoding]: #about_basex_encoding
 [format-string-as-bytes]: #format_string_as_bytes
 [format-bytes-as-string]: #format_bytes_as_string
-[formatting-syntax]: #formatting_syntax
+
+[format-date-time-as-string]: #format_date_time_as_string
+[case-matching-date-time]: #case_matching_date_time
+[format-year-as-string]: #format_year_as_string
+[format-month-as-string]: #format_month_as_string
+[format-day-as-string]: #format_day_as_string
+[format-hour-as-string]: #format_hour_as_string
+[format-minute-as-string]: #format_minute_as_string
+[format-second-as-string]: #format_second_as_string
+[format-meridian-as-string]: #format_meridian_as_string
+[format-tz-as-string]: #format_tz_as_string
+[format-literal-as-string]: #format_literal_as_string
+[format-string-as-date-time]: #format_string_as_datetime
+[format-model-rules-date-time]: #format_model_rules_date_time
+[format-string-as-year]: #format_string_as_year
+[format-string-as-month]: #format_string_as_month
+[format-string-as-day]: #format_string_as_day
+[format-string-as-hour]: #format_string_as_hour
+[format-string-as-minute]: #format_string_as_minute
+[format-string-as-second]: #format_string_as_second
+[format-string-as-meridian]: #format_string_as_meridian
+[format-string-as-tz]: #format_string_as_tz
+[format-string-as-literal]: #format_string_as_literal
+
 [con-func-cast]: #cast
 [con-func-safecast]: #safe_casting
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -10982,9 +12977,19 @@ the functions in the previous table.
   <tbody>
     
     <tr>
+      <td><a href="#to_json"><code>TO_JSON</code></a></td>
+      <td>
+        Takes a SQL value and returns a JSON value.
+      </td>
+      <td>JSON value</td>
+    </tr>
+    
+    
+    <tr>
       <td><a href="#to_json_string"><code>TO_JSON_STRING</code></a></td>
       <td>
-        Returns a JSON-formatted string representation of a value.
+        Takes a SQL value and returns a JSON-formatted string
+        representation of the value.
       </td>
       <td>JSON-formatted <code>STRING</code></td>
     </tr>
@@ -11337,6 +13342,127 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 +-------+
 ```
 
+### TO_JSON
+
+```sql
+TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE } ])
+```
+
+**Description**
+
+Takes a SQL value and returns a JSON value. The value
+must be a supported ZetaSQL data type. You can review the
+ZetaSQL data types that this function supports and their
+JSON encodings [here][json-encodings].
+
+This function supports an optional mandatory-named argument called
+`stringify_wide_numbers`. If this argument is `TRUE`, numeric values outside
+of the `DOUBLE` type domain are encoded as strings.
+If this argument is not used or is `FALSE`, numeric values outside
+of the `DOUBLE` type domain are not encoded
+as strings and there may be loss of precision when numeric values are encoded
+as JSON numbers. The following numerical data types are affected by the
+`stringify_wide_numbers` argument:
+
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
+
+If one of these numerical data types appears in a container data type
+such as an `ARRAY` or `STRUCT`, the `stringify_wide_numbers` argument is
+applied to the numerical data types in the container data type.
+
+**Return type**
+
+A JSON value
+
+**Examples**
+
+In the following example, the query converts rows in a table to JSON values.
+
+```sql
+With CoordinatesTable AS (
+    (SELECT 1 AS id, [10,20] AS coordinates) UNION ALL
+    (SELECT 2 AS id, [30,40] AS coordinates) UNION ALL
+    (SELECT 3 AS id, [50,60] AS coordinates))
+SELECT TO_JSON(t) AS json_objects
+FROM CoordinatesTable AS t;
+
++--------------------------------+
+| json_objects                   |
++--------------------------------+
+| {"coordinates":[10,20],"id":1} |
+| {"coordinates":[30,40],"id":2} |
+| {"coordinates":[50,60],"id":3} |
++--------------------------------+
+```
+
+In the following example, the query returns a large numerical value as a
+JSON string.
+
+```sql
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on
+
++--------------------+
+| stringify_on       |
++--------------------+
+| "9007199254740993" |
++--------------------+
+```
+
+In the following example, both queries return a large numerical value as a
+JSON number.
+
+```sql
+SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off
+SELECT TO_JSON(9007199254740993) as stringify_off
+
++------------------+
+| stringify_off    |
++------------------+
+| 9007199254740993 |
++------------------+
+```
+
+In the following example, only large numeric values are converted to
+JSON strings.
+
+```sql
+With T1 AS (
+  (SELECT 9007199254740993 AS id) UNION ALL
+  (SELECT 2 AS id))
+SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
+FROM T1 AS t;
+
++---------------------------+
+| json_objects              |
++---------------------------+
+| {"id":"9007199254740993"} |
+| {"id":2}                  |
++---------------------------+
+```
+
+In this example, the values `9007199254740993` (`INT64`)
+and `2.1` (`DOUBLE`) are converted
+to the common supertype `DOUBLE`, which is not
+affected by the `stringify_wide_numbers` argument.
+
+```sql
+With T1 AS (
+  (SELECT 9007199254740993 AS id) UNION ALL
+  (SELECT 2.1 AS id))
+SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
+FROM T1 AS t;
+
++------------------------------+
+| json_objects                 |
++------------------------------+
+| {"id":9.007199254740992e+15} |
+| {"id":2.1}                   |
++------------------------------+
+```
+
 ### TO_JSON_STRING
 
 ```sql
@@ -11345,230 +13471,14 @@ TO_JSON_STRING(value[, pretty_print])
 
 **Description**
 
-Returns a JSON-formatted string representation of `value`. This function
-supports an optional boolean parameter called `pretty_print`. If `pretty_print`
-is `true`, the returned value is formatted for easy readability.
+Takes a SQL value and returns a JSON-formatted string
+representation of the value. The value must be a supported ZetaSQL
+data type. You can review the ZetaSQL data types that this function
+supports and their JSON encodings [here][json-encodings].
 
-<table>
-<thead>
-<tr>
-<th>Input data type</th>
-<th>Returned value</th>
-</tr>
-</thead>
-<tbody>
- <tr>
-    <td>NULL of any type</td>
-    <td><code>null</code></td>
- </tr>
-  <tr>
-    <td>BOOL</td>
-    <td><code>true</code> or <code>false</code>.</td>
- </tr>
-
-  <tr>
-    <td>INT32, UINT32</td>
-    <td><p>Same as <code>CAST(value AS STRING)</code>. For example:</p>
-    <code>-1, 0, 12345678901</code>
-    </td>
- </tr>
-
- <tr>
-    <td>INT64, UINT64</td>
-    <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
-    in the range of [-2<sup>53</sup>, 2<sup>53</sup>], which is the range of integers that can be
-    represented losslessly as IEEE 754 double-precision floating point numbers.
-    Values outside of this range are represented as quoted strings. For example:
-    </p>
-    <code>-1</code><br>
-    <code>0</code><br>
-    <code>12345678901</code><br>
-    <code>9007199254740992</code><br>
-    <code>-9007199254740992</code><br>
-    <code>"9007199254740993"</code><br>
-    <p><code>9007199254740993</code> is greater than 2<sup>53</sup>, so it is represented
-    as a quoted string.</p>
-    </td>
- </tr>
- <tr>
-   <td>NUMERIC, BIGNUMERIC</td>
-   <td><p>Same as <code>CAST(value AS STRING)</code> when <code>value</code> is
-     in the range of [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
-     part. Values outside of this range are represented as quoted strings. For
-     example:</p>
-     <code>-1</code><br/>
-     <code>0</code><br/>
-     <code>&quot;9007199254740993&quot;</code><br/>
-     <code>&quot;123.56&quot;</code>
-    </td>
- </tr>
- <tr>
-    <td>FLOAT, DOUBLE</td>
-    <td><code>+/-inf</code> and <code>NaN</code> are represented as
-    <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>,
-    respectively.
-    <p>Otherwise, the same as <code>CAST(value AS STRING)</code>.</p>
-    </td>
- </tr>
- <tr>
-    <td>STRING</td>
-    <td>Quoted string value, escaped according to the JSON standard.
-    Specifically, <code>"</code>, <code>\</code>, and the control characters
-    from <code>U+0000</code> to <code>U+001F</code> are escaped.</td>
- </tr>
- <tr>
-    <td>BYTES</td>
-    <td><p>Quoted RFC 4648 base64-escaped value. For example:</p>
-    <p><code>"R29vZ2xl"</code> is the base64 representation of bytes
-    <code>b"Google"</code></p>
-    </td>
- </tr>
- 
- <tr>
-    <td>ENUM</td>
-    <td><p>Quoted enum value name as a string.</p>
-    <p>Invalid enum values are represented as their number, such as 0 or 42.</p>
-    </td>
- </tr>
- 
- <tr>
-    <td>DATE</td>
-    <td><p>Quoted date. For example:</p>
-    <code>"2017-03-06"</code>
-    </td>
- </tr>
- <tr>
-    <td>TIMESTAMP</td>
-    <td><p>Quoted ISO 8601 date-time, where T separates the date and time and
-    Zulu/UTC represents the time zone. For example:</p>
-    <code>"2017-03-06T12:34:56.789012Z"</code>
-    </td>
- </tr>
- <tr>
-    <td>DATETIME</td>
-    <td><p>Quoted ISO 8601 date-time, where T separates the date and time. For
-    example:</p>
-    <code>"2017-03-06T12:34:56.789012"</code>
-    </td>
- </tr>
- <tr>
-    <td>TIME</td>
-    <td><p>Quoted ISO 8601 time. For example:</p>
-    <code>"12:34:56.789012"</code></td>
- </tr>
- <tr>
-    <td>ARRAY</td>
-    <td>
-      <p>
-        Array of zero or more elements. Each element is formatted according to
-        its type.
-      </p>
-      <p>
-        Example without formatting:
-      </p>
-      <pre class="lang-sql prettyprint">["red", "blue", "green"]</pre>
-      <p>
-        Example with formatting:
-      </p>
-      <pre class="lang-sql prettyprint">
-[
-  "red",
-  "blue",
-  "green"
-]</pre>
-    </td>
- </tr>
- <tr>
-    <td>STRUCT</td>
-    <td>
-      <p>
-        Object that contains zero or more key/value pairs.
-        Each value is formatted according to its type.
-      </p>
-      <p>
-        Example without formatting:
-      </p>
-      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
-      <p>
-        Example with formatting:
-      </p>
-      <pre class="lang-sql prettyprint">
-{
-  "color":[
-    "red",
-    "blue"
-   ]
-  "purchases":12,
-  "inStock": true
-}</pre>
-      <p>
-        Fields with duplicate names might result in unparseable JSON. Anonymous
-        fields are represented with <code>""</code>. If a field is a non-empty
-        array or object, elements/fields are indented
-        to the appropriate level.
-      </p>
-      <p>
-        Invalid UTF-8 field names might result in unparseable JSON. String
-        values are escaped according to the JSON standard. Specifically,
-        <code>"</code>, <code>\</code>, and the control characters from
-        <code>U+0000</code> to <code>U+001F</code> are escaped.
-      </p>
-    </td>
- </tr>
-
- <tr>
-    <td>PROTO</td>
-    <td>
-      <p>
-        Object that contains zero or more key/value pairs.
-        Each value is formatted according to its type.
-      </p>
-      <p>
-        Example without formatting:
-      </p>
-      <pre class="lang-sql prettyprint">{"colors":["red","blue"],"purchases":12,"inStock": true}</pre>
-      <p>
-        Example with formatting:
-      </p>
-      <pre class="lang-sql prettyprint">
-{
-  "color":[
-    "red",
-    "blue"
-   ]
-  "purchases":12,
-  "inStock": true
-}</pre>
-      <p>
-        Field names with underscores are converted to camel-case in accordance
-        with
-        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-        protobuf json conversion</a>. Field values are formatted according to
-        <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
-        protobuf json conversion</a>. If a <code>field_value</code> is a non-empty
-        repeated field or submessage, elements/fields are indented to the
-        appropriate level.
-      </p>
-      <ul>
-        <li>
-          Field names that are not valid UTF-8 might result in unparseable
-          JSON.
-        </li>
-        <li>Field annotations are ignored.</li>
-        <li>Repeated fields are represented as arrays.</li>
-        <li>Submessages are formatted as values of PROTO type.</li>
-        <li>
-          Extension fields are included in the output, where the extension
-          field name is enclosed in brackets and prefixed with the full name of
-          the extension type.
-        </li>
-        
-      </ul>
-    </td>
- </tr>
-
-</tbody>
-</table>
+This function supports an optional boolean parameter called `pretty_print`.
+If `pretty_print` is `true`, the returned value is formatted for easy
+readability.
 
 **Return type**
 
@@ -11576,7 +13486,7 @@ A JSON-formatted `STRING`
 
 **Examples**
 
-Convert rows in a table to JSON.
+Convert rows in a table to JSON-formatted strings.
 
 ```sql
 With CoordinatesTable AS (
@@ -11595,7 +13505,7 @@ FROM CoordinatesTable AS t;
 +----+-------------+--------------------------------+
 ```
 
-Convert rows in a table to JSON with formatting.
+Convert rows in a table to JSON-formatted strings that are easy to read.
 
 ```sql
 With CoordinatesTable AS (
@@ -11624,6 +13534,431 @@ FROM CoordinatesTable AS t;
 |    |             | }                  |
 +----+-------------+--------------------+
 ```
+
+### JSON encodings 
+<a id="json_encodings"></a>
+
+The following table includes common encodings that are used when a
+SQL value is encoded as JSON value with
+the `TO_JSON_STRING`
+or `TO_JSON` function.
+
+<table>
+  <thead>
+    <tr>
+      <th>From SQL</th>
+      <th width='400px'>To JSON</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NULL</td>
+      <td>
+        <p>null</p>
+      </td>
+      <td>
+        SQL input: <code>NULL</code><br />
+        JSON output: <code>null</code>
+      </td>
+    </tr>
+    
+    <tr>
+      <td>BOOL</td>
+      <td>boolean</td>
+      <td>
+        SQL input: <code>TRUE</code><br />
+        JSON output: <code>true</code><br />
+        <hr />
+        SQL input: <code>FALSE</code><br />
+        JSON output: <code>false</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        INT32<br/>
+        UINT32
+      </td>
+      <td>integer</td>
+      <td>
+        SQL input: <code>-1</code><br />
+        JSON output: <code>-1</code><br />
+        <hr />
+        SQL input: <code>0</code><br />
+        JSON output: <code>0</code><br />
+        <hr />
+        SQL input: <code>12345678901</code><br />
+        JSON output: <code>12345678901</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    <tr>
+      <td>
+        INT64
+        <br />UINT64
+      </td>
+      <td>
+        <p>(TO_JSON_STRING only)</p>
+        <p>number or string</p>
+        <p>
+          Encoded as a number when the value is in the range of
+          [-2<sup>53</sup>, 2<sup>53</sup>], which is the range of
+          integers that can be represented losslessly as IEEE 754
+          double-precision floating point numbers. A value outside of this range
+          is encoded as a string.
+        </p>
+      <td>
+        SQL input: <code>9007199254740992</code><br />
+        JSON output: <code>9007199254740992</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>
+        INT64
+        <br />UINT64
+      </td>
+      <td>
+        <p>(TO_JSON only)</p>
+        <p>number or string</p>
+        <p>
+          If the <code>stringify_wide_numbers</code> argument
+          is <code>TRUE</code> and the value is outside of the
+          DOUBLE type domain, it is
+          encoded as a string. Otherwise, it's encoded as a number.
+        </p>
+      <td>
+        SQL input: <code>9007199254740992</code><br />
+        JSON output: <code>9007199254740992</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>9007199254740993</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE:
+        <code>9007199254740992</code><br />
+        JSON output: <code>9007199254740992</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE:
+        <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>
+        NUMERIC
+        <br/>BIGNUMERIC
+      </td>
+      <td>
+        <p>(TO_JSON_STRING only)</p>
+        <p>number or string</p>
+        <p>
+          Encoded as a number when the value is in the range of
+          [-2<sup>53</sup>, 2<sup>53</sup>] and has no fractional
+          part. A value outside of this range is encoded as a string.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>-1</code><br />
+        JSON output: <code>-1</code><br />
+        <hr />
+        SQL input: <code>0</code><br />
+        JSON output: <code>0</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+        <hr />
+        SQL input: <code>123.56</code><br />
+        JSON output: <code>"123.56"</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    
+    <tr>
+      <td>
+        NUMERIC
+        <br/>BIGNUMERIC
+      </td>
+      <td>
+        <p>(TO_JSON only)</p>
+        <p>number or string</p>
+        <p>
+          If the <code>stringify_wide_numbers</code> argument
+          is <code>TRUE</code> and the value is outside of the
+          DOUBLE type domain, it is
+          encoded as a string. Otherwise, it's encoded as a number.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>-1</code><br />
+        JSON output: <code>-1</code><br />
+        <hr />
+        SQL input: <code>0</code><br />
+        JSON output: <code>0</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>9007199254740993</code><br />
+        <hr />
+        SQL input: <code>123.56</code><br />
+        JSON output: <code>123.56</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE: <code>9007199254740993</code><br />
+        JSON output: <code>"9007199254740993"</code><br />
+        <hr />
+        SQL input with stringify_wide_numbers=>TRUE: <code>123.56</code><br />
+        JSON output: <code>123.56</code><br />
+      </td>
+    </tr>
+    
+    
+    
+    <tr>
+      <td>
+        FLOAT<br />
+        DOUBLE
+      </td>
+      <td>
+        <p>number or string</p>
+        <p>
+          <code>+/-inf</code> and <code>NaN</code> are encoded as
+          <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>.
+          Otherwise, this value is encoded as a string.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>1.0</code><br />
+        JSON output: <code>1</code><br />
+        <hr />
+        SQL input: <code>9007199254740993</code><br />
+        JSON output: <code>9007199254740993</code><br />
+        <hr />
+        SQL input: <code>"+inf"</code><br />
+        JSON output: <code>"Infinity"</code><br />
+        <hr />
+        SQL input: <code>"-inf"</code><br />
+        JSON output: <code>"-Infinity"</code><br />
+        <hr />
+        SQL input: <code>"NaN"</code><br />
+        JSON output: <code>"NaN"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>STRING</td>
+      <td>
+        <p>string</p>
+        <p>
+          Encoded as a string, escaped according to the JSON standard.
+          Specifically, <code>"</code>, <code>\</code>, and the control
+          characters from <code>U+0000</code> to <code>U+001F</code> are
+          escaped.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>"abc"</code><br />
+        JSON output: <code>"abc"</code><br />
+        <hr />
+        SQL input: <code>"\"abc\""</code><br />
+        JSON output: <code>"\"abc\""</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>BYTES</td>
+      <td>
+        <p>string</p>
+        <p>Uses RFC 4648 Base64 data encoding.</p>
+      </td>
+      <td>
+        SQL input: <code>b"Google"</code><br />
+        JSON output: <code>"R29vZ2xl"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>ENUM</td>
+      <td>
+        <p>string</p>
+        <p>
+          Invalid enum values are encoded as their number, such as 0 or 42.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>Color.Red</code><br />
+        JSON output: <code>"Red"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>DATE</td>
+      <td>string</td>
+      <td>
+        SQL input: <code>DATE '2017-03-06'</code><br />
+        JSON output: <code>"2017-03-06"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>TIMESTAMP</td>
+      <td>
+        <p>string</p>
+        <p>
+          Encoded as ISO 8601 date and time, where T separates the date and
+          time and Z (Zulu/UTC) represents the time zone.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>TIMESTAMP '2017-03-06 12:34:56.789012'</code><br />
+        JSON output: <code>"2017-03-06T12:34:56.789012Z"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>DATETIME</td>
+      <td>
+        <p>string</p>
+        <p>
+          Encoded as ISO 8601 date and time, where T separates the date and
+          time.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>DATETIME '2017-03-06 12:34:56.789012'</code><br />
+        JSON output: <code>"2017-03-06T12:34:56.789012"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>TIME</td>
+      <td>
+        <p>string</p>
+        <p>Encoded as ISO 8601 time.</p>
+      </td>
+      <td>
+        SQL input: <code>TIME '12:34:56.789012'</code><br />
+        JSON output: <code>"12:34:56.789012"</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>ARRAY</td>
+      <td>
+        <p>array</p>
+        <p>
+          Can contain zero or more elements. Each element is formatted according
+          to its type.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>["red", "blue", "green"]</code><br />
+        JSON output: <code>["red", "blue", "green"]</code><br />
+        <hr />
+        SQL input:<code>[1, 2, 3]</code><br />
+        JSON output:<code>[1, 2, 3]</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>STRUCT</td>
+      <td>
+        <p>object</p>
+        <p>
+          The object can contain zero or more key/value pairs.
+          Each value is formatted according to its type.
+        </p>
+        <p>
+          For <code>TO_JSON</code>, a field is
+          inluded in the output string and any duplicates of this field are
+          omitted.
+          For <code>TO_JSON_STRING</code>,
+          a field and any duplicates of this field are included in the
+          output string.
+        </p>
+        <p>
+          Anonymous fields are represented with <code>""</code>. If a field is
+          a non-empty array or object, elements/fields are indented
+          to the appropriate level.
+        </p>
+        <p>
+          Invalid UTF-8 field names might result in unparseable JSON. String
+          values are escaped according to the JSON standard. Specifically,
+          <code>"</code>, <code>\</code>, and the control characters from
+          <code>U+0000</code> to <code>U+001F</code> are escaped.
+        </p>
+      </td>
+      <td>
+        SQL input: <code>STRUCT(12 AS purchases, TRUE AS inStock)</code><br />
+        JSON output: <code>{"purchases":12,"inStock": true}</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>PROTO</td>
+      <td>
+        <p>object</p>
+        <p>
+          The object can contain zero or more key/value pairs.
+          Each value is formatted according to its type.
+        </p>
+        <p>
+          Field names with underscores are converted to camel-case in accordance
+          with
+          <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+          protobuf json conversion</a>. Field values are formatted according to
+          <a href="https://developers.google.com/protocol-buffers/docs/proto3#json">
+          protobuf json conversion</a>. If a <code>field_value</code> is a
+          non-empty repeated field or submessage, elements/fields are indented
+          to the appropriate level.
+        </p>
+        <ul>
+          <li>
+            Field names that are not valid UTF-8 might result in unparseable
+            JSON.
+          </li>
+          <li>Field annotations are ignored.</li>
+          <li>Repeated fields are represented as arrays.</li>
+          <li>Submessages are formatted as values of PROTO type.</li>
+          <li>
+            Extension fields are included in the output, where the extension
+            field name is enclosed in brackets and prefixed with the full name
+            of the extension type.
+          </li>
+          
+        </ul>
+      </td>
+      <td>
+        SQL input: <code>NEW Item(12 AS purchases,TRUE AS in_Stock)</code><br />
+        JSON output: <code>{"purchases":12,"inStock": true}</code><br />
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
 
 ### JSONPath 
 <a id="JSONPath_format"></a>
@@ -11661,6 +13996,7 @@ returns `NULL`.
 
 If the JSONPath is invalid, the function raises an error.
 
+[json-encodings]: #json_encodings
 [JSONPath-format]: #JSONPath_format
 [json-path]: https://github.com/json-path/JSONPath#operators
 
@@ -11784,6 +14120,48 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 +--------------------------------------------------+
 ```
 
+### ARRAY_FILTER
+
+```sql
+ARRAY_FILTER(array_expression, lambda_expression)
+
+lambda_expression:
+  { e->boolean_expression | (e, i)->boolean_expression }
+```
+
+**Description**
+
+Takes an array, filters out unwanted elements, and returns the results in a new
+array.
+
++   `array_expression`: The array to filter.
++   `lambda_expression`: Each element in `array_expression` is evaluated against
+    the [lambda expression][lambda-definition]. If the expression evaluates to
+    `FALSE` or `NULL`, the element is removed from the resulting array.
++   `e`: An array element.
++   `i`: The zero-based offset of the array element.
++   `boolean_expression`: The predicate used to filter the array elements.
+
+Returns `NULL` if the `array_expression` is `NULL`.
+
+**Return type**
+
+ARRAY
+
+**Example**
+
+```sql
+SELECT
+  ARRAY_FILTER([1,2,3], e->e>1) AS a1,
+  ARRAY_FILTER([0,2,3], (e, i)->e>i) AS a2;
+
++-------+-------+
+| a1    | a2    |
++-------+-------+
+| [2,3] | [2,3] |
++-------+-------+
+```
+
 ### ARRAY_LENGTH
 
 ```sql
@@ -11871,6 +14249,47 @@ FROM items;
 | coffee--tea--milk              |
 | cake--pie--MISSING             |
 +--------------------------------+
+```
+
+### ARRAY_TRANSFORM
+
+```sql
+ARRAY_TRANSFORM(array_expression, lambda_expression)
+
+lambda_expression:
+  { e->transform_expression | (e, i)->transform_expression }
+```
+
+**Description**
+
+Takes an array, transforms the elements, and returns the results in a new array.
+
++   `array_expression`: The array to transform.
++   `lambda_expression`: Each element in `array_expression` is evaluated against
+    the [lambda expression][lambda-definition]. The evaluation results are
+    returned in a new array.
++   `e`: An array element.
++   `i`: The zero-based offset of the array element.
++   `transform_expression`: The expression used to transform the array elements.
+
+Returns `NULL` if the `array_expression` is `NULL`.
+
+**Return type**
+
+ARRAY
+
+**Example**
+
+```sql
+SELECT
+  ARRAY_TRANSFORM([1,2,3], e->e+1) AS a1,
+  ARRAY_TRANSFORM([1,2,3], (e, i)->e+i) AS a2;
+
++---------+---------+
+| a1      | a2      |
++---------+---------+
+| [2,3,4] | [1,3,5] |
++---------+---------+
 ```
 
 ### FLATTEN
@@ -12694,6 +15113,9 @@ FROM items;
 [flatten-tree-to-array]:https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 
 [array-link-to-operators]: #operators
+
+ [lambda-definition]:
+https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas 
 
 ## Date functions
 
@@ -16842,7 +19264,7 @@ SELECT TO_PROTO(
 ### EXTRACT {#proto_extract}
 
 ```sql
-EXTRACT( extraction_type (field) FROM proto_expression )
+EXTRACT( extraction_type (proto_field) FROM proto_expression )
 
 extraction_type:
   { FIELD | RAW | HAS | ONEOF_CASE }
@@ -16850,148 +19272,158 @@ extraction_type:
 
 **Description**
 
-Extracts a value from a proto. `proto_expression` represents the expression
-that returns a proto, `field` represents the field of the proto to extract from,
-and `extraction_type` determines the type of data to return. `EXTRACT` can be
-used to get values of ambiguous fields. An alternative to `EXTRACT` is the
-[dot operator][querying-protocol-buffers].
+Extracts a value from a protocol buffer. `proto_expression` represents the
+expression that returns a protocol buffer, `proto_field` represents the field
+of the protocol buffer to extract from, and `extraction_type` determines the
+type of data to return. `EXTRACT` can be used to get values of ambiguous fields.
+An alternative to `EXTRACT` is the [dot operator][querying-protocol-buffers].
 
 **Extraction Types**
 
 You can choose the type of information to get with `EXTRACT`. Your choices are:
 
-+  `FIELD`: Extract a value from a field.
-+  `RAW`: Extract an uninterpreted value from a field.
-   Raw values ignore any ZetaSQL type annotations.
-+  `HAS`: Returns `true` if a field is set in a proto message;
-   otherwise, `false`. Returns an error if this is used with a scalar proto3
++  `FIELD`: Extract a value from a protocol buffer field.
++  `RAW`: Extract an uninterpreted value from a
+    protocol buffer field. Raw values
+    ignore any ZetaSQL type annotations.
++  `HAS`: Returns `TRUE` if a protocol buffer field is set in a proto message;
+   otherwise, `FALSE`. Returns an error if this is used with a scalar proto3
    field. Alternatively, use [`has_x`][has-value], to perform this task.
-+  `ONEOF_CASE`: Returns the name of the set field in a Oneof. If no field is
-   set, returns an empty string.
++  `ONEOF_CASE`: Returns the name of the set protocol buffer field in a Oneof.
+   If no field is set, returns an empty string.
 
 **Return Type**
 
 The return type depends upon the extraction type in the query.
 
-+  `FIELD`: Type of proto field.
-+  `RAW`: Type of proto field, ignoring format annotations if present.
++  `FIELD`: Protocol buffer field type.
++  `RAW`: Protocol buffer field
+    type. Format annotations are
+    ignored.
 +  `HAS`: `BOOL`
 +  `ONEOF_CASE`: `STRING`
 
 **Examples**
 
-Extract the year from a proto called `Date`.
+The examples in this section reference two protocol buffers called `Album` and
+`Chart`, and one table called `AlbumList`.
 
-```sql
-SELECT EXTRACT(FIELD(year) FROM new google.type.Date(
-    2019 as year,
-    10 as month,
-    30 as day
-  )
-) as year;
-
-+------------------+
-| year             |
-+------------------+
-| 2019             |
-+------------------+
-```
-
-Set up a proto2 called `Book`.
-
-```sql
-message Book {
-  optional int32 publish_date = 1 [ (zetasql.format) = DATE ];
-}
-```
-
-Extract `publish_date` from a proto called `Book`.
-
-```sql
-SELECT EXTRACT(FIELD(publish_date) FROM new Book(
-    ‘1970-05-04’ as publish_date,
-  )
-) as release_date;
-
-+------------------+
-| release_date     |
-+------------------+
-| 1970-05-04       |
-+------------------+
-```
-
-Extract the uninterpreted `publish_date` from a proto called `Book`.
-In this example, the uninterpreted value is the number of days between
-1970-01-01 and 1970-05-04.
-
-```sql
-SELECT EXTRACT(RAW(publish_date) FROM new Book(
-    ‘1970-05-04’ as publish_date,
-  )
-) as release_date;
-
-+------------------+
-| release_date     |
-+------------------+
-| 123              |
-+------------------+
-```
-
-Check to see if `publish_date` is set in a proto2 called `Book`.
-In this example, `publish_date` is set to 1970-05-04.
-
-```sql
-SELECT EXTRACT(HAS(publish_date) FROM new Book(
-    ‘1970-05-04’ as publish_date,
-  )
-) as has_release_date;
-
-+------------------+
-| has_release_date |
-+------------------+
-| true             |
-+------------------+
-```
-
-Check to see if `publish_date` is set in a proto2 called `Book`.
-In this example, `publish_date` is not set.
-
-```sql
-SELECT EXTRACT(HAS(publish_date) FROM new Book()) as has_release_date;
-
-+------------------+
-| has_release_date |
-+------------------+
-| false            |
-+------------------+
-```
-
-Set up a proto called `Vehicle`.
-
-```sql
-message Vehicle {
-  oneof brand {
-    string car = 1;
-    string bike = 2;
+```proto
+message Album {
+  optional string album_name = 1;
+  repeated string song = 2;
+  oneof group_name {
+    string solo = 3;
+    string duet = 4;
+    string band = 5;
   }
 }
 ```
 
-In the `Vehicle` proto, `brand` can either be `car` or `bike`. Assume that
-`bike` is the set brand.
+```proto
+message Chart {
+  optional int64 date = 1 [(zetasql.format) = DATE];
+  optional string chart_name = 2;
+  optional int64 rank = 3;
+}
+```
 
 ```sql
-SELECT EXTRACT(ONEOF_CASE(brand) FROM new Vehicle("schwinn" as bike)) as brand_field_name;
+WITH AlbumList AS (
+  SELECT
+    NEW Album(
+      'Beyonce' AS solo,
+      'Lemonade' AS album_name,
+      ['Sandcastles','Hold Up'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      '2016-04-23' AS date,
+      1 AS rank) AS chart_col
+    UNION ALL
+  SELECT
+    NEW Album(
+      'The Beetles' AS band,
+      'Rubber Soul' AS album_name,
+      ['The Word', 'Wait', 'Nowhere Man'] AS song) AS album_col,
+    NEW Chart(
+      'Billboard' AS chart_name,
+      1 as rank) AS chart_col
+)
+SELECT * FROM AlbumList
+```
+
+The following example extracts the album names from a table called `AlbumList`
+that contains a proto-typed column called `Album`.
+
+```sql
+SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
+FROM AlbumList
 
 +------------------+
-| brand_field_name |
+| name_of_album    |
 +------------------+
-| bike             |
+| Lemonade         |
+| Rubber Soul      |
 +------------------+
 ```
 
-[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying-protocol-buffers
-[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking-if-a-non-repeated-field-has-a-value
+A table called `AlbumList` contains a proto-typed column called `Album`.
+`Album` contains a field called `date`, which can store an integer. The
+`date` field has an annotated format called `DATE` assigned to it, which means
+that when you extract the value in this field, it returns a `DATE`, not an
+`INT64`.
+
+If you would like to return the value for `date` as an `INT64`, not
+as a `DATE`, use the `RAW` extraction type in your query. For example:
+
+```sql
+SELECT
+  EXTRACT(RAW(date) FROM chart_col) AS raw_date,
+  EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
+FROM AlbumList
+
++----------+----------------+
+| raw_date | formatted_date |
++----------+----------------+
+| 16914    | 2016-04-23     |
+| 0        | 1970-01-01     |
++----------+----------------+
+```
+
+The following example checks to see if release dates exist in a table called
+`AlbumList` that contains a protocol buffer called `Chart`.
+
+```sql
+SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
+FROM AlbumList
+
++------------------+
+| has_release_date |
++------------------+
+| TRUE             |
+| FALSE            |
++------------------+
+```
+
+The following example extracts the group name that is assigned to an artist in
+a table called `AlbumList`. The group name is set for exactly one
+protocol buffer field inside of the `group_name` Oneof. The `group_name` Oneof
+exists inside the `Chart` protocol buffer.
+
+```sql
+SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
+FROM AlbumList;
+
++-------------+
+| artist_type |
++-------------+
+| solo        |
+| band        |
++-------------+
+```
+
+[querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+[has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
 
 ## Security functions
 

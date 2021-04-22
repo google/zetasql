@@ -585,6 +585,7 @@ show { return BisonParserImpl::token::KW_SHOW; }
 simple { return BisonParserImpl::token::KW_SIMPLE; }
 some { return BisonParserImpl::token::KW_SOME; }
 source { return BisonParserImpl::token::KW_SOURCE; }
+snapshot { return BisonParserImpl::token::KW_SNAPSHOT; }
 sql { return BisonParserImpl::token::KW_SQL; }
 stable { return BisonParserImpl::token::KW_STABLE; }
 start { return BisonParserImpl::token::KW_START; }

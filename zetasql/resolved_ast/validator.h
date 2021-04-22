@@ -56,6 +56,8 @@ class Validator {
   absl::Status ValidateResolvedIndexStmt(const ResolvedCreateIndexStmt* stmt);
   absl::Status ValidateResolvedCreateModelStmt(
       const ResolvedCreateModelStmt* stmt);
+  absl::Status ValidateResolvedCreateSnapshotTableStmt(
+      const ResolvedCreateSnapshotTableStmt* stmt);
   absl::Status ValidateResolvedCreateTableStmt(
       const ResolvedCreateTableStmt* stmt);
   absl::Status ValidateResolvedCloneDataSource(const ResolvedScan* source,
@@ -117,6 +119,10 @@ class Validator {
       const ResolvedDropTableFunctionStmt* stmt);
   absl::Status ValidateResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* stmt);
+  absl::Status ValidateResolvedDropSnapshotTableStmt(
+      const ResolvedDropSnapshotTableStmt* stmt);
+  absl::Status ValidateResolvedDropSearchIndexStmt(
+      const ResolvedDropSearchIndexStmt* stmt);
   absl::Status ValidateResolvedGrantStmt(const ResolvedGrantStmt* stmt);
   absl::Status ValidateResolvedRevokeStmt(const ResolvedRevokeStmt* stmt);
   absl::Status ValidateResolvedGrantToAction(const ResolvedGrantToAction* stmt);

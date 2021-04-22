@@ -1,0 +1,348 @@
+select key, value from (select key, value from KeyValue);
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Value#2 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=KeyValue.[Key#1, Value#2]
+        +-input_scan=
+          +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+select k, v, subq.k, subq.v from (select value as V, key K from KeyValue) as subq;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS k [INT64]
+| +-KeyValue.Value#2 AS v [STRING]
+| +-KeyValue.Key#1 AS k [INT64]
+| +-KeyValue.Value#2 AS v [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2, Key#1, Value#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=KeyValue.[Value#2, Key#1]
+        +-input_scan=
+          +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+select k3 from (select k2 as k3 from (select key as k2 from KeyValue));
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS k3 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[KeyValue.Key#1]
+            +-input_scan=
+              +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+# Alias hides the original column name.
+select k, key from (select key as k from keyvalue);
+--
+ERROR: Unrecognized name: key [at 1:11]
+select k, key from (select key as k from keyvalue);
+          ^
+==
+
+# Duplicate column names allowed on the outer query.
+select key, key from KeyValue;
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#1 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#1]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+# Duplicate column names allowed in a subquery (case insensitively).
+select 1 from (select KEy, kEY from KeyValue);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=KeyValue.[Key#1, Key#1]
+        +-input_scan=
+          +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+# Using the duplicate names from a subquery is ambiguous.
+select key from (select 1 key, 2 key);
+--
+ERROR: Column name key is ambiguous [at 1:8]
+select key from (select 1 key, 2 key);
+       ^
+==
+
+select * from (select 1 key, 2 key);
+--
+QueryStmt
++-output_column_list=
+| +-$subquery1.key#1 AS key [INT64]
+| +-$subquery1.key#2 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$subquery1.[key#1, key#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$subquery1.[key#1, key#2]
+        +-expr_list=
+        | +-key#1 := Literal(type=INT64, value=1)
+        | +-key#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# TODO: Tricky case *for unparsing*. May need an extra project on
+# the named struct so as to extract the fields with unambiguous aliases.
+[no_run_unparser]
+select * from (select as struct 1 key, "abc" key)
+--
+QueryStmt
++-output_column_list=
+| +-$query.key#4 AS key [INT64]
+| +-$query.key#5 AS key [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[key#4, key#5]
+    +-expr_list=
+    | +-key#4 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<key INT64, key STRING>, column=$make_struct.$struct#3)
+    | |   +-field_idx=0
+    | +-key#5 :=
+    |   +-GetStructField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<key INT64, key STRING>, column=$make_struct.$struct#3)
+    |     +-field_idx=1
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$make_struct.$struct#3]
+        +-expr_list=
+        | +-$struct#3 :=
+        |   +-MakeStruct
+        |     +-type=STRUCT<key INT64, key STRING>
+        |     +-field_list=
+        |       +-ColumnRef(type=INT64, column=$subquery1.key#1)
+        |       +-ColumnRef(type=STRING, column=$subquery1.key#2)
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=$subquery1.[key#1, key#2]
+            +-expr_list=
+            | +-key#1 := Literal(type=INT64, value=1)
+            | +-key#2 := Literal(type=STRING, value="abc")
+            +-input_scan=
+              +-SingleRowScan
+==
+
+select 1 from (select 1 key, 2 key) join (select 3 key) using (key);
+--
+ERROR: Column key in USING clause is ambiguous on left side of join [at 1:64]
+select 1 from (select 1 key, 2 key) join (select 3 key) using (key);
+                                                               ^
+==
+
+select key,k2,k1 from (select key k1, key k2, key from KeyValue);
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValue.Key#1 AS k2 [INT64]
+| +-KeyValue.Key#1 AS k1 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Key#1, Key#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=KeyValue.[Key#1, Key#1, Key#1]
+        +-input_scan=
+          +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+# Table aliases from inner subqueries not visible through outer layers.
+select kv1.key from (select key from KeyValue as kv1);
+--
+ERROR: Unrecognized name: kv1 [at 1:8]
+select kv1.key from (select key from KeyValue as kv1);
+       ^
+==
+
+# Column aliases from inner subqueries not visible through outer layers.
+select k1 from (select k1 as k2 from (select key as k1 from KeyValue));
+--
+ERROR: Unrecognized name: k1 [at 1:8]
+select k1 from (select k1 as k2 from (select key as k1 from KeyValue));
+       ^
+==
+
+
+select A,b,d from (select 1 a, key B, 1.5 c, "abc" d, value e from KeyValue);
+--
+
+QueryStmt
++-output_column_list=
+| +-$subquery1.a#3 AS A [INT64]
+| +-KeyValue.Key#1 AS b [INT64]
+| +-$subquery1.d#5 AS d [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$subquery1.a#3, KeyValue.Key#1, $subquery1.d#5]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.a#3, KeyValue.Key#1, $subquery1.c#4, $subquery1.d#5, KeyValue.Value#2]
+        +-expr_list=
+        | +-a#3 := Literal(type=INT64, value=1)
+        | +-c#4 := Literal(type=DOUBLE, value=1.5)
+        | +-d#5 := Literal(type=STRING, value="abc")
+        +-input_scan=
+          +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+# The subquery produces a column internally called `col0` but it isn't selectable.
+select `$col0` from (select 1 from KeyValue);
+--
+ERROR: Unrecognized name: `$col0` [at 1:8]
+select `$col0` from (select 1 from KeyValue);
+       ^
+==
+
+# If this stops being a syntax error, it should be an analysis error.
+select 1 from (select 1 abc from KeyValue).abc;
+--
+ERROR: Syntax error: Expected end of input but got "." [at 1:43]
+select 1 from (select 1 abc from KeyValue).abc;
+                                          ^
+==
+
+select a,c from (select 1 a, 2 b, 'abc' c);
+--
+QueryStmt
++-output_column_list=
+| +-$subquery1.a#1 AS a [INT64]
+| +-$subquery1.c#3 AS c [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$subquery1.[a#1, c#3]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$subquery1.[a#1, b#2, c#3]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        | +-c#3 := Literal(type=STRING, value="abc")
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select key from (select *,* from KeyValue)
+--
+ERROR: Column name key is ambiguous [at 1:8]
+select key from (select *,* from KeyValue)
+       ^
+==
+
+select subq.key from (select *,* from KeyValue) subq
+--
+ERROR: Name key is ambiguous inside subq [at 1:13]
+select subq.key from (select *,* from KeyValue) subq
+            ^
+==
+
+select key, kv1.key, kv1.kv.key
+from (select * from KeyValue kv) kv1
+--
+ERROR: Name kv not found inside kv1 [at 1:26]
+select key, kv1.key, kv1.kv.key
+                         ^
+==
+
+select kv.key
+from (select * from KeyValue kv) kv1
+--
+ERROR: Unrecognized name: kv [at 1:8]
+select kv.key
+       ^
+==
+
+# Correlated table scan in from clause not supported.
+select 1
+from KeyValue kv,
+     (select * from kv)
+--
+ERROR: Table not found: kv [at 3:21]
+     (select * from kv)
+                    ^
+==
+
+# The name KeyValue resolves as a table the second time, rather than as
+# the alias to the previous scan.
+select 1
+from KeyValue,
+     (select * from KeyValue)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#3, Value#4]
+        +-left_scan=
+        | +-TableScan(table=KeyValue)
+        +-right_scan=
+          +-ProjectScan
+            +-column_list=KeyValue.[Key#3, Value#4]
+            +-input_scan=
+              +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
+==
+
+# Correlated subquery in FROM clause not allowed.
+select 1
+from TestTable tt,
+     (select * from tt.KitchenSink.repeated_int32_val)
+--
+ERROR: Table not found: tt.KitchenSink.repeated_int32_val [at 3:21]
+     (select * from tt.KitchenSink.repeated_int32_val)
+                    ^
+==
+
+# Correlated subquery in FROM clause not allowed.
+# This tests when it is not the first item in the from clause.
+select 1
+from TestTable tt,
+     (select * from KeyValue kv, tt.KitchenSink.repeated_int32_val)
+--
+ERROR: Table not found: tt.KitchenSink.repeated_int32_val [at 3:34]
+     (select * from KeyValue kv, tt.KitchenSink.repeated_int32_val)
+                                 ^

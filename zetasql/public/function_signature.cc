@@ -468,7 +468,7 @@ std::string FunctionArgumentType::SignatureArgumentKindToString(
 std::shared_ptr<const FunctionArgumentTypeOptions>
 FunctionArgumentType::SimpleOptions(ArgumentCardinality cardinality) {
   static auto* options =
-      new std::vector<std::shared_ptr<const FunctionArgumentTypeOptions>>{
+      new std::array<std::shared_ptr<const FunctionArgumentTypeOptions>, 3>{
           std::shared_ptr<const FunctionArgumentTypeOptions>(
               new FunctionArgumentTypeOptions(FunctionEnums::REQUIRED)),
           std::shared_ptr<const FunctionArgumentTypeOptions>(
@@ -502,12 +502,12 @@ FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
     : FunctionArgumentType(kind, /*type=*/nullptr, SimpleOptions(cardinality),
                            num_occurrences) {}
 
-FunctionArgumentType::FunctionArgumentType(
-    SignatureArgumentKind kind, const FunctionArgumentTypeOptions& options,
-    int num_occurrences)
+FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
+                                           FunctionArgumentTypeOptions options,
+                                           int num_occurrences)
     : FunctionArgumentType(
           kind, /*type=*/nullptr,
-          std::make_shared<FunctionArgumentTypeOptions>(options),
+          std::make_shared<FunctionArgumentTypeOptions>(std::move(options)),
           num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(SignatureArgumentKind kind,
@@ -521,12 +521,12 @@ FunctionArgumentType::FunctionArgumentType(const Type* type,
     : FunctionArgumentType(ARG_TYPE_FIXED, type, SimpleOptions(cardinality),
                            num_occurrences) {}
 
-FunctionArgumentType::FunctionArgumentType(
-    const Type* type, const FunctionArgumentTypeOptions& options,
-    int num_occurrences)
+FunctionArgumentType::FunctionArgumentType(const Type* type,
+                                           FunctionArgumentTypeOptions options,
+                                           int num_occurrences)
     : FunctionArgumentType(
           ARG_TYPE_FIXED, type,
-          std::make_shared<FunctionArgumentTypeOptions>(options),
+          std::make_shared<FunctionArgumentTypeOptions>(std::move(options)),
           num_occurrences) {}
 
 FunctionArgumentType::FunctionArgumentType(const Type* type,
@@ -842,33 +842,34 @@ std::string FunctionArgumentType::GetSQLDeclaration(
   return result;
 }
 
-FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
-                                     const FunctionArgumentTypeList& arguments,
+FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
+                                     FunctionArgumentTypeList arguments,
                                      void* context_ptr)
-    : arguments_(arguments), result_type_(result_type),
+    : arguments_(std::move(arguments)),
+      result_type_(std::move(result_type)),
       num_repeated_arguments_(ComputeNumRepeatedArguments()),
       num_optional_arguments_(ComputeNumOptionalArguments()),
-      context_ptr_(context_ptr), options_(FunctionSignatureOptions()) {
+      context_ptr_(context_ptr) {
   ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
   ComputeConcreteArgumentTypes();
 }
 
-FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
-                                     const FunctionArgumentTypeList& arguments,
+FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
+                                     FunctionArgumentTypeList arguments,
                                      int64_t context_id)
-    : FunctionSignature(result_type, arguments, context_id,
-                        FunctionSignatureOptions()) {}
+    : FunctionSignature(std::move(result_type), std::move(arguments),
+                        context_id, FunctionSignatureOptions()) {}
 
-FunctionSignature::FunctionSignature(const FunctionArgumentType& result_type,
-                                     const FunctionArgumentTypeList& arguments,
+FunctionSignature::FunctionSignature(FunctionArgumentType result_type,
+                                     FunctionArgumentTypeList arguments,
                                      int64_t context_id,
-                                     const FunctionSignatureOptions& options)
-    : arguments_(arguments),
-      result_type_(result_type),
+                                     FunctionSignatureOptions options)
+    : arguments_(std::move(arguments)),
+      result_type_(std::move(result_type)),
       num_repeated_arguments_(ComputeNumRepeatedArguments()),
       num_optional_arguments_(ComputeNumOptionalArguments()),
       context_id_(context_id),
-      options_(options) {
+      options_(std::move(options)) {
   ZETASQL_DCHECK_OK(IsValid(ProductMode::PRODUCT_EXTERNAL));
   ComputeConcreteArgumentTypes();
 }
@@ -1294,19 +1295,19 @@ absl::Status FunctionSignature::IsValidForFunction() const {
 }
 
 absl::Status FunctionSignature::IsValidForTableValuedFunction() const {
-  // Optional and repeated arguments before relation arguments are not
+  // Repeated arguments before relation arguments are not
   // supported yet since ResolveTVF() currently requires that relation
   // arguments in the signature map positionally to the function call's
   // arguments.
   // TODO: Support repeated relation arguments at the end of the
   // function signature only, then update the ZETASQL_RET_CHECK below.
-  bool seen_non_required_args = false;
+  bool seen_repeated_args = false;
   for (const FunctionArgumentType& argument : arguments()) {
     if (argument.IsRelation()) {
       ZETASQL_RET_CHECK(!argument.repeated())
           << "Repeated relation argument is not supported: " << DebugString();
-      ZETASQL_RET_CHECK(!seen_non_required_args)
-          << "Relation arguments cannot follow repeated or optional arguments: "
+      ZETASQL_RET_CHECK(!seen_repeated_args)
+          << "Relation arguments cannot follow repeated arguments: "
           << DebugString();
       // If the relation argument has a required schema, make sure that the
       // column names are unique.
@@ -1322,8 +1323,8 @@ absl::Status FunctionSignature::IsValidForTableValuedFunction() const {
     if (argument.options().has_relation_input_schema()) {
       ZETASQL_RET_CHECK(argument.IsRelation()) << DebugString();
     }
-    if (!argument.required()) {
-      seen_non_required_args = true;
+    if (argument.repeated()) {
+      seen_repeated_args = true;
     }
   }
   // The result type must be a relation type, since the table-valued function

@@ -16,8 +16,11 @@
 
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
+#include <algorithm>
 #include <string>
 
+#include "zetasql/common/status_payload_utils.h"
+#include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_tokens.h"
 #include "absl/functional/bind_front.h"
@@ -31,6 +34,8 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+using execute_query::ParserErrorContext;
 
 namespace {
 bool IsUnclosedTripleQuotedLiteralError(absl::Status status) {
@@ -76,19 +81,30 @@ zetasql_base::StatusOr<absl::optional<absl::string_view>> NextStatement(
 }
 }  // namespace
 
-absl::Status ExecuteQueryStatementPrompt::NoOpParserErrorHandler(
-    absl::Status status) {
-  return status;
-}
-
 ExecuteQueryStatementPrompt::ExecuteQueryStatementPrompt(
     std::function<zetasql_base::StatusOr<absl::optional<std::string>>(bool)>
         read_next_func,
-    std::function<absl::Status(absl::Status)> parser_error_handler)
-    : read_next_func_{read_next_func},
-      parser_error_handler_{parser_error_handler} {
+    std::function<zetasql_base::StatusOr<std::vector<std::string>>(absl::string_view,
+                                                           size_t)>
+        autocomplete_func)
+    : read_next_func_{read_next_func}, autocomplete_func_{autocomplete_func} {
   ZETASQL_CHECK(read_next_func_);
-  ZETASQL_CHECK(parser_error_handler_);
+}
+
+zetasql_base::StatusOr<std::vector<std::string>>
+ExecuteQueryStatementPrompt::Autocomplete(absl::string_view body,
+                                          size_t cursor_position) {
+  ZETASQL_RET_CHECK_LE(cursor_position, body.length());
+
+  if (autocomplete_func_ == nullptr) {
+    return std::vector<std::string>{};
+  }
+
+  // Storage for buffered input and new input before cursor position; the rest
+  // uses views into this data.
+  const std::string complete_body = absl::StrCat(buf_.Flatten(), body);
+
+  return autocomplete_func_(complete_body, buf_.size() + cursor_position);
 }
 
 zetasql_base::StatusOr<absl::optional<std::string>>
@@ -154,13 +170,17 @@ void ExecuteQueryStatementPrompt::ProcessBuffer() {
         NextStatement(buf_.Flatten());
 
     if (!stmt.ok()) {
-      continuation_ = false;
-      buf_.Clear();
+      absl::Status status = std::move(stmt).status();
 
-      if (absl::Status status = parser_error_handler_(std::move(stmt).status());
-          !status.ok()) {
-        queue_.emplace_back(status);
+      {
+        ParserErrorContext ctx;
+        ctx.set_text(std::string{absl::StripAsciiWhitespace(buf_.Flatten())});
+        internal::AttachPayload(&status, ctx);
       }
+
+      queue_.emplace_back(status);
+      buf_.Clear();
+      continuation_ = false;
 
       break;
     }

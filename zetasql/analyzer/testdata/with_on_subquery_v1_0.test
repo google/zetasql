@@ -1,0 +1,156 @@
+# This file has tests with WITH clauses on subqueries in various places.
+# This is a 1.1 feature.  1.0 only had top-level WITH clauses.
+#
+# This file has the same queries as with_on_subquery.test but does not enable
+# the V_1_1_WITH_ON_SUBQUERY feature, so it shows the error messages for v1.0.
+
+# WITH in a table subquery
+SELECT * FROM
+  (WITH q AS (select 1 x) SELECT x+1 AS y FROM q)
+--
+ERROR: WITH is not supported on subqueries in this language version [at 2:4]
+  (WITH q AS (select 1 x) SELECT x+1 AS y FROM q)
+   ^
+==
+
+# WITH inside WITH
+with q1 as (with q2 as (select 5) select * from q2) select * from q1
+--
+ERROR: WITH is not supported on subqueries in this language version [at 1:13]
+with q1 as (with q2 as (select 5) select * from q2) select * from q1
+            ^
+==
+
+# WITH in an expression subquery.
+# Note that we rename the second 'q' to make unique names in the resolved AST.
+select (with q as (select 1 x) select * from q),
+       array(with q as (select 'abc') select * from q)
+--
+ERROR: WITH is not supported on subqueries in this language version [at 1:9]
+select (with q as (select 1 x) select * from q),
+        ^
+==
+
+# WITH in an IN subquery.
+select 1 in (with q as (select 1) select * from q)
+--
+ERROR: WITH is not supported on subqueries in this language version [at 1:14]
+select 1 in (with q as (select 1) select * from q)
+             ^
+==
+
+# WITH inside parenthesized set ops.
+with q1 as (select 5)
+select 6
+union all
+(with q2 as (select 7) select * from q2)
+union all
+select * from q1
+--
+ERROR: WITH is not supported on subqueries in this language version [at 4:2]
+(with q2 as (select 7) select * from q2)
+ ^
+==
+
+# The WITH alias is only visible inside the subquery, not after.
+SELECT * FROM
+  (WITH q AS (select 1 x) SELECT x+1 AS y FROM q),
+  q
+--
+ERROR: WITH is not supported on subqueries in this language version [at 2:4]
+  (WITH q AS (select 1 x) SELECT x+1 AS y FROM q),
+   ^
+==
+
+# This checks WITH clause scoping, so we resolve T1 to the outer
+# WITH subquery before and after we resolve it to the inner WITH
+# subquery in the middle.
+# Note that for the inner WITH, we rename T1 to T1_1 to make the alias unique.
+WITH T1 as (select 1 a)
+select *
+from
+  T1 x,
+  (WITH T1 as (select 2 b) select * from T1) y,
+  T1 z
+--
+ERROR: WITH is not supported on subqueries in this language version [at 5:4]
+  (WITH T1 as (select 2 b) select * from T1) y,
+   ^
+==
+
+# Test unique name generation for WITH clause renaming in the case
+# where we get a collision with a generated name.
+# The second WITH name is chosen to match the implementation detail.
+# Note that we get the suffix _2_2 on the renamed inner clause.
+WITH TTtt as (select 1 a),
+     `tTTt_2` as (select 2 a)
+select *
+from
+  (WITH TtTt as (select 3 c) select * from ttTT, `tttT_2`)
+--
+ERROR: WITH is not supported on subqueries in this language version [at 5:4]
+  (WITH TtTt as (select 3 c) select * from ttTT, `tttT_2`)
+   ^
+==
+
+# WITH subqueries currently cannot be correlated.  No names from outside are
+# visible inside the WITH subquery.
+select
+  (select x),
+  (select T.x),
+  (WITH q AS (select {{T.x|x}}) select * from q)
+from (select 1 x, 2 y) T
+--
+ALTERNATION GROUP: T.x
+--
+ERROR: WITH is not supported on subqueries in this language version [at 4:4]
+  (WITH q AS (select T.x) select * from q)
+   ^
+--
+ALTERNATION GROUP: x
+--
+ERROR: WITH is not supported on subqueries in this language version [at 4:4]
+  (WITH q AS (select x) select * from q)
+   ^
+==
+
+# WITH subqueries currently cannot be correlated.  A table alias from outside
+# is never visible inside the WITH.
+select
+  (WITH q AS (select * from T) select * from q)
+from (select 1 x, 2 y) T
+--
+ERROR: WITH is not supported on subqueries in this language version [at 2:4]
+  (WITH q AS (select * from T) select * from q)
+   ^
+==
+
+# The main query inside WITH can be correlated.
+select
+  (WITH q AS (select 3 z) select x + t.y + z from q)
+from (select 1 x, 2 y) T
+--
+ERROR: WITH is not supported on subqueries in this language version [at 2:4]
+  (WITH q AS (select 3 z) select x + t.y + z from q)
+   ^
+==
+
+# A WITH subquery alias is visible inside a WITH clause subquery.
+WITH q1 as (select 1 x)
+select * from
+  (with q2 as (select * from q1) select * from q2)
+--
+ERROR: WITH is not supported on subqueries in this language version [at 3:4]
+  (with q2 as (select * from q1) select * from q2)
+   ^
+==
+
+# A WITH subquery alias is visible inside a WITH clause subquery,
+# and in this case, it gets replaced by a query with the same alias.
+WITH q1 as (select 1 x)
+select * from
+  (with q1 as (select * from q1) select * from q1)
+--
+ERROR: WITH is not supported on subqueries in this language version [at 3:4]
+  (with q1 as (select * from q1) select * from q1)
+   ^

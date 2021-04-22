@@ -226,14 +226,12 @@ absl::Status TemplatedSQLTVF::CheckIsValid() const {
   for (const FunctionSignature& signature : signatures_) {
     ZETASQL_RET_CHECK(std::all_of(
         signature.arguments().begin(), signature.arguments().end(),
-        [](const FunctionArgumentType& arg) { return arg.required(); }))
+        [](const FunctionArgumentType& arg) {
+          return arg.required() || (arg.optional() && arg.HasDefault());
+        }))
         << "Table-valued function declarations with argument(s) of templated "
-        << "type do not support optional or repeated arguments when a SQL body "
-        << "is also present";
-    ZETASQL_RET_CHECK_EQ(GetArgumentNames().size(), signature.NumRequiredArguments())
-        << "Function has an argument list of size " << GetArgumentNames().size()
-        << " but has " << signature.NumRequiredArguments()
-        << " required arguments";
+        << "type do not support repeated arguments or non-default optional "
+           "arguments when a SQL body is also present";
   }
   return absl::OkStatus();
 }

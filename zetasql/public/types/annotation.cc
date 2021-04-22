@@ -55,19 +55,25 @@ absl::Status AnnotationMap::Serialize(AnnotationMapProto* proto) const {
 // static
 zetasql_base::StatusOr<std::unique_ptr<AnnotationMap>> AnnotationMap::Deserialize(
     const AnnotationMapProto& proto) {
+  ZETASQL_RET_CHECK(!proto.is_null())
+      << "is_null could only be true for struct field or array element";
   std::unique_ptr<AnnotationMap> annotation_map;
   // Recursively handle struct fields and array element.
   if (proto.struct_fields_size() > 0) {
     annotation_map = absl::WrapUnique(new StructAnnotationMap());
     for (int i = 0; i < proto.struct_fields_size(); i++) {
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> struct_field,
-                       Deserialize(proto.struct_fields(i)));
+      std::unique_ptr<AnnotationMap> struct_field;
+      if (!proto.struct_fields(i).is_null()) {
+        ZETASQL_ASSIGN_OR_RETURN(struct_field, Deserialize(proto.struct_fields(i)));
+      }
       annotation_map->AsStructMap()->fields_.push_back(std::move(struct_field));
     }
   } else if (proto.has_array_element()) {
     annotation_map = absl::WrapUnique(new ArrayAnnotationMap());
-    ZETASQL_ASSIGN_OR_RETURN(annotation_map->AsArrayMap()->element_,
-                     Deserialize(proto.array_element()));
+    if (!proto.array_element().is_null()) {
+      ZETASQL_ASSIGN_OR_RETURN(annotation_map->AsArrayMap()->element_,
+                       Deserialize(proto.array_element()));
+    }
   } else {
     annotation_map = absl::WrapUnique(new AnnotationMap());
   }
@@ -81,42 +87,133 @@ zetasql_base::StatusOr<std::unique_ptr<AnnotationMap>> AnnotationMap::Deserializ
   return annotation_map;
 }
 
-absl::Status AnnotationMap::CopyFrom(const AnnotationMap& that) {
-  annotations_ = that.annotations_;
-
-  if (IsStructMap()) {
-    ZETASQL_RET_CHECK(that.IsStructMap());
-    ZETASQL_RET_CHECK_EQ(AsStructMap()->num_fields(), that.AsStructMap()->num_fields());
-    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
-      ZETASQL_RETURN_IF_ERROR(AsStructMap()->mutable_field(i)->CopyFrom(
-          that.AsStructMap()->field(i)));
-    }
-  } else if (IsArrayMap()) {
-    ZETASQL_RET_CHECK(that.IsArrayMap());
-    ZETASQL_RETURN_IF_ERROR(AsArrayMap()->mutable_element()->CopyFrom(
-        that.AsArrayMap()->element()));
+// static
+bool AnnotationMap::HasCompatibleStructure(const AnnotationMap* lhs,
+                                           const AnnotationMap* rhs) {
+  if (lhs == nullptr || rhs == nullptr) {
+    return true;
   }
-  return absl::OkStatus();
+  if (lhs->IsStructMap()) {
+    if (!rhs->IsStructMap() ||
+        lhs->AsStructMap()->num_fields() != rhs->AsStructMap()->num_fields()) {
+      return false;
+    }
+    for (int i = 0; i < lhs->AsStructMap()->num_fields(); i++) {
+      if (!HasCompatibleStructure(lhs->AsStructMap()->field(i),
+                                  lhs->AsStructMap()->field(i))) {
+        return false;
+      }
+    }
+    return true;
+  } else if (lhs->IsArrayMap()) {
+    return rhs->IsArrayMap() &&
+           HasCompatibleStructure(lhs->AsArrayMap()->element(),
+                                  rhs->AsArrayMap()->element());
+  }
+  return !rhs->IsStructMap() && !rhs->IsArrayMap();
 }
 
-bool AnnotationMap::HasMatchingStructure(const Type* type) const {
+std::unique_ptr<AnnotationMap> AnnotationMap::Clone() const {
+  std::unique_ptr<AnnotationMap> target;
+  if (IsStructMap()) {
+    target.reset(new StructAnnotationMap());
+    target->AsStructMap()->fields_.resize(AsStructMap()->num_fields());
+    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
+      if (AsStructMap()->field(i) != nullptr) {
+        target->AsStructMap()->fields_[i] = AsStructMap()->field(i)->Clone();
+      }
+    }
+  } else if (IsArrayMap()) {
+    target.reset(new ArrayAnnotationMap());
+    if (AsArrayMap()->element() != nullptr) {
+      target->AsArrayMap()->element_ = AsArrayMap()->element()->Clone();
+    }
+  } else {
+    target.reset(new AnnotationMap());
+  }
+  target->annotations_ = annotations_;
+  return target;
+}
+
+bool AnnotationMap::HasCompatibleStructure(const Type* type) const {
   if (IsStructMap()) {
     if (!type->IsStruct() ||
         AsStructMap()->num_fields() != type->AsStruct()->num_fields()) {
       return false;
     }
     for (int i = 0; i < AsStructMap()->num_fields(); i++) {
-      if (!AsStructMap()->field(i).HasMatchingStructure(
+      if (AsStructMap()->field(i) != nullptr &&
+          !AsStructMap()->field(i)->HasCompatibleStructure(
               type->AsStruct()->field(i).type)) {
         return false;
       }
     }
     return true;
   } else if (IsArrayMap()) {
-    return type->AsArray() && AsArrayMap()->element().HasMatchingStructure(
-                                  type->AsArray()->element_type());
+    return type->AsArray() && (AsArrayMap()->element() == nullptr ||
+                               AsArrayMap()->element()->HasCompatibleStructure(
+                                   type->AsArray()->element_type()));
   }
   return !type->IsStruct() && !type->IsArray();
+}
+
+bool AnnotationMap::NormalizeInternal() {
+  bool empty = annotations_.empty();
+  if (IsStructMap()) {
+    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
+      std::unique_ptr<AnnotationMap>& field_ptr = AsStructMap()->fields_[i];
+      if (field_ptr != nullptr) {
+        if (field_ptr->NormalizeInternal()) {
+          // Set field pointer to nullptr if the AnnotationMap is empty.
+          field_ptr.reset(nullptr);
+        } else {
+          empty = false;
+        }
+      }
+    }
+  } else if (IsArrayMap()) {
+    std::unique_ptr<AnnotationMap>& element_ptr = AsArrayMap()->element_;
+    if (element_ptr != nullptr) {
+      if (element_ptr->NormalizeInternal()) {
+        // Set element pointer to nullptr if the AnnotationMap is empty.
+        element_ptr.reset(nullptr);
+      } else {
+        empty = false;
+      }
+    }
+  }
+  return empty;
+}
+
+bool AnnotationMap::IsNormalized() const {
+  return IsNormalizedAndNonEmpty(/*check_non_empty=*/false);
+}
+
+bool AnnotationMap::IsNormalizedAndNonEmpty(bool check_non_empty) const {
+  bool children_non_empty = false;
+  if (IsStructMap()) {
+    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
+      const AnnotationMap* ptr = AsStructMap()->field(i);
+      // The normalized form is that a struct field is either null or non-empty.
+      if (ptr != nullptr &&
+          !ptr->IsNormalizedAndNonEmpty(/*check_non_empty=*/true)) {
+        return false;
+      }
+      children_non_empty = children_non_empty || ptr != nullptr;
+    }
+  } else if (IsArrayMap()) {
+    const AnnotationMap* ptr = AsArrayMap()->element();
+    // The normalized form is that an array element is either null or non-empty.
+    if (ptr != nullptr &&
+        !ptr->IsNormalizedAndNonEmpty(/*check_non_empty=*/true)) {
+      return false;
+    }
+    children_non_empty = ptr != nullptr;
+  }
+  if (!check_non_empty) {
+    return true;
+  }
+  return children_non_empty || !annotations_.empty();
 }
 
 int64_t AnnotationMap::GetEstimatedOwnedMemoryBytesSize() const {
@@ -127,37 +224,57 @@ int64_t AnnotationMap::GetEstimatedOwnedMemoryBytesSize() const {
   }
   if (IsStructMap()) {
     for (int i = 0; i < AsStructMap()->num_fields(); i++) {
-      total_size += sizeof(std::unique_ptr<AnnotationMap>) +
-                    AsStructMap()->field(i).GetEstimatedOwnedMemoryBytesSize();
+      total_size +=
+          sizeof(std::unique_ptr<AnnotationMap>) +
+          (AsStructMap()->field(i) == nullptr
+               ? 0
+               : AsStructMap()->field(i)->GetEstimatedOwnedMemoryBytesSize());
     }
   } else if (IsArrayMap()) {
-    total_size += sizeof(std::unique_ptr<AnnotationMap>) +
-                  AsArrayMap()->element().GetEstimatedOwnedMemoryBytesSize();
+    total_size +=
+        sizeof(std::unique_ptr<AnnotationMap>) +
+        (AsArrayMap()->element() == nullptr
+             ? 0
+             : AsArrayMap()->element()->GetEstimatedOwnedMemoryBytesSize());
   }
   return total_size;
 }
 
 bool AnnotationMap::Equals(const AnnotationMap& that) const {
-  if (annotations_ != that.annotations_) {
+  return EqualsInternal(this, &that);
+}
+
+// static
+bool AnnotationMap::EqualsInternal(const AnnotationMap* lhs,
+                                   const AnnotationMap* rhs) {
+  if (lhs == nullptr) {
+    return rhs == nullptr || rhs->Empty();
+  }
+  if (rhs == nullptr) {
+    return lhs->Empty();
+  }
+  // lhs and rhs have been guaranteed to be non-null.
+  if (lhs->annotations_ != rhs->annotations_) {
     return false;
   }
-  if (IsStructMap()) {
-    if (!that.IsStructMap() ||
-        AsStructMap()->num_fields() != that.AsStructMap()->num_fields()) {
+  if (lhs->IsStructMap()) {
+    if (!rhs->IsStructMap() ||
+        lhs->AsStructMap()->num_fields() != rhs->AsStructMap()->num_fields()) {
       return false;
     }
-    for (int i = 0; i < AsStructMap()->num_fields(); i++) {
-      if (!AsStructMap()->field(i).Equals(that.AsStructMap()->field(i))) {
+    for (int i = 0; i < lhs->AsStructMap()->num_fields(); i++) {
+      if (!EqualsInternal(lhs->AsStructMap()->field(i),
+                          rhs->AsStructMap()->field(i))) {
         return false;
       }
     }
-  } else if (IsArrayMap()) {
-    if (!that.AsArrayMap() ||
-        !AsArrayMap()->element().Equals(that.AsArrayMap()->element())) {
-      return false;
-    }
+    return true;
+  } else if (lhs->IsArrayMap()) {
+    return rhs->AsArrayMap() && EqualsInternal(lhs->AsArrayMap()->element(),
+                                               rhs->AsArrayMap()->element());
   }
-  return true;
+  // lhs is neither a struct nor an array.
+  return !rhs->IsStructMap() && !rhs->IsArrayMap();
 }
 
 bool AnnotationMap::Empty() const {
@@ -166,12 +283,14 @@ bool AnnotationMap::Empty() const {
   }
   if (IsStructMap()) {
     for (int i = 0; i < AsStructMap()->num_fields(); i++) {
-      if (!AsStructMap()->field(i).Empty()) {
+      if (AsStructMap()->field(i) != nullptr &&
+          !AsStructMap()->field(i)->Empty()) {
         return false;
       }
     }
   } else if (IsArrayMap()) {
-    if (!AsArrayMap()->element().Empty()) {
+    if (AsArrayMap()->element() != nullptr &&
+        !AsArrayMap()->element()->Empty()) {
       return false;
     }
   }
@@ -221,10 +340,14 @@ absl::Status StructAnnotationMap::Serialize(AnnotationMapProto* proto) const {
   // Serialize parent class AnnotationMap first.
   ZETASQL_RETURN_IF_ERROR(AnnotationMap::Serialize(proto));
 
-  // TODO: only serialize STRUCT field if they are not empty.
   // Serialize annotation for each field.
   for (const auto& field : fields_) {
-    ZETASQL_RETURN_IF_ERROR(field->Serialize(proto->add_struct_fields()));
+    auto* proto_field = proto->add_struct_fields();
+    if (field == nullptr) {
+      proto_field->set_is_null(true);
+    } else {
+      ZETASQL_RETURN_IF_ERROR(field->Serialize(proto_field));
+    }
   }
   return absl::OkStatus();
 }
@@ -233,7 +356,8 @@ std::string StructAnnotationMap::DebugString() const {
   std::string out(AnnotationMap::DebugString());
   absl::StrAppend(&out, "<");
   for (int i = 0; i < num_fields(); i++) {
-    std::string field_debug_string = field(i).DebugString();
+    std::string field_debug_string =
+        field(i) == nullptr ? "" : field(i)->DebugString();
     absl::StrAppend(&out,
                     field_debug_string.empty() ? "{}" : field_debug_string);
     if (i != num_fields() - 1) {
@@ -244,6 +368,28 @@ std::string StructAnnotationMap::DebugString() const {
   return out;
 }
 
+absl::Status StructAnnotationMap::CloneIntoField(int i,
+                                                 const AnnotationMap* from) {
+  ZETASQL_RET_CHECK_LT(i, num_fields());
+  ZETASQL_RET_CHECK(HasCompatibleStructure(fields_[i].get(), from));
+  if (from == nullptr) {
+    fields_[i].reset(nullptr);
+  } else {
+    fields_[i] = from->Clone();
+  }
+  return absl::OkStatus();
+}
+
+absl::Status ArrayAnnotationMap::CloneIntoElement(const AnnotationMap* from) {
+  ZETASQL_RET_CHECK(HasCompatibleStructure(element_.get(), from));
+  if (from == nullptr) {
+    element_.reset(nullptr);
+  } else {
+    element_ = from->Clone();
+  }
+  return absl::OkStatus();
+}
+
 ArrayAnnotationMap::ArrayAnnotationMap(const ArrayType* array_type) {
   element_ = AnnotationMap::Create(array_type->element_type());
 }
@@ -251,7 +397,7 @@ ArrayAnnotationMap::ArrayAnnotationMap(const ArrayType* array_type) {
 std::string ArrayAnnotationMap::DebugString() const {
   std::string out(AnnotationMap::DebugString());
   absl::StrAppend(&out, "[");
-  absl::StrAppend(&out, element().DebugString());
+  absl::StrAppend(&out, element() == nullptr ? "" : element()->DebugString());
   absl::StrAppend(&out, "]");
   return out;
 }
@@ -261,7 +407,12 @@ absl::Status ArrayAnnotationMap::Serialize(AnnotationMapProto* proto) const {
   ZETASQL_RETURN_IF_ERROR(AnnotationMap::Serialize(proto));
 
   // Serialize array element annotation.
-  ZETASQL_RETURN_IF_ERROR(element_->Serialize(proto->mutable_array_element()));
+  auto* array_element = proto->mutable_array_element();
+  if (element_ == nullptr) {
+    array_element->set_is_null(true);
+  } else {
+    ZETASQL_RETURN_IF_ERROR(element_->Serialize(array_element));
+  }
   return absl::OkStatus();
 }
 

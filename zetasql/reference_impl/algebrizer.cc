@@ -147,16 +147,79 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call,
                    BuiltinScalarFunction::CreateCast(
                        language_options_, cast->type(), std::move(arg),
-                       std::move(format),
-                       std::move(time_zone),
-                       cast->return_null_on_error(),
+                       std::move(format), std::move(time_zone),
+                       cast->type_parameters(), cast->return_null_on_error(),
                        ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
                        std::move(extended_evaluator)));
   return function_call;
 }
 
+zetasql_base::StatusOr<std::unique_ptr<InlineLambdaExpr>> Algebrizer::AlgebrizeLambda(
+    const ResolvedInlineLambda* lambda) {
+  ZETASQL_RET_CHECK_NE(lambda, nullptr);
+  // Access 'parameters' to suppress the resolver check for non-accessed
+  // expressions.
+  for (const auto& parameter : lambda->parameter_list()) {
+    parameter->column();
+  }
+
+  // Allocate and collect variables for lambda arguments.
+  std::vector<VariableId> lambda_arg_vars;
+  lambda_arg_vars.reserve(lambda->argument_list_size());
+  for (int i = 0; i < lambda->argument_list_size(); i++) {
+    lambda_arg_vars.push_back(column_to_variable_->AssignNewVariableToColumn(
+        &lambda->argument_list(i)));
+  }
+
+  // Algebrize lambda body
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> lambda_body,
+                   AlgebrizeExpression(lambda->body()));
+
+  return InlineLambdaExpr::Create(lambda_arg_vars, std::move(lambda_body));
+}
+
+zetasql_base::StatusOr<std::unique_ptr<ValueExpr>>
+Algebrizer::AlgebrizeFunctionCallWithLambda(
+    const ResolvedFunctionCall* function_call) {
+  std::vector<std::unique_ptr<AlgebraArg>> args;
+  for (const auto& arg : function_call->generic_argument_list()) {
+    if (arg->expr() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(auto expr, AlgebrizeExpression(arg->expr()));
+      args.push_back(absl::make_unique<ExprArg>(std::move(expr)));
+    } else if (arg->inline_lambda() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(auto lambda, AlgebrizeLambda(arg->inline_lambda()));
+      args.push_back(absl::make_unique<InlineLambdaArg>(std::move(lambda)));
+    } else {
+      return zetasql_base::InternalErrorBuilder()
+             << "Unexpected argument: " << arg->DebugString()
+             << " for function call: " << function_call->DebugString();
+    }
+  }
+
+  return ArrayFunctionWithLambdaExpr::Create(
+      function_call->function()->FullName(/*include_group=*/false),
+      std::move(args), function_call->type());
+}
+
+// Returns if `function_call` has any lambda argument.
+static bool HasLambdaArgument(const ResolvedFunctionCall* function_call) {
+  if (function_call->generic_argument_list().empty()) {
+    return false;
+  }
+  for (const auto& arg : function_call->generic_argument_list()) {
+    if (arg->inline_lambda() != nullptr) {
+      return true;
+    }
+  }
+  return false;
+}
+
 zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     const ResolvedFunctionCall* function_call) {
+  if (HasLambdaArgument(function_call)) {
+    return AlgebrizeFunctionCallWithLambda(function_call);
+  }
+
   int num_arguments = function_call->argument_list_size();
   std::vector<std::unique_ptr<ValueExpr>> arguments;
   for (int i = 0; i < num_arguments; ++i) {
@@ -165,7 +228,7 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunction
                      AlgebrizeExpression(argument_expr));
     arguments.push_back(std::move(argument));
   }
-  const std::string& name = function_call->function()->FullName(false);
+  const std::string name = function_call->function()->FullName(false);
   const ResolvedFunctionCallBase::ErrorMode& error_mode =
       function_call->error_mode();
 
@@ -515,7 +578,6 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggre
       << expr->node_kind_string();
   const ResolvedNonScalarFunctionCallBase* aggregate_function =
       expr->GetAs<ResolvedNonScalarFunctionCallBase>();
-  const std::string name = aggregate_function->function()->FullName(false);
   std::vector<std::unique_ptr<ValueExpr>> arguments;
   for (int i = 0; i < aggregate_function->argument_list_size(); ++i) {
     const ResolvedExpr* argument_expr = aggregate_function->argument_list(i);
@@ -523,6 +585,23 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggre
                      AlgebrizeExpression(argument_expr));
     arguments.push_back(std::move(argument));
   }
+  return AlgebrizeAggregateFnWithAlgebrizedArguments(
+      variable, anonymization_options, std::move(filter), expr,
+      std::move(arguments));
+}
+
+zetasql_base::StatusOr<std::unique_ptr<AggregateArg>>
+Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
+    const VariableId& variable,
+    absl::optional<AnonymizationOptions> anonymization_options,
+    std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
+    std::vector<std::unique_ptr<ValueExpr>> arguments) {
+  ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL ||
+            expr->node_kind() == RESOLVED_ANALYTIC_FUNCTION_CALL)
+      << expr->node_kind_string();
+  const ResolvedNonScalarFunctionCallBase* aggregate_function =
+      expr->GetAs<ResolvedNonScalarFunctionCallBase>();
+  const std::string name = aggregate_function->function()->FullName(false);
   if (anonymization_options.has_value()) {
     // Append 'delta' and 'epsilon' to the arguments.  If either is not
     // explicitly specified then we append a NULL value for the unspecified
@@ -1235,6 +1314,24 @@ zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpressi
     case RESOLVED_DMLDEFAULT: {
       // In the reference implementation, the default value is always NULL.
       ZETASQL_ASSIGN_OR_RETURN(val_op, ConstExpr::Create(Value::Null(expr->type())));
+      break;
+    }
+    case RESOLVED_FILTER_FIELD: {
+      auto filter_fields = expr->GetAs<ResolvedFilterField>();
+      // <arguments> will store root object to be modified.
+      std::vector<std::unique_ptr<ValueExpr>> arguments;
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> root_expr,
+                       AlgebrizeExpression(filter_fields->expr()));
+      arguments.push_back(std::move(root_expr));
+      auto function = absl::make_unique<FilterFieldsFunction>(expr->type());
+      for (const auto& filter_field_arg :
+           filter_fields->filter_field_arg_list()) {
+        ZETASQL_RETURN_IF_ERROR(
+            function->AddFieldPath(filter_field_arg->include(),
+                                   filter_field_arg->field_descriptor_path()));
+      }
+      ZETASQL_ASSIGN_OR_RETURN(val_op, ScalarFunctionCallExpr::Create(
+                                   std::move(function), std::move(arguments)));
       break;
     }
     case RESOLVED_REPLACE_FIELD: {
@@ -3721,10 +3818,53 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotS
                    AlgebrizeScan(pivot_scan->input_scan()));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> algebrized_for_expr,
                    AlgebrizeExpression(pivot_scan->for_expr()));
+
+  // VariableId representing the result of the FOR expr
   VariableId for_expr_var = variable_gen_->GetNewVariableName("pivot");
+
+  // VariableId's representing each aggregate argument in a pivot expression.
+  // pivot_expr_args_vars[i][j] denotes the variable referring to argument 'j'
+  // of the aggregate function call corresponding to pivot expression 'i'.
+  //
+  // If pivot_expr_args_vars[i][j] is absl::nullopt, this means that the
+  // argument expression is not projected and should be cloned in the function
+  // call. This is used for constant expressions to allow for cases like the
+  // delimiter of STRING_AGG(), for which we do not support reading from a
+  // projected column.
+  std::vector<std::vector<absl::optional<VariableId>>> pivot_expr_arg_vars;
+  std::vector<std::vector<const Type*>> pivot_expr_arg_types;
+
   std::vector<std::unique_ptr<ExprArg>> wrapped_input_exprs;
   wrapped_input_exprs.push_back(
       absl::make_unique<ExprArg>(for_expr_var, std::move(algebrized_for_expr)));
+
+  for (int i = 0; i < pivot_scan->pivot_expr_list_size(); ++i) {
+    ZETASQL_RET_CHECK(
+        pivot_scan->pivot_expr_list(i)->Is<ResolvedAggregateFunctionCall>());
+    const ResolvedAggregateFunctionCall* pivot_expr_call =
+        pivot_scan->pivot_expr_list(i)->GetAs<ResolvedAggregateFunctionCall>();
+    pivot_expr_arg_vars.emplace_back();
+    pivot_expr_arg_types.emplace_back();
+    for (const auto& arg : pivot_expr_call->argument_list()) {
+      if (IsConstantExpression(arg.get())) {
+        // Constant expressions are ok to clone, rather than project. In most
+        // cases, this doesn't matter, but some functions take constant
+        // arguments that can't be read from a projected column (the delimiter
+        // argument of STRING_AGG() is one such example). For simplicity, we
+        // take the clone approach for all constant expressions, whether needed
+        // or not.
+        pivot_expr_arg_vars.back().push_back(absl::nullopt);
+      } else {
+        VariableId arg_var = variable_gen_->GetNewVariableName("pivot");
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> algebrized_arg,
+                         AlgebrizeExpression(arg.get()));
+        wrapped_input_exprs.push_back(
+            absl::make_unique<ExprArg>(arg_var, std::move(algebrized_arg)));
+        pivot_expr_arg_vars.back().push_back(arg_var);
+      }
+      pivot_expr_arg_types.back().push_back(arg->type());
+    }
+  }
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> wrapped_input,
                    ComputeOp::Create(std::move(wrapped_input_exprs),
@@ -3770,12 +3910,34 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotS
             FunctionKind::kIsNotDistinct, language_options_,
             type_factory_->get_bool(), std::move(compare_fn_args)));
 
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<AggregateArg> aggregator,
-        AlgebrizeAggregateFn(agg_result_var,
-                             /*anonymization_options=*/absl::nullopt,
-                             /*filter=*/std::move(algebrized_compare),
-                             std::move(pivot_expr)));
+    std::vector<std::unique_ptr<ValueExpr>> algebrized_arguments;
+    int pivot_expr_idx = pivot_column->pivot_expr_index();
+    for (int i = 0; i < pivot_expr_arg_vars[pivot_expr_idx].size(); ++i) {
+      const absl::optional<VariableId>& arg_var =
+          pivot_expr_arg_vars[pivot_expr_idx][i];
+      if (arg_var.has_value()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<ValueExpr> deref,
+            DerefExpr::Create(arg_var.value(),
+                              pivot_expr_arg_types[pivot_expr_idx][i]));
+        algebrized_arguments.push_back(std::move(deref));
+      } else {
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<ValueExpr> algebrized_arg,
+            AlgebrizeExpression(pivot_scan->pivot_expr_list(pivot_expr_idx)
+                                    ->GetAs<ResolvedAggregateFunctionCall>()
+                                    ->argument_list()[i]
+                                    .get()));
+        algebrized_arguments.push_back(std::move(algebrized_arg));
+      }
+    }
+
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArg> aggregator,
+                     AlgebrizeAggregateFnWithAlgebrizedArguments(
+                         agg_result_var,
+                         /*anonymization_options=*/absl::nullopt,
+                         /*filter=*/std::move(algebrized_compare), pivot_expr,
+                         std::move(algebrized_arguments)));
     aggregators.push_back(std::move(aggregator));
   }
 

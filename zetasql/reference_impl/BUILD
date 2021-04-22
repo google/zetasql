@@ -122,6 +122,7 @@ cc_library(
         ":common",
         ":parameters",
         ":proto_util",
+        ":type_parameter_constraints",
         ":variable_generator",
         "//zetasql/base",
         "@com_google_protobuf//:protobuf",

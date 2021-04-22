@@ -76,7 +76,7 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
   // EXTRACT functions.
   const Type* extract_type = int64_type;
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$extract", SCALAR,
       {{extract_type, {date_type, datepart_type}, FN_EXTRACT_FROM_DATE},
        {extract_type,
@@ -99,55 +99,58 @@ void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                          /*explicit_datepart_name=*/""))
           .set_get_sql_callback(&ExtractFunctionSQL));
 
-  InsertFunction(functions, options, "$extract_date", SCALAR,
-                 {{date_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_EXTRACT_DATE_FROM_TIMESTAMP},
-                  {date_type, {datetime_type}, FN_EXTRACT_DATE_FROM_DATETIME}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_pre_resolution_argument_constraint(
-                         &CheckExtractPreResolutionArguments)
-                     .set_sql_name("extract")
-                     .set_no_matching_signature_callback(bind_front(
-                         &NoMatchingSignatureForExtractFunction, "DATE"))
-                     .set_supported_signatures_callback(
-                         bind_front(&ExtractSupportedSignatures, "DATE"))
-                     .set_get_sql_callback(
-                         bind_front(ExtractDateOrTimeFunctionSQL, "DATE")));
+  InsertSimpleFunction(
+      functions, options, "$extract_date", SCALAR,
+      {{date_type,
+        {timestamp_type, {string_type, OPTIONAL}},
+        FN_EXTRACT_DATE_FROM_TIMESTAMP},
+       {date_type, {datetime_type}, FN_EXTRACT_DATE_FROM_DATETIME}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_pre_resolution_argument_constraint(
+              &CheckExtractPreResolutionArguments)
+          .set_sql_name("extract")
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForExtractFunction, "DATE"))
+          .set_supported_signatures_callback(
+              bind_front(&ExtractSupportedSignatures, "DATE"))
+          .set_get_sql_callback(
+              bind_front(ExtractDateOrTimeFunctionSQL, "DATE")));
 
-  InsertFunction(functions, options, "$extract_time", SCALAR,
-                 {{time_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_EXTRACT_TIME_FROM_TIMESTAMP},
-                  {time_type, {datetime_type}, FN_EXTRACT_TIME_FROM_DATETIME}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_pre_resolution_argument_constraint(
-                         &CheckExtractPreResolutionArguments)
-                     .set_sql_name("extract")
-                     .set_no_matching_signature_callback(bind_front(
-                         &NoMatchingSignatureForExtractFunction, "TIME"))
-                     .set_supported_signatures_callback(
-                         bind_front(&ExtractSupportedSignatures, "TIME"))
-                     .set_get_sql_callback(
-                         bind_front(ExtractDateOrTimeFunctionSQL, "TIME")));
+  InsertSimpleFunction(
+      functions, options, "$extract_time", SCALAR,
+      {{time_type,
+        {timestamp_type, {string_type, OPTIONAL}},
+        FN_EXTRACT_TIME_FROM_TIMESTAMP},
+       {time_type, {datetime_type}, FN_EXTRACT_TIME_FROM_DATETIME}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_pre_resolution_argument_constraint(
+              &CheckExtractPreResolutionArguments)
+          .set_sql_name("extract")
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForExtractFunction, "TIME"))
+          .set_supported_signatures_callback(
+              bind_front(&ExtractSupportedSignatures, "TIME"))
+          .set_get_sql_callback(
+              bind_front(ExtractDateOrTimeFunctionSQL, "TIME")));
 
-  InsertFunction(functions, options, "$extract_datetime", SCALAR,
-                 {{datetime_type,
-                   {timestamp_type, {string_type, OPTIONAL}},
-                   FN_EXTRACT_DATETIME_FROM_TIMESTAMP}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_pre_resolution_argument_constraint(
-                         &CheckExtractPreResolutionArguments)
-                     .set_sql_name("extract")
-                     .set_no_matching_signature_callback(bind_front(
-                         &NoMatchingSignatureForExtractFunction, "DATETIME"))
-                     .set_supported_signatures_callback(
-                         bind_front(&ExtractSupportedSignatures, "DATETIME"))
-                     .set_get_sql_callback(
-                         bind_front(ExtractDateOrTimeFunctionSQL, "DATETIME")));
+  InsertSimpleFunction(
+      functions, options, "$extract_datetime", SCALAR,
+      {{datetime_type,
+        {timestamp_type, {string_type, OPTIONAL}},
+        FN_EXTRACT_DATETIME_FROM_TIMESTAMP}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_pre_resolution_argument_constraint(
+              &CheckExtractPreResolutionArguments)
+          .set_sql_name("extract")
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForExtractFunction, "DATETIME"))
+          .set_supported_signatures_callback(
+              bind_front(&ExtractSupportedSignatures, "DATETIME"))
+          .set_get_sql_callback(
+              bind_front(ExtractDateOrTimeFunctionSQL, "DATETIME")));
 }
 
 namespace {
@@ -204,19 +207,19 @@ void GetDatetimeConversionFunctions(
                       FN_DATE_FROM_STRING,
                       date_time_constructor_options},
                  });
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "timestamp_from_unix_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_SECONDS_INT64},
        {timestamp_type,
         {timestamp_type},
         FN_TIMESTAMP_FROM_UNIX_SECONDS_TIMESTAMP}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "timestamp_from_unix_millis", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MILLIS_INT64},
        {timestamp_type,
         {timestamp_type},
         FN_TIMESTAMP_FROM_UNIX_MILLIS_TIMESTAMP}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "timestamp_from_unix_micros", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_UNIX_MICROS_INT64},
        {timestamp_type,
@@ -247,29 +250,29 @@ void GetDatetimeConversionFunctions(
                    FN_TIMESTAMP_FROM_TIMESTAMP,
                    FunctionSignatureOptions().add_required_language_feature(
                        FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS)}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "timestamp_seconds", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_INT64_SECONDS}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "timestamp_millis", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_INT64_MILLIS}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "timestamp_micros", SCALAR,
       {{timestamp_type, {int64_type}, FN_TIMESTAMP_FROM_INT64_MICROS}});
 
   const Type* unix_date_type = int64_type;
 
   // Conversion functions from date/timestamp to integer and string.
-  InsertFunction(functions, options, "unix_date", SCALAR,
-                 {{unix_date_type, {date_type}, FN_UNIX_DATE}});
+  InsertSimpleFunction(functions, options, "unix_date", SCALAR,
+                       {{unix_date_type, {date_type}, FN_UNIX_DATE}});
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "unix_seconds", SCALAR,
       {{int64_type, {timestamp_type}, FN_UNIX_SECONDS_FROM_TIMESTAMP}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "unix_millis", SCALAR,
       {{int64_type, {timestamp_type}, FN_UNIX_MILLIS_FROM_TIMESTAMP}});
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "unix_micros", SCALAR,
       {{int64_type, {timestamp_type}, FN_UNIX_MICROS_FROM_TIMESTAMP}});
 }
@@ -372,25 +375,27 @@ void GetDatetimeCurrentFunctions(TypeFactory* type_factory,
   FunctionOptions function_is_stable;
   function_is_stable.set_volatility(FunctionEnums::STABLE);
 
-  InsertFunction(functions, options, "current_date", SCALAR,
-                 {{date_type, {{string_type, OPTIONAL}}, FN_CURRENT_DATE}},
-                 function_is_stable);
-  InsertFunction(functions, options, "current_timestamp", SCALAR,
-                 {{timestamp_type, {}, FN_CURRENT_TIMESTAMP}},
-                 function_is_stable);
+  InsertSimpleFunction(
+      functions, options, "current_date", SCALAR,
+      {{date_type, {{string_type, OPTIONAL}}, FN_CURRENT_DATE}},
+      function_is_stable);
+  InsertSimpleFunction(functions, options, "current_timestamp", SCALAR,
+                       {{timestamp_type, {}, FN_CURRENT_TIMESTAMP}},
+                       function_is_stable);
 
   const Type* datetime_type = type_factory->get_datetime();
   const Type* time_type = type_factory->get_time();
   FunctionOptions require_civil_time_types(function_is_stable);
   require_civil_time_types.add_required_language_feature(
       FEATURE_V_1_2_CIVIL_TIME);
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "current_datetime", SCALAR,
       {{datetime_type, {{string_type, OPTIONAL}}, FN_CURRENT_DATETIME}},
       require_civil_time_types);
-  InsertFunction(functions, options, "current_time", SCALAR,
-                 {{time_type, {{string_type, OPTIONAL}}, FN_CURRENT_TIME}},
-                 require_civil_time_types);
+  InsertSimpleFunction(
+      functions, options, "current_time", SCALAR,
+      {{time_type, {{string_type, OPTIONAL}}, FN_CURRENT_TIME}},
+      require_civil_time_types);
 }
 
 // Disallows string literals and query parameters from matching signature in
@@ -475,7 +480,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATETIME_ADD")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "time_add", SCALAR,
       {
           {time_type, {time_type, int64_type, datepart_type}, FN_TIME_ADD},
@@ -547,7 +552,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           .set_get_sql_callback(
               bind_front(&DateAddOrSubFunctionSQL, "DATETIME_SUB")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "time_sub", SCALAR,
       {
           {time_type, {time_type, int64_type, datepart_type}, FN_TIME_SUB},
@@ -612,11 +617,11 @@ void GetDatetimeDiffTruncLastFunctions(
       functions, options, "date_diff", SCALAR,
       {
           {diff_type, {date_type, date_type, datepart_type}, FN_DATE_DIFF_DATE},
-          {diff_type,
+          {int64_type,
            {datetime_type, datetime_type, datepart_type},
            FN_DATETIME_DIFF,
            extended_datetime_signatures},
-          {diff_type,
+          {int64_type,
            {timestamp_type, timestamp_type, datepart_type},
            FN_TIMESTAMP_DIFF,
            extended_datetime_signatures},
@@ -643,7 +648,7 @@ void GetDatetimeDiffTruncLastFunctions(
                 "DATETIME_DIFF", arguments, language_options);
           }));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "time_diff", SCALAR,
       {
           {int64_type, {time_type, time_type, datepart_type}, FN_TIME_DIFF},
@@ -699,7 +704,7 @@ void GetDatetimeDiffTruncLastFunctions(
           bind_front(&CheckDateDatetimeTimeTimestampTruncArguments,
                      "DATETIME_TRUNC")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "time_trunc", SCALAR,
       {{time_type, {time_type, datepart_type}, FN_TIME_TRUNC}},
       require_civil_time_types.Copy().set_pre_resolution_argument_constraint(
@@ -724,14 +729,12 @@ void GetDatetimeDiffTruncLastFunctions(
            FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS) &&
       options.language_options.LanguageFeatureEnabled(
            FEATURE_V_1_2_CIVIL_TIME)) {
-    InsertFunction(
+    InsertSimpleFunction(
         functions, options, "last_day", SCALAR,
-        {
-            {date_type,
-             {date_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATE},
-            {date_type,
-             {datetime_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATETIME}
-        },
+        {{date_type, {date_type, {datepart_type, OPTIONAL}}, FN_LAST_DAY_DATE},
+         {date_type,
+          {datetime_type, {datepart_type, OPTIONAL}},
+          FN_LAST_DAY_DATETIME}},
         FunctionOptions().set_pre_resolution_argument_constraint(
             bind_front(&CheckLastDayArguments, "LAST_DAY")));
   }
@@ -779,9 +782,10 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
         FN_FORMAT_TIMESTAMP,
         extended_datetime_signatures}},
       require_civil_time_types.Copy());
-  InsertFunction(functions, options, "format_time", SCALAR,
-                 {{string_type, {string_type, time_type}, FN_FORMAT_TIME}},
-                 require_civil_time_types.Copy());
+  InsertSimpleFunction(
+      functions, options, "format_time", SCALAR,
+      {{string_type, {string_type, time_type}, FN_FORMAT_TIME}},
+      require_civil_time_types.Copy());
   InsertFunction(functions, options, "format_timestamp", SCALAR,
                  {
                      {string_type,
@@ -793,21 +797,20 @@ void GetDatetimeFormatFunctions(TypeFactory* type_factory,
                       extended_datetime_signatures},
                  });
 
-  InsertFunction(functions, options, "parse_date", SCALAR,
-                 {{date_type, {string_type, string_type},
-                   FN_PARSE_DATE}});
-  InsertFunction(functions, options, "parse_datetime", SCALAR,
-                 {{datetime_type, {string_type, string_type},
-                   FN_PARSE_DATETIME}},
-                 require_civil_time_types.Copy());
-  InsertFunction(functions, options, "parse_time", SCALAR,
-                 {{time_type, {string_type, string_type},
-                   FN_PARSE_TIME}},
-                 require_civil_time_types.Copy());
-  InsertFunction(functions, options, "parse_timestamp", SCALAR,
-                 {{timestamp_type,
-                   {string_type, string_type, {string_type, OPTIONAL}},
-                   FN_PARSE_TIMESTAMP}});
+  InsertSimpleFunction(
+      functions, options, "parse_date", SCALAR,
+      {{date_type, {string_type, string_type}, FN_PARSE_DATE}});
+  InsertSimpleFunction(
+      functions, options, "parse_datetime", SCALAR,
+      {{datetime_type, {string_type, string_type}, FN_PARSE_DATETIME}},
+      require_civil_time_types.Copy());
+  InsertSimpleFunction(functions, options, "parse_time", SCALAR,
+                       {{time_type, {string_type, string_type}, FN_PARSE_TIME}},
+                       require_civil_time_types.Copy());
+  InsertSimpleFunction(functions, options, "parse_timestamp", SCALAR,
+                       {{timestamp_type,
+                         {string_type, string_type, {string_type, OPTIONAL}},
+                         FN_PARSE_TIMESTAMP}});
 }
 
 void GetDatetimeFunctions(TypeFactory* type_factory,
@@ -841,7 +844,7 @@ void GetIntervalFunctions(TypeFactory* type_factory,
   const Type* datepart_type = types::DatePartEnumType();
   const Function::Mode SCALAR = Function::SCALAR;
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$interval", SCALAR,
       {{interval_type, {int64_type, datepart_type}, FN_INTERVAL_CONSTRUCTOR}},
       FunctionOptions().set_get_sql_callback(&IntervalConstructorSQL));
@@ -865,6 +868,15 @@ void GetIntervalFunctions(TypeFactory* type_factory,
         },
         FN_MAKE_INTERVAL}},
       FunctionOptions().add_required_language_feature(FEATURE_INTERVAL_TYPE));
+
+  InsertFunction(functions, options, "justify_hours", SCALAR,
+                 {{interval_type, {interval_type}, FN_JUSTIFY_HOURS}});
+
+  InsertFunction(functions, options, "justify_days", SCALAR,
+                 {{interval_type, {interval_type}, FN_JUSTIFY_DAYS}});
+
+  InsertFunction(functions, options, "justify_interval", SCALAR,
+                 {{interval_type, {interval_type}, FN_JUSTIFY_INTERVAL}});
 }
 
 void GetArithmeticFunctions(TypeFactory* type_factory,
@@ -1095,18 +1107,18 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
 
   const Function::Mode SCALAR = Function::SCALAR;
 
-  InsertFunction(functions, options, "$bitwise_not", SCALAR,
-                 {{int32_type, {int32_type}, FN_BITWISE_NOT_INT32},
-                  {int64_type, {int64_type}, FN_BITWISE_NOT_INT64},
-                  {uint32_type, {uint32_type}, FN_BITWISE_NOT_UINT32},
-                  {uint64_type, {uint64_type}, FN_BITWISE_NOT_UINT64},
-                  {bytes_type, {bytes_type}, FN_BITWISE_NOT_BYTES}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_sql_name("~")
-                     .set_get_sql_callback(
-                         bind_front(&PreUnaryFunctionSQL, "~")));
-  InsertFunction(
+  InsertSimpleFunction(
+      functions, options, "$bitwise_not", SCALAR,
+      {{int32_type, {int32_type}, FN_BITWISE_NOT_INT32},
+       {int64_type, {int64_type}, FN_BITWISE_NOT_INT64},
+       {uint32_type, {uint32_type}, FN_BITWISE_NOT_UINT32},
+       {uint64_type, {uint64_type}, FN_BITWISE_NOT_UINT64},
+       {bytes_type, {bytes_type}, FN_BITWISE_NOT_BYTES}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_sql_name("~")
+          .set_get_sql_callback(bind_front(&PreUnaryFunctionSQL, "~")));
+  InsertSimpleFunction(
       functions, options, "$bitwise_or", SCALAR,
       {{int32_type, {int32_type, int32_type}, FN_BITWISE_OR_INT32},
        {int64_type, {int64_type, int64_type}, FN_BITWISE_OR_INT64},
@@ -1119,7 +1131,7 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
           .set_pre_resolution_argument_constraint(
               bind_front(&CheckBitwiseOperatorArgumentsHaveSameType, "|"))
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "|")));
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$bitwise_xor", SCALAR,
       {{int32_type, {int32_type, int32_type}, FN_BITWISE_XOR_INT32},
        {int64_type, {int64_type, int64_type}, FN_BITWISE_XOR_INT64},
@@ -1132,7 +1144,7 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
           .set_pre_resolution_argument_constraint(
               bind_front(&CheckBitwiseOperatorArgumentsHaveSameType, "^"))
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "^")));
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$bitwise_and", SCALAR,
       {{int32_type, {int32_type, int32_type}, FN_BITWISE_AND_INT32},
        {int64_type, {int64_type, int64_type}, FN_BITWISE_AND_INT64},
@@ -1145,7 +1157,7 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
           .set_pre_resolution_argument_constraint(
               bind_front(&CheckBitwiseOperatorArgumentsHaveSameType, "&"))
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "&")));
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$bitwise_left_shift", SCALAR,
       {{int32_type, {int32_type, int64_type}, FN_BITWISE_LEFT_SHIFT_INT32},
        {int64_type, {int64_type, int64_type}, FN_BITWISE_LEFT_SHIFT_INT64},
@@ -1158,7 +1170,7 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
           .set_pre_resolution_argument_constraint(bind_front(
               &CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes, "<<"))
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "<<")));
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$bitwise_right_shift", SCALAR,
       {{int32_type, {int32_type, int64_type}, FN_BITWISE_RIGHT_SHIFT_INT32},
        {int64_type, {int64_type, int64_type}, FN_BITWISE_RIGHT_SHIFT_INT64},
@@ -1171,11 +1183,11 @@ void GetBitwiseFunctions(TypeFactory* type_factory,
           .set_pre_resolution_argument_constraint(bind_front(
               &CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes, ">>"))
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, ">>")));
-  InsertFunction(functions, options, "bit_count", SCALAR,
-                 {{int64_type, {int32_type}, FN_BIT_COUNT_INT32},
-                  {int64_type, {int64_type}, FN_BIT_COUNT_INT64},
-                  {int64_type, {uint64_type}, FN_BIT_COUNT_UINT64},
-                  {int64_type, {bytes_type}, FN_BIT_COUNT_BYTES}});
+  InsertSimpleFunction(functions, options, "bit_count", SCALAR,
+                       {{int64_type, {int32_type}, FN_BIT_COUNT_INT32},
+                        {int64_type, {int64_type}, FN_BIT_COUNT_INT64},
+                        {int64_type, {uint64_type}, FN_BIT_COUNT_UINT64},
+                        {int64_type, {bytes_type}, FN_BIT_COUNT_BYTES}});
 }
 
 void GetAggregateFunctions(TypeFactory* type_factory,
@@ -1197,98 +1209,89 @@ void GetAggregateFunctions(TypeFactory* type_factory,
   has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
   FunctionSignatureOptions has_bignumeric_type_argument;
   has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
-  FunctionSignatureOptions ignore_nulls;
-  ignore_nulls.set_default_null_handling(
-      DefaultNullHandlingBehavior::kIgnoreNulls);
-  FunctionSignatureOptions has_numeric_type_argument_and_ignores_nulls =
-      FunctionSignatureOptions(has_numeric_type_argument)
-          .set_default_null_handling(DefaultNullHandlingBehavior::kIgnoreNulls);
-  FunctionSignatureOptions has_bignumeric_type_argument_and_ignores_nulls =
-      FunctionSignatureOptions(has_bignumeric_type_argument)
-          .set_default_null_handling(DefaultNullHandlingBehavior::kIgnoreNulls);
 
   const Function::Mode AGGREGATE = Function::AGGREGATE;
 
-  InsertFunction(functions, options, "any_value", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ANY_VALUE}});
+  InsertSimpleFunction(functions, options, "any_value", AGGREGATE,
+                       {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ANY_VALUE}});
 
   InsertFunction(functions, options, "count", AGGREGATE,
-                 {{int64_type, {ARG_TYPE_ANY_1}, FN_COUNT, ignore_nulls}});
+                 {{int64_type, {ARG_TYPE_ANY_1}, FN_COUNT}});
 
-  InsertFunction(functions, options, "$count_star", AGGREGATE,
-                 {{int64_type, {}, FN_COUNT_STAR}},
-                 FunctionOptions()
-                     .set_sql_name("count(*)")
-                     .set_get_sql_callback(&CountStarFunctionSQL));
+  InsertSimpleFunction(functions, options, "$count_star", AGGREGATE,
+                       {{int64_type, {}, FN_COUNT_STAR}},
+                       FunctionOptions()
+                           .set_sql_name("count(*)")
+                           .set_get_sql_callback(&CountStarFunctionSQL));
 
   InsertFunction(functions, options, "countif", AGGREGATE,
-                 {{int64_type, {bool_type}, FN_COUNTIF, ignore_nulls}});
+                 {{int64_type, {bool_type}, FN_COUNTIF}});
 
   // Let INT32 -> INT64, UINT32 -> UINT64, and FLOAT -> DOUBLE.
   InsertFunction(
       functions, options, "sum", AGGREGATE,
-      {{int64_type, {int64_type}, FN_SUM_INT64, ignore_nulls},
-       {uint64_type, {uint64_type}, FN_SUM_UINT64, ignore_nulls},
-       {double_type, {double_type}, FN_SUM_DOUBLE, ignore_nulls},
+      {{int64_type, {int64_type}, FN_SUM_INT64},
+       {uint64_type, {uint64_type}, FN_SUM_UINT64},
+       {double_type, {double_type}, FN_SUM_DOUBLE},
        {numeric_type,
         {numeric_type},
         FN_SUM_NUMERIC,
-        has_numeric_type_argument_and_ignores_nulls},
+        has_numeric_type_argument},
        {bignumeric_type,
         {bignumeric_type},
         FN_SUM_BIGNUMERIC,
-        has_bignumeric_type_argument_and_ignores_nulls},
-       {interval_type, {interval_type}, FN_SUM_INTERVAL, ignore_nulls}});
+        has_bignumeric_type_argument},
+       {interval_type, {interval_type}, FN_SUM_INTERVAL}});
 
   InsertFunction(functions, options, "avg", AGGREGATE,
-                 {{double_type, {int64_type}, FN_AVG_INT64, ignore_nulls},
-                  {double_type, {uint64_type}, FN_AVG_UINT64, ignore_nulls},
-                  {double_type, {double_type}, FN_AVG_DOUBLE, ignore_nulls},
+                 {{double_type, {int64_type}, FN_AVG_INT64},
+                  {double_type, {uint64_type}, FN_AVG_UINT64},
+                  {double_type, {double_type}, FN_AVG_DOUBLE},
                   {numeric_type,
                    {numeric_type},
                    FN_AVG_NUMERIC,
-                   has_numeric_type_argument_and_ignores_nulls},
+                   has_numeric_type_argument},
                   {bignumeric_type,
                    {bignumeric_type},
                    FN_AVG_BIGNUMERIC,
-                   has_bignumeric_type_argument_and_ignores_nulls}});
+                   has_bignumeric_type_argument}});
 
   InsertFunction(
       functions, options, "bit_and", AGGREGATE,
-      {{int32_type, {int32_type}, FN_BIT_AND_INT32, ignore_nulls},
-       {int64_type, {int64_type}, FN_BIT_AND_INT64, ignore_nulls},
-       {uint32_type, {uint32_type}, FN_BIT_AND_UINT32, ignore_nulls},
-       {uint64_type, {uint64_type}, FN_BIT_AND_UINT64, ignore_nulls}});
+      {{int32_type, {int32_type}, FN_BIT_AND_INT32},
+       {int64_type, {int64_type}, FN_BIT_AND_INT64},
+       {uint32_type, {uint32_type}, FN_BIT_AND_UINT32},
+       {uint64_type, {uint64_type}, FN_BIT_AND_UINT64}});
 
   InsertFunction(
       functions, options, "bit_or", AGGREGATE,
-      {{int32_type, {int32_type}, FN_BIT_OR_INT32, ignore_nulls},
-       {int64_type, {int64_type}, FN_BIT_OR_INT64, ignore_nulls},
-       {uint32_type, {uint32_type}, FN_BIT_OR_UINT32, ignore_nulls},
-       {uint64_type, {uint64_type}, FN_BIT_OR_UINT64, ignore_nulls}});
+      {{int32_type, {int32_type}, FN_BIT_OR_INT32},
+       {int64_type, {int64_type}, FN_BIT_OR_INT64},
+       {uint32_type, {uint32_type}, FN_BIT_OR_UINT32},
+       {uint64_type, {uint64_type}, FN_BIT_OR_UINT64}});
 
   InsertFunction(
       functions, options, "bit_xor", AGGREGATE,
-      {{int32_type, {int32_type}, FN_BIT_XOR_INT32, ignore_nulls},
-       {int64_type, {int64_type}, FN_BIT_XOR_INT64, ignore_nulls},
-       {uint32_type, {uint32_type}, FN_BIT_XOR_UINT32, ignore_nulls},
-       {uint64_type, {uint64_type}, FN_BIT_XOR_UINT64, ignore_nulls}});
+      {{int32_type, {int32_type}, FN_BIT_XOR_INT32},
+       {int64_type, {int64_type}, FN_BIT_XOR_INT64},
+       {uint32_type, {uint32_type}, FN_BIT_XOR_UINT32},
+       {uint64_type, {uint64_type}, FN_BIT_XOR_UINT64}});
 
   InsertFunction(functions, options, "logical_and", AGGREGATE,
-                 {{bool_type, {bool_type}, FN_LOGICAL_AND, ignore_nulls}});
+                 {{bool_type, {bool_type}, FN_LOGICAL_AND}});
 
   InsertFunction(functions, options, "logical_or", AGGREGATE,
-                 {{bool_type, {bool_type}, FN_LOGICAL_OR, ignore_nulls}});
+                 {{bool_type, {bool_type}, FN_LOGICAL_OR}});
 
   // Resolution will verify that argument types are valid (not proto, struct,
   // or array).
   InsertFunction(functions, options, "min", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MIN, ignore_nulls}},
+                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MIN}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      bind_front(&CheckMinMaxGreatestLeastArguments, "MIN")));
 
   InsertFunction(functions, options, "max", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MAX, ignore_nulls}},
+                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MAX}},
                  FunctionOptions().set_pre_resolution_argument_constraint(
                      bind_front(&CheckMinMaxGreatestLeastArguments, "MAX")));
 
@@ -1298,22 +1301,20 @@ void GetAggregateFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "string_agg", AGGREGATE,
-      {{string_type, {string_type}, FN_STRING_AGG_STRING, ignore_nulls},
+      {{string_type, {string_type}, FN_STRING_AGG_STRING},
        // Resolution will verify that the second argument must be a literal.
        {string_type,
         {string_type, {string_type, non_null_non_agg}},
-        FN_STRING_AGG_DELIM_STRING,
-        ignore_nulls},
+        FN_STRING_AGG_DELIM_STRING},
        // Bytes inputs
        {bytes_type, {bytes_type}, FN_STRING_AGG_BYTES},
        // Resolution will verify that the second argument must be a literal.
        {bytes_type,
         {bytes_type, {bytes_type, non_null_non_agg}},
-        FN_STRING_AGG_DELIM_BYTES,
-        ignore_nulls}},
+        FN_STRING_AGG_DELIM_BYTES}},
       FunctionOptions().set_supports_order_by(true).set_supports_limit(true));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "array_agg", AGGREGATE,
       {{ARG_ARRAY_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ARRAY_AGG}},
       FunctionOptions()
@@ -1322,7 +1323,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
           .set_supports_order_by(true)
           .set_supports_limit(true));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "array_concat_agg", AGGREGATE,
       {{ARG_ARRAY_TYPE_ANY_1, {ARG_ARRAY_TYPE_ANY_1}, FN_ARRAY_CONCAT_AGG}},
       FunctionOptions()
@@ -1558,25 +1559,26 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
   FunctionArgumentTypeOptions comparable;
   comparable.set_must_support_ordering();
 
-  InsertFunction(functions, options, "dense_rank", ANALYTIC,
-                 {{int64_type, {}, FN_DENSE_RANK}},
-                 required_order_disallowed_frame);
-  InsertFunction(functions, options, "rank", ANALYTIC,
-                 {{int64_type, {}, FN_RANK}}, required_order_disallowed_frame);
-  InsertFunction(functions, options, "percent_rank", ANALYTIC,
-                 {{double_type, {}, FN_PERCENT_RANK}},
-                 required_order_disallowed_frame);
-  InsertFunction(functions, options, "cume_dist", ANALYTIC,
-                 {{double_type, {}, FN_CUME_DIST}},
-                 required_order_disallowed_frame);
+  InsertSimpleFunction(functions, options, "dense_rank", ANALYTIC,
+                       {{int64_type, {}, FN_DENSE_RANK}},
+                       required_order_disallowed_frame);
+  InsertSimpleFunction(functions, options, "rank", ANALYTIC,
+                       {{int64_type, {}, FN_RANK}},
+                       required_order_disallowed_frame);
+  InsertSimpleFunction(functions, options, "percent_rank", ANALYTIC,
+                       {{double_type, {}, FN_PERCENT_RANK}},
+                       required_order_disallowed_frame);
+  InsertSimpleFunction(functions, options, "cume_dist", ANALYTIC,
+                       {{double_type, {}, FN_CUME_DIST}},
+                       required_order_disallowed_frame);
   InsertFunction(
       functions, options, "ntile", ANALYTIC,
       {{int64_type, {{int64_type, non_null_positive_non_agg}}, FN_NTILE}},
       required_order_disallowed_frame);
 
-  InsertFunction(functions, options, "row_number", ANALYTIC,
-                 {{int64_type, {}, FN_ROW_NUMBER}},
-                 optional_order_disallowed_frame);
+  InsertSimpleFunction(functions, options, "row_number", ANALYTIC,
+                       {{int64_type, {}, FN_ROW_NUMBER}},
+                       optional_order_disallowed_frame);
 
   // The optional arguments will be populated in the resolved tree.
   // The second offset argument defaults to 1, and the third default
@@ -1672,7 +1674,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality REPEATED =
       FunctionArgumentType::REPEATED;
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$equal", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_EQUAL},
        {bool_type, {int64_type, uint64_type}, FN_EQUAL_INT64_UINT64},
@@ -1686,7 +1688,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
               &NoMatchingSignatureForComparisonOperator)
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "=")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$not_equal", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_EQUAL},
        {bool_type, {int64_type, uint64_type}, FN_NOT_EQUAL_INT64_UINT64},
@@ -1704,7 +1706,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   // unconditionally so that rewriters can generate calls to them, even if the
   // IS NOT DISTINCT FROM syntax is not supported at the query level. The pivot
   // rewriter makes use of this.
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$is_distinct_from", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_DISTINCT},
        {bool_type, {int64_type, uint64_type}, FN_DISTINCT_INT64_UINT64},
@@ -1717,7 +1719,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_post_resolution_argument_constraint(
               bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$is_not_distinct_from", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_DISTINCT},
        {bool_type, {int64_type, uint64_type}, FN_NOT_DISTINCT_INT64_UINT64},
@@ -1730,21 +1732,21 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_post_resolution_argument_constraint(
               bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$less", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_LESS},
        {bool_type, {int64_type, uint64_type}, FN_LESS_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_LESS_UINT64_INT64}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
-          .set_post_resolution_argument_constraint(bind_front(
-              &CheckArgumentsSupportComparison, "Less than"))
+          .set_post_resolution_argument_constraint(
+              bind_front(&CheckArgumentsSupportComparison, "Less than"))
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForComparisonOperator)
           .set_sql_name("<")
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "<")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$less_or_equal", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_LESS_OR_EQUAL},
        {bool_type, {int64_type, uint64_type}, FN_LESS_OR_EQUAL_INT64_UINT64},
@@ -1758,7 +1760,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name("<=")
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "<=")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$greater_or_equal", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_GREATER_OR_EQUAL},
        {bool_type, {int64_type, uint64_type}, FN_GREATER_OR_EQUAL_INT64_UINT64},
@@ -1774,7 +1776,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name(">=")
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, ">=")));
 
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$greater", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_GREATER},
        {bool_type, {int64_type, uint64_type}, FN_GREATER_INT64_UINT64},
@@ -1801,58 +1803,60 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   // has run-once semantics for each of its input expressions.
   if (!options.language_options.LanguageFeatureEnabled(
           FEATURE_BETWEEN_UINT64_INT64)) {
-    InsertFunction(functions, options, "$between", SCALAR,
-                   {{bool_type,
-                     {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
-                     FN_BETWEEN}},
-                   FunctionOptions()
-                       .set_supports_safe_error_mode(false)
-                       .set_post_resolution_argument_constraint(bind_front(
-                           &CheckArgumentsSupportComparison, "BETWEEN"))
-                       .set_get_sql_callback(&BetweenFunctionSQL));
+    InsertSimpleFunction(
+        functions, options, "$between", SCALAR,
+        {{bool_type,
+          {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+          FN_BETWEEN}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(
+                bind_front(&CheckArgumentsSupportComparison, "BETWEEN"))
+            .set_get_sql_callback(&BetweenFunctionSQL));
   } else {
-    InsertFunction(functions, options, "$between", SCALAR,
-                   {{bool_type,
-                     {int64_type, uint64_type, uint64_type},
-                     FN_BETWEEN_INT64_UINT64_UINT64},
-                    {bool_type,
-                     {uint64_type, int64_type, uint64_type},
-                     FN_BETWEEN_UINT64_INT64_UINT64},
-                    {bool_type,
-                     {uint64_type, uint64_type, int64_type},
-                     FN_BETWEEN_UINT64_UINT64_INT64},
-                    {bool_type,
-                     {uint64_type, int64_type, int64_type},
-                     FN_BETWEEN_UINT64_INT64_INT64},
-                    {bool_type,
-                     {int64_type, uint64_type, int64_type},
-                     FN_BETWEEN_INT64_UINT64_INT64},
-                    {bool_type,
-                     {int64_type, int64_type, uint64_type},
-                     FN_BETWEEN_INT64_INT64_UINT64},
-                    {bool_type,
-                     {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
-                     FN_BETWEEN}},
-                   FunctionOptions()
-                       .set_supports_safe_error_mode(false)
-                       .set_post_resolution_argument_constraint(bind_front(
-                           &CheckArgumentsSupportComparison, "BETWEEN"))
-                       .set_get_sql_callback(&BetweenFunctionSQL));
+    InsertSimpleFunction(
+        functions, options, "$between", SCALAR,
+        {{bool_type,
+          {int64_type, uint64_type, uint64_type},
+          FN_BETWEEN_INT64_UINT64_UINT64},
+         {bool_type,
+          {uint64_type, int64_type, uint64_type},
+          FN_BETWEEN_UINT64_INT64_UINT64},
+         {bool_type,
+          {uint64_type, uint64_type, int64_type},
+          FN_BETWEEN_UINT64_UINT64_INT64},
+         {bool_type,
+          {uint64_type, int64_type, int64_type},
+          FN_BETWEEN_UINT64_INT64_INT64},
+         {bool_type,
+          {int64_type, uint64_type, int64_type},
+          FN_BETWEEN_INT64_UINT64_INT64},
+         {bool_type,
+          {int64_type, int64_type, uint64_type},
+          FN_BETWEEN_INT64_INT64_UINT64},
+         {bool_type,
+          {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+          FN_BETWEEN}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(
+                bind_front(&CheckArgumentsSupportComparison, "BETWEEN"))
+            .set_get_sql_callback(&BetweenFunctionSQL));
   }
 
-  InsertFunction(functions, options, "$like", SCALAR,
-                 {{bool_type, {string_type, string_type}, FN_STRING_LIKE},
-                  {bool_type, {byte_type, byte_type}, FN_BYTE_LIKE}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_no_matching_signature_callback(
-                         &NoMatchingSignatureForComparisonOperator)
-                     .set_get_sql_callback(
-                         bind_front(&InfixFunctionSQL, "LIKE")));
+  InsertSimpleFunction(
+      functions, options, "$like", SCALAR,
+      {{bool_type, {string_type, string_type}, FN_STRING_LIKE},
+       {bool_type, {byte_type, byte_type}, FN_BYTE_LIKE}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_no_matching_signature_callback(
+              &NoMatchingSignatureForComparisonOperator)
+          .set_get_sql_callback(bind_front(&InfixFunctionSQL, "LIKE")));
 
   // TODO: Do we want to support IN for non-compatible integers, i.e.,
   // '<uint64col> IN (<int32col>, <int64col>)'?
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$in", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, REPEATED}}, FN_IN}},
       FunctionOptions()
@@ -1865,7 +1869,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
 
   // TODO: Do we want to support:
   //   '<uint64col>' IN UNNEST(<int64_array>)'?
-  InsertFunction(
+  InsertSimpleFunction(
       functions, options, "$in_array", SCALAR,
       {{bool_type, {ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1}, FN_IN_ARRAY}},
       FunctionOptions()
@@ -1892,38 +1896,37 @@ void GetLogicFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality REPEATED =
       FunctionArgumentType::REPEATED;
 
-  InsertFunction(functions, options, "$is_null", SCALAR,
-                 {{bool_type, {ARG_TYPE_ANY_1}, FN_IS_NULL}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_get_sql_callback(bind_front(
-                         &PostUnaryFunctionSQL, " IS NULL")));
-  InsertFunction(functions, options, "$is_true", SCALAR,
-                 {{bool_type, {bool_type}, FN_IS_TRUE}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_get_sql_callback(bind_front(
-                         &PostUnaryFunctionSQL, " IS TRUE")));
-  InsertFunction(functions, options, "$is_false", SCALAR,
-                 {{bool_type, {bool_type}, FN_IS_FALSE}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_get_sql_callback(bind_front(
-                         &PostUnaryFunctionSQL, " IS FALSE")));
+  InsertSimpleFunction(
+      functions, options, "$is_null", SCALAR,
+      {{bool_type, {ARG_TYPE_ANY_1}, FN_IS_NULL}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_get_sql_callback(bind_front(&PostUnaryFunctionSQL, " IS NULL")));
+  InsertSimpleFunction(
+      functions, options, "$is_true", SCALAR,
+      {{bool_type, {bool_type}, FN_IS_TRUE}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_get_sql_callback(bind_front(&PostUnaryFunctionSQL, " IS TRUE")));
+  InsertSimpleFunction(functions, options, "$is_false", SCALAR,
+                       {{bool_type, {bool_type}, FN_IS_FALSE}},
+                       FunctionOptions()
+                           .set_supports_safe_error_mode(false)
+                           .set_get_sql_callback(
+                               bind_front(&PostUnaryFunctionSQL, " IS FALSE")));
 
-  InsertFunction(functions, options, "$and", SCALAR,
-                 {{bool_type, {bool_type, {bool_type, REPEATED}}, FN_AND}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_get_sql_callback(
-                         bind_front(&InfixFunctionSQL, "AND")));
-  InsertFunction(functions, options, "$not", SCALAR,
-                 {{bool_type, {bool_type}, FN_NOT}},
-                 FunctionOptions()
-                     .set_supports_safe_error_mode(false)
-                     .set_get_sql_callback(
-                         bind_front(&PreUnaryFunctionSQL, "NOT ")));
-  InsertFunction(
+  InsertSimpleFunction(
+      functions, options, "$and", SCALAR,
+      {{bool_type, {bool_type, {bool_type, REPEATED}}, FN_AND}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_get_sql_callback(bind_front(&InfixFunctionSQL, "AND")));
+  InsertSimpleFunction(
+      functions, options, "$not", SCALAR, {{bool_type, {bool_type}, FN_NOT}},
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_get_sql_callback(bind_front(&PreUnaryFunctionSQL, "NOT ")));
+  InsertSimpleFunction(
       functions, options, "$or", SCALAR,
       {{bool_type, {bool_type, {bool_type, REPEATED}}, FN_OR}},
       FunctionOptions()

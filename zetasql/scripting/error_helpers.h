@@ -94,6 +94,12 @@ inline absl::Status MakeUndeclaredVariableError(const ASTIdentifier* ast_var) {
          << "Undeclared variable: " << ast_var->GetAsString();
 }
 
+inline absl::Status MakeUnknownSystemVariableError(
+    const ASTSystemVariableExpr* expr) {
+  return MakeScriptExceptionAt(expr) << "System variable not found: @@"
+                                     << expr->path()->ToIdentifierPathString();
+}
+
 // Returns OK if <call_statement> contains <num_expected_arguments> arguments.
 // Otherwise, returns an error status indicating that the argument count is
 // incorrect.

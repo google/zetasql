@@ -122,6 +122,7 @@ STATIC_IDSTRING(kValueColumnId, "$value_column");
 STATIC_IDSTRING(kCastedColumnId, "$casted_column");
 STATIC_IDSTRING(kWeightId, "$sample_weight");
 STATIC_IDSTRING(kDummyTableId, "$dummy_table");
+STATIC_IDSTRING(kPivotId, "$pivot");
 STATIC_IDSTRING(kUnpivotColumnId, "$unpivot");
 
 absl::Status Resolver::ResolveQueryAfterWith(
@@ -1483,9 +1484,9 @@ absl::Status Resolver::ResolveModelTransformSelectList(
           select_column_state->resolved_expr->GetAs<ResolvedColumnRef>();
       const ResolvedColumn resolved_col_cp(
           AllocateColumnId(),
-          zetasql::IdString::MakeGlobal(
+          analyzer_options_.id_string_pool()->Make(
               resolved_col_ref->column().table_name()),
-          zetasql::IdString::MakeGlobal(
+          analyzer_options_.id_string_pool()->Make(
               select_column_state->alias.ToString()),
           resolved_col_ref->column().type());
       transform_list->push_back(MakeResolvedComputedColumn(
@@ -4747,8 +4748,8 @@ zetasql_base::StatusOr<ResolvedColumn> Resolver::CreatePivotColumn(
   }
 
   return ResolvedColumn(AllocateColumnId(),
-                        zetasql::IdString::MakeGlobal("$pivot"),
-                        zetasql::IdString::MakeGlobal(column_name),
+                        kPivotId,
+                        analyzer_options_.id_string_pool()->Make(column_name),
                         resolved_pivot_expr->type());
 }
 
@@ -5096,7 +5097,7 @@ absl::Status Resolver::ResolveUnpivotInClause(
       // number of columns for all other column groups.
       if (is_first_column_group) {
         value_column_types->push_back(std::move(datatype));
-      } else if (!datatype->Equivalent(value_column_types->at(column_index))) {
+      } else if (!datatype->Equals(value_column_types->at(column_index))) {
         ZETASQL_RET_CHECK_LT(column_index, value_column_types->size());
         return MakeSqlErrorAt(in_column)
                << "The datatype of column does not match with other datatypes "
@@ -6700,7 +6701,7 @@ absl::Status Resolver::ResolveTVF(
 
   tvf_scan->set_hint_list(std::move(hints));
 
-  MaybeRecordParseLocation(ast_tvf->name(), tvf_scan.get());
+  MaybeRecordTVFCallParseLocation(ast_tvf, tvf_scan.get());
   *output = std::move(tvf_scan);
 
   // Resolve the PIVOT clause, if present.
@@ -7616,8 +7617,29 @@ absl::Status Resolver::ResolveArrayScan(
 
 void Resolver::MaybeRecordParseLocation(const ASTNode* ast_location,
                                         ResolvedNode* resolved_node) const {
-  if (analyzer_options_.record_parse_locations() && ast_location != nullptr) {
+  if (analyzer_options_.parse_location_options().record_parse_locations &&
+      ast_location != nullptr) {
     resolved_node->SetParseLocationRange(ast_location->GetParseLocationRange());
+  }
+}
+
+void Resolver::MaybeRecordTVFCallParseLocation(
+    const ASTTVF* ast_location, ResolvedNode* resolved_node) const {
+  if (analyzer_options_.parse_location_options().function_call_record_type ==
+      AnalyzerOptions::FUNCTION_CALL) {
+    MaybeRecordParseLocation(ast_location, resolved_node);
+  } else {
+    MaybeRecordParseLocation(ast_location->name(), resolved_node);
+  }
+}
+
+void Resolver::MaybeRecordFunctionCallParseLocation(
+    const ASTFunctionCall* ast_location, ResolvedNode* resolved_node) const {
+  if (analyzer_options_.parse_location_options().function_call_record_type ==
+      AnalyzerOptions::FUNCTION_CALL) {
+    MaybeRecordParseLocation(ast_location, resolved_node);
+  } else {
+    MaybeRecordParseLocation(ast_location->function(), resolved_node);
   }
 }
 

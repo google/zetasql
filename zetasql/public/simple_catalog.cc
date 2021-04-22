@@ -309,11 +309,7 @@ void SimpleCatalog::AddConnection(const std::string& name,
 
 void SimpleCatalog::AddType(const std::string& name, const Type* type) {
   absl::MutexLock l(&mutex_);
-  AddTypeLocked(name, type);
-}
-
-void SimpleCatalog::AddTypeLocked(const std::string& name, const Type* type) {
-  zetasql_base::InsertOrDie(&types_, absl::AsciiStrToLower(name), type);
+  ZETASQL_CHECK(types_.insert({absl::AsciiStrToLower(name), type}).second);
 }
 
 void SimpleCatalog::AddCatalog(const std::string& name, Catalog* catalog) {
@@ -633,12 +629,7 @@ bool SimpleCatalog::AddOwnedTableValuedFunctionIfNotPresent(
 bool SimpleCatalog::AddTypeIfNotPresent(const std::string& name,
                                         const Type* type) {
   absl::MutexLock l(&mutex_);
-  // If the table function name exists, return false.
-  if (zetasql_base::ContainsKey(types_, absl::AsciiStrToLower(name))) {
-    return false;
-  }
-  AddTypeLocked(name, type);
-  return true;
+  return types_.insert({absl::AsciiStrToLower(name), type}).second;
 }
 
 void SimpleCatalog::AddOwnedProcedure(

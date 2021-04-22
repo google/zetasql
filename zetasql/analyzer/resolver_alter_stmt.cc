@@ -27,7 +27,10 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -37,6 +40,22 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+namespace {
+bool OptionsPresent(const ResolvedColumnAnnotations* annotations) {
+  if (annotations != nullptr) {
+    if (annotations->option_list_size() > 0) {
+      return true;
+    }
+    for (int i = 0; i < annotations->child_list_size(); ++i) {
+      if (OptionsPresent(annotations->child_list(i))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+}  // namespace
 
 absl::Status Resolver::ResolveAlterActions(
     const ASTAlterStatementBase* ast_statement,
@@ -92,6 +111,13 @@ absl::Status Resolver::ResolveAlterActions(
               constraint->constraint_name()->GetAsString()));
         }
       } break;
+      case AST_DROP_PRIMARY_KEY_ACTION: {
+        if (!ast_statement->is_if_exists()) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        alter_actions->push_back(MakeResolvedDropPrimaryKeyAction(
+            action->GetAsOrDie<ASTDropPrimaryKeyAction>()->is_if_exists()));
+      } break;
       case AST_ALTER_CONSTRAINT_ENFORCEMENT_ACTION:
         return MakeSqlErrorAt(action)
                << "ALTER CONSTRAINT ENFORCED/NOT ENFORCED is not supported";
@@ -99,9 +125,10 @@ absl::Status Resolver::ResolveAlterActions(
         return MakeSqlErrorAt(action)
                << "ALTER CONSTRAINT SET OPTIONS is not supported";
       case AST_ADD_COLUMN_ACTION:
-      case AST_DROP_COLUMN_ACTION: {
+      case AST_DROP_COLUMN_ACTION:
+      case AST_ALTER_COLUMN_TYPE_ACTION: {
         if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
-          // Views, models, etc don't support ADD/DROP columns.
+          // Views, models, etc don't support ADD/DROP/SET DATA TYPE columns.
           return MakeSqlErrorAt(action)
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
@@ -115,11 +142,21 @@ absl::Status Resolver::ResolveAlterActions(
               table_name_id_string, altered_table,
               action->GetAsOrDie<ASTAddColumnAction>(), &new_columns,
               &column_to_drop, &resolved_action));
-        } else {
+        } else if (action->node_kind() == AST_DROP_COLUMN_ACTION) {
           ZETASQL_RETURN_IF_ERROR(ResolveDropColumnAction(
               table_name_id_string, altered_table,
               action->GetAsOrDie<ASTDropColumnAction>(), &new_columns,
               &column_to_drop, &resolved_action));
+        } else if (language().LanguageFeatureEnabled(
+                       FEATURE_ALTER_COLUMN_SET_DATA_TYPE)) {
+          ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnTypeAction(
+              table_name_id_string, altered_table,
+              action->GetAsOrDie<ASTAlterColumnTypeAction>(),
+              &resolved_action));
+        } else {
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
         }
         alter_actions->push_back(std::move(resolved_action));
       } break;
@@ -129,12 +166,29 @@ absl::Status Resolver::ResolveAlterActions(
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
         }
+        const auto* set_as_action = action->GetAsOrDie<ASTSetAsAction>();
         std::string entity_body_json;
-        ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(
-            action->GetAsOrDie<ASTSetAsAction>()->json_body()->image(),
-            &entity_body_json));
+        if (set_as_action->json_body() != nullptr) {
+          // TODO: Use ResolveExpr() after JSON type goes public.
+          ZETASQL_ASSIGN_OR_RETURN(auto json_literal,
+                           ResolveJsonLiteral(set_as_action->json_body()));
+          entity_body_json = json_literal->value().json_string();
+        }
+        std::string entity_body_text;
+        if (set_as_action->text_body() != nullptr) {
+          entity_body_text = set_as_action->text_body()->string_value();
+        }
+        if (entity_body_json.empty() && entity_body_text.empty()) {
+          return MakeSqlErrorAt(action)
+                 << "ALTER SET AS requires JSON or TEXT body literal";
+        }
+        if (!entity_body_text.empty() && !entity_body_json.empty()) {
+          return MakeSqlErrorAt(ast_statement)
+                 << "ALTER SET AS should have exactly one JSON or TEXT body "
+                    "literal";
+        }
         std::unique_ptr<const ResolvedAlterAction> resolved_action =
-            MakeResolvedSetAsAction(entity_body_json);
+            MakeResolvedSetAsAction(entity_body_json, entity_body_text);
         alter_actions->push_back(std::move(resolved_action));
       } break;
       case AST_RENAME_TO_CLAUSE: {
@@ -146,7 +200,7 @@ absl::Status Resolver::ResolveAlterActions(
         }
         if (existing_rename_to_action) {
           return MakeSqlErrorAt(action)
-              << "Multiple RENAME TO actions are not supported";
+                 << "Multiple RENAME TO actions are not supported";
         }
         existing_rename_to_action = true;
         auto* rename_to = action->GetAsOrDie<ASTRenameToClause>();
@@ -183,10 +237,15 @@ absl::Status Resolver::ResolveAlterActions(
         }
         alter_actions->push_back(std::move(resolved_action));
       } break;
+      case AST_SET_COLLATE_CLAUSE: {
+        return MakeSqlErrorAt(action)
+               << "ALTER " << alter_statement_kind << " does not support "
+               << action->GetSQLForAlterAction() << " action.";
+      }
       default:
         return MakeSqlErrorAt(action)
-               << "ALTER " << alter_statement_kind << " doesn't support "
-               << action->GetNodeKindString() << " action.";
+               << "ALTER " << alter_statement_kind << " does not support "
+               << action->GetSQLForAlterAction();
     }
   }
   return absl::OkStatus();
@@ -213,6 +272,10 @@ absl::Status Resolver::ResolveAlterSchemaStatement(
   bool has_only_set_options_action = true;
   std::vector<std::unique_ptr<const ResolvedAlterAction>>
       resolved_alter_actions;
+  if (ast_statement->collate() != nullptr) {
+      return MakeSqlErrorAt(ast_statement->collate())
+          << "COLLATE is unsupported";
+  }
   ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "SCHEMA", output,
                                       &has_only_set_options_action,
                                       &resolved_alter_actions));
@@ -228,6 +291,10 @@ absl::Status Resolver::ResolveAlterTableStatement(
   bool has_only_set_options_action = true;
   std::vector<std::unique_ptr<const ResolvedAlterAction>>
       resolved_alter_actions;
+  if (ast_statement->collate() != nullptr) {
+      return MakeSqlErrorAt(ast_statement->collate())
+          << "COLLATE is unsupported";
+  }
   ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "TABLE", output,
                                       &has_only_set_options_action,
                                       &resolved_alter_actions));
@@ -313,7 +380,8 @@ absl::Status Resolver::ResolveAddColumnAction(
   if (table != nullptr && !action->is_if_not_exists() &&
       columns_to_drop->find(column_name) == columns_to_drop->end()) {
     if (table->FindColumnByName(column_name.ToString()) != nullptr) {
-      return MakeSqlErrorAt(action) << "Column already exists: " << column_name;
+      return MakeSqlErrorAt(action->column_definition()->name())
+             << "Column already exists: " << column_name;
     }
   }
 
@@ -353,16 +421,98 @@ absl::Status Resolver::ResolveDropColumnAction(
   if (table != nullptr) {
     const Column* column = table->FindColumnByName(column_name.ToString());
     if (column == nullptr && !action->is_if_exists()) {
-      return MakeSqlErrorAt(action) << "Column not found: " << column_name;
+      return MakeSqlErrorAt(action->column_name())
+             << "Column not found: " << column_name;
     }
     if (column != nullptr && column->IsPseudoColumn()) {
-      return MakeSqlErrorAt(action) << "ALTER TABLE DROP COLUMN cannot drop "
-                                    << "pseudo-column " << column_name;
+      return MakeSqlErrorAt(action->column_name())
+             << "ALTER TABLE DROP COLUMN cannot drop pseudo-column "
+             << column_name;
     }
   }
 
   *alter_action = MakeResolvedDropColumnAction(action->is_if_exists(),
                                                column_name.ToString());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterColumnTypeAction(
+    IdString table_name_id_string, const Table* table,
+    const ASTAlterColumnTypeAction* action,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action) {
+  ZETASQL_RET_CHECK(*alter_action == nullptr);
+
+  const IdString column_name = action->column_name()->GetAsIdString();
+
+  std::unique_ptr<ResolvedColumnRef> column_reference;
+  const Type* resolved_type = nullptr;
+  TypeParameters type_parameters;
+
+  if (table != nullptr) {
+    const Column* column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr && !action->is_if_exists()) {
+      return MakeSqlErrorAt(action) << "Column not found: " << column_name;
+    }
+    if (column != nullptr && column->IsPseudoColumn()) {
+      return MakeSqlErrorAt(action->column_name())
+             << "ALTER TABLE ALTER COLUMN SET DATA TYPE cannot change the type "
+             << "of pseudo-column " << column_name;
+    }
+    if (column != nullptr) {
+      const ResolvedColumn resolved_column(AllocateColumnId(),
+                                           table_name_id_string, column_name,
+                                           column->GetType());
+      column_reference = MakeColumnRef(resolved_column);
+    }
+
+    NameList column_name_list;
+    std::unique_ptr<const ResolvedColumnAnnotations> annotations;
+    std::unique_ptr<ResolvedGeneratedColumnInfo> generated_column_info;
+    std::unique_ptr<const ResolvedExpr> column_default_expr;
+
+    ZETASQL_RETURN_IF_ERROR(ResolveColumnSchema(
+        action->schema(), column_name_list, &resolved_type, &annotations,
+        &generated_column_info, &column_default_expr));
+
+    ZETASQL_RET_CHECK(generated_column_info == nullptr);
+    ZETASQL_RET_CHECK(column_default_expr == nullptr);
+
+    if (annotations != nullptr) {
+      // OPTIONS not allowed.
+      if (OptionsPresent(annotations.get())) {
+        return MakeSqlErrorAt(action->schema())
+               << "For ALTER TABLE ALTER COLUMN SET DATA TYPE, the updated "
+               << "data type cannot contain OPTIONS";
+      }
+
+      ZETASQL_ASSIGN_OR_RETURN(type_parameters,
+                       annotations->GetFullTypeParameters(resolved_type));
+    }
+  }
+
+  SignatureMatchResult result;
+  if (column_reference != nullptr) {
+    const Type* existing_type = column_reference->column().type();
+
+    // TODO: Check CONVERT USING expression when parser adds it.
+    // Note that we cannot check that a NUMERIC(P,S) column can't increase S by
+    // more than P was increased because the type parameters aren't in the
+    // catalog.
+    if (!coercer_.AssignableTo(InputArgumentType(existing_type), resolved_type,
+                               /*is_explicit=*/false, &result)) {
+      return MakeSqlErrorAt(action)
+             << "ALTER TABLE ALTER COLUMN SET DATA TYPE "
+             << "requires that the existing column type ("
+             << column_reference->column().type()->TypeName(
+                    language().product_mode())
+             << ") is assignable to the new type ("
+             << resolved_type->ShortTypeName(language().product_mode()) << ")";
+    }
+  }
+
+  *alter_action = MakeResolvedAlterColumnSetDataTypeAction(
+      action->is_if_exists(), column_name.ToString(), resolved_type,
+      type_parameters);
   return absl::OkStatus();
 }
 
@@ -517,5 +667,4 @@ absl::Status Resolver::ResolveAddConstraintAction(
   return MakeSqlErrorAt(alter_action)
          << "ALTER TABLE ADD CONSTRAINT is not implemented";
 }
-
 }  // namespace zetasql

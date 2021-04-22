@@ -1,0 +1,19 @@
+START BATCH
+--
+StartBatchStmt
+==
+
+START BATCH ddl
+--
+StartBatchStmt(batch_type="ddl")
+==
+
+RUN BATCH
+--
+RunBatchStmt
+==
+
+ABORT BATCH
+--
+AbortBatchStmt
+==

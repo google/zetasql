@@ -1522,34 +1522,97 @@ zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
   return result_type;
 }
 
+static bool FunctionIsDisabled(const ZetaSQLBuiltinFunctionOptions& options,
+                               const FunctionOptions& function_options) {
+  const LanguageOptions& language_options = options.language_options;
+
+  if (language_options.product_mode() == PRODUCT_EXTERNAL &&
+      !function_options.allow_external_usage) {
+    return true;
+  }
+
+  if (!function_options.check_all_required_features_are_enabled(
+          language_options.GetEnabledLanguageFeatures())) {
+    return true;
+  }
+
+  return false;
+}
+
+static FunctionSignature ToFunctionSignature(
+    const FunctionSignatureOnHeap& signature_on_heap) {
+  return FunctionSignature(signature_on_heap.Get());
+}
+
+static FunctionSignature ToFunctionSignature(
+    const FunctionSignatureProxy& signature_proxy) {
+  return FunctionSignature(signature_proxy);
+}
+
+static bool FunctionSignatureIsDisabled(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    const FunctionSignature& signature) {
+  const FunctionSignatureId id =
+      static_cast<FunctionSignatureId>(signature.context_id());
+  return (!options.include_function_ids.empty() &&
+          !zetasql_base::ContainsKey(options.include_function_ids, id)) ||
+         zetasql_base::ContainsKey(options.exclude_function_ids, id) ||
+         signature.HasUnsupportedType(options.language_options);
+}
+
+static bool FunctionSignatureIsDisabled(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    const FunctionSignatureOnHeap& signature_on_heap) {
+  return FunctionSignatureIsDisabled(options, signature_on_heap.Get());
+}
+
+static bool FunctionSignatureIsDisabled(
+    const ZetaSQLBuiltinFunctionOptions& options,
+    const FunctionSignatureProxy& signature) {
+  const FunctionSignatureId id =
+      static_cast<FunctionSignatureId>(signature.context_id);
+  if ((!options.include_function_ids.empty() &&
+       !zetasql_base::ContainsKey(options.include_function_ids, id)) ||
+      zetasql_base::ContainsKey(options.exclude_function_ids, id)) {
+    return true;
+  }
+  if (signature.result_type.type != nullptr &&
+      !signature.result_type.type->IsSupportedType(options.language_options)) {
+    return true;
+  }
+  for (const FunctionArgumentTypeProxy& proxy_type : signature.arguments) {
+    if (proxy_type.type != nullptr &&
+        !proxy_type.type->IsSupportedType(options.language_options)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+static void InsertCheckedFunction(NameToFunctionMap* functions,
+                                  std::unique_ptr<Function> function) {
+  // Not using IdentifierPathToString to avoid escaping things like '$add' and
+  // 'if'.
+  std::string name = absl::StrJoin(function->FunctionNamePath(), ".");
+  ZETASQL_CHECK(functions->emplace(name, std::move(function)).second)
+      << name << "already exists";
+}
+
 void InsertCreatedFunction(NameToFunctionMap* functions,
                            const ZetaSQLBuiltinFunctionOptions& options,
                            Function* function_in) {
   std::unique_ptr<Function> function(function_in);
+  if (FunctionIsDisabled(options, function->function_options())) {
+    return;
+  }
+
   const LanguageOptions& language_options = options.language_options;
-
-  if (language_options.product_mode() == PRODUCT_EXTERNAL &&
-      !function->function_options().allow_external_usage) {
-    return;
-  }
-
-  if (!function->function_options().check_all_required_features_are_enabled(
-          language_options.GetEnabledLanguageFeatures())) {
-    return;
-  }
 
   // Identify each signature that is unsupported via options checks.
   absl::flat_hash_set<int> signatures_to_remove;
   for (int idx = 0; idx < function->signatures().size(); ++idx) {
     const FunctionSignature& signature = function->signatures()[idx];
-    if ((!options.include_function_ids.empty() &&
-         !zetasql_base::ContainsKey(
-             options.include_function_ids,
-             static_cast<FunctionSignatureId>(signature.context_id()))) ||
-        zetasql_base::ContainsKey(
-            options.exclude_function_ids,
-            static_cast<FunctionSignatureId>(signature.context_id())) ||
-        signature.HasUnsupportedType(language_options)) {
+    if (FunctionSignatureIsDisabled(options, signature)) {
       signatures_to_remove.insert(idx);
     }
   }
@@ -1575,47 +1638,54 @@ void InsertCreatedFunction(NameToFunctionMap* functions,
     }
     function->ResetSignatures(new_signatures);
   }
-
-  // Not using IdentifierPathToString to avoid escaping things like '$add' and
-  // 'if'.
-  const std::string& name = absl::StrJoin(function->FunctionNamePath(), ".");
-  ZETASQL_CHECK(functions->emplace(name, std::move(function)).second)
-      << name << "already exists";
+  InsertCheckedFunction(functions, std::move(function));
 }
 
-void InsertFunctionImpl(
-    NameToFunctionMap* functions,
-    const ZetaSQLBuiltinFunctionOptions& options,
-    const std::vector<std::string>& name, Function::Mode mode,
-    const std::vector<FunctionSignatureOnHeap>& signatures_on_heap,
-    const FunctionOptions& function_options) {
-  std::vector<FunctionSignature> signatures;
-  signatures.reserve(signatures_on_heap.size());
-  for (const FunctionSignatureOnHeap& signature_on_heap : signatures_on_heap) {
-    signatures.emplace_back(signature_on_heap.Get());
+template <typename FunctionSignatureListT>
+static void InsertFunctionImpl(NameToFunctionMap* functions,
+                               const ZetaSQLBuiltinFunctionOptions& options,
+                               std::vector<std::string> name,
+                               Function::Mode mode,
+                               const FunctionSignatureListT& signature_list,
+                               FunctionOptions function_options) {
+  if (FunctionIsDisabled(options, function_options)) {
+    return;
   }
-
-  FunctionOptions local_options = function_options;
+  std::vector<FunctionSignature> signatures;
+  signatures.reserve(signature_list.size());
+  for (const auto& signature : signature_list) {
+    if (FunctionSignatureIsDisabled(options, signature)) {
+      continue;
+    }
+    signatures.emplace_back(ToFunctionSignature(signature));
+  }
+  if (signatures.empty()) {
+    // No valid signatures, do nothing.
+    return;
+  }
   if (mode == Function::AGGREGATE) {
     // By default, all built-in aggregate functions can be used as analytic
     // functions.
-    local_options.supports_over_clause = true;
-    local_options.window_ordering_support = FunctionOptions::ORDER_OPTIONAL;
-    local_options.supports_window_framing = true;
+    function_options.supports_over_clause = true;
+    function_options.window_ordering_support = FunctionOptions::ORDER_OPTIONAL;
+    function_options.supports_window_framing = true;
   }
-
-  InsertCreatedFunction(
-      functions, options,
-      new Function(name, Function::kZetaSQLFunctionGroupName, mode,
-                   signatures, local_options));
+  InsertCheckedFunction(
+      functions, std::make_unique<Function>(
+                     std::move(name), Function::kZetaSQLFunctionGroupName,
+                     mode, std::move(signatures), std::move(function_options)));
 }
 
 void InsertFunction(NameToFunctionMap* functions,
                     const ZetaSQLBuiltinFunctionOptions& options,
-                    const std::string& name, Function::Mode mode,
+                    absl::string_view name, Function::Mode mode,
                     const std::vector<FunctionSignatureOnHeap>& signatures,
-                    const FunctionOptions& function_options) {
-  InsertFunctionImpl(functions, options, {name}, mode, signatures,
+                    FunctionOptions function_options) {
+  std::vector<std::string> names;
+  names.reserve(1);
+  names.emplace_back(name);
+
+  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
                      function_options);
 }
 
@@ -1623,20 +1693,98 @@ void InsertFunction(NameToFunctionMap* functions,
 // FunctionOptions object to be allocated on the callers stack.
 void InsertFunction(NameToFunctionMap* functions,
                     const ZetaSQLBuiltinFunctionOptions& options,
-                    const std::string& name, Function::Mode mode,
+                    absl::string_view name, Function::Mode mode,
                     const std::vector<FunctionSignatureOnHeap>& signatures) {
-  InsertFunctionImpl(functions, options, {name}, mode, signatures,
-                     FunctionOptions());
+  std::vector<std::string> names;
+  names.reserve(1);
+  names.emplace_back(name);
+
+  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
+                     /* function_options*/ {});
+}
+
+void InsertSimpleFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures) {
+  std::vector<std::string> names;
+  names.reserve(1);
+  names.emplace_back(name);
+
+  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+      functions, options, std::move(names), mode, signatures,
+      /* function_options*/ {});
+}
+
+void InsertSimpleFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
+    Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures,
+    const FunctionOptions& function_options) {
+  std::vector<std::string> names;
+  names.reserve(1);
+  names.emplace_back(name);
+
+  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+      functions, options, std::move(names), mode, signatures, function_options);
 }
 
 void InsertNamespaceFunction(
     NameToFunctionMap* functions,
-    const ZetaSQLBuiltinFunctionOptions& options, const std::string& space,
-    const std::string& name, Function::Mode mode,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
+    const std::vector<FunctionSignatureOnHeap>& signatures) {
+  std::vector<std::string> names;
+  names.reserve(2);
+  names.emplace_back(space);
+  names.emplace_back(name);
+  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
+                     /* function_options*/ {});
+}
+
+void InsertNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
     const std::vector<FunctionSignatureOnHeap>& signatures,
-    const FunctionOptions& function_options) {
-  InsertFunctionImpl(functions, options, {space, name}, mode, signatures,
-                     function_options);
+    FunctionOptions function_options) {
+  std::vector<std::string> names;
+  names.reserve(2);
+  names.emplace_back(space);
+  names.emplace_back(name);
+  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
+                     std::move(function_options));
+}
+
+void InsertSimpleNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures) {
+  std::vector<std::string> names;
+  names.reserve(2);
+  names.emplace_back(space);
+  names.emplace_back(name);
+  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+      functions, options, std::move(names), mode, signatures,
+      /* function_options*/ {});
+}
+
+void InsertSimpleNamespaceFunction(
+    NameToFunctionMap* functions,
+    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
+    absl::string_view name, Function::Mode mode,
+    std::initializer_list<FunctionSignatureProxy> signatures,
+    FunctionOptions function_options) {
+  std::vector<std::string> names;
+  names.reserve(2);
+  names.emplace_back(space);
+  names.emplace_back(name);
+  InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
+      functions, options, std::move(names), mode, signatures,
+      std::move(function_options));
 }
 
 }  // namespace zetasql

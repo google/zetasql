@@ -18,9 +18,12 @@
 package com.google.zetasql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
+import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.zetasql.LocalService.AnalyzeRequest;
 import com.google.zetasql.LocalService.AnalyzeResponse;
 import com.google.zetasql.LocalService.BuildSqlRequest;
+import com.google.zetasql.LocalService.DescriptorPoolListProto;
 import com.google.zetasql.functions.ZetaSQLDateTime.DateTimestampPart;
 import com.google.zetasql.resolvedast.DeserializationHelper;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
@@ -29,6 +32,23 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 class AnalyzerHelper {
   static {
     ZetaSQLDescriptorPool.importIntoGeneratedPool(DateTimestampPart.getDescriptor());
+  }
+
+  private static DescriptorPoolListProto createDescriptorPoolList(
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    DescriptorPoolListProto.Builder poolListProto = DescriptorPoolListProto.newBuilder();
+    for (DescriptorPool pool : fileDescriptorSetsBuilder.getDescriptorPools()) {
+      if (pool == BuiltinDescriptorPool.getInstance()) {
+        poolListProto.addDefinitionsBuilder().getBuiltinBuilder();
+      } else {
+        FileDescriptorSet.Builder fileDescriptorSetBuilder =
+            poolListProto.addDefinitionsBuilder().getFileDescriptorSetBuilder();
+        for (FileDescriptor file : pool.getAllFileDescriptorsInDependencyOrder()) {
+          fileDescriptorSetBuilder.addFile(file.toProto());
+        }
+      }
+    }
+    return poolListProto.build();
   }
 
   public static FileDescriptorSetsBuilder serializeSimpleCatalog(
@@ -47,9 +67,10 @@ class AnalyzerHelper {
       request.setOptions(options.serialize(fileDescriptorSetsBuilder));
     } else {
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
       request.setSimpleCatalog(catalog.serialize(fileDescriptorSetsBuilder));
       request.setOptions(options.serialize(fileDescriptorSetsBuilder));
-      request.addAllFileDescriptorSet(fileDescriptorSetsBuilder.build());
+      request.setDescriptorPoolList(createDescriptorPoolList(fileDescriptorSetsBuilder));
     }
     return fileDescriptorSetsBuilder;
   }
@@ -66,9 +87,10 @@ class AnalyzerHelper {
       request.setRegisteredCatalogId(catalog.getRegisteredId());
     } else {
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
-      fileDescriptorSetsBuilder.addAllFileDescriptors(ZetaSQLDescriptorPool.getGeneratedPool());
+      fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
+
       request.setSimpleCatalog(catalog.serialize(fileDescriptorSetsBuilder));
-      request.addAllFileDescriptorSet(fileDescriptorSetsBuilder.build());
+      request.setDescriptorPoolList(createDescriptorPoolList(fileDescriptorSetsBuilder));
     }
     return fileDescriptorSetsBuilder;
   }

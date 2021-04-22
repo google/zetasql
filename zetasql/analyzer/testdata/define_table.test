@@ -1,0 +1,50 @@
+define table t1 (a=1,b="a",c=1.4,d=true)
+--
+DefineTableStmt
++-name_path=t1
++-option_list=
+  +-a := Literal(type=INT64, value=1)
+  +-b := Literal(type=STRING, value="a")
+  +-c := Literal(type=DOUBLE, value=1.4)
+  +-d := Literal(type=BOOL, value=true)
+==
+
+define table a.`b`.`c 2` (x='''
+foo''',y="2011-10-22",z=@test_param_int64)
+--
+DefineTableStmt
++-name_path=a.b.`c 2`
++-option_list=
+  +-x := Literal(type=STRING, value="\nfoo")
+  +-y := Literal(type=STRING, value="2011-10-22")
+  +-z := Parameter(type=INT64, name="test_param_int64")
+==
+
+define table a.`b`.`c 2` (x='''foo''',y="2011-10-22",z=@bad_param)
+--
+ERROR: Query parameter 'bad_param' not found [at 1:56]
+define table a.`b`.`c 2` (x='''foo''',y="2011-10-22",z=@bad_param)
+                                                       ^
+==
+
+define table t1 (a=b)
+--
+DefineTableStmt
++-name_path=t1
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+==
+
+define table t1 ()
+--
+DefineTableStmt(name_path=t1)
+
+==
+
+define table t1 (PROTO="PROTO<foo>",hash="HASH")
+--
+DefineTableStmt
++-name_path=t1
++-option_list=
+  +-`PROTO` := Literal(type=STRING, value="PROTO<foo>")
+  +-`hash` := Literal(type=STRING, value="HASH")

@@ -359,7 +359,8 @@ class FlattenRewriter : public Rewriter {
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
-    ColumnFactory column_factory(0, options.column_id_sequence_number());
+    ColumnFactory column_factory(0, options.id_string_pool().get(),
+                                 options.column_id_sequence_number());
     FlattenRewriterVisitor rewriter(&catalog, &column_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,

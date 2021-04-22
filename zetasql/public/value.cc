@@ -135,12 +135,22 @@ void Value::CopyFrom(const Value& that) {
     // counter for their value. To improve performance of struct/array copying,
     // instead of incrementing types reference counter on each Value copy, we
     // can just do a single decrement when Value reference counter reaches zero.
-  }
 
-  if (!is_null()) {
-    ValueContent copied_content{};
-    that.type()->CopyValueContent(that.GetContent(), &copied_content);
-    SetContent(copied_content);
+    if (!is_null()) {
+      ValueContent copied_content{};
+      that.type()->CopyValueContent(that.GetContent(), &copied_content);
+      SetContent(copied_content);
+    }
+  } else {
+    // When we already have a type_kind, we know that we are a SimpleType.
+    // Dispatching directly to the SimpleType implementation avoids unnecessary
+    // virtual calls and switches.
+    if (!is_null()) {
+      ValueContent copied_content{};
+      SimpleType::CopyValueContent(metadata_.type_kind(), that.GetContent(),
+                                   &copied_content);
+      SetContent(copied_content);
+    }
   }
 }
 
@@ -1894,123 +1904,6 @@ void Value::SetContent(const ValueContent& content) {
                              content.simple_type_extended_content_);
 }
 
-// ContentStorage<4> represents Metadata's field layout on 32-bit systems.
-// Layouts on 32 and 64 bit systems are different, because x64 pointer and two
-// boolean variables cannot reside in 8 bytes data structure and we need
-// to use pointer tagging (even though a pointer uses just 6 bytes, some
-// platforms checks that all bits in the remaining 2 bytes have the same value).
-// On 32-bit systems we have only 2-bits available for pointer tagging (which is
-// not enough for 3 flags that we keep), however (since pointer is only 4
-// bytes), we have enough space to store flags in the first 4 bytes of the
-// structure.
-template <>
-class Value::Metadata::ContentLayout<4> {
- protected:
-  int16_t kind_;
-  uint16_t is_null_ : 1;
-  uint16_t preserves_order_ : 1;
-  uint16_t has_type_ : 1;
-
-  union {
-    const Type* type_;
-    int32_t value_extended_content_;
-  };
-
- public:
-  int16_t kind() const { return kind_; }
-  void kind(int16_t val) { kind_ = val; }
-
-  const Type* type() const { return type_; }
-  void type(Type* type) {
-    type_ = type;
-    has_type_ = true;
-  }
-
-  int32_t value_extended_content() const { return value_extended_content_; }
-  void value_extended_content(int32_t val) { value_extended_content_ = val; }
-
-  bool is_null() const { return is_null_; }
-  void is_null(bool val) { is_null_ = val; }
-
-  bool preserves_order() const { return preserves_order_; }
-  void preserves_order(bool val) { preserves_order_ = val; }
-
-  bool has_type_pointer() const { return has_type_; }
-};
-
-// On 64-bit systems we need to use pointer tagging to distinguish between the
-// case when we store type pointer and type kind together with value. We expect
-// all Type pointers to be 8 bytes aligned (which should be the case if standard
-// allocation mechanism is used since std::malloc is required to return an
-// allocation that is suitably aligned for any scalar type). We use 3 lowest
-// bits to encode is_null, preserves_order and has_type. These bits must never
-// overlap with int32_t value_. Thus we use different structure layout depending
-// on system endianness.
-template <>
-class Value::Metadata::ContentLayout<8> {
-  static constexpr uint64_t kTagMask = static_cast<uint64_t>(7);
-  static constexpr uint64_t kTypeMask = ~static_cast<uint64_t>(kTagMask);
-  static constexpr uint64_t kHasTypeTag = 1;
-  static constexpr uint64_t kIsNullTag = 1 << 1;
-  static constexpr uint64_t kPreserverOrderTag = 1 << 2;
-
- protected:
-  union {
-    uint64_t type_;
-
-    struct {
-#if defined(ABSL_IS_BIG_ENDIAN)
-      int32_t value_extended_content_;
-      int16_t kind_;
-      int16_t place_holder_;
-#elif defined(ABSL_IS_LITTLE_ENDIAN)
-      int16_t place_holder_;
-      int16_t kind_;
-      int32_t value_extended_content_;
-#else  // !ABSL_IS_BIG_ENDIAN and !ABSL_IS_LITTLE_ENDIAN
-      static_assert(false,
-                    "Platform is not supported: neither big nor little endian");
-#endif
-    };
-  };
-
- public:
-  int16_t kind() const { return kind_; }
-
-  // Kind (if set) must be set before other fields.
-  void kind(int16_t val) { kind_ = val; }
-
-  const Type* type() const {
-    return reinterpret_cast<const Type*>(type_ & kTypeMask);
-  }
-
-  // Type (if set) must be set before other fields.
-  void type(const Type* type) {
-    const uint64_t type_ptr = reinterpret_cast<uint64_t>(type);
-    ZETASQL_CHECK_EQ((type_ptr & kTagMask), 0);
-    type_ = type_ptr | kHasTypeTag;
-  }
-
-  static void SetTag(uint64_t* dst, uint64_t tag, bool value) {
-    if (value)
-      *dst |= tag;
-    else
-      *dst &= (~tag);
-  }
-
-  int32_t value_extended_content() const { return value_extended_content_; }
-  void value_extended_content(int32_t val) { value_extended_content_ = val; }
-
-  bool is_null() const { return type_ & kIsNullTag; }
-  void is_null(bool val) { SetTag(&type_, kIsNullTag, val); }
-
-  bool preserves_order() const { return type_ & kPreserverOrderTag; }
-  void preserves_order(bool val) { SetTag(&type_, kPreserverOrderTag, val); }
-
-  bool has_type_pointer() const { return type_ & kHasTypeTag; }
-  void has_type_pointer(bool val) { SetTag(&type_, kHasTypeTag, val); }
-};
-
 Value::Metadata::Content* Value::Metadata::content() {
   static_assert(sizeof(Content) == sizeof(int64_t));
   return reinterpret_cast<Content*>(&data_);
@@ -2055,32 +1948,13 @@ bool Value::Metadata::is_valid() const {
   return content()->kind() > 0;
 }
 
-void Value::Metadata::SetFlags(bool is_null, bool preserves_order) {
-  content()->is_null(is_null);
-  content()->preserves_order(preserves_order);
-
-  ZETASQL_DCHECK(content()->is_null() == is_null);
-  ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
-}
-
 Value::Metadata::Metadata(const Type* type, bool is_null,
                           bool preserves_order) {
-  content()->type(type);
-  SetFlags(is_null, preserves_order);
-
+  *content() = Content(type, is_null, preserves_order);
   ZETASQL_DCHECK(content()->has_type_pointer());
   ZETASQL_DCHECK(content()->type() == type);
-}
-
-Value::Metadata::Metadata(TypeKind kind, bool is_null, bool preserves_order,
-                          int32_t value_extended_content) {
-  content()->kind(kind);
-  content()->value_extended_content(value_extended_content);
-  SetFlags(is_null, preserves_order);
-
-  ZETASQL_DCHECK(!content()->has_type_pointer());
-  ZETASQL_DCHECK(content()->kind() == kind);
-  ZETASQL_DCHECK(content()->value_extended_content() == value_extended_content);
+  ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
+  ZETASQL_DCHECK(content()->is_null() == is_null);
 }
 
 }  // namespace zetasql

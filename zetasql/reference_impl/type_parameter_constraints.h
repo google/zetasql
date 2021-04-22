@@ -28,8 +28,8 @@ namespace zetasql {
 // match the type of <value>, and returns a user-facing error if the
 // <value> does not adhere to the type parameter constraints. Depending on the
 // type of <value>, <value> may be mutated to fit the provided type parameters.
-absl::Status ApplyConstraints(Value& value, const TypeParameters& type_params,
-                              ProductMode mode);
+absl::Status ApplyConstraints(const TypeParameters& type_params,
+                              ProductMode mode, Value& value);
 
 }  // namespace zetasql
 

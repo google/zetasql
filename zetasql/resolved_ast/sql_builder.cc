@@ -3443,6 +3443,24 @@ absl::Status SQLBuilder::VisitResolvedCreateTableStmt(
   return absl::OkStatus();
 }
 
+absl::Status SQLBuilder::VisitResolvedCreateSnapshotTableStmt(
+    const ResolvedCreateSnapshotTableStmt* node) {
+  std::string sql;
+
+  ZETASQL_RETURN_IF_ERROR(GetCreateStatementPrefix(node, "SNAPSHOT TABLE", &sql));
+
+  absl::StrAppend(&sql, " CLONE ");
+  ZETASQL_RETURN_IF_ERROR(AppendCloneDataSource(node->clone_from(), &sql));
+
+  if (!node->option_list().empty()) {
+    ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
+                     GetHintListString(node->option_list()));
+    absl::StrAppend(&sql, " OPTIONS(", options_string, ") ");
+  }
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
 absl::Status SQLBuilder::VisitResolvedCreateTableAsSelectStmt(
     const ResolvedCreateTableAsSelectStmt* node) {
   // Dummy access on the fields so as to pass the final CheckFieldsAccessed() on
@@ -4437,6 +4455,16 @@ absl::Status SQLBuilder::VisitResolvedDropMaterializedViewStmt(
   return absl::OkStatus();
 }
 
+absl::Status SQLBuilder::VisitResolvedDropSnapshotTableStmt(
+    const ResolvedDropSnapshotTableStmt* node) {
+  std::string sql;
+  absl::StrAppend(&sql, "DROP SNAPSHOT TABLE",
+                  node->is_if_exists() ? " IF EXISTS " : " ",
+                  IdentifierPathToString(node->name_path()));
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
 absl::Status SQLBuilder::VisitResolvedDropRowAccessPolicyStmt(
     const ResolvedDropRowAccessPolicyStmt* node) {
   std::string sql;
@@ -4450,6 +4478,20 @@ absl::Status SQLBuilder::VisitResolvedDropRowAccessPolicyStmt(
   }
   absl::StrAppend(&sql, " ON ",
                   IdentifierPathToString(node->target_name_path()));
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedDropSearchIndexStmt(
+    const ResolvedDropSearchIndexStmt* node) {
+  std::string sql;
+  absl::StrAppend(&sql, "DROP SEARCH INDEX");
+  absl::StrAppend(&sql, node->is_if_exists() ? " IF EXISTS " : " ",
+                  ToIdentifierLiteral(node->name()));
+  if (!node->table_name_path().empty()) {
+    absl::StrAppend(&sql, " ON ",
+                    IdentifierPathToString(node->table_name_path()));
+  }
   PushQueryFragment(node, sql);
   return absl::OkStatus();
 }
@@ -5012,9 +5054,15 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
       } break;
       case RESOLVED_SET_AS_ACTION: {
         auto* set_as_action = alter_action->GetAs<ResolvedSetAsAction>();
-        alter_action_sql.push_back(
-            absl::StrCat("SET AS JSON ",
-                         ToStringLiteral(set_as_action->entity_body_json())));
+        if (!set_as_action->entity_body_json().empty()) {
+          alter_action_sql.push_back(
+              absl::StrCat("SET AS JSON ",
+                           ToStringLiteral(set_as_action->entity_body_json())));
+        }
+        if (!set_as_action->entity_body_text().empty()) {
+          alter_action_sql.push_back(absl::StrCat(
+              "SET AS ", ToStringLiteral(set_as_action->entity_body_text())));
+        }
       } break;
       case RESOLVED_ADD_CONSTRAINT_ACTION: {
         auto* action = alter_action->GetAs<ResolvedAddConstraintAction>();
@@ -5035,6 +5083,14 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
         absl::StrAppend(&action_sql, action->name());
         alter_action_sql.push_back(action_sql);
       } break;
+      case RESOLVED_DROP_PRIMARY_KEY_ACTION: {
+        auto* action = alter_action->GetAs<ResolvedDropPrimaryKeyAction>();
+        std::string action_sql = "DROP PRIMARY KEY";
+        if (action->is_if_exists()) {
+          absl::StrAppend(&action_sql, " IF EXISTS");
+        }
+        alter_action_sql.push_back(action_sql);
+      } break;
       case RESOLVED_ALTER_COLUMN_OPTIONS_ACTION: {
         auto* action = alter_action->GetAs<ResolvedAlterColumnOptionsAction>();
         std::string action_sql = absl::StrCat(
@@ -5043,6 +5099,27 @@ zetasql_base::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
         ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
                          GetHintListString(action->option_list()));
         absl::StrAppend(&action_sql, " SET OPTIONS(", options_string, ") ");
+        alter_action_sql.push_back(action_sql);
+      } break;
+      case RESOLVED_ALTER_COLUMN_SET_DATA_TYPE_ACTION: {
+        const auto* action =
+            alter_action->GetAs<ResolvedAlterColumnSetDataTypeAction>();
+        std::string action_sql = "ALTER COLUMN ";
+        if (action->is_if_exists()) {
+          absl::StrAppend(&action_sql, "IF EXISTS ");
+        }
+        absl::StrAppend(&action_sql, action->column());
+        absl::StrAppend(&action_sql, " SET DATA TYPE ");
+        if (action->updated_type_parameters().IsEmpty()) {
+          absl::StrAppend(&action_sql, action->updated_type()->TypeName(
+                                           options_.product_mode));
+        } else {
+          ZETASQL_ASSIGN_OR_RETURN(
+              auto type_with_params,
+              action->updated_type()->TypeNameWithParameters(
+                  action->updated_type_parameters(), options_.product_mode));
+          absl::StrAppend(&action_sql, type_with_params);
+        }
         alter_action_sql.push_back(action_sql);
       } break;
       case RESOLVED_ALTER_COLUMN_DROP_NOT_NULL_ACTION: {
@@ -5548,6 +5625,10 @@ absl::Status SQLBuilder::VisitResolvedCreateEntityStmt(
   if (!node->entity_body_json().empty()) {
     absl::StrAppend(&sql, "AS JSON ",
                     ToStringLiteral(node->entity_body_json()));
+  }
+
+  if (!node->entity_body_text().empty()) {
+    absl::StrAppend(&sql, "AS ", ToStringLiteral(node->entity_body_text()));
   }
 
   PushQueryFragment(node, sql);

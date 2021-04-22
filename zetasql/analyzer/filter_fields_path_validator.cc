@@ -25,6 +25,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -105,6 +106,40 @@ absl::Status FilterFieldsPathValidator::ValidateFieldPath(
   }
   // Override inclusion/exclusion status inherited from parent node.
   node->include = include;
+  return absl::OkStatus();
+}
+
+absl::Status FilterFieldsPathValidator::ValidateRequiredFields() const {
+  return RecursivelyValidateNode(root_node_.get());
+}
+
+absl::Status FilterFieldsPathValidator::RecursivelyValidateNode(
+    const FieldPathTrieNode* node) const {
+  // No need to check required fields of a leaf node, since this node is
+  // included or excluded by its parent, having required fields doesn't matter.
+  if (node->children.empty()) {
+    return absl::OkStatus();
+  }
+
+  for (int i = 0; i < node->descriptor->field_count(); ++i) {
+    const google::protobuf::FieldDescriptor* descriptor = node->descriptor->field(i);
+
+    bool included = node->include;
+    const auto* child_node =
+        zetasql_base::FindOrNull(node->children, descriptor->number());
+    if (child_node) {
+      // Even if the child is being excluded, if it's a message with children
+      // under it that are being retained, the message itself is retained.
+      included = (*child_node)->include || !(*child_node)->children.empty();
+      ZETASQL_RETURN_IF_ERROR(RecursivelyValidateNode(child_node->get()));
+    }
+
+    if (!included && descriptor->is_required()) {
+      return absl::InvalidArgumentError(absl::Substitute(
+          "Field $0 is required but will be cleared given the list of paths",
+          descriptor->full_name()));
+    }
+  }
   return absl::OkStatus();
 }
 

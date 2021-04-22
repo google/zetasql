@@ -1,0 +1,905 @@
+# The file contains specific tests for named window and analytic functions
+# grouping for window sharing. The test analytic functions afn, afn_order and
+# afn_no_order_no_frame are described in analytic_functions.test.
+
+# Parentheses can be omitted when the named window is not specialized.
+[default language_features=ANALYTIC_FUNCTIONS]
+select afn_agg() over {{(w)|w}}
+from keyvalue
+window w as (partition by key)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# PARTITION BY and ORDER BY can be inherited from base windows.
+select afn_agg() over w3
+from keyvalue
+window w1 as (partition by value), w2 as (w1 order by key),
+       w3 as (w2 rows between 2 preceding and unbounded following)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+                      |   +-Literal(type=INT64, value=2)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+# A named window is allowed to be simply an alias of another named window.
+select afn_agg() over w7
+from keyvalue
+window w1 as (partition by value), w2 as w1, w3 as w2,
+       w4 as (w2 order by key), w5 as w4, w6 as w5,
+       w7 as (w6 rows between 2 preceding and unbounded following)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+                      |   +-Literal(type=INT64, value=2)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+#
+# Window inheritance structure validations.
+#
+
+# Window frame is allowed to be in a named window. This is an extension to
+# the SQL standard.
+select afn_agg() over w, afn_agg(key) over w
+from keyvalue
+window w as (partition by key rows 2 preceding)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#5 AS `$col1` [INT64]
+| +-$analytic.$analytic2#6 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$analytic.[$analytic1#5, $analytic2#6]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#5, $analytic.$analytic2#6]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic1#5 :=
+              | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+              |   +-window_frame=
+              |     +-WindowFrame(frame_unit=ROWS)
+              |       +-start_expr=
+              |       | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+              |       |   +-Literal(type=INT64, value=2)
+              |       +-end_expr=
+              |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+              +-$analytic2#6 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+                      |   +-Literal(type=INT64, value=2)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
+select afn_agg() over (w partition by key)
+from keyvalue
+window w as (order by value)
+--
+ERROR: If a window has a PARTITION BY, it cannot reference a named window [at 1:24]
+select afn_agg() over (w partition by key)
+                       ^
+==
+
+select afn_agg() over (w range 2 preceding)
+from keyvalue
+window w1 as (order by key), w as (w1 partition by key)
+--
+ERROR: If a window has a PARTITION BY, it cannot reference a named window [at 3:36]
+window w1 as (order by key), w as (w1 partition by key)
+                                   ^
+==
+
+select afn_agg() over (w3 order by key) from keyvalue
+window w1 as (order by key), w2 as w1, w3 as w2
+--
+ERROR: If a window inherits an ORDER BY from its referenced window, it cannot have an inline ORDER BY [at 1:27]
+select afn_agg() over (w3 order by key) from keyvalue
+                          ^
+==
+
+select afn_agg() over (w3 order by key)
+from keyvalue
+window w1 as (rows 2 preceding), w2 as w1, w3 as w2
+--
+ERROR: If a window has an inline ORDER BY or window frame clause, it cannot reference another window that contains or inherits a window frame clause [at 1:24]
+select afn_agg() over (w3 order by key)
+                       ^
+==
+
+select afn_agg() over (w3 rows 2 preceding)
+from keyvalue
+window w1 as (rows 2 preceding), w2 as w1, w3 as w2
+--
+ERROR: If a window has an inline ORDER BY or window frame clause, it cannot reference another window that contains or inherits a window frame clause [at 1:24]
+select afn_agg() over (w3 rows 2 preceding)
+                       ^
+==
+
+# Empty named window is allowed to be referenced unless the referencing window
+# has a PARTITION BY.
+select afn_agg() over w1,
+       afn_agg() over (w1 rows 2 preceding),
+       afn_agg() over (w1 order by key),
+       afn_agg() over (w2 rows 2 preceding),
+       afn_agg() over (w2 order by key)
+from keyvalue
+window w1 as (), w2 as w1
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#8 AS `$col1` [INT64]
+| +-$analytic.$analytic2#9 AS `$col2` [INT64]
+| +-$analytic.$analytic3#10 AS `$col3` [INT64]
+| +-$analytic.$analytic4#11 AS `$col4` [INT64]
+| +-$analytic.$analytic5#12 AS `$col5` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$analytic.[$analytic1#8, $analytic2#9, $analytic3#10, $analytic4#11, $analytic5#12]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#8, $analytic.$analytic2#9, $analytic.$analytic4#11, $analytic.$analytic3#10, $analytic.$analytic5#12]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+          | +-analytic_function_list=
+          |   +-$analytic1#8 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=ROWS)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+          |   +-$analytic2#9 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=ROWS)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+          |   |       |   +-Literal(type=INT64, value=2)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          |   +-$analytic4#11 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=ROWS)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+          |           |   +-Literal(type=INT64, value=2)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+          | +-order_by=
+          | | +-WindowOrdering
+          | |   +-order_by_item_list=
+          | |     +-OrderByItem
+          | |       +-column_ref=
+          | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic3#10 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=RANGE)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic5#12 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
+select afn_agg() over (w partition by key)
+from keyvalue
+window w as ()
+--
+ERROR: If a window has a PARTITION BY, it cannot reference a named window [at 1:24]
+select afn_agg() over (w partition by key)
+                       ^
+==
+
+# Duplicate window aliases.
+select * from
+keyvalue
+window w as (), w as ()
+--
+ERROR: Duplicate window alias w [at 3:17]
+window w as (), w as ()
+                ^
+==
+
+# We do not resolve expressions in named windows if they are not used so not all
+# errors in them are reported.
+# TODO: Report errors for invalid named windows when they are not used.
+# TODO: To decide whether or not we should allow named windows if they
+#                are not used.
+select 1 from
+keyvalue
+window w as (order by unknown_attribute)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-TableScan(table=KeyValue)
+==
+
+# Structural errors are reported for unused windows.
+select 1 from keyvalue
+window w1 as (order by key), w2 as (w1 partition by key)
+--
+ERROR: If a window has a PARTITION BY, it cannot reference a named window [at 2:37]
+window w1 as (order by key), w2 as (w1 partition by key)
+                                    ^
+==
+
+# A named window references a following named window.
+select afn_agg() over w from
+keyvalue
+window w as (w1 order by key), w1 as (partition by value)
+--
+ERROR: Unrecognized window alias w1 [at 3:14]
+window w as (w1 order by key), w1 as (partition by value)
+             ^
+==
+
+# A named window references itself.
+select afn_agg() over w from
+keyvalue
+window w as (w order by key)
+--
+ERROR: Unrecognized window alias w [at 3:14]
+window w as (w order by key)
+             ^
+==
+
+# Unrecognized alias.
+select afn_agg() over (w order by key)
+from keyvalue
+window w1 as (partition by value)
+--
+ERROR: Unrecognized window alias w [at 1:24]
+select afn_agg() over (w order by key)
+                       ^
+==
+
+# The named window is only visible to the SELECT it belongs to (i.e. the closest
+# SELECT). Window w binds to the second part of the union.
+select afn_agg() over w
+from keyvalue
+union all
+select key
+from keyvalue
+window w as (order by key)
+--
+ERROR: Unrecognized window alias w [at 1:23]
+select afn_agg() over w
+                      ^
+==
+
+# Window w binds to the second part of the union.
+select 1 from keyvalue
+union all
+select afn_agg() over w from keyvalue
+window w as ()
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.$col1#8 AS `$col1` [INT64]
++-query=
+  +-SetOperationScan
+    +-column_list=[$union_all.$col1#8]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$union_all1.$col1#3]
+      | |   +-expr_list=
+      | |   | +-$col1#3 := Literal(type=INT64, value=1)
+      | |   +-input_scan=
+      | |     +-TableScan(table=KeyValue)
+      | +-output_column_list=[$union_all1.$col1#3]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$analytic.$analytic1#7]
+        |   +-input_scan=
+        |     +-AnalyticScan
+        |       +-column_list=[$analytic.$analytic1#7]
+        |       +-input_scan=
+        |       | +-TableScan(table=KeyValue)
+        |       +-function_group_list=
+        |         +-AnalyticFunctionGroup
+        |           +-analytic_function_list=
+        |             +-$analytic1#7 :=
+        |               +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+        |                 +-window_frame=
+        |                   +-WindowFrame(frame_unit=ROWS)
+        |                     +-start_expr=
+        |                     | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+        |                     +-end_expr=
+        |                       +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+        +-output_column_list=[$analytic.$analytic1#7]
+==
+
+select afn_agg() over w
+from (select afn_agg() over w
+      from keyvalue
+      window w as (order by key))
+--
+ERROR: Unrecognized window alias w [at 1:23]
+select afn_agg() over w
+                      ^
+==
+
+select 1
+from (select afn_agg() over w
+      from keyvalue)
+window w as ()
+--
+ERROR: Unrecognized window alias w [at 2:29]
+from (select afn_agg() over w
+                            ^
+==
+
+# Analytic functions in ORDER BY cannot reference a named window
+select 1 from keyvalue
+window w as ()
+order by afn_agg() over w
+--
+ERROR: Cannot reference a named window in ORDER BY clause [at 3:25]
+order by afn_agg() over w
+                        ^
+==
+
+#
+# Window sharing.
+# Two analytic functions are grouped together if
+#   1) They share PARTITION BY and ORDER BY by named windows, or
+#   2) They do not have PARTITION BY or ORDER BY.
+#
+
+# In this query, analytic function calls with the same name have the same
+# partition by and order by, and therefore are grouped together.
+select afn_agg(key, value) over w1,
+       afn_agg(key, value) over (w1 rows 2 preceding),
+       afn_agg(key, value) over (w1 rows between current row and 3 following),
+       afn_no_order_no_frame(key) over (partition by key),
+       afn_agg(key) over w2,
+       afn_agg(key) over (w2 range 2 preceding),
+       afn_agg(key) over (w2 rows 3 preceding),
+       afn_agg() over (w1 order by key),
+       afn_agg(value) over (w1 order by value)
+from keyvalue
+window w1 as (partition by key), w2 as (w1 order by key)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#12 AS `$col1` [INT64]
+| +-$analytic.$analytic2#13 AS `$col2` [INT64]
+| +-$analytic.$analytic3#14 AS `$col3` [INT64]
+| +-$analytic.$analytic4#15 AS `$col4` [INT64]
+| +-$analytic.$analytic5#16 AS `$col5` [INT64]
+| +-$analytic.$analytic6#17 AS `$col6` [INT64]
+| +-$analytic.$analytic7#18 AS `$col7` [INT64]
+| +-$analytic.$analytic8#19 AS `$col8` [INT64]
+| +-$analytic.$analytic9#20 AS `$col9` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$analytic.[$analytic1#12, $analytic2#13, $analytic3#14, $analytic4#15, $analytic5#16, $analytic6#17, $analytic7#18, $analytic8#19, $analytic9#20]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#12, $analytic.$analytic2#13, $analytic.$analytic3#14, $analytic.$analytic4#15, $analytic.$analytic5#16, $analytic.$analytic6#17, $analytic.$analytic7#18, $analytic.$analytic8#19, $analytic.$analytic9#20]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+          | +-partition_by=
+          | | +-WindowPartitioning
+          | |   +-partition_by_list=
+          | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic1#12 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+          |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |   |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=ROWS)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+          |   +-$analytic2#13 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+          |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |   |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=ROWS)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+          |   |       |   +-Literal(type=INT64, value=2)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          |   +-$analytic3#14 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg(INT64, STRING) -> INT64)
+          |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=ROWS)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=OFFSET FOLLOWING)
+          |               +-Literal(type=INT64, value=3)
+          +-AnalyticFunctionGroup
+          | +-partition_by=
+          | | +-WindowPartitioning
+          | |   +-partition_by_list=
+          | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic4#15 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_no_order_no_frame(INT64) -> INT64)
+          |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          +-AnalyticFunctionGroup
+          | +-partition_by=
+          | | +-WindowPartitioning
+          | |   +-partition_by_list=
+          | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-order_by=
+          | | +-WindowOrdering
+          | |   +-order_by_item_list=
+          | |     +-OrderByItem
+          | |       +-column_ref=
+          | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic5#16 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64) -> INT64)
+          |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=RANGE)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          |   +-$analytic6#17 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64) -> INT64)
+          |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=RANGE)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+          |   |       |   +-Literal(type=INT64, value=2)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          |   +-$analytic7#18 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg(INT64) -> INT64)
+          |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=ROWS)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+          |           |   +-Literal(type=INT64, value=3)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+          | +-partition_by=
+          | | +-WindowPartitioning
+          | |   +-partition_by_list=
+          | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-order_by=
+          | | +-WindowOrdering
+          | |   +-order_by_item_list=
+          | |     +-OrderByItem
+          | |       +-column_ref=
+          | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic8#19 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=RANGE)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic9#20 :=
+                +-AnalyticFunctionCall(sample_functions:afn_agg(STRING) -> INT64)
+                  +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=RANGE)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=CURRENT ROW)
+==
+
+# All analytic functions that do not have PARTITION BY nor ORDER BY are in the
+# same group. All functions in this query are in one group.
+select afn_agg() over (), afn_agg() over w1, afn_agg() over w2,
+       afn_agg() over w3,
+       afn_agg() over (w1 rows 2 preceding),
+       afn_agg() over (w2 rows between 2 following and unbounded following),
+       afn_agg() over (w3 rows between current row and 2 following)
+from keyvalue
+window w1 as (), w2 as (), w3 as w1
+order by afn_agg(key) over (),
+         afn_agg(key) over (rows 4 preceding)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#10 AS `$col1` [INT64]
+| +-$analytic.$analytic2#11 AS `$col2` [INT64]
+| +-$analytic.$analytic3#12 AS `$col3` [INT64]
+| +-$analytic.$analytic4#13 AS `$col4` [INT64]
+| +-$analytic.$analytic5#14 AS `$col5` [INT64]
+| +-$analytic.$analytic6#15 AS `$col6` [INT64]
+| +-$analytic.$analytic7#16 AS `$col7` [INT64]
++-query=
+  +-OrderByScan
+    +-column_list=$analytic.[$analytic1#10, $analytic2#11, $analytic3#12, $analytic4#13, $analytic5#14, $analytic6#15, $analytic7#16]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AnalyticScan
+    |   +-column_list=[KeyValue.Key#1, $analytic.$analytic1#10, $analytic.$analytic2#11, $analytic.$analytic3#12, $analytic.$analytic4#13, $analytic.$analytic5#14, $analytic.$analytic6#15, $analytic.$analytic7#16, $analytic.$analytic8#17, $analytic.$analytic9#18]
+    |   +-input_scan=
+    |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    |   +-function_group_list=
+    |     +-AnalyticFunctionGroup
+    |       +-analytic_function_list=
+    |         +-$analytic1#10 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+    |         +-$analytic2#11 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+    |         +-$analytic3#12 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+    |         +-$analytic4#13 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+    |         +-$analytic5#14 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+    |         |       |   +-Literal(type=INT64, value=2)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=CURRENT ROW)
+    |         +-$analytic6#15 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=OFFSET FOLLOWING)
+    |         |       |   +-Literal(type=INT64, value=2)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+    |         +-$analytic7#16 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=CURRENT ROW)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=OFFSET FOLLOWING)
+    |         |           +-Literal(type=INT64, value=2)
+    |         +-$analytic8#17 :=
+    |         | +-AnalyticFunctionCall(sample_functions:afn_agg(INT64) -> INT64)
+    |         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |         |   +-window_frame=
+    |         |     +-WindowFrame(frame_unit=ROWS)
+    |         |       +-start_expr=
+    |         |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+    |         |       +-end_expr=
+    |         |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+    |         +-$analytic9#18 :=
+    |           +-AnalyticFunctionCall(sample_functions:afn_agg(INT64) -> INT64)
+    |             +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |             +-window_frame=
+    |               +-WindowFrame(frame_unit=ROWS)
+    |                 +-start_expr=
+    |                 | +-WindowFrameExpr(boundary_type=OFFSET PRECEDING)
+    |                 |   +-Literal(type=INT64, value=4)
+    |                 +-end_expr=
+    |                   +-WindowFrameExpr(boundary_type=CURRENT ROW)
+    +-order_by_item_list=
+      +-OrderByItem
+      | +-column_ref=
+      |   +-ColumnRef(type=INT64, column=$analytic.$analytic8#17)
+      +-OrderByItem
+        +-column_ref=
+          +-ColumnRef(type=INT64, column=$analytic.$analytic9#18)
+==
+
+# Although the three functions have equivalent window definitions, they
+# are not in the same function group because they do use named windows.
+select afn_agg() over (order by key), afn_agg() over (order by key),
+       afn_order() over w
+from keyvalue
+window w as (order by key)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#6 AS `$col1` [INT64]
+| +-$analytic.$analytic2#7 AS `$col2` [INT64]
+| +-$analytic.$analytic3#8 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$analytic.[$analytic1#6, $analytic2#7, $analytic3#8]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#6, $analytic.$analytic2#7, $analytic.$analytic3#8]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+          | +-order_by=
+          | | +-WindowOrdering
+          | |   +-order_by_item_list=
+          | |     +-OrderByItem
+          | |       +-column_ref=
+          | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic1#6 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=RANGE)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+          | +-order_by=
+          | | +-WindowOrdering
+          | |   +-order_by_item_list=
+          | |     +-OrderByItem
+          | |       +-column_ref=
+          | |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic2#7 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=RANGE)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-analytic_function_list=
+              +-$analytic3#8 := AnalyticFunctionCall(sample_functions:afn_order() -> INT64)
+==
+
+# Window names are case insensitive.
+select afn_agg() over wwwww,
+       afn_agg() over WwWwW,
+       afn_agg() over (WWwww ROWS UNBOUNDED PRECEDING),
+       afn_order() over AAaaa
+from keyvalue
+window wWwwW as (partition by key),
+       aaaaa as (wwWWW order by value)
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#7 AS `$col1` [INT64]
+| +-$analytic.$analytic2#8 AS `$col2` [INT64]
+| +-$analytic.$analytic3#9 AS `$col3` [INT64]
+| +-$analytic.$analytic4#10 AS `$col4` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$analytic.[$analytic1#7, $analytic2#8, $analytic3#9, $analytic4#10]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $analytic.$analytic1#7, $analytic.$analytic2#8, $analytic.$analytic3#9, $analytic.$analytic4#10]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+          | +-partition_by=
+          | | +-WindowPartitioning
+          | |   +-partition_by_list=
+          | |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+          | +-analytic_function_list=
+          |   +-$analytic1#7 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=ROWS)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+          |   +-$analytic2#8 :=
+          |   | +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |   |   +-window_frame=
+          |   |     +-WindowFrame(frame_unit=ROWS)
+          |   |       +-start_expr=
+          |   |       | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |   |       +-end_expr=
+          |   |         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+          |   +-$analytic3#9 :=
+          |     +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
+          |       +-window_frame=
+          |         +-WindowFrame(frame_unit=ROWS)
+          |           +-start_expr=
+          |           | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+          |           +-end_expr=
+          |             +-WindowFrameExpr(boundary_type=CURRENT ROW)
+          +-AnalyticFunctionGroup
+            +-partition_by=
+            | +-WindowPartitioning
+            |   +-partition_by_list=
+            |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-order_by=
+            | +-WindowOrdering
+            |   +-order_by_item_list=
+            |     +-OrderByItem
+            |       +-column_ref=
+            |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+            +-analytic_function_list=
+              +-$analytic4#10 := AnalyticFunctionCall(sample_functions:afn_order() -> INT64)
+==
+
+select afn_agg() over ww
+from keyvalue
+window wW as (partition by key),
+       Ww as (order by key)
+--
+ERROR: Duplicate window alias Ww [at 4:8]
+       Ww as (order by key)
+       ^

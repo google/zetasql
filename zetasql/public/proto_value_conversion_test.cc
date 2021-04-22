@@ -276,7 +276,6 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(CAST(-12345678901234567890123456789.1234567890123456789012345678 "
       "AS BIGNUMERIC))",
       "STRUCT(CAST(NULL AS GEOGRAPHY))",
-      "STRUCT(CAST('123' AS JSON))",
       "STRUCT(CAST(NULL AS JSON))",
 
       // STRUCT containing a proto.
@@ -329,7 +328,6 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "[CAST(-2.000000001 AS NUMERIC)]",
       "[CAST(-12345678901234567890123456789.1234567890123456789012345678 AS "
       "BIGNUMERIC)]",
-      "[CAST('123' AS JSON)]",
       // ARRAYs containing ARRAYs would go here, but those aren't allowed
       // in ZetaSQL.  Instead, we do ARRAY<STRUCT<ARRAY>>.
       "[STRUCT([1,2,3])]",

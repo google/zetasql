@@ -27,24 +27,27 @@ namespace zetasql {
 namespace {
 
 absl::Status CopyAnnotationRecursively(int id,
-                                       const AnnotationMap& from_annotated_map,
+                                       const AnnotationMap* from_annotated_map,
                                        AnnotationMap* to_annotated_map) {
-  const SimpleValue* from_value = from_annotated_map.GetAnnotation(id);
+  if (from_annotated_map == nullptr) {
+    return absl::OkStatus();
+  }
+  const SimpleValue* from_value = from_annotated_map->GetAnnotation(id);
   if (from_value != nullptr) {
     to_annotated_map->SetAnnotation(id, *from_value);
   }
-  if (from_annotated_map.IsArrayMap()) {
+  if (from_annotated_map->IsArrayMap()) {
     ZETASQL_RET_CHECK(to_annotated_map->IsArrayMap());
     ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        id, from_annotated_map.AsArrayMap()->element(),
+        id, from_annotated_map->AsArrayMap()->element(),
         to_annotated_map->AsArrayMap()->mutable_element()));
-  } else if (from_annotated_map.IsStructMap()) {
+  } else if (from_annotated_map->IsStructMap()) {
     ZETASQL_RET_CHECK(to_annotated_map->IsStructMap());
-    ZETASQL_RET_CHECK_EQ(from_annotated_map.AsStructMap()->num_fields(),
+    ZETASQL_RET_CHECK_EQ(from_annotated_map->AsStructMap()->num_fields(),
                  to_annotated_map->AsStructMap()->num_fields());
-    for (int i = 0; i < from_annotated_map.AsStructMap()->num_fields(); i++) {
+    for (int i = 0; i < from_annotated_map->AsStructMap()->num_fields(); i++) {
       ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-          id, from_annotated_map.AsStructMap()->field(i),
+          id, from_annotated_map->AsStructMap()->field(i),
           to_annotated_map->AsStructMap()->mutable_field(i)));
     }
   }
@@ -58,7 +61,7 @@ absl::Status CollationAnnotation::CheckAndPropagateForColumnRef(
     AnnotationMap* result_annotation_map) {
   if (column_ref.column().type_annotation_map() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        GetId(), *column_ref.column().type_annotation_map(),
+        GetId(), column_ref.column().type_annotation_map(),
         result_annotation_map));
   }
   return absl::OkStatus();

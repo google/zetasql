@@ -1,0 +1,815 @@
+# These tests run with a whitelist and expected types for hints and options.
+# The specification is in GetAllowedHintsAndOptions() in run_analyzer_test.cc.
+#
+# Hints with qualifier "qual" are intended for this engine, and others should
+# be ignored.  We also enforce that only known hints are allowed unqualified.
+
+[default use_hints_whitelist]
+
+select @{ bad_hint=123 } 1
+--
+ERROR: Unknown hint: bad_hint [at 1:11]
+select @{ bad_hint=123 } 1
+          ^
+==
+
+select @{ qual.bad_hint=123 } 1
+--
+ERROR: Unknown hint: qual.bad_hint [at 1:16]
+select @{ qual.bad_hint=123 } 1
+               ^
+==
+
+# This hint is not for our qualifier so we let it through.
+select @{ wrong_qual.bad_hint=123 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-wrong_qual.bad_hint := Literal(type=INT64, value=123)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# We have a declared hint other_qual.int32_hint, but we haven't locked
+# down that qualifier, so any other hints are allowed through.
+select @{ other_qual.int32_hint=100,
+          other_qual.anything_else="abc" } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-other_qual.int32_hint := Literal(type=INT32, value=100)
+    | +-other_qual.anything_else := Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ other_qual.int32_hint="abc" } 1
+--
+ERROR: Hint other_qual.int32_hint value has type STRING which cannot be coerced to expected type INT32 [at 1:33]
+select @{ other_qual.int32_hint="abc" } 1
+                                ^
+==
+
+# We have these uint32 hints declared:
+#   unqual_hint
+#   qual.qual_hint      (qualifier optional)
+#   qual.must_qual_hint (qualifier required)
+select @{ unqual_hint=10,
+          qual_hint=10,
+          qual.qual_hint=10,
+          qual.must_qual_hint=10,
+          other.qual_hint=10 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-unqual_hint := Literal(type=UINT32, value=10)
+    | +-qual_hint := Literal(type=UINT32, value=10)
+    | +-qual.qual_hint := Literal(type=UINT32, value=10)
+    | +-qual.must_qual_hint := Literal(type=UINT32, value=10)
+    | +-other.qual_hint := Literal(type=INT64, value=10)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ must_qual_hint=10 } 1
+--
+ERROR: Unknown hint: must_qual_hint [at 1:11]
+select @{ must_qual_hint=10 } 1
+          ^
+==
+
+# This used to give a parse error because of http://b/21954508.
+select @{ qual_hint=-10 } 1
+--
+ERROR: Could not cast literal -10 to type UINT32 [at 1:21]
+select @{ qual_hint=-10 } 1
+                    ^
+==
+
+select @{ qual_hint=1234567890123 } 1
+--
+ERROR: Could not cast literal 1234567890123 to type UINT32 [at 1:21]
+select @{ qual_hint=1234567890123 } 1
+                    ^
+==
+
+# Hints are case insensitive.
+select @{ INt32_Hint=123, QUal.INt32_Hint=123 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-INt32_Hint := Literal(type=INT32, value=123)
+    | +-QUal.INt32_Hint := Literal(type=INT32, value=123)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ QUal.bad_HInt=177 } 1
+--
+ERROR: Unknown hint: QUal.bad_HInt [at 1:16]
+select @{ QUal.bad_HInt=177 } 1
+               ^
+==
+
+# Hints with correct types.  Note that 123 becomes int32, not int64.
+select @{ qual.int32_hint=123, string_hint='abc', string_hint=def } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-qual.int32_hint := Literal(type=INT32, value=123)
+    | +-string_hint := Literal(type=STRING, value="abc")
+    | +-string_hint := Literal(type=STRING, value="def")
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ qual.int32_hint='123' } 1
+--
+ERROR: Hint qual.int32_hint value has type STRING which cannot be coerced to expected type INT32 [at 1:27]
+select @{ qual.int32_hint='123' } 1
+                          ^
+==
+
+select @{ qual.int32_hint=abc } 1
+--
+ERROR: Hint qual.int32_hint value has type STRING which cannot be coerced to expected type INT32 [at 1:27]
+select @{ qual.int32_hint=abc } 1
+                          ^
+==
+
+select @{ qual.int32_hint=1234578901234 } 1
+--
+ERROR: Could not cast literal 1234578901234 to type INT32 [at 1:27]
+select @{ qual.int32_hint=1234578901234 } 1
+                          ^
+==
+
+# untyped_hint accepts any type.
+select @{ untyped_hint=1, qual.untyped_hint="abc", untyped_hint=def,
+          untyped_hint=[1,2], untyped_hint=null } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-untyped_hint := Literal(type=INT64, value=1)
+    | +-qual.untyped_hint := Literal(type=STRING, value="abc")
+    | +-untyped_hint := Literal(type=STRING, value="def")
+    | +-untyped_hint := Literal(type=ARRAY<INT64>, value=[1, 2])
+    | +-untyped_hint := Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# The same hint value 1 becomes different types.
+select @{ int64_hint=1, int32_hint=1, untyped_hint=1 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-int64_hint := Literal(type=INT64, value=1)
+    | +-int32_hint := Literal(type=INT32, value=1)
+    | +-untyped_hint := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ enum_hint=1, enum_hint='TESTENUM1', enum_hint=TESTENUM2,
+          enum_hint=null } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# A single identifier is treated as a string, which can be coerced to an enum.
+select @{ enum_hint=TESTENUM2 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# A parenthesized identifier is treated as an expression, not a literal string.
+select @{ enum_hint=(TESTENUM2) } 1
+--
+ERROR: Unrecognized name: TESTENUM2 [at 1:22]
+select @{ enum_hint=(TESTENUM2) } 1
+                     ^
+==
+
+# Inside a function, we parse the identifier as an expression, so it fails.
+select @{ enum_hint=coalesce(TESTENUM2) } 1
+--
+ERROR: Unrecognized name: TESTENUM2 [at 1:30]
+select @{ enum_hint=coalesce(TESTENUM2) } 1
+                             ^
+==
+
+select @{ enum_hint=177 } 1
+--
+ERROR: Could not cast literal 177 to type ENUM<zetasql_test.TestEnum> [at 1:21]
+select @{ enum_hint=177 } 1
+                    ^
+==
+
+select @{ enum_hint='bad value' } 1
+--
+ERROR: Could not cast literal "bad value" to type ENUM<zetasql_test.TestEnum> [at 1:21]
+select @{ enum_hint='bad value' } 1
+                    ^
+==
+
+# Enum values are case sensitive.
+select @{ ENUM_hint='TestEnum2' } 1
+--
+ERROR: Could not cast literal "TestEnum2" to type ENUM<zetasql_test.TestEnum> [at 1:21]
+select @{ ENUM_hint='TestEnum2' } 1
+                    ^
+==
+
+# NULL hints coerce to the appropriate type.
+select @{ int64_hint=null, int32_hint=NULL, enum_hint=null,
+          proto_hint=null, struct_hint=null, enum_array_hint=null,
+          untyped_hint=null } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-int64_hint := Literal(type=INT64, value=NULL)
+    | +-int32_hint := Literal(type=INT32, value=NULL)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
+    | +-proto_hint := Literal(type=PROTO<zetasql_test.TestExtraPB>, value=NULL)
+    | +-struct_hint := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value=NULL)
+    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=NULL)
+    | +-untyped_hint := Literal(type=INT64, value=NULL)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ enum_hint="TESTENUM2",
+          proto_hint="int32_val2:5",
+          proto_hint=b'',
+          struct_hint=(17, 'TESTENUM1') } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+    | +-proto_hint := Literal(type=PROTO<zetasql_test.TestExtraPB>, value={int32_val2: 5})
+    | +-proto_hint := Literal(type=PROTO<zetasql_test.TestExtraPB>, value={})
+    | +-struct_hint := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:17, b:TESTENUM1})
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# Enum array hints aren't actually working unless we explicitly type the value
+# because we don't support implicit coercion of array values.
+select @{ enum_array_hint={{[1,2]|['TESTENUM1']|[]}} } 1
+--
+ALTERNATION GROUP: [1,2]
+--
+ERROR: Hint enum_array_hint value has type ARRAY<INT64> which cannot be coerced to expected type ARRAY<zetasql_test.TestEnum> [at 1:27]
+select @{ enum_array_hint=[1,2] } 1
+                          ^
+--
+ALTERNATION GROUP: ['TESTENUM1']
+--
+ERROR: Hint enum_array_hint value has type ARRAY<STRING> which cannot be coerced to expected type ARRAY<zetasql_test.TestEnum> [at 1:27]
+select @{ enum_array_hint=['TESTENUM1'] } 1
+                          ^
+--
+ALTERNATION GROUP: []
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=[])
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# This works with an explicitly typed hint value, but unparsing won't
+# work in that case.
+select @{ enum_array_hint=array<zetasql_test.TestEnum>[1,2] } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=[TESTENUM1, TESTENUM2])
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# A few tests with EXPORT DATA to show the same behavior for OPTIONS.
+export data OPTIONS(int32_option=123, STRUct_option=(1,'TESTENUM1'))
+as select 1 x
+--
+ExportDataStmt
++-option_list=
+| +-int32_option := Literal(type=INT32, value=123)
+| +-STRUct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:1, b:TESTENUM1})
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# More interesting STRUCT option syntax.
+CREATE TABLE foo OPTIONS(STRUct_option=struct(1 as foo,'TESTENUM1' as bar))
+as select 1 x;
+--
+CreateTableAsSelectStmt
++-name_path=foo
++-option_list=
+| +-STRUct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:1, b:TESTENUM1})
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# More interesting STRUCT option syntax.
+CREATE TABLE foo
+OPTIONS(
+    struct_option = struct<a int32, b zetasql_test.TestEnum>(2, "TESTENUM1"))
+as select 1 x;
+--
+CreateTableAsSelectStmt
++-name_path=foo
++-option_list=
+| +-struct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:2, b:TESTENUM1})
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# STRUCT option syntax with untyped options.
+CREATE TABLE foo OPTIONS(untyped_option={{struct|}}(1,'TESTENUM1'))
+as select 1 x;
+--
+CreateTableAsSelectStmt
++-name_path=foo
++-option_list=
+| +-untyped_option := Literal(type=STRUCT<INT64, STRING>, value={1, "TESTENUM1"})
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# STRUCT option syntax with untyped options.
+CREATE TABLE foo
+OPTIONS(untyped_option={{struct|}}(1 as foo,'TESTENUM1' as bar))
+as select 1 x;
+--
+ALTERNATION GROUP: struct
+--
+CreateTableAsSelectStmt
++-name_path=foo
++-option_list=
+| +-untyped_option := Literal(type=STRUCT<foo INT64, bar STRING>, value={foo:1, bar:"TESTENUM1"})
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Syntax error: Parenthesized expression cannot be parsed as an expression, struct constructor, or subquery [at 2:25]
+OPTIONS(untyped_option=(1 as foo,'TESTENUM1' as bar))
+                        ^
+==
+
+# STRUCT option syntax with untyped options.
+CREATE TABLE foo
+OPTIONS(untyped_option = struct<a int32, b string>(1, "a"))
+as select 1 x;
+--
+CreateTableAsSelectStmt
++-name_path=foo
++-option_list=
+| +-untyped_option := Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"a"}, has_explicit_type=TRUE)
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+select @{ string_hint = @test_param_string, enum_hint = @test_param_enum,
+          int32_hint = @test_param_int32 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-string_hint := Parameter(type=STRING, name="test_param_string")
+    | +-enum_hint := Parameter(type=ENUM<zetasql_test.TestEnum>, name="test_param_enum")
+    | +-int32_hint := Parameter(type=INT32, name="test_param_int32")
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ int64_hint = @test_param_int32 } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-int64_hint :=
+    |   +-Cast(INT32 -> INT64)
+    |     +-Parameter(type=INT32, name="test_param_int32")
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+select @{ int64_hint = @test_param_string } 1
+--
+ERROR: Hint int64_hint value has type STRING which cannot be coerced to expected type INT64 [at 1:24]
+select @{ int64_hint = @test_param_string } 1
+                       ^
+==
+
+# Literal coercions on parameterized hints.
+select @{ date_hint = @test_param_string,
+          enum_hint = @test_param_string,
+          enum_hint = @test_param_int32,
+          proto_hint = @test_param_string } 1
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-hint_list=
+    | +-date_hint :=
+    | | +-Cast(STRING -> DATE)
+    | |   +-Parameter(type=STRING, name="test_param_string")
+    | +-enum_hint :=
+    | | +-Cast(STRING -> ENUM<zetasql_test.TestEnum>)
+    | |   +-Parameter(type=STRING, name="test_param_string")
+    | +-enum_hint :=
+    | | +-Cast(INT32 -> ENUM<zetasql_test.TestEnum>)
+    | |   +-Parameter(type=INT32, name="test_param_int32")
+    | +-proto_hint :=
+    |   +-Cast(STRING -> PROTO<zetasql_test.TestExtraPB>)
+    |     +-Parameter(type=STRING, name="test_param_string")
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.$col1#1]
+        +-expr_list=
+        | +-$col1#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+export data OPTIONS(untyped_option=123, untyped_option="abc")
+as select 1 x
+--
+ExportDataStmt
++-option_list=
+| +-untyped_option := Literal(type=INT64, value=123)
+| +-untyped_option := Literal(type=STRING, value="abc")
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+export data OPTIONS(enum_option=TESTENUM1, proto_option="int32_val2:5")
+as select 1 x
+--
+ExportDataStmt
++-option_list=
+| +-enum_option := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+| +-proto_option := Literal(type=PROTO<zetasql_test.TestExtraPB>, value={int32_val2: 5})
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+export data OPTIONS(INT32_option="123")
+as select 1 x
+--
+ERROR: Option INT32_option value has type STRING which cannot be coerced to expected type INT32 [at 1:34]
+export data OPTIONS(INT32_option="123")
+                                 ^
+==
+
+export data OPTIONS(INT32_option=1234567890123)
+as select 1 x
+--
+ERROR: Could not cast literal 1234567890123 to type INT32 [at 1:34]
+export data OPTIONS(INT32_option=1234567890123)
+                                 ^
+==
+
+export data OPTIONS(int32_option=null, enum_option=null, enum_array_option=null)
+as select 1 x
+--
+ExportDataStmt
++-option_list=
+| +-int32_option := Literal(type=INT32, value=NULL)
+| +-enum_option := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
+| +-enum_array_option := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=NULL)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+export data OPTIONS(int32_option=null, enum_option=null, enum_array_option=null)
+as select 1 x
+--
+ExportDataStmt
++-option_list=
+| +-int32_option := Literal(type=INT32, value=NULL)
+| +-enum_option := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
+| +-enum_array_option := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=NULL)
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+export data OPTIONS(bad_name=5)
+as select 1 x
+--
+ERROR: Unknown option: bad_name [at 1:21]
+export data OPTIONS(bad_name=5)
+                    ^
+==
+
+export data OPTIONS(int32_hint=5)
+as select 1 x
+--
+ERROR: Unknown option: int32_hint [at 1:21]
+export data OPTIONS(int32_hint=5)
+                    ^
+==
+
+export data OPTIONS(int64_option = @test_param_int32,
+                    date_option = @test_param_string)
+as select 1 x
+--
+ExportDataStmt
++-option_list=
+| +-int64_option :=
+| | +-Cast(INT32 -> INT64)
+| |   +-Parameter(type=INT32, name="test_param_int32")
+| +-date_option :=
+|   +-Cast(STRING -> DATE)
+|     +-Parameter(type=STRING, name="test_param_string")
++-output_column_list=
+| +-$create_as.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.x#1]
+    +-expr_list=
+    | +-x#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+export data OPTIONS(int64_option = @test_param_string)
+as select 1 x
+--
+ERROR: Option int64_option value has type STRING which cannot be coerced to expected type INT64 [at 1:36]
+export data OPTIONS(int64_option = @test_param_string)
+                                   ^
+==
+
+# Test case from b/152892304
+CREATE TABLE Foo
+  OPTIONS (
+    string_array_option = ['hello'],
+    int64_option = 42)
+AS (
+  SELECT 1 AS foo
+);
+--
+CreateTableAsSelectStmt
++-name_path=Foo
++-option_list=
+| +-string_array_option := Literal(type=ARRAY<STRING>, value=["hello"])
+| +-int64_option := Literal(type=INT64, value=42)
++-column_definition_list=
+| +-ColumnDefinition(name="foo", type=INT64, column=Foo.foo#2)
++-output_column_list=
+| +-$create_as.foo#1 AS foo [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$create_as.foo#1]
+    +-expr_list=
+    | +-foo#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan

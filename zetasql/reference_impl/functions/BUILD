@@ -80,7 +80,10 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:ret_check",
         "//zetasql/base:statusor",
+        "//zetasql/common:errors",
+        "//zetasql/public:json_value",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public/functions:json",
         "//zetasql/public/functions:json_format",

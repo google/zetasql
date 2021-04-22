@@ -185,6 +185,7 @@ std::vector<QueryParamsWithResult> GetTimestampAddSubInterval();
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalAdd();
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalSub();
 std::vector<QueryParamsWithResult> GetFunctionTestsExtractInterval();
+std::vector<FunctionTestCall> GetFunctionTestsJustifyInterval();
 
 std::vector<FunctionTestCall> GetFunctionTestsFromProto();
 std::vector<QueryParamsWithResult> GetFunctionTestsFromProto3TimeOfDay();
@@ -264,6 +265,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
 std::vector<FunctionTestCall> GetFunctionTestsToJson(
     bool include_nano_timestamp);
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
+std::vector<FunctionTestCall> GetFunctionTestsParseJson();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

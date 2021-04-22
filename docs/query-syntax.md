@@ -14,7 +14,7 @@ ZetaSQL.
     <span class="var">query_expr</span>
 
 <span class="var">query_expr</span>:
-    [ <a href="#with_clause">WITH</a> <span class="var"><a href="#with_query_name">with_query_name</a></span> AS ( <span class="var">query_expr</span> ) [, ...] ]
+    [ <a href="#with_clause">WITH</a> [ <a href="#recursive_keyword">RECURSIVE</a> ] <a href="#with_clause"><span class="var">with_clause</span></a> ]
     { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <span class="var">query_expr</span> <span class="var">set_op</span> <span class="var">query_expr</span> }
     [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
     [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
@@ -23,36 +23,16 @@ ZetaSQL.
     <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
         { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
         [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
-    [ <a href="#from_clause">FROM</a> <span class="var">from_item</span> [ <span class="var">tablesample_type</span> ] [, ...] ]
+    [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
     [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
-    [ <a href="#window_clause">WINDOW</a> <span class="var">named_window_expression</span> AS { <span class="var">named_window</span> | ( [ <span class="var">window_definition</span> ] ) } [, ...] ]
+    [ <a href="#qualify_clause">QUALIFY</a> <span class="var">bool_expression</span> ]
+    [ <a href="#window_clause">WINDOW</a> <a href="#window_clause"><span class="var">window_clause</span></a> ]
 
 <span class="var">set_op</span>:
     <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
 
-<span class="var">from_item</span>: {
-    <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
-    <a href="#join_types"><span class="var">join_operation</span></a> |
-    ( <span class="var">query_expr</span> ) [ [ AS ] <span class="var">alias</span> ] |
-    <span class="var">field_path</span> |
-    { <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> ) | UNNEST( <span class="var">array_path</span> ) | <span class="var">array_path</span> }
-        [ [ AS ] <span class="var">alias</span> ] [ WITH OFFSET [ [ AS ] <span class="var">alias</span> ] ] |
-    <span class="var"><a href="#with_query_name">with_query_name</a></span> [ [ AS ] <span class="var">alias</span> ]
-}
-
-<span class="var">tablesample_type</span>:
-    <a href="#tablesample_operator">TABLESAMPLE</a> <span class="var">sample_method</span> (<span class="var">sample_size</span> <span class="var">percent_or_rows</span> )
-
-<span class="var">sample_method</span>:
-    { BERNOULLI | SYSTEM | RESERVOIR }
-
-<span class="var">sample_size</span>:
-    <span class="var">numeric_value_expression</span>
-
-<span class="var">percent_or_rows</span>:
-    { PERCENT | ROWS }
 </pre>
 
 **Notation rules**
@@ -463,20 +443,34 @@ See [Using Aliases][using-aliases] for information on syntax and visibility for
 ## FROM clause
 
 <pre>
-<span class="var">from_item</span>: {
-    <span class="var">table_name</span> [ [ AS ] <span class="var">alias</span> ] |
-    <a href="#join_types"><span class="var">join_operation</span></a> |
-    ( <span class="var">query_expr</span> ) [ [ AS ] <span class="var">alias</span> ] |
-    <span class="var">field_path</span> |
-    { <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> ) | UNNEST( <span class="var">array_path</span> ) | <span class="var">array_path</span> }
-        [ [ AS ] <span class="var">alias</span> ] [ WITH OFFSET [ [ AS ] <span class="var">alias</span> ] ] |
-    <span class="var"><a href="#with_query_name">with_query_name</a></span> [ [ AS ] <span class="var">alias</span> ]
-}
+FROM <span class="var">from_clause</span>[, ...]
+
+<span class="var">from_clause</span>:
+    <span class="var">from_item</span>
+    [ <a href="#tablesample_operator"><span class="var">tablesample_operator</span></a> ]
+
+<span class="var">from_item</span>:
+    {
+      <span class="var">table_name</span> [ <span class="var">as_alias</span> ]
+      | <a href="#join_types"><span class="var">join_operation</span></a>
+      | ( <span class="var">query_expr</span> ) [ <span class="var">as_alias</span> ]
+      | <span class="var">field_path</span>
+      | <a href="#unnest_operator"><span class="var">unnest_operator</span></a>
+      | <span class="var"><a href="#with_query_name">with_query_name</a></span> [ <span class="var">as_alias</span> ]
+    }
+
+<span class="var">as_alias</span>:
+    [ AS ] <span class="var">alias</span>
 </pre>
 
-The `FROM` clause indicates the table or tables from which to retrieve rows, and
-specifies how to join those rows together to produce a single stream of
+The `FROM` clause indicates the table or tables from which to retrieve rows,
+and specifies how to join those rows together to produce a single stream of
 rows for processing in the rest of the query.
+
+#### tablesample_operator 
+<a id="tablesample_operator_clause"></a>
+
+See [TABLESAMPLE operator][tablesample-operator].
 
 #### table_name
 
@@ -491,9 +485,9 @@ SELECT * FROM db.Roster;
 
 See [JOIN operation][query-joins].
 
-#### select
+#### query_expr
 
-`( select ) [ [ AS ] alias ]` is a [table subquery][table-subquery-concepts].
+`( query_expr ) [ [ AS ] alias ]` is a [table subquery][table-subquery-concepts].
 
 #### field_path
 
@@ -530,7 +524,44 @@ Note: If a path has more than one name, and it matches a field
 name, it is interpreted as a field name. To force the path to be interpreted as
 a table name, wrap the path using <code>`</code>.
 
-#### UNNEST
+#### unnest_operator 
+<a id="unnest_operator_clause"></a>
+
+See [UNNEST operator][unnest-operator].
+
+#### with_query_name
+
+The query names in a `WITH` clause (see [WITH Clause][with_clause]) act like
+names of temporary tables that you can reference anywhere in the `FROM` clause.
+In the example below, `subQ1` and `subQ2` are `with_query_names`.
+
+Example:
+
+```sql
+WITH
+  subQ1 AS (SELECT * FROM Roster WHERE SchoolID = 52),
+  subQ2 AS (SELECT SchoolID FROM subQ1)
+SELECT DISTINCT * FROM subQ2;
+```
+
+The `WITH` clause hides any permanent tables with the same name
+for the duration of the query, unless you qualify the table name, for example:
+
+ `db.Roster`.
+
+## UNNEST operator 
+<a id="unnest_operator"></a>
+
+<pre>
+<span class="var">unnest_operator</span>:
+    {
+      <a href="#unnest">UNNEST</a>( <span class="var">array_expression</span> )
+      | UNNEST( <span class="var">array_path</span> )
+      | <span class="var">array_path</span>
+    }
+    [ <span class="var">as_alias</span> ]
+    [ WITH OFFSET [ <span class="var">as_alias</span> ] ]
+</pre>
 
 The `UNNEST` operator takes an `ARRAY` and returns a
 table, with one row for each element in the `ARRAY`.
@@ -552,7 +583,7 @@ return a second column with the array element indexes (see following).
 For several ways to use `UNNEST`, including construction, flattening, and
 filtering, see [`Working with arrays`][working-with-arrays].
 
-##### UNNEST and STRUCTs
+### UNNEST and STRUCTs
 For an input `ARRAY` of `STRUCT`s, `UNNEST`
 returns a row for each `STRUCT`, with a separate column for each field in the
 `STRUCT`. The alias for each column is the name of the corresponding `STRUCT`
@@ -594,7 +625,7 @@ FROM UNNEST(ARRAY<STRUCT<x INT64, y STRING>>[(1, 'foo'), (3, 'bar')])
 +---+-----+--------------+
 ```
 
-##### UNNEST and PROTOs
+### UNNEST and PROTOs
 For an input `ARRAY` of `PROTO`s, `UNNEST`
 returns a row for each `PROTO`, with a separate column for each field in the
 `PROTO`. The alias for each column is the name of the corresponding `PROTO`
@@ -640,7 +671,7 @@ FROM UNNEST(
 +---------------------------------------------------------------------+
 ```
 
-##### Explicit and implicit UNNEST
+### Explicit and implicit UNNEST
 
 `ARRAY` unnesting can be either explicit or implicit.
 In explicit unnesting, `array_expression` must return an
@@ -669,7 +700,7 @@ structure, but the last field must be `ARRAY`-typed. No previous field in the
 expression can be `ARRAY`-typed because it is not possible to extract a named
 field from an `ARRAY`.
 
-##### UNNEST and FLATTEN
+### UNNEST and FLATTEN
 
 The `UNNEST` operator accepts a [_flatten path_][flattening-trees-into-arrays]
 as its argument for `array_expression`. When the argument is a flatten path, the
@@ -678,7 +709,7 @@ from applying the [`FLATTEN` operator][flatten-operator] to the flatten path.
 To learn more about the relationship between these operators and flattening,
 see [Flattening tree-structured data into arrays][flattening-trees-into-arrays].
 
-##### UNNEST and NULLs
+### UNNEST and NULLs
 
 `UNNEST` treats NULLs as follows:
 
@@ -696,30 +727,10 @@ Example:
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
 ```
 
-#### with_query_name
-
-The query names in a `WITH` clause (see [WITH Clause][with_clause]) act like
-names of temporary tables that you can reference anywhere in the `FROM` clause.
-In the example below, `subQ1` and `subQ2` are `with_query_names`.
-
-Example:
+## TABLESAMPLE operator
 
 ```sql
-WITH
-  subQ1 AS (SELECT * FROM Roster WHERE SchoolID = 52),
-  subQ2 AS (SELECT SchoolID FROM subQ1)
-SELECT DISTINCT * FROM subQ2;
-```
-
-The `WITH` clause hides any permanent tables with the same name
-for the duration of the query, unless you qualify the table name, for example:
-
- `db.Roster`.
-
-### TABLESAMPLE operator
-
-```sql
-tablesample_type:
+tablesample_clause:
     TABLESAMPLE sample_method (sample_size percent_or_rows [ partition_by ])
     [ REPEATABLE(repeat_argument) ]
     [ WITH WEIGHT [AS alias] ]
@@ -739,9 +750,9 @@ partition_by:
 
 **Description**
 
-You can use the `TABLESAMPLE` operator to select a random sample of a data
-set. This operator is useful when working with tables that have large amounts of
-data and precise answers are not required.
+You can use the `TABLESAMPLE` operator to select a random sample of a dataset.
+This operator is useful when you're working with tables that have large
+amounts of data and you don't need precise answers.
 
 +  `sample_method`: When using the `TABLESAMPLE` operator, you must specify the
    sampling algorithm to use:
@@ -762,7 +773,7 @@ data and precise answers are not required.
    `ROWS` or `PERCENT`. If you choose `PERCENT`, the value must be between
    0 and 100. If you choose `ROWS`, the value must be greater than or equal
    to 0.
-+  `partition_by`: Optional. Perform [stratefied sampling][stratefied-sampling]
++  `partition_by`: Optional. Perform [stratified sampling][stratefied-sampling]
    for each distinct group identified by the `PARTITION BY` clause. That is,
    if the number of rows in a particular group is less than the specified row
    count, all rows in that group are assigned to the sample. Otherwise, it
@@ -837,7 +848,7 @@ Threads AS S
 WHERE S.ServerId="test" AND R.ThreadId = S.ThreadId;
 ```
 
-Group results by country, using stratefied sampling:
+Group results by country, using stratified sampling:
 
 ```sql
 SELECT country, SUM(click_cost) FROM ClickEvents
@@ -845,7 +856,7 @@ SELECT country, SUM(click_cost) FROM ClickEvents
  GROUP BY country;
 ```
 
-Add scaling weight to stratefied sampling:
+Add scaling weight to stratified sampling:
 
 ```sql
 SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
@@ -854,7 +865,7 @@ SELECT country, SUM(click_cost * sampling_weight) FROM ClickEvents
  GROUP BY country;
 ```
 
-This is equivelant to the previous example. Note that you don't have to use
+This is equivalent to the previous example. Note that you don't have to use
 an alias after `WITH WEIGHT`. If you don't, the default alias `weight` is used.
 
 ```sql
@@ -864,11 +875,11 @@ SELECT country, SUM(click_cost * weight) FROM ClickEvents
  GROUP BY country;
 ```
 
-#### Stratefied sampling 
+### Stratified sampling 
 <a id="stratefied_sampling"></a>
 
 If you want better quality generated samples for under-represented groups,
-you can use stratefied sampling. Stratefied sampling helps you
+you can use stratified sampling. Stratified sampling helps you
 avoid samples with missing groups. To allow stratified sampling per
 distinct group, use `PARTITION BY` with `RESERVOIR` in the `TABLESAMPLE` clause.
 
@@ -892,7 +903,7 @@ SELECT click_cost, country FROM ClickEvents
 TABLESAMPLE RESERVOIR (100 ROWS PARTITION BY country)
 ```
 
-#### Scaling weight 
+### Scaling weight 
 <a id="scaling_weight"></a>
 
 With scaling weight, you can perform fast and reasonable population estimates
@@ -951,18 +962,12 @@ is two. With 1% uniform sampling, it is statistically probable that all the
 sampled rows are from the `US` and none of them are from the `VN` partition.
 As a result, the output of the second query does not contain the `SUM` estimate
 for the group `VN`. We refer to this as the _missing-group problem_, which
-can be solved with [stratefied sampling][stratefied-sampling].
-
-### Aliases
-
-See [Using Aliases][using-aliases] for information on syntax and visibility for
-`FROM` clause aliases.
+can be solved with [stratified sampling][stratefied-sampling].
 
 ## JOIN operation 
 <a id="join_types"></a>
 
 <pre>
-
 <span class="var">join_operation</span>:
     { <span class="var">cross_join_operation</span> | <span class="var">join_operation_with_condition</span> }
 
@@ -1545,42 +1550,55 @@ FROM A, B JOIN C ON TRUE       // VALID
 WHERE bool_expression
 ```
 
-The `WHERE` clause filters out rows by evaluating each row against
-`bool_expression`, and discards all rows that do not return TRUE (that is,
-rows that return FALSE or NULL).
+The `WHERE` clause filters the results of the `FROM` clause.
 
-Example:
+Only rows whose `bool_expression` evaluates to `TRUE` are included. Rows
+whose `bool_expression` evaluates to `NULL` or `FALSE` are
+discarded.
+
+The evaluation of a query with a `WHERE` clause is typically completed in this
+order:
+
++ `FROM`
++ `WHERE`
++ `GROUP BY` and aggregation
++ `HAVING`
++ `WINDOW`
++ `QUALIFY`
++ `DISTINCT`
++ `ORDER BY`
++ `LIMIT`
+
+The `WHERE` clause can only reference columns available via the `FROM` clause;
+it cannot reference `SELECT` list aliases.
+
+**Examples**
+
+This query returns returns all rows from the [`Roster`][roster-table] table
+where the `SchoolID` column has the value `52`:
 
 ```sql
 SELECT * FROM Roster
 WHERE SchoolID = 52;
 ```
 
-The `bool_expression` can contain multiple sub-conditions.
-
-Example:
+The `bool_expression` can contain multiple sub-conditions:
 
 ```sql
 SELECT * FROM Roster
 WHERE STARTS_WITH(LastName, "Mc") OR STARTS_WITH(LastName, "Mac");
 ```
 
-You cannot reference column aliases from the `SELECT` list in the `WHERE`
-clause.
-
 Expressions in an `INNER JOIN` have an equivalent expression in the
 `WHERE` clause. For example, a query using `INNER` `JOIN` and `ON` has an
-equivalent expression using `CROSS JOIN` and `WHERE`.
-
-Example - this query:
+equivalent expression using `CROSS JOIN` and `WHERE`. For example,
+the following two queries are equivalent:
 
 ```sql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster INNER JOIN TeamMascot
 ON Roster.SchoolID = TeamMascot.SchoolID;
 ```
-
-is equivalent to:
 
 ```sql
 SELECT Roster.LastName, TeamMascot.Mascot
@@ -1760,20 +1778,27 @@ grand total:
 HAVING bool_expression
 ```
 
-The `HAVING` clause is similar to the `WHERE` clause: it filters out rows that
-do not return TRUE when they are evaluated against the `bool_expression`.
+The `HAVING` clause filters the results produced by `GROUP BY` or
+aggregation. `GROUP BY` or aggregation must be present in the query. If
+aggregation is present, the `HAVING` clause is evaluated once for every
+aggregated row in the result set.
 
-As with the `WHERE` clause, the `bool_expression` can be any expression
-that returns a boolean, and can contain multiple sub-conditions.
+Only rows whose `bool_expression` evaluates to `TRUE` are included. Rows
+whose `bool_expression` evaluates to `NULL` or `FALSE` are
+discarded.
 
-The `HAVING` clause differs from the `WHERE` clause in that:
+The evaluation of a query with a `HAVING` clause is typically completed in this
+order:
 
-  * The `HAVING` clause requires `GROUP BY` or aggregation to be present in the
-     query.
-  * The `HAVING` clause occurs after `GROUP BY` and aggregation, and before
-     `ORDER BY`. This means that the `HAVING` clause is evaluated once for every
-     aggregated row in the result set. This differs from the `WHERE` clause,
-     which is evaluated before `GROUP BY` and aggregation.
++ `FROM`
++ `WHERE`
++ `GROUP BY` and aggregation
++ `HAVING`
++ `WINDOW`
++ `QUALIFY`
++ `DISTINCT`
++ `ORDER BY`
++ `LIMIT`
 
 The `HAVING` clause can reference columns available via the `FROM` clause, as
 well as `SELECT` list aliases. Expressions referenced in the `HAVING` clause
@@ -2037,6 +2062,83 @@ FROM Locations
 ORDER BY Place COLLATE "unicode:ci"
 ```
 
+## QUALIFY clause
+
+```sql
+QUALIFY bool_expression
+```
+
+The `QUALIFY` clause filters the results of analytic functions.
+An analytic function is required to be present in the `QUALIFY` clause or the
+`SELECT` list.
+
+Only rows whose `bool_expression` evaluates to `TRUE` are included. Rows
+whose `bool_expression` evaluates to `NULL` or `FALSE` are
+discarded.
+
+The evaluation of a query with a `QUALIFY` clause is typically completed in this
+order:
+
++ `FROM`
++ `WHERE`
++ `GROUP BY` and aggregation
++ `HAVING`
++ `WINDOW`
++ `QUALIFY`
++ `DISTINCT`
++ `ORDER BY`
++ `LIMIT`
+
+**Limitations**
+
+The `QUALIFY` clause has an implementation limitation in that it must be used in
+conjunction with at least one of these clauses:
+
++ `WHERE`
++ `GROUP BY`
++ `HAVING`
+
+**Examples**
+
+The following query returns the most popular vegetables in the
+[`Produce`][produce-table] table and their rank.
+
+```sql
+SELECT
+  item,
+  RANK() OVER (PARTITION BY category ORDER BY purchases DESC) as rank
+FROM Produce
+WHERE Produce.category = 'vegetable'
+QUALIFY rank <= 3
+
++---------+------+
+| item    | rank |
++---------+------+
+| kale    | 1    |
+| lettuce | 2    |
+| cabbage | 3    |
++---------+------+
+```
+
+You don't have to include an analytic function in the `SELECT` list to use
+`QUALIFY`. The following query returns the most popular vegetables in the
+[`Produce`][produce-table] table.
+
+```sql
+SELECT item
+FROM Produce
+WHERE Produce.category = 'vegetable'
+QUALIFY RANK() OVER (PARTITION BY category ORDER BY purchases DESC) <= 3
+
++---------+
+| item    |
++---------+
+| kale    |
+| lettuce |
+| cabbage |
++---------+
+```
+
 ## WINDOW clause 
 <a id="window_clause"></a>
 
@@ -2244,6 +2346,25 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 ## WITH clause 
 <a id="with_clause"></a>
 
+<pre class="lang-sql prettyprint">
+WITH [ <a href="#recursive_keyword">RECURSIVE</a> ] with_clause
+
+with_clause:
+    { with_subquery | <a href="#with_clause_recursive">with_recursive_subquery</a> }[, ...]
+
+with_subquery:
+    <a href="#with_query_name">with_query_name</a> AS ( <a href="#query_syntax">query_expr</a> )
+
+<a href="#with_clause_recursive">with_recursive_subquery</a>:
+    <a href="#with_query_name">with_query_name</a> AS ( <a href="#with_clause_anchor_rules">anchor_subquery</a> set_operator <a href="#with_clause_recursive_rules">recursive_subquery</a> )
+
+<a href="#with_clause_anchor_rules">anchor_subquery</a>, <a href="#with_clause_recursive_rules">recursive_subquery</a>:
+    { <a href="#query_syntax">query_expr</a> | ( <a href="#query_syntax">query_expr</a> ) }
+
+set_operator:
+    { UNION | UNION ALL | UNION DISTINCT }
+</pre>
+
 The `WITH` clause binds the results of one or more named
 [subqueries][subquery-concepts] to temporary table names.  Each introduced
 table name is visible in subsequent `SELECT` expressions within the same
@@ -2261,7 +2382,7 @@ WITH subQ1 AS (SELECT SchoolID FROM Roster),
      subQ2 AS (SELECT OpponentID FROM PlayerStats)
 SELECT * FROM subQ1
 UNION ALL
-SELECT * FROM subQ2;
+SELECT * FROM subQ2
 ```
 
 You can use `WITH` to break up more complex queries into a `WITH` `SELECT`
@@ -2305,10 +2426,354 @@ FROM
     SELECT * FROM q1)  # q1 resolves to the third inner WITH subquery.
 ```
 
-`WITH RECURSIVE` is not supported.
+### RECURSIVE keyword 
+<a id="recursive_keyword"></a>
+
+You can include one or more [recursive subqueries][with-clause-recursive] in
+your `WITH` clause. If you include a recursive subquery, you must also include
+the `RECURSIVE` keyword in your `WITH` clause.
+
+When you include the `RECURSIVE` keyword in a `WITH` clause,
+references between subqueries can go backwards and forwards, but cycles are not
+allowed.
+
+This is what happens when you have two subqueries that reference
+themselves or each other in a `WITH RECURSIVE` query.
+Assume that `A` is the first subquery and `B` is the second subquery in a
+`WITH RECURSIVE` clause:
+
++ A -> A = Runs
++ A -> B = Runs
++ B -> A = Runs
++ A -> B -> A = Error
+
+When you don't include the `RECURSIVE` keyword in a `WITH` clause, references
+between subqueries can go backward but not forward.
+
+This is what happens when you have two subqueries that reference
+themselves or each other in a `WITH` query without the `RECURSIVE` keyword.
+Assume that `A` is the first subquery and `B` is the second subquery in a
+`WITH` clause:
+
++ A -> A = Error
++ A -> B = Error
++ B -> A = Runs
++ A -> B -> A = Error
+
+### WITH RECURSIVE subqueries 
+<a id="with_clause_recursive"></a>
+
+<pre class="lang-sql prettyprint">
+with_recursive_subquery:
+    <a href="#with_query_name">with_query_name</a> AS ( <a href="#with_clause_anchor_rules">anchor_subquery</a> set_operator <a href="#with_clause_recursive_rules">recursive_subquery</a> )
+
+<a href="#with_clause_anchor_rules">anchor_subquery</a>, <a href="#with_clause_recursive_rules">recursive_subquery</a>:
+    { <a href="#query_syntax">query_expr</a> | ( <a href="#query_syntax">query_expr</a> ) }
+
+set_operator:
+    { UNION | UNION ALL | UNION DISTINCT }
+</pre>
+
+A `WITH` clause can contain one or more recursive subqueries that reference
+themselves. If a recursive subquery is added to a `WITH` clause, the clause
+must include the `RECURSIVE` keyword. This type of clause is referred to as
+a `WITH RECURSIVE` clause.
+
+Recursion is permitted by combining an anchor subquery with a
+recursive subquery, using one of these set operators:
+
++ `UNION`
++ `UNION ALL`
++ `UNION DISTINCT`
+
+The anchor subquery and recursive subquery are similar to
+[`WITH` subqueries][with_clause], but additional rules apply to them.
+
++ [Anchor subquery rules][with-clause-anchor-rules]
++ [Recursive subquery rules][with-clause-recursive-rules]
+
+Example:
+
+```sql
+WITH RECURSIVE
+  T1 AS ( (SELECT 1 AS n) UNION ALL (SELECT n + 1 AS n FROM T1 WHERE n < 4) )
+SELECT n FROM T1
+
++---+
+| n |
++---+
+| 1 |
+| 2 |
+| 3 |
+| 4 |
++---+
+```
+
+A recursive query using `UNION` or `UNION ALL` is evaluated by first evaluating
+the anchor subquery, followed by the recursive subquery. The first time the
+recursive subquery is evaluated, the recursive reference represents the result
+of the anchor subquery. On subsequent iterations, the recursive subquery
+represents the result of the prior evaluation of the recursive subquery.
+The iteration continues until the recursive subquery produces no rows.
+The final result is the union of the anchor subquery result with all of the
+recursive subquery results.
+
+A recursive query using `UNION DISTINCT` is evaluated similarly, except that
+each time the recursive subquery is evaluated, any rows which duplicate a row
+from either the anchor subquery or any prior evaluation of the
+recursive subquery are discarded; the next iteration of the recursive subquery,
+along with the final result, will see only the unique rows.
+
+Example:
+
+In the following query, if `UNION DISTINCT` was replaced with `UNION ALL`,
+this query would never terminate; it would keep on generating rows
+`0, 1, 2, 3, 4, 0, 1, 2, 3, 4...`. With `UNION DISTINCT`, however, the only row
+produced by iteration `5` is a duplicate, so the query terminates.
+
+```sql
+WITH RECURSIVE T1 AS (
+  SELECT 0 AS n
+  UNION DISTINCT
+  SELECT MOD(n + 1, 5) FROM T1)
+SELECT * FROM T1
+
++---+
+| n |
++---+
+| 0 |
+| 1 |
+| 2 |
+| 3 |
+| 4 |
++---+
+```
+
+#### Nested WITH subqueries 
+<a id="with_clause_nesting"></a>
+
+The `RECURSIVE` keyword affects only the particular `WITH` clause it refers to,
+not other `WITH` clauses in the same query.
+
+A `WITH RECURSIVE` clause can include nested `WITH` clauses. An inner `WITH`
+clause can't be recursive unless it includes its own `RECURSIVE` keyword.
+
+#### Anchor subquery rules 
+<a id="with_clause_anchor_rules"></a>
+
+The following rules apply to the anchor subquery:
+
++ The anchor subquery is required to be non-recursive.
++ The anchor subquery determines the names and types of all of the
+  table columns.
+
+#### Recursive subquery rules 
+<a id="with_clause_recursive_rules"></a>
+
+The following rules apply to the recursive subquery:
+
++ The recursive subquery must include exactly one reference to the
+  recursively-defined table in the anchor subquery.
++ The recursive subquery must contain the same number of columns as the
+  anchor subquery, and the type of each column must be implicitly coercible to
+  the type of the corresponding column in the anchor subquery.
+
+The following rules apply to the recursive subquery, which includes any
+subquery including it in any way. These rules do not apply to
+subqueries within the recursive subquery which do not reference
+the recursive table.
+
++ The recursive subquery may not be used as an operand to a `FULL JOIN`, a
+  right operand to a `LEFT JOIN`, or a left operand to a `RIGHT JOIN`.
++ The recursive subquery may not be used with the `TABLESAMPLE` operator.
++ The recursive subquery may not be used in an operand to a
+  table-valued function (TVF).
+
+The following rules apply to any subquery derived from the
+recursive subquery. These rules do not apply to subqueries within the
+recursive subquery which do not reference the recursive table.
+
++ The subquery must be a `SELECT` expression, not a set operation, such as
+  `UNION`.
++ The subquery may not contain directly or indirectly a recursive reference
+  anywhere outside of its `FROM` clause.
++ The subquery may not contain an `ORDER BY` or `LIMIT` clause.
++ The subquery cannot invoke aggregate functions.
++ The subquery cannot invoke analytic functions.
++ The `DISTINCT` keyword and `GROUP BY` clause are not
+  allowed. To filter duplicates, use
+  `UNION DISTINCT` in the top-level set operation, instead.
+
+#### Examples of allowed queries
+
+This is a simple recursive query:
+
+```sql
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT n + 2 FROM T1 WHERE n < 4))
+SELECT * FROM T1
+```
+
+Multiple recursive queries in same `WITH` clause are okay, as long as each
+recursion has a cycle length of 1. It is also okay for recursive entries to
+depend on non-recursive entries and vice-versa:
+
+```sql
+WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
+  T2 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T2 WHERE n < 4)),
+  T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
+SELECT * FROM T3
+```
+
+Aggregate functions can be invoked in subqueries, as long as they are not
+aggregating on the table being defined:
+
+```sql
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT (SELECT COUNT(*) FROM OtherTable) FROM T1))
+SELECT * FROM T1
+```
+
+`INNER JOIN` and `CROSS JOIN` can be used inside subqueries:
+
+```sql
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT n + 1 FROM T1 INNER JOIN OtherTable USING (n))),
+  T2 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT n + 1 FROM T1 CROSS JOIN OtherTable))
+SELECT * FROM T1 CROSS JOIN T2
+```
+
+#### Examples of disallowed queries
+
+The following query is disallowed because the self-reference does not include
+a set operator, anchor subquery, and recursive subquery.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS (SELECT * FROM T1)
+SELECT * FROM T1
+```
+
+The following query is disallowed because the self-reference in the
+anchor subquery is allowed only in the recursive subquery.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT * FROM T1) UNION ALL (SELECT 1))
+SELECT * FROM T1
+```
+
+The following query is disallowed because there are multiple self-references in
+the recursive subquery when there must only be one.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT 1 AS n) UNION ALL ((SELECT * FROM T1) UNION ALL (SELECT * FROM T1)))
+SELECT * FROM T1
+```
+
+The following query is disallowed because there is a self-reference within the
+subquery.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT (SELECT n FROM T1)))
+SELECT * FROM T1
+```
+
+The following query is disallowed because there is a self-reference as an
+argument to a table-valued function (TVF).
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT * FROM MY_TVF(T1))
+SELECT * FROM T1;
+```
+
+The following query is disallowed because there is a self-reference as input
+to an outer join.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT * T1 FULL OUTER JOIN some_other_table USING (n))
+SELECT * FROM T1;
+```
+
+The following query is disallowed due to multiple self-references.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT n + 1 FROM T1 CROSS JOIN T1))
+SELECT * FROM T1;
+```
+
+The following query is disallowed due to illegal aggregation.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT COUNT(*) FROM T1))
+SELECT * FROM T1;
+```
+
+The following query is disallowed due to an illegal analytic function
+`OVER` clause.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1(n) AS (
+    VALUES (1.0) UNION ALL
+    SELECT 1 + AVG(n) OVER(ROWS between 2 PRECEDING and 0 FOLLOWING) FROM T1 WHERE n < 10)
+SELECT n FROM T1;
+```
+
+The following query is disallowed due to an illegal `LIMIT` clause.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n FROM T1 LIMIT 3))
+SELECT * FROM T1;
+```
+
+The following query is disallowed due to an illegal `ORDER BY` clause.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 ORDER BY n))
+SELECT * FROM T1;
+```
+
+The following query is disallowed due to an illegal `ORDER BY` clause.
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1) ORDER BY n)
+SELECT * FROM T1;
+```
 
 ## WITH ANONYMIZATION clause 
 <a id="anon_clause"></a>
+
+<pre class="lang-sql prettyprint">
+WITH ANONYMIZATION OPTIONS( privacy_parameters )
+</pre>
 
 This clause lets you anonymize the results of a query with differentially
 private aggregations. To learn more about this clause, see
@@ -2918,6 +3383,12 @@ Results:
 [query-joins]: #join_types
 [ambiguous-aliases]: #ambiguous_aliases
 [with_clause]: #with_clause
+[unnest-operator]: #unnest_operator
+
+[tablesample-operator]: #tablesample_operator
+[with-clause-anchor-rules]: #with_clause_anchor_rules
+[with-clause-recursive-rules]: #with_clause_recursive_rules
+[with-clause-recursive]: #with_clause_recursive
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_use_named_window
@@ -2926,7 +3397,6 @@ Results:
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
 [flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
-[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
@@ -2936,4 +3406,5 @@ Results:
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 

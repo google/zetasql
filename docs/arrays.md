@@ -1629,7 +1629,6 @@ SELECT ARRAY(
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest
 [cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
-[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 [convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
 
 [in-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
@@ -1640,4 +1639,5 @@ SELECT ARRAY(
 [generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array
 [generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array
 [offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#offset_and_ordinal
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 

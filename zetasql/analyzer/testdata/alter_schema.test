@@ -1,0 +1,28 @@
+# Tests for unsupported alter schema statements.
+
+ALTER SCHEMA myProject.mySchema
+SET AS JSON '{"key": "value"}';
+
+--
+ERROR: ALTER SCHEMA does not support SET AS [at 2:1]
+SET AS JSON '{"key": "value"}';
+^
+==
+
+ALTER SCHEMA myProject.mySchema
+ADD COLUMN bar STRING;
+
+--
+ERROR: ALTER SCHEMA does not support ADD COLUMN [at 2:1]
+ADD COLUMN bar STRING;
+^
+==
+
+ALTER SCHEMA myProject.mySchema
+FALSE_ACTION;
+
+--
+ERROR: Syntax error: Unexpected identifier "FALSE_ACTION" [at 2:1]
+FALSE_ACTION;
+^
+==

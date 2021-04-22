@@ -1,0 +1,120 @@
+START TRANSACTION
+--
+BeginStmt
+==
+
+BEGIN TRANSACTION
+--
+BeginStmt
+==
+
+begin transaction
+--
+BeginStmt
+==
+
+BEGIN
+--
+
+BeginStmt
+==
+
+START TRANSACTION ISOLATION LEVEL READ uncommited
+--
+BeginStmt(isolation_level_list=READ.uncommited)
+==
+
+START TRANSACTION READ ONLY
+--
+BeginStmt(read_write_mode=MODE_READ_ONLY)
+==
+
+START TRANSACTION READ ONLY, ISOLATION LEVEL READ uncommited
+--
+BeginStmt(read_write_mode=MODE_READ_ONLY, isolation_level_list=READ.uncommited)
+==
+
+START TRANSACTION READ WRITE
+--
+BeginStmt(read_write_mode=MODE_READ_WRITE)
+==
+
+START TRANSACTION READ ONLY, READ ONLY
+--
+ERROR: Can only specify 'READ ONLY' or 'READ WRITE' once [at 1:30]
+START TRANSACTION READ ONLY, READ ONLY
+                             ^
+==
+
+begin isolation level `a b` `c d`
+--
+BeginStmt(isolation_level_list=`a b`.`c d`)
+==
+
+# Multiple spaces between isolation level identifiers are collapsed into
+# single space.
+BEGIN TRANSACTION ISOLATION LEVEL read    commited
+--
+BeginStmt(isolation_level_list=read.commited)
+==
+
+BEGIN ISOLATION LEVEL Read Repeatable
+--
+BeginStmt(isolation_level_list=Read.Repeatable)
+==
+
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE
+--
+BeginStmt(isolation_level_list=SERIALIZABLE)
+==
+
+BEGIN TRANSACTION ISOLATION LEVEL READ ONLY
+--
+BeginStmt(isolation_level_list=READ.ONLY)
+==
+
+BEGIN ISOLATION LEVEL SNAPSHOT
+--
+BeginStmt(isolation_level_list=SNAPSHOT)
+==
+
+SET TRANSACTION READ ONLY
+--
+SetTransactionStmt(read_write_mode=MODE_READ_ONLY)
+==
+
+SET TRANSACTION READ WRITE
+--
+SetTransactionStmt(read_write_mode=MODE_READ_WRITE)
+==
+
+SET TRANSACTION ISOLATION LEVEL READ uncommitted
+--
+SetTransactionStmt(isolation_level_list=READ.uncommitted)
+==
+
+SET TRANSACTION ISOLATION LEVEL READ uncommited, READ WRITE
+--
+SetTransactionStmt(read_write_mode=MODE_READ_WRITE, isolation_level_list=READ.uncommited)
+==
+
+COMMIT
+--
+CommitStmt
+==
+
+commit transaction
+--
+CommitStmt
+==
+
+ROLLBACK
+--
+RollbackStmt
+==
+
+Rollback Transaction
+--
+RollbackStmt
+==
+

@@ -45,10 +45,13 @@ class ParsedScript {
   // to its parent.  For each statement s, s->parent()->child(map[s]) == s.
   using NodeIndexMap = absl::flat_hash_map<const ASTNode*, int>;
 
-  // Mapping of active variable names to the ASTVariableDeclaration statement
-  // which declares the variable.
-  using VariableDeclarationMap =
-      absl::flat_hash_map<IdString, const ASTVariableDeclaration*,
+  // Mapping of active variable names to the ASTScriptStatement which creates
+  // the variable.
+  // For now, the two ASTScriptStatement's that create variables are:
+  // - ASTVariableDeclaration
+  // - ASTForInStatement
+  using VariableCreationMap =
+      absl::flat_hash_map<IdString, const ASTScriptStatement*,
                           IdStringCaseHash, IdStringCaseEqualFunc>;
 
   // Mapping of argument name to zetasql Type.
@@ -128,14 +131,16 @@ class ParsedScript {
       const ParseLocationRange& range) const;
 
   // Returns the node in the script which starts at the given position,
-  // or nullptr if no such statement exists.
+  // or nullptr if no such node exists.
+  // Note: since this function finds non-statement nodes as well, caller
+  // should ensure that there is only one ASTNode starting at <start_pos>.
   zetasql_base::StatusOr<const ASTNode*> FindScriptNodeFromPosition(
       const ParseLocationPoint& start_pos) const;
 
   // Returns a map of all variables in scope immediately prior to the execution
-  // of <next_node>.
-  zetasql_base::StatusOr<VariableDeclarationMap> GetVariablesInScopeAtNode(
-      const ASTNode* node) const;
+  // of <node>.
+  zetasql_base::StatusOr<VariableCreationMap> GetVariablesInScopeAtNode(
+      const ControlFlowNode * node) const;
 
   // Validates the query parameters (e.g. no missing ones, not mixing named and
   // positional parameters).

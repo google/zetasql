@@ -41,7 +41,7 @@ TEST(TypeParametersTest, StringWithMaxLengthOk) {
   proto.set_max_length(7);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeStringTypeParameters(proto));
-  EXPECT_THAT(ApplyConstraints(string_value, type_params, PRODUCT_INTERNAL),
+  EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, string_value),
               IsOk());
 }
 
@@ -52,8 +52,8 @@ TEST(TypeParametersTest, StringWithMaxLengthFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeStringTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(string_value, type_params, PRODUCT_INTERNAL),
-      StatusIs(absl::StatusCode::kInvalidArgument,
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, string_value),
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("maximum length 6 but got a value with length 7")));
 }
 
@@ -63,7 +63,7 @@ TEST(TypeParametersTest, BytesWithMaxLengthOk) {
   proto.set_max_length(14);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeStringTypeParameters(proto));
-  EXPECT_THAT(ApplyConstraints(bytes_value, type_params, PRODUCT_INTERNAL),
+  EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, bytes_value),
               IsOk());
 }
 
@@ -74,8 +74,8 @@ TEST(TypeParametersTest, BytesWithMaxLengthFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeStringTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(bytes_value, type_params, PRODUCT_INTERNAL),
-      StatusIs(absl::StatusCode::kInvalidArgument,
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, bytes_value),
+      StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("maximum length 13 but got a value with length 14")));
 }
 
@@ -90,7 +90,7 @@ TEST(TypeParametersTest, NumericEveryValidIntegerPrecisionAndScaleSucceeds) {
       ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                            TypeParameters::MakeNumericTypeParameters(proto));
       EXPECT_THAT(
-          ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL),
+          ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
           IsOk());
     }
   }
@@ -104,7 +104,7 @@ TEST(TypeParametersTest, NumericEveryValidFractionalScaleSucceeds) {
     proto.set_scale(scale);
     ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                          TypeParameters::MakeNumericTypeParameters(proto));
-    EXPECT_THAT(ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL),
+    EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
                 IsOk());
   }
 }
@@ -117,9 +117,9 @@ TEST(TypeParametersTest, NumericPrecisionScaleFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
       StatusIs(
-          absl::StatusCode::kInvalidArgument,
+          absl::StatusCode::kOutOfRange,
           HasSubstr(
               "precision 4 and scale 0 but got a value that is not in range")));
 }
@@ -132,7 +132,7 @@ TEST(TypeParametersTest, NumericPrecisionScaleRoundsOk) {
   proto.set_scale(2);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  ZETASQL_ASSERT_OK(ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL));
+  ZETASQL_ASSERT_OK(ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value));
   EXPECT_EQ(numeric_value.numeric_value(),
             NumericValue::FromString("999999.99").value());
 }
@@ -146,9 +146,9 @@ TEST(TypeParametersTest, NumericPrecisionScaleRoundFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
       StatusIs(
-          absl::StatusCode::kInvalidArgument,
+          absl::StatusCode::kOutOfRange,
           HasSubstr(
               "precision 8 and scale 2 but got a value that is not in range")));
 }
@@ -163,7 +163,7 @@ TEST(TypeParametersTest, NumericPrecisionScaleMaxOverflowFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
       StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("numeric overflow")));
 }
 
@@ -174,7 +174,7 @@ TEST(TypeParametersTest, NumericInvalidPrecisionScaleFails) {
   proto.set_scale(5);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  EXPECT_THAT(ApplyConstraints(numeric_value, type_params, PRODUCT_INTERNAL),
+  EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("In NUMERIC(P, S), P must be within range "
                                  "[max(S,1), 29+S], actual precision: 35")));
@@ -191,7 +191,7 @@ TEST(TypeParametersTest, BigNumericEveryValidIntegerPrecisionAndScaleSucceeds) {
       ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                            TypeParameters::MakeNumericTypeParameters(proto));
       EXPECT_THAT(
-          ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL),
+          ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
           IsOk());
     }
   }
@@ -207,7 +207,7 @@ TEST(TypeParametersTest, BigNumericEveryValidFractionalScaleSucceeds) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                          TypeParameters::MakeNumericTypeParameters(proto));
     EXPECT_THAT(
-        ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL),
+        ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
         IsOk());
   }
 }
@@ -220,9 +220,9 @@ TEST(TypeParametersTest, BigNumericPrecisionScaleFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
       StatusIs(
-          absl::StatusCode::kInvalidArgument,
+          absl::StatusCode::kOutOfRange,
           HasSubstr(
               "precision 4 and scale 0 but got a value that is not in range")));
 }
@@ -237,8 +237,8 @@ TEST(TypeParametersTest, BigNumericMaxPrecisionFails) {
   proto.set_scale(38);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  EXPECT_THAT(ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL),
-              StatusIs(absl::StatusCode::kInvalidArgument,
+  EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
+              StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("precision 76 and scale 38 but got a value "
                                  "that is not in range")));
 }
@@ -252,7 +252,7 @@ TEST(TypeParametersTest, BigNumericMaxLiteralSucceeds) {
   proto.set_is_max_precision(true);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  ZETASQL_ASSERT_OK(ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL));
+  ZETASQL_ASSERT_OK(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value));
   EXPECT_EQ(bignumeric_value.bignumeric_value(),
             BigNumericValue::FromString(
                 "312345678901234567890123456789012345678.987654321")
@@ -269,7 +269,7 @@ TEST(TypeParametersTest, BigNumericMaxLiteralRoundingSucceeds) {
   proto.set_scale(4);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  ZETASQL_ASSERT_OK(ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL));
+  ZETASQL_ASSERT_OK(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value));
   EXPECT_EQ(bignumeric_value.bignumeric_value(),
             BigNumericValue::FromString(
                 "312345678901234567890123456789012345678.9877")
@@ -282,7 +282,7 @@ TEST(TypeParametersTest, BigNumericMaxLiteralMaxValueSucceeds) {
   proto.set_is_max_precision(true);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  ZETASQL_ASSERT_OK(ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL));
+  ZETASQL_ASSERT_OK(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value));
   EXPECT_EQ(bignumeric_value.bignumeric_value(), BigNumericValue::MaxValue());
 }
 
@@ -294,7 +294,7 @@ TEST(TypeParametersTest, BigNumericPrecisionScaleRoundsOk) {
   proto.set_scale(2);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  ZETASQL_ASSERT_OK(ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL));
+  ZETASQL_ASSERT_OK(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value));
   EXPECT_EQ(bignumeric_value.bignumeric_value(),
             BigNumericValue::FromString("999999.99").value());
 }
@@ -308,9 +308,9 @@ TEST(TypeParametersTest, BigNumericPrecisionScaleRoundFails) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(
-      ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
       StatusIs(
-          absl::StatusCode::kInvalidArgument,
+          absl::StatusCode::kOutOfRange,
           HasSubstr(
               "precision 8 and scale 2 but got a value that is not in range")));
 }
@@ -322,7 +322,7 @@ TEST(TypeParametersTest, BigNumericInvalidPrecisionScaleFails) {
   proto.set_scale(5);
   ZETASQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeNumericTypeParameters(proto));
-  EXPECT_THAT(ApplyConstraints(bignumeric_value, type_params, PRODUCT_INTERNAL),
+  EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
               StatusIs(absl::StatusCode::kInternal,
                        HasSubstr("In BIGNUMERIC(P, S), P must be within range "
                                  "[max(S,1), 38+S], actual precision: 55")));
@@ -351,7 +351,7 @@ TEST(TypeParametersTest, ArrayWithTypeParametersOk) {
       TypeParameters::MakeTypeParametersWithChildList(child_list);
 
   EXPECT_THAT(
-      ApplyConstraints(array_value, array_type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(array_type_params, PRODUCT_INTERNAL, array_value),
       IsOk());
   EXPECT_EQ(array_value.element(0).numeric_value(),
             NumericValue::FromString("123.99").value());
@@ -380,9 +380,9 @@ TEST(TypeParametersTest, ArrayWithTypeParametersFails) {
       TypeParameters::MakeTypeParametersWithChildList(child_list);
 
   EXPECT_THAT(
-      ApplyConstraints(array_value, array_type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(array_type_params, PRODUCT_INTERNAL, array_value),
       StatusIs(
-          absl::StatusCode::kInvalidArgument,
+          absl::StatusCode::kOutOfRange,
           HasSubstr(
               "precision 3 and scale 2 but got a value that is not in range")));
 }
@@ -413,7 +413,7 @@ TEST(TypeParametersTest, StructWithTypeParametersOk) {
       TypeParameters::MakeTypeParametersWithChildList(child_list);
 
   EXPECT_THAT(
-      ApplyConstraints(struct_value, struct_type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(struct_type_params, PRODUCT_INTERNAL, struct_value),
       IsOk());
   EXPECT_EQ(struct_value.field(1).numeric_value(),
             NumericValue::FromString("1.7").value());
@@ -445,9 +445,9 @@ TEST(TypeParametersTest, StructWithTypeParametersFails) {
       TypeParameters::MakeTypeParametersWithChildList(child_list);
 
   EXPECT_THAT(
-      ApplyConstraints(struct_value, struct_type_params, PRODUCT_INTERNAL),
+      ApplyConstraints(struct_type_params, PRODUCT_INTERNAL, struct_value),
       StatusIs(
-          absl::StatusCode::kInvalidArgument,
+          absl::StatusCode::kOutOfRange,
           HasSubstr(
               "precision 2 and scale 2 but got a value that is not in range")));
 }

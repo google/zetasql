@@ -1,0 +1,44 @@
+[show_unparsed]
+alter table t {{drop constraint a_gt_0|drop primary key}};
+--
+ALTERNATION GROUP: drop constraint a_gt_0
+--
+ERROR: Table not found: t [at 1:13]
+alter table t drop constraint a_gt_0;
+            ^
+--
+ALTERNATION GROUP: drop primary key
+--
+ERROR: Table not found: t [at 1:13]
+alter table t drop primary key;
+            ^
+==
+
+[show_unparsed]
+alter table if exists t drop constraint if exists a_gt_0;
+--
+AlterTableStmt
++-name_path=t
++-alter_action_list=
+| +-DropConstraintAction(is_if_exists=TRUE, name="a_gt_0")
++-is_if_exists=TRUE
+
+[UNPARSED_SQL]
+ALTER TABLE IF EXISTS t DROP CONSTRAINT IF EXISTS a_gt_0;
+==
+
+alter table KeyValue drop primary key{{| if exists}}
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-DropPrimaryKeyAction(is_if_exists=FALSE)
+--
+ALTERNATION GROUP:  if exists
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-DropPrimaryKeyAction(is_if_exists=TRUE)

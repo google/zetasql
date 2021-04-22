@@ -30,7 +30,6 @@ import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto.QueryParamete
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto.SystemVariableProto;
 import com.google.zetasql.ZetaSQLType.TypeProto;
 import com.google.zetasql.LocalService.AnalyzerOptionsRequest;
-import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -59,22 +58,10 @@ public class AnalyzerOptions implements Serializable {
   private final List<Type> targetColumnTypes = new ArrayList<>();
 
   public AnalyzerOptions() {
-    try {
-      deserializeFrom(
-          Client.getStub().getAnalyzerOptions(AnalyzerOptionsRequest.getDefaultInstance()),
-          null,
-          null);
-    } catch (StatusRuntimeException e) {
-      builder.setDefaultTimezone("America/Los_Angeles");
-      builder.setRecordParseLocations(false);
-      builder.setCreateNewColumnForEachProjectedOutput(false);
-      builder.setPruneUnusedColumns(false);
-      builder.setAllowUndeclaredParameters(false);
-      builder.setParameterMode(ParameterMode.PARAMETER_NAMED);
-      builder.setErrorMessageMode(ErrorMessageMode.ERROR_MESSAGE_ONE_LINE);
-      builder.setStatementContext(StatementContext.CONTEXT_DEFAULT);
-      builder.setPreserveColumnAliases(true);
-    }
+    deserializeFrom(
+        Client.getStub().getAnalyzerOptions(AnalyzerOptionsRequest.getDefaultInstance()),
+        null,
+        null);
   }
 
   public AnalyzerOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {

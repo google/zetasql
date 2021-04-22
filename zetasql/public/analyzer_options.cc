@@ -302,7 +302,6 @@ absl::Status AnalyzerOptions::Deserialize(
 
   result->set_statement_context(proto.statement_context());
   result->set_error_message_mode(proto.error_message_mode());
-  result->set_record_parse_locations(proto.record_parse_locations());
   result->set_create_new_column_for_each_projected_output(
       proto.create_new_column_for_each_projected_output());
   result->set_prune_unused_columns(proto.prune_unused_columns());
@@ -320,6 +319,23 @@ absl::Status AnalyzerOptions::Deserialize(
   result->enabled_rewrites_.clear();
   for (int rewrite : proto.enabled_rewrites()) {
     result->enabled_rewrites_.insert(static_cast<ResolvedASTRewrite>(rewrite));
+  }
+
+  if (proto.has_parse_location_options() ||
+      proto.has_record_parse_locations()) {
+    result->parse_location_options_.record_parse_locations =
+        (proto.parse_location_options().record_parse_locations() ||
+         proto.record_parse_locations());
+    switch (proto.parse_location_options().function_call_record_type()) {
+      case AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_NAME:
+        result->parse_location_options_.function_call_record_type =
+            AnalyzerOptions::FUNCTION_NAME;
+        break;
+      case AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_CALL:
+        result->parse_location_options_.function_call_record_type =
+            AnalyzerOptions::FUNCTION_CALL;
+        break;
+    }
   }
 
   return absl::OkStatus();
@@ -377,7 +393,6 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   proto->set_default_timezone(default_timezone_.name());
   proto->set_statement_context(statement_context_);
   proto->set_error_message_mode(error_message_mode_);
-  proto->set_record_parse_locations(record_parse_locations_);
   proto->set_create_new_column_for_each_projected_output(
       create_new_column_for_each_projected_output_);
   proto->set_prune_unused_columns(prune_unused_columns_);
@@ -387,6 +402,23 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
 
   ZETASQL_RETURN_IF_ERROR(allowed_hints_and_options_.Serialize(
       map, proto->mutable_allowed_hints_and_options()));
+
+  if (parse_location_options_.record_parse_locations) {
+    proto->set_record_parse_locations(true);
+    AnalyzerOptionsProto::ParseLocationOptionsProto* option =
+        proto->mutable_parse_location_options();
+    option->set_record_parse_locations(true);
+    switch (parse_location_options_.function_call_record_type) {
+      case FUNCTION_NAME:
+        option->set_function_call_record_type(
+            AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_NAME);
+        break;
+      case FUNCTION_CALL:
+        option->set_function_call_record_type(
+            AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_CALL);
+        break;
+    }
+  }
 
   for (const Type* type : target_column_types_) {
     ZETASQL_RETURN_IF_ERROR(type->SerializeToProtoAndDistinctFileDescriptors(

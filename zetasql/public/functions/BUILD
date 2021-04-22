@@ -256,13 +256,17 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":format_max_output_width",
+        ":string_format",
         ":util",
         "//zetasql/base:status",
         "//zetasql/public:value",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 
@@ -280,7 +284,9 @@ cc_test(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":convert_string",
         ":convert_string_with_format",
+        ":format_max_output_width",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -289,6 +295,7 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
     ],
 )

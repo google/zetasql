@@ -131,6 +131,7 @@ cc_library(
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
+        "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "@com_google_absl//absl/status",

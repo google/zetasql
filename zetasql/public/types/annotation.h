@@ -98,22 +98,36 @@ class AnnotationMap {
   // Decides if two AnnotationMap instances are equal.
   bool Equals(const AnnotationMap& that) const;
 
-  // Copies annotations from another AnnotationMap recursively. Returns error
-  // status if this instance and <that> don't have matching structure.
-  absl::Status CopyFrom(const AnnotationMap& that);
-
   // Returns true if this and all the nested AnnotationMap are empty.
   bool Empty() const;
 
-  // Returns true if this AnnotationMap has the matching nested structure with
-  // <type>. The structures match when they meet one of the conditions below:
-  // * This instance and <type> both are non-STRUCT/non-ARRAY
+  // Returns true if this AnnotationMap has compatible nested structure with
+  // <type>. The structures are compatible when they meet one of the conditions
+  // below:
+  // * This instance and <type> both are non-STRUCT/non-ARRAY.
   // * This instance is a StructAnnotationMap and <type> is a STRUCT (and the
-  //   number of fields matches),
+  //   number of fields matches).
   // * This instance is an ArrayAnnotationMap and <type> is an ARRAY.
-  //
-  // Such check is done recursively on struct fields and array element.
-  bool HasMatchingStructure(const Type* type) const;
+  // * The StructAnnotationMap field or ArrayAnnotationMap element is either
+  //   NULL or is compatible by recursively following these rules. When it is
+  //   NULL, it indicates that the annotation map is empty on all the nested
+  //   levels, and therefore such maps are compatible with any Type (including
+  //   structs and arrays).
+  bool HasCompatibleStructure(const Type* type) const;
+
+  // Returns a clone of this instance.
+  std::unique_ptr<AnnotationMap> Clone() const;
+
+  // Normalizes AnnotationMap by replacing empty annotation maps with NULL.
+  // After normalization, on all the nested levels:
+  //  * For a StructAnnotationMap, each one of its fields is either null or
+  //    non-empty.
+  //  * For an ArrayAnnotationMap, its element is either null or non-empty.
+  void Normalize() { NormalizeInternal(); }
+
+  // Returns true if this instance is in the simplest form described in
+  // Normalize() comments. This function is mainly for testing purpose.
+  bool IsNormalized() const;
 
   // Serializes this instance to protobuf.
   virtual absl::Status Serialize(AnnotationMapProto* proto) const;
@@ -127,12 +141,38 @@ class AnnotationMap {
 
  private:
   friend class AnnotationTest;
+  friend class StructAnnotationMap;
+  friend class ArrayAnnotationMap;
   friend class TypeFactory;
 
   // Returns estimated size of memory owned by this AnnotationMap. The estimated
   // size includes size of the fields if this instance is a StructAnnotationMap
   // and size of the element if this instance is an ArrayAnnotationMap.
   int64_t GetEstimatedOwnedMemoryBytesSize() const;
+
+  // Decides if two AnnotationMap instances are equal.
+  // Accepts nullptr and treats nullptr to be equal to an empty AnnotationMap
+  // (both for <lhs> and <rhs> as well as for any nested maps).
+  static bool EqualsInternal(const AnnotationMap* lhs,
+                             const AnnotationMap* rhs);
+
+  // Returns true if <lhs> has compatible nested structure with <rhs>. The
+  // structures are compatible when they meet one of the conditions below:
+  // * <lhs> and <rhs> are AnnotationMap, or StructAnnotationMap (with the same
+  //   number of fields), or ArrayAnnotationMap.
+  // * <lhs> or <rhs> is either NULL or they are compatible recursively.
+  static bool HasCompatibleStructure(const AnnotationMap* lhs,
+                                     const AnnotationMap* rhs);
+
+  // Normalizes AnnotationMap as described in Normalize() function.
+  // Returns true if the AnnotationMap is empty on all the nested levels.
+  bool NormalizeInternal();
+
+  // Returns true if this instance is normalized (as described in Normalize()
+  // comments) and non-empty.
+  // When <check_non_empty> is false, it doesn't check whether the instance is
+  // empty or not.
+  bool IsNormalizedAndNonEmpty(bool check_non_empty) const;
 
   // Maps from AnnotationSpec ID to SimpleValue.
   absl::flat_hash_map<int, SimpleValue> annotations_;
@@ -148,8 +188,15 @@ class StructAnnotationMap : public AnnotationMap {
   const StructAnnotationMap* AsStructMap() const override { return this; }
 
   int num_fields() const { return static_cast<int>(fields_.size()); }
-  const AnnotationMap& field(int i) const { return *fields_[i]; }
+  const AnnotationMap* field(int i) const { return fields_[i].get(); }
   AnnotationMap* mutable_field(int i) { return fields_[i].get(); }
+
+  // Clones <from> and overwrites what's in the struct field <i>.
+  // If <from> is nullptr, the struct field is set to NULL.
+  // Returns an error if the struct field and <from> don't have compatible
+  // structure as defined in AnnotationMap::HasCompatibleStructure(lhs, rhs)
+  absl::Status CloneIntoField(int i, const AnnotationMap* from);
+
   const std::vector<std::unique_ptr<AnnotationMap>>& fields() const {
     return fields_;
   }
@@ -159,13 +206,16 @@ class StructAnnotationMap : public AnnotationMap {
 
  private:
   friend class AnnotationMap;
+  friend class AnnotationTest;
   // Accessed only by AnnotationMap.
   StructAnnotationMap() = default;
   explicit StructAnnotationMap(const StructType* struct_type);
 
   // AnnotationMap on each struct field. Number of fields always match the
   // number of fields of the struct type that is used to create this
-  // StructAnnotationMap. Each field cannot be empty.
+  // StructAnnotationMap. The unique_ptr for each field can be null, which
+  // indicates that the AnnotationMap for the field (and all its children if
+  // applicable) is empty.
   std::vector<std::unique_ptr<AnnotationMap>> fields_;
 };
 
@@ -179,18 +229,28 @@ class ArrayAnnotationMap : public AnnotationMap {
   const ArrayAnnotationMap* AsArrayMap() const override { return this; }
 
   AnnotationMap* mutable_element() { return element_.get(); }
-  const AnnotationMap& element() const { return *element_; }
+  const AnnotationMap* element() const { return element_.get(); }
+
+  // Clones <from> and overwrites what's in the array element.
+  // If <from> is nullptr, the array element is set to NULL.
+  // Returns an error if the array element and <from> don't have compatible
+  // structure as defined in AnnotationMap::HasCompatibleStructure(lhs, rhs)
+  absl::Status CloneIntoElement(const AnnotationMap* from);
+
   std::string DebugString() const override;
 
   absl::Status Serialize(AnnotationMapProto* proto) const override;
 
  private:
   friend class AnnotationMap;
+  friend class AnnotationTest;
   // Accessed only by AnnotationMap.
   ArrayAnnotationMap() = default;
   explicit ArrayAnnotationMap(const ArrayType* array_type);
 
-  // AnnotationMap on array element. Cannot be null.
+  // AnnotationMap on array element. The unique_ptr can be null, which indicates
+  // that the AnnotationMap for the element (and all its children if applicable)
+  // is empty.
   std::unique_ptr<AnnotationMap> element_;
 };
 

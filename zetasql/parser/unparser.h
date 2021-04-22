@@ -163,6 +163,8 @@ class Unparser : public ParseTreeVisitor {
                                      void* data) override;
   void visitASTCreateTableStatement(const ASTCreateTableStatement* node,
                                     void* data) override;
+  void visitASTCreateSnapshotTableStatement(
+      const ASTCreateSnapshotTableStatement* node, void* data) override;
   void visitASTCreateEntityStatement(const ASTCreateEntityStatement* node,
                                      void* data) override;
   void visitASTAlterEntityStatement(const ASTAlterEntityStatement* node,
@@ -221,6 +223,8 @@ class Unparser : public ParseTreeVisitor {
                                      void* data) override;
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
+  void visitASTRenameColumnAction(const ASTRenameColumnAction* node,
+                                  void* data) override;
   void visitASTDropStatement(const ASTDropStatement* node, void* data) override;
   void visitASTDropEntityStatement(const ASTDropEntityStatement* node,
                                    void* data) override;
@@ -234,6 +238,10 @@ class Unparser : public ParseTreeVisitor {
       const ASTDropAllRowAccessPoliciesStatement* node, void* data) override;
   void visitASTDropMaterializedViewStatement(
       const ASTDropMaterializedViewStatement* node, void* data) override;
+  void visitASTDropSnapshotTableStatement(
+      const ASTDropSnapshotTableStatement* node, void* data) override;
+  void visitASTDropSearchIndexStatement(
+      const ASTDropSearchIndexStatement* node, void* data) override;
   void visitASTRenameStatement(const ASTRenameStatement* node,
                                void* data) override;
   void visitASTImportStatement(const ASTImportStatement* node,
@@ -365,6 +373,9 @@ class Unparser : public ParseTreeVisitor {
                                       void* data) override;
   void visitASTInExpression(const ASTInExpression* node, void* data) override;
   void visitASTInList(const ASTInList* node, void* data) override;
+  void visitASTLikeExpression(const ASTLikeExpression* node,
+                              void* data) override;
+  void visitASTAnySomeAllOp(const ASTAnySomeAllOp* node, void* data) override;
   void visitASTIndexItemList(const ASTIndexItemList* node, void* data) override;
   void visitASTIndexStoringExpressionList(
       const ASTIndexStoringExpressionList* node, void* data) override;
@@ -534,6 +545,8 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTDropConstraintAction(const ASTDropConstraintAction* node,
                                     void* data) override;
+  void visitASTDropPrimaryKeyAction(const ASTDropPrimaryKeyAction* node,
+                                    void* data) override;
   void visitASTAlterConstraintEnforcementAction(
       const ASTAlterConstraintEnforcementAction* node, void* data) override;
   void visitASTAlterConstraintSetOptionsAction(
@@ -547,6 +560,8 @@ class Unparser : public ParseTreeVisitor {
                                 void* data) override;
   void visitASTRenameToClause(const ASTRenameToClause* node,
                               void* data) override;
+  void visitASTSetCollateClause(const ASTSetCollateClause* node,
+                                void* data) override;
   void visitASTAlterActionList(const ASTAlterActionList* node,
                                void* data) override;
   void visitASTDescriptorColumn(const ASTDescriptorColumn* node,

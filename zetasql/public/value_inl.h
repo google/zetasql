@@ -80,27 +80,37 @@ class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
   mutable absl::optional<uint64_t> physical_byte_size_;
 };
 
-
 // -------------------------------------------------------
 // Value
 // -------------------------------------------------------
 
 // Invalid value.
-inline Value::Value() {
-}
+#ifndef SWIG
+constexpr
+#else
+inline
+#endif
+Value::Value() {}
 
-inline Value::Value(const Value& that) {
-  CopyFrom(that);
-}
+inline Value::Value(const Value& that) { CopyFrom(that); }
 
 inline void Value::Clear() {
   if (!is_valid()) return;
 
-  if (!is_null()) {
-    type()->ClearValueContent(GetContent());
-  }
-
-  if (metadata_.has_type_pointer()) {
+  if (!metadata_.has_type_pointer()) {
+    // For simple types, we just need to clear the content and set metadata_
+    // to invalid. Doing this via direct dispatch to SimpleType avoids the cost
+    // of figuring out a type pointer from the type_kind and the cost of
+    // dispatching virtually through that type pointer to SimpleType. This
+    // significantly increases the speed of this function in the common
+    // SimpleType case.
+    if (!metadata_.is_null()) {
+      SimpleType::ClearValueContent(metadata_.type_kind(), GetContent());
+    }
+  } else {
+    if (!metadata_.is_null()) {
+      metadata_.type()->ClearValueContent(GetContent());
+    }
     internal::TypeStoreHelper::UnrefFromValue(metadata_.type()->type_store_);
   }
 
@@ -297,40 +307,26 @@ inline Value Value::Extended(const ExtendedType* type,
   return Value(type, value);
 }
 
-inline Value Value::NullInt32() { return Value(types::Int32Type()); }
-inline Value Value::NullInt64() { return Value(types::Int64Type()); }
-inline Value Value::NullUint32() { return Value(types::Uint32Type()); }
-inline Value Value::NullUint64() { return Value(types::Uint64Type()); }
-inline Value Value::NullBool() { return Value(types::BoolType()); }
-inline Value Value::NullFloat() { return Value(types::FloatType()); }
-inline Value Value::NullDouble() { return Value(types::DoubleType()); }
-inline Value Value::NullString() { return Value(types::StringType()); }
-inline Value Value::NullBytes() { return Value(types::BytesType()); }
-inline Value Value::NullDate() { return Value(types::DateType()); }
-inline Value Value::NullTimestamp() {
-  return Value(types::TimestampType());
-}
-inline Value Value::NullTime() {
-  return Value(types::TimeType());
-}
-inline Value Value::NullDatetime() {
-  return Value(types::DatetimeType());
-}
-inline Value Value::NullInterval() {
-  return Value(types::IntervalType());
-}
-inline Value Value::NullGeography() {
-  return Value(types::GeographyType());
-}
-inline Value Value::NullNumeric() {
-  return Value(types::NumericType());
-}
+inline Value Value::NullInt32() { return Value(TypeKind::TYPE_INT32); }
+inline Value Value::NullInt64() { return Value(TypeKind::TYPE_INT64); }
+inline Value Value::NullUint32() { return Value(TypeKind::TYPE_UINT32); }
+inline Value Value::NullUint64() { return Value(TypeKind::TYPE_UINT64); }
+inline Value Value::NullBool() { return Value(TypeKind::TYPE_BOOL); }
+inline Value Value::NullFloat() { return Value(TypeKind::TYPE_FLOAT); }
+inline Value Value::NullDouble() { return Value(TypeKind::TYPE_DOUBLE); }
+inline Value Value::NullString() { return Value(TypeKind::TYPE_STRING); }
+inline Value Value::NullBytes() { return Value(TypeKind::TYPE_BYTES); }
+inline Value Value::NullDate() { return Value(TypeKind::TYPE_DATE); }
+inline Value Value::NullTimestamp() { return Value(TypeKind::TYPE_TIMESTAMP); }
+inline Value Value::NullTime() { return Value(TypeKind::TYPE_TIME); }
+inline Value Value::NullDatetime() { return Value(TypeKind::TYPE_DATETIME); }
+inline Value Value::NullInterval() { return Value(TypeKind::TYPE_INTERVAL); }
+inline Value Value::NullGeography() { return Value(TypeKind::TYPE_GEOGRAPHY); }
+inline Value Value::NullNumeric() { return Value(TypeKind::TYPE_NUMERIC); }
 inline Value Value::NullBigNumeric() {
-  return Value(types::BigNumericType());
+  return Value(TypeKind::TYPE_BIGNUMERIC);
 }
-inline Value Value::NullJson() {
-  return Value(types::JsonType());
-}
+inline Value Value::NullJson() { return Value(TypeKind::TYPE_JSON); }
 inline Value Value::EmptyGeography() {
   ZETASQL_CHECK(false);
   return NullGeography();
@@ -619,6 +615,141 @@ inline BigNumericValue Value::Get<BigNumericValue>() const {
 template <>
 inline IntervalValue Value::Get<IntervalValue>() const {
   return interval_value();
+}
+
+// ContentStorage<4> represents Metadata's field layout on 32-bit systems.
+// Layouts on 32 and 64 bit systems are different, because x64 pointer and two
+// boolean variables cannot reside in 8 bytes data structure and we need
+// to use pointer tagging (even though a pointer uses just 6 bytes, some
+// platforms checks that all bits in the remaining 2 bytes have the same value).
+// On 32-bit systems we have only 2-bits available for pointer tagging (which is
+// not enough for 3 flags that we keep), however (since pointer is only 4
+// bytes), we have enough space to store flags in the first 4 bytes of the
+// structure.
+template <>
+class Value::Metadata::ContentLayout<4> {
+ protected:
+  int16_t kind_;
+  uint16_t is_null_ : 1;
+  uint16_t preserves_order_ : 1;
+  uint16_t has_type_ : 1;
+
+  union {
+    const Type* type_;
+    int32_t value_extended_content_;
+  };
+
+ public:
+  ContentLayout<4>(Type* type, bool is_null, bool preserves_order)
+      : kind_(TypeKind::TYPE_UNKNOWN),
+        is_null_(is_null),
+        preserves_order_(preserves_order),
+        has_type_(true),
+        type_(type) {}
+
+  constexpr ContentLayout<4>(TypeKind kind, bool is_null, bool preserves_order,
+                             int32_t value_extended_content)
+      : kind_(kind),
+        is_null_(is_null),
+        preserves_order_(preserves_order),
+        has_type_(false),
+        value_extended_content_(value_extended_content) {}
+
+  int16_t kind() const { return kind_; }
+  const Type* type() const { return type_; }
+  int32_t value_extended_content() const { return value_extended_content_; }
+  bool is_null() const { return is_null_; }
+  bool preserves_order() const { return preserves_order_; }
+  bool has_type_pointer() const { return has_type_; }
+};
+
+// On 64-bit systems we need to use pointer tagging to distinguish between the
+// case when we store type pointer and type kind together with value. We expect
+// all Type pointers to be 8 bytes aligned (which should be the case if standard
+// allocation mechanism is used since std::malloc is required to return an
+// allocation that is suitably aligned for any scalar type). We use 3 lowest
+// bits to encode is_null, preserves_order and has_type. These bits must never
+// overlap with int32_t value_. Thus we use different structure layout depending
+// on system endianness.
+template <>
+class Value::Metadata::ContentLayout<8> {
+  static constexpr uint64_t kTagMask = static_cast<uint64_t>(7);
+  static constexpr uint64_t kTypeMask = ~static_cast<uint64_t>(kTagMask);
+  static constexpr uint64_t kHasTypeTag = 1;
+  static constexpr uint64_t kIsNullTag = 1 << 1;
+  static constexpr uint64_t kPreserverOrderTag = 1 << 2;
+
+  constexpr uint64_t GetTagValue(bool has_type, bool is_null,
+                                 bool preserves_ordering) {
+    return (preserves_ordering ? kPreserverOrderTag : 0) |
+           (is_null ? kIsNullTag : 0) | (has_type ? kHasTypeTag : 0);
+  }
+
+ protected:
+  union {
+    uint64_t type_;
+
+    struct {
+      // Note: in this struct, tags_placeholder_ occupies the same memory as
+      // the least significant two bytes of type_. That allows us to to store
+      // the tags in the placeholder and access them with the tag mask on type_.
+#if defined(ABSL_IS_BIG_ENDIAN)
+      int32_t value_extended_content_;
+      int16_t kind_;
+      uint16_t tags_placeholder_;
+#elif defined(ABSL_IS_LITTLE_ENDIAN)
+      uint16_t tags_placeholder_;
+      int16_t kind_;
+      int32_t value_extended_content_;
+#else  // !ABSL_IS_BIG_ENDIAN and !ABSL_IS_LITTLE_ENDIAN
+      static_assert(false,
+                    "Platform is not supported: neither big nor little endian");
+#endif
+    };
+  };
+
+ public:
+  ContentLayout<8>(const Type* type, bool is_null, bool preserves_order)
+      : type_(reinterpret_cast<uint64_t>(type) |
+              GetTagValue(/*has_type=*/true, is_null, preserves_order)) {}
+
+  constexpr ContentLayout<8>(TypeKind kind, bool is_null, bool preserves_order,
+                             int32_t value_extended_content)
+#if defined(ABSL_IS_BIG_ENDIAN)
+      : value_extended_content_(value_extended_content),
+        kind_(kind),
+        tags_placeholder_(
+            GetTagValue(/*has_type=*/false, is_null, preserves_order)) {
+  }
+#elif defined(ABSL_IS_LITTLE_ENDIAN)
+      : tags_placeholder_(
+            GetTagValue(/*has_type=*/false, is_null, preserves_order)),
+        kind_(kind),
+        value_extended_content_(value_extended_content) {
+  }
+#else
+#error Platform is not supported: neither big nor little endian;
+#endif
+
+  int16_t kind() const { return kind_; }
+  const Type* type() const {
+    return reinterpret_cast<const Type*>(type_ & kTypeMask);
+  }
+  int32_t value_extended_content() const { return value_extended_content_; }
+  bool is_null() const { return type_ & kIsNullTag; }
+  bool preserves_order() const { return type_ & kPreserverOrderTag; }
+  bool has_type_pointer() const { return type_ & kHasTypeTag; }
+};
+
+constexpr Value::Metadata::Metadata(TypeKind kind, bool is_null,
+                                    bool preserves_order,
+                                    int32_t value_extended_content) {
+  *content() = Content(kind, is_null, preserves_order, value_extended_content);
+  ZETASQL_DCHECK(!content()->has_type_pointer());
+  ZETASQL_DCHECK(content()->kind() == kind);
+  ZETASQL_DCHECK(content()->value_extended_content() == value_extended_content);
+  ZETASQL_DCHECK(content()->preserves_order() == preserves_order);
+  ZETASQL_DCHECK(content()->is_null() == is_null);
 }
 
 namespace values {

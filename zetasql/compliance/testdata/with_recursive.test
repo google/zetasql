@@ -1005,3 +1005,36 @@ WITH RECURSIVE
 ) SELECT * FROM t;
 --
 ARRAY<STRUCT<x DOUBLE>>[{-1}, {1}, {0}, {inf}, {-inf}, {nan}]
+==
+
+# Even when the non-recursive term emits no rows, the recursive term should
+# still be evaluated at least once. This query detects this by failing with
+# division by zero if the recursive term is evaluated, or succeeding with no
+# rows if the recursive is completely skipped.
+[name=recursive_query_non_recursive_term_empty_union_all]
+[required_features=V_1_3_WITH_RECURSIVE]
+WITH RECURSIVE
+  t0 AS (SELECT 0.0 AS n),
+  t AS (
+    SELECT n FROM t0 WHERE FALSE
+    UNION ALL SELECT * FROM (
+      SELECT 1 / (n - 1) AS n FROM t UNION ALL (SELECT 1 AS n))
+) SELECT * FROM t;
+--
+ERROR: generic::out_of_range: division by zero: 1 / 0
+==
+
+# Similar to the above test case, but uses UNION DISTINCT to allow the query
+# to terminate with a deterministic and nonempty row set, rather than fail with
+# division by zero.
+[name=recursive_query_non_recursive_term_empty_union_distinct]
+[required_features=V_1_3_WITH_RECURSIVE]
+WITH RECURSIVE
+  t0 AS (SELECT 0 AS n),
+  t AS (
+    SELECT n FROM t0 WHERE FALSE
+    UNION DISTINCT SELECT * FROM (
+      SELECT MOD(n + 1, 5) AS n FROM t UNION ALL (SELECT 1 AS n))
+) SELECT * FROM t;
+--
+ARRAY<STRUCT<n INT64>>[{1}, {2}, {3}, {4}, {0}]

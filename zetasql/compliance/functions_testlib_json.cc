@@ -20,11 +20,50 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 
 namespace zetasql {
 namespace {
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
+
+// Note: not enclosed in {}.
+constexpr absl::string_view kDeepJsonString = R"(
+  "a" : {
+    "b" : {
+      "c" : {
+        "d" : {
+          "e" : {
+            "f" : {
+              "g" : {
+                "h" : {
+                  "i" : {
+                    "j" : {
+                      "k" : {
+                        "l" : {
+                          "m" : {
+                            "x" : "foo",
+                            "y" : 10,
+                            "z" : [1, 2, 3]
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  )";
+
+constexpr absl::string_view kWideJsonString = R"(
+  "a" : null, "b" : "bar", "c" : false, "d" : [4, 5], "e" : 0.123, "f" : "345",
+  "g" : null, "h" : "baz", "i" : true, "j" : [-3, 0], "k" : 0.321, "l" : "678"
+  )";
 
 // 'sql_standard_mode': if true, uses the SQL2016 standard for JSON function
 // names (e.g. JSON_QUERY instead of JSON_EXTRACT).
@@ -57,70 +96,33 @@ const std::vector<FunctionTestCall> GetJsonTestsCommon(
   const Value json7 = json_constructor(R"({"a":{"b": {"c": {"d": 3}}}})");
   const Value json8 = json_constructor(
       R"({"x" : [    ], "y"    :[1,2       ,      5,3  ,4]})");
-
-  // Note: not enclosed in {}.
-  const std::string deep_json_string = R"(
-  "a" : {
-    "b" : {
-      "c" : {
-        "d" : {
-          "e" : {
-            "f" : {
-              "g" : {
-                "h" : {
-                  "i" : {
-                    "j" : {
-                      "k" : {
-                        "l" : {
-                          "m" : {
-                            "x" : "foo",
-                            "y" : 10,
-                            "z" : [1, 2, 3]
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  )";
-  const std::string wide_json_string = R"(
-  "a" : null, "b" : "bar", "c" : false, "d" : [4, 5], "e" : 0.123, "f" : "345",
-  "g" : null, "h" : "baz", "i" : true, "j" : [-3, 0], "k" : 0.321, "l" : "678"
-  )";
+  const Value json9 = json_constructor(R"({"a": 1, "": [5, "foo"]})");
 
   const Value deep_json =
-      json_constructor(absl::StrCat("{", deep_json_string, "}"));
+      json_constructor(absl::StrCat("{", kDeepJsonString, "}"));
   const Value wide_json =
-      json_constructor(absl::StrCat("{", wide_json_string, "}"));
+      json_constructor(absl::StrCat("{", kWideJsonString, "}"));
 
   const int kArrayElements = 20;
   std::vector<int> indexes(kArrayElements);
   std::iota(indexes.begin(), indexes.end(), 0);
   const Value array_of_wide_json = json_constructor(absl::Substitute(
       R"({"arr" : [$0]})",
-      absl::StrJoin(
-          indexes, ",", [&wide_json_string](std::string* out, int index) {
-            absl::StrAppend(out, absl::Substitute(R"({"index" : $0, $1})",
-                                                  index, wide_json_string));
-          })));
+      absl::StrJoin(indexes, ",", [](std::string* out, int index) {
+        absl::StrAppend(out, absl::Substitute(R"({"index" : $0, $1})", index,
+                                              kWideJsonString));
+      })));
   const Value array_of_deep_json = json_constructor(absl::Substitute(
       R"({"arr" : [$0]})",
-      absl::StrJoin(
-          indexes, ",", [&deep_json_string](std::string* out, int index) {
-            absl::StrAppend(out, absl::Substitute(R"({"index" : $0, $1})",
-                                                  index, deep_json_string));
-          })));
+      absl::StrJoin(indexes, ",", [](std::string* out, int index) {
+        absl::StrAppend(out, absl::Substitute(R"({"index" : $0, $1})", index,
+                                              kDeepJsonString));
+      })));
 
   std::vector<FunctionTestCall> all_tests;
   if (scalar_test_cases) {
     all_tests = {
+        {value_fn_name, {json1}, NullString()},
         {value_fn_name, {json1, String("$.a.b[0]")}, NullString()},
         {value_fn_name, {json1, String("$.a.b[0].c")}, String("foo")},
         {value_fn_name, {json1, String("$.a.b[0].d")}, String("1.23")},
@@ -170,15 +172,29 @@ const std::vector<FunctionTestCall> GetJsonTestsCommon(
          {json6, String("$.a[0].b[(@.length-1)].c[(@.length-1)].d")},
          NullString(),
          OUT_OF_RANGE},
+        {value_fn_name, {json9, String("$..1")}, NullString(), OUT_OF_RANGE},
+        // Optional json_path argument
+        {value_fn_name,
+         {json_constructor("\"hello my friend\"")},
+         String("hello my friend")},
+        {value_fn_name, {json_constructor("-4.58295")}, String("-4.58295")},
     };
     if (sql_standard_mode) {
       all_tests.push_back({value_fn_name,
                            {json3, String("$['a.b.c']")},
                            NullString(),
                            OUT_OF_RANGE});
+      all_tests.push_back(
+          {value_fn_name, {json9, String("$.\"\"[1]")}, String("foo")});
     } else {
       all_tests.push_back({value_fn_name,
                            {json3, String("$.\"a.b.c\"")},
+                           NullString(),
+                           OUT_OF_RANGE});
+      all_tests.push_back(
+          {value_fn_name, {json9, String("$[''][1]")}, String("foo")});
+      all_tests.push_back({value_fn_name,
+                           {json9, String("$[][1]")},
                            NullString(),
                            OUT_OF_RANGE});
     }
@@ -372,15 +388,35 @@ const std::vector<FunctionTestCall> GetJsonTestsCommon(
          {json2, String(R"($.y[?(@.a==='bar')])")},
          json_constructor(absl::nullopt),
          OUT_OF_RANGE},
+        {query_fn_name,
+         {json9, String("$..1")},
+         json_constructor(absl::nullopt),
+         OUT_OF_RANGE},
     };
     if (sql_standard_mode) {
       all_tests.push_back({query_fn_name,
                            {json3, String("$['a.b.c']")},
                            json_constructor(absl::nullopt),
                            OUT_OF_RANGE});
+      all_tests.push_back({query_fn_name,
+                           {json9, String("$.\"\"")},
+                           json_constructor(R"([5,"foo"])")});
+      all_tests.push_back({query_fn_name,
+                           {json9, String("$.\"\"[1]")},
+                           json_constructor(R"("foo")")});
     } else {
       all_tests.push_back({query_fn_name,
                            {json3, String("$.\"a.b.c\"")},
+                           json_constructor(absl::nullopt),
+                           OUT_OF_RANGE});
+      all_tests.push_back({query_fn_name,
+                           {json9, String("$['']")},
+                           json_constructor(R"([5,"foo"])")});
+      all_tests.push_back({query_fn_name,
+                           {json9, String("$[''][1]")},
+                           json_constructor(R"("foo")")});
+      all_tests.push_back({query_fn_name,
+                           {json9, String("$[][1]")},
                            json_constructor(absl::nullopt),
                            OUT_OF_RANGE});
     }
@@ -593,6 +629,73 @@ std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull() {
       {{Json(JSONValue(std::string{"null"}))}, False()},
       {{Value::Null(types::JsonArrayType())}, True()},
   };
+  return v;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsParseJson() {
+  // TODO: Currently these tests only verify if PARSE_JSON produces
+  // the same output as JSONValue::ParseJsonString. A better test would need
+  // to evaluate the output of PARSE_JSON either through JSONValueConstRef
+  // accessors or through the JSON_VALUE SQL function.
+  std::vector<std::string> valid_json_strings = {
+      "123",
+      "\"string\"",
+      "12.3",
+      "true",
+      "null",
+      "[1, true, null]",
+      "{\"a\" : [ {\"b\": \"c\"}, {\"b\": false}]}",
+      absl::StrCat("{", kDeepJsonString, "}"),
+      absl::StrCat("{", kWideJsonString, "}"),
+      "11111111111111111111",
+      "1.2345678901234568e+29",
+      R"("foo\t\\t\\\t\n\\nbar \"baz\\")",
+      "123456789012345678901234567890",
+      R"({"x":11111111111111111111, "z":123456789012345678901234567890})",
+      "[[1, 2, 3], [\"a\", \"b\", \"c\"], [[true, false]]]",
+      "\"\u005C\u005C\u0301\u263a\u2028\"",
+      "\"你好\"",
+      "{\"%2526%7C%2B\": null}"};
+  std::vector<std::string> invalid_json_strings = {"{\"foo\": 12",
+                                                   "\"",
+                                                   "string",
+                                                   "[1, 2",
+                                                   "[\"a\" \"b\"]",
+                                                   "'foo'",
+                                                   "True",
+                                                   "FALSE",
+                                                   "NULL",
+                                                   "nan",
+                                                   R"("\")",
+                                                   ".3",
+                                                   "4.",
+                                                   "0x3",
+                                                   "1.e",
+                                                   R"("f1":"v1")",
+                                                   R"("":"v1")",
+                                                   "3]",
+                                                   "4}",
+                                                   "-",
+                                                   "",
+                                                   " "};
+  std::vector<FunctionTestCall> v;
+  v.reserve(valid_json_strings.size() + invalid_json_strings.size() + 2);
+  for (const std::string& str : valid_json_strings) {
+    v.push_back(
+        {"parse_json", {{str}, Json(JSONValue::ParseJSONString(str).value())}});
+  }
+  for (const std::string& str : invalid_json_strings) {
+    v.push_back({"parse_json", {str}, NullJson(), OUT_OF_RANGE});
+  }
+  // Legacy parsing
+  v.push_back(
+      {"parse_json",
+       QueryParamsWithResult({"'str'"}, Json(JSONValue::ParseJSONString(
+                                                 "'str'", {.legacy_mode = true})
+                                                 .value()))
+           .WrapWithFeatureSet(
+               {FEATURE_JSON_TYPE, FEATURE_JSON_LEGACY_PARSE})});
+  v.push_back({"parse_json", {{NullString()}, NullJson()}});
   return v;
 }
 

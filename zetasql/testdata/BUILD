@@ -274,6 +274,31 @@ cc_library(
 )
 
 cc_library(
+    name = "special_catalog",
+    testonly = 1,
+    srcs = ["special_catalog.cc"],
+    hdrs = ["special_catalog.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:map_util",
+        "//zetasql/public:catalog",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "populate_sample_tables",
     testonly = 1,
     srcs = ["populate_sample_tables.cc"],

@@ -99,6 +99,7 @@ cc_library(
         "resolved_ast.cc",
         "resolved_ast_deep_copy_visitor.cc",
         "resolved_ast_helper.cc",
+        "resolved_collation.cc",
         "resolved_column.cc",
         "resolved_node.cc",
     ],
@@ -107,6 +108,7 @@ cc_library(
         "resolved_ast_deep_copy_visitor.h",
         "resolved_ast_helper.h",
         "resolved_ast_visitor.h",
+        "resolved_collation.h",
         "resolved_column.h",
         "resolved_node.h",
         "resolved_node_kind.h",
@@ -148,6 +150,7 @@ cc_library(
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
@@ -175,6 +178,44 @@ cc_library(
     deps = [
         ":resolved_ast",
         "@com_google_absl//absl/meta:type_traits",
+    ],
+)
+
+gen_resolved_ast_files(
+    name = "run_gen_resolved_ast_comparator",
+    srcs = [
+        "resolved_ast_comparator.cc.template",
+        "resolved_ast_comparator.h.template",
+    ],
+    outs = [
+        "resolved_ast_comparator.cc",
+        "resolved_ast_comparator.h",
+    ],
+)
+
+cc_library(
+    name = "comparator",
+    srcs = ["resolved_ast_comparator.cc"],
+    hdrs = ["resolved_ast_comparator.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":resolved_ast",
+        "//zetasql/base",
+        "//zetasql/base:case",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:errors",
+        "//zetasql/public:catalog",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -295,6 +336,7 @@ cc_test(
         ":make_node_vector",
         ":resolved_ast",
         ":serialization_cc_proto",
+        ":test_utils",
         ":validator",
         "//zetasql/base",
         "//zetasql/base:status",
@@ -445,6 +487,28 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "resolved_collation_test",
+    size = "small",
+    srcs = ["resolved_collation_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":resolved_ast",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public/types",
+    ],
+)
+
 proto_library(
     name = "resolved_ast_enums_proto",
     srcs = ["resolved_ast_enums.proto"],
@@ -572,9 +636,30 @@ cc_test(
     deps = [
         ":make_node_vector",
         ":resolved_ast",
+        ":test_utils",
         ":validator",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public/types",
+    ],
+)
+
+cc_library(
+    name = "test_utils",
+    srcs = ["test_utils.cc"],
+    hdrs = ["test_utils.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":make_node_vector",
+        ":resolved_ast",
+        "//zetasql/base:logging",
     ],
 )

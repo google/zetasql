@@ -1,0 +1,45 @@
+CREATE SCHEMA myProject.mySchema;
+
+--
+CreateSchemaStmt(name_path=myProject.mySchema)
+==
+
+CREATE SCHEMA myProject.mySchema OPTIONS(a="b", c="d");
+
+--
+CreateSchemaStmt
++-name_path=myProject.mySchema
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+CREATE SCHEMA IF NOT EXISTS myProject.mySchema OPTIONS(a="b", c="d");
+
+--
+CreateSchemaStmt
++-name_path=myProject.mySchema
++-create_mode=CREATE_IF_NOT_EXISTS
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+CREATE OR REPLACE SCHEMA myProject.mySchema OPTIONS(a="b", c="d");
+
+--
+CreateSchemaStmt
++-name_path=myProject.mySchema
++-create_mode=CREATE_OR_REPLACE
++-option_list=
+  +-a := Literal(type=STRING, value="b")
+  +-c := Literal(type=STRING, value="d")
+==
+
+CREATE OR REPLACE SCHEMA IF NOT EXISTS myProject.mySchema
+OPTIONS(a="b", c="d");
+
+--
+ERROR: CREATE SCHEMA cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
+CREATE OR REPLACE SCHEMA IF NOT EXISTS myProject.mySchema
+^

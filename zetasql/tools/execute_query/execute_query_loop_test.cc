@@ -104,6 +104,11 @@ TEST(ExecuteQueryLoopTest, Callback) {
   ExecuteQueryStreamWriter writer{output};
 
   const auto handler = [&prompt](absl::Status status, absl::string_view sql) {
+    if (status.code() == absl::StatusCode::kUnavailable &&
+        status.message() == "input error") {
+      return status;
+    }
+
     // The query used invalid syntax
     EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument));
     EXPECT_EQ(sql, "test error");

@@ -822,12 +822,16 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   AnalyzerOptionsProto proto;
   proto.set_error_message_mode(ERROR_MESSAGE_WITH_PAYLOAD);
   proto.set_prune_unused_columns(true);
-  proto.set_record_parse_locations(true);
   proto.set_allow_undeclared_parameters(true);
   proto.set_parameter_mode(PARAMETER_POSITIONAL);
   proto.mutable_language_options()->set_product_mode(PRODUCT_INTERNAL);
   proto.set_default_timezone("Asia/Shanghai");
   proto.set_preserve_column_aliases(false);
+
+  auto* parse_location_options = proto.mutable_parse_location_options();
+  parse_location_options->set_record_parse_locations(true);
+  parse_location_options->set_function_call_record_type(
+      AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_CALL);
 
   auto* param = proto.add_query_parameters();
   param->set_name("q1");
@@ -933,7 +937,9 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   ZETASQL_CHECK_OK(AnalyzerOptions::Deserialize(proto, pools, &factory, &options));
 
   ASSERT_TRUE(options.prune_unused_columns());
-  ASSERT_TRUE(options.record_parse_locations());
+  ASSERT_TRUE(options.parse_location_options().record_parse_locations);
+  ASSERT_EQ(AnalyzerOptions::FUNCTION_CALL,
+            options.parse_location_options().function_call_record_type);
   ASSERT_TRUE(options.allow_undeclared_parameters());
   ASSERT_EQ(ERROR_MESSAGE_WITH_PAYLOAD, options.error_message_mode());
   ASSERT_EQ(PRODUCT_INTERNAL, options.language().product_mode());
@@ -1002,14 +1008,14 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(224, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
+  EXPECT_EQ(232, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string) -
                      sizeof(absl::flat_hash_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(19, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(20, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

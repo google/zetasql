@@ -46,8 +46,9 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   // Maximum accepted statement length in bytes
   constexpr static size_t kMaxLength = 8 * 1024 * 1024;
 
-  // Returns status without modification.
-  static absl::Status NoOpParserErrorHandler(absl::Status status);
+  constexpr static zetasql_base::StatusOr<std::vector<std::string>> (
+      *kDefaultCompletionFunc)(absl::string_view body, size_t cursor_position) =
+      nullptr;
 
   // `read_next_func` is a function reading more input. Such inputs may contain
   // newlines and don't need to be line-separated. Must not be nullptr. The
@@ -56,22 +57,31 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   // of the prompt's `Read` function. A return value of `nullopt` signals the
   // end of input.
   //
-  // `parser_error_handler` is a function given any errors occurring during
-  // statement separation. Must not be nullptr. The handler may log the error
-  // and return OK to proceed as if nothing happened, therefore handling SQL
-  // syntax issues gracefully. When a non-OK status is returned the prompt in
-  // turn returns that status from its `Read` function. The caller of `Read`
-  // can't easily differentiate between errors originating from `read_next_func`
-  // or the statement separation logic.
+  // Statements failing to parse (e.g. due to invalid syntax) produce an
+  // absl::Status error with a "zetasql.execute_query.ParserErrorContext"
+  // payload. The context contains the statement text producing the error. The
+  // caller may log the error and proceed as if nothing happened, therefore
+  // handling SQL syntax issues gracefully.
+  //
+  // `autocomplete_func` is a function returning possible tokens to use at the
+  // given cursor position. It's given a full view into the body composed thus
+  // far. The body may continue beyond the cursor position. Errors are returned
+  // to the caller of the `Autocomplete` member function.
   explicit ExecuteQueryStatementPrompt(
       std::function<
           zetasql_base::StatusOr<absl::optional<std::string>>(bool continuation)>
           read_next_func,
-      std::function<absl::Status(absl::Status status)> parser_error_handler =
-          &NoOpParserErrorHandler);
+      std::function<zetasql_base::StatusOr<std::vector<std::string>>(
+          absl::string_view body, size_t cursor_position)>
+          autocomplete_func = kDefaultCompletionFunc);
   ExecuteQueryStatementPrompt(const ExecuteQueryStatementPrompt&) = delete;
   ExecuteQueryStatementPrompt& operator=(const ExecuteQueryStatementPrompt&) =
       delete;
+
+  // Produce list of possible tokens at cursor position. Errors should generally
+  // not be considered fatal as they may occur due to faulty syntax.
+  zetasql_base::StatusOr<std::vector<std::string>> Autocomplete(absl::string_view body,
+                                                        size_t cursor_position);
 
   zetasql_base::StatusOr<absl::optional<std::string>> Read() override;
 
@@ -85,7 +95,11 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   size_t max_length_ = kMaxLength;
   const std::function<zetasql_base::StatusOr<absl::optional<std::string>>(bool)>
       read_next_func_;
-  const std::function<absl::Status(absl::Status)> parser_error_handler_;
+  const std::function<absl::Status(absl::Status, absl::string_view)>
+      parser_error_handler_;
+  const std::function<zetasql_base::StatusOr<std::vector<std::string>>(
+      absl::string_view body, size_t cursor_position)>
+      autocomplete_func_;
   bool continuation_ = false;
   bool eof_ = false;
   absl::Cord buf_;

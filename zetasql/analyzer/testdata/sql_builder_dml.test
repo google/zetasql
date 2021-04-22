@@ -1,0 +1,273 @@
+# Use (broken link) for pretty-printing the generated sql.
+[default show_unparsed]
+[default no_show_resolved_ast]
+
+DELETE SimpleTypes S
+WHERE S.int64 IN (select key from KeyValue)
+ASSERT_ROWS_MODIFIED 1
+--
+[UNPARSED_SQL]
+DELETE SimpleTypes AS simpletypes_1
+WHERE
+  ((simpletypes_1.int64) IN (
+    SELECT
+      keyvalue_3.a_2 AS a_2
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ))
+ASSERT_ROWS_MODIFIED 1;
+==
+
+DELETE KitchenSinkValueTable
+WHERE float_val > int32_val
+--
+[UNPARSED_SQL]
+DELETE KitchenSinkValueTable AS kitchensinkvaluetable_1
+WHERE
+  CAST(kitchensinkvaluetable_1.float_val AS DOUBLE) > CAST(kitchensinkvaluetable_1.int32_val AS DOUBLE);
+==
+
+INSERT KeyValue (value, key)
+select value, key from KeyValue
+ASSERT_ROWS_MODIFIED 1
+--
+[UNPARSED_SQL]
+INSERT INTO KeyValue(Value, Key)
+SELECT
+  keyvalue_3.a_2 AS a_2,
+  keyvalue_3.a_1 AS a_1
+FROM
+  (
+    SELECT
+      KeyValue.Key AS a_1,
+      KeyValue.Value AS a_2
+    FROM
+      KeyValue
+  ) AS keyvalue_3
+ASSERT_ROWS_MODIFIED 1;
+==
+
+INSERT KeyValue (key, value)
+VALUES (1, "one"), (2, DEFAULT), (3, NULL)
+--
+[UNPARSED_SQL]
+INSERT INTO KeyValue(Key, Value)
+VALUES
+  (1, "one"),
+  (2, DEFAULT),
+  (3, CAST(NULL AS STRING));
+==
+
+INSERT KitchenSinkValueTable
+select KitchenSink from TestTable
+--
+[UNPARSED_SQL]
+INSERT INTO KitchenSinkValueTable(value)
+SELECT
+  testtable_2.a_1 AS a_1
+FROM
+  (
+    SELECT
+      TestTable.KitchenSink AS a_1
+    FROM
+      TestTable
+  ) AS testtable_2;
+==
+
+UPDATE KeyValue SET
+  key=1,
+  value="a"
+WHERE key > 10
+ASSERT_ROWS_MODIFIED @test_param_int64
+--
+[UNPARSED_SQL]
+UPDATE KeyValue AS keyvalue_1
+SET
+  keyvalue_1.Key = 1,
+  keyvalue_1.Value = "a"
+WHERE
+  (keyvalue_1.Key) > 10
+ASSERT_ROWS_MODIFIED @test_param_int64;
+==
+
+UPDATE TestTable SET
+  (DELETE KitchenSink.repeated_int64_val
+   WHERE repeated_int64_val = 1),
+  (INSERT KitchenSink.repeated_uint32_val VALUES (1)),
+  (DELETE KitchenSink.repeated_int32_val WHERE true),
+  (DELETE KitchenSink.repeated_int64_val
+   WHERE repeated_int64_val = 2),
+  (UPDATE KitchenSink.repeated_int64_val SET
+     repeated_int64_val = 1
+   WHERE repeated_int64_val > 5),
+  (INSERT KitchenSink.repeated_int64_val
+   VALUES (1)),
+  (UPDATE KitchenSink.repeated_int32_val SET
+     repeated_int32_val = DEFAULT
+   WHERE true),
+  (INSERT KitchenSink.repeated_int64_val
+   select key from KeyValue),
+  (INSERT KitchenSink.repeated_uint32_val VALUES
+     (1), (2)),
+  (DELETE KitchenSink.repeated_uint64_val WHERE true)
+WHERE true
+--
+[UNPARSED_SQL]
+UPDATE TestTable AS testtable_1
+SET
+  (
+    DELETE testtable_1.KitchenSink.repeated_int64_val AS repeated_int64_val
+    WHERE
+      repeated_int64_val = 1
+  ),
+  (
+    DELETE testtable_1.KitchenSink.repeated_int64_val AS repeated_int64_val
+    WHERE
+      repeated_int64_val = 2
+  ),
+  (
+    UPDATE testtable_1.KitchenSink.repeated_int64_val AS repeated_int64_val
+    SET
+      repeated_int64_val = 1
+    WHERE
+      repeated_int64_val > 5
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_int64_val
+    VALUES
+      (1)
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_int64_val
+    SELECT
+      keyvalue_3.a_2 AS a_2
+    FROM
+      (
+        SELECT
+          KeyValue.Key AS a_2
+        FROM
+          KeyValue
+      ) AS keyvalue_3
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_uint32_val
+    VALUES
+      (CAST(1 AS UINT32))
+  ),
+  (
+    INSERT INTO testtable_1.KitchenSink.repeated_uint32_val
+    VALUES
+      (CAST(1 AS UINT32)),
+      (CAST(2 AS UINT32))
+  ),
+  (
+    DELETE testtable_1.KitchenSink.repeated_int32_val AS repeated_int32_val
+    WHERE
+      true
+  ),
+  (
+    UPDATE testtable_1.KitchenSink.repeated_int32_val AS repeated_int32_val
+    SET
+      repeated_int32_val = DEFAULT
+    WHERE
+      true
+  ),
+  (
+    DELETE testtable_1.KitchenSink.repeated_uint64_val AS repeated_uint64_val
+    WHERE
+      true
+  )
+WHERE
+  true;
+==
+
+UPDATE TestTable T SET
+  (UPDATE T.KitchenSink.repeated_int64_val T SET
+     T = 1
+   WHERE true)
+WHERE true
+--
+[UNPARSED_SQL]
+UPDATE TestTable AS testtable_1
+SET
+  (
+    UPDATE testtable_1.KitchenSink.repeated_int64_val AS T
+    SET
+      T = 1
+    WHERE
+      true
+  )
+WHERE
+  true;
+==
+
+UPDATE TestTable SET
+  (UPDATE KitchenSink.nested_repeated_group SET
+     (UPDATE nested_repeated_group.nestedrepeatedgroupnested SET
+        id = 1
+      WHERE true)
+   WHERE true)
+WHERE true
+--
+[UNPARSED_SQL]
+UPDATE TestTable AS testtable_1
+SET
+  (
+    UPDATE testtable_1.KitchenSink.nested_repeated_group AS nested_repeated_group
+    SET
+      (
+        UPDATE nested_repeated_group.nestedrepeatedgroupnested AS nestedrepeatedgroupnested
+        SET
+          nestedrepeatedgroupnested.id = 1
+        WHERE
+          true
+      )
+    WHERE
+      true
+  )
+WHERE
+  true;
+==
+
+DELETE ` Value`
+WHERE ` Value`.` Value` = "true"
+--
+[UNPARSED_SQL]
+DELETE ` Value` AS ` value_1`
+WHERE
+  (` value_1`.` Value`) = "true";
+==
+
+UPDATE ` Value` SET
+  ` Value`.` Value` = "true"
+WHERE ` Key` > 1
+--
+[UNPARSED_SQL]
+UPDATE ` Value` AS ` value_1`
+SET
+  ` value_1`.` Value` = "true"
+WHERE
+  (` value_1`.` Key`) > 1;
+==
+
+INSERT ` Value` (` Key`, ` Value`)
+select * from ` Value`
+--
+[UNPARSED_SQL]
+INSERT INTO ` Value`(` Key`, ` Value`)
+SELECT
+  ` value_4`.a_2 AS a_2,
+  ` value_4`.a_3 AS a_3
+FROM
+  (
+    SELECT
+      ` value_1`.` Key` AS a_2,
+      ` value_1`.` Value` AS a_3
+    FROM
+      ` Value` AS ` value_1`
+  ) AS ` value_4`;
