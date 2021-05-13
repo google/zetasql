@@ -127,6 +127,7 @@ cc_library(
         "//zetasql/base:statusor",
         "//zetasql/common:float_margin",
         "//zetasql/common:internal_value",
+        "//zetasql/compliance:test_driver",
         "//zetasql/public:numeric_value",
         "//zetasql/public:type",
         "//zetasql/public:value",

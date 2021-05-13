@@ -229,7 +229,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
     std::unique_ptr<ResolvedNodeType> node(
         static_cast<ResolvedNodeType*>(stack_.top().release()));
     stack_.pop();
-    return std::move(node);
+    return node;
   }
 
   // Calls Visit on the node, pops the result off of the stack, and returns it.

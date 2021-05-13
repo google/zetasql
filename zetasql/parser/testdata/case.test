@@ -1,4 +1,7 @@
 # Tests for the CASE expression.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select case when a < 0 then 5 end;
 --
 QueryStatement [0-33]

@@ -37,6 +37,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -215,6 +216,35 @@ struct TestDatabase {
   std::map<std::string, TestTable> tables;  // Keyed on table name.
 };
 
+// The result of executing a single statement in a script.
+struct StatementResult {
+  // Line number of the start of the statement, 1-based.
+  // 0 if the line number cannot be determined.
+  int line = 0;
+
+  // Column number of the start of the statement, 1-based.
+  // 0 if the column number cannot be determined.
+  int column = 0;
+
+  // The result of the statement. See TestDriver::ExecuteStatement() for a
+  // description on what types of values are expected for different statement
+  // types.
+  zetasql_base::StatusOr<Value> result;
+};
+
+// Represents the result of executing a script through a TestDriver.
+struct ScriptResult {
+  // A list of statements that were executed, along with their results.
+  //
+  // Even if the script fails, <statement_results> should still be populated
+  // with the list of statements that ran up to an including the failure.
+  //
+  // A failed StatementResult is still possible, even if the script succeeds.
+  // This can happen if the error was caught by an exception handler in the
+  // script.
+  std::vector<StatementResult> statement_results;
+};
+
 // Serialize TestDatabase to a proto. This is to allow building test drivers in
 // other languages (in particular, java).  Note, there is no c++ deserializer,
 // as serialization should not be necessary in this case.
@@ -285,6 +315,14 @@ class TestDriver {
   virtual zetasql_base::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) = 0;
+
+  // Similar to ExecuteStatement(), but executes 'sql' as a script, rather than
+  // an individual statement.
+  virtual zetasql_base::StatusOr<ScriptResult> ExecuteScript(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      TypeFactory* type_factory) {
+    return absl::UnimplementedError("Scripts are not supported");
+  }
 
   // This method is only intended to be overridden by the
   // reference implementation.  Other engines should not override.

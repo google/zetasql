@@ -96,7 +96,7 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"bignumeric", {TYPE_BIGNUMERIC}},
       {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
       {"json", {TYPE_JSON}},
-      {"tokenset", {TYPE_TOKENSET}},
+      {"tokenlist", {TYPE_TOKENLIST}},
   };
   return *result;
 }
@@ -132,7 +132,7 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
       {TYPE_NUMERIC, {false, FEATURE_NUMERIC_TYPE}},
       {TYPE_BIGNUMERIC, {false, FEATURE_BIGNUMERIC_TYPE}},
       {TYPE_JSON, {false, FEATURE_JSON_TYPE}},
-      {TYPE_TOKENSET, {false, FEATURE_TOKENIZED_SEARCH}},
+      {TYPE_TOKENLIST, {false, FEATURE_TOKENIZED_SEARCH}},
   };
   return *result;
 }
@@ -329,7 +329,7 @@ bool SimpleType::SupportsGroupingImpl(const LanguageOptions& language_options,
   const bool supports_grouping =
       !this->IsGeography() &&
       !this->IsJson() &&
-      !this->IsTokenSet() &&
+      !this->IsTokenList() &&
       !(this->IsFloatingPoint() && language_options.LanguageFeatureEnabled(
                                        FEATURE_DISALLOW_GROUP_BY_FLOAT));
   if (no_grouping_type != nullptr) {

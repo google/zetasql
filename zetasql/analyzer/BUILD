@@ -86,6 +86,7 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:statusor",
+        "//zetasql/base:string_numbers",
         "//zetasql/parser",
         "//zetasql/public:coercer",
         "//zetasql/public:function",
@@ -375,6 +376,7 @@ cc_library(
         "//zetasql/resolved_ast:validator",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
     ],
 )

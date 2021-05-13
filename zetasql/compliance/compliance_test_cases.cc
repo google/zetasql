@@ -1364,8 +1364,15 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestToJson, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestParseJson, 1) {
   SetNamePrefix("ParseJson");
-  RunFunctionCalls(
-      Shard(EnableJsonFeatureForTest(GetFunctionTestsParseJson())));
+  auto parse_json_fn_expr = [](const FunctionTestCall& f) {
+    if (f.params.params().size() == 1) {
+      return absl::Substitute("$0(@p0)", f.function_name);
+    }
+    return absl::Substitute("$0(@p0, wide_number_mode=>@p1)", f.function_name);
+  };
+  RunFunctionTestsCustom(
+      Shard(EnableJsonFeatureForTest(GetFunctionTestsParseJson())),
+      parse_json_fn_expr);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -2185,6 +2192,20 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalSubInterval, 1) {
   RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "@p0 - @p1");
   RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "@p0 + (-@p1)");
   RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "-(@p1 - @p0)");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalMultiplyInt64, 1) {
+  SetNamePrefix("IntervalMultiplyInt64");
+  RunStatementTests(Shard(GetFunctionTestsIntervalMultiply()), "@p0 * @p1");
+  RunStatementTests(Shard(GetFunctionTestsIntervalMultiply()), "@p1 * @p0");
+  RunStatementTests(Shard(GetFunctionTestsIntervalMultiply()),
+                    "(-@p0) * (-@p1)");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, IntervalDivideInt64, 1) {
+  SetNamePrefix("IntervalDivideInt64");
+  RunStatementTests(Shard(GetFunctionTestsIntervalDivide()), "@p0 / @p1");
+  RunStatementTests(Shard(GetFunctionTestsIntervalDivide()), "(-@p0) / (-@p1)");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, ExtractFromInterval, 1) {

@@ -103,7 +103,7 @@ class Type {
   bool IsNumericType() const { return kind_ == TYPE_NUMERIC; }
   bool IsBigNumericType() const { return kind_ == TYPE_BIGNUMERIC; }
   bool IsJsonType() const { return kind_ == TYPE_JSON; }
-  bool IsTokenSetType() const { return kind_ == TYPE_TOKENSET; }
+  bool IsTokenListType() const { return kind_ == TYPE_TOKENLIST; }
 
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
@@ -135,7 +135,7 @@ class Type {
 
   bool IsGeography() const { return kind_ == TYPE_GEOGRAPHY; }
   bool IsJson() const { return kind_ == TYPE_JSON; }
-  bool IsTokenSet() const { return kind_ == TYPE_TOKENSET; }
+  bool IsTokenList() const { return kind_ == TYPE_TOKENLIST; }
   bool IsEnum() const { return kind_ == TYPE_ENUM; }
   bool IsArray() const { return kind_ == TYPE_ARRAY; }
   bool IsStruct() const { return kind_ == TYPE_STRUCT; }

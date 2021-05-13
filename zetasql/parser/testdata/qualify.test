@@ -1,6 +1,9 @@
 # The initial few test cases document the errors when oneof(WHERE, GROUP BY, HAVING)
 # is missing before QUALIFY. We require those to be present to make resolve parser
 # ambiguity in the short term. More details at (broken link)
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select f1, f2 from T QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
 --
 ERROR: Syntax error: Expected end of input but got identifier "row_number" [at 1:30]

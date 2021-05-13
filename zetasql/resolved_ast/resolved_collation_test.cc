@@ -63,7 +63,7 @@ TEST(ResolvedCollationTest, Creation) {
     // Test empty collation name. An empty ResolvedCollation should be created.
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(types::StringType());
-    annotation_map->SetAnnotation(static_cast<int>(AnnotationKind::COLLATION),
+    annotation_map->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),
                                   SimpleValue::String(""));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         ResolvedCollation resolved_collation,
@@ -78,11 +78,12 @@ TEST(ResolvedCollationTest, Creation) {
 
     EXPECT_EQ(resolved_collation.CollationName(), "");
     ASSERT_TRUE(resolved_collation.Empty());
+    EXPECT_EQ(resolved_collation.DebugString(), "_");
   }
   {
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(types::StringType());
-    annotation_map->SetAnnotation(static_cast<int>(AnnotationKind::COLLATION),
+    annotation_map->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),
                                   SimpleValue::String("unicode:ci"));
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         ResolvedCollation resolved_collation,
@@ -97,6 +98,7 @@ TEST(ResolvedCollationTest, Creation) {
 
     EXPECT_EQ(resolved_collation.CollationName(), "unicode:ci");
     EXPECT_EQ(resolved_collation.num_children(), 0);
+    EXPECT_EQ(resolved_collation.DebugString(), "unicode:ci");
   }
   {
     // Test empty nested annotation map.
@@ -115,6 +117,7 @@ TEST(ResolvedCollationTest, Creation) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(ResolvedCollation deserialized_collation,
                          ResolvedCollation::Deserialize(proto));
     ASSERT_TRUE(resolved_collation.Equals(deserialized_collation));
+    EXPECT_EQ(resolved_collation.DebugString(), "_");
   }
   {
     // Test struct with the first field having collation.
@@ -124,7 +127,7 @@ TEST(ResolvedCollationTest, Creation) {
         AnnotationMap::Create(MakeNestedStructType(&type_factory));
     // Set collation on a.
     annotation_map->AsStructMap()->mutable_field(0)->SetAnnotation(
-        static_cast<int>(AnnotationKind::COLLATION),
+        static_cast<int>(AnnotationKind::kCollation),
         SimpleValue::String("unicode:ci"));
 
     ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -144,6 +147,7 @@ TEST(ResolvedCollationTest, Creation) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(ResolvedCollation deserialized_collation,
                          ResolvedCollation::Deserialize(proto));
     ASSERT_TRUE(resolved_collation.Equals(deserialized_collation));
+    EXPECT_EQ(resolved_collation.DebugString(), "[unicode:ci,_]");
   }
 
   {
@@ -159,7 +163,7 @@ TEST(ResolvedCollationTest, Creation) {
         ->mutable_element()
         ->AsStructMap()
         ->mutable_field(0)
-        ->SetAnnotation(static_cast<int>(AnnotationKind::COLLATION),
+        ->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),
                         SimpleValue::String("unicode:ci"));
     annotation_map->Normalize();
 
@@ -175,6 +179,7 @@ TEST(ResolvedCollationTest, Creation) {
     EXPECT_EQ(resolved_collation.child(1).child(0).child(0).CollationName(),
               "unicode:ci");
     EXPECT_TRUE(resolved_collation.child(1).child(0).child(1).Empty());
+    EXPECT_EQ(resolved_collation.DebugString(), "[_,[[unicode:ci,_]]]");
 
     // Test serialization / deserialization.
     ResolvedCollationProto proto;
@@ -185,42 +190,70 @@ TEST(ResolvedCollationTest, Creation) {
   }
 }
 
-TEST(ResolvedCollationTest, EqualTest) {
+TEST(ResolvedCollationTest, EqualAndCompatibilityTest) {
   std::unique_ptr<AnnotationMap> single_string_annotation_map =
       AnnotationMap::Create(types::StringType());
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       ResolvedCollation empty_single_string,
       ResolvedCollation::MakeResolvedCollation(*single_string_annotation_map));
-  single_string_annotation_map->SetAnnotation(
-      static_cast<int>(AnnotationKind::COLLATION),
-      SimpleValue::String("unicode:ci"));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      ResolvedCollation non_empty_single_string,
-      ResolvedCollation::MakeResolvedCollation(*single_string_annotation_map));
+  ResolvedCollation non_empty_single_string =
+      ResolvedCollation::MakeScalar("unicode:ci");
 
   EXPECT_FALSE(empty_single_string.Equals(non_empty_single_string));
   EXPECT_FALSE(non_empty_single_string.Equals(empty_single_string));
+  EXPECT_TRUE(empty_single_string.HasCompatibleStructure(types::StringType()));
+  EXPECT_TRUE(
+      non_empty_single_string.HasCompatibleStructure(types::StringType()));
+  EXPECT_FALSE(
+      non_empty_single_string.HasCompatibleStructure(types::Int64Type()));
 
   // Test struct with the first field having collation.
   TypeFactory type_factory;
   // STRUCT< a STRING, b ARRAY < STRUCT < a STRING, b INT64 > > >
+  const StructType* struct_type =
+      MakeNestedStructType(&type_factory)->AsStruct();
+  const ArrayType* array_type = struct_type->field(1).type->AsArray();
   std::unique_ptr<AnnotationMap> struct_annotation_map =
-      AnnotationMap::Create(MakeNestedStructType(&type_factory));
+      AnnotationMap::Create(struct_type);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       ResolvedCollation empty_struct,
       ResolvedCollation::MakeResolvedCollation(*struct_annotation_map));
 
-  // Set collation on a.
+  // Set collation on a and b.a
   struct_annotation_map->AsStructMap()->mutable_field(0)->SetAnnotation(
-      static_cast<int>(AnnotationKind::COLLATION),
+      static_cast<int>(AnnotationKind::kCollation),
       SimpleValue::String("unicode:ci"));
+  struct_annotation_map->AsStructMap()
+      ->mutable_field(1)
+      ->AsArrayMap()
+      ->mutable_element()
+      ->AsStructMap()
+      ->mutable_field(0)
+      ->SetAnnotation(static_cast<int>(AnnotationKind::kCollation),
+                      SimpleValue::String("unicode:ci"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       ResolvedCollation non_empty_struct,
       ResolvedCollation::MakeResolvedCollation(*struct_annotation_map));
 
+  ResolvedCollation non_empty_array = non_empty_struct.child(1);
+
   EXPECT_FALSE(empty_struct.Equals(non_empty_struct));
+  EXPECT_TRUE(empty_struct.HasCompatibleStructure(struct_type));
+  EXPECT_TRUE(empty_struct.HasCompatibleStructure(array_type));
+
   EXPECT_FALSE(non_empty_struct.Equals(empty_struct));
+  EXPECT_TRUE(non_empty_struct.HasCompatibleStructure(struct_type));
+  EXPECT_FALSE(non_empty_struct.HasCompatibleStructure(array_type));
+  EXPECT_FALSE(non_empty_struct.HasCompatibleStructure(types::StringType()));
+
+  EXPECT_FALSE(non_empty_array.Equals(non_empty_struct));
+  EXPECT_TRUE(non_empty_array.HasCompatibleStructure(array_type));
+  EXPECT_FALSE(non_empty_array.HasCompatibleStructure(struct_type));
+  EXPECT_FALSE(non_empty_array.HasCompatibleStructure(types::StringType()));
+
+  EXPECT_FALSE(non_empty_single_string.HasCompatibleStructure(struct_type));
+  EXPECT_FALSE(non_empty_single_string.HasCompatibleStructure(array_type));
 
   // Cross comparison between single_string and struct.
   EXPECT_TRUE(empty_single_string.Equals(empty_struct));

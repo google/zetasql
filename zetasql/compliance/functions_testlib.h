@@ -184,6 +184,8 @@ std::vector<QueryParamsWithResult> GetTimestampAddSubIntervalBase();
 std::vector<QueryParamsWithResult> GetTimestampAddSubInterval();
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalAdd();
 std::vector<QueryParamsWithResult> GetFunctionTestsIntervalSub();
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalMultiply();
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalDivide();
 std::vector<QueryParamsWithResult> GetFunctionTestsExtractInterval();
 std::vector<FunctionTestCall> GetFunctionTestsJustifyInterval();
 

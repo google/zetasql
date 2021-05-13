@@ -29,7 +29,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/status.h"
-
+#include "zetasql/base/status_builder.h"
 namespace zetasql {
 
 // Used to validate generated Resolved AST structures.
@@ -50,6 +50,8 @@ class Validator {
 
  private:
   // Statements.
+  absl::Status ValidateResolvedStatementInternal(
+      const ResolvedStatement* statement);
   absl::Status ValidateResolvedQueryStmt(const ResolvedQueryStmt* query);
   absl::Status ValidateResolvedCreateDatabaseStmt(
       const ResolvedCreateDatabaseStmt* stmt);
@@ -510,6 +512,19 @@ class Validator {
       const std::vector<const Type*> column_types,
       absl::flat_hash_set<std::string>* constraint_names);
 
+  absl::Status ValidateResolvedPrimaryKey(
+      const std::vector<const Type*>& resolved_column_types,
+      const ResolvedPrimaryKey* primary_key,
+      absl::flat_hash_set<std::string>* constraint_names);
+
+  absl::Status ValidateAddForeignKeyAction(
+      const ResolvedAddConstraintAction* action,
+      absl::flat_hash_set<std::string>* constraint_names);
+
+  absl::Status ValidateAddPrimaryKeyAction(
+      const ResolvedAddConstraintAction* action,
+      absl::flat_hash_set<std::string>* constraint_names);
+
   // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
   // and GetJsonField expressions. Sets 'ref' to point to the leaf
   // ResolvedColumnRef.
@@ -520,9 +535,29 @@ class Validator {
   // should be of type int64_t.
   absl::Status ValidateArgumentIsInt64Constant(const ResolvedExpr* expr);
 
+  absl::Status ValidateGenericArgumentsAgainstConcreteArguments(
+      const ResolvedFunctionCallBase* resolved_function_call,
+      const FunctionSignature& signature);
+
   // Validates that CheckUniqueColumnId() was never previously called with the
   // same column id as that of <column>.
   absl::Status CheckUniqueColumnId(const ResolvedColumn& column);
+
+  absl::Status ValidateCompatibleSchemaForClone(const Table* source,
+                                                const Table* target);
+
+  absl::Status CheckFunctionArgumentType(
+      const FunctionArgumentTypeList& argument_type_list,
+      absl::string_view statement_type);
+
+  // Replacement for ::zetasql_base::InternalErrorBuilder(), which also records the
+  // context of the error for use in the tree dump.
+  zetasql_base::StatusBuilder InternalErrorBuilder() {
+    RecordContext();
+    return ::zetasql_base::InternalErrorBuilder();
+  }
+
+  std::string RecordContext();
 
   // Clears internal Validator state from prior validation.
   void Reset();
@@ -531,6 +566,34 @@ class Validator {
   // Set using scoped VarSetters.
   typedef absl::flat_hash_set<ResolvedArgumentDefEnums::ArgumentKind>
       ArgumentKindSet;
+
+  // Helper class to push a node onto the context stack in the constructor and
+  // pop the same node off the context stack in the destructor.
+  //
+  // An instance of this class should be created at the start of each
+  // ValidateXXX() function. If an error occurs, the top of the stack, at the
+  // point of the failed VALIDATOR_RET_CHECK() indicates the subtree that failed
+  // validation, and will be emphasized in the tree dump.
+  class PushErrorContext {
+   public:
+    PushErrorContext(Validator* validator, const ResolvedNode* node)
+        : validator_(validator), node_(node) {
+      if (node != nullptr) {
+        validator->context_stack_.push_back(node);
+      }
+    }
+    ~PushErrorContext() {
+      if (node_ != nullptr) {
+        ZETASQL_DCHECK(!validator_->context_stack_.empty());
+        ZETASQL_DCHECK_EQ(validator_->context_stack_.back(), node_);
+        validator_->context_stack_.pop_back();
+      }
+    }
+
+   private:
+    Validator* validator_;
+    const ResolvedNode* node_;
+  };
 
   struct RecursiveScanInfo {
     explicit RecursiveScanInfo(const ResolvedRecursiveScan* scan) {
@@ -568,6 +631,18 @@ class Validator {
   // List of column ids seen so far. Used to ensure that every unique column
   // has a distinct id.
   absl::flat_hash_set<int> column_ids_seen_;
+
+  // The node at the top of the stack is the innermost node being validated.
+  std::vector<const ResolvedNode*> context_stack_;
+
+  // If validation fails, this is set to the innermost element being validated
+  // (context_stack_.back()) at the point of the error. This allows the record
+  // of the node that caused the error to be retained, even as various helper
+  // functions terminate. At the root level (ValidateStandaloneExpression()/
+  // ValidateResolvedStatement()), this node will be annotated in the tree dump.
+  //
+  // If no validation error has yet occurred, this value is nullptr.
+  const ResolvedNode* error_context_ = nullptr;
 };
 
 }  // namespace zetasql

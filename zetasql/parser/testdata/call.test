@@ -1,4 +1,7 @@
 # Empty argument list.
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 call myprocedure()
 --
 CallStatement [0-18]

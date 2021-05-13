@@ -117,7 +117,7 @@ static const TypeKindInfo kTypeKindInfo[]{
     {"INTERVAL",           27,          27,    true },
 
      // 28
-    {"TOKENSET",           28,          28,    true },
+    {"TOKENLIST",          28,          28,    true },
     // clang-format on
     // When a new entry is added here, update
     // TypeTest::VerifyCostAndSpecificity.
@@ -398,7 +398,7 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
                                     const Type** no_partitioning_type) const {
   bool supports_partitioning =
       !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson() &&
-      !this->IsTokenSet();
+      !this->IsTokenList();
   if (no_partitioning_type != nullptr) {
     *no_partitioning_type = supports_partitioning ? nullptr : this;
   }
@@ -407,7 +407,7 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
 
 bool Type::SupportsOrdering(const LanguageOptions& language_options,
                             std::string* type_description) const {
-  if (IsGeography() || IsJson() || IsTokenSet()) {
+  if (IsGeography() || IsJson() || IsTokenList()) {
     if (type_description != nullptr) {
       *type_description = TypeKindToString(this->kind(),
                                            language_options.product_mode());

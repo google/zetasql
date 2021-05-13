@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+// LINT: LEGACY_NAMES
 syntax = "proto2";
 
 package zetasql;
@@ -103,5 +104,142 @@ message ASTSetOperationEnums {
     UNION = 1;      // UNION ALL/DISTINCT
     EXCEPT = 2;     // EXCEPT ALL/DISTINCT
     INTERSECT = 4;  // INTERSECT ALL/DISTINCT
+  }
+}
+message ASTUnaryExpressionEnums {
+  enum Op {
+    NOT_SET = 0;
+    NOT = 1;          // "NOT"
+    BITWISE_NOT = 2;  // "-"
+    MINUS = 3;        // Unary "-"
+    PLUS = 4;         // Unary "+"
+  }
+}
+message ASTWindowFrameEnums {
+  enum FrameUnit {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    ROWS = 1;
+    RANGE = 2;
+  }
+}
+message ASTWindowFrameExprEnums {
+  enum BoundaryType {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    UNBOUNDED_PRECEDING = 1;
+    OFFSET_PRECEDING = 2;
+    CURRENT_ROW = 3;
+    OFFSET_FOLLOWING = 4;
+    UNBOUNDED_FOLLOWING = 5;
+  }
+}
+message ASTAnySomeAllOpEnums {
+  enum Op {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    kUninitialized = 1;
+    kAny = 2;
+    kSome = 3;
+    kAll = 4;
+  }
+}
+message ASTTransactionReadWriteModeEnums {
+  enum Mode {
+    INVALID = 0;
+    READ_ONLY = 1;
+    READ_WRITE = 2;
+  }
+}
+message ASTImportStatementEnums {
+  enum ImportKind {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    MODULE = 1;
+    PROTO = 2;
+  }
+}
+message ASTUnpivotClauseEnums {
+  enum NullFilter {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    kUnspecified = 1;
+    kInclude = 2;
+    kExclude = 3;
+  }
+}
+message ASTCreateStatementEnums {
+  enum Scope {
+    DEFAULT_SCOPE = 0;
+    PRIVATE = 1;
+    PUBLIC = 2;
+    TEMPORARY = 3;
+  }
+  enum SqlSecurity {
+    SQL_SECURITY_UNSPECIFIED = 0;
+    SQL_SECURITY_DEFINER = 1;
+    SQL_SECURITY_INVOKER = 2;
+  }
+}
+message ASTFunctionParameterEnums {
+  enum ProcedureParameterMode {
+    NOT_SET = 0;
+    IN = 1;
+    OUT = 2;
+    INOUT = 3;
+  }
+}
+message ASTTemplatedParameterTypeEnums {
+  enum TemplatedTypeKind {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    UNINITIALIZED = 1;
+    ANY_TYPE = 2;
+    ANY_PROTO = 3;
+    ANY_ENUM = 4;
+    ANY_STRUCT = 5;
+    ANY_ARRAY = 6;
+    ANY_TABLE = 7;
+  }
+}
+message ASTGeneratedColumnInfoEnums {
+  enum StoredMode {
+    NON_STORED = 0;
+    STORED = 1;
+    STORED_VOLATILE = 2;
+  }
+}
+message ASTColumnPositionEnums {
+  enum RelativePositionType {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    PRECEDING = 1;
+    FOLLOWING = 2;
+  }
+}
+message ASTInsertStatementEnums {
+  enum InsertMode {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    DEFAULT_MODE = 0;  // plain INSERT
+    REPLACE = 1;       // INSERT OR REPLACE
+    UPDATE = 2;        // INSERT OR UPDATE
+    IGNORE = 3;        // INSERT OR IGNORE
+  }
+  enum ParseProgress {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    kInitial = 1;
+    kSeenOrIgnoreReplaceUpdate = 2;
+    kSeenTargetPath = 3;
+    kSeenColumnList = 4;
+    kSeenValuesList = 5;
+  }
+}
+message ASTMergeActionEnums {
+  enum ActionType {
+    NOT_SET = 0;
+    INSERT = 1;
+    UPDATE = 2;
+    DELETE = 3;
+  }
+}
+message ASTMergeWhenClauseEnums {
+  enum MatchType {
+    NOT_SET = 0;
+    MATCHED = 1;
+    NOT_MATCHED_BY_SOURCE = 2;
+    NOT_MATCHED_BY_TARGET = 3;
   }
 }

@@ -86,7 +86,7 @@ public class TypeTest {
     verifyIsType(Arrays.asList(TypeKind.TYPE_INTERVAL), Type::isInterval, "isInterval");
     verifyIsType(Arrays.asList(TypeKind.TYPE_GEOGRAPHY), Type::isGeography, "isGeography");
     verifyIsType(Arrays.asList(TypeKind.TYPE_JSON), Type::isJson, "isJson");
-    verifyIsType(Arrays.asList(TypeKind.TYPE_TOKENSET), Type::isTokenSet, "isTokensSt");
+    verifyIsType(Arrays.asList(TypeKind.TYPE_TOKENLIST), Type::isTokenList, "isTokensList");
     verifyIsType(Arrays.asList(TypeKind.TYPE_ENUM), Type::isEnum, "isEnum");
     verifyIsType(Arrays.asList(TypeKind.TYPE_ARRAY), Type::isArray, "isArray");
     verifyIsType(Arrays.asList(TypeKind.TYPE_STRUCT), Type::isStruct, "isStruct");
@@ -132,7 +132,7 @@ public class TypeTest {
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_JSON));
-    types.add(TypeFactory.createSimpleType(TypeKind.TYPE_TOKENSET));
+    types.add(TypeFactory.createSimpleType(TypeKind.TYPE_TOKENLIST));
 
     for (Type type : types) {
       String typeString = type.getKind().toString();

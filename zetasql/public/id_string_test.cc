@@ -19,11 +19,12 @@
 #include <set>
 #include <unordered_set>
 
+#include "zetasql/base/case.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
+#include "absl/hash/hash.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
@@ -211,7 +212,7 @@ TEST(IdString, CaseEquals) {
 
     for (int j = 0; j < test_cases.size(); ++j) {
       EXPECT_EQ(test_id_string1[i].CaseEquals(test_id_string2[j]),
-                absl::EqualsIgnoreCase(test_cases[i], test_cases[j]))
+                zetasql_base::CaseEqual(test_cases[i], test_cases[j]))
           << "input1 = " << test_cases[i] << ", input2 = " << test_cases[j];
     }
   }
@@ -264,8 +265,9 @@ TEST(IdString, CaseLessThan) {
     EXPECT_FALSE(test_id_string1[i].CaseLessThan(test_id_string1[i]));
 
     for (int j = 0; j < test_cases.size(); ++j) {
-      EXPECT_EQ(test_id_string1[i].CaseLessThan(test_id_string2[j]),
-                zetasql_base::CaseLess()(test_cases[i], test_cases[j]))
+      EXPECT_EQ(
+          test_id_string1[i].CaseLessThan(test_id_string2[j]),
+          zetasql_base::CaseLess()(test_cases[i], test_cases[j]))
           << "input1 = " << test_cases[i] << ", input2 = " << test_cases[j];
     }
   }

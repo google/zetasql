@@ -1116,8 +1116,8 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "BigNumeric";
     case TYPE_JSON:
       return "Json";
-    case TYPE_TOKENSET:
-      return "TokenSet";
+    case TYPE_TOKENLIST:
+      return "TokenList";
     case TYPE_ENUM:
       return absl::StrCat("Enum<",
                           type->AsEnum()->enum_descriptor()->full_name(), ">");

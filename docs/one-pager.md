@@ -3148,14 +3148,14 @@ You cannot create new ENUM types using ZetaSQL.
 
 Numeric types include the following types:
 
- * `INT32`
- * `UINT32`
- * `INT64`
- * `UINT64`
- * `NUMERIC` with alias `DECIMAL`
- * `BIGNUMERIC` with alias `BIGDECIMAL`
- * `FLOAT`
- * `DOUBLE`
+* `INT32`
+* `UINT32`
+* `INT64`
+* `UINT64`
+* `NUMERIC` with alias `DECIMAL`
+* `BIGNUMERIC` with alias `BIGDECIMAL`
+* `FLOAT`
+* `DOUBLE`
 
 #### Integer types
 
@@ -3181,7 +3181,8 @@ Integers are numeric values that do not have fractional components.
 </tr>
 
 <tr>
-<td><code>INT64</code></td>
+<td><code>INT64</code>
+</td>
 <td>-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</td>
 </tr>
 
@@ -4375,6 +4376,7 @@ FROM <span class="var">from_clause</span>[, ...]
 
 <span class="var">from_clause</span>:
     <span class="var">from_item</span>
+    [ <span class="var">unpivot_operator</span> ]
     [ <a href="#tablesample_operator"><span class="var">tablesample_operator</span></a> ]
 
 <span class="var">from_item</span>:
@@ -4394,6 +4396,11 @@ FROM <span class="var">from_clause</span>[, ...]
 The `FROM` clause indicates the table or tables from which to retrieve rows,
 and specifies how to join those rows together to produce a single stream of
 rows for processing in the rest of the query.
+
+##### unpivot_operator 
+<a id="unpivot_operator_stub"></a>
+
+See [UNPIVOT operator][unpivot-operator].
 
 ##### tablesample_operator 
 <a id="tablesample_operator_clause"></a>
@@ -4653,6 +4660,248 @@ Example:
 
 ```sql
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
+```
+
+### UNPIVOT operator 
+<a id="unpivot_operator"></a>
+
+<pre class="lang-sql prettyprint">
+FROM <span class="var">from_item</span>[, ...] <span class="var">unpivot_operator</span>
+
+<span class="var">unpivot_operator</span>:
+    UNPIVOT [ { INCLUDE NULLS | EXCLUDE NULLS } ] (
+        { <span class="var">single_column_unpivot</span> | <span class="var">multi_column_unpivot</span> }
+    ) [<span class="var">unpivot_alias</span>]
+
+<span class="var">single_column_unpivot</span>:
+    <span class="var">values_column</span>
+    FOR <span class="var">name_column</span>
+    IN (<span class="var">columns_to_unpivot</span>)
+
+<span class="var">multi_column_unpivot</span>:
+    <span class="var">values_column_set</span>
+    FOR <span class="var">name_column</span>
+    IN (<span class="var">column_sets_to_unpivot</span>)
+
+<span class="var">values_column_set</span>:
+    (<span class="var">values_column</span>[, ...])
+
+<span class="var">columns_to_unpivot</span>:
+    <span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...]
+
+<span class="var">column_sets_to_unpivot</span>:
+    (<span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...])
+
+<span class="var">unpivot_alias</span> and <span class="var">row_value_alias</span>:
+    [AS] <span class="var">alias</span>
+</pre>
+
+The `UNPIVOT` operator rotates columns into rows. `UNPIVOT` is part of the
+`FROM` clause.
+
++ `UNPIVOT` can be used to modify any table
+  expression.
++ A `WITH OFFSET` clause immediately preceding the `UNPIVOT` operator is not
+  allowed.
+
+Conceptual example:
+
+```sql
+-- Before UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
++---------+----+----+----+----+
+| product | Q1 | Q2 | Q3 | Q4 |
++---------+----+----+----+----+
+| Kale    | 51 | 23 | 45 | 3  |
+| Apple   | 77 | 0  | 25 | 2  |
++---------+----+----+----+----+
+
+-- After UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
++---------+-------+---------+
+| product | sales | quarter |
++---------+-------+---------+
+| Kale    | 51    | Q1      |
+| Kale    | 23    | Q2      |
+| Kale    | 45    | Q3      |
+| Kale    | 3     | Q4      |
+| Apple   | 77    | Q1      |
+| Apple   | 0     | Q2      |
+| Apple   | 25    | Q3      |
+| Apple   | 2     | Q4      |
++---------+-------+---------+
+```
+
+**Definitions**
+
+Top-level definitions:
+
++ `from_item`: The table, subquery, or
+  table-valued function (TVF) on which
+  to perform a pivot operation. The `from_item` must
+  [follow these rules](#rules_for_unpivot_from_item).
++ `unpivot_operator`: The pivot operation to perform on a `from_item`.
+
+`unpivot_operator` definitions:
+
++ `INCLUDE NULLS`: Add rows with `NULL` values to the result.
++ `EXCLUDE NULLS`: Do not add rows with `NULL` values to the result.
+  By default, `UNPIVOT` excludes rows with `NULL` values.
++ `single_column_unpivot`: Rotates columns into one `values_column`
+  and one `name_column`.
++ `multi_column_unpivot`: Rotates columns into multiple
+  `values_column`s and one `name_column`.
++ `unpivot_alias`: An alias for the results of the `UNPIVOT` operation. This
+  alias can be referenced elsewhere in the query.
+
+`single_column_unpivot` definitions:
+
++ `values_column`: A column to contain the row values from `columns_to_unpivot`.
+  [Follow these rules](#rules_for_values_column) when creating a values column.
++ `name_column`: A column to contain the column names from `columns_to_unpivot`.
+  [Follow these rules](#rules_for_name_column) when creating a name column.
++ `columns_to_unpivot`: The columns from the `from_item` to populate
+  `values_column` and `name_column`.
+  [Follow these rules](#rules_for_unpivot_column) when creating an unpivot
+  column.
+  + `row_value_alias`: An optional alias for a column that is displayed for the
+    column in `name_column`. If not specified, the string value of the
+    column name is used.
+    [Follow these rules](#rules_for_row_value_alias) when creating a
+    row value alias.
+
+`multi_column_unpivot` definitions:
+
++ `values_column_set`: A set of columns to contain the row values from
+  `columns_to_unpivot`. [Follow these rules](#rules_for_values_column) when
+   creating a values column.
++ `name_column`: A set of columns to contain the column names from
+  `columns_to_unpivot`. [Follow these rules](#rules_for_name_column) when
+  creating a name column.
++ `column_sets_to_unpivot`: The columns from the `from_item` to unpivot.
+  [Follow these rules](#rules_for_unpivot_column) when creating an unpivot
+  column.
+  + `row_value_alias`: An optional alias for a column set that is displayed
+    for the column set in `name_column`. If not specified, a string value for
+    the column set is used and each column in the string is separated with an
+    underscore (`_`). For example, `(col1, col2)` outputs `col1_col2`.
+    [Follow these rules](#rules_for_row_value_alias) when creating a
+    row value alias.
+
+**Rules**
+
+<a id="rules_for_unpivot_from_item"></a>
+Rules for a `from_item` passed to `UNPIVOT`:
+
++ The `from_item` may consist of any
+  table, subquery, or table-valued function
+  (TVF) result.
++ The `from_item` may not produce a value table.
++ Duplicate columns in a `from_item` cannot be referenced in the `UNPIVOT`
+  clause.
+
+<a id="rules_for_unpivot_operator"></a>
+Rules for `unpivot_operator`:
+
++ Expressions are not permitted.
++ Qualified names are not permitted. For example, `mytable.mycolumn` is not
+  allowed.
++ In the case where the `UNPIVOT` result has duplicate column names:
+    + `SELECT *` is allowed.
+    + `SELECT values_column` causes ambiguity.
+
+<a id="rules_for_values_column"></a>
+Rules for `values_column`:
+
++ It cannot be a name used for a `name_column` or an `unpivot_column`.
++ It can be the same name as a column from the `from_item`.
+
+<a id="rules_for_name_column"></a>
+Rules for `name_column`:
+
++ It cannot be a name used for a `values_column` or an `unpivot_column`.
++ It can be the same name as a column from the `from_item`.
+
+<a id="rules_for_unpivot_column"></a>
+Rules for `unpivot_column`:
+
++ Must be a column name from the `from_item`.
++ It cannot reference duplicate `from_item` column names.
++ All columns in a column set must have equivalent data types.
+  + Data types cannot be coerced to a common supertype.
+  + If the data types are exact matches (for example, a struct with
+    different field names), the data type of the first input is
+    the data type of the output.
++ You cannot have the same name in the same column set. For example,
+  `(emp1, emp1)` results in an error.
++ You can have a the same name in different column sets. For example,
+  `(emp1, emp2), (emp1, emp3)` is valid.
+
+<a id="rules_for_row_value_alias"></a>
+Rules for `row_value_alias`:
+
++ This can be a `STRING` or an `INT64` literal.
++ The data type for all `row_value_alias` clauses must be the same.
++ If the value is an `INT64`, the `row_value_alias` for each `unpivot_column`
+  must be specified.
+
+**Examples**
+
+The following examples reference a table called `Produce` that looks like this:
+
+```sql
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
+  SELECT 'Apple', 77, 0, 25, 2)
+SELECT * FROM Produce
+
++---------+----+----+----+----+
+| product | Q1 | Q2 | Q3 | Q4 |
++---------+----+----+----+----+
+| Kale    | 51 | 23 | 45 | 3  |
+| Apple   | 77 | 0  | 25 | 2  |
++---------+----+----+----+----+
+```
+
+With the `UNPIVOT` operator, the columns `Q1`, `Q2`, `Q3`, and `Q4` are
+rotated. The values of these columns now populate a new column called `Sales`
+and the names of these columns now populate a new column called `Quarter`.
+This is a single-column unpivot operation.
+
+```sql
+SELECT * FROM Produce
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+
++---------+-------+---------+
+| product | sales | quarter |
++---------+-------+---------+
+| Kale    | 51    | Q1      |
+| Kale    | 23    | Q2      |
+| Kale    | 45    | Q3      |
+| Kale    | 3     | Q4      |
+| Apple   | 77    | Q1      |
+| Apple   | 0     | Q2      |
+| Apple   | 25    | Q3      |
+| Apple   | 2     | Q4      |
++---------+-------+---------+
+```
+
+In this example, we `UNPIVOT` four quarters into two semesters.
+This is a multi-column unpivot operation.
+
+```sql
+SELECT * FROM Produce
+UNPIVOT(
+  (first_half_sales, second_half_sales)
+  FOR semesters
+  IN ((Q1, Q2) AS 'semester_1', (Q3, Q4) AS 'semester_2'))
+
++---------+------------------+-------------------+------------+
+| product | first_half_sales | second_half_sales | semesters  |
++---------+------------------+-------------------+------------+
+| Kale    | 51               | 23                | semester_1 |
+| Kale    | 45               | 3                 | semester_2 |
+| Apple   | 77               | 0                 | semester_1 |
+| Apple   | 25               | 2                 | semester_2 |
++---------+------------------+-------------------+------------+
 ```
 
 ### TABLESAMPLE operator
@@ -4929,7 +5178,7 @@ is true:
 
 +  `join_type` is `CROSS`.
 +  One or both of the `from_item`s is not a table, for example, an
-   `array_path` or `field_path`.
+   `array_path` or a `field_path`.
 
 #### [INNER] JOIN
 
@@ -7313,6 +7562,7 @@ Results:
 [with_clause]: #with_clause
 [unnest-operator]: #unnest_operator
 
+[unpivot-operator]: #unpivot_operator
 [tablesample-operator]: #tablesample_operator
 [with-clause-anchor-rules]: #with_clause_anchor_rules
 [with-clause-recursive-rules]: #with_clause_recursive_rules
@@ -8657,6 +8907,13 @@ aggregations, but specifically over the relevant window frame for each row.
 The result data types of these analytic functions are the same as their
 aggregate function counterparts.
 
+### Filtering results with the QUALIFY clause 
+<a id="filter_analytic_results"></a>
+
+The `QUALIFY` clause can be used to filter the results of an analytic function.
+For more information and examples, see the
+[`QUALIFY` clause][analytic-functions-link-to-qualify].
+
 ### Analytic function examples
 
 In these examples, the ==highlighted item== is the current row. The **bolded
@@ -9163,9 +9420,11 @@ WINDOW item_window AS (
 [analytic-functions-compute-rank]: #compute_rank
 [analytic-functions-use-named-window]: #def_use_named_window
 [analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
+[analytic-functions-link-to-qualify]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
 [analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 [analytic-functions-link-to-window]: #window-clause
+[analytic-functions-link-to-qualify]: #qualify-clause
 [analytic-functions-link-to-hints]: #hints
 [navigation-functions-reference]: #navigation-functions
 [numbering-functions-reference]: #numbering-functions
@@ -15255,7 +15514,18 @@ specified by a format element.
         Output as DATE: 2008-12-03
       </td>
     </tr>
-
+    <tr>
+      <td>Y,YYY</td>
+      <td>
+        Matches the pattern of 1 to 2 digits, comma, then exactly 3 digits.
+        Sets the year part to the matched number.
+      </td>
+      <td>
+        Input for Y,YYY-MM-DD: '2,018-12-03'<br />
+        Output as DATE: 2008-12-03
+      </td>
+    </tr>
+    <tr>
     <tr>
       <td>RRRR</td>
       <td>Same behavior as YYYY.</td>
@@ -15534,13 +15804,13 @@ specified by a format element.
       <td>
         Matches 2 digits. If the matched number <code>n</code> is <code>12</code>,
         sets <code>temp = 0</code>; otherwise, sets <code>temp = n</code>. If
-        the matched value of the AM/PM format element is PM, sets
+        the matched value of the A.M./P.M. format element is P.M., sets
         <code>temp = n + 12</code>. Sets the hour part to <code>temp</code>.
         A meridian indicator must be present in the format model, when
         HH is present.
       </td>
       <td>
-        Input for HH:MI PM: '03:30 PM'<br />
+        Input for HH:MI P.M.: '03:30 P.M.'<br />
         Output as TIME: 15:30:00
       </td>
     </tr>
@@ -15632,7 +15902,7 @@ specified by a format element.
         Matches 2 digits. Sets the minute part to the matched number.
       </td>
       <td>
-        Input for HH:MI PM: '03:30 PM'<br />
+        Input for HH:MI P.M.: '03:30 P.M.'<br />
         Output as TIME: 15:30:00
       </td>
     </tr>
@@ -15650,7 +15920,7 @@ The data type to which the string was cast. This can be:
 **Examples**
 
 ```sql
-SELECT CAST('03:30 PM' AS TIME FORMAT 'HH:MI PM') AS string_to_date_time
+SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI P.M.') AS string_to_date_time
 
 +---------------------+
 | string_to_date_time |
@@ -15707,7 +15977,7 @@ specified by a format element.
         Matches 2 digits. Sets the second part to the matched number.
       </td>
       <td>
-        Input for HH:MI:SS PM: '03:30:02 PM'<br />
+        Input for HH:MI:SS P.M.: '03:30:02 P.M.'<br />
         Output as TIME: 15:30:02
       </td>
     </tr>
@@ -15821,28 +16091,6 @@ specified by a format element.
         Output as TIME: 15:30:00
         <hr />
         Input for HH:MI a.m.: '03:30 a.m.'<br />
-        Output as TIME: 03:30:00
-      </td>
-    </tr>
-    <tr>
-      <td>AM or PM</td>
-      <td>
-        Matches using the regular expression <code>'(A|P)M'</code>.
-      </td>
-      <td>
-        Input for HH:MI AM: '03:30 AM'<br />
-        Output as TIME: 03:30:00
-        <hr />
-        Input for HH:MI PM: '03:30 PM'<br />
-        Output as TIME: 15:30:00
-        <hr />
-        Input for HH:MI PM: '03:30 AM'<br />
-        Output as TIME: 03:30:00
-        <hr />
-        Input for HH:MI AM: '03:30 PM'<br />
-        Output as TIME: 15:30:00
-        <hr />
-        Input for HH:MI am: '03:30 am'<br />
         Output as TIME: 03:30:00
       </td>
     </tr>
@@ -16058,12 +16306,10 @@ the Latin letters in the input string are case-insensitive. For example, both
 will output the same result.
 
 [formatting-syntax]: #formatting_syntax
-
 [rfc-4648]: https://tools.ietf.org/html/rfc4648#section-3.3
 [about-basex-encoding]: #about_basex_encoding
 [format-string-as-bytes]: #format_string_as_bytes
 [format-bytes-as-string]: #format_bytes_as_string
-
 [format-date-time-as-string]: #format_date_time_as_string
 [case-matching-date-time]: #case_matching_date_time
 [format-year-as-string]: #format_year_as_string
@@ -16086,35 +16332,34 @@ will output the same result.
 [format-string-as-meridian]: #format_string_as_meridian
 [format-string-as-tz]: #format_string_as_tz
 [format-string-as-literal]: #format_string_as_literal
-
 [con-func-cast]: #cast
 [con-func-safecast]: #safe_casting
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
-[conversion-rules]: #conversion_rules
-[ARRAY_STRING]: #array_to_string
-[BIT_I32]: #bit_cast_to_int32
-[BIT_U32]: #bit_cast_to_uint32
-[BIT_I64]: #bit_cast_to_int64
-[BIT_U64]: #bit_cast_to_uint64
-[F_B32]: #from_base32
-[F_B64]: #from_base64
-[F_HEX]: #from_hex
-[F_PROTO]: #from_proto
-[P_DATE]: #parse_date
-[P_DATETIME]: #parse_datetime
-[P_TIME]: #parse_time
-[P_TIMESTAMP]: #parse_timestamp
-[SC_BTS]: #safe_convert_bytes_to_string
-[STRING_TIMESTAMP]: #string
-[T_B32]: #to_base32
-[T_B64]: #to_base64
-[T_HEX]: #to_hex
-[T_PROTO]: #to_proto
-[T_DATE]: #date
-[T_DATETIME]: #datetime
-[T_TIMESTAMP]: #timestamp
-[T_TIME]: #time
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#conversion_rules
+[ARRAY_STRING]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_to_string
+[BIT_I32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_int32
+[BIT_U32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_uint32
+[BIT_I64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_int64
+[BIT_U64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_uint64
+[F_B32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_base32
+[F_B64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_base64
+[F_HEX]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_hex
+[F_PROTO]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_proto
+[P_DATE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_date
+[P_DATETIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_datetime
+[P_TIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_time
+[P_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_timestamp
+[SC_BTS]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_convert_bytes_to_string
+[STRING_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#string
+[T_B32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_base32
+[T_B64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_base64
+[T_HEX]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_hex
+[T_PROTO]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_proto
+[T_DATE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#date
+[T_DATETIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#datetime
+[T_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#timestamp
+[T_TIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#time
 
 [conversion-rules]: #conversion_rules
 [ARRAY_STRING]: #array_to_string
@@ -25453,7 +25698,7 @@ FROM UNNEST([
 #### JSON_EXTRACT_SCALAR
 
 ```sql
-JSON_EXTRACT_SCALAR(json_string_expr, json_path)
+JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
 ```
 
 **Description**
@@ -25473,6 +25718,8 @@ using single quotes and brackets.
     values that you want to obtain from the JSON-formatted string. If
     `json_path` returns a JSON `null` or a non-scalar value (in other words, if
     `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+    If this optional parameter is not provided, then the JSONPath `$` symbol is
+    applied, which means that the entire JSON-formatted string is analyzed.
 
 If you only want to extract scalar values such strings, integers, and booleans,
 then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
@@ -25525,7 +25772,7 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 #### JSON_VALUE
 
 ```sql
-JSON_VALUE(json_string_expr, json_path)
+JSON_VALUE(json_string_expr[, json_path])
 ```
 
 **Description**
@@ -25545,6 +25792,8 @@ using double quotes.
     values that you want to obtain from the JSON-formatted string. If
     `json_path` returns a JSON `null` or a non-scalar value (in other words, if
     `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+    If this optional parameter is not provided, then the JSONPath `$` symbol is
+    applied, which means that the entire JSON-formatted string is analyzed.
 
 If you only want to extract scalar values such strings, integers, and booleans,
 then use `JSON_VALUE`. If you want to include non-scalar values such as arrays
@@ -34291,7 +34540,8 @@ WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
 
 If the repeated field is another protocol buffer, you can provide the
 protocol buffer as a string literal. For example, the following statement adds a
-new song to an album and updates the number of tracks. Notice that this
+new song to an album and updates the number of tracks.
+Notice that this
 statement uses `ASSERT_ROWS_MODIFIED` to ensure that only one `Singer` is
 updated.
 
@@ -34321,7 +34571,8 @@ WHERE s.SingerId = 5
 ASSERT_ROWS_MODIFIED 1;
 ```
 
-This next statement updates the chart to reflect a new rank for the song. Notice
+This next statement updates the chart to reflect a new rank for the song.
+Notice
 that each inner `UPDATE` statement uses `ASSERT_ROWS_MODIFIED 1` to ensure that
 only one update is made.
 

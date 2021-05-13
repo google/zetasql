@@ -1,6 +1,9 @@
 # Tests for the RETURNING clause
 
 ## Delete Statement
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 
 delete from T then return *
 --

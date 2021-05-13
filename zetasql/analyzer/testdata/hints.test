@@ -2074,5 +2074,122 @@ select fn_on_int64(kv1.Key) @{ h1= @bad_param } from KeyValue as kv1
 ==
 
 #
+# Hints on LIKE ANY/SOME/ALL
+#
+[language_features=V_1_3_LIKE_ANY_SOME_ALL]
+select '1' LIKE {{ANY|SOME|ALL}} @{a = d,b = c} (select '1')
+--
+ALTERNATION GROUPS:
+    ANY
+    SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=LIKE_ANY
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="1")
+    |     +-subquery=
+    |     | +-ProjectScan
+    |     |   +-column_list=[$expr_subquery.$col1#1]
+    |     |   +-expr_list=
+    |     |   | +-$col1#1 := Literal(type=STRING, value="1")
+    |     |   +-input_scan=
+    |     |     +-SingleRowScan
+    |     +-hint_list=
+    |       +-a := Literal(type=STRING, value="d")
+    |       +-b := Literal(type=STRING, value="c")
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=LIKE_ALL
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="1")
+    |     +-subquery=
+    |     | +-ProjectScan
+    |     |   +-column_list=[$expr_subquery.$col1#1]
+    |     |   +-expr_list=
+    |     |   | +-$col1#1 := Literal(type=STRING, value="1")
+    |     |   +-input_scan=
+    |     |     +-SingleRowScan
+    |     +-hint_list=
+    |       +-a := Literal(type=STRING, value="d")
+    |       +-b := Literal(type=STRING, value="c")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL]
+select *
+from TestTable T
+where T.KitchenSink.string_val
+      LIKE ANY @{ a = d, b = c}
+      (select * from T.KitchenSink.repeated_string_val)
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+        +-input_scan=
+        | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
+        +-filter_expr=
+          +-SubqueryExpr
+            +-type=BOOL
+            +-subquery_type=LIKE_ANY
+            +-parameter_list=
+            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            +-in_expr=
+            | +-GetProtoField
+            |   +-type=STRING
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   +-field_descriptor=string_val
+            |   +-default_value="default_name"
+            +-subquery=
+            | +-ProjectScan
+            |   +-column_list=[$array.repeated_string_val#4]
+            |   +-input_scan=
+            |     +-ArrayScan
+            |       +-column_list=[$array.repeated_string_val#4]
+            |       +-array_expr=
+            |       | +-GetProtoField
+            |       |   +-type=ARRAY<STRING>
+            |       |   +-expr=
+            |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |       |   +-field_descriptor=repeated_string_val
+            |       |   +-default_value=[]
+            |       +-element_column=$array.repeated_string_val#4
+            +-hint_list=
+              +-a := Literal(type=STRING, value="d")
+              +-b := Literal(type=STRING, value="c")
+==
+
+#
 # Tests should be added in appropriate sections above or a new section below.
 #

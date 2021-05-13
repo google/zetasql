@@ -155,6 +155,7 @@ namespace internal {  //   For internal use only
 // be provided in extended_conversion.
 zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
+    absl::optional<absl::Time> current_timestamp,
     const LanguageOptions& language_options, const Type* to_type,
     const absl::optional<std::string>& format,
     const absl::optional<std::string>& time_zone,

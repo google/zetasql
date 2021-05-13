@@ -412,15 +412,21 @@ zetasql_base::StatusOr<Value> ToJsonStringFunction::Eval(
 
 zetasql_base::StatusOr<Value> ParseJsonFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  if (args[0].is_null()) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (args[0].is_null() || args[1].is_null()) {
     return Value::NullJson();
   }
+  // TODO : Add support for ‘stringify’ parsing mode
+  if (args[1].string_value() != "exact" && args[1].string_value() != "round") {
+    return MakeEvalError()
+           << "Invalid `wide_number_mode` specified for PARSE_JSON: "
+           << args[1].string_value();
+  }
+
   JSONParsingOptions options{
       .legacy_mode = context->GetLanguageOptions().LanguageFeatureEnabled(
           FEATURE_JSON_LEGACY_PARSE),
-      .strict_number_parsing =
-          context->GetLanguageOptions().LanguageFeatureEnabled(
-              FEATURE_JSON_STRICT_NUMBER_PARSING)};
+      .strict_number_parsing = (args[1].string_value() == "exact")};
   auto result = JSONValue::ParseJSONString(args[0].string_value(), options);
   if (!result.ok()) {
     return MakeEvalError() << "Invalid input to PARSE_JSON: "

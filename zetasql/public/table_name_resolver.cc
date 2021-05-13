@@ -323,11 +323,17 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
                                 like_table_name->ToIdentifierVector());
       }
 
-      const ASTCloneDataSource* clone_data_source = stmt->clone_data_source();
+      const ASTTableDataSource* clone_data_source = stmt->clone_data_source();
       if (clone_data_source != nullptr) {
         ZETASQL_RETURN_IF_ERROR(ResolveTablePath(
             clone_data_source->path_expr()->ToIdentifierVector(),
             clone_data_source->for_system_time()));
+      }
+      const ASTTableDataSource* copy_data_source = stmt->copy_data_source();
+      if (copy_data_source != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(ResolveTablePath(
+            copy_data_source->path_expr()->ToIdentifierVector(),
+            copy_data_source->for_system_time()));
       }
 
       const ASTQuery* query = stmt->query();

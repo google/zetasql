@@ -1,4 +1,7 @@
 # More system variable tests are in parameters.test
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 
 select @@foo.bar.baz;
 --

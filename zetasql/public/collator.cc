@@ -189,16 +189,4 @@ zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
       std::move(icu_collator), is_unicode, is_case_insensitive);
 }
 
-// static
-ZetaSqlCollator* ZetaSqlCollator::CreateFromCollationName(
-    const std::string& collation_name) {
-  zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator =
-      MakeSqlCollator(collation_name);
-  if (collator.ok()) {
-    return const_cast<ZetaSqlCollator*>(collator->release());
-  } else {
-    return nullptr;
-  }
-}
-
 }  // namespace zetasql

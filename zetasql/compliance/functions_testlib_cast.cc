@@ -1013,10 +1013,14 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastDateTime() {
 }
 
 using interval_testing::Days;
+using interval_testing::Hours;
 using interval_testing::Micros;
+using interval_testing::Minutes;
 using interval_testing::Months;
 using interval_testing::MonthsDaysMicros;
 using interval_testing::Nanos;
+using interval_testing::Seconds;
+using interval_testing::Years;
 using interval_testing::YMDHMS;
 
 std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
@@ -1053,6 +1057,25 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
       {{String("+1:2:3")}, Interval(YMDHMS(0, 0, 0, 1, 2, 3))},
       {{String("-1:2:3")}, Interval(YMDHMS(0, 0, 0, -1, -2, -3))},
       {{String("-0:0:0.0003")}, Interval(Micros(-300))},
+      // STRING -> INTERVAL using ISO 8601 format
+      {{String("PT")}, Interval(Years(0))},
+      {{String("P0Y")}, Interval(Years(0))},
+      {{String("P1Y")}, Interval(Years(1))},
+      {{String("P-1Y")}, Interval(Years(-1))},
+      {{String("P1Y-2Y1Y")}, Interval(Years(0))},
+      {{String("P0M")}, Interval(Months(0))},
+      {{String("P2M")}, Interval(Months(2))},
+      {{String("P2M-4M")}, Interval(Months(-2))},
+      {{String("P1Y-1M")}, Interval(Months(11))},
+      {{String("P0W")}, Interval(Days(0))},
+      {{String("P-1W4W")}, Interval(Days(21))},
+      {{String("P3D-5D-2D")}, Interval(Days(-4))},
+      {{String("PT25H")}, Interval(Hours(25))},
+      {{String("PT-7M")}, Interval(Minutes(-7))},
+      {{String("PT1S2S5S")}, Interval(Seconds(8))},
+      {{String("PT-0.000009S")}, Interval(Micros(-9))},
+      {{String("PT0.000000001S")}, Interval(Nanos(1))},
+      {{String("P1Y-2M3DT-4H5M-6S")}, Interval(YMDHMS(1, -2, 3, -4, 5, -6))},
 
       // Bad formats
       {{String("0-0-0")}, NullInterval(), OUT_OF_RANGE},
@@ -1095,6 +1118,33 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
       {{String("0:5270400000:0.000001")}, NullInterval(), OUT_OF_RANGE},
       {{String("0:0:316224000001")}, NullInterval(), OUT_OF_RANGE},
       {{String("-0:0:316224000000.0001")}, NullInterval(), OUT_OF_RANGE},
+
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("1Y")}, NullInterval(), OUT_OF_RANGE},
+      {{String("T")}, NullInterval(), OUT_OF_RANGE},
+      {{String("P")}, NullInterval(), OUT_OF_RANGE},
+      {{String("P--1")}, NullInterval(), OUT_OF_RANGE},
+      {{String("P1")}, NullInterval(), OUT_OF_RANGE},
+      {{String("PTT")}, NullInterval(), OUT_OF_RANGE},
+      {{String("PT1HT1M")}, NullInterval(), OUT_OF_RANGE},
+      {{String("P1YM")}, NullInterval(), OUT_OF_RANGE},
+      {{String("P1YT2MS")}, NullInterval(), OUT_OF_RANGE},
+      {{String("PT.1S")}, NullInterval(), OUT_OF_RANGE},
+      {{String("PT1.S")}, NullInterval(), OUT_OF_RANGE},
+      {{String("PT1.1M")}, NullInterval(), OUT_OF_RANGE},
+      {{String("PT99999999999999999999999999999H")},
+       NullInterval(),
+       OUT_OF_RANGE},
+      {{String("PT-99999999999H")}, NullInterval(), OUT_OF_RANGE},
+      {{String("P-1S")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
+      {{String("")}, NullInterval(), OUT_OF_RANGE},
   });
 
   std::vector<QueryParamsWithResult> result;

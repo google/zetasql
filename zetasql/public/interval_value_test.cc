@@ -57,7 +57,7 @@ using functions::WEEK;
 using functions::YEAR;
 
 IntervalValue Interval(absl::string_view str) {
-  return *IntervalValue::ParseFromString(str);
+  return *IntervalValue::Parse(str);
 }
 
 TEST(IntervalValueTest, Months) {
@@ -529,26 +529,8 @@ TEST(IntervalValueTest, BinaryPlusMinus) {
 
   absl::BitGen gen;
   for (int i = 0; i < 10000; i++) {
-    int64_t months = absl::Uniform(gen, IntervalValue::kMinMonths,
-                                   IntervalValue::kMaxMonths);
-    int64_t days =
-        absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
-    int64_t micros = absl::Uniform(gen, IntervalValue::kMinMicros,
-                                   IntervalValue::kMaxMicros);
-    int64_t nano_fractions = absl::Uniform(gen, -999, 999);
-    __int128 nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
-
-    IntervalValue interval1 = MonthsDaysNanos(months, days, nanos);
-
-    months = absl::Uniform(gen, IntervalValue::kMinMonths,
-                           IntervalValue::kMaxMonths);
-    days = absl::Uniform(gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
-    micros = absl::Uniform(gen, IntervalValue::kMinMicros,
-                           IntervalValue::kMaxMicros);
-    nano_fractions = absl::Uniform(gen, -999, 999);
-    nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
-
-    IntervalValue interval2 = MonthsDaysNanos(months, days, nanos);
+    IntervalValue interval1 = interval_testing::GenerateRandomInterval(&gen);
+    IntervalValue interval2 = interval_testing::GenerateRandomInterval(&gen);
 
     // Note that the result of + and - is StatusOr<IntervalValue>, and therefore
     // we verify that equivalent expressions either both fail with same error,
@@ -556,6 +538,73 @@ TEST(IntervalValueTest, BinaryPlusMinus) {
     ExpectEqStatusOr(interval1 + interval2, interval2 + interval1);
     ExpectEqStatusOr(interval1 + interval2, interval1 - (-interval2));
     ExpectEqStatusOr(interval2 - interval1, -interval1 + interval2);
+  }
+}
+
+TEST(IntervalValueTest, Multiply) {
+  for (int64_t v : {0, 1, -1, 2, -2, 10, -10, 1000, -1000}) {
+    EXPECT_EQ(Years(v), *(Years(1) * v)) << v;
+    EXPECT_EQ(Months(v), *(Months(1) * v)) << v;
+    EXPECT_EQ(Days(v), *(Days(1) * v)) << v;
+    EXPECT_EQ(Hours(v), *(Hours(1) * v)) << v;
+    EXPECT_EQ(Minutes(v), *(Minutes(1) * v)) << v;
+    EXPECT_EQ(Seconds(v), *(Seconds(1) * v)) << v;
+    EXPECT_EQ(Micros(v), *(Micros(1) * v)) << v;
+    EXPECT_EQ(Nanos(v), *(Nanos(1) * v)) << v;
+    EXPECT_EQ(YMDHMS(0, v, v, v, v, v), *(YMDHMS(0, 1, 1, 1, 1, 1) * v)) << v;
+
+    // -interval is the same as interval * (-1)
+    EXPECT_EQ(-Years(v), *(Years(v) * (-1))) << v;
+    EXPECT_EQ(-Months(v), *(Months(v) * (-1))) << v;
+    EXPECT_EQ(-Days(v), *(Days(v) * (-1))) << v;
+    EXPECT_EQ(-Hours(v), *(Hours(v) * (-1))) << v;
+    EXPECT_EQ(-Minutes(v), *(Minutes(v) * (-1))) << v;
+    EXPECT_EQ(-Seconds(v), *(Seconds(v) * (-1))) << v;
+    EXPECT_EQ(-Micros(v), *(Micros(v) * (-1))) << v;
+    EXPECT_EQ(-Nanos(v), *(Nanos(v) * (-1))) << v;
+  }
+
+  EXPECT_THAT(Years(2) * 10000, StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(Days(3660000) * (-2), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(Days(999999) * 99999999999,
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalValueTest, Divide) {
+  EXPECT_EQ(Months(6), *(Years(1) / 2));
+  EXPECT_EQ(Months(-6), *(Years(1) / (-2)));
+  EXPECT_EQ(Days(15), *(Months(1) / 2));
+  EXPECT_EQ(Days(-15), *(Months(1) / (-2)));
+  EXPECT_EQ(Hours(12), *(Days(1) / 2));
+  EXPECT_EQ(Hours(-12), *(Days(1) / (-2)));
+  EXPECT_EQ(Minutes(30), *(Hours(1) / 2));
+  EXPECT_EQ(Minutes(-30), *(Hours(1) / (-2)));
+  EXPECT_EQ(Seconds(30), *(Minutes(1) / 2));
+  EXPECT_EQ(Seconds(-30), *(Minutes(1) / (-2)));
+  EXPECT_EQ(Micros(500000), *(Seconds(1) / 2));
+  EXPECT_EQ(Micros(-500000), *(Seconds(1) / (-2)));
+  EXPECT_EQ(Nanos(500), *(Micros(1) / 2));
+  EXPECT_EQ(Nanos(-500), *(Micros(1) / (-2)));
+  EXPECT_EQ(Years(0), *(Nanos(1) / 2));
+  EXPECT_EQ(Years(0), *(Nanos(1) / (-2)));
+
+  EXPECT_THAT(Years(0) / 0, StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(Micros(1) / 0, StatusIs(absl::StatusCode::kOutOfRange));
+
+  // (interval / number) * number = interval +/- (1 nanosecond * number)
+  absl::BitGen gen;
+  for (int i = 0; i < 1000; i++) {
+    // We divide random interval by 100 to prevent accidental out of range
+    // errors during multiplication for dateparts which had spillover during
+    // division.
+    IntervalValue interval =
+        *(interval_testing::GenerateRandomInterval(&gen) / 100);
+    int64_t number = absl::Uniform<int64_t>(gen, 1, 99);
+    IntervalValue roundtrip_interval = *(*(interval / number) * number);
+    IntervalValue diff = *(interval - roundtrip_interval);
+    EXPECT_TRUE(diff < Nanos(100) && diff > Nanos(-100))
+        << "original: " << interval << " multiplier: " << number
+        << " roundtrip: " << roundtrip_interval << " diff: " << diff;
   }
 }
 
@@ -727,6 +776,9 @@ TEST(IntervalValueTest, SumAggregatorSum) {
   agg.Add(-Months(2));
   ZETASQL_ASSERT_OK(agg.GetSum());
   EXPECT_EQ(YMDHMS(9999, 11, 100, 0, 10, 0), *agg.GetSum());
+
+  agg.Subtract(YMDHMS(9999, 11, 100, 0, 10, 0));
+  EXPECT_EQ(Micros(0), *agg.GetSum());
 }
 
 TEST(IntervalValueTest, SumAggregatorAverage) {
@@ -1578,40 +1630,48 @@ std::string ParseToString(absl::string_view input) {
   return IntervalValue::ParseFromString(input).ValueOrDie().ToString();
 }
 
+void ExpectParseFromString(absl::string_view expected,
+                           absl::string_view input) {
+  EXPECT_EQ(expected, (*IntervalValue::ParseFromString(input)).ToString());
+  EXPECT_EQ(expected, (*IntervalValue::Parse(input)).ToString());
+}
+
 void ExpectParseError(absl::string_view input) {
   EXPECT_THAT(IntervalValue::ParseFromString(input),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IntervalValue::Parse(input),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
 TEST(IntervalValueTest, ParseFromString) {
-  EXPECT_EQ("1-2 3 4:5:6", ParseToString("1-2 3 4:5:6"));
-  EXPECT_EQ("-1-2 3 4:5:6.700", ParseToString("-1-2 3 4:5:6.7"));
-  EXPECT_EQ("1-2 3 -4:5:6.780", ParseToString("1-2 3 -4:5:6.78"));
-  EXPECT_EQ("-1-2 -3 4:5:6.789", ParseToString("-1-2 -3 +4:5:6.78900"));
-  EXPECT_EQ("1-2 3 4:5:0", ParseToString("1-2 3 4:5"));
-  EXPECT_EQ("1-2 3 -4:5:0", ParseToString("1-2 3 -4:5"));
-  EXPECT_EQ("1-2 3 4:0:0", ParseToString("1-2 3 4"));
-  EXPECT_EQ("1-2 3 -4:0:0", ParseToString("1-2 3 -4"));
-  EXPECT_EQ("1-2 3 0:0:0", ParseToString("1-2 3"));
-  EXPECT_EQ("-1-2 -3 0:0:0", ParseToString("-1-2 -3"));
-  EXPECT_EQ("1-2 0 0:0:0", ParseToString("1-2"));
-  EXPECT_EQ("1-2 0 0:0:0", ParseToString("+1-2"));
-  EXPECT_EQ("-1-2 0 0:0:0", ParseToString("-1-2"));
-  EXPECT_EQ("0-1 2 3:0:0", ParseToString("1 2 3"));
-  EXPECT_EQ("0-1 -2 3:0:0", ParseToString("1 -2 3"));
-  EXPECT_EQ("-0-1 -2 -3:0:0", ParseToString("-1 -2 -3"));
-  EXPECT_EQ("0-1 2 3:4:0", ParseToString("1 2 3:4"));
-  EXPECT_EQ("0-1 2 -3:4:0", ParseToString("1 2 -3:4"));
-  EXPECT_EQ("0-1 2 3:4:5", ParseToString("1 2 3:4:5"));
-  EXPECT_EQ("0-1 2 -3:4:5.600", ParseToString("1 2 -3:4:5.6"));
-  EXPECT_EQ("0-0 1 2:3:0", ParseToString("1 2:3"));
-  EXPECT_EQ("0-0 -1 -2:3:0", ParseToString("-1 -2:3"));
-  EXPECT_EQ("0-0 1 2:3:4", ParseToString("1 2:3:4"));
-  EXPECT_EQ("0-0 -1 2:3:4.567800", ParseToString("-1 2:3:4.5678"));
-  EXPECT_EQ("0-0 0 1:2:3", ParseToString("1:2:3"));
-  EXPECT_EQ("0-0 0 -1:2:3", ParseToString("-1:2:3"));
-  EXPECT_EQ("0-0 0 -1:2:3.456", ParseToString("-1:2:3.456"));
-  EXPECT_EQ("0-0 0 -1:2:3.456789100", ParseToString("-1:2:3.4567891"));
+  ExpectParseFromString("1-2 3 4:5:6", "1-2 3 4:5:6");
+  ExpectParseFromString("-1-2 3 4:5:6.700", "-1-2 3 4:5:6.7");
+  ExpectParseFromString("1-2 3 -4:5:6.780", "1-2 3 -4:5:6.78");
+  ExpectParseFromString("-1-2 -3 4:5:6.789", "-1-2 -3 +4:5:6.78900");
+  ExpectParseFromString("1-2 3 4:5:0", "1-2 3 4:5");
+  ExpectParseFromString("1-2 3 -4:5:0", "1-2 3 -4:5");
+  ExpectParseFromString("1-2 3 4:0:0", "1-2 3 4");
+  ExpectParseFromString("1-2 3 -4:0:0", "1-2 3 -4");
+  ExpectParseFromString("1-2 3 0:0:0", "1-2 3");
+  ExpectParseFromString("-1-2 -3 0:0:0", "-1-2 -3");
+  ExpectParseFromString("1-2 0 0:0:0", "1-2");
+  ExpectParseFromString("1-2 0 0:0:0", "+1-2");
+  ExpectParseFromString("-1-2 0 0:0:0", "-1-2");
+  ExpectParseFromString("0-1 2 3:0:0", "1 2 3");
+  ExpectParseFromString("0-1 -2 3:0:0", "1 -2 3");
+  ExpectParseFromString("-0-1 -2 -3:0:0", "-1 -2 -3");
+  ExpectParseFromString("0-1 2 3:4:0", "1 2 3:4");
+  ExpectParseFromString("0-1 2 -3:4:0", "1 2 -3:4");
+  ExpectParseFromString("0-1 2 3:4:5", "1 2 3:4:5");
+  ExpectParseFromString("0-1 2 -3:4:5.600", "1 2 -3:4:5.6");
+  ExpectParseFromString("0-0 1 2:3:0", "1 2:3");
+  ExpectParseFromString("0-0 -1 -2:3:0", "-1 -2:3");
+  ExpectParseFromString("0-0 1 2:3:4", "1 2:3:4");
+  ExpectParseFromString("0-0 -1 2:3:4.567800", "-1 2:3:4.5678");
+  ExpectParseFromString("0-0 0 1:2:3", "1:2:3");
+  ExpectParseFromString("0-0 0 -1:2:3", "-1:2:3");
+  ExpectParseFromString("0-0 0 -1:2:3.456", "-1:2:3.456");
+  ExpectParseFromString("0-0 0 -1:2:3.456789100", "-1:2:3.4567891");
 
   // Ambiguous: Could be MONTH TO DAY or DAY TO HOUR
   ExpectParseError("1 2");
@@ -1729,6 +1789,9 @@ void ExpectFromISO8601(absl::string_view expected, absl::string_view input) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(IntervalValue interval,
                        IntervalValue::ParseFromISO8601(input));
   EXPECT_EQ(expected, interval.ToString());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::Parse(input));
+  EXPECT_EQ(expected, interval.ToString());
 }
 
 void ExpectFromISO8601Error(absl::string_view input,
@@ -1736,6 +1799,10 @@ void ExpectFromISO8601Error(absl::string_view input,
   EXPECT_THAT(
       IntervalValue::ParseFromISO8601(input),
       StatusIs(absl::StatusCode::kOutOfRange, testing::HasSubstr(error_text)))
+      << input;
+
+  EXPECT_THAT(IntervalValue::Parse(input),
+              StatusIs(absl::StatusCode::kOutOfRange))
       << input;
 }
 
@@ -1768,6 +1835,22 @@ TEST(IntervalValueTest, ParseFromISO8601) {
   ExpectFromISO8601("0-0 0 0:0:10.987654321", "PT10,987654321S");
   ExpectFromISO8601("1-2 3 4:5:6.789", "P3D2M1YT6,789S5M4H");
   ExpectFromISO8601("-1-2 -3 -4:5:6.789", "P-3D-2M-1YT-6.789S-5M-4H");
+  // Handle intermediate overflows
+  ExpectFromISO8601("9900-0 0 0:0:0", "P10000Y100Y-200Y");
+  ExpectFromISO8601("0-0 -3659999 0:0:0", "P-3660000D-1D2D");
+
+  // Input can be of unbounded length because same datetime part can appear
+  // multiple times. Test for scalability/robustness in big inputs.
+  for (int n : {10, 1000, 10000, 1000000}) {
+    std::string input("PT1H");
+    for (int i = 0; i < n; i++) {
+      absl::StrAppend(&input, i, "S");
+    }
+    for (int i = 0; i < n; i++) {
+      absl::StrAppend(&input, "-", i, "S");
+    }
+    ExpectFromISO8601("0-0 0 1:0:0", input);
+  }
 
   // Errors
   ExpectFromISO8601Error("", "Interval must start with 'P'");

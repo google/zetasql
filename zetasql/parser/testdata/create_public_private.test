@@ -1,5 +1,8 @@
 # The TEMP, PUBLIC, and PRIVATE modifiers are allowed in the same location
 # for CREATE statements.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 CREATE {{|temp|public|private}} function foo() returns int64 language testlang;
 --
 ALTERNATION GROUP: <empty>

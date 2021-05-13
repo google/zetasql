@@ -548,3 +548,41 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 ==
+
+# Ideally the input struct to the cast should be treated like a struct literal,
+# but internally it is actually a struct constructor function.  We do fold the
+# struct constructor into a literal, but the struct constructor fields are type
+# DOUBLE so we lose precision when converting to the literal.
+select cast((99999999999999999999999999.999999999, 99999999999999999999999999.999999999) as struct<numeric(29,1), bignumeric(29,1)>);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<NUMERIC, BIGNUMERIC>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRUCT<NUMERIC, BIGNUMERIC> -> STRUCT<NUMERIC, BIGNUMERIC>)
+    |     +-Literal(type=STRUCT<NUMERIC, BIGNUMERIC>, value={100000000000000004764729344, 100000000000000004764729344}, has_explicit_type=TRUE)
+    |     +-type_parameters=[(precision=29,scale=1),(precision=29,scale=1)]
+    +-input_scan=
+      +-SingleRowScan
+==
+
+select cast([numeric '99999999999999999999999999.999999999'] as array<numeric(29,1)>);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<NUMERIC>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(ARRAY<NUMERIC> -> ARRAY<NUMERIC>)
+    |     +-Literal(type=ARRAY<NUMERIC>, value=[99999999999999999999999999.999999999], has_explicit_type=TRUE)
+    |     +-type_parameters=[(precision=29,scale=1)]
+    +-input_scan=
+      +-SingleRowScan
+==

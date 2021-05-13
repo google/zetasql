@@ -989,7 +989,8 @@ WHERE s.SingerId = 5 AND s.Albums.title = "Fire is Hot";
 
 If the repeated field is another protocol buffer, you can provide the
 protocol buffer as a string literal. For example, the following statement adds a
-new song to an album and updates the number of tracks. Notice that this
+new song to an album and updates the number of tracks.
+Notice that this
 statement uses `ASSERT_ROWS_MODIFIED` to ensure that only one `Singer` is
 updated.
 
@@ -1019,7 +1020,8 @@ WHERE s.SingerId = 5
 ASSERT_ROWS_MODIFIED 1;
 ```
 
-This next statement updates the chart to reflect a new rank for the song. Notice
+This next statement updates the chart to reflect a new rank for the song.
+Notice
 that each inner `UPDATE` statement uses `ASSERT_ROWS_MODIFIED 1` to ensure that
 only one update is made.
 

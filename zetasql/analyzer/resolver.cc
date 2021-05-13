@@ -27,6 +27,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/base/case.h"
 #include <cstdint>
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_resolver.h"
@@ -54,7 +55,6 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -373,10 +373,9 @@ absl::Status Resolver::ResolveTypeNameInternal(const std::string& type_name,
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseType(type_name, analyzer_options_.GetParserOptions(),
                             &parser_output));
-  ZETASQL_RETURN_IF_ERROR(ResolveType(parser_output->type(), type,
-                              absl::optional<absl::string_view>()));
-  ZETASQL_ASSIGN_OR_RETURN(*type_params,
-                   ResolveTypeParameters(*parser_output->type(), **type));
+  ZETASQL_RETURN_IF_ERROR(ResolveType(parser_output->type(),
+                              /*type_parameter_context=*/{}, type,
+                              type_params));
   return absl::OkStatus();
 }
 
@@ -852,7 +851,7 @@ absl::Status Resolver::ResolveTableAndColumnInfoAndAppend(
     return absl::OkStatus();
   }
   absl::flat_hash_set<const Column*> column_set;
-  std::set<std::string, zetasql_base::StringCaseLess> column_names;
+  std::set<std::string, zetasql_base::CaseLess> column_names;
   for (const ASTIdentifier* column_identifier :
        table_and_column_info->column_list()->identifiers()) {
     const IdString column_name = column_identifier->GetAsIdString();
@@ -973,25 +972,21 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
 }
 
 absl::Status Resolver::ResolveType(
-    const ASTType* type, const Type** resolved_type,
-    absl::optional<absl::string_view> type_parameter_context) const {
-  if (type_parameter_context.has_value() &&
-      type->type_parameters() != nullptr) {
-    return MakeSqlErrorAt(type->type_parameters())
-           << "Parameterized types are not supported in "
-           << type_parameter_context.value();
-  }
-
+    const ASTType* type,
+    const absl::optional<absl::string_view> type_parameter_context,
+    const Type** resolved_type, TypeParameters* resolved_type_params) {
   switch (type->node_kind()) {
     case AST_SIMPLE_TYPE: {
-      return ResolveSimpleType(type->GetAsOrDie<ASTSimpleType>(), resolved_type,
-                               type_parameter_context);
+      return ResolveSimpleType(type->GetAsOrDie<ASTSimpleType>(),
+                               type_parameter_context, resolved_type,
+                               resolved_type_params);
     }
 
     case AST_ARRAY_TYPE: {
       const ArrayType* array_type;
       ZETASQL_RETURN_IF_ERROR(ResolveArrayType(type->GetAsOrDie<ASTArrayType>(),
-                                       &array_type, type_parameter_context));
+                                       type_parameter_context, &array_type,
+                                       resolved_type_params));
       *resolved_type = array_type;
       return absl::OkStatus();
     }
@@ -999,7 +994,8 @@ absl::Status Resolver::ResolveType(
     case AST_STRUCT_TYPE: {
       const StructType* struct_type;
       ZETASQL_RETURN_IF_ERROR(ResolveStructType(type->GetAsOrDie<ASTStructType>(),
-                                        &struct_type, type_parameter_context));
+                                        type_parameter_context, &struct_type,
+                                        resolved_type_params));
       *resolved_type = struct_type;
       return absl::OkStatus();
     }
@@ -1012,44 +1008,117 @@ absl::Status Resolver::ResolveType(
 }
 
 absl::Status Resolver::ResolveSimpleType(
-    const ASTSimpleType* type, const Type** resolved_type,
-    absl::optional<absl::string_view> type_parameter_context) const {
-  return ResolvePathExpressionAsType(type->type_name(),
-                                     /*is_single_identifier=*/false,
-                                     resolved_type);
+    const ASTSimpleType* type,
+    const absl::optional<absl::string_view> type_parameter_context,
+    const Type** resolved_type, TypeParameters* resolved_type_params) {
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsType(type->type_name(),
+                                              /*is_single_identifier=*/false,
+                                              resolved_type));
+
+  // Resolve type parameters if type parameters are allowed.
+  if (resolved_type_params != nullptr) {
+    std::vector<TypeParameters> child_parameter_list;
+    ZETASQL_ASSIGN_OR_RETURN(
+        *resolved_type_params,
+        ResolveTypeParameters(type->type_parameters(), **resolved_type,
+                              child_parameter_list));
+  } else {
+    if (type->type_parameters() != nullptr) {
+      return MakeSqlErrorAt(type->type_parameters())
+             << "Parameterized types are not supported in "
+             << type_parameter_context.value();
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveArrayType(
-    const ASTArrayType* array_type, const ArrayType** resolved_type,
-    absl::optional<absl::string_view> type_parameter_context) const {
+    const ASTArrayType* array_type,
+    const absl::optional<absl::string_view> type_parameter_context,
+    const ArrayType** resolved_type, TypeParameters* resolved_type_params) {
   const Type* resolved_element_type;
-
   ZETASQL_RETURN_IF_ERROR(ResolveType(array_type->element_type(),
-                              &resolved_element_type, type_parameter_context));
+                              type_parameter_context, &resolved_element_type,
+                              resolved_type_params));
 
   if (resolved_element_type->IsArray()) {
     return MakeSqlErrorAt(array_type) << "Arrays of arrays are not supported";
   }
 
-  return type_factory_->MakeArrayType(resolved_element_type, resolved_type);
+  ZETASQL_RETURN_IF_ERROR(
+      type_factory_->MakeArrayType(resolved_element_type, resolved_type));
+
+  // Resolve type parameters if type parameters are allowed.
+  if (resolved_type_params != nullptr) {
+    // For an array, determine if the elements in the array have type
+    // parameters. If they do, then child_parameter_list[0] will have the
+    // element type parameters stored in a TypeParameters class.
+    std::vector<TypeParameters> child_parameter_list;
+    if (!resolved_type_params->IsEmpty()) {
+      child_parameter_list.push_back(std::move(*resolved_type_params));
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        *resolved_type_params,
+        ResolveTypeParameters(array_type->type_parameters(), **resolved_type,
+                              child_parameter_list));
+  } else {
+    if (array_type->type_parameters() != nullptr) {
+      return MakeSqlErrorAt(array_type->type_parameters())
+             << "Parameterized types are not supported in "
+             << type_parameter_context.value();
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveStructType(
-    const ASTStructType* struct_type, const StructType** resolved_type,
-    absl::optional<absl::string_view> type_parameter_context) const {
+    const ASTStructType* struct_type,
+    const absl::optional<absl::string_view> type_parameter_context,
+    const StructType** resolved_type, TypeParameters* resolved_type_params) {
   std::vector<StructType::StructField> struct_fields;
+  bool has_children = false;
+  std::vector<TypeParameters> child_parameter_list;
+  child_parameter_list.reserve(struct_type->struct_fields().size());
   for (auto struct_field : struct_type->struct_fields()) {
     const Type* field_type;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveType(struct_field->type(), &field_type, type_parameter_context));
+    ZETASQL_RETURN_IF_ERROR(ResolveType(struct_field->type(), type_parameter_context,
+                                &field_type, resolved_type_params));
 
     struct_fields.emplace_back(StructType::StructField(
         struct_field->name() != nullptr
             ? struct_field->name()->GetAsString() : "",
         field_type));
+
+    // For each field in a struct, determine whether the field has type
+    // parameters. If the i-th field has a type parameter, then
+    // child_parameter_list[i] will have the TypeParameters stored.
+    if (resolved_type_params != nullptr) {
+      if (!resolved_type_params->IsEmpty()) {
+        has_children = true;
+      }
+      child_parameter_list.push_back(std::move(*resolved_type_params));
+    }
   }
 
-  return type_factory_->MakeStructType(struct_fields, resolved_type);
+  ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructType(struct_fields, resolved_type));
+
+  // Resolve type parameters if type parameters are allowed.
+  if (resolved_type_params != nullptr) {
+    if (!has_children) {
+      child_parameter_list = {};
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        *resolved_type_params,
+        ResolveTypeParameters(struct_type->type_parameters(), **resolved_type,
+                              child_parameter_list));
+  } else {
+    if (struct_type->type_parameters() != nullptr) {
+      return MakeSqlErrorAt(struct_type->type_parameters())
+             << "Parameterized types are not supported in "
+             << type_parameter_context.value();
+    }
+  }
+  return absl::OkStatus();
 }
 
 zetasql_base::StatusOr<std::vector<TypeParameterValue>>
@@ -1332,7 +1401,7 @@ void Resolver::FindColumnIndex(const Table* table, const std::string& name,
   *index = -1;
   *duplicate = false;
   for (int i = 0; i < table->NumColumns(); i++) {
-    if (absl::EqualsIgnoreCase(table->GetColumn(i)->Name(), name)) {
+    if (zetasql_base::CaseEqual(table->GetColumn(i)->Name(), name)) {
       if (*index == -1) {
         *index = i;
       } else {

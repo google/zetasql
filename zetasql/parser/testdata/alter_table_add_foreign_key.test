@@ -1,4 +1,7 @@
 # ALTER TABLE to add unnamed foreign key constraint.
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 ALTER TABLE foo ADD FOREIGN KEY(A) REFERENCES T(B) options();
 --
 AlterTableStatement [0-60]

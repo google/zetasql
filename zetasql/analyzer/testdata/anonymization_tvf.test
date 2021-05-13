@@ -897,3 +897,48 @@ QueryStmt
 {
   TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#16], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
 }
+==
+
+# TODO: Nested user IDs are not currently supported.
+select with anonymization anon_count(*)
+from tvf_no_args_with_nested_anonymization_uid();
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-TVFScan(tvf=tvf_no_args_with_nested_anonymization_uid(() -> TABLE<user_info PROTO<zetasql_test.TestExtraPB>>), signature=() -> TABLE<user_info PROTO<zetasql_test.TestExtraPB>>)
+        +-aggregate_list=
+          +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+Rewrite ERROR: Nested user IDs are not currently supported for TVFs (in TVF tvf_no_args_with_nested_anonymization_uid)
+==
+
+# TODO: Fetching user IDs from a value tables is not currently
+# supported.
+select with anonymization anon_count(*)
+from tvf_no_args_value_table_with_nested_anonymization_uid();
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
+        +-aggregate_list=
+          +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+Rewrite ERROR: Anonymization is not currently supported for TVFs that produce value tables (in TVF tvf_no_args_value_table_with_nested_anonymization_uid)

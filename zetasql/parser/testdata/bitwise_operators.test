@@ -1,4 +1,7 @@
 # Parsed as (1<<3) & (2>>1) | ((~2) ^ 2)
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 select 1<<3&2>>1|~2^2
 --
 QueryStatement [0-21]

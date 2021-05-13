@@ -1,4 +1,7 @@
 # Positive simplest case
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 SELECT f(x) WITH GROUP_ROWS (SELECT x FROM GROUP_ROWS()) FROM T;
 --
 

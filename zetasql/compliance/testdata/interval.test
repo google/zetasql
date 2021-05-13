@@ -68,6 +68,23 @@ SELECT CAST(NULL AS INTERVAL)
 --
 ARRAY<STRUCT<INTERVAL>>[{NULL}]
 ==
+[required_features=INTERVAL_TYPE]
+[name=cast]
+SELECT
+  CAST('-1-2 -3 -4:5:6.789' AS INTERVAL), CAST('P1Y2M3DT4H5M6.789S' AS INTERVAL)
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL>>[{-1-2 -3 -4:5:6.789, 1-2 3 4:5:6.789}]
+==
+[required_features=INTERVAL_TYPE]
+[name=safe_cast]
+SELECT
+  SAFE_CAST('1-2' AS INTERVAL), SAFE_CAST('PT1H2M' AS INTERVAL),
+  SAFE_CAST('1' AS INTERVAL), SAFE_CAST('P1' AS INTERVAL)
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL, INTERVAL, INTERVAL>>[
+  {1-2 0 0:0:0, 0-0 0 1:2:0, NULL, NULL}
+]
+==
 [required_features=INTERVAL_TYPE,NAMED_ARGUMENTS]
 [name=make_interval]
 select
@@ -179,6 +196,12 @@ ARRAY<STRUCT<DATETIME, DATETIME, TIMESTAMP>>[
 ]
 ==
 [required_features=INTERVAL_TYPE]
+[name=multiply_divide]
+SELECT interval '1' month * 20, interval '2' hour / 4
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL>>[{1-8 0 0:0:0, 0-0 0 0:30:0}]
+==
+[required_features=INTERVAL_TYPE]
 [name=count_distinct]
 SELECT COUNT(*) num_rows, COUNT(value) num_values, COUNT(DISTINCT value) num_uniques FROM Intervals
 --
@@ -228,6 +251,63 @@ SELECT SUM(i) sum FROM UNNEST([
 ARRAY<STRUCT<sum INTERVAL>>[{10000-0 0 0:0:0}]
 ==
 [required_features=INTERVAL_TYPE]
+[name=avg]
+SELECT AVG(i) avg FROM UNNEST([
+  interval 1 year, interval 1 month, interval 1 day, NULL, interval 1 hour, interval 1 second, NULL
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{0-2 18 5:0:0.200}]
+==
+[required_features=INTERVAL_TYPE]
+[name=avg_1_element]
+SELECT AVG(i) avg FROM UNNEST([
+  interval '1-2 3 4:5:6.789' year to second
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{1-2 3 4:5:6.789}]
+==
+[required_features=INTERVAL_TYPE]
+[name=avg_handles_intermediate_overflow]
+SELECT AVG(i) avg FROM UNNEST([
+  interval 10000 year, interval 8000 year, interval 3660000 day, interval 366000 day
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{4500-0 1006500 0:0:0}]
+==
+[required_features=INTERVAL_TYPE]
+[name=avg_positive_negative_cancel_each_other]
+SELECT AVG(i) avg FROM UNNEST([
+  interval -1 year,  interval -5 day, interval -1 hour,   interval -1 minute,
+  interval 12 month, interval 5 day,  interval 60 minute, interval 60 second
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 0:0:0}]
+==
+[required_features=INTERVAL_TYPE]
+[name=avg_nano_truncation]
+SELECT AVG(i) avg FROM UNNEST([
+  interval 0 second, interval '0.000000001' second
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 0:0:0}]
+==
+[required_features=INTERVAL_TYPE]
+[name=avg_nano_truncation2]
+SELECT AVG(i) avg FROM UNNEST([
+  interval 0 second, interval '-0.000000003' second
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{0-0 0 -0:0:0.000000001}]
+==
+[required_features=INTERVAL_TYPE]
+[name=avg_all_nulls]
+SELECT AVG(i) avg FROM UNNEST([
+  CAST(NULL AS INTERVAL), NULL, NULL
+]) i
+--
+ARRAY<STRUCT<avg INTERVAL>>[{NULL}]
+==
+[required_features=INTERVAL_TYPE]
 [name=any_value]
 SELECT ANY_VALUE(i) FROM UNNEST([interval 1 day, interval 1 day]) i
 --
@@ -265,6 +345,38 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT APPROX_COUNT_DISTINCT(value) approx_uniques FROM Intervals
 --
 ARRAY<STRUCT<approx_uniques INT64>>[{9}]
+==
+[required_features=INTERVAL_TYPE]
+[name=approx_quantiles]
+SELECT APPROX_QUANTILES(value, 3) FROM Intervals
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<INTERVAL>[
+     0-0 0 -0:0:1,
+     0-0 0 1:0:0.000001,
+     0-0 0 720:0:0,
+     10000-0 0 0:0:0
+   ]}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=approx_top_count]
+SELECT APPROX_TOP_COUNT(value, 1) FROM Intervals
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value INTERVAL, count INT64>>[{0-0 30 0:0:0, 3}]}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=approx_top_sum]
+SELECT APPROX_TOP_SUM(value, EXTRACT(YEAR FROM value), 2) FROM Intervals
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<STRUCT<value INTERVAL, sum INT64>>[
+     {10000-0 0 0:0:0, 10000},
+     {1-2 3 4:5:6.789, 1}
+   ]}
+]
 ==
 [required_features=INTERVAL_TYPE]
 [name=orderby]
@@ -356,4 +468,78 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
   {5, 0-1 0 0:0:0},
   {6, 0-0 30 0:0:0},
   {7, 0-0 0 720:0:0}
+]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[name=analytic_running_sum]
+SELECT SUM(value) OVER(ORDER BY value ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM Intervals WHERE value < interval 1 year
+--
+ARRAY<STRUCT<INTERVAL>>[
+  {0-0 0 -0:0:1},
+  {0-0 0 -0:0:1},
+  {0-0 0 -0:0:0.999999},
+  {0-0 0 0:59:59.000002},
+  {0-0 0 2:59:59.000001},
+  {0-0 0 4:59:59.000001},
+  {0-0 30 4:59:59.000001},
+  {0-0 30 724:59:59.000001},
+  {0-1 30 724:59:59.000001}
+]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[name=analytic_moving_avg]
+SELECT AVG(value) OVER(ORDER BY value ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
+--
+ARRAY<STRUCT<INTERVAL>>[
+  {NULL},
+  {0-0 0 -0:0:1},
+  {0-0 0 -0:0:0.500},
+  {0-0 0 -0:0:0.333333},
+  {0-0 0 0:14:59.750000500},
+  {0-0 0 0:45:0.000000250},
+  {0-0 0 1:15:0.000000250},
+  {0-0 7 13:15:0},
+  {0-0 15 0:59:59.999999750},
+  {0-0 15 180:30:0},
+  {0-3 30 199:1:16.697250},
+  {2500-3 23 187:1:16.697250}
+]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[name=analytic_min_max]
+SELECT MIN(value) OVER(w), MAX(value) OVER w FROM Intervals
+WINDOW w AS (ORDER BY value ASC ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
+--
+ARRAY<STRUCT<INTERVAL, INTERVAL>>[
+  {0-0 0 -0:0:1, 0-0 0 0:0:0.000001},
+  {0-0 0 -0:0:1, 0-0 0 1:0:0.000001},
+  {0-0 0 0:0:0, 0-0 0 1:59:59.999999},
+  {0-0 0 0:0:0.000001, 0-0 0 2:0:0},
+  {0-0 0 1:0:0.000001, 0-1 0 0:0:0},
+  {0-0 0 1:59:59.999999, 0-1 0 0:0:0},
+  {0-0 0 2:0:0, 0-1 0 0:0:0},
+  {0-1 0 0:0:0, 1-2 3 4:5:6.789},
+  {0-0 30 0:0:0, 10000-0 0 0:0:0},
+  {0-0 0 720:0:0, 10000-0 0 0:0:0},
+  {1-2 3 4:5:6.789, 10000-0 0 0:0:0},
+  {10000-0 0 0:0:0, 10000-0 0 0:0:0}
+]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[name=analytic_partitionby]
+SELECT value, COUNT(*) OVER(PARTITION BY value) FROM Intervals ORDER BY value
+--
+ARRAY<STRUCT<value INTERVAL, INT64>>[
+  {NULL, 1},
+  {0-0 0 -0:0:1, 1},
+  {0-0 0 0:0:0, 1},
+  {0-0 0 0:0:0.000001, 1},
+  {0-0 0 1:0:0.000001, 1},
+  {0-0 0 1:59:59.999999, 1},
+  {0-0 0 2:0:0, 1},
+  {0-1 0 0:0:0, 3},
+  {0-0 0 720:0:0, 3},
+  {0-0 30 0:0:0, 3},
+  {1-2 3 4:5:6.789, 1},
+  {10000-0 0 0:0:0, 1}
 ]

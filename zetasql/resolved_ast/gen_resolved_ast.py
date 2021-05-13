@@ -32,7 +32,7 @@ from absl import flags
 from absl import logging
 import jinja2
 import markupsafe
-from zetasql.parser.generator_utils import CleanComment
+from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.resolved_ast import resolved_ast_enums_pb2
@@ -84,6 +84,11 @@ SCALAR_ANNOTATION_MAP = ScalarType(
     cpp_default='nullptr',
     java_type='AnnotationMap',
     java_default='null')
+SCALAR_RESOLVED_COLLATION = ScalarType(
+    'ResolvedCollation',
+    'ResolvedCollationProto',
+    java_default='null',
+    passed_by_reference=True)
 SCALAR_VALUE = ScalarType(
     'Value', 'ValueWithTypeProto', passed_by_reference=True)
 SCALAR_TABLE = ScalarType('const Table*', 'TableRefProto', 'Table')
@@ -218,7 +223,7 @@ def _JavaDoc(text, indent=0):
   if not text:
     return text
   indent_text = ' ' * indent
-  content = CleanComment(text, '%s * ' % indent_text)
+  content = CleanIndent(text, '%s * ' % indent_text)
 
   # Prefix <p> to lines that start a new paragraph. The regex finds lines that
   # follow an empty line.
@@ -429,7 +434,7 @@ def Field(name,
       'tag_id': tag_id,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
-      'comment': CleanComment(comment, prefix='  // '),
+      'comment': CleanIndent(comment, prefix='  // '),
       'javadoc': _JavaDoc(comment, indent=4),
       'member_accessor': member_accessor,
       'member_type': member_type,
@@ -562,6 +567,12 @@ class TreeGenerator(object):
         field['is_node_vector'] and field['is_constructor_arg']
         for field in fields + inherited_fields)
 
+    def JoinSections(a, b):
+      separator = ''
+      if a and b:
+        separator = '\n'
+      return a + separator + b
+
     node_dict = ({
         'name': name,
         'proto_type': proto_type,
@@ -578,12 +589,13 @@ class TreeGenerator(object):
         'is_abstract': is_abstract,
         'class_final': class_final,
         'override_or_final': override_or_final,
-        'comment': CleanComment(comment, prefix='// '),
+        'comment': CleanIndent(comment, prefix='// '),
         'javadoc': _JavaDoc(comment, indent=2),
         'fields': fields,
         'inherited_fields': inherited_fields,
         'extra_enum_defs': extra_enum_defs,
-        'extra_defs': extra_enum_decls + extra_defs,
+        'extra_defs': JoinSections(extra_enum_decls,
+                                   CleanIndent(extra_defs, '  ')),
         'emit_default_constructor': emit_default_constructor,
         'has_node_vector_constructor_arg': has_node_vector_constructor_arg,
         'use_custom_debug_string': use_custom_debug_string,
@@ -1983,8 +1995,19 @@ value.
           must be INT64 and the other UINT64).  NOT will be expressed as a $not
           FunctionCall wrapping this SubqueryExpr.
 
-      The subquery for a SCALAR or ARRAY or IN subquery must have exactly one
-      output column.
+       LIKE
+          Usage: <in_expr> [NOT] LIKE ANY|SOME|ALL ( <subquery> )
+          The output type is always bool. The result is true when <in_expr>
+          matches at least one row for LIKE ANY|SOME or matches all rows for
+          LIKE ALL, and false otherwise.  The <subquery> row contains only one
+          column, and the types of <in_expr> and the subquery column must
+          exactly match a built-in signature for the relevant '$like_any' or
+          '$like_all' comparison function (both must be the same type of either
+          STRING or BYTES).  NOT will be expressed as a $not FunctionCall
+          wrapping this SubqueryExpr.
+
+      The subquery for a SCALAR, ARRAY, IN or LIKE subquery must have exactly
+      one output column.
       The output type for a SCALAR or ARRAY subquery is that column's type or
       an array of that column's type.  (The subquery scan may include a Project
       with a MakeStruct or MakeProto expression to construct a single value
@@ -2004,7 +2027,8 @@ value.
               tag_id=4,
               ignorable=IGNORABLE_DEFAULT,
               comment="""
-              Field is only populated for subquery of type IN.
+              Field is only populated for subqueries of type IN or LIKE
+              ANY|SOME|ALL.
                       """),
           Field('subquery', 'ResolvedScan', tag_id=5),
           Field(
@@ -2015,8 +2039,8 @@ value.
               is_constructor_arg=False,
               vector=True,
               comment="""
-              Note: Hints currently happen only for EXISTS or IN subquery but
-              not for ARRAY or SCALAR subquery.
+              Note: Hints currently happen only for EXISTS, IN, or a LIKE
+              expression subquery but not for ARRAY or SCALAR subquery.
                       """)
       ])
 
@@ -2065,7 +2089,7 @@ value.
               ignorable=IGNORABLE,
               is_constructor_arg=False)
       ],
-      extra_defs="""  bool IsScan() const final { return true; }""")
+      extra_defs="""bool IsScan() const final { return true; }""")
 
   gen.AddNode(
       name='ResolvedModel',
@@ -2332,6 +2356,15 @@ value.
       Group by keys in <group_by_list>.  If <group_by_list> is empty,
       aggregate all input rows into one output row.
 
+      <collation_list> is either empty to indicate that all the elements in
+      <group_by_list> have the default collation, or <collation_list> has the
+      same number of elements as <group_by_list>.  Each element is the collation
+      for the element in <group_by_list> with the same index, or can be empty to
+      indicate default collation or when the type is not collatable.
+      <collation_list> is only set when FEATURE_V_1_3_COLLATION_SUPPORT is
+      enabled.
+      See (broken link).
+
       Compute all aggregations in <aggregate_list>.  All expressions in
       <aggregate_list> have a ResolvedAggregateFunctionCall with mode
       Function::AGGREGATE as their outermost node.
@@ -2347,6 +2380,14 @@ value.
               'ResolvedComputedColumn',
               tag_id=3,
               vector=True),
+          Field(
+              'collation_list',
+              SCALAR_RESOLVED_COLLATION,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              java_to_string_method='toStringCommaSeparated',
+              is_constructor_arg=False),
           Field(
               'aggregate_list',
               'ResolvedComputedColumn',
@@ -2657,9 +2698,20 @@ right.
       This represents one column of an ORDER BY clause, with the requested
       ordering direction.
 
-      <collation_name> indicates the COLLATE specific rules of ordering.
-      If non-NULL, must be a string literal or a string parameter.
-      See (broken link).
+      <collation_name> is the ORDER BY COLLATE expression, and could be a string
+      literal or query parameter.  <collation_name> can only be set when the
+      FEATURE_V_1_1_ORDER_BY_COLLATE is enabled.
+      See (broken link) for COLLATE clause.
+      <collation> (only set when FEATURE_V_1_3_COLLATION_SUPPORT is enabled) is
+      the derived collation to use.  It comes from the <column_ref> and COLLATE
+      clause.  It is unset if COLLATE is present and set to a parameter.
+      See (broken link) for general Collation Support.
+      When both features are enabled, if <collation_name> is present and is
+      - a parameter, then <collation> is empty
+      - a non-parameter, then <collation> is set to the same collation
+      An engine which supports both features could read the fields as:
+        If <collation> is set then use it, otherwise use <collation_name>, which
+        must be a query parameter if set.
 
       <null_order> indicates the ordering of NULL values relative to non-NULL
       values. NULLS_FIRST indicates that NULLS sort prior to non-NULL values,
@@ -2681,7 +2733,13 @@ right.
               'null_order',
               SCALAR_NULL_ORDER_MODE,
               tag_id=5,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'collation',
+              SCALAR_RESOLVED_COLLATION,
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False)
       ])
 
   gen.AddNode(
@@ -2835,16 +2893,29 @@ right.
       """)
 
   gen.AddNode(
+      name='ResolvedConstraint',
+      tag_id=162,
+      parent='ResolvedArgument',
+      is_abstract=True,
+      comment="""
+      Intermediate class for resolved constraints.
+              """,
+      fields=[])
+
+  gen.AddNode(
       name='ResolvedPrimaryKey',
       tag_id=92,
-      parent='ResolvedArgument',
+      parent='ResolvedConstraint',
       comment="""
       This represents the PRIMARY KEY constraint on a table.
       <column_offset_list> provides the offsets of the column definitions that
                            comprise the primary key. This is empty when a
-                           0-element primary key is defined.
-
+                           0-element primary key is defined or when the altered
+                           table does not exist.
       <unenforced> specifies whether the constraint is unenforced.
+      <constraint_name> specifies the constraint name, if present
+      <column_name_list> provides the column names used in column definitions
+                         that comprise the primary key.
       """,
       fields=[
           Field(
@@ -2862,17 +2933,20 @@ right.
               ignorable=IGNORABLE_DEFAULT),
           Field(
               'unenforced', SCALAR_BOOL, tag_id=4, ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'constraint_name',
+              SCALAR_STRING,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=5),
+          Field(
+              'column_name_list',
+              SCALAR_STRING,
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparated'),
       ])
-
-  gen.AddNode(
-      name='ResolvedConstraint',
-      tag_id=162,
-      parent='ResolvedArgument',
-      is_abstract=True,
-      comment="""
-      Intermediate class for resolved constraints.
-              """,
-      fields=[])
 
   gen.AddNode(
       name='ResolvedForeignKey',
@@ -3225,7 +3299,7 @@ right.
               is_constructor_arg=False,
               vector=True)
       ],
-      extra_defs="""  bool IsStatement() const final { return true; }""")
+      extra_defs="""bool IsStatement() const final { return true; }""")
 
   gen.AddNode(
       name='ResolvedExplainStmt',
@@ -3578,6 +3652,7 @@ right.
                    explicit options will take precedence.
                    The 'clone_from.column_list' field may be set, but should be
                    ignored.
+                   Cannot be value table.
               """,
       fields=[
           Field(
@@ -3883,13 +3958,20 @@ right.
       comment="""
       This statement:
         CREATE [TEMP] EXTERNAL TABLE <name> [(column type, ...)]
-        [WITH PARTITION COLUMN [(column type, ...)]] OPTIONS (...)
+        [WITH PARTITION COLUMN [(column type, ...)]]
+        [WITH CONNECTION connection_name]
+        OPTIONS (...)
             """,
       fields=[
           Field(
               'with_partition_columns',
               'ResolvedWithPartitionColumns',
               tag_id=2,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=3,
               ignorable=IGNORABLE_DEFAULT)
       ])
 
@@ -6064,17 +6146,12 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE_DEFAULT)
       ],
       extra_defs="""
-        static FunctionEnums::Volatility DeterminismLevelToVolatility(
-          ResolvedCreateStatementEnums::DeterminismLevel);
-
         // Converts the function's determinism level into a volatility.
         // Functions with unspecified/non deterministic/volatile
         // specifiers are considered volatile, functions with deterministic
         // and immutable specifiers are considered immutable and functions
         // with the stable specifier are considered stable.
-        FunctionEnums::Volatility volatility() const {
-          return DeterminismLevelToVolatility(determinism_level());
-        }
+        FunctionEnums::Volatility volatility() const;
       """,
   )
 
@@ -7115,7 +7192,7 @@ ResolvedArgumentRef(y)
       comment="""
       CLONE DATA INTO <table_name> FROM ...
 
-      <target_table> the table to clone data into.
+      <target_table> the table to clone data into. Cannot be value table.
       <clone_from> The source table(s) to clone data from.
                    For a single table, the scan is TableScan, with an optional
                        for_system_time_expr;
@@ -7130,6 +7207,7 @@ ResolvedArgumentRef(y)
                      All source tables and target table must have equal number
                      of columns, with positionally identical column names and
                      types.
+                     Cannot be value table.
               """,
       fields=[
           Field('target_table', 'ResolvedTableScan', tag_id=2),

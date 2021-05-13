@@ -103,7 +103,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=cast(NULL as double), k_threshold=1)
   ANON_SUM(double_val)
 FROM TestTableWithUid;
 --
-ERROR: generic::out_of_range: Epsilon cannot be NULL
+ERROR: generic::invalid_argument: Anonymization option EPSILON must be set and non-NULL
 ==
 
 # Epsilon is NULL.
@@ -113,4 +113,14 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=cast(NULL as double), k_threshold=1)
   ANON_SUM(double_val CLAMPED BETWEEN 0 AND 1)
 FROM TestTableWithUid;
 --
-ERROR: generic::out_of_range: Epsilon cannot be NULL
+ERROR: generic::invalid_argument: Anonymization option EPSILON must be set and non-NULL
+==
+
+# Epsilon is NULL.
+[name=epsilon_is_null_with_delta]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=cast(NULL as double), delta=0.01)
+  ANON_SUM(double_val)
+FROM TestTableWithUid;
+--
+ERROR: generic::invalid_argument: Anonymization option EPSILON must be set and non-NULL

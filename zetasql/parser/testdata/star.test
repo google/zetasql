@@ -1,4 +1,7 @@
 # Tests for *, with modifiers (EXCEPT and REPLACE), and .*.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select * from t
 --
 QueryStatement [0-15]

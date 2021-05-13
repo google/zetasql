@@ -17,60 +17,45 @@
 
 package com.google.zetasql;
 
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
-import com.google.protobuf.Descriptors.FileDescriptor;
 import com.google.zetasql.LocalService.AnalyzeRequest;
 import com.google.zetasql.LocalService.AnalyzeResponse;
 import com.google.zetasql.LocalService.BuildSqlRequest;
-import com.google.zetasql.LocalService.DescriptorPoolListProto;
 import com.google.zetasql.functions.ZetaSQLDateTime.DateTimestampPart;
 import com.google.zetasql.resolvedast.DeserializationHelper;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedExpr;
 import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
+import java.util.Map;
 
 class AnalyzerHelper {
   static {
     ZetaSQLDescriptorPool.importIntoGeneratedPool(DateTimestampPart.getDescriptor());
   }
 
-  private static DescriptorPoolListProto createDescriptorPoolList(
-      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    DescriptorPoolListProto.Builder poolListProto = DescriptorPoolListProto.newBuilder();
-    for (DescriptorPool pool : fileDescriptorSetsBuilder.getDescriptorPools()) {
-      if (pool == BuiltinDescriptorPool.getInstance()) {
-        poolListProto.addDefinitionsBuilder().getBuiltinBuilder();
-      } else {
-        FileDescriptorSet.Builder fileDescriptorSetBuilder =
-            poolListProto.addDefinitionsBuilder().getFileDescriptorSetBuilder();
-        for (FileDescriptor file : pool.getAllFileDescriptorsInDependencyOrder()) {
-          fileDescriptorSetBuilder.addFile(file.toProto());
-        }
-      }
-    }
-    return poolListProto.build();
-  }
-
   public static FileDescriptorSetsBuilder serializeSimpleCatalog(
       SimpleCatalog catalog, AnalyzerOptions options, AnalyzeRequest.Builder request) {
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder;
     if (catalog.isRegistered()) {
-      fileDescriptorSetsBuilder = catalog.getRegisteredFileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
+
+      Map<DescriptorPool, Long> registeredDescriptorPoolIds =
+          catalog.getRegisteredDescriptorPoolIds();
+      for (DescriptorPool pool : registeredDescriptorPoolIds.keySet()) {
+        fileDescriptorSetsBuilder.addAllFileDescriptors(pool);
+      }
+
       request.setRegisteredCatalogId(catalog.getRegisteredId());
-      // If the options contains a parameter/column with a ProtoType/EnumType
-      // not in the catalog, the resulting proto will contain incomplete Types,
-      // which will result in deserialization failure at server side and cause
-      // SqlException.
-      // TODO: Check for such situation and throw a more descriptive
-      // exception, or fallback to use the full serialized catalog as if it is
-      // unregistered.
       request.setOptions(options.serialize(fileDescriptorSetsBuilder));
+      request.setDescriptorPoolList(
+          DescriptorPoolSerializer.createDescriptorPoolListWithRegisteredIds(
+              fileDescriptorSetsBuilder, registeredDescriptorPoolIds));
     } else {
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
       fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
       request.setSimpleCatalog(catalog.serialize(fileDescriptorSetsBuilder));
       request.setOptions(options.serialize(fileDescriptorSetsBuilder));
-      request.setDescriptorPoolList(createDescriptorPoolList(fileDescriptorSetsBuilder));
+      request.setDescriptorPoolList(
+          DescriptorPoolSerializer.createDescriptorPoolList(fileDescriptorSetsBuilder));
     }
     return fileDescriptorSetsBuilder;
   }
@@ -80,17 +65,25 @@ class AnalyzerHelper {
    * registered catalogs.
    */
   public static FileDescriptorSetsBuilder serializeSimpleCatalog(
-      SimpleCatalog catalog, BuildSqlRequest.Builder request) {
+      SimpleCatalog catalog,
+      BuildSqlRequest.Builder request,
+      Map<DescriptorPool, Long> registeredDescriptorPoolIds) {
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder;
     if (catalog.isRegistered()) {
-      fileDescriptorSetsBuilder = catalog.getRegisteredFileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
+
+      registeredDescriptorPoolIds.putAll(catalog.getRegisteredDescriptorPoolIds());
+      for (DescriptorPool pool : registeredDescriptorPoolIds.keySet()) {
+        fileDescriptorSetsBuilder.addAllFileDescriptors(pool);
+      }
       request.setRegisteredCatalogId(catalog.getRegisteredId());
+      registeredDescriptorPoolIds.putAll(catalog.getRegisteredDescriptorPoolIds());
     } else {
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
       fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
 
       request.setSimpleCatalog(catalog.serialize(fileDescriptorSetsBuilder));
-      request.setDescriptorPoolList(createDescriptorPoolList(fileDescriptorSetsBuilder));
     }
     return fileDescriptorSetsBuilder;
   }
@@ -115,18 +108,7 @@ class AnalyzerHelper {
 
   public static DeserializationHelper getDesializationHelper(
       SimpleCatalog catalog, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    ImmutableList.Builder<DescriptorPool> pools =
-        ImmutableList.<DescriptorPool>builder()
-            .addAll(fileDescriptorSetsBuilder.getDescriptorPools())
-            // DateTimestampPart is the only non-simple type used in built-in functions.
-            // Its descriptor comes from the generated descriptor pool on C++ side.
-            // The C++ generated descriptor pool won't match any descriptor pools passed
-            // from Java - because they get serialized to new objects, so it will result
-            // in a new FileDescriptorSet index. As a result, we need to append the Java
-            // generated pool with DateTimestampPart imported, to deserialize the type
-            // properly.
-            .add(ZetaSQLDescriptorPool.getGeneratedPool());
-
-    return new DeserializationHelper(catalog.getTypeFactory(), pools.build(), catalog);
+    return new DeserializationHelper(
+        catalog.getTypeFactory(), fileDescriptorSetsBuilder.getDescriptorPools(), catalog);
   }
 }

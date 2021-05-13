@@ -43,6 +43,7 @@
 
 namespace zetasql {
 
+using ::zetasql::testing::MakeSelect1Stmt;
 using ::testing::ContainerEq;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
@@ -155,6 +156,28 @@ FunctionCall(test_group:test(INT64, INT64) -> INT64)
 +-<nullptr AST node>
 )",
             absl::StrCat("\n", call->DebugString()));
+}
+
+TEST(ResolvedAST, DebugStringWithNullInTree2) {
+  IdStringPool pool;
+  std::unique_ptr<ResolvedQueryStmt> query_stmt = MakeSelect1Stmt(pool);
+  const_cast<ResolvedComputedColumn*>(
+      query_stmt->query()->GetAs<ResolvedProjectScan>()->expr_list(0))
+      ->release_expr();
+
+  EXPECT_EQ(R"(
+QueryStmt
++-output_column_list=
+| +-tbl.x#1 AS x [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[tbl.x#1]
+    +-expr_list=
+    | +-x#1 := <nullptr AST node>
+    +-input_scan=
+      +-SingleRowScan
+)",
+            absl::StrCat("\n", query_stmt->DebugString()));
 }
 
 TEST(ResolvedNodeDebugStringAnnotations, FunctionCall) {

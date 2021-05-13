@@ -47,6 +47,7 @@ known_errors {
   reason: "Geography support not yet open source (b/174487425)"
   # Geography
   label: ".*geography.*"
+  label: "pivot_test:pivot_st_nearest_neighbors"
 }
 known_errors {
   reason: "UUID support not yet open source (b/174486477)"

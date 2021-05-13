@@ -1,4 +1,7 @@
 # PARTITION BY with multiple columns and expressions
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 create materialized view mv
 partition by c1, c2 + cast(c3 as int64)
 as select c1, c2, c3, c4 from t2

@@ -26,11 +26,11 @@
 #include "zetasql/public/type.h"
 #include "zetasql/scripting/break_continue_context.h"
 #include "zetasql/scripting/control_flow_graph.h"
+#include "zetasql/base/case.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "zetasql/base/status.h"
 
 // Flag which controls the maximum supported nesting of script statements within
@@ -63,7 +63,8 @@ class ParsedScript {
   using NamedQueryParameterMap = std::map<ParseLocationPoint, IdString>;
 
   // Case-insensitive set of strings. Strings are not owned by the set.
-  using StringSet = std::set<absl::string_view, zetasql_base::CaseLess>;
+  using StringSet =
+      std::set<absl::string_view, zetasql_base::CaseLess>;
 
   // Either a map of named parameters or the number of positional parameters.
   using QueryParameters = absl::optional<absl::variant<StringSet, int64_t>>;

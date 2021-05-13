@@ -41,6 +41,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/canonical_errors.h"
@@ -719,6 +720,22 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       return absl::OkStatus();
     }
 
+    if (copy->signature()
+            ->GetAnonymizationInfo()
+            ->UserIdColumnNamePath()
+            .size() > 1) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Nested user IDs are not currently supported for TVFs (in TVF "
+             << copy->tvf()->FullName() << ")";
+    }
+
+    if (copy->signature()->result_schema().is_value_table()) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Anonymization is not currently supported for TVFs that "
+             << "produce value tables (in TVF " << copy->tvf()->FullName()
+             << ")";
+    }
+
     // Since we got to here, the TVF produces a userid column so we must ensure
     // that the column is projected for use in the anonymized aggregation.
     const std::string& userid_column_name = copy->signature()
@@ -1276,7 +1293,7 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   // Look for kappa in the options.
   const Value* kappa_value = nullptr;
   for (const auto& option : node->anonymization_option_list()) {
-    if (zetasql_base::StringCaseEqual(option->name(), "kappa")) {
+    if (zetasql_base::CaseEqual(option->name(), "kappa")) {
       if (kappa_value != nullptr) {
         return zetasql_base::InvalidArgumentErrorBuilder()
             << "Anonymization option kappa must only be set once";

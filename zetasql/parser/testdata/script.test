@@ -1,4 +1,7 @@
 # Script containing a single statement, with terminating semi-colon.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 [default mode=script]
 SELECT 3{{;|}}
 --

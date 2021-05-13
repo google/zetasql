@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "zetasql/base/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "unicode/utf8.h"
@@ -57,6 +58,32 @@ ABSL_MUST_USE_RESULT bool CheckAndCastStrLength(absl::string_view str,
 absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
                                  int64_t num_code_points);
 
+// Returns the number of code points in the given UTF-8 string, or a failed
+// status if <str> is not a valid utf-8 string.
+zetasql_base::StatusOr<int32_t> LengthUtf8(absl::string_view str);
+
+// Transforms <str> into a single line string, guaranteed to fit within
+// <max_code_points> UTF-8 code points, while preserving as many useful parts of
+// the input string as possible.
+//
+// The following describes the transformations performed:
+//   1) Leading and trailing whitespace is skipped.
+//   2) All whitespace characters are replaced with " ". The "\r\n" newline
+//     combination is replaced with a single " ".
+//   3) If the resultant string has no more than <hard_max_chars> UTF-8
+//     characters, it is returned as is. If not, the returned string contains
+//     the first few characters of the string, followed by "...", followed by
+//     the last few characters.
+//
+//     The number of characters to include before and after the "..." is
+//     determined heuristically, with goals of minimizing whitespace and
+//     avoiding breaking up words.
+//
+// A failed status is returned if <str> is not a valid UTF-8 string, or if
+// <max_code_points> is not at least 5 (the minimum length to hold "...", plus
+// one character before and after).
+zetasql_base::StatusOr<std::string> GetSummaryString(absl::string_view str,
+                                             int max_code_points);
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_UTF_UTIL_H_

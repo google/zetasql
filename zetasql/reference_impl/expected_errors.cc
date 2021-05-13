@@ -46,6 +46,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Unsupported built-in function: aead\\.envelope.*"));
+  // The reference implementation does not support KEYS.KEYSET_CHAIN function.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: keys\\.keyset_chain"));
   // b/111212209
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,

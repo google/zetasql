@@ -17,6 +17,7 @@
 #include "zetasql/public/convert_type_to_proto.h"
 
 #include <ctype.h>
+
 #include <memory>
 #include <set>
 
@@ -222,8 +223,8 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::JSON);
       break;
     }
-    case TYPE_TOKENSET: {
-      return absl::UnimplementedError("TOKENSET type not yet implemented");
+    case TYPE_TOKENLIST: {
+      return absl::UnimplementedError("TOKENLIST type not yet implemented");
     }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
@@ -333,7 +334,7 @@ absl::Status TypeToProtoConverter::MakeStructProto(
                                                 false);
 
   // Avoid generating protos with duplicate field names.
-  std::set<std::string, zetasql_base::StringCaseLess> field_names;
+  std::set<std::string, zetasql_base::CaseLess> field_names;
 
   for (int i = 0; i < struct_type->num_fields(); ++i) {
     const StructType::StructField& struct_field = struct_type->field(i);
@@ -486,7 +487,7 @@ absl::Status TypeToProtoConverter::MakeFileDescriptorProto(
              << "SQL table row type must be a struct, but got type "
              << type->DebugString();
     }
-    std::set<std::string, zetasql_base::StringCaseLess> field_names;
+    std::set<std::string, zetasql_base::CaseLess> field_names;
     for (const StructType::StructField& field : type->AsStruct()->fields()) {
       if (!options_.sql_table_options.allow_anonymous_field_name &&
           field.name.empty()) {

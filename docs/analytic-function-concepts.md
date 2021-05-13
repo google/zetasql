@@ -517,6 +517,13 @@ aggregations, but specifically over the relevant window frame for each row.
 The result data types of these analytic functions are the same as their
 aggregate function counterparts.
 
+## Filtering results with the QUALIFY clause 
+<a id="filter_analytic_results"></a>
+
+The `QUALIFY` clause can be used to filter the results of an analytic function.
+For more information and examples, see the
+[`QUALIFY` clause][analytic-functions-link-to-qualify].
+
 ## Analytic function examples
 
 In these examples, the ==highlighted item== is the current row. The **bolded
@@ -1023,6 +1030,7 @@ WINDOW item_window AS (
 [analytic-functions-compute-rank]: #compute_rank
 [analytic-functions-use-named-window]: #def_use_named_window
 [analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
+[analytic-functions-link-to-qualify]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
 [analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 [navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions.md

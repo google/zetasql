@@ -1,4 +1,7 @@
 # Simple UNPIVOT
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 SELECT * FROM t UNPIVOT (a FOR c IN (x, y));
 --
 QueryStatement [0-43]

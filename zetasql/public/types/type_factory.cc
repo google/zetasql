@@ -245,7 +245,7 @@ const Type* TypeFactory::get_geography() { return types::GeographyType(); }
 const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
-const Type* TypeFactory::get_tokenset() { return types::TokenSetType(); }
+const Type* TypeFactory::get_tokenlist() { return types::TokenListType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   ZETASQL_CHECK(Type::IsSimpleType(kind)) << kind;
@@ -899,10 +899,10 @@ static const Type* s_json_type() {
   return s_json_type;
 }
 
-static const Type* s_tokenset_type() {
-  static const Type* s_tokenset_type =
-      new SimpleType(s_type_factory(), TYPE_TOKENSET);
-  return s_tokenset_type;
+static const Type* s_tokenlist_type() {
+  static const Type* s_tokenlist_type =
+      new SimpleType(s_type_factory(), TYPE_TOKENLIST);
+  return s_tokenlist_type;
 }
 
 static const EnumType* s_date_part_enum_type() {
@@ -1048,10 +1048,10 @@ static const ArrayType* s_json_array_type() {
   return s_json_array_type;
 }
 
-static const ArrayType* s_tokenset_array_type() {
-  static const ArrayType* s_tokenset_array_type =
-      MakeArrayType(s_type_factory()->get_tokenset());
-  return s_tokenset_array_type;
+static const ArrayType* s_tokenlist_array_type() {
+  static const ArrayType* s_tokenlist_array_type =
+      MakeArrayType(s_type_factory()->get_tokenlist());
+  return s_tokenlist_array_type;
 }
 
 }  // namespace
@@ -1076,7 +1076,7 @@ const Type* GeographyType() { return s_geography_type(); }
 const Type* NumericType() { return s_numeric_type(); }
 const Type* BigNumericType() { return s_bignumeric_type(); }
 const Type* JsonType() { return s_json_type(); }
-const Type* TokenSetType() { return s_tokenset_type(); }
+const Type* TokenListType() { return s_tokenlist_type(); }
 const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
@@ -1108,7 +1108,7 @@ const ArrayType* BigNumericArrayType() { return s_bignumeric_array_type(); }
 
 const ArrayType* JsonArrayType() { return s_json_array_type(); }
 
-const ArrayType* TokenSetArrayType() { return s_tokenset_array_type(); }
+const ArrayType* TokenListArrayType() { return s_tokenlist_array_type(); }
 
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
@@ -1148,8 +1148,8 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericType();
     case TYPE_JSON:
       return JsonType();
-    case TYPE_TOKENSET:
-      return TokenSetType();
+    case TYPE_TOKENLIST:
+      return TokenListType();
     default:
       ZETASQL_VLOG(1) << "Could not build static Type from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -1195,8 +1195,8 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericArrayType();
     case TYPE_JSON:
       return JsonArrayType();
-    case TYPE_TOKENSET:
-      return TokenSetArrayType();
+    case TYPE_TOKENLIST:
+      return TokenListArrayType();
     default:
       ZETASQL_VLOG(1) << "Could not build static ArrayType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);

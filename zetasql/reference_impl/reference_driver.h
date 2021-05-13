@@ -25,11 +25,13 @@
 
 #include "google/protobuf/compiler/importer.h"
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/public/analyzer.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/scripting/type_aliases.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
@@ -115,6 +117,17 @@ class ReferenceDriver : public TestDriver {
         << "ReferenceDriver::ExecuteStatementForReferenceDriver() instead";
   }
 
+  // Implements TestDriver::ExecuteScript(), which documents that this method
+  // is not supposed be called because IsReferenceImplementation() returns true.
+  zetasql_base::StatusOr<ScriptResult> ExecuteScript(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      TypeFactory* type_factory) override {
+    return zetasql_base::InternalErrorBuilder()
+           << "ExecuteScript() is not supported for the reference "
+           << "implementation; call  "
+           << "ReferenceDriver::ExecuteScriptForReferenceDriver() instead";
+  }
+
   // The same as TestDriver::ExecuteStatement(), but with more arguments. Uses
   // INVALID_ARGUMENT errors to represent parser/analyzer errors and
   // OUT_OF_RANGE to represent runtime errors.
@@ -131,6 +144,13 @@ class ReferenceDriver : public TestDriver {
       const std::string& sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       bool* is_deterministic_output, bool* uses_unsupported_type);
+
+  // The same as ExecuteStatementForReferenceDriver(), except executes a script
+  // instead of a statement.
+  zetasql_base::StatusOr<ScriptResult> ExecuteScriptForReferenceDriver(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      bool* uses_unsupported_type);
 
   bool IsReferenceImplementation() const override { return true; }
 
@@ -157,8 +177,27 @@ class ReferenceDriver : public TestDriver {
     std::set<LanguageFeature> required_features;
     bool is_value_table;
     Value array;
+    SimpleTable* table;  // Owned by catalog_ in the ReferenceDriver
   };
 
+  zetasql_base::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
+      const std::map<std::string, Value>& parameters,
+      bool* uses_unsupported_type) const;
+
+  absl::Status ExecuteScriptForReferenceDriverInternal(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      bool* uses_unsupported_type, ScriptResult* result);
+
+  zetasql_base::StatusOr<Value> ExecuteStatementForReferenceDriverInternal(
+      const std::string& sql, const AnalyzerOptions& analyzer_options,
+      const std::map<std::string, Value>& parameters,
+      const VariableMap& script_variables,
+      const SystemVariableValuesMap& system_variables,
+      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      bool* is_deterministic_output, bool* uses_unsupported_type);
+
+  friend class ReferenceDriverStatementEvaluator;
   std::unique_ptr<TypeFactory> type_factory_;
   LanguageOptions language_options_;
   std::vector<TableInfo> tables_;

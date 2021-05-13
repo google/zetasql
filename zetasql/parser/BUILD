@@ -138,6 +138,7 @@ cc_library(
     deps = [
         ":ast_enums_cc_proto",
         ":bison_parser_generated_lib",
+        ":flex_istream",
         ":keywords",
         ":parse_tree",
         "//bazel:flex",
@@ -212,6 +213,7 @@ cc_library(
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
+        ":flex_istream",
         ":keywords",
         ":parse_tree",
         "//bazel:flex",
@@ -226,8 +228,48 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:inlined_vector",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "flex_istream",
+    hdrs = ["flex_istream.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/base:logging",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "flex_istream_test",
+    srcs = ["flex_istream_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":flex_istream",
+        "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],
@@ -270,6 +312,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/common:errors",
+        "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/public:deprecation_warning_cc_proto",
         "//zetasql/public:error_helpers",
@@ -290,6 +333,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
+        "@icu//:common",
     ],
 )
 

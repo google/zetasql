@@ -289,6 +289,19 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Timezone is not allowed in (.+)"));
 
+  // Interval Errors
+  //
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Interval field .* is out of range"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid interval"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "TIMESTAMP +/- INTERVAL is not supported for intervals with non-zero"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Interval overflow during multiplication"));
+
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Illegal non-space trailing data"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
@@ -322,7 +335,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Could not cast (.+) to type (UINT32|INT32|UINT64|INT64|FLOAT|DOUBLE|"
-      "TIMESTAMP|DATE|DATETIME|TIME|STRING|BOOL|NUMERIC|BIGNUMERIC|JSON)"));
+      "TIMESTAMP|DATE|DATETIME|TIME|STRING|BOOL|NUMERIC|BIGNUMERIC|JSON|"
+      "INTERVAL)"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Bad bool value:"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(

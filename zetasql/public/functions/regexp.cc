@@ -41,12 +41,7 @@ bool RegExp::InitializePatternUtf8(absl::string_view pattern,
   RE2::Options options;
   options.set_log_errors(false);
   options.set_encoding(RE2::Options::EncodingUTF8);
-  re_ = absl::make_unique<RE2>(pattern, options);
-  if (!re_->ok()) {
-    return internal::UpdateError(
-        error, absl::StrCat("Cannot parse regular expression: ", re_->error()));
-  }
-  return true;
+  return InitializeWithOptions(pattern, options, error);
 }
 
 bool RegExp::InitializePatternBytes(absl::string_view pattern,
@@ -54,6 +49,12 @@ bool RegExp::InitializePatternBytes(absl::string_view pattern,
   RE2::Options options;
   options.set_log_errors(false);
   options.set_encoding(RE2::Options::EncodingLatin1);
+  return InitializeWithOptions(pattern, options, error);
+}
+
+bool RegExp::InitializeWithOptions(absl::string_view pattern,
+                                   const RE2::Options& options,
+                                   absl::Status* error) {
   re_ = absl::make_unique<RE2>(pattern, options);
   if (!re_->ok()) {
     return internal::UpdateError(
@@ -159,8 +160,8 @@ bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
     // If there's a single capturing group return substring matching that
     // group.
     *out = groups[1];
-    capture_group_position_ = static_cast<int>(
-        groups[1].end() - extract_all_input_.begin());
+    capture_group_position_ =
+        static_cast<int>(groups[1].end() - extract_all_input_.begin());
   }
   // RE2 library produces empty groups[0] when regular expression matches empty
   // string, so in this case we need to advance input by one character.
@@ -300,7 +301,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
   // string_view(nullptr, 0) and the pattern of this RegExp is also empty, the
   // condition "match[0].begin() != lastend" below will still be true for once.
   absl::string_view::iterator lastend = str.begin() + std::string_view::npos;
-  for (absl::string_view::iterator p = str.begin(); p <= str.end(); ) {
+  for (absl::string_view::iterator p = str.begin(); p <= str.end();) {
     // Find the first matching substring starting at p and store the
     // match and captured groups in vector 'match'.
     if (!re_->Match(str, p - str.begin(), str.size(),
@@ -319,8 +320,7 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
     } else {
       // The regexp matches empty substring. Ignore the match if it starts at
       // the end of the previous one.
-      if (match[0].begin() != lastend &&
-          !Rewrite(newsub, match, out, error)) {
+      if (match[0].begin() != lastend && !Rewrite(newsub, match, out, error)) {
         return false;
       }
       if (p < str.end()) {
@@ -351,7 +351,7 @@ void RegExp::SetMaxOutSize(int32_t size) { max_out_size_ = size; }
 bool RegExp::Rewrite(const absl::string_view rewrite,
                      const std::vector<absl::string_view>& groups,
                      std::string* out, absl::Status* error) {
-  for (const char *s = rewrite.data(); s < rewrite.end(); ++s) {
+  for (const char* s = rewrite.data(); s < rewrite.end(); ++s) {
     const char* start = s;
     while (s < rewrite.end() && *s != '\\') s++;
     out->append(start, s);

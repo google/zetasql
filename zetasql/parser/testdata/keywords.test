@@ -1,6 +1,9 @@
 # Tests that various non-reserved keywords can still be used as identifiers.
 
 # IF is a reserved keyword, but also works like a function call.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select if(x), if(x,y,if(z,1,2)), `if`(x, y, z), 123 as `if`
 --
 QueryStatement [0-59]

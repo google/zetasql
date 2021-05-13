@@ -1,11 +1,11 @@
-[default language_features=V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+[default language_features=V_1_1_ORDER_BY_COLLATE,ANALYTIC_FUNCTIONS,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_2_GROUP_BY_ARRAY,V_1_2_GROUP_BY_STRUCT]
 
 select string_ci, string_cs from CollatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-CollatedTable.string_ci#1{COLLATION:"unicode:ci"} AS string_ci [STRING]
-| +-CollatedTable.string_cs#2{COLLATION:"unicode"} AS string_cs [STRING]
+| +-CollatedTable.string_ci#1{Collation:"unicode:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_cs#2{Collation:"unicode"} AS string_cs [STRING]
 +-query=
   +-ProjectScan
     +-column_list=CollatedTable.[string_ci#1, string_cs#2]
@@ -17,21 +17,21 @@ select struct_with_string_ci, struct_with_string_ci.b from CollatedTable
 --
 QueryStmt
 +-output_column_list=
-| +-CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
-| +-$query.b#4{COLLATION:"unicode:ci"} AS b [STRING]
+| +-CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
+| +-$query.b#4{Collation:"unicode:ci"} AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}>, $query.b#4{COLLATION:"unicode:ci"}]
+    +-column_list=[CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>, $query.b#4{Collation:"unicode:ci"}]
     +-expr_list=
     | +-b#4 :=
     |   +-GetStructField
     |     +-type=STRING
-    |     +-type_annotation_map={COLLATION:"unicode:ci"}
+    |     +-type_annotation_map={Collation:"unicode:ci"}
     |     +-expr=
-    |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<{},{COLLATION:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}>)
+    |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<null,{Collation:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>)
     |     +-field_idx=1
     +-input_scan=
-      +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<{},{COLLATION:"unicode:ci"}>], table=CollatedTable, column_index_list=[2])
+      +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>], table=CollatedTable, column_index_list=[2])
 ==
 
 # In Collation Support phase 1, collation doesn't propagate through functions.
@@ -47,48 +47,192 @@ QueryStmt
     +-expr_list=
     | +-$col1#4 :=
     |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |     +-ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
-    |     +-ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
     +-input_scan=
-      +-TableScan(column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
+      +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
 ==
 
-select string_ci
+select string_ci, string_cs
 from CollatedTable
-order by string_ci
+order by string_ci, string_cs
 --
 QueryStmt
 +-output_column_list=
-| +-CollatedTable.string_ci#1{COLLATION:"unicode:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_ci#1{Collation:"unicode:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_cs#2{Collation:"unicode"} AS string_cs [STRING]
 +-query=
   +-OrderByScan
-    +-column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}]
+    +-column_list=CollatedTable.[string_ci#1, string_cs#2]
     +-is_ordered=TRUE
     +-input_scan=
-    | +-TableScan(column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
+    | +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2], table=CollatedTable, column_index_list=[0, 1])
     +-order_by_item_list=
       +-OrderByItem
+      | +-column_ref=
+      | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+      | +-collation=unicode:ci
+      +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+        | +-ColumnRef(type=STRING, type_annotation_map={Collation:"unicode"}, column=CollatedTable.string_cs#2{Collation:"unicode"})
+        +-collation=unicode
 ==
 
-select string_ci
+# COLLATE clause should override collation from the order by expression
+select string_ci, string_cs
 from CollatedTable
-group by string_ci
+order by string_ci COLLATE 'unicode',
+         string_cs COLLATE @test_param_string
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.string_ci#4{COLLATION:"unicode:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_ci#1{Collation:"unicode:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_cs#2{Collation:"unicode"} AS string_cs [STRING]
++-query=
+  +-OrderByScan
+    +-column_list=CollatedTable.[string_ci#1, string_cs#2]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2], table=CollatedTable, column_index_list=[0, 1])
+    +-order_by_item_list=
+      +-OrderByItem
+      | +-column_ref=
+      | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+      | +-collation_name=
+      | | +-Literal(type=STRING, value="unicode")
+      | +-collation=unicode
+      +-OrderByItem
+        +-column_ref=
+        | +-ColumnRef(type=STRING, type_annotation_map={Collation:"unicode"}, column=CollatedTable.string_cs#2{Collation:"unicode"})
+        +-collation_name=
+          +-Parameter(type=STRING, name="test_param_string")
+==
+
+select string_ci, string_cs, struct_with_string_ci
+from CollatedTable
+group by string_ci, string_cs, struct_with_string_ci
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string_ci#4{Collation:"unicode:ci"} AS string_ci [STRING]
+| +-$groupby.string_cs#5{Collation:"unicode"} AS string_cs [STRING]
+| +-$groupby.struct_with_string_ci#6<null,{Collation:"unicode:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
 +-query=
   +-ProjectScan
-    +-column_list=[$groupby.string_ci#4{COLLATION:"unicode:ci"}]
+    +-column_list=$groupby.[string_ci#4, string_cs#5, struct_with_string_ci#6]
     +-input_scan=
       +-AggregateScan
-        +-column_list=[$groupby.string_ci#4{COLLATION:"unicode:ci"}]
+        +-column_list=$groupby.[string_ci#4, string_cs#5, struct_with_string_ci#6]
         +-input_scan=
-        | +-TableScan(column_list=[CollatedTable.string_ci#1{COLLATION:"unicode:ci"}], table=CollatedTable, column_index_list=[0])
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2, struct_with_string_ci#3], table=CollatedTable, column_index_list=[0, 1, 2])
         +-group_by_list=
-          +-string_ci#4 := ColumnRef(type=STRING, type_annotation_map={COLLATION:"unicode:ci"}, column=CollatedTable.string_ci#1{COLLATION:"unicode:ci"})
+        | +-string_ci#4 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+        | +-string_cs#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode"}, column=CollatedTable.string_cs#2{Collation:"unicode"})
+        | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<null,{Collation:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>)
+        +-collation_list=[unicode:ci,unicode,[_,unicode:ci]]
+==
+
+select distinct 1, 'abc', string_ci, string_cs, struct_with_string_ci
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$distinct.$col1#6 AS `$col1` [INT64]
+| +-$distinct.$col2#7 AS `$col2` [STRING]
+| +-$distinct.string_ci#8 AS string_ci [STRING]
+| +-$distinct.string_cs#9 AS string_cs [STRING]
+| +-$distinct.struct_with_string_ci#10 AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
++-query=
+  +-AggregateScan
+    +-column_list=$distinct.[$col1#6, $col2#7, string_ci#8, string_cs#9, struct_with_string_ci#10]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[CollatedTable.string_ci#1{Collation:"unicode:ci"}, CollatedTable.string_cs#2{Collation:"unicode"}, CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>, $query.$col1#4, $query.$col2#5]
+    |   +-expr_list=
+    |   | +-$col1#4 := Literal(type=INT64, value=1)
+    |   | +-$col2#5 := Literal(type=STRING, value="abc")
+    |   +-input_scan=
+    |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2, struct_with_string_ci#3], table=CollatedTable, column_index_list=[0, 1, 2])
+    +-group_by_list=
+    | +-$col1#6 := ColumnRef(type=INT64, column=$query.$col1#4)
+    | +-$col2#7 := ColumnRef(type=STRING, column=$query.$col2#5)
+    | +-string_ci#8 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+    | +-string_cs#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode"}, column=CollatedTable.string_cs#2{Collation:"unicode"})
+    | +-struct_with_string_ci#10 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<null,{Collation:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>)
+    +-collation_list=[_,_,unicode:ci,unicode,[_,unicode:ci]]
+==
+
+SELECT distinct * from CollatedTable;
+--
+QueryStmt
++-output_column_list=
+| +-$distinct.string_ci#4 AS string_ci [STRING]
+| +-$distinct.string_cs#5 AS string_cs [STRING]
+| +-$distinct.struct_with_string_ci#6 AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
++-query=
+  +-AggregateScan
+    +-column_list=$distinct.[string_ci#4, string_cs#5, struct_with_string_ci#6]
+    +-input_scan=
+    | +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2, struct_with_string_ci#3], table=CollatedTable, column_index_list=[0, 1, 2])
+    +-group_by_list=
+    | +-string_ci#4 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+    | +-string_cs#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode"}, column=CollatedTable.string_cs#2{Collation:"unicode"})
+    | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<null,{Collation:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>)
+    +-collation_list=[unicode:ci,unicode,[_,unicode:ci]]
+==
+
+SELECT * from CollatedTable GROUP BY 1,2,3;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string_ci#4{Collation:"unicode:ci"} AS string_ci [STRING]
+| +-$groupby.string_cs#5{Collation:"unicode"} AS string_cs [STRING]
+| +-$groupby.struct_with_string_ci#6<null,{Collation:"unicode:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=$groupby.[string_ci#4, string_cs#5, struct_with_string_ci#6]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$groupby.[string_ci#4, string_cs#5, struct_with_string_ci#6]
+        +-input_scan=
+        | +-TableScan(column_list=CollatedTable.[string_ci#1, string_cs#2, struct_with_string_ci#3], table=CollatedTable, column_index_list=[0, 1, 2])
+        +-group_by_list=
+        | +-string_ci#4 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode:ci"}, column=CollatedTable.string_ci#1{Collation:"unicode:ci"})
+        | +-string_cs#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"unicode"}, column=CollatedTable.string_cs#2{Collation:"unicode"})
+        | +-struct_with_string_ci#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<null,{Collation:"unicode:ci"}>, column=CollatedTable.struct_with_string_ci#3<null,{Collation:"unicode:ci"}>)
+        +-collation_list=[unicode:ci,unicode,[_,unicode:ci]]
+==
+
+# AggregateScan.collation_list is empty when none of the group by element has
+# collation.
+select distinct 1, 'abc', key+1, key from KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$distinct.$col1#6 AS `$col1` [INT64]
+| +-$distinct.$col2#7 AS `$col2` [STRING]
+| +-$distinct.$col3#8 AS `$col3` [INT64]
+| +-$distinct.Key#9 AS key [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=$distinct.[$col1#6, $col2#7, $col3#8, Key#9]
+    +-input_scan=
+    | +-ProjectScan
+    |   +-column_list=[KeyValue.Key#1, $query.$col1#3, $query.$col2#4, $query.$col3#5]
+    |   +-expr_list=
+    |   | +-$col1#3 := Literal(type=INT64, value=1)
+    |   | +-$col2#4 := Literal(type=STRING, value="abc")
+    |   | +-$col3#5 :=
+    |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |   |     +-Literal(type=INT64, value=1)
+    |   +-input_scan=
+    |     +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+    +-group_by_list=
+      +-$col1#6 := ColumnRef(type=INT64, column=$query.$col1#3)
+      +-$col2#7 := ColumnRef(type=STRING, column=$query.$col2#4)
+      +-$col3#8 := ColumnRef(type=INT64, column=$query.$col3#5)
+      +-Key#9 := ColumnRef(type=INT64, column=KeyValue.Key#1)
 ==
 
 ALTER TABLE entity SET COLLATE 'unicode:ci';
@@ -103,4 +247,3 @@ ALTER SCHEMA entity SET COLLATE 'unicode:ci';
 ERROR: ALTER SCHEMA does not support SET COLLATE action. [at 1:21]
 ALTER SCHEMA entity SET COLLATE 'unicode:ci';
                     ^
-==

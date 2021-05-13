@@ -385,6 +385,7 @@ cast { return BisonParserImpl::token::KW_CAST; }
 check { return BisonParserImpl::token::KW_CHECK; }
 clamped { return BisonParserImpl::token::KW_CLAMPED; }
 clone { return BisonParserImpl::token::KW_CLONE; }
+copy { return BisonParserImpl::token::KW_COPY; }
 cluster { return BisonParserImpl::token::KW_CLUSTER; }
 collate { return BisonParserImpl::token::KW_COLLATE; }
 column { return BisonParserImpl::token::KW_COLUMN; }

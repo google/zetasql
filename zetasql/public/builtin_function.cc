@@ -111,6 +111,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   GetStringFunctions(type_factory, options, functions);
   GetRegexFunctions(type_factory, options, functions);
   GetMiscellaneousFunctions(type_factory, options, functions);
+  GetSubscriptFunctions(type_factory, options, functions);
   GetJSONFunctions(type_factory, options, functions);
   GetMathFunctions(type_factory, options, functions);
   GetHllCountFunctions(type_factory, options, functions);

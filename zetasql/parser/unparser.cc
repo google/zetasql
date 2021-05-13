@@ -29,6 +29,7 @@
 #include "zetasql/public/type.h"
 #include "absl/flags/flag.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
@@ -532,6 +533,10 @@ void Unparser::visitASTCreateTableStatement(
     println("CLONE");
     node->clone_data_source()->Accept(this, data);
   }
+  if (node->copy_data_source() != nullptr) {
+    println("COPY");
+    node->copy_data_source()->Accept(this, data);
+  }
   if (node->partition_by() != nullptr) {
     node->partition_by()->Accept(this, data);
   }
@@ -725,6 +730,9 @@ void Unparser::visitASTCreateExternalTableStatement(
   if (node->with_partition_columns_clause() != nullptr) {
     node->with_partition_columns_clause()->Accept(this, data);
   }
+  if (node->with_connection_clause() != nullptr) {
+    node->with_connection_clause()->Accept(this, data);
+  }
   if (node->options_list() != nullptr) {
     print("OPTIONS");
     node->options_list()->Accept(this, data);
@@ -797,7 +805,6 @@ void Unparser::visitASTExportDataStatement(
     const ASTExportDataStatement* node, void* data) {
   print("EXPORT DATA");
   if (node->with_connection_clause() != nullptr) {
-    print("WITH");
     node->with_connection_clause()->Accept(this, data);
   }
 
@@ -817,7 +824,6 @@ void Unparser::visitASTExportModelStatement(const ASTExportModelStatement* node,
   }
 
   if (node->with_connection_clause() != nullptr) {
-    print("WITH");
     node->with_connection_clause()->Accept(this, data);
   }
 
@@ -829,6 +835,7 @@ void Unparser::visitASTExportModelStatement(const ASTExportModelStatement* node,
 
 void Unparser::visitASTWithConnectionClause(const ASTWithConnectionClause* node,
                                             void* data) {
+  print("WITH");
   node->connection_clause()->Accept(this, data);
 }
 
@@ -1482,8 +1489,8 @@ void Unparser::visitASTClampedBetweenModifier(
   UnparseChildrenWithSeparator(node, data, 0, node->num_children(), "AND");
 }
 
-void Unparser::visitASTCloneDataSource(const ASTCloneDataSource* node,
-                                       void* data) {
+void Unparser::UnparseASTTableDataSource(const ASTTableDataSource* node,
+                                         void* data) {
   node->path_expr()->Accept(this, data);
   if (node->for_system_time() != nullptr) {
     println();
@@ -2068,7 +2075,8 @@ void Unparser::visitASTSimpleType(const ASTSimpleType* node, void* data) {
   // 'INTERVAL' is a reserved keyword, but when it is used as a type name, we
   // want to print it without backticks.
   if (type_name->num_names() == 1 &&
-      zetasql_base::StringCaseEqual(type_name->first_name()->GetAsString(), "interval")) {
+      zetasql_base::CaseEqual(type_name->first_name()->GetAsString(),
+                             "interval")) {
     print(type_name->first_name()->GetAsStringView());
   } else {
     visitASTChildren(node, data);
@@ -2103,7 +2111,8 @@ void Unparser::visitASTSimpleColumnSchema(const ASTSimpleColumnSchema* node,
   // 'INTERVAL' is a reserved keyword, but when it is used as a type name, we
   // want to print it without backticks.
   if (type_name->num_names() == 1 &&
-      zetasql_base::StringCaseEqual(type_name->first_name()->GetAsString(), "interval")) {
+      zetasql_base::CaseEqual(type_name->first_name()->GetAsString(),
+                             "interval")) {
     print(type_name->first_name()->GetAsString());
   } else {
     type_name->Accept(this, data);
@@ -2889,6 +2898,8 @@ void Unparser::visitASTAddConstraintAction(const ASTAddConstraintAction* node,
     VisitCheckConstraintSpec(constraint->GetAs<ASTCheckConstraint>(), data);
   } else if (node_kind == AST_FOREIGN_KEY) {
     VisitForeignKeySpec(constraint->GetAs<ASTForeignKey>(), data);
+  } else if (node_kind == AST_PRIMARY_KEY) {
+    constraint->GetAs<ASTPrimaryKey>()->Accept(this, data);
   } else {
     ZETASQL_LOG(FATAL) << "Unknown constraint node kind: "
                << ASTNode::NodeKindToString(node_kind);
@@ -3138,6 +3149,43 @@ void Unparser::visitASTIfStatement(const ASTIfStatement* node, void* data) {
   }
   println();
   print("END IF");
+}
+
+void Unparser::visitASTWhenThenClause(const ASTWhenThenClause* node,
+                                      void* data) {
+  print("WHEN");
+  node->condition()->Accept(this, data);
+  println("THEN");
+  {
+    Formatter::Indenter indenter(&formatter_);
+    node->body()->Accept(this, data);
+  }
+  println();
+}
+
+void Unparser::visitASTWhenThenClauseList(const ASTWhenThenClauseList* node,
+                                          void* data) {
+  for (const ASTWhenThenClause* when_then_clause : node->when_then_clauses()) {
+    when_then_clause->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTCaseStatement(
+    const ASTCaseStatement* node, void* data) {
+  print("CASE");
+  if (node->expression() != nullptr) {
+    node->expression()->Accept(this, data);
+  }
+  println();
+  node->when_then_clauses()->Accept(this, data);
+  if (node->else_list() != nullptr) {
+    println();
+    println("ELSE");
+    Formatter::Indenter indenter(&formatter_);
+    node->else_list()->Accept(this, data);
+  }
+  print("END");
+  print("CASE");
 }
 
 void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {

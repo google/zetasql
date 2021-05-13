@@ -331,7 +331,7 @@ FROM UNNEST([
 ### JSON_EXTRACT_SCALAR
 
 ```sql
-JSON_EXTRACT_SCALAR(json_string_expr, json_path)
+JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
 ```
 
 **Description**
@@ -351,6 +351,8 @@ using single quotes and brackets.
     values that you want to obtain from the JSON-formatted string. If
     `json_path` returns a JSON `null` or a non-scalar value (in other words, if
     `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+    If this optional parameter is not provided, then the JSONPath `$` symbol is
+    applied, which means that the entire JSON-formatted string is analyzed.
 
 If you only want to extract scalar values such strings, integers, and booleans,
 then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
@@ -403,7 +405,7 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 ### JSON_VALUE
 
 ```sql
-JSON_VALUE(json_string_expr, json_path)
+JSON_VALUE(json_string_expr[, json_path])
 ```
 
 **Description**
@@ -423,6 +425,8 @@ using double quotes.
     values that you want to obtain from the JSON-formatted string. If
     `json_path` returns a JSON `null` or a non-scalar value (in other words, if
     `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+    If this optional parameter is not provided, then the JSONPath `$` symbol is
+    applied, which means that the entire JSON-formatted string is analyzed.
 
 If you only want to extract scalar values such strings, integers, and booleans,
 then use `JSON_VALUE`. If you want to include non-scalar values such as arrays

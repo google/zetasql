@@ -115,17 +115,4 @@ void RegisterIcuCollatorImpl(
 }
 }  // namespace internal
 
-// static
-zetasql_base::StatusOr<ZetaSqlCollator*>
-ZetaSqlCollator::CreateFromCollationNameLite(
-    const std::string& collation_name) {
-  zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator =
-      MakeSqlCollatorLite(collation_name);
-  if (collator.ok()) {
-    return const_cast<ZetaSqlCollator*>(collator->release());
-  } else {
-    return collator.status();
-  }
-}
-
 }  // namespace zetasql

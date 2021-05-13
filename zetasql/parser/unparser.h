@@ -428,8 +428,14 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTPartitionBy(const ASTPartitionBy* node, void* data) override;
   void visitASTClusterBy(const ASTClusterBy* node, void* data) override;
+  void visitASTCopyDataSource(const ASTCopyDataSource* node,
+                               void* data) override {
+    UnparseASTTableDataSource(node, data);
+  }
   void visitASTCloneDataSource(const ASTCloneDataSource* node,
-                               void* data) override;
+                               void* data) override {
+    UnparseASTTableDataSource(node, data);
+  }
   void visitASTCloneDataSourceList(const ASTCloneDataSourceList* node,
                                    void* data) override;
   void visitASTCloneDataStatement(const ASTCloneDataStatement* node,
@@ -590,6 +596,12 @@ class Unparser : public ParseTreeVisitor {
   void visitASTElseifClause(const ASTElseifClause* node, void* data) override;
   void visitASTElseifClauseList(const ASTElseifClauseList* node,
                                 void* data) override;
+  void visitASTWhenThenClause(const ASTWhenThenClause* node,
+                              void* data) override;
+  void visitASTWhenThenClauseList(const ASTWhenThenClauseList* node,
+                                  void* data) override;
+  void visitASTCaseStatement(const ASTCaseStatement* node,
+                             void* data) override;
   void visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) override;
   void visitASTIdentifierList(const ASTIdentifierList* node,
                               void* data) override;
@@ -663,6 +675,7 @@ class Unparser : public ParseTreeVisitor {
   void PrintCloseParenIfNeeded(const ASTNode* node);
 
  private:
+  void UnparseASTTableDataSource(const ASTTableDataSource* node, void* data);
   void VisitCheckConstraintSpec(const ASTCheckConstraint* node, void* data);
   void VisitForeignKeySpec(const ASTForeignKey* node, void* data);
   void UnparseLeafNode(const ASTLeaf* leaf_node);

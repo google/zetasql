@@ -2990,7 +2990,7 @@ SELECT FLATTEN([
   ].a
 )[OFFSET(1)][OFFSET(0)]
 --
-ERROR: Element access using [] is not supported on values of type INT64 [at 5:14]
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type INT64 [at 5:14]
 )[OFFSET(1)][OFFSET(0)]
              ^
 ==

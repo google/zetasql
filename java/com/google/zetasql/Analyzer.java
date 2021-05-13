@@ -30,7 +30,9 @@ import com.google.zetasql.resolvedast.ResolvedNodes.ResolvedStatement;
 import io.grpc.StatusRuntimeException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** The Analyzer class provides static methods to analyze ZetaSQL statements or expressions. */
 public class Analyzer implements Serializable {
@@ -93,12 +95,16 @@ public class Analyzer implements Serializable {
    */
   public static String buildExpression(ResolvedExpr expression, SimpleCatalog catalog) {
 
+    Map<DescriptorPool, Long> registeredDescriptorPoolIds = new LinkedHashMap<>();
     BuildSqlRequest.Builder request = BuildSqlRequest.newBuilder();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder =
-        AnalyzerHelper.serializeSimpleCatalog(catalog, request);
+        AnalyzerHelper.serializeSimpleCatalog(catalog, request, registeredDescriptorPoolIds);
     AnyResolvedExprProto.Builder resolvedExpr = AnyResolvedExprProto.newBuilder();
     expression.serialize(fileDescriptorSetsBuilder, resolvedExpr);
     request.setResolvedExpression(resolvedExpr.build());
+    request.setDescriptorPoolList(
+        DescriptorPoolSerializer.createDescriptorPoolListWithRegisteredIds(
+            fileDescriptorSetsBuilder, registeredDescriptorPoolIds));
 
     BuildSqlResponse response;
     try {
@@ -120,11 +126,15 @@ public class Analyzer implements Serializable {
    */
   public static String buildStatement(ResolvedStatement statement, SimpleCatalog catalog) {
     BuildSqlRequest.Builder request = BuildSqlRequest.newBuilder();
+    Map<DescriptorPool, Long> registeredDescriptorPoolIds = new LinkedHashMap<>();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder =
-        AnalyzerHelper.serializeSimpleCatalog(catalog, request);
+        AnalyzerHelper.serializeSimpleCatalog(catalog, request, registeredDescriptorPoolIds);
     AnyResolvedStatementProto.Builder resolvedStatement = AnyResolvedStatementProto.newBuilder();
     statement.serialize(fileDescriptorSetsBuilder, resolvedStatement);
     request.setResolvedStatement(resolvedStatement.build());
+    request.setDescriptorPoolList(
+        DescriptorPoolSerializer.createDescriptorPoolListWithRegisteredIds(
+            fileDescriptorSetsBuilder, registeredDescriptorPoolIds));
 
     BuildSqlResponse response;
     try {

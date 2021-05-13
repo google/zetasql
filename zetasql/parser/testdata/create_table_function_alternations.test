@@ -5,6 +5,9 @@
 # optional parts of the CREATE TABLE FUNCTION statement. Each combination
 # parses successfully. The analyzer later examines the parsed options and
 # returns errors for those that are semantically invalid.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 create
 {{or replace|}}
 {{temporary|}}

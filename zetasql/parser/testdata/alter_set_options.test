@@ -1,3 +1,7 @@
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
+
 ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo set OPTIONS
 --
 ALTERNATION GROUP: DATABASE

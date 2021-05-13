@@ -36,6 +36,13 @@ create external table t1 like t2 options();
                               ^
 ==
 
+create table t1 copy KeyValue;
+--
+ERROR: CREATE TABLE COPY is not supported [at 1:22]
+create table t1 copy KeyValue;
+                     ^
+==
+
 create table t1 clone KeyValue;
 --
 ERROR: CREATE TABLE CLONE is not supported [at 1:23]
@@ -145,6 +152,16 @@ create table t1 clone KeyValue PARTITION BY key;
 ERROR: CREATE TABLE CLONE cannot be used together with PARTITION BY [at 1:32]
 create table t1 clone KeyValue PARTITION BY key;
                                ^
+
+==
+
+[language_features=CREATE_TABLE_CLONE]
+create table t1 clone Int64ValueTable;
+--
+
+ERROR: Cannot clone from value table: Int64ValueTable [at 1:23]
+create table t1 clone Int64ValueTable;
+                      ^
 
 ==
 
@@ -268,7 +285,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="c1", type=INT32, column=t1.c1#1)
 | +-ColumnDefinition(name="c2", type=INT64, column=t1.c2#2)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[1])
+  +-PrimaryKey(column_offset_list=[1], column_name_list=[c2])
 ==
 
 create table t1 (c1 int32, primary key(c1,C3) options(x=1,y=2), c3 string);
@@ -282,8 +299,9 @@ CreateTableStmt
   +-PrimaryKey
     +-column_offset_list=[0, 1]
     +-option_list=
-      +-x := Literal(type=INT64, value=1)
-      +-y := Literal(type=INT64, value=2)
+    | +-x := Literal(type=INT64, value=1)
+    | +-y := Literal(type=INT64, value=2)
+    +-column_name_list=[c1, C3]
 ==
 
 create table t (a int64, b int32 PRIMARY KEY OPTIONS(x=1));
@@ -301,7 +319,7 @@ CreateTableStmt
 |   |     +-x := Literal(type=INT64, value=1)
 |   +-column=t.b#2
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[1])
+  +-PrimaryKey(column_offset_list=[1], column_name_list=[b])
 ==
 
 # An empty primary key is used for tables that can have at most one row.
@@ -323,7 +341,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="aaA", type=INT64, column=t.aaA#1)
 | +-ColumnDefinition(name="b", type=INT32, column=t.b#2)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[0])
+  +-PrimaryKey(column_offset_list=[0], column_name_list=[Aaa])
 ==
 
 create table t1 (c1 int32, c2 int32, c3 int32, c4 int32, c5 int32, primary key (c3, c5, c1));
@@ -337,7 +355,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="c4", type=INT32, column=t1.c4#4)
 | +-ColumnDefinition(name="c5", type=INT32, column=t1.c5#5)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[2, 4, 0])
+  +-PrimaryKey(column_offset_list=[2, 4, 0], column_name_list=[c3, c5, c1])
 ==
 
 # Could not resolve type.
@@ -409,7 +427,7 @@ create table t (a int64, primary key(a, a));
 
 create table t (a int64, b int32, PRIMARY KEY(a, c));
 --
-ERROR: Unknown column c specified in PRIMARY KEY of CREATE TABLE [at 1:50]
+ERROR: Unsupported primary key column c either does not exist or is a pseudocolumn [at 1:50]
 create table t (a int64, b int32, PRIMARY KEY(a, c));
                                                  ^
 ==
@@ -549,7 +567,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="c2", type=INT64, is_hidden=TRUE, column=t1.c2#2)
 | +-ColumnDefinition(name="c3", type=STRING, column=t1.c3#3)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[2])
+  +-PrimaryKey(column_offset_list=[2], column_name_list=[c3])
 ==
 
 # Column with both being marked as hidden and primary key (1).
@@ -566,7 +584,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="c2", type=INT64, is_hidden=TRUE, column=t1.c2#2)
 | +-ColumnDefinition(name="c3", type=STRING, column=t1.c3#3)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[1])
+  +-PrimaryKey(column_offset_list=[1], column_name_list=[c2])
 ==
 
 # Column with both being marked as hidden and primary key (2).
@@ -583,7 +601,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="c2", type=INT64, is_hidden=TRUE, column=t1.c2#2)
 | +-ColumnDefinition(name="c3", type=STRING, column=t1.c3#3)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[1])
+  +-PrimaryKey(column_offset_list=[1], column_name_list=[c2])
 ==
 
 # Column being marked twice as hidden.
@@ -1640,7 +1658,7 @@ CreateTableStmt
 | | +-column=t1.c3#3
 | +-ColumnDefinition(name="c4", type=ARRAY<STRUCT<>>, is_hidden=TRUE, column=t1.c4#4)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[0])
+  +-PrimaryKey(column_offset_list=[0], column_name_list=[c1])
 
 ==
 
@@ -2404,7 +2422,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="a", type=STRING, column=t.a#1)
 | +-ColumnDefinition(name="b", type=UINT64, is_hidden=TRUE, column=t.b#2)
 +-primary_key=
-| +-PrimaryKey(column_offset_list=[0])
+| +-PrimaryKey(column_offset_list=[0], column_name_list=[a])
 +-foreign_key_list=
   +-ForeignKey(constraint_name="f", referencing_column_offset_list=[1], referenced_table=Value, referenced_column_offset_list=[0], match_mode=FULL, update_action=RESTRICT, delete_action=CASCADE, enforced=TRUE, referencing_column_list=b)
   +-ForeignKey(constraint_name="", referencing_column_offset_list=[1], referenced_table=KeyValue, referenced_column_offset_list=[0], match_mode=SIMPLE, update_action=NO_ACTION, delete_action=NO_ACTION, enforced=TRUE, referencing_column_list=b)
@@ -3449,7 +3467,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="aaA", type=INT64, column=t.aaA#1)
 | +-ColumnDefinition(name="b", type=INT32, column=t.b#2)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[0], unenforced=TRUE)
+  +-PrimaryKey(column_offset_list=[0], unenforced=TRUE, column_name_list=[Aaa])
 ==
 
 create table t (aaA int64, b int32 PRIMARY KEY NOT ENFORCED);
@@ -3460,7 +3478,7 @@ CreateTableStmt
 | +-ColumnDefinition(name="aaA", type=INT64, column=t.aaA#1)
 | +-ColumnDefinition(name="b", type=INT32, column=t.b#2)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[1], unenforced=TRUE)
+  +-PrimaryKey(column_offset_list=[1], unenforced=TRUE, column_name_list=[b])
 
 ==
 
@@ -4039,3 +4057,25 @@ ERROR: COLLATE is unsupported [at 1:36]
 create table t (a int64, b string) collate 'unicode:ci';
                                    ^
 ==
+
+# PRIMARY KEY with pseudo-column
+create table t1 (
+  c1 int32,
+  primary key (pseudo_column_int32)
+)
+--
+ERROR: Unsupported primary key column pseudo_column_int32 either does not exist or is a pseudocolumn [at 3:16]
+  primary key (pseudo_column_int32)
+               ^
+==
+
+create table t (
+  p zetasql_test.TestExtraPB primary key
+);
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="p", type=PROTO<zetasql_test.TestExtraPB>, column=t.p#1)
++-primary_key=
+  +-PrimaryKey(column_offset_list=[0], column_name_list=[p])

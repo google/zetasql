@@ -107,6 +107,8 @@ class RunParserTest : public ::testing::Test {
   const std::string kTestUnparse = "test_unparse";
   // Allows dashed table names
   const std::string kAllowDashedTableNames = "allow_dashed_table_names";
+  // Allows table names that start with slash.
+  const std::string kAllowSlashedTableNames = "allow_slashed_table_names";
   // Allows consecutive ON/USING clauses
   const std::string kAllowConsecutiveOn = "allow_consecutive_on";
   // Allows WITH GROUP_ROWS syntax for aggregate functions
@@ -126,6 +128,11 @@ class RunParserTest : public ::testing::Test {
   const std::string kAllowForIn = "allow_for_in";
   // Allows LIKE/ANY/SOME/ALL expressions
   const std::string kAllowLikeAnySomeAll = "allow_like_any_some_all";
+  // Show the text of the SQL fragment for each parse location, rather than only
+  // the integer range.
+  const std::string kShowParseLocationText = "show_parse_location_text";
+  // Allows CASE...WHEN statement
+  const std::string kAllowCaseStmt = "allow_case_stmt";
 
   RunParserTest() {
     test_case_options_.RegisterString(kModeOption, "statement");
@@ -134,7 +141,8 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kParseMultiple, false);
     test_case_options_.RegisterBool(kTestGetParseTokens, true);
     test_case_options_.RegisterBool(kTestUnparse, true);
-    test_case_options_.RegisterBool(kAllowDashedTableNames, false);
+    test_case_options_.RegisterBool(kAllowDashedTableNames, true);
+    test_case_options_.RegisterBool(kAllowSlashedTableNames, true);
     test_case_options_.RegisterBool(kAllowConsecutiveOn, true);
     test_case_options_.RegisterBool(kAllowWithGroupRows, true);
     test_case_options_.RegisterBool(kAllowIsDistinctFrom, true);
@@ -144,6 +152,8 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kAllowColumnDefaultValue, true);
     test_case_options_.RegisterBool(kAllowForIn, true);
     test_case_options_.RegisterBool(kAllowLikeAnySomeAll, true);
+    test_case_options_.RegisterBool(kShowParseLocationText, true);
+    test_case_options_.RegisterBool(kAllowCaseStmt, true);
 
     // Force a blank line at the start of every test case.
     absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
@@ -610,6 +620,9 @@ class RunParserTest : public ::testing::Test {
       language_options_->EnableLanguageFeature(
           FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME);
     }
+    if (test_case_options_.GetBool(kAllowSlashedTableNames)) {
+      language_options_->EnableLanguageFeature(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+    }
     if (test_case_options_.GetBool(kAllowConsecutiveOn)) {
       language_options_->EnableLanguageFeature(
           FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON);
@@ -635,6 +648,9 @@ class RunParserTest : public ::testing::Test {
     }
     if (test_case_options_.GetBool(kAllowLikeAnySomeAll)) {
       language_options_->EnableLanguageFeature(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
+    }
+    if (test_case_options_.GetBool(kAllowCaseStmt)) {
+      language_options_->EnableLanguageFeature(FEATURE_V_1_3_CASE_STMT);
     }
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);
@@ -741,7 +757,10 @@ class RunParserTest : public ::testing::Test {
             parsed_root, extracted_statement_properties, test_outputs);
       }
 
-      const std::string root_debug_string = parsed_root->DebugString();
+      const std::string root_debug_string =
+          test_case_options_.GetBool(kShowParseLocationText)
+              ? parsed_root->DebugString(test_case)
+              : parsed_root->DebugString();
       test_outputs->push_back(root_debug_string);
       ZETASQL_VLOG(1) << root_debug_string;
     } else {

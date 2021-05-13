@@ -138,9 +138,9 @@ bool NumericToString(BigNumericValue value, std::string* out,
 
 template <>
 bool StringToNumeric(absl::string_view value, bool* out, absl::Status* error) {
-  if (absl::EqualsIgnoreCase(value, kTrueStringValue)) {
+  if (zetasql_base::CaseEqual(value, kTrueStringValue)) {
     *out = true;
-  } else if (absl::EqualsIgnoreCase(value, kFalseStringValue)) {
+  } else if (zetasql_base::CaseEqual(value, kFalseStringValue)) {
     *out = false;
   } else {
     return internal::UpdateError(error,

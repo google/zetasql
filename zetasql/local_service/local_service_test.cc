@@ -185,73 +185,6 @@ void AddKitchenSink3DescriptorPool(DescriptorPoolListProto* list) {
       &ignored, list->add_definitions()->mutable_file_descriptor_set()));
 }
 
-TEST_F(ZetaSqlLocalServiceImplTest, PrepareAndCleanup) {
-  PrepareRequest request;
-  TypeFactory factory;
-  FileDescriptorSetMap file_descriptor_set_map;
-
-  // Add a proto-type column.
-  const ProtoType* proto_type;
-  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
-                                  &proto_type));
-  auto* column = request.mutable_options()->add_expression_columns();
-  column->set_name("c");
-  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
-      column->mutable_type(), &file_descriptor_set_map));
-
-  // And add an enum-type param.
-  const EnumType* enum_type;
-  ZETASQL_ASSERT_OK(factory.MakeEnumType(
-      pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
-  auto* param = request.mutable_options()->add_query_parameters();
-  param->set_name("e");
-  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
-      param->mutable_type(), &file_descriptor_set_map));
-
-  // The proto and enum come from different descriptor pools, resulting 2 file
-  // descriptor sets.
-  ASSERT_EQ(2, file_descriptor_set_map.size());
-
-  for (int i = 0; i < file_descriptor_set_map.size(); ++i) {
-    request.add_file_descriptor_set();
-  }
-  for (const auto& pair : file_descriptor_set_map) {
-    *request.mutable_file_descriptor_set(pair.second->descriptor_set_index) =
-        pair.second->file_descriptor_set;
-  }
-
-  // Use the column and param in the expression.
-  request.set_sql("IF(c.int32_val=1, @e, null)");
-
-  PrepareResponse wrapper;
-  ZETASQL_ASSERT_OK(Prepare(request, &wrapper));
-
-  // Check result type and value.
-  PreparedState response = wrapper.prepared();
-  EXPECT_EQ(TYPE_ENUM, response.output_type().type_kind());
-  EXPECT_EQ("zetasql_test.TestEnum",
-            response.output_type().enum_type().enum_name());
-  EXPECT_EQ(0, response.output_type().file_descriptor_set_size());
-  EXPECT_EQ(1, response.output_type().enum_type().file_descriptor_set_index());
-
-  // Check prepared id.
-  EXPECT_TRUE(response.has_prepared_expression_id());
-  EXPECT_EQ(1, NumSavedPreparedExpression());
-
-  // Check column.
-  EXPECT_EQ(1, response.referenced_columns_size());
-  EXPECT_EQ("c", response.referenced_columns(0));
-
-  // Check named parameter.
-  EXPECT_EQ(1, response.referenced_parameters_size());
-  EXPECT_EQ("e", response.referenced_parameters(0));
-
-  // Check positional parameter.
-  EXPECT_EQ(0, response.positional_parameter_count());
-
-  // Cleanup
-  ZETASQL_ASSERT_OK(Unprepare(response.prepared_expression_id()));
-}
 
 TEST_F(ZetaSqlLocalServiceImplTest, PrepareCleansUpPoolsAndCatalogsOnError) {
   PrepareRequest request;
@@ -338,153 +271,6 @@ TEST_F(ZetaSqlLocalServiceImplTest, EvaluateCleansUpPoolsOnError) {
 
   ASSERT_FALSE(Evaluate(request, &response).ok());
   EXPECT_EQ(0, NumSavedPreparedExpression());
-}
-
-TEST_F(ZetaSqlLocalServiceImplTest, Evaluate) {
-  EvaluateRequest request;
-
-  TypeFactory factory;
-  FileDescriptorSetMap file_descriptor_set_map;
-
-  // Add a proto-type column.
-  const ProtoType* proto_type;
-  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
-                                  &proto_type));
-  auto* column_type = request.mutable_options()->add_expression_columns();
-  column_type->set_name("C");
-  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
-      column_type->mutable_type(), &file_descriptor_set_map));
-  auto* column = request.add_columns();
-  column->set_name("C");
-  zetasql_test::KitchenSinkPB pb;
-  pb.set_int32_val(1);
-  pb.set_int64_key_1(2);
-  pb.set_int64_key_2(3);
-  Value proto_value = values::Proto(proto_type, pb);
-  ValueProto proto_pb;
-  ZETASQL_ASSERT_OK(proto_value.Serialize(&proto_pb));
-  *column->mutable_value() = proto_pb;
-
-  // And add an enum-type param.
-  const EnumType* enum_type;
-  ZETASQL_ASSERT_OK(factory.MakeEnumType(
-      pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
-  auto* param_type = request.mutable_options()->add_query_parameters();
-  param_type->set_name("e");
-  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
-      param_type->mutable_type(), &file_descriptor_set_map));
-  auto* param = request.add_params();
-  param->set_name("e");
-  Value enum_value = values::Enum(enum_type, 1);
-  ValueProto enum_pb;
-  ZETASQL_ASSERT_OK(enum_value.Serialize(&enum_pb));
-  *param->mutable_value() = enum_pb;
-
-  // The proto and enum come from different descriptor pools, resulting 2 file
-  // descriptor sets.
-  ASSERT_EQ(2, file_descriptor_set_map.size());
-
-  for (int i = 0; i < file_descriptor_set_map.size(); ++i) {
-    request.add_file_descriptor_set();
-  }
-  for (const auto& pair : file_descriptor_set_map) {
-    *request.mutable_file_descriptor_set(pair.second->descriptor_set_index) =
-        pair.second->file_descriptor_set;
-  }
-
-  // Use the column and param in the expression.
-  request.set_sql("IF(C.int32_val=1, @e, null)");
-
-  EvaluateResponse response;
-  ZETASQL_ASSERT_OK(Evaluate(request, &response));
-
-  // check result type and value.
-  EXPECT_EQ(TYPE_ENUM, response.prepared().output_type().type_kind());
-  EXPECT_EQ("zetasql_test.TestEnum",
-            response.prepared().output_type().enum_type().enum_name());
-  EXPECT_EQ(0, response.prepared().output_type().file_descriptor_set_size());
-  EXPECT_EQ(1, response.prepared()
-                   .output_type()
-                   .enum_type()
-                   .file_descriptor_set_index());
-  EXPECT_EQ(1, response.value().enum_value());
-  EXPECT_EQ(1, NumSavedPreparedExpression());
-  ZETASQL_ASSERT_OK(Unprepare(response.prepared().prepared_expression_id()));
-}
-
-TEST_F(ZetaSqlLocalServiceImplTest, EvaluatePrepared) {
-  PrepareRequest request;
-  TypeFactory factory;
-  FileDescriptorSetMap file_descriptor_set_map;
-
-  // Add a proto-type column.
-  const ProtoType* proto_type;
-  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
-                                  &proto_type));
-  auto* column = request.mutable_options()->add_expression_columns();
-  column->set_name("c");
-  ZETASQL_ASSERT_OK(proto_type->SerializeToProtoAndDistinctFileDescriptors(
-      column->mutable_type(), &file_descriptor_set_map));
-
-  // And add an enum-type param.
-  const EnumType* enum_type;
-  ZETASQL_ASSERT_OK(factory.MakeEnumType(
-      pool_->FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
-  auto* param = request.mutable_options()->add_query_parameters();
-  param->set_name("e");
-  ZETASQL_ASSERT_OK(enum_type->SerializeToProtoAndDistinctFileDescriptors(
-      param->mutable_type(), &file_descriptor_set_map));
-
-  // The proto and enum come from different descriptor pools, resulting 2 file
-  // descriptor sets.
-  ASSERT_EQ(2, file_descriptor_set_map.size());
-
-  for (int i = 0; i < file_descriptor_set_map.size(); ++i) {
-    request.add_file_descriptor_set();
-  }
-  for (const auto& pair : file_descriptor_set_map) {
-    *request.mutable_file_descriptor_set(pair.second->descriptor_set_index) =
-        pair.second->file_descriptor_set;
-  }
-
-  // Use the column and param in the expression.
-  request.set_sql("IF(c.int32_val=1, @e, null)");
-
-  PrepareResponse response;
-  ZETASQL_ASSERT_OK(Prepare(request, &response));
-
-  EvaluateRequest evaluate_request;
-  evaluate_request.set_prepared_expression_id(
-      response.prepared().prepared_expression_id());
-
-  auto* evaluate_column = evaluate_request.add_columns();
-  evaluate_column->set_name("c");
-  zetasql_test::KitchenSinkPB pb;
-  pb.set_int32_val(1);
-  pb.set_int64_key_1(2);
-  pb.set_int64_key_2(3);
-  Value proto_value = values::Proto(proto_type, pb);
-  ValueProto proto_pb;
-  ZETASQL_ASSERT_OK(proto_value.Serialize(&proto_pb));
-  *evaluate_column->mutable_value() = proto_pb;
-
-  // And add an enum-type param.
-  auto* evaluate_param = evaluate_request.add_params();
-  evaluate_param->set_name("e");
-  Value enum_value = values::Enum(enum_type, 1);
-  ValueProto enum_pb;
-  ZETASQL_ASSERT_OK(enum_value.Serialize(&enum_pb));
-  *evaluate_param->mutable_value() = enum_pb;
-
-  EvaluateResponse evaluate_response;
-  ZETASQL_ASSERT_OK(Evaluate(evaluate_request, &evaluate_response));
-
-  // Check result value, ensure extra data not sent.
-  EXPECT_EQ(1, evaluate_response.value().enum_value());
-  EXPECT_EQ(evaluate_response.has_prepared(), false);
-
-  EXPECT_EQ(1, NumSavedPreparedExpression());
-  ZETASQL_ASSERT_OK(Unprepare(response.prepared().prepared_expression_id()));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, EvaluateWithWrongId) {
@@ -1487,20 +1273,10 @@ TEST_F(ZetaSqlLocalServiceImplTest,
                 .registered_ids_size(),
             3);
 
-  const int64_t empty_descriptor_pool_id =
-      prepare_response.prepared().descriptor_pool_id_list().registered_ids(0);
-  const int64_t kitchen_sink_pool_id =
-      prepare_response.prepared().descriptor_pool_id_list().registered_ids(2);
-
   // EVALUATE
   EvaluateRequest evaluate_request;
   evaluate_request.set_prepared_expression_id(
       prepare_response.prepared().prepared_expression_id());
-  AddRegisteredDescriptorPool(evaluate_request.mutable_descriptor_pool_list(),
-                              empty_descriptor_pool_id);
-  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
-  AddRegisteredDescriptorPool(evaluate_request.mutable_descriptor_pool_list(),
-                              kitchen_sink_pool_id);
 
   *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 5);
   *evaluate_request.add_params() =
@@ -1508,10 +1284,12 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 
   EvaluateResponse evaluate_response;
   ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
+  // On an already prepared expression, we should not return the registered
+  // ids.
   EXPECT_EQ(evaluate_response.prepared()
                 .descriptor_pool_id_list()
                 .registered_ids_size(),
-            3);
+            0);
   ExpectValueIsTestEnum(evaluate_response.value(),
                         zetasql_test::TestEnum::TESTENUM1);
 
@@ -1571,8 +1349,6 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   EvaluateRequest evaluate_request;
   evaluate_request.set_prepared_expression_id(
       prepare_response.prepared().prepared_expression_id());
-  *evaluate_request.mutable_descriptor_pool_list() =
-      prepare_request.descriptor_pool_list();
 
   *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 5);
   *evaluate_request.add_params() =
@@ -1580,9 +1356,10 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 
   EvaluateResponse evaluate_response;
   ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
-  EXPECT_THAT(
-      catalog_response.descriptor_pool_id_list(),
-      EqualsProto(evaluate_response.prepared().descriptor_pool_id_list()));
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
   ExpectValueIsTestEnum(evaluate_response.value(),
                         zetasql_test::TestEnum::TESTENUM1);
 
@@ -1648,15 +1425,6 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   EvaluateRequest base_evaluate_request;
   base_evaluate_request.set_prepared_expression_id(
       prepare_response.prepared().prepared_expression_id());
-  AddRegisteredDescriptorPool(
-      base_evaluate_request.mutable_descriptor_pool_list(),
-      prepare_response.prepared().descriptor_pool_id_list().registered_ids(0));
-  AddRegisteredDescriptorPool(
-      base_evaluate_request.mutable_descriptor_pool_list(),
-      prepare_response.prepared().descriptor_pool_id_list().registered_ids(1));
-  AddRegisteredDescriptorPool(
-      base_evaluate_request.mutable_descriptor_pool_list(),
-      kitchen_sink3_pool_id);
 
   {
     EvaluateRequest evaluate_request = base_evaluate_request;
@@ -1665,9 +1433,10 @@ TEST_F(ZetaSqlLocalServiceImplTest,
         MakeTestEnumParameter("p2", zetasql_test::TestEnum::TESTENUM1);
     EvaluateResponse evaluate_response;
     ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
-    EXPECT_THAT(
-        prepare_response.prepared().descriptor_pool_id_list(),
-        EqualsProto(evaluate_response.prepared().descriptor_pool_id_list()));
+    EXPECT_EQ(evaluate_response.prepared()
+                  .descriptor_pool_id_list()
+                  .registered_ids_size(),
+              0);
     zetasql_test::Proto3KitchenSink expected_output_1;
     expected_output_1.set_int64_val(5);
     expected_output_1.set_test_enum(zetasql_test::TestProto3Enum::ENUM1);
@@ -1680,9 +1449,10 @@ TEST_F(ZetaSqlLocalServiceImplTest,
         "p2", zetasql_test::TestEnum::TESTENUM2147483647);
     EvaluateResponse evaluate_response;
     ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
-    EXPECT_THAT(
-        prepare_response.prepared().descriptor_pool_id_list(),
-        EqualsProto(evaluate_response.prepared().descriptor_pool_id_list()));
+    EXPECT_EQ(evaluate_response.prepared()
+                  .descriptor_pool_id_list()
+                  .registered_ids_size(),
+              0);
     zetasql_test::Proto3KitchenSink expected_output_1;
     expected_output_1.set_int64_val(7);
     expected_output_1.set_test_enum(zetasql_test::TestProto3Enum::ENUM2);

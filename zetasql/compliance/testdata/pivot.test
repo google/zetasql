@@ -477,3 +477,24 @@ ARRAY<STRUCT<rowid INT64, y INT64, z INT64, _0 INT64, _1 INT64>>[
   {15, NULL, 1002, NULL, NULL},
   {16, NULL, 1002, NULL, NULL}
 ]
+==
+
+# ST_NEAREST_NEIGHBORS takes 4 arguments, which is very unusual for an aggregate
+# function. It is also null-respecting.
+[required_features=V_1_3_PIVOT,GEOGRAPHY]
+[name=pivot_st_nearest_neighbors]
+SELECT * FROM
+  (SELECT 1 AS info, st_geogpoint(3, 3) AS location
+   UNION ALL SELECT 2 AS info, st_geogpoint(12, 15) AS location
+   UNION ALL SELECT 3 AS info, st_geogfromtext('LINESTRING(6 -1, 6 5)') AS location
+   UNION ALL SELECT 4 AS info, st_geogfromtext('POLYGON((-1 -1, 1 -1, 1 1, -1 1, -1 -1))') AS location)
+ PIVOT(
+   st_nearest_neighbors(info, location, st_geogpoint(10, 11), 2)
+   FOR info IN (0, 1));
+--
+ARRAY<STRUCT<_0 ARRAY<>, _1 ARRAY<>>>[
+  {
+    ARRAY<STRUCT<neighbor INT64, distance DOUBLE>>(NULL),
+    ARRAY<STRUCT<neighbor INT64, distance DOUBLE>>[{1, 1177772.5464204482}]
+  }
+]

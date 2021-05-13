@@ -27,6 +27,7 @@
 namespace zetasql {
 namespace testing {
 
+using ::testing::_;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
@@ -168,15 +169,31 @@ TEST(ValidatorTest, ValidExpression) {
 }
 
 TEST(ValidatorTest, InvalidExpression) {
+  TypeFactory type_factory;
   ResolvedColumn column(1, zetasql::IdString::MakeGlobal("tbl"),
                         zetasql::IdString::MakeGlobal("col1"),
                         types::Int64Type());
-  std::unique_ptr<ResolvedExpr> expr =
-      MakeResolvedColumnRef(types::Int64Type(), column, false);
+  std::unique_ptr<ResolvedExpr> expr = WrapInFunctionCall(
+      &type_factory, MakeResolvedLiteral(Value::Int64(1)),
+      MakeResolvedColumnRef(types::Int64Type(), column, false),
+      MakeResolvedLiteral(Value::Int64(2)));
   Validator validator;
-  ASSERT_THAT(validator.ValidateStandaloneResolvedExpr(expr.get()),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Incorrect reference to column tbl.col1#1")));
+
+  // Repeat twice to ensure that the validator behaves the same way when reused.
+  for (int i = 0; i < 2; ++i) {
+    absl::Status status = validator.ValidateStandaloneResolvedExpr(expr.get());
+
+    // Make sure error message is as expected.
+    ASSERT_THAT(
+        status,
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr("Incorrect reference to column tbl.col1#1")));
+
+    // Make sure the tree dump has emphasis on the expected node.
+    ASSERT_THAT(status.message(),
+                HasSubstr("ColumnRef(type=INT64, column=tbl.col1#1) "
+                          "(validation failed here)"));
+  }
 }
 
 TEST(ValidatorTest, InvalidQueryStatement) {
@@ -184,15 +201,21 @@ TEST(ValidatorTest, InvalidQueryStatement) {
   std::unique_ptr<ResolvedQueryStmt> query_stmt =
       MakeSelect1StmtWithWrongColumnId(pool);
   Validator validator;
-  ASSERT_THAT(validator.ValidateResolvedStatement(query_stmt.get()),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Incorrect reference to column tbl.x#2")));
 
-  // Make sure that the same tree fails the same way when validated a second
-  // time using the same Validator object.
-  ASSERT_THAT(validator.ValidateResolvedStatement(query_stmt.get()),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Incorrect reference to column tbl.x#2")));
+  // Repeat twice to ensure that the validator behaves the same way when reused.
+  for (int i = 0; i < 2; ++i) {
+    // Verify error message
+    absl::Status status = validator.ValidateResolvedStatement(query_stmt.get());
+    ASSERT_THAT(status,
+                StatusIs(absl::StatusCode::kInternal,
+                         HasSubstr("Incorrect reference to column tbl.x#2")));
+
+    // Verify node emphasized in tree dump
+    ASSERT_THAT(
+        status,
+        StatusIs(
+            _, HasSubstr("| +-tbl.x#2 AS x [INT64] (validation failed here)")));
+  }
 }
 
 TEST(ValidatorTest, ValidStatementAfterInvalidStatement) {
@@ -226,6 +249,21 @@ TEST(ValidatorTest, InvalidStatementDueToDuplicateColumnIds) {
   Validator validator;
   ASSERT_THAT(validator.ValidateResolvedStatement(query_stmt.get()),
               StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(ValidateTest, QueryStmtWithNullExpr) {
+  IdStringPool pool;
+  std::unique_ptr<ResolvedQueryStmt> query_stmt = MakeSelect1Stmt(pool);
+  const_cast<ResolvedComputedColumn*>(
+      query_stmt->query()->GetAs<ResolvedProjectScan>()->expr_list(0))
+      ->release_expr();
+
+  Validator validator;
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(query_stmt.get()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr("| +-x#1 := <nullptr AST node> (validation failed here)")));
 }
 
 }  // namespace testing

@@ -56,13 +56,13 @@
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
@@ -843,7 +843,8 @@ class Resolver {
       const ColumnIndexMap& column_indexes,
       const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
           column_definitions,
-      std::set<std::string, zetasql_base::StringCaseLess>* constraint_names,
+      std::set<std::string, zetasql_base::CaseLess>*
+          constraint_names,
       std::vector<std::unique_ptr<const ResolvedForeignKey>>* foreign_key_list);
 
   // Resolves a column foreign key constraint.
@@ -879,7 +880,8 @@ class Resolver {
   absl::Status ResolveCheckConstraints(
       absl::Span<const ASTTableElement* const> ast_table_elements,
       const NameScope& name_scope,
-      std::set<std::string, zetasql_base::StringCaseLess>* constraint_names,
+      std::set<std::string, zetasql_base::CaseLess>*
+          constraint_names,
       std::vector<std::unique_ptr<const ResolvedCheckConstraint>>*
           check_constraint_list);
 
@@ -2820,6 +2822,16 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  absl::Status ResolveLikeExpr(
+      const ASTLikeExpression* like_expr,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::Status ResolveLikeExprSubquery(
+      const ASTLikeExpression* like_subquery_expr,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
   absl::Status ResolveBetweenExpr(
       const ASTBetweenExpression* between_expr,
       ExprResolutionInfo* expr_resolution_info,
@@ -2946,27 +2958,58 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
-  // Function names returned by ResolvedArrayPosition().
+  // Function names returned by ResolveArrayElement().
   static const char kArrayAtOffset[];
   static const char kArrayAtOrdinal[];
   static const char kProtoMapAtKey[];
   static const char kSafeArrayAtOffset[];
   static const char kSafeArrayAtOrdinal[];
   static const char kSafeProtoMapAtKey[];
-  static const char kSubscript[];
 
-  // Verifies that <resolved_array> is an array and that <ast_position> is an
-  // appropriate array element function call (e.g., to OFFSET) and populates
-  // <function_name> and <unwrapped_ast_position_expr> accordingly. Also
-  // resolves <unwrapped_ast_position_expr> into <resolved_expr_out> and coerces
-  // it to the correct type if necessary. For most arrays, this will be an
-  // INT64, but for proto maps, it will be the key type of the map.
+  // Function names returned by ResolveNonArrayElement().
+  static const char kSubscript[];
+  static const char kSubscriptWithOffset[];
+  static const char kSubscriptWithOrdinal[];
+  static const char kSubscriptWithKey[];
+
+  // Resolves subscript([]) operator for non-array type.
+  // Depending on the argument the subscript operator can be resolved to one of
+  // the following functions:
+  //
+  // $subscript_with_key: when wrapper keyword is KEY or SAFE_KEY,
+  // $subscript_with_offset: when wrapper keyword is OFFSET or SAFE_OFFSET,
+  // $subscript_with_ordinal: when wrapper keyword is ORDINAL or SAFE_ORDINAL
+  // $subscript: no wrapper keywords as mentioned in the above cases.
+  //
+  // With SAFE_* prefix the resolved function_name_path will contain
+  // "SAFE" as first element indicating the function runs under SAFE_ERROR_MODE
+  // rather than DEFAULT_ERROR_MODE.
+  //
+  // To be consist with the pointer vs. reference usage in this file, but this
+  // function requires all the pointers to be not nullptr.
+  absl::Status ResolveNonArraySubscriptElementAccess(
+      const ResolvedExpr* resolved_lhs, const ASTExpression* ast_position,
+      ExprResolutionInfo* expr_resolution_info,
+      std::vector<std::string>* function_name_path,
+      const ASTExpression** unwrapped_ast_position_expr,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+      std::string* original_wrapper_name);
+
+  // Requires that <resolved_array> is an array and verifies that
+  // <ast_position> is an appropriate array element function call (e.g., to
+  // OFFSET) and populates <function_name> and <unwrapped_ast_position_expr>
+  // accordingly. Also resolves <unwrapped_ast_position_expr> into
+  // <resolved_expr_out> and coerces it to the correct type if necessary. For
+  // most arrays, this will be an INT64, but for proto maps, it will be the key
+  // type of the map. <original_wrapper_name> is populated to corresponding
+  // wrapper value of subscript operator.
   absl::Status ResolveArrayElementAccess(
       const ResolvedExpr* resolved_array, const ASTExpression* ast_position,
       ExprResolutionInfo* expr_resolution_info,
       absl::string_view* function_name,
       const ASTExpression** unwrapped_ast_position_expr,
-      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+      std::string* original_wrapper_name);
 
   absl::Status ResolveCaseNoValueExpression(
       const ASTCaseNoValueExpression* case_no_value,
@@ -3368,14 +3411,19 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  // Defines the handle mode When a function is kNotFound in the catalog lookup.
+  enum class FunctionNotFoundHandleMode { kReturnNotFound, kReturnError };
+
  private:
-  // Look up a function in the catalog, returning error status if not found.
-  // Also return the <error_mode> to use in the ResolvedFunctionCallBase,
-  // based on whether the function had a "SAFE." prefix.
+  // Looks up a function in the catalog, returning error status if not found.
+  // If the Catalog lookup returns kNotFound then this method will either
+  // return a not found or invalid argument error depending on the value of
+  // <handle_mode>. Also returns the <error_mode> based on whether or
+  // not the function had a "SAFE." prefix.
   absl::Status LookupFunctionFromCatalog(
       const ASTNode* ast_location,
       const std::vector<std::string>& function_name_path,
-      const Function** function,
+      FunctionNotFoundHandleMode handle_mode, const Function** function,
       ResolvedFunctionCallBase::ErrorMode* error_mode) const;
 
   // Common implementation for resolving operator expressions and non-standard
@@ -3510,45 +3558,68 @@ class Resolver {
       std::unique_ptr<const ResolvedAddConstraintAction>*
           resolved_alter_action);
 
-  // TODO: Combine the logic of ResolveTypeParameters() with
-  // ResolveType() so that type parameter resolving is done in this method.
-  // In doing so, we will modify the input to take in the argument
-  // "TypeParameters*" instead of the optional string_view argument
-  // <type_parameter_context>. The ResolveType() method should then have its
-  // contract defined to state that type parameters are handled and resolved by
-  // this method.
+  // <referencing_table> can be NULL. If the table does not exist in the catalog
+  // and the alter statement uses IF EXISTS, we try to resolve the foriegn key
+  // anyway.
+  absl::Status ResolveAddForeignKey(
+      const Table* referencing_table, const ASTAlterStatementBase* alter_stmt,
+      const ASTAddConstraintAction* alter_action,
+      std::unique_ptr<const ResolvedAddConstraintAction>*
+          resolved_alter_action);
+
+  // <target_table> can be NULL. If the table does not exist in the catalog and
+  // the alter statement uses IF EXISTS, we try to resolve the primary key
+  // anyway.
+  absl::Status ResolveAddPrimaryKey(
+      const Table* target_table, const ASTAlterStatementBase* alter_stmt,
+      const ASTAddConstraintAction* alter_action,
+      std::unique_ptr<const ResolvedAddConstraintAction>*
+          resolved_alter_action);
+
+  // Resolve the ASTType <type> as a Type <resolved_type>. If
+  // <resolved_type_params> is not a nullptr, resolve any type parameters in
+  // <type>.
   //
-  // If <type_parameter_context> is specified it means that type parameters are
+  // If <resolved_type_params> is a nullptr it means that type parameters are
   // disallowed by the caller of ResolveType() and should error out with
   // <type_parameter_context> in the error message if type parameters exist.
+  // <type_parameter_context> must be specified if <resolved_type_params> is a
+  // nullptr.
   absl::Status ResolveType(
-      const ASTType* type, const Type** resolved_type,
-      absl::optional<absl::string_view> type_parameter_context) const;
+      const ASTType* type,
+      const absl::optional<absl::string_view> type_parameter_context,
+      const Type** resolved_type, TypeParameters* resolved_type_params);
 
   absl::Status ResolveSimpleType(
-      const ASTSimpleType* type, const Type** resolved_type,
-      absl::optional<absl::string_view> type_parameter_context) const;
+      const ASTSimpleType* type,
+      const absl::optional<absl::string_view> type_parameter_context,
+      const Type** resolved_type, TypeParameters* resolved_type_params);
 
   absl::Status ResolveArrayType(
-      const ASTArrayType* array_type, const ArrayType** resolved_type,
-      absl::optional<absl::string_view> type_parameter_context) const;
+      const ASTArrayType* array_type,
+      const absl::optional<absl::string_view> type_parameter_context,
+      const ArrayType** resolved_type, TypeParameters* resolved_type_params);
 
   absl::Status ResolveStructType(
-      const ASTStructType* struct_type, const StructType** resolved_type,
-      absl::optional<absl::string_view> type_parameter_context) const;
+      const ASTStructType* struct_type,
+      const absl::optional<absl::string_view> type_parameter_context,
+      const StructType** resolved_type, TypeParameters* resolved_type_params);
 
   // Resolve type parameters to the resolved TypeParameters class, which stores
-  // type parameters as a TypeParametersProto. If there are no type parameters
-  // for the given type, then an empty TypeParameters class is returned.
-  // <resolved_type> must correspond to the Type returned when the ASTType
-  // <type> is resolved.
+  // type parameters as a TypeParametersProto. If there are no type parameters,
+  // then an empty TypeParameters class is returned. The type parameters can be
+  // found in <type_parameters>. <resolved_type> must corresponds to the Type
+  // returned when the ASTType parent of <type_parameters> is resolved.
+  //
+  // If the type is a STRUCT or ARRAY type, <child_parameter_list> should hold
+  // the type parameters of the STRUCT fields or ARRAY elements. Otherwise,
+  // <child_parameter_list> is empty.
   zetasql_base::StatusOr<TypeParameters> ResolveTypeParameters(
-      const ASTType& type, const Type& resolved_type);
+      const ASTTypeParameterList* type_parameters, const Type& resolved_type,
+      const std::vector<TypeParameters>& child_parameter_list);
 
   // Resolve the simple type literals for each input type parameter. Valid
-  // literal types are INT, STRING, and MAX. While the parser accepts BYTES,
-  // BOOLEAN, and FLOAT literals, they are not yet valid type parameter
-  // literals.
+  // literal types are BOOL, BYTES, FLOAT, INT, STRING, and MAX.
   zetasql_base::StatusOr<std::vector<TypeParameterValue>> ResolveParameterLiterals(
       const ASTTypeParameterList& type_parameters);
 
@@ -3722,6 +3793,7 @@ class Resolver {
     std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
     std::vector<std::unique_ptr<const ResolvedExpr>> cluster_by_list;
     std::unique_ptr<const ResolvedWithPartitionColumns> with_partition_columns;
+    std::unique_ptr<const ResolvedConnection> connection;
     bool is_value_table;
     std::unique_ptr<const ResolvedScan> query_scan;
     std::vector<std::unique_ptr<const ResolvedOutputColumn>> output_column_list;
@@ -3737,6 +3809,7 @@ class Resolver {
       const ASTPathExpression* like_table_name, const ASTQuery* query,
       const ASTPartitionBy* partition_by, const ASTClusterBy* cluster_by,
       const ASTWithPartitionColumnsClause* with_partition_columns_clause,
+      const ASTWithConnectionClause* with_connection_clause,
       const ResolveCreateTableStmtBasePropertiesArgs&
           resolved_properties_control_args,
       ResolveCreateTableStatementBaseProperties* statement_base_properties);

@@ -1,4 +1,8 @@
-<!-- resolved_ast.md GENERATED FROM resolved_ast.md.template -->
+<!-- resolved_ast.md GENERATED FROM
+  -- https://github.com/google/zetasql/blob/master/zetasql/resolved_ast/resolved_ast.md.template
+  -- by
+  -- https://github.com/google/zetasql/blob/master/docs/staging/dictionaries/zetasql/generate_resolved_ast.sh
+  -->
 
 # ZetaSQL Resolved AST
 
@@ -64,7 +68,7 @@ class {{node.name}} : public {{node.parent|as_link}} {
 {% endif %}
 {% for field in node.fields %}
  {% if field.comment %}
- <font color="brown">{{field.comment|e}}</font>
+<font color="brown">{{field.comment|e}}</font>
  {% endif %}
   {{field.getter_return_type|linkify_node_names}} {{field.name|linkify_node_names}}() const;
  {% if field.is_vector %}

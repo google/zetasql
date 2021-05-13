@@ -717,6 +717,76 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIntervalSub() {
   return WrapFeatureIntervalType(tests);
 }
 
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalMultiply() {
+  // Only INTERVAL * INT64 signatures, the harness will automatically generate
+  // tests for INT64 * INTERVAL.
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullInterval(), NullInt64()}, NullInterval()},
+      {{NullInterval(), 1}, NullInterval()},
+      {{Years(1), NullInt64()}, NullInterval()},
+
+      {{Years(2), 10000}, NullInterval(), OUT_OF_RANGE},
+      {{Days(3660000), -2}, NullInterval(), OUT_OF_RANGE},
+      {{Days(999999), 99999999999}, NullInterval(), OUT_OF_RANGE},
+  };
+
+  for (int64_t v : {0, 1, -1, 3, -3, 11, -11, 1007, -1007, 9999, -9999}) {
+    tests.emplace_back(QueryParamsWithResult{{Years(1), v}, Years(v)});
+    tests.emplace_back(QueryParamsWithResult{{Months(1), v}, Months(v)});
+    tests.emplace_back(QueryParamsWithResult{{Days(1), v}, Days(v)});
+    tests.emplace_back(QueryParamsWithResult{{Hours(1), v}, Hours(v)});
+    tests.emplace_back(QueryParamsWithResult{{Minutes(1), v}, Minutes(v)});
+    tests.emplace_back(QueryParamsWithResult{{Seconds(1), v}, Seconds(v)});
+    tests.emplace_back(QueryParamsWithResult{{Micros(1), v}, Micros(v)});
+    tests.emplace_back(QueryParamsWithResult{{Nanos(1), v}, Nanos(v)});
+    tests.emplace_back(
+        QueryParamsWithResult{{YMDHMS(0, 1, 2, 3, 4, 5), v},
+                              YMDHMS(0, v, 2 * v, 3 * v, 4 * v, 5 * v)});
+    tests.emplace_back(
+        QueryParamsWithResult{{YMDHMS(0, -1, -2, -3, -4, -5), v},
+                              YMDHMS(0, -v, -2 * v, -3 * v, -4 * v, -5 * v)});
+  }
+
+  return WrapFeatureIntervalType(tests);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsIntervalDivide() {
+  std::vector<QueryParamsWithResult> tests = {
+      {{NullInterval(), NullInt64()}, NullInterval()},
+      {{NullInterval(), 1}, NullInterval()},
+      {{Years(1), NullInt64()}, NullInterval()},
+
+      {{Years(1), 2}, Months(6)},
+      {{Years(1), -2}, Months(-6)},
+      {{Months(1), 2}, Days(15)},
+      {{Months(1), -2}, Days(-15)},
+      {{Days(1), 2}, Hours(12)},
+      {{Days(1), -2}, Hours(-12)},
+      {{Hours(1), 2}, Minutes(30)},
+      {{Hours(1), -2}, Minutes(-30)},
+      {{Minutes(1), 2}, Seconds(30)},
+      {{Minutes(1), -2}, Seconds(-30)},
+      {{Seconds(1), 2}, Micros(500000)},
+      {{Seconds(1), -2}, Micros(-500000)},
+      {{Micros(1), 2}, Nanos(500)},
+      {{Micros(1), -2}, Nanos(-500)},
+      {{Nanos(1), 2}, Nanos(0)},
+      {{Nanos(1), -2}, Nanos(0)},
+      {{YMDHMS(2, 2, 2, 2, 2, 2), 2}, YMDHMS(1, 1, 1, 1, 1, 1)},
+      {{YMDHMS(2, 2, 2, 2, 2, 2), -2}, YMDHMS(-1, -1, -1, -1, -1, -1)},
+      {{FromString("1-2 3 4:5:6.789"), 2}, FromString("0-7 1 14:2:33.3945")},
+      {{FromString("1-2 3 4:5:6.789"), 3}, FromString("0-4 21 1:21:42.263")},
+      {{FromString("1-2 3 4:5:6.789"), 10}, FromString("0-1 12 7:36:30.6789")},
+      {{FromString("1-2 3 4:5:6.789"), 100}, FromString("0-0 4 5:33:39.06789")},
+
+      {{NullInterval(), 0}, NullInterval()},
+      {{Years(1), 0}, NullInterval(), OUT_OF_RANGE},
+      {{Nanos(-1), 0}, NullInterval(), OUT_OF_RANGE},
+  };
+
+  return WrapFeatureIntervalType(tests);
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsFormatInterval() {
   std::vector<FunctionTestCall> tests = {
       {"format", {NullString(), Seconds(5)}, NullString()},

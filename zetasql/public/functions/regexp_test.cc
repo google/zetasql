@@ -25,6 +25,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "gtest/gtest.h"
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -268,6 +269,24 @@ TEST(RegexpReplace, NullStringView) {
         << status;
     EXPECT_EQ("foo", out);
   }
+}
+
+TEST(InitializeWithOptions, CaseInsensitive) {
+  RE2::Options options;
+  options.set_case_sensitive(false);
+  absl::Status status;
+  RegExp reg_exp;
+  EXPECT_TRUE(reg_exp.InitializeWithOptions("abc", options, &status));
+  EXPECT_FALSE(reg_exp.re().options().case_sensitive());
+
+  bool out;
+  ASSERT_TRUE(reg_exp.Match("abc", &out, &status));
+  EXPECT_TRUE(out);
+  ASSERT_TRUE(reg_exp.Match("AbC", &out, &status));
+  EXPECT_TRUE(out);
+
+  ASSERT_TRUE(reg_exp.Match("defgh", &out, &status));
+  EXPECT_FALSE(out);
 }
 
 }  // anonymous namespace

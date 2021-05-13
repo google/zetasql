@@ -259,14 +259,25 @@ class IntervalValue final {
                                               get_nanos() - v.get_nanos());
   }
 
+  // Multiply by integer operator
+  zetasql_base::StatusOr<IntervalValue> operator*(int64_t v) const;
+
+  // Divide by integer operator
+  zetasql_base::StatusOr<IntervalValue> operator/(int64_t v) const;
+
   // Aggregates multiple INTERVAL values and produces sum and average of all
   // values. This class handles a temporary overflow while adding values.
   // OUT_OF_RANGE error is generated only if the result is outside of the valid
   // INTERVAL range.
   class SumAggregator final {
    public:
-    // Adds a INTERVAL value to the sum.
+    // Adds an INTERVAL value to the sum.
     void Add(IntervalValue value);
+    // Subtracts an INTERVAL value from the sum.
+    void Subtract(IntervalValue value) {
+      Add(-value);
+    }
+
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
     zetasql_base::StatusOr<IntervalValue> GetSum() const;
 
@@ -321,6 +332,10 @@ class IntervalValue final {
   // Parses interval from ISO 8601 Duration.
   static zetasql_base::StatusOr<IntervalValue> ParseFromISO8601(
       absl::string_view input);
+
+  // Parses either canonical interval string representation (ParseFromString) or
+  // ISO 8601 Duration representation - detects automatically the format.
+  static zetasql_base::StatusOr<IntervalValue> Parse(absl::string_view input);
 
   // Interval constructor from integer for given datetime part field.
   static zetasql_base::StatusOr<IntervalValue> FromInteger(

@@ -3,6 +3,9 @@
 #   MODULE statement
 
 # Module with various length path names.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 import module foo
 --
 ImportStatement [0-17]

@@ -25,6 +25,7 @@
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value_content.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "zetasql/base/simple_reference_counted.h"
 
 namespace zetasql {
@@ -327,7 +328,7 @@ bool StructType::FieldEqualsImpl(const StructType::StructField& field1,
                                  const StructType::StructField& field2,
                                  bool equivalent) {
   // Ignore field names if we are doing an equivalence check.
-  if (!equivalent && !zetasql_base::StringCaseEqual(field1.name, field2.name)) {
+  if (!equivalent && !zetasql_base::CaseEqual(field1.name, field2.name)) {
     return false;
   }
   return field1.type->EqualsImpl(field2.type, equivalent);

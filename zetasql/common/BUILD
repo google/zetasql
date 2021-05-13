@@ -154,6 +154,8 @@ cc_library(
     ],
     deps = [
         "//zetasql/base",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@icu//:headers",
@@ -175,6 +177,7 @@ cc_test(
     ],
     deps = [
         ":utf_util",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/compliance:functions_testlib",
         "@com_google_absl//absl/strings",

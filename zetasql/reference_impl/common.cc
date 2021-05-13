@@ -50,6 +50,7 @@ absl::Status ValidateTypeSupportsEqualityComparison(const Type* type) {
     case TYPE_ARRAY:
       return absl::OkStatus();
     case TYPE_GEOGRAPHY:
+    case TYPE_JSON:
     case TYPE_UNKNOWN:
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -88,6 +89,7 @@ absl::Status ValidateTypeSupportsOrderComparison(const Type* type) {
     case TYPE_GEOGRAPHY:
     case TYPE_PROTO:
     case TYPE_STRUCT:
+    case TYPE_JSON:
     case TYPE_UNKNOWN:
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()

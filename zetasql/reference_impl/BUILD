@@ -60,6 +60,53 @@ cc_library(
 )
 
 cc_library(
+    name = "statement_evaluator",
+    srcs = ["statement_evaluator.cc"],
+    hdrs = ["statement_evaluator.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":evaluator_table_iterator_cc_proto",
+        ":type_parameter_constraints",
+        "//zetasql/analyzer:resolver",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/base:statusor",
+        "//zetasql/common:status_payload_utils",
+        "//zetasql/compliance:type_helpers",
+        "//zetasql/parser",
+        "//zetasql/public:analyzer",
+        "//zetasql/public:coercer",
+        "//zetasql/public:error_helpers",
+        "//zetasql/public:evaluator",
+        "//zetasql/public:evaluator_table_iterator",
+        "//zetasql/public:language_options",
+        "//zetasql/public:multi_catalog",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_location",
+        "//zetasql/public:parse_resume_location",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:type",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/scripting:error_helpers",
+        "//zetasql/scripting:parsed_script",
+        "//zetasql/scripting:script_exception_cc_proto",
+        "//zetasql/scripting:script_executor",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+cc_library(
     name = "common",
     srcs = [
         "common.cc",
@@ -387,6 +434,7 @@ cc_library(
         ":evaluation",
         ":parameters",
         ":rewrite_flags",
+        ":statement_evaluator",
         "//zetasql/base",
         "//zetasql/base:path",
         "//zetasql/base:ret_check",
@@ -394,13 +442,16 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:statusor",
         "//zetasql/common:evaluator_registration_utils",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/common/testing:testing_proto_util",
         "//zetasql/compliance:test_driver",
         "//zetasql/compliance:test_util",
         "//zetasql/compliance:type_helpers",
         "//zetasql/public:analyzer",
         "//zetasql/public:language_options",
+        "//zetasql/public:multi_catalog",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_location",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:type",
         "//zetasql/public:value",
@@ -408,6 +459,9 @@ cc_library(
         "//zetasql/reference_impl/functions:register_all",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "//zetasql/scripting:error_helpers",
+        "//zetasql/scripting:script_executor",
+        "//zetasql/scripting:type_aliases",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -820,4 +874,14 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
+)
+
+proto_library(
+    name = "evaluator_table_iterator_proto",
+    srcs = ["evaluator_table_iterator.proto"],
+)
+
+cc_proto_library(
+    name = "evaluator_table_iterator_cc_proto",
+    deps = [":evaluator_table_iterator_proto"],
 )

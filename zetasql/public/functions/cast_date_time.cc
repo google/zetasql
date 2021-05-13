@@ -31,6 +31,7 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
+#include "zetasql/public/functions/input_format_string_max_width.h"
 #include "zetasql/public/functions/parse_date_time_utils.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
@@ -38,6 +39,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "absl/strings/ascii.h"
@@ -47,6 +49,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/civil_time.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "unicode/uchar.h"
@@ -65,8 +68,10 @@ using cast_date_time_internal::DateTimeFormatElement;
 using cast_date_time_internal::FormatElementCategory;
 using cast_date_time_internal::FormatElementType;
 using cast_date_time_internal::GetDateTimeFormatElements;
+using internal_functions::GetSignHourAndMinuteTimeZoneOffset;
 using parse_date_time_utils::ConvertTimeToTimestamp;
 using parse_date_time_utils::ParseInt;
+using parse_date_time_utils::ParseSubSeconds;
 
 using CategoryToElementsMap =
     absl::flat_hash_map<FormatElementCategory,
@@ -82,20 +87,120 @@ constexpr int64_t kNaiveNumSecondsPerHour = 60 * kNaiveNumSecondsPerMinute;
 constexpr int64_t kNaiveNumSecondsPerDay = 24 * kNaiveNumSecondsPerHour;
 constexpr int64_t kNaiveNumMicrosPerDay = kNaiveNumSecondsPerDay * 1000 * 1000;
 
-// Matches <target_str> with string <input_str> in a char-by-char manner.
-// Returns the number of consumed characters upon successful matching, and
-// returns absl::string_view::npos otherwise.
+// Matches <target_str> with string <input_str> in a char-by-char manner. The
+// matching is case-insensitive if <ignore_case> is true and case-sensitive
+// otherwise. Returns the number of consumed characters upon successful
+// matching, and returns absl::string_view::npos otherwise.
 size_t ParseStringByExactMatch(absl::string_view input_str,
-                               absl::string_view target_str) {
+                               absl::string_view target_str,
+                               bool ignore_case = false) {
   if (target_str.empty()) {
     return 0;
   }
 
-  if (absl::StartsWith(input_str, target_str)) {
+  if (ignore_case ? absl::StartsWithIgnoreCase(input_str, target_str) :
+      absl::StartsWith(input_str, target_str)) {
     return target_str.size();
   } else {
     return absl::string_view::npos;
   }
+}
+
+struct ParseWithCandidatesResult {
+  size_t parsed_length = absl::string_view::npos;
+  int matched_candidate_index;
+};
+
+// Matches candidate strings inside <candidates> with <input_str> in a
+// char-by-char manner. The matching is case-insensitve if <ignore_case> is true
+// and case-sensitive otherwise. Sets the <parsed_length> inside returned
+// ParseWithCandidatesResult object to be the number of consumed characters
+// and <matched_candidate_ind> to be the index of the first matched string upon
+// successful matching, and sets <parsed_length> to be absl::string_view::npos
+// otherwise.
+ParseWithCandidatesResult ParseStringWithCandidates(
+    absl::string_view input_str, absl::Span<const absl::string_view> candidates,
+    bool ignore_case) {
+  for (size_t i = 0; i < candidates.size(); ++i) {
+    size_t parsed_length =
+        ParseStringByExactMatch(input_str, candidates[i], ignore_case);
+    if (parsed_length != absl::string_view::npos) {
+      return {.parsed_length = parsed_length,
+              .matched_candidate_index = static_cast<int>(i)};
+    }
+  }
+
+  return {.parsed_length = absl::string_view::npos};
+}
+
+// Matches <input_str> with abbreviated or full month names in a
+// case-insensitive way. Returns the number of consumed characters and
+// produces <month> value upon successful matching, and returns
+// absl::string_view::npos otherwise.
+size_t ParseMonthNames(absl::string_view timestamp_string, bool abbreviated,
+                       int* month) {
+  absl::Span<const absl::string_view> month_names;
+
+  if (abbreviated) {
+    month_names = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+                   "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
+  } else {
+    month_names = {"JANUARY",   "FEBRUARY", "MARCH",    "APRIL",
+                   "MAY",       "JUNE",     "JULY",     "AUGUST",
+                   "SEPTEMBER", "OCTOBER",  "NOVEMBER", "DECEMBER"};
+  }
+
+  ParseWithCandidatesResult parsing_result =
+      ParseStringWithCandidates(timestamp_string, month_names,
+                                /*ignore_case=*/true);
+  if (parsing_result.parsed_length != absl::string_view::npos) {
+    *month = parsing_result.matched_candidate_index + 1;
+  }
+
+  return parsing_result.parsed_length;
+}
+
+// This functions is similar to parse_date_time_utils::ParseInt function but
+// accepts <input_str> of string_view type and we will verify that the number of
+// parsed characters is within the range of [<min_width>, <max_width>]. Returns
+// the number of consumed characters upon successfully parsing an integer, and
+// returns absl::string_view::npos otherwise.
+size_t ParseInt(absl::string_view input_str, int min_width, int max_width,
+                int64_t min, int64_t max, int* value_ptr) {
+  const char* res_dp =
+      ParseInt(input_str.data(), input_str.data() + input_str.size(), max_width,
+               min, max, value_ptr);
+  if (res_dp == nullptr) {
+    return absl::string_view::npos;
+  }
+  size_t parsed_width = res_dp - input_str.data();
+  if (parsed_width < min_width || parsed_width > max_width) {
+    return absl::string_view::npos;
+  }
+
+  return parsed_width;
+}
+
+// This functions is similar to parse_date_time_utils::ParseSubSeconds function
+// but accepts <input_str> of string_view type and we will verify that the
+// number of parsed characters is within the range of
+// [<min_width>, <max_width>]. Returns the number of consumed characters upon
+// successful parsing, and returns absl::string_view::npos otherwise.
+size_t ParseSubSeconds(absl::string_view input_str, int min_width,
+                       int max_width, TimestampScale scale,
+                       absl::Duration* subseconds) {
+  const char* res_dp =
+      ParseSubSeconds(input_str.data(), input_str.data() + input_str.size(),
+                      max_width, scale, subseconds);
+  if (res_dp == nullptr) {
+    return absl::string_view::npos;
+  }
+  size_t parsed_width = res_dp - input_str.data();
+  if (parsed_width < min_width || parsed_width > max_width) {
+    return absl::string_view::npos;
+  }
+
+  return parsed_width;
 }
 
 // Consumes the leading Unicode whitespaces in the string <input_str>. Returns
@@ -363,7 +468,6 @@ bool IsSupportedForParsing(const DateTimeFormatElement& format_element) {
     case FormatElementType::kMON:
     case FormatElementType::kMONTH:
     case FormatElementType::kDD:
-    case FormatElementType::kDDD:
     case FormatElementType::kHH:
     case FormatElementType::kHH12:
     case FormatElementType::kHH24:
@@ -371,8 +475,6 @@ bool IsSupportedForParsing(const DateTimeFormatElement& format_element) {
     case FormatElementType::kSS:
     case FormatElementType::kSSSSS:
     case FormatElementType::kFFN:
-    case FormatElementType::kAM:
-    case FormatElementType::kPM:
     case FormatElementType::kAMWithDots:
     case FormatElementType::kPMWithDots:
     case FormatElementType::kTZH:
@@ -383,25 +485,166 @@ bool IsSupportedForParsing(const DateTimeFormatElement& format_element) {
   }
 }
 
-// This functions is similar to parse_date_time_utils::ParseInt function but
-// accepts <input_str> of string_view type and we will verify that the number of
-// parsed characters is within the range of [<min_width>, <max_width>]. Returns
-// the number of consumed characters upon successfully parsing an integer, and
-// returns absl::string_view::npos otherwise.
-size_t ParseInt(absl::string_view input_str, int min_width, int max_width,
-                int64_t min, int64_t max, int* value_ptr) {
-  const char* res_dp =
-      ParseInt(input_str.data(), input_str.data() + input_str.size(), max_width,
-               min, max, value_ptr);
-  if (res_dp == nullptr) {
-    return absl::string_view::npos;
+// Helper function that determines which format elements must have a digit
+// immediately following the portion of the input text that they match.
+
+// Format elements that satisfy this property match exactly the number of digits
+// indicated in the format element; those that don't allow mapping against a
+// smaller number of digits.
+
+// For example, "YYY", standalone, matches 1-3 digits, but in the context of
+// "YYYMM", "YYY" must match exactly 3 digits.
+zetasql_base::StatusOr<std::vector<bool>> ComputeElementPrecedesDigits(
+    std::vector<DateTimeFormatElement> format_elements) {
+  std::vector<bool> element_precedes_digits;
+  element_precedes_digits.resize(format_elements.size(), false);
+  for (int i = static_cast<int>(element_precedes_digits.size()) - 2; i >= 0;
+       --i) {
+    const DateTimeFormatElement& next_format_element = format_elements[i + 1];
+    switch (next_format_element.type) {
+      case FormatElementType::kDoubleQuotedLiteral:
+        if (next_format_element.literal_value.empty()) {
+          // The next element is of "kDoubleQuotedLiteral" type with empty
+          // <literal_value> and consumes no characters from the input, so the
+          // <element_precedes_digit> of the current element is the same as
+          // that of the next element.
+          element_precedes_digits[i] = element_precedes_digits[i + 1];
+        } else if (absl::ascii_isdigit(
+                       next_format_element.literal_value.at(0))) {
+          element_precedes_digits[i] = true;
+        }
+        break;
+      case FormatElementType::kSimpleLiteral:
+      case FormatElementType::kWhitespace:
+      case FormatElementType::kMON:
+      case FormatElementType::kMONTH:
+      case FormatElementType::kAMWithDots:
+      case FormatElementType::kPMWithDots:
+      case FormatElementType::kTZH:
+        element_precedes_digits[i] = false;
+        break;
+      case FormatElementType::kYYYY:
+      case FormatElementType::kYYY:
+      case FormatElementType::kYY:
+      case FormatElementType::kY:
+      case FormatElementType::kRRRR:
+      case FormatElementType::kRR:
+      case FormatElementType::kYCommaYYY:
+      case FormatElementType::kMM:
+      case FormatElementType::kDD:
+      case FormatElementType::kHH:
+      case FormatElementType::kHH12:
+      case FormatElementType::kHH24:
+      case FormatElementType::kMI:
+      case FormatElementType::kSS:
+      case FormatElementType::kSSSSS:
+      case FormatElementType::kFFN:
+      case FormatElementType::kTZM:
+        element_precedes_digits[i] = true;
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected FormatElementType: "
+                         << FormatElementTypeString(next_format_element.type);
+    }
   }
-  size_t parsed_width = res_dp - input_str.data();
-  if (parsed_width < min_width || parsed_width > max_width) {
-    return absl::string_view::npos;
+  return element_precedes_digits;
+}
+
+// This struct specifies the range of number of digits that an element can
+// parse.
+struct DigitCountRange {
+  int min = 0;
+  int max = 0;
+};
+
+// Returns a vector of DigitCountRange objects <digit_count_ranges> where
+// <digit_count_ranges[i]> indicates the range of number of digits to parse for
+// <format_elements[i]>. For elements that do not parse digits (e.g. "-") or
+// parse more than one digit blocks (e.g. "Y,YYY"), we set both <min> and
+// <max> to be 0, and do not use them in parsing process. Returns an error if
+// any format element inside <format_elements> is not supported for parsing.
+zetasql_base::StatusOr<std::vector<DigitCountRange>> ComputeDigitCountRanges(
+    const std::vector<DateTimeFormatElement>& format_elements) {
+  std::vector<DigitCountRange> digit_count_ranges;
+  digit_count_ranges.resize(format_elements.size());
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<bool> element_precedes_digits,
+                   ComputeElementPrecedesDigits(format_elements));
+  ZETASQL_RET_CHECK(digit_count_ranges.size() == element_precedes_digits.size());
+
+  for (size_t i = 0; i < digit_count_ranges.size(); ++i) {
+    bool element_precedes_digit = element_precedes_digits[i];
+    int element_length = format_elements[i].len_in_format_str;
+    switch (format_elements[i].type) {
+      case FormatElementType::kSimpleLiteral:
+      case FormatElementType::kWhitespace:
+      case FormatElementType::kDoubleQuotedLiteral:
+      case FormatElementType::kYCommaYYY:
+      case FormatElementType::kMON:
+      case FormatElementType::kMONTH:
+      case FormatElementType::kAMWithDots:
+      case FormatElementType::kPMWithDots:
+        digit_count_ranges[i] = {.min = 0, .max = 0};
+        break;
+      // Format elements “RRRR” and “YYYY” parse exactly 4 digits if
+      // <element_precedes_digit> is true and can parse up to 5 digits
+      // otherwise.
+      case FormatElementType::kYYYY:
+      case FormatElementType::kRRRR:
+        if (element_precedes_digit) {
+          digit_count_ranges[i] = {.min = 4, .max = 4};
+        } else {
+          // "RRRR"/"YYYY" can parse up to 5 digits when
+          // <element_precedes_digit> is false.
+          digit_count_ranges[i] = {.min = 1, .max = 5};
+        }
+        break;
+      // The elements below parse exactly <element_length> digits if
+      // <element_precedes_digit> is true; otherwise, the number of digits
+      // they can parse varies between 1 and <element_length>.
+      case FormatElementType::kYYY:
+      case FormatElementType::kYY:
+      case FormatElementType::kY:
+      case FormatElementType::kRR:
+      case FormatElementType::kMM:
+      case FormatElementType::kDD:
+      case FormatElementType::kHH:
+      case FormatElementType::kMI:
+      case FormatElementType::kSS:
+      case FormatElementType::kSSSSS:
+        if (element_precedes_digit) {
+          digit_count_ranges[i] = {.min = element_length,
+                                   .max = element_length};
+        } else {
+          digit_count_ranges[i] = {.min = 1, .max = element_length};
+        }
+        break;
+      case FormatElementType::kHH12:
+      case FormatElementType::kHH24:
+      case FormatElementType::kTZH:
+      case FormatElementType::kTZM:
+        if (element_precedes_digit) {
+          digit_count_ranges[i] = {.min = 2, .max = 2};
+        } else {
+          digit_count_ranges[i] = {.min = 1, .max = 2};
+        }
+        break;
+      case FormatElementType::kFFN:
+        if (element_precedes_digit) {
+          digit_count_ranges[i] = {
+              .min = format_elements[i].subsecond_digit_count,
+              .max = format_elements[i].subsecond_digit_count};
+        } else {
+          digit_count_ranges[i] = {
+              .min = 1, .max = format_elements[i].subsecond_digit_count};
+        }
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected FormatElementType: "
+                         << FormatElementTypeString(format_elements[i].type);
+    }
   }
 
-  return parsed_width;
+  return digit_count_ranges;
 }
 
 // Parses <timestamp_string> with a format element of "kRR" type and
@@ -409,14 +652,17 @@ size_t ParseInt(absl::string_view input_str, int min_width, int max_width,
 // characters upon successful parsing, and returns absl::string_view::npos
 // otherwise.
 size_t ParseWithFormatElementOfTypeRR(absl::string_view timestamp_string,
-                                      int current_year, int* year) {
+                                      int current_year,
+                                      DigitCountRange digit_count_range,
+                                      int* year) {
   int current_year_last_two_digits = current_year % 100;
   int current_year_before_last_two_digits = current_year / 100;
   int year_before_last_two_digits = current_year_before_last_two_digits;
   int year_last_two_digits;
-  size_t parsed_length = ParseInt(timestamp_string, /*min_width=*/1,
-                                  /*max_width=*/2, /*min=*/0,
-                                  /*max=*/99, &year_last_two_digits);
+  size_t parsed_length =
+      ParseInt(timestamp_string, /*min_width=*/digit_count_range.min,
+               /*max_width=*/digit_count_range.max, /*min=*/0,
+               /*max=*/99, &year_last_two_digits);
 
   if (parsed_length != absl::string_view::npos) {
     if (year_last_two_digits < 50 && current_year_last_two_digits >= 50) {
@@ -473,6 +719,39 @@ size_t ParseWithFormatElementOfTypeYCommaYYY(absl::string_view timestamp_string,
   return parsed_length;
 }
 
+// Parses <timestamp_string> with a format element of "kTZH" type and produces
+// <positive_timezone_offset> and <timezone_offset_hour>. Returns the number of
+// consumed characters upon successful parsing, and returns
+// absl::string_view::npos otherwise.
+size_t ParseWithFormatElementOfTypeTZH(absl::string_view timestamp_string,
+                                       DigitCountRange digit_count_range,
+                                       bool* positive_timezone_offset,
+                                       int* timezone_offset_hour) {
+  size_t parsed_length = 0;
+  absl::string_view timestamp_str_to_parse = timestamp_string;
+  ParseWithCandidatesResult parse_result = ParseStringWithCandidates(
+      timestamp_str_to_parse, {"-", "+", " "}, /*ignore_case=*/false);
+  if (parse_result.parsed_length == absl::string_view::npos) {
+    return absl::string_view::npos;
+  }
+  *positive_timezone_offset = (parse_result.matched_candidate_index != 0);
+
+  parsed_length += parse_result.parsed_length;
+  timestamp_str_to_parse =
+      timestamp_str_to_parse.substr(parse_result.parsed_length);
+  size_t parsed_length_temp =
+      ParseInt(timestamp_str_to_parse,
+               /*min_width=*/digit_count_range.min,
+               /*max_width=*/digit_count_range.max, /*min=*/0,
+               /*max=*/14, timezone_offset_hour);
+  if (parsed_length_temp == absl::string_view::npos) {
+    return absl::string_view::npos;
+  }
+
+  parsed_length += parsed_length_temp;
+  return parsed_length;
+}
+
 // This function conducts the parsing for <timestamp_string> with
 // <format_elements>.
 absl::Status ParseTimeWithFormatElements(
@@ -487,7 +766,8 @@ absl::Status ParseTimeWithFormatElements(
   // parsed so far.
   size_t timestamp_str_parsed_length = 0;
 
-  absl::CivilSecond cs_now = default_timezone.At(current_timestamp).cs;
+  absl::TimeZone::CivilInfo now_info = default_timezone.At(current_timestamp);
+  absl::CivilSecond cs_now = now_info.cs;
 
   int year = static_cast<int>(cs_now.year());
   int month = cs_now.month();
@@ -495,8 +775,22 @@ absl::Status ParseTimeWithFormatElements(
   int hour = 0;
   int min = 0;
   int sec = 0;
+  int hour_in_12_hour_clock = 0;
+  bool afternoon = false;
+  absl::Duration subseconds = absl::ZeroDuration();
+
+  bool positive_timezone_offset;
+  int timezone_offset_hour;
+  int timezone_offset_min;
+  // Initialize timezone related fields with <now_info> which contains offset
+  // information from <default_timezone>.
+  GetSignHourAndMinuteTimeZoneOffset(now_info, &positive_timezone_offset,
+                                     &timezone_offset_hour,
+                                     &timezone_offset_min);
 
   bool error_in_parsing = false;
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DigitCountRange> digit_count_ranges,
+                   ComputeDigitCountRanges(format_elements));
 
   // Skips leading whitespaces.
   timestamp_str_parsed_length +=
@@ -509,6 +803,8 @@ absl::Status ParseTimeWithFormatElements(
         timestamp_string.substr(timestamp_str_parsed_length);
     const DateTimeFormatElement& format_element =
         format_elements[processed_format_element_count];
+    DigitCountRange digit_count_range =
+        digit_count_ranges[processed_format_element_count];
 
     switch (format_element.type) {
       case FormatElementType::kSimpleLiteral:
@@ -527,13 +823,13 @@ absl::Status ParseTimeWithFormatElements(
         }
         break;
       // Parses for entire year value. For example, for input string "1234", the
-      // output <year> is 1234
+      // output <year> is 1234.
       case FormatElementType::kYYYY:
       case FormatElementType::kRRRR:
         parsed_length = ParseInt(timestamp_str_to_parse,
-                                 /*min_width=*/1,
-                                 /*max_width=*/5, /*min=*/0,
-                                 /*max=*/10000, &year);
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max,
+                                 /*min=*/0, /*max=*/10000, &year);
         break;
       // Parses for the last 3/2/1 digits of the year value depending on the
       // length of the element. For example, assuming <current_year> is 1970:
@@ -549,10 +845,10 @@ absl::Status ParseTimeWithFormatElements(
         int element_length_power_of_ten =
             static_cast<int>(powers_of_ten[element_length]);
         int parsed_year_part;
-        parsed_length = ParseInt(timestamp_str_to_parse, /*min_width=*/1,
-                                 /*max_width=*/element_length, /*min=*/0,
-                                 /*max=*/element_length_power_of_ten - 1,
-                                 &parsed_year_part);
+        parsed_length = ParseInt(
+            timestamp_str_to_parse, /*min_width=*/digit_count_range.min,
+            /*max_width=*/digit_count_range.max, /*min=*/0,
+            /*max=*/element_length_power_of_ten - 1, &parsed_year_part);
         if (parsed_length != absl::string_view::npos) {
           year = year - year % element_length_power_of_ten + parsed_year_part;
         }
@@ -568,9 +864,9 @@ absl::Status ParseTimeWithFormatElements(
       //   - for input "12", the output <year> is 2312,
       //   - for input "51", thr output <year> is 2251.
       case FormatElementType::kRR: {
-        parsed_length =
-            ParseWithFormatElementOfTypeRR(timestamp_str_to_parse,
-                                           /*current_year=*/year, &year);
+        parsed_length = ParseWithFormatElementOfTypeRR(
+            timestamp_str_to_parse,
+            /*current_year=*/year, digit_count_range, &year);
         break;
       }
       // Parses for entire year value with a string in pattern "X,XXX" or
@@ -581,7 +877,136 @@ absl::Status ParseTimeWithFormatElements(
         parsed_length = ParseWithFormatElementOfTypeYCommaYYY(
             timestamp_str_to_parse, &year);
         break;
-      // TODO: Support all the valid format elements for parsing.
+      // Parses for month value 1-12. For example, for input "11", the output
+      // <month> is 11.
+      case FormatElementType::kMM:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/1,
+                                 /*max=*/12, &month);
+        break;
+      // Parses abbreviated month names with "MON" element and full month
+      // names with "MONTH" element. The parsing is case-insensitive.
+      // For example,
+      //   - for input "Jan"/"jAN", the output <month> with "MON" is 1,
+      //   - for input "JUNE"/"juNe", the output <month> with "MONTH" is 6.
+      case FormatElementType::kMON:
+      case FormatElementType::kMONTH:
+        parsed_length = ParseMonthNames(
+            timestamp_str_to_parse,
+            /*abbreviated=*/format_element.type == FormatElementType::kMON,
+            &month);
+        break;
+      // Parses for day of month value. For example, for input "20", the
+      // output <mday> is 20.
+      case FormatElementType::kDD:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/1,
+                                 /*max=*/31, &mday);
+        break;
+      // kHH/kHH12 and kAMWithDots/kPMWithDots are used to parse hour value
+      // of a 12-hour clock. The matching for meridian indicator part is
+      // case-insensitive. For example,
+      //   - if input for kHH/kHH12 is "11" and input for
+      //     kAMWithDots/kPMWithDots is "A.M."/"A.m.", the output <hour> is 11.
+      //   - if input for kHH/kHH12 is "12" and input for
+      //     kAMWithDots/kPMWithDots is "a.M."/"a.m.", the output <hour> is 0.
+      // string "11", the hour value in the result 12-hour clock is 11.
+      case FormatElementType::kHH:
+      case FormatElementType::kHH12:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/1,
+                                 /*max=*/12, &hour_in_12_hour_clock);
+        break;
+      case FormatElementType::kAMWithDots:
+      case FormatElementType::kPMWithDots: {
+        ParseWithCandidatesResult parse_result = ParseStringWithCandidates(
+            timestamp_str_to_parse, {"A.M.", "P.M."}, /*ignore_case=*/true);
+        parsed_length = parse_result.parsed_length;
+        if (parsed_length != absl::string_view::npos) {
+          afternoon = (parse_result.matched_candidate_index == 1);
+        }
+        break;
+      }
+      // Parses for hour value in a 24-hour clock. For example, for input "12",
+      // the output <hour> is 12.
+      case FormatElementType::kHH24:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/0,
+                                 /*max=*/23, &hour);
+        break;
+      // Parses for minute value 0-59. For example, for input "20", the output
+      // <min> is 20.
+      case FormatElementType::kMI:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/0,
+                                 /*max=*/59, &min);
+        break;
+      // Parses for second value 0-59. For example, for input "30", the output
+      // <sec> is 30.
+      case FormatElementType::kSS:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/0,
+                                 /*max=*/59, &sec);
+        break;
+      // Parses for number of seconds past midnight 0 ~ 2400*60*60-1. For
+      // example, for input "3662", the output <hour>, <min> and <sec> are 1, 1,
+      // 2 respectively (since 3660 seconds past midnight corresponds to time
+      // "01:01:02").
+      case FormatElementType::kSSSSS: {
+        int sec_of_day;
+        parsed_length =
+            ParseInt(timestamp_str_to_parse,
+                     /*min_width=*/digit_count_range.min,
+                     /*max_width=*/digit_count_range.max, /*min=*/0,
+                     /*max=*/kNaiveNumSecondsPerDay - 1, &sec_of_day);
+        if (parsed_length != absl::string_view::npos) {
+          hour = sec_of_day / kNaiveNumSecondsPerHour;
+          min = (sec_of_day % kNaiveNumSecondsPerHour) /
+                kNaiveNumSecondsPerMinute;
+          sec = sec_of_day % kNaiveNumSecondsPerMinute;
+        }
+        break;
+      }
+      // Parses for subsecond value. Additional digits beyond the input <scale>
+      // are truncated (6 for micros, 9 for nanos). For example,
+      //   - for input "123", the output subsecond with "FF3" is 123.
+      //   - for input "1234567", the output subsecond with "FF7" is 123456
+      //     under micros scale, or 1234567 under nano scale.
+      case FormatElementType::kFFN: {
+        ZETASQL_RET_CHECK(format_element.subsecond_digit_count > 0 &&
+                  format_element.subsecond_digit_count <= 9);
+        parsed_length = ParseSubSeconds(timestamp_str_to_parse,
+                                        /*min_width=*/digit_count_range.min,
+                                        /*max_width=*/digit_count_range.max,
+                                        scale, &subseconds);
+        break;
+      }
+      // Parses for the sign and hour value of the time zone offset. For
+      // example,
+      //   - for input "+10"/" 10", the sign and hour value of output time zone
+      //     are "+10".
+      //   - for input "-09", the sign and hour value of output time zone are
+      //     "-09".
+      case FormatElementType::kTZH: {
+        parsed_length = ParseWithFormatElementOfTypeTZH(
+            timestamp_str_to_parse, digit_count_range,
+            &positive_timezone_offset, &timezone_offset_hour);
+        break;
+      }
+      // Parses for the minute value of the time zone offset. For example, for
+      // input "13", the minute value of output time zone is 13.
+      case FormatElementType::kTZM:
+        parsed_length = ParseInt(timestamp_str_to_parse,
+                                 /*min_width=*/digit_count_range.min,
+                                 /*max_width=*/digit_count_range.max, /*min=*/0,
+                                 /*max=*/59, &timezone_offset_min);
+        break;
       default:
         break;
     }
@@ -634,6 +1059,13 @@ absl::Status ParseTimeWithFormatElements(
            << " format element "
            << format_elements[processed_format_element_count].ToString();
   }
+
+  // Calculates the <hour> in 24-hour clock if hour value of a 12-hour clock is
+  // parsed.
+  if (hour_in_12_hour_clock != 0) {
+    hour = hour_in_12_hour_clock % 12 + (afternoon ? 12 : 0);
+  }
+
   const absl::CivilSecond cs(year, month, mday, hour, min, sec);
   // absl::CivilSecond will 'normalize' its arguments, so we simply compare
   // the input against the result to check whether a YMD is valid.
@@ -642,7 +1074,13 @@ absl::Status ParseTimeWithFormatElements(
            << "Invalid result from year, month, day values after parsing";
   }
 
-  *timestamp = default_timezone.At(cs).pre;
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(
+      absl::StrFormat("%c%02d%02d", positive_timezone_offset ? '+' : '-',
+                      timezone_offset_hour, timezone_offset_min),
+      &timezone));
+
+  *timestamp = timezone.At(cs).pre + subseconds;
   if (!IsValidTime(*timestamp)) {
     return MakeEvalError() << "The parsing result is out of valid time range";
   }
@@ -770,6 +1208,21 @@ absl::Status CheckForCoexistance(
   return absl::OkStatus();
 }
 
+// Conducts basic and common verifications with the format string.
+absl::Status ConductBasicFormatStringChecks(absl::string_view format_string) {
+  if (!IsWellFormedUTF8(format_string)) {
+    return MakeEvalError() << "Format string is not a valid UTF-8 string";
+  }
+
+  if (format_string.size() >
+      absl::GetFlag(FLAGS_zetasql_cast_format_string_max_width)) {
+    return MakeEvalError() << "Format string too long; limit "
+                           << absl::GetFlag(
+                                  FLAGS_zetasql_cast_format_string_max_width);
+  }
+  return absl::OkStatus();
+}
+
 // Validates the elements in <format_elements> with specific rules, and also
 // makes sure they are not of any category in <invalid_categories>.
 absl::Status ValidateDateTimeFormatElements(
@@ -808,6 +1261,12 @@ absl::Status ValidateDateTimeFormatElements(
     }
   }
 
+  // Checks invalid format element categories for the output type.
+  for (const FormatElementCategory& invalid_category : invalid_categories) {
+    ZETASQL_RETURN_IF_ERROR(CheckCategoryNotExist(
+        invalid_category, category_to_elements_map, output_type_name));
+  }
+
   // Checks categories which do not allow duplications.
   const std::vector<FormatElementCategory> categories_to_check_duplicate = {
       FormatElementCategory::kMeridianIndicator,
@@ -823,13 +1282,6 @@ absl::Status ValidateDateTimeFormatElements(
   }
 
   // Checks mutually exclusive format elements/types.
-  // Elements of "kDDD" type contain both Day and Month info, therefore
-  // format elements in "kMonth" category or of "kDD" type are disallowed.
-  // Check for"kDDD"/"kDD" types is covered by duplicate check for "kDay" type.
-  ZETASQL_RETURN_IF_ERROR(CheckForMutuallyExclusiveElements(
-      FormatElementType::kDDD, FormatElementCategory::kMonth,
-      type_to_element_map, category_to_elements_map));
-
   // The Check between "kHH24" type and "kHH"/"kHH12" types is included in
   // duplicate check for "kHour" category.
   ZETASQL_RETURN_IF_ERROR(CheckForMutuallyExclusiveElements(
@@ -855,12 +1307,6 @@ absl::Status ValidateDateTimeFormatElements(
       type_to_element_map, category_to_elements_map));
   ZETASQL_RETURN_IF_ERROR(CheckForMutuallyExclusiveElements(
       FormatElementType::kSSSSS, FormatElementType::kSS, type_to_element_map));
-
-  // Checks invalid format element categories for the output type.
-  for (const FormatElementCategory& invalid_category : invalid_categories) {
-    ZETASQL_RETURN_IF_ERROR(CheckCategoryNotExist(
-        invalid_category, category_to_elements_map, output_type_name));
-  }
   return absl::OkStatus();
 }
 
@@ -868,12 +1314,11 @@ absl::Status ValidateDateTimeFormatElements(
 absl::Status ParseTimeWithFormatElements(
     const std::vector<DateTimeFormatElement>& format_elements,
     absl::string_view timestamp_string, const absl::TimeZone default_timezone,
-    const absl::Time current_timestamp, TimestampScale scale,
-    int64_t* timestamp_micros) {
+    const absl::Time current_timestamp, int64_t* timestamp_micros) {
   absl::Time base_time;
   ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
       format_elements, timestamp_string, default_timezone, current_timestamp,
-      scale, &base_time));
+      kMicroseconds, &base_time));
 
   if (!ConvertTimeToTimestamp(base_time, timestamp_micros)) {
     return MakeEvalError() << "Invalid result from parsing function";
@@ -881,22 +1326,37 @@ absl::Status ParseTimeWithFormatElements(
   return absl::OkStatus();
 }
 
-bool CheckSupportedFormatYearElement(absl::string_view upper_format_string) {
-  if (upper_format_string.empty() || upper_format_string.size() > 4) {
-    return false;
-  }
-  // Currently the only supported format year strings are Y, YY, YYY, YYYY,
-  // RR or RRRR.
-  const char first_char = upper_format_string[0];
-  if (first_char != 'Y' && first_char != 'R') {
-    return false;
-  }
-  for (const char& c : upper_format_string) {
-    if (c != first_char) {
-      return false;
-    }
-  }
-  return true;
+absl::Status ValidateDateTimeFormatElementsForTimestampType(
+    const std::vector<DateTimeFormatElement>& format_elements) {
+  return ValidateDateTimeFormatElements(format_elements, {}, "TIMESTAMP");
+}
+
+absl::Status ValidateDateTimeFormatElementsForDateType(
+    const std::vector<DateTimeFormatElement>& format_elements) {
+  return ValidateDateTimeFormatElements(
+      format_elements,
+      {FormatElementCategory::kHour, FormatElementCategory::kMinute,
+       FormatElementCategory::kSecond,
+       FormatElementCategory::kMeridianIndicator,
+       FormatElementCategory::kTimeZone},
+      "DATE");
+}
+
+absl::Status ValidateDateTimeFormatElementsForTimeType(
+    const std::vector<DateTimeFormatElement>& format_elements) {
+  return ValidateDateTimeFormatElements(
+      format_elements,
+      {FormatElementCategory::kYear, FormatElementCategory::kMonth,
+       FormatElementCategory::kDay, FormatElementCategory::kTimeZone,
+       FormatElementCategory::kCentury, FormatElementCategory::kQuarter,
+       FormatElementCategory::kWeek, FormatElementCategory::kEraIndicator},
+      "TIME");
+}
+
+absl::Status ValidateDateTimeFormatElementsForDatetimeType(
+    const std::vector<DateTimeFormatElement>& format_elements) {
+  return ValidateDateTimeFormatElements(
+      format_elements, {FormatElementCategory::kTimeZone}, "DATETIME");
 }
 
 // Checks to see if the format elements are valid for the date or time type.
@@ -1428,17 +1888,20 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    const absl::TimeZone default_timezone,
                                    const absl::Time current_timestamp,
                                    int64_t* timestamp_micros) {
-  if (!IsWellFormedUTF8(timestamp_string) || !IsWellFormedUTF8(format_string)) {
+  if (!IsWellFormedUTF8(timestamp_string)) {
     return MakeEvalError() << "Input string is not valid UTF-8";
   }
-  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement>& format_elements,
+
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
                    GetDateTimeFormatElements(format_string));
   ZETASQL_RETURN_IF_ERROR(
-      ValidateDateTimeFormatElements(format_elements, {}, "TIMESTAMP"));
+      ValidateDateTimeFormatElementsForTimestampType(format_elements));
 
   return ParseTimeWithFormatElements(format_elements, timestamp_string,
                                      default_timezone, current_timestamp,
-                                     kMicroseconds, timestamp_micros);
+                                     timestamp_micros);
 }
 
 absl::Status CastStringToTimestamp(absl::string_view format_string,
@@ -1463,13 +1926,15 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    const absl::TimeZone default_timezone,
                                    const absl::Time current_timestamp,
                                    absl::Time* timestamp) {
-  if (!IsWellFormedUTF8(format_string) || !IsWellFormedUTF8(format_string)) {
+  if (!IsWellFormedUTF8(timestamp_string)) {
     return MakeEvalError() << "Input string is not valid UTF-8";
   }
-  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement>& format_elements,
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
                    GetDateTimeFormatElements(format_string));
   ZETASQL_RETURN_IF_ERROR(
-      ValidateDateTimeFormatElements(format_elements, {}, "TIMESTAMP"));
+      ValidateDateTimeFormatElementsForTimestampType(format_elements));
 
   return ParseTimeWithFormatElements(format_elements, timestamp_string,
                                      default_timezone, current_timestamp,
@@ -1493,18 +1958,109 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
                                current_timestamp, timestamp);
 }
 
-absl::Status ValidateFormatStringForParsing(absl::string_view format_string,
-                                            zetasql::TypeKind out_type) {
-  // TODO: add a check for input format_string length for parsing
-  // and formatting.
-  if (!IsWellFormedUTF8(format_string)) {
+absl::Status CastStringToDate(absl::string_view format_string,
+                              absl::string_view date_string,
+                              int32_t current_date, int32_t* date) {
+  if (!IsWellFormedUTF8(date_string)) {
     return MakeEvalError() << "Input string is not valid UTF-8";
   }
-  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement>& format_elements,
+
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
                    GetDateTimeFormatElements(format_string));
-  // TODO: Add support for other output types.
+  ZETASQL_RETURN_IF_ERROR(ValidateDateTimeFormatElementsForDateType(format_elements));
+  absl::Time current_date_utc_ts;
+  int64_t timestamp;
+  ZETASQL_RETURN_IF_ERROR(ConvertDateToTimestamp(current_date, absl::UTCTimeZone(),
+                                         &current_date_utc_ts));
+  // We use <current_date_utc_ts> (constructed with <current_date> and "UTC")
+  // as <current_timestamp> and "UTC" as <default_timezone>, so the
+  // <current_year> and <current_date> used in ParseTimeWithFormatElements
+  // function would be the same as year and month in <current_date>.
+  ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
+      format_elements, date_string, absl::UTCTimeZone(),
+      current_date_utc_ts, &timestamp));
+  ZETASQL_RETURN_IF_ERROR(ExtractFromTimestamp(DATE, timestamp, kMicroseconds,
+                                       absl::UTCTimeZone(), date));
+  return absl::OkStatus();
+}
+
+absl::Status CastStringToTime(absl::string_view format_string,
+                              absl::string_view time_string,
+                              TimestampScale scale, TimeValue* time) {
+  if (!IsWellFormedUTF8(time_string)) {
+    return MakeEvalError() << "Input string is not valid UTF-8";
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
+      << "Only kNanoseconds or kMicroseconds scale is supported";
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
+                   GetDateTimeFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(ValidateDateTimeFormatElementsForTimeType(format_elements));
+
+  absl::Time timestamp;
+  // We use "1970-01-01 utc" as the <current_timestamp> argument for
+  // ParseTimeWithFormatElements function, and it actually has no effect for the
+  // final output since we derive default values for time parts from
+  // "00:00:00:000000000".
+  ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
+      format_elements, time_string, absl::UTCTimeZone(),
+      /*current_timestamp=*/absl::UnixEpoch(), scale, &timestamp));
+  ZETASQL_RETURN_IF_ERROR(
+      ConvertTimestampToTime(timestamp, absl::UTCTimeZone(), scale, time));
+
+  return absl::OkStatus();
+}
+
+absl::Status CastStringToDatetime(absl::string_view format_string,
+                                  absl::string_view datetime_string,
+                                  TimestampScale scale, int32_t current_date,
+                                  DatetimeValue* datetime) {
+  if (!IsWellFormedUTF8(datetime_string)) {
+    return MakeEvalError() << "Input string is not valid UTF-8";
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
+      << "Only kNanoseconds or kMicroseconds scale is supported";
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
+                   GetDateTimeFormatElements(format_string));
+  ZETASQL_RETURN_IF_ERROR(
+      ValidateDateTimeFormatElementsForDatetimeType(format_elements));
+  absl::Time current_date_utc_ts;
+  absl::Time timestamp;
+  ZETASQL_RETURN_IF_ERROR(ConvertDateToTimestamp(current_date, absl::UTCTimeZone(),
+                                         &current_date_utc_ts));
+  // We use <current_date_utc_ts> (constructed with <current_date> and "UTC")
+  // as <current_timestamp> and "UTC" as <default_timezone>, so the
+  // <current_year> and <current_date> used in ParseTimeWithFormatElements
+  // function would be the same as year and month in <current_date>.
+  ZETASQL_RETURN_IF_ERROR(ParseTimeWithFormatElements(
+      format_elements, datetime_string, absl::UTCTimeZone(),
+      current_date_utc_ts, scale, &timestamp));
+  ZETASQL_RETURN_IF_ERROR(
+      ConvertTimestampToDatetime(timestamp, absl::UTCTimeZone(), datetime));
+  return absl::OkStatus();
+}
+
+absl::Status ValidateFormatStringForParsing(absl::string_view format_string,
+                                            zetasql::TypeKind out_type) {
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
+  ZETASQL_ASSIGN_OR_RETURN(const std::vector<DateTimeFormatElement> format_elements,
+                   GetDateTimeFormatElements(format_string));
   if (out_type == TYPE_TIMESTAMP) {
-    return ValidateDateTimeFormatElements(format_elements, {}, "TIMESTAMP");
+    return ValidateDateTimeFormatElementsForTimestampType(format_elements);
+  } else if (out_type == TYPE_DATE) {
+    return ValidateDateTimeFormatElementsForDateType(format_elements);
+  } else if (out_type == TYPE_TIME) {
+    return ValidateDateTimeFormatElementsForTimeType(format_elements);
+  } else if (out_type == TYPE_DATETIME) {
+    return ValidateDateTimeFormatElementsForDatetimeType(format_elements);
   } else {
     return MakeSqlError() << "Unsupported output type for validation";
   }
@@ -1512,9 +2068,7 @@ absl::Status ValidateFormatStringForParsing(absl::string_view format_string,
 
 absl::Status ValidateFormatStringForFormatting(absl::string_view format_string,
                                                zetasql::TypeKind out_type) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
 
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<cast_date_time_internal::DateTimeFormatElement>
@@ -1537,9 +2091,8 @@ absl::Status ValidateFormatStringForFormatting(absl::string_view format_string,
 
 absl::Status CastFormatDateToString(absl::string_view format_string,
                                     int32_t date, std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
@@ -1563,9 +2116,8 @@ absl::Status CastFormatDateToString(absl::string_view format_string,
 absl::Status CastFormatDatetimeToString(absl::string_view format_string,
                                         const DatetimeValue& datetime,
                                         std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
   if (!datetime.IsValid()) {
     return MakeEvalError() << "Invalid datetime value: "
                            << datetime.DebugString();
@@ -1588,9 +2140,8 @@ absl::Status CastFormatDatetimeToString(absl::string_view format_string,
 
 absl::Status CastFormatTimeToString(absl::string_view format_string,
                                     const TimeValue& time, std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
   if (!time.IsValid()) {
     return MakeEvalError() << "Invalid time value: " << time.DebugString();
   }
@@ -1619,9 +2170,8 @@ absl::Status CastFormatTimestampToString(absl::string_view format_string,
                                          int64_t timestamp_micros,
                                          absl::TimeZone timezone,
                                          std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  // <format_string> is checked in the overload call to
+  // CastFormatTimestampToString.
   return CastFormatTimestampToString(
       format_string, MakeTime(timestamp_micros, kMicroseconds), timezone, out);
 }
@@ -1630,9 +2180,8 @@ absl::Status CastFormatTimestampToString(absl::string_view format_string,
                                          int64_t timestamp_micros,
                                          absl::string_view timezone_string,
                                          std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
   if (!IsWellFormedUTF8(timezone_string)) {
     return MakeEvalError() << "Timezone string is not a valid UTF-8 string.";
   }
@@ -1646,9 +2195,8 @@ absl::Status CastFormatTimestampToString(absl::string_view format_string,
                                          absl::Time timestamp,
                                          absl::string_view timezone_string,
                                          std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  // <format_string> is checked in the overload call to
+  // CastFormatTimestampToString.
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
 
@@ -1659,9 +2207,8 @@ absl::Status CastFormatTimestampToString(absl::string_view format_string,
                                          absl::Time timestamp,
                                          absl::TimeZone timezone,
                                          std::string* out) {
-  if (!IsWellFormedUTF8(format_string)) {
-    return MakeEvalError() << "Format string is not a valid UTF-8 string.";
-  }
+  ZETASQL_RETURN_IF_ERROR(ConductBasicFormatStringChecks(format_string));
+
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<cast_date_time_internal::DateTimeFormatElement>
           format_elements,

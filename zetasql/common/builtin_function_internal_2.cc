@@ -1041,7 +1041,8 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
        {bignumeric_type,
         {bignumeric_type, bignumeric_type},
         FN_DIVIDE_BIGNUMERIC,
-        has_bignumeric_type_argument}},
+        has_bignumeric_type_argument},
+       {interval_type, {interval_type, int64_type}, FN_DIVIDE_INTERVAL_INT64}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("/")
@@ -1062,7 +1063,11 @@ void GetArithmeticFunctions(TypeFactory* type_factory,
        {bignumeric_type,
         {bignumeric_type, bignumeric_type},
         FN_MULTIPLY_BIGNUMERIC,
-        has_bignumeric_type_argument}},
+        has_bignumeric_type_argument},
+       {interval_type, {interval_type, int64_type}, FN_MULTIPLY_INTERVAL_INT64},
+       {interval_type,
+        {int64_type, interval_type},
+        FN_MULTIPLY_INT64_INTERVAL}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_sql_name("*")
@@ -1243,18 +1248,20 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         has_bignumeric_type_argument},
        {interval_type, {interval_type}, FN_SUM_INTERVAL}});
 
-  InsertFunction(functions, options, "avg", AGGREGATE,
-                 {{double_type, {int64_type}, FN_AVG_INT64},
-                  {double_type, {uint64_type}, FN_AVG_UINT64},
-                  {double_type, {double_type}, FN_AVG_DOUBLE},
-                  {numeric_type,
-                   {numeric_type},
-                   FN_AVG_NUMERIC,
-                   has_numeric_type_argument},
-                  {bignumeric_type,
-                   {bignumeric_type},
-                   FN_AVG_BIGNUMERIC,
-                   has_bignumeric_type_argument}});
+  InsertFunction(
+      functions, options, "avg", AGGREGATE,
+      {{double_type, {int64_type}, FN_AVG_INT64},
+       {double_type, {uint64_type}, FN_AVG_UINT64},
+       {double_type, {double_type}, FN_AVG_DOUBLE},
+       {numeric_type,
+        {numeric_type},
+        FN_AVG_NUMERIC,
+        has_numeric_type_argument},
+       {bignumeric_type,
+        {bignumeric_type},
+        FN_AVG_BIGNUMERIC,
+        has_bignumeric_type_argument},
+       {interval_type, {interval_type}, FN_AVG_INTERVAL}});
 
   InsertFunction(
       functions, options, "bit_and", AGGREGATE,
@@ -1668,6 +1675,10 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   const Type* int64_type = type_factory->get_int64();
   const Type* uint64_type = type_factory->get_uint64();
   const Type* string_type = type_factory->get_string();
+  const ArrayType* array_string_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(string_type, &array_string_type));
+  const ArrayType* array_byte_type;
+  ZETASQL_CHECK_OK(type_factory->MakeArrayType(byte_type, &array_byte_type));
 
   const Function::Mode SCALAR = Function::SCALAR;
 
@@ -1853,6 +1864,81 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_no_matching_signature_callback(
               &NoMatchingSignatureForComparisonOperator)
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "LIKE")));
+
+  if (options.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
+    // Supports both LIKE ANY and LIKE SOME.
+    InsertSimpleFunction(
+        functions, options, "$like_any", SCALAR,
+        {{bool_type,
+          {string_type, {string_type, REPEATED}},
+          FN_STRING_LIKE_ANY},
+         {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ANY}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(
+                bind_front(&CheckArgumentsSupportEquality, "LIKE ANY"))
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprFunction)
+            .set_sql_name("like any")
+            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_get_sql_callback(&LikeAnyFunctionSQL));
+
+    InsertSimpleFunction(
+        functions, options, "$like_all", SCALAR,
+        {{bool_type,
+          {string_type, {string_type, REPEATED}},
+          FN_STRING_LIKE_ALL},
+         {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ALL}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_post_resolution_argument_constraint(
+                bind_front(&CheckArgumentsSupportEquality, "LIKE ALL"))
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprFunction)
+            .set_sql_name("like all")
+            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_get_sql_callback(&LikeAllFunctionSQL));
+
+    // Supports both LIKE ANY and LIKE SOME arrays.
+    InsertSimpleFunction(
+        functions, options, "$like_any_array", SCALAR,
+        {{bool_type,
+          {string_type, array_string_type},
+          FN_STRING_ARRAY_LIKE_ANY},
+         {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ANY}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_pre_resolution_argument_constraint(
+                // Verifies for <expr> LIKE ANY|SOME UNNEST(<array_expr>)
+                // * Argument to UNNEST is an array.
+                // * <expr> and elements of <array_expr> are comparable.
+                &CheckLikeExprArrayArguments)
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprArrayFunction)
+            .set_sql_name("like any unnest")
+            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_get_sql_callback(&LikeAnyArrayFunctionSQL));
+
+    InsertSimpleFunction(
+        functions, options, "$like_all_array", SCALAR,
+        {{bool_type,
+          {string_type, array_string_type},
+          FN_STRING_ARRAY_LIKE_ALL},
+         {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ALL}},
+        FunctionOptions()
+            .set_supports_safe_error_mode(false)
+            .set_pre_resolution_argument_constraint(
+                // Verifies for <expr> LIKE ALL UNNEST(<array_expr>)
+                // * Argument to UNNEST is an array.
+                // * <expr> and elements of <array_expr> are comparable.
+                &CheckLikeExprArrayArguments)
+            .set_no_matching_signature_callback(
+                &NoMatchingSignatureForLikeExprArrayFunction)
+            .set_sql_name("like all unnest")
+            .set_supported_signatures_callback(&EmptySupportedSignatures)
+            .set_get_sql_callback(&LikeAllArrayFunctionSQL));
+  }
 
   // TODO: Do we want to support IN for non-compatible integers, i.e.,
   // '<uint64col> IN (<int32col>, <int64col>)'?

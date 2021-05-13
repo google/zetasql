@@ -971,6 +971,23 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
         FN_ARRAY_TRANSFORM_WITH_INDEX}},
       FunctionOptions().set_supports_safe_error_mode(false));
 
+  InsertFunction(
+      functions, options, "array_includes", SCALAR,
+      /*signatures=*/
+      {{bool_type, {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_ARRAY_INCLUDES},
+       {bool_type,
+        {ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, bool_type)},
+        FN_ARRAY_INCLUDES_LAMBDA}},
+      FunctionOptions().set_supports_safe_error_mode(false));
+
+  InsertFunction(functions, options, "array_includes_any", SCALAR,
+                 /*signatures=*/
+                 {{bool_type,
+                   {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+                   FN_ARRAY_INCLUDES_ANY}},
+                 FunctionOptions().set_supports_safe_error_mode(false));
+
   FunctionOptions function_is_volatile;
   function_is_volatile.set_volatility(FunctionEnums::VOLATILE);
 
@@ -1030,12 +1047,77 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   }
 }
 
+// This function requires <type_factory>, <functions> to be not nullptr.
+void GetSubscriptFunctions(TypeFactory* type_factory,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions) {
+  // The analyzer has been extended to recognize the subscript operator ([]).
+  // ZetaSQLcurrently only supports this for JSON, iff the JSON feature is
+  // enabled.
+  //
+  // The analyzer has also been extended to recognize generic subscript
+  // with offset/ordinal syntax, but ZetaSQL has not defined any type that
+  // actually supports this yet.
+  std::vector<FunctionSignatureOnHeap> function_signatures;
+  if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
+    const Type* int64_type = type_factory->get_int64();
+    const Type* json_type = types::JsonType();
+    const Type* string_type = type_factory->get_string();
+    function_signatures.push_back(
+        {json_type, {json_type, int64_type}, FN_JSON_SUBSCRIPT_INT64});
+    function_signatures.push_back(
+        {json_type, {json_type, string_type}, FN_JSON_SUBSCRIPT_STRING});
+  }
+  InsertFunction(
+      functions, options, "$subscript", Function::SCALAR, function_signatures,
+      FunctionOptions()
+          .set_supports_safe_error_mode(false)
+          .set_get_sql_callback(&SubscriptFunctionSQL)
+          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForSubscript,
+                         /*offset_or_ordinal=*/"")));
+
+  // Create functions with no signatures for other subscript functions
+  // that have special handling in the analyzer.
+  const std::vector<FunctionSignatureOnHeap> empty_signatures;
+  InsertFunction(
+      functions, options, "$subscript_with_key", Function::SCALAR,
+      empty_signatures,
+      FunctionOptions()
+          .set_supports_safe_error_mode(true)
+          .set_get_sql_callback(&SubscriptWithKeyFunctionSQL)
+          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForSubscript,
+                         /*offset_or_ordinal=*/"KEY")));
+  InsertFunction(
+      functions, options, "$subscript_with_offset", Function::SCALAR,
+      empty_signatures,
+      FunctionOptions()
+          .set_supports_safe_error_mode(true)
+          .set_get_sql_callback(&SubscriptWithOffsetFunctionSQL)
+          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForSubscript,
+                         /*offset_or_ordinal=*/"OFFSET")));
+  InsertFunction(
+      functions, options, "$subscript_with_ordinal", Function::SCALAR,
+      empty_signatures,
+      FunctionOptions()
+          .set_supports_safe_error_mode(true)
+          .set_get_sql_callback(&SubscriptWithOrdinalFunctionSQL)
+          .set_supported_signatures_callback(&EmptySupportedSignatures)
+          .set_no_matching_signature_callback(
+              bind_front(&NoMatchingSignatureForSubscript,
+                         /*offset_or_ordinal=*/"ORDINAL")));
+}
+
 void GetJSONFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,
                       NameToFunctionMap* functions) {
   const Type* bool_type = type_factory->get_bool();
   const Type* string_type = type_factory->get_string();
-  const Type* int64_type = type_factory->get_int64();
   const Type* json_type = types::JsonType();
   const ArrayType* array_string_type;
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(string_type, &array_string_type));
@@ -1104,13 +1186,6 @@ void GetJSONFunctions(TypeFactory* type_factory,
         {array_string_type,
          {json_type, default_json_path_argument},
          FN_JSON_VALUE_ARRAY_JSON});
-    InsertSimpleFunction(
-        functions, options, "$subscript", SCALAR,
-        {{json_type, {json_type, int64_type}, FN_JSON_SUBSCRIPT_INT64},
-         {json_type, {json_type, string_type}, FN_JSON_SUBSCRIPT_STRING}},
-        FunctionOptions()
-            .set_supports_safe_error_mode(false)
-            .set_get_sql_callback(&SubscriptFunctionSQL));
 
     InsertFunction(functions, options, "to_json", SCALAR,
                    {{json_type,
@@ -1122,8 +1197,17 @@ void GetJSONFunctions(TypeFactory* type_factory,
                                       .set_argument_name_is_mandatory(true)
                                       .set_default(values::Bool(false))}},
                      FN_TO_JSON}});
-    InsertFunction(functions, options, "parse_json", SCALAR,
-                   {{json_type, {string_type}, FN_PARSE_JSON}});
+    InsertFunction(
+        functions, options, "parse_json", SCALAR,
+        {{json_type,
+          {string_type,
+           FunctionArgumentType(
+               string_type,
+               FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+                   .set_argument_name("wide_number_mode")
+                   .set_argument_name_is_mandatory(true)
+                   .set_default(Value::String("exact")))},
+          FN_PARSE_JSON}});
   }
 
   InsertFunction(functions, options, "json_extract", SCALAR,
@@ -1902,6 +1986,32 @@ void GetEncryptionFunctions(TypeFactory* type_factory,
   const FunctionOptions encryption_required =
       FunctionOptions().add_required_language_feature(FEATURE_ENCRYPTION);
 
+  std::vector<zetasql::StructType::StructField> output_struct_fields = {
+      {"kms_resource_name", types::StringType()},
+      {"first_level_keyset", types::BytesType()},
+      {"second_level_keyset", types::BytesType()}};
+  const zetasql::StructType* keyset_chain_struct_type = nullptr;
+  ZETASQL_CHECK_OK(type_factory->MakeStructType({output_struct_fields},
+                                        &keyset_chain_struct_type));
+
+  const FunctionArgumentTypeOptions const_arg_options =
+      FunctionArgumentTypeOptions()
+          .set_must_be_constant()
+          .set_must_be_non_null();
+
+  InsertNamespaceFunction(
+      functions, options, "keys", "keyset_chain", SCALAR,
+      {{keyset_chain_struct_type,
+        {/*kms_resource_name=*/{string_type, const_arg_options},
+         /*first_level_keyset=*/{bytes_type, const_arg_options},
+         /*second_level_keyset=*/bytes_type},
+        FN_KEYS_KEYSET_CHAIN_STRING_BYTES_BYTES},
+      {keyset_chain_struct_type,
+        {/*kms_resource_name=*/{string_type, const_arg_options},
+         /*first_level_keyset=*/{bytes_type, const_arg_options}},
+        FN_KEYS_KEYSET_CHAIN_STRING_BYTES}},
+      FunctionOptions(encryption_required));
+
   // KEYS.NEW_KEYSET is volatile since it generates a random key for each
   // invocation.
   InsertSimpleNamespaceFunction(
@@ -1950,15 +2060,22 @@ void GetEncryptionFunctions(TypeFactory* type_factory,
   // AEAD.ENCRYPT is volatile since it generates a random IV (initialization
   // vector) for each invocation so that encrypting the same plaintext results
   // in different ciphertext.
-  InsertSimpleNamespaceFunction(functions, options, "aead", "encrypt", SCALAR,
-                                {{bytes_type,
-                                  {bytes_type, string_type, string_type},
-                                  FN_AEAD_ENCRYPT_STRING},
-                                 {bytes_type,
-                                  {bytes_type, bytes_type, bytes_type},
-                                  FN_AEAD_ENCRYPT_BYTES}},
-                                FunctionOptions(encryption_required)
-                                    .set_volatility(FunctionEnums::VOLATILE));
+  InsertSimpleNamespaceFunction(
+      functions, options, "aead", "encrypt", SCALAR,
+      {{bytes_type,
+        {bytes_type, string_type, string_type},
+        FN_AEAD_ENCRYPT_STRING},
+       {bytes_type,
+        {bytes_type, bytes_type, bytes_type},
+        FN_AEAD_ENCRYPT_BYTES},
+       {bytes_type,
+        {keyset_chain_struct_type, string_type, string_type},
+        FN_AEAD_ENCRYPT_STRUCT_STRING},
+      {bytes_type,
+        {keyset_chain_struct_type, bytes_type, bytes_type},
+        FN_AEAD_ENCRYPT_STRUCT_BYTES}},
+      FunctionOptions(encryption_required)
+          .set_volatility(FunctionEnums::VOLATILE));
 
   InsertSimpleNamespaceFunction(functions, options, "aead", "decrypt_string",
                                 SCALAR,
@@ -2187,6 +2304,9 @@ void GetGeographyFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(functions, options, "st_numpoints", SCALAR,
                        {{int64_type, {geography_type}, FN_ST_NUM_POINTS}},
                        geography_required.Copy().set_alias_name("st_npoints"));
+  InsertSimpleFunction(functions, options, "st_numgeometries", SCALAR,
+                       {{int64_type, {geography_type}, FN_ST_NUM_GEOMETRIES}},
+                       geography_required);
   InsertSimpleFunction(functions, options, "st_dump", SCALAR,
                        {{geography_array_type,
                          {geography_type, {int64_type, OPTIONAL}},
@@ -2281,13 +2401,13 @@ void GetGeographyFunctions(TypeFactory* type_factory,
                        {{geography_type, {string_type}, FN_ST_GEOG_FROM_KML}},
                        geography_required);
   InsertFunction(functions, options, "st_geogfromgeojson", SCALAR,
-                 {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON},
-                  {geography_type,
-                   {string_type,
-                    {bool_type, const_with_mandatory_name("make_valid")}},
-                   FN_ST_GEOG_FROM_GEO_JSON_EXT,
-                   extended_parser_signatures}},
-                 geography_required);
+      {{geography_type, {string_type}, FN_ST_GEOG_FROM_GEO_JSON},
+       {geography_type,
+        {string_type,
+         {bool_type, const_with_mandatory_name("make_valid")}},
+        FN_ST_GEOG_FROM_GEO_JSON_EXT,
+        extended_parser_signatures}},
+      geography_required);
   InsertFunction(functions, options, "st_geogfromwkb", SCALAR,
                  {{geography_type, {bytes_type}, FN_ST_GEOG_FROM_WKB},
                   {geography_type,

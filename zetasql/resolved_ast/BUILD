@@ -244,6 +244,7 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:stl_util",
+        "//zetasql/base:string_numbers",
         "//zetasql/base:varsetter",
         "//zetasql/common:errors",
         "//zetasql/public:catalog",

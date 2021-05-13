@@ -2621,7 +2621,7 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeSampl
 
     // Handle BERNOULLI/PERCENT.
     // Error on BERNOULLI/ROWS.
-    if (absl::EqualsIgnoreCase(method, "BERNOULLI")) {
+    if (zetasql_base::CaseEqual(method, "BERNOULLI")) {
       if (unit == zetasql::ResolvedSampleScanEnums::PERCENT) {
         return SampleScanOp::Method::kBernoulliPercent;
       }
@@ -2631,7 +2631,7 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeSampl
 
     // Handle RESERVOIR/ROWS.
     // Error on RESERVOIR/PERCENT.
-    if (absl::EqualsIgnoreCase(method, "RESERVOIR")) {
+    if (zetasql_base::CaseEqual(method, "RESERVOIR")) {
       if (unit == zetasql::ResolvedSampleScanEnums::ROWS) {
         return SampleScanOp::Method::kReservoirRows;
       }
@@ -2641,7 +2641,7 @@ zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeSampl
 
     // Handle SYSTEM/PERCENT as BERNOULLI/PERCENT.
     // Handle SYSTEM/ROWS as RESERVOIR/ROWS.
-    if (absl::EqualsIgnoreCase(method, "SYSTEM")) {
+    if (zetasql_base::CaseEqual(method, "SYSTEM")) {
       if (unit == zetasql::ResolvedSampleScanEnums::PERCENT) {
         return SampleScanOp::Method::kBernoulliPercent;
       }
@@ -2796,10 +2796,11 @@ zetasql_base::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
     }
   }
 
-  // Epsilon must always be explicitly set.
-  if (!anonymization_options.epsilon.has_value()) {
-      return zetasql_base::InvalidArgumentErrorBuilder()
-          << "Anonymization option EPSILON must be set";
+  // Epsilon must always be explicitly set and non-NULL.
+  if (!anonymization_options.epsilon.has_value() ||
+      anonymization_options.epsilon->is_null()) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Anonymization option EPSILON must be set and non-NULL";
   }
 
   // Either k_threshold or delta must be set.
@@ -2809,16 +2810,28 @@ zetasql_base::StatusOr<AnonymizationOptions> GetAnonymizationOptions(
           << "Anonymization option DELTA or K_THRESHOLD must be set";
   }
 
+  // Split epsilon across each aggregate function.
+  anonymization_options.epsilon =
+      Value::Double(anonymization_options.epsilon->double_value() /
+                    aggregate_scan->aggregate_list_size());
+
   // Compute k_threshold from delta/epsilon/kappa, if needed.
   if (anonymization_options.delta.has_value()) {
-    ZETASQL_RET_CHECK(anonymization_options.epsilon.has_value());
     ZETASQL_ASSIGN_OR_RETURN(
         anonymization_options.k_threshold,
         zetasql::anonymization::ComputeKThresholdFromEpsilonDeltaKappa(
             anonymization_options.epsilon.value(),
             anonymization_options.delta.value(),
             (anonymization_options.kappa.has_value()
-             ? anonymization_options.kappa.value() : Value::Invalid())));
+                 ? anonymization_options.kappa.value()
+                 : Value::Invalid())));
+  }
+
+  // Scale epsilon by kappa (if specified).
+  if (anonymization_options.kappa.has_value()) {
+    anonymization_options.epsilon =
+        Value::Double(anonymization_options.epsilon->double_value() /
+                      anonymization_options.kappa->int64_value());
   }
 
   return anonymization_options;
@@ -2853,19 +2866,6 @@ Algebrizer::AlgebrizeAnonymizedAggregateScan(
 
   ZETASQL_ASSIGN_OR_RETURN(AnonymizationOptions anonymization_options,
                    GetAnonymizationOptions(anonymized_aggregate_scan));
-  // Split epsilon across each aggregate function.
-  if (anonymization_options.epsilon.has_value() &&
-      !anonymization_options.epsilon->is_null()) {
-    anonymization_options.epsilon =
-        Value::Double(anonymization_options.epsilon->double_value() /
-                      anonymized_aggregate_scan->aggregate_list_size());
-    // Scale epsilon by kappa (if specified).
-    if (anonymization_options.kappa.has_value()) {
-      anonymization_options.epsilon =
-          Value::Double(anonymization_options.epsilon->double_value() /
-                        anonymization_options.kappa->int64_value());
-    }
-  }
 
   // Build the list of aggregate functions.
   std::vector<std::unique_ptr<AggregateArg>> aggregators;

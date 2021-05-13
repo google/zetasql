@@ -53,7 +53,7 @@ class ArrayAnnotationMap;
 
 // Built-in annotation IDs.
 enum class AnnotationKind {
-  COLLATION = 0,
+  kCollation = 0,
   // Annotation ID up to kMaxBuiltinAnnotationKind are reserved for zetasql
   // built-in annotations.
   kMaxBuiltinAnnotationKind = 10000,

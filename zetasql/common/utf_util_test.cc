@@ -18,11 +18,17 @@
 
 #include <cstdint>
 
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "gtest/gtest.h"
 #include "absl/strings/string_view.h"
-
 namespace zetasql {
+
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
+
+// 2nd byte is invalid.
+constexpr char kInvalidUtf8Str[] = "\x61\xa7\x65\x71";
 
 static void TestWellFormedString(absl::string_view str) {
   EXPECT_EQ(SpanWellFormedUTF8(str), str.length());
@@ -250,8 +256,7 @@ TEST(UtfUtilTest, ForwardNAll) {
   }
   {
     // Return error on invalid utf-8 data.
-    // 2nd byte is invalid.
-    absl::string_view str = "\x61\xa7\x65\x71";
+    absl::string_view str = kInvalidUtf8Str;
     auto offset = ForwardN(str, static_cast<int32_t>(str.length()),
                            /*num_code_points=*/1);
     EXPECT_EQ(offset.value(), 1);
@@ -272,4 +277,158 @@ TEST(UtfUtilTest, ForwardNAll) {
   }
 }
 
+TEST(LengthUtf8Test, Empty) { EXPECT_THAT(LengthUtf8(""), IsOkAndHolds(0)); }
+
+TEST(LengthUtf8Test, AsciiChars) {
+  EXPECT_THAT(LengthUtf8("abcd"), IsOkAndHolds(4));
+}
+
+TEST(LengthUtf8Test, NonAsciiChars) {
+  EXPECT_THAT(LengthUtf8(u8"a퟿фX"), IsOkAndHolds(4));
+}
+
+TEST(LengthUtf8Test, Invalid) {
+  EXPECT_THAT(LengthUtf8(kInvalidUtf8Str),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(GetSummaryStringTest, NoEllipsesNeeded) {
+  // Empty
+  EXPECT_THAT(GetSummaryString("", 5), IsOkAndHolds(""));
+  EXPECT_THAT(GetSummaryString("", 15), IsOkAndHolds(""));
+
+  // Simple
+  EXPECT_THAT(GetSummaryString("abc", 15), IsOkAndHolds("abc"));
+
+  // Just barely fits
+  EXPECT_THAT(GetSummaryString("1234567890abcde", 15),
+              IsOkAndHolds("1234567890abcde"));
+
+  // Just barely fits and non-ascii characters are present, so byte length of
+  // string would exceed 15.
+  EXPECT_THAT(GetSummaryString(u8"1234567890aba퟿ф", 15),
+              IsOkAndHolds(u8"1234567890aba퟿ф"));
+}
+
+TEST(GetStringWithEllipsesTest, EllipsesNeeded) {
+  // String just barely exceeds limit. Since there are no word breaks, we keep
+  // the first part going as long as possible so that the soft limit (5) is
+  // still available for the second part.
+  EXPECT_THAT(GetSummaryString("1234567890abcdefghijk", 20),
+              IsOkAndHolds("1234567890a...fghijk"));
+
+  // Similar to the above, except this time, the input contains non-ascii
+  // characters.
+  EXPECT_THAT(GetSummaryString(u8"퟿ф34567890abcdefghi퟿ф", 20),
+              IsOkAndHolds(u8"퟿ф34567890a...fghi퟿ф"));
+
+  // Similar to the above, except the input far exceeds the size limit.
+  EXPECT_THAT(
+      GetSummaryString(
+          u8"퟿ф34567890abcdefghi퟿ф퟿ф34567890abcdefghi퟿ф&&ф", 20),
+      IsOkAndHolds(u8"퟿ф34567890a...i퟿ф&&ф"));
+
+  // String with word breaks. The first part stops at the first word break
+  // after minimum prefix size has been reached.
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 20),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+
+  // Similar to the above, but gradually increase the limit.
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 17),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 18),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 19),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 20),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 21),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+  EXPECT_THAT(GetSummaryString("1 ퟿ф45 67890 abcde fgh ijф", 22),
+              IsOkAndHolds("1 ퟿ф45...fgh ijф"));
+
+  // Room for nothing but "a...b"
+  EXPECT_THAT(GetSummaryString("abcdefghij", 5), IsOkAndHolds("a...j"));
+}
+
+TEST(GetStringWithEllipsesTest, Whitespace) {
+  // Make sure newlines and tabs count as whitespace for purposes of trimming
+  EXPECT_THAT(GetSummaryString("abc \r\n\t \r\n\tdefghijk", 13),
+              IsOkAndHolds("abc...efghijk"));
+  EXPECT_THAT(GetSummaryString("defghijk\r\n\t \r\n\tab", 13),
+              IsOkAndHolds("defghi...ab"));
+
+  // Make sure CR-LF line endings get replaced with a single space
+  EXPECT_THAT(GetSummaryString("abc\r\ndef", 25), IsOkAndHolds("abc def"));
+
+  // All whitespace
+  EXPECT_THAT(GetSummaryString("            ", 13), IsOkAndHolds(""));
+  EXPECT_THAT(GetSummaryString("            ", 8), IsOkAndHolds(""));
+  EXPECT_THAT(GetSummaryString("            ", 5), IsOkAndHolds(""));
+
+  // Lots of whitespace at start/end
+  EXPECT_THAT(
+      GetSummaryString("            abc  def  ghi  jkl             ", 11),
+      IsOkAndHolds("abc...jkl"));
+
+  // Make sure the output string fits on one line, even if the input contains
+  // multiple lines.
+  EXPECT_THAT(GetSummaryString(
+                  R"(
+
+      abc
+
+      def
+
+      ghi
+
+      jkl
+
+
+      )",
+                  25),
+              IsOkAndHolds("abc...jkl"));
+  EXPECT_THAT(GetSummaryString(
+                  R"(
+
+      abc
+
+      def
+
+      ghi
+
+      jkl
+
+
+      )",
+                  50),
+              IsOkAndHolds("abc        def        ghi        jkl"));
+
+  EXPECT_THAT(GetSummaryString(
+                  R"(
+
+      abc
+
+      def mnopqrstuvwxyz 0123456789
+
+      ghi
+
+      jkl
+
+
+      )",
+                  50),
+              IsOkAndHolds("abc        def mnopqrstuvwxyz...ghi        jkl"));
+}
+
+TEST(GetStringWithEllipsesTest, ErrorCases) {
+  // Invalid utf8
+  EXPECT_THAT(GetSummaryString(kInvalidUtf8Str, 20),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // Invalid combinations of char limits
+  EXPECT_THAT(GetSummaryString("", -1), StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(GetSummaryString("", 0), StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(GetSummaryString("", 4), StatusIs(absl::StatusCode::kInternal));
+}
 }  // namespace zetasql

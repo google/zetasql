@@ -43,6 +43,8 @@
 #include "zetasql/public/cast.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
+#include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
 // This includes common macro definitions to define in the resolver cc files.
@@ -77,7 +79,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -420,7 +421,25 @@ absl::Status Resolver::AddAggregateScan(
           query_resolution_info->release_group_by_columns_to_compute(),
           query_resolution_info->release_aggregate_columns_to_compute(),
           std::move(grouping_set_list), std::move(rollup_column_list));
-
+  // If the feature is not enabled, any collation annotation that might exist on
+  // the grouping expressions is ignored.
+  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    std::vector<ResolvedCollation> collation_list;
+    bool empty = true;
+    for (const auto& group_by_expr : aggregate_scan->group_by_list()) {
+      ResolvedCollation resolved_collation;
+      if (group_by_expr->expr()->type_annotation_map() != nullptr) {
+        ZETASQL_ASSIGN_OR_RETURN(resolved_collation,
+                         ResolvedCollation::MakeResolvedCollation(
+                             *group_by_expr->expr()->type_annotation_map()));
+        empty &= resolved_collation.Empty();
+      }
+      collation_list.push_back(std::move(resolved_collation));
+    }
+    if (!empty) {
+      aggregate_scan->set_collation_list(collation_list);
+    }
+  }
   // We might have aggregation without GROUP BY.
   if (!is_for_select_distinct && select->group_by() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(
@@ -921,9 +940,30 @@ absl::Status Resolver::ResolveOrderByItems(
           resolved_column_ref->column(), &resolved_collation_name));
     }
 
-    resolved_order_by_items->push_back(MakeResolvedOrderByItem(
+    auto resolved_order_by_item = MakeResolvedOrderByItem(
         std::move(resolved_column_ref), std::move(resolved_collation_name),
-        item_info.is_descending, item_info.null_order));
+        item_info.is_descending, item_info.null_order);
+    if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      const ResolvedExpr* collation_name =
+          resolved_order_by_item->collation_name();
+      ResolvedCollation resolved_collation;
+      if (collation_name != nullptr) {
+        ZETASQL_RET_CHECK(collation_name->type()->IsString());
+        if (collation_name->Is<ResolvedLiteral>()) {
+          resolved_collation = ResolvedCollation::MakeScalar(
+              collation_name->GetAs<ResolvedLiteral>()->value().string_value());
+        }
+      } else if (resolved_order_by_item->column_ref()->type_annotation_map() !=
+                 nullptr) {
+        // There is collation to be propagated from the column_ref.
+        ZETASQL_ASSIGN_OR_RETURN(
+            resolved_collation,
+            ResolvedCollation::MakeResolvedCollation(
+                *resolved_order_by_item->column_ref()->type_annotation_map()));
+      }
+      resolved_order_by_item->set_collation(resolved_collation);
+    }
+    resolved_order_by_items->push_back(std::move(resolved_order_by_item));
 
     if (!resolved_order_by_items->back()
              ->column_ref()
@@ -1399,6 +1439,10 @@ absl::Status Resolver::ResolveCloneDataSource(
       data_source->path_expr(), /*hints=*/nullptr,
       data_source->for_system_time(), empty_name_scope_.get(), &table_scan,
       &output_name_list));
+  if (table_scan->table()->IsValueTable()) {
+    return MakeSqlErrorAt(data_source)
+           << "Cannot clone from value table: " << table_scan->table()->Name();
+  }
   *output = std::move(table_scan);
   NameScope name_scope(empty_name_scope_.get(), output_name_list);
   if (data_source->where_clause() != nullptr) {
@@ -5612,7 +5656,7 @@ absl::Status Resolver::ResolveTablesampleClause(
              << "TABLESAMPLE does not support the PARTITION BY clause";
     }
     const std::string method = sample_clause->sample_method()->GetAsString();
-    if (!zetasql_base::StringCaseEqual(method, "reservoir")) {
+    if (!zetasql_base::CaseEqual(method, "reservoir")) {
       return MakeSqlErrorAt(sample_clause->sample_size()->partition_by())
              << "The TABLESAMPLE " << method
              << " method does not support PARTITION BY. "
@@ -6361,8 +6405,9 @@ absl::Status Resolver::ResolveTVF(
   if (language().LanguageFeatureEnabled(FEATURE_V_1_3_WITH_GROUP_ROWS)) {
     std::vector<std::string> fn_name = ast_tvf->name()->ToIdentifierVector();
     if (ast_tvf->name()->num_names() == 1 &&
-        zetasql_base::CaseEqual(ast_tvf->name()->first_name()->GetAsIdString().ToStringView(),
-                  "GROUP_ROWS") &&
+        zetasql_base::CaseEqual(
+            ast_tvf->name()->first_name()->GetAsIdString().ToStringView(),
+            "GROUP_ROWS") &&
         ast_tvf->argument_entries().empty()) {
       return ResolveGroupRowsTVF(ast_tvf, output, output_name_list);
     }
@@ -7184,7 +7229,7 @@ absl::Status Resolver::CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
   // columns, add a projection to rearrange provided columns as needed.
   ZETASQL_RET_CHECK_EQ(required_schema.num_columns(), name_list->columns().size());
   for (int i = 0; i < num_provided_columns; ++i) {
-    if (!absl::EqualsIgnoreCase(required_schema.column(i).name,
+    if (!zetasql_base::CaseEqual(required_schema.column(i).name,
                                 name_list->column(i).name.ToString())) {
       *add_projection = true;
       return absl::OkStatus();
@@ -7220,7 +7265,7 @@ absl::Status Resolver::CoerceOrRearrangeTVFRelationArgColumns(
 
   // Build a map from provided column name to the index of that column in the
   // list of provided columns.
-  std::map<std::string, int, zetasql_base::StringCaseLess> col_name_to_idx;
+  std::map<std::string, int, zetasql_base::CaseLess> col_name_to_idx;
   for (int col_idx = 0; col_idx < num_provided_columns; ++col_idx) {
     col_name_to_idx.emplace(name_list->column(col_idx).name.ToString(),
                             col_idx);
@@ -7796,8 +7841,8 @@ static bool IsColumnOfTableArgument(const ASTPathExpression* path_expr,
       details->arg_type.options().relation_input_schema();
   for (int i = 0; i < table.num_columns(); ++i) {
     const TVFSchemaColumn& column = table.column(i);
-    if (zetasql_base::CaseEqual(path_expr->name(1)->GetAsIdString().ToStringView(),
-                  column.name)) {
+    if (zetasql_base::CaseEqual(
+            path_expr->name(1)->GetAsIdString().ToStringView(), column.name)) {
       return true;
     }
   }

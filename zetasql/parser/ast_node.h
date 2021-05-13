@@ -72,6 +72,7 @@ enum class SchemaObjectKind {
   kTable,
   kTableFunction,
   kView,
+  kSnapshotTable,
   __SchemaObjectKind__switch_must_have_a_default__ = -1,
 };
 
@@ -218,7 +219,14 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   // Visit children in order.
   void ChildrenAccept(ParseTreeVisitor* visitor, void* data) const;
 
+  // Returns a multiline tree dump. Parse locations are represented as integer
+  // ranges.
   std::string DebugString(int max_depth = 512) const;
+
+  // Returns a multiline tree dump similar to debug string, but represents parse
+  // locations as fragments from the original text, supplied in <sql>, rather
+  // than raw integer values.
+  std::string DebugString(absl::string_view sql, int max_depth = 512) const;
 
   // Moves the start location forward by 'bytes' byte positions.
   void MoveStartLocation(int bytes) {
@@ -426,11 +434,12 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   class Dumper {
    public:
     Dumper(const ASTNode* node, absl::string_view separator, int max_depth,
-           std::string* out)
+           absl::optional<absl::string_view> sql, std::string* out)
         : node_(node),
           separator_(separator),
           max_depth_(max_depth),
           current_depth_(0),
+          sql_(sql),
           out_(out) {}
     Dumper(const Dumper&) = delete;
     Dumper& operator=(const Dumper&) = delete;
@@ -442,6 +451,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     const absl::string_view separator_;
     const int max_depth_;
     int current_depth_;
+    absl::optional<absl::string_view> sql_;
     std::string* out_;
   };
 

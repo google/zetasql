@@ -1,4 +1,7 @@
 # Four types of expression subqueries.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select (select 1), EXISTS(select 2), ARRAY(select 3)
 from T
 --

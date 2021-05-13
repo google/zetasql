@@ -121,7 +121,15 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // constructor arg.
   copy.get()->set_type_annotation_map(node->type_annotation_map());
 
-   # elif field.name == "preserve_in_literal_remover"
+  # elif field.name == "collation"
+  // Copy the collation field explicitly because it is not a constructor arg.
+  copy.get()->set_collation(node->collation());
+
+  # elif field.name == "collation_list"
+  // Copy the collation field explicitly because it is not a constructor arg.
+  copy.get()->set_collation_list(node->collation_list());
+
+  # elif field.name == "preserve_in_literal_remover"
   // Copy the preserve_in_literal_remover field explicitly because it is not a
   // constructor arg.
   copy.get()->set_preserve_in_literal_remover(

@@ -1,6 +1,10 @@
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
+
 alter table foo.bar add;
 --
-ERROR: Syntax error: Expected keyword CHECK or keyword COLUMN or keyword CONSTRAINT or keyword FOREIGN but got ";" [at 1:24]
+ERROR: Syntax error: Unexpected ";" [at 1:24]
 alter table foo.bar add;
                        ^
 
@@ -17,7 +21,7 @@ alter table foo.bar add constraint;
 
 alter table foo.bar add constraint a_is_positive;
 --
-ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN but got ";" [at 1:49]
+ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN or keyword PRIMARY but got ";" [at 1:49]
 alter table foo.bar add constraint a_is_positive;
                                                 ^
 
@@ -33,7 +37,7 @@ alter table foo.bar add constraint a_is_positive check;
 
 alter table foo.bar add constraint check;
 --
-ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN but got ";" [at 1:41]
+ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN or keyword PRIMARY but got ";" [at 1:41]
 alter table foo.bar add constraint check;
                                         ^
 
@@ -41,7 +45,7 @@ alter table foo.bar add constraint check;
 
 alter table foo.bar add constraint check(a > 0);
 --
-ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN but got "(" [at 1:41]
+ERROR: Syntax error: Expected keyword CHECK or keyword FOREIGN or keyword PRIMARY but got "(" [at 1:41]
 alter table foo.bar add constraint check(a > 0);
                                         ^
 

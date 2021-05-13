@@ -31,10 +31,10 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
+#include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -1312,7 +1312,7 @@ absl::Status FunctionSignature::IsValidForTableValuedFunction() const {
       // If the relation argument has a required schema, make sure that the
       // column names are unique.
       if (argument.options().has_relation_input_schema()) {
-        std::set<std::string, zetasql_base::StringCaseLess> column_names;
+        std::set<std::string, zetasql_base::CaseLess> column_names;
         for (const TVFRelation::Column& column :
              argument.options().relation_input_schema().columns()) {
           ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&column_names, column.name))

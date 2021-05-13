@@ -7,6 +7,9 @@
 # precedence levels by testing the pairwise precedence of each consecutive pair
 # of levels in the precedence hierarchy, as well as the associativity of each
 # of the operators.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select a AND b AND c OR d
 --
 QueryStatement [0-25]

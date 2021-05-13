@@ -252,6 +252,12 @@ class BisonParser {
     *ast_nodes = std::move(*allocated_ast_nodes_);
   }
 
+  // Returns true if there is whitespace between `left` and `right`.
+  bool HasWhitespace(const zetasql_bison_parser::location& left,
+                     const zetasql_bison_parser::location& right) {
+    return left.end.column != right.begin.column;
+  }
+
  private:
   // Identifiers and literal values are allocated from this arena. Not owned.
   // Only valid during Parse().

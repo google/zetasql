@@ -38,7 +38,6 @@ import com.google.zetasqltest.TestSchemaProto.TestEnum;
 
 import java.util.Arrays;
 import java.util.List;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -313,11 +312,10 @@ public class AnalyzerTest {
   }
 
   @Test
-  @Ignore("hack in place to get DateParts working, doesn't work with register; see b/146434918")
   public void buildExpressionWithDatePartsAndRegisteredCatalogRoundTrip() {
     SimpleCatalog catalog = new SimpleCatalog("foo");
-    catalog.register();
     catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());
+    catalog.register();
 
     AnalyzerOptions options = new AnalyzerOptions();
 
@@ -348,6 +346,22 @@ public class AnalyzerTest {
     // Sql builder normalizes expression.
     String expectedResponse = "SELECT t_2.a_1 AS bar FROM (SELECT t.bar AS a_1 FROM t) AS t_2";
     String response = Analyzer.buildStatement(resolvedStatement, catalog);
+    assertEquals(expectedResponse, response);
+  }
+
+  @Test
+  public void buildStatementWithDatePartsAndRegisteredCatalogRoundTrip() {
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+    catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());
+    catalog.register();
+
+    AnalyzerOptions options = new AnalyzerOptions();
+
+    String expression = "SELECT DATE_TRUNC(DATE \"2008-12-25\", MONTH)";
+    ResolvedStatement resolvedStmt = Analyzer.analyzeStatement(expression, options, catalog);
+
+    String expectedResponse = "SELECT DATE_TRUNC(DATE \"2008-12-25\", MONTH) AS a_1";
+    String response = Analyzer.buildStatement(resolvedStmt, catalog);
     assertEquals(expectedResponse, response);
   }
 

@@ -77,7 +77,7 @@ TEST(ResolvedColumnTest, Test) {
   EXPECT_EQ("[T1.C1#1]", ResolvedColumnListToString(ResolvedColumnList{c1}));
   EXPECT_EQ("T1.[C1#1, C2#2]",
             ResolvedColumnListToString(ResolvedColumnList{c1, c2}));
-  EXPECT_EQ("[T1.C1#1, T1.C2#2{COLLATION:10000}, T2.C3#3]",
+  EXPECT_EQ("[T1.C1#1, T1.C2#2{Collation:10000}, T2.C3#3]",
             ResolvedColumnListToString(ResolvedColumnList{c1, c2, c3}));
 
   // Make sure a set of ResolvedColumns works.

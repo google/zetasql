@@ -61,7 +61,7 @@ public class TypeFactoryTest {
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_DATETIME)).isTrue();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_TIME)).isTrue();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_INTERVAL)).isTrue();
-    assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_TOKENSET)).isTrue();
+    assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_TOKENLIST)).isTrue();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_UINT32)).isTrue();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_UINT64)).isTrue();
     assertThat(TypeFactory.isSimpleType(TypeKind.TYPE_UNKNOWN)).isFalse();
@@ -89,7 +89,7 @@ public class TypeFactoryTest {
     assertThat(TypeFactory.isSimpleTypeName("DATETIME", ProductMode.PRODUCT_EXTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("TIME", ProductMode.PRODUCT_EXTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("INTERVAL", ProductMode.PRODUCT_EXTERNAL)).isTrue();
-    assertThat(TypeFactory.isSimpleTypeName("TOKENSET", ProductMode.PRODUCT_EXTERNAL)).isTrue();
+    assertThat(TypeFactory.isSimpleTypeName("TOKENLIST", ProductMode.PRODUCT_EXTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UINT32", ProductMode.PRODUCT_EXTERNAL)).isFalse();
     assertThat(TypeFactory.isSimpleTypeName("UINT64", ProductMode.PRODUCT_EXTERNAL)).isFalse();
     assertThat(TypeFactory.isSimpleTypeName("UNKNOWN", ProductMode.PRODUCT_EXTERNAL)).isFalse();
@@ -113,7 +113,7 @@ public class TypeFactoryTest {
     assertThat(TypeFactory.isSimpleTypeName("DATETIME", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("TIME", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("INTERVAL", ProductMode.PRODUCT_INTERNAL)).isTrue();
-    assertThat(TypeFactory.isSimpleTypeName("TOKENSET", ProductMode.PRODUCT_INTERNAL)).isTrue();
+    assertThat(TypeFactory.isSimpleTypeName("TOKENLIST", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UINT32", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UINT64", ProductMode.PRODUCT_INTERNAL)).isTrue();
     assertThat(TypeFactory.isSimpleTypeName("UNKNOWN", ProductMode.PRODUCT_INTERNAL)).isFalse();

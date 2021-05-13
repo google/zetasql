@@ -1088,7 +1088,8 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
 }
 
 TEST(AllowedHintsAndOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(104, sizeof(AllowedHintsAndOptions) - sizeof(std::set<std::string>))
+  EXPECT_EQ(8, sizeof(AllowedHintsAndOptions) - sizeof(std::set<std::string>) -
+                   2 * sizeof(absl::flat_hash_map<std::string, std::string>))
       << "The size of AllowedHintsAndOptions class has changed, please also "
       << "update the proto and serialization code if you added/removed fields "
       << "in it.";

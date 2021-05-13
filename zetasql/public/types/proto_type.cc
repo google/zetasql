@@ -417,7 +417,7 @@ const google::protobuf::FieldDescriptor* ProtoType::FindFieldByNameIgnoreCase(
   // c++ or java, so we don't worry about them.
   for (int i = 0; i < descriptor->field_count(); ++i) {
     const google::protobuf::FieldDescriptor* field = descriptor->field(i);
-    if (zetasql_base::StringCaseEqual(field->name(), name)) {
+    if (zetasql_base::CaseEqual(field->name(), name)) {
       return field;
     }
   }

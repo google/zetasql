@@ -398,13 +398,13 @@ select cast(`string` as timestamp format 'abc' {{at time zone 'UTC'|}}) from Sim
 
 ALTERNATION GROUP: at time zone 'UTC'
 --
-ERROR: Invalid format 'abc' [at 1:42]
+ERROR: Cannot find matched format element at 0 [at 1:42]
 select cast(`string` as timestamp format 'abc' at time zone 'UTC') from Simpl...
                                          ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Invalid format 'abc' [at 1:42]
+ERROR: Cannot find matched format element at 0 [at 1:42]
 select cast(`string` as timestamp format 'abc' ) from SimpleTypes;
                                          ^
 ==
@@ -567,6 +567,170 @@ QueryStmt
     | +-$col1#19 := Literal(type=TIMESTAMP, value=NULL, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
+==
+
+# Test that constant format string is validated at analysis time in
+# CAST(string as date)
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as date format 'hh24');
+--
+ERROR: Format element in category HOUR ('HH24') is not allowed for output type DATE [at 1:35]
+select cast('1234' as date format 'hh24');
+                                  ^
+==
+
+# Test that constant format string is validated at analysis time in
+# CAST(string as datetime)
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as datetime format 'tzh');
+--
+ERROR: Format element in category TIME_ZONE ('TZH') is not allowed for output type DATETIME [at 1:39]
+select cast('1234' as datetime format 'tzh');
+                                      ^
+==
+
+# Test that constant format string is validated at analysis time in
+# CAST(string as time)
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as time format 'yyyy');
+--
+ERROR: Format element in category YEAR ('YYYY') is not allowed for output type TIME [at 1:35]
+select cast('1234' as time format 'yyyy');
+                                  ^
+==
+
+# Test that constant format string is validated at analysis time in
+# CAST(string as timestamp)
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as timestamp format 'a');
+--
+ERROR: Cannot find matched format element at 0 [at 1:40]
+select cast('1234' as timestamp format 'a');
+                                       ^
+==
+
+# Test that constant time zone string is validated at analysis time in
+# CAST(string as timestamp)
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as timestamp format 'yyyy' at time zone 'abc');
+--
+ERROR: Invalid time zone: abc [at 1:60]
+select cast('1234' as timestamp format 'yyyy' at time zone 'abc');
+                                                           ^
+==
+
+# Test constant format string to date/datetime/time/timestamp.
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as date format 'yyyy'),
+       cast('1234' as datetime format 'yyyy'),
+       cast('01:02:03' as time format 'hh24:mi:ss'),
+       cast('1234 01:02:03' as timestamp format 'yyyy hh24:mi:ss'),
+       cast('1234 01:02:03' as timestamp format 'yyyy hh24:mi:ss' at time zone '+7:00');
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATE]
+| +-$query.$col2#2 AS `$col2` [DATETIME]
+| +-$query.$col3#3 AS `$col3` [TIME]
+| +-$query.$col4#4 AS `$col4` [TIMESTAMP]
+| +-$query.$col5#5 AS `$col5` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-Cast(STRING -> DATE)
+    | |   +-Literal(type=STRING, value="1234")
+    | |   +-format=
+    | |     +-Literal(type=STRING, value="yyyy")
+    | +-$col2#2 :=
+    | | +-Cast(STRING -> DATETIME)
+    | |   +-Literal(type=STRING, value="1234")
+    | |   +-format=
+    | |     +-Literal(type=STRING, value="yyyy")
+    | +-$col3#3 :=
+    | | +-Cast(STRING -> TIME)
+    | |   +-Literal(type=STRING, value="01:02:03")
+    | |   +-format=
+    | |     +-Literal(type=STRING, value="hh24:mi:ss")
+    | +-$col4#4 :=
+    | | +-Cast(STRING -> TIMESTAMP)
+    | |   +-Literal(type=STRING, value="1234 01:02:03")
+    | |   +-format=
+    | |     +-Literal(type=STRING, value="yyyy hh24:mi:ss")
+    | +-$col5#5 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-Literal(type=STRING, value="1234 01:02:03")
+    |     +-format=
+    |     | +-Literal(type=STRING, value="yyyy hh24:mi:ss")
+    |     +-time_zone=
+    |       +-Literal(type=STRING, value="+7:00")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Test cast to date/datetime/time/timestamp where the format strings are
+# expressions. In this case, they are not validated at the analysis time.
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+select cast('1234' as date format 'invalid' || 'yyyy'),
+       cast('1234' as datetime format 'invalid' || 'yyyy'),
+       cast('01:02:03' as time format 'invalid' || 'hh24:mi:ss'),
+       cast('1234 01:02:03' as timestamp format 'invalid' || 'yyyy hh24:mi:ss'),
+       cast('1234 01:02:03' as timestamp format 'invalid' || 'yyyy hh24:mi:ss'
+            at time zone 'invalid' || '+7:00');
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATE]
+| +-$query.$col2#2 AS `$col2` [DATETIME]
+| +-$query.$col3#3 AS `$col3` [TIME]
+| +-$query.$col4#4 AS `$col4` [TIMESTAMP]
+| +-$query.$col5#5 AS `$col5` [TIMESTAMP]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-Cast(STRING -> DATE)
+    | |   +-Literal(type=STRING, value="1234")
+    | |   +-format=
+    | |     +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    | |       +-Literal(type=STRING, value="invalid")
+    | |       +-Literal(type=STRING, value="yyyy")
+    | +-$col2#2 :=
+    | | +-Cast(STRING -> DATETIME)
+    | |   +-Literal(type=STRING, value="1234")
+    | |   +-format=
+    | |     +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    | |       +-Literal(type=STRING, value="invalid")
+    | |       +-Literal(type=STRING, value="yyyy")
+    | +-$col3#3 :=
+    | | +-Cast(STRING -> TIME)
+    | |   +-Literal(type=STRING, value="01:02:03")
+    | |   +-format=
+    | |     +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    | |       +-Literal(type=STRING, value="invalid")
+    | |       +-Literal(type=STRING, value="hh24:mi:ss")
+    | +-$col4#4 :=
+    | | +-Cast(STRING -> TIMESTAMP)
+    | |   +-Literal(type=STRING, value="1234 01:02:03")
+    | |   +-format=
+    | |     +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    | |       +-Literal(type=STRING, value="invalid")
+    | |       +-Literal(type=STRING, value="yyyy hh24:mi:ss")
+    | +-$col5#5 :=
+    |   +-Cast(STRING -> TIMESTAMP)
+    |     +-Literal(type=STRING, value="1234 01:02:03")
+    |     +-format=
+    |     | +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    |     |   +-Literal(type=STRING, value="invalid")
+    |     |   +-Literal(type=STRING, value="yyyy hh24:mi:ss")
+    |     +-time_zone=
+    |       +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    |         +-Literal(type=STRING, value="invalid")
+    |         +-Literal(type=STRING, value="+7:00")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Simple case of cast number with format string.

@@ -55,6 +55,24 @@ def zetasql_compliance_test(
         **extra_args
     )
 
+# Similar to zetasql_compliance_test, but tests the engine with scripting instead
+# of standalone statement execution.
+def zetasql_scripting_compliance_test(
+        name,
+        deps = [],
+        include_gtest_main = True,
+        **extra_args):
+    if include_gtest_main:
+        deps = deps + ["//zetasql/base/testing:zetasql_gtest_main"]
+
+    sql_e2e_test(
+        name = name,
+        deps = deps + [
+            "//zetasql/scripting/compliance:scripting_compliance_test_cases",
+        ],
+        **extra_args
+    )
+
 def sql_e2e_test(
         name,
         data = [],

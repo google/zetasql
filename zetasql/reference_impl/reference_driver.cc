@@ -24,12 +24,15 @@
 #include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/evaluator_registration_utils.h"
+#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
@@ -39,10 +42,13 @@
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/rewrite_flags.h"
+#include "zetasql/reference_impl/statement_evaluator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/scripting/error_helpers.h"
+#include "zetasql/scripting/script_executor.h"
 #include "zetasql/testing/test_value.h"
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
@@ -227,6 +233,7 @@ void ReferenceDriver::AddTable(const std::string& table_name,
   table_info.required_features = table.options.required_features();
   table_info.is_value_table = table.options.is_value_table();
   table_info.array = array_value;
+  table_info.table = simple_table;
 
   tables_.push_back(table_info);
 }
@@ -281,20 +288,15 @@ void ReferenceDriver::SetLanguageOptions(const LanguageOptions& options) {
   }
 }
 
-zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDriver(
-    const std::string& sql, const std::map<std::string, Value>& parameters,
-    const ExecuteStatementOptions& options, TypeFactory* type_factory,
-    bool* is_deterministic_output, bool* uses_unsupported_type) {
-  ZETASQL_CHECK(is_deterministic_output != nullptr);
-  ZETASQL_CHECK(uses_unsupported_type != nullptr);
-  *uses_unsupported_type = false;
-  ZETASQL_CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
-
+zetasql_base::StatusOr<AnalyzerOptions> ReferenceDriver::GetAnalyzerOptions(
+    const std::map<std::string, Value>& parameters,
+    bool* uses_unsupported_type) const {
   AnalyzerOptions analyzer_options(language_options_);
   analyzer_options.set_enabled_rewrites(absl::GetFlag(FLAGS_rewrites));
   analyzer_options.set_error_message_mode(
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
   analyzer_options.set_default_time_zone(default_time_zone_);
+
   for (const auto& p : parameters) {
     if (!p.second.type()->IsSupportedType(language_options_)) {
       // AnalyzerOptions will not let us add this parameter. Signal the caller
@@ -304,14 +306,74 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
     ZETASQL_RETURN_IF_ERROR(analyzer_options.AddQueryParameter(
         p.first, p.second.type()));  // Parameter names are case-insensitive.
   }
+  return analyzer_options;
+}
+
+namespace {
+// Creates a catalog that includes all symbols in <catalog>, plus script
+// variables.
+zetasql_base::StatusOr<std::unique_ptr<Catalog>> AugmentCatalogForScriptVariables(
+    Catalog* catalog, TypeFactory* type_factory,
+    const VariableMap& script_variables,
+    std::unique_ptr<SimpleCatalog>* internal_catalog) {
+  auto variables_catalog =
+      absl::make_unique<SimpleCatalog>("script_variables", type_factory);
+  for (const std::pair<const IdString, Value>& variable : script_variables) {
+    std::unique_ptr<SimpleConstant> constant;
+    ZETASQL_RETURN_IF_ERROR(SimpleConstant::Create({variable.first.ToString()},
+                                           variable.second, &constant));
+    variables_catalog->AddOwnedConstant(std::move(constant));
+  }
+
+  std::unique_ptr<MultiCatalog> combined_catalog;
+  ZETASQL_RETURN_IF_ERROR(MultiCatalog::Create("combined_catalog",
+                                       {variables_catalog.get(), catalog},
+                                       &combined_catalog));
+  *internal_catalog = std::move(variables_catalog);
+
+  return std::unique_ptr<Catalog>(std::move(combined_catalog));
+}
+}  // namespace
+
+zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDriver(
+    const std::string& sql, const std::map<std::string, Value>& parameters,
+    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    bool* is_deterministic_output, bool* uses_unsupported_type) {
+  ZETASQL_ASSIGN_OR_RETURN(AnalyzerOptions analyzer_options,
+                   GetAnalyzerOptions(parameters, uses_unsupported_type));
+
+  return ExecuteStatementForReferenceDriverInternal(
+      sql, analyzer_options, parameters, /*script_variables=*/{},
+      /*system_variables=*/{}, options, type_factory, is_deterministic_output,
+      uses_unsupported_type);
+}
+
+zetasql_base::StatusOr<Value>
+ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
+    const std::string& sql, const AnalyzerOptions& analyzer_options,
+    const std::map<std::string, Value>& parameters,
+    const VariableMap& script_variables,
+    const SystemVariableValuesMap& system_variables,
+    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    bool* is_deterministic_output, bool* uses_unsupported_type) {
+  ZETASQL_CHECK(is_deterministic_output != nullptr);
+  ZETASQL_CHECK(uses_unsupported_type != nullptr);
+  *uses_unsupported_type = false;
+  ZETASQL_CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
+
+  std::unique_ptr<SimpleCatalog> internal_catalog;
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<Catalog> catalog,
+      AugmentCatalogForScriptVariables(catalog_.get(), type_factory,
+                                       script_variables, &internal_catalog));
 
   std::unique_ptr<const AnalyzerOutput> analyzed;
-  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, analyzer_options, catalog_.get(),
+  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, analyzer_options, catalog.get(),
                                    type_factory, &analyzed));
   if (analyzed->analyzer_output_properties().has_anonymization) {
     ZETASQL_ASSIGN_OR_RETURN(analyzed,
                      RewriteForAnonymization(analyzed, analyzer_options,
-                                             catalog_.get(), type_factory));
+                                             catalog.get(), type_factory));
   }
 
   // Don't proceed if any columns referenced within the query have types not
@@ -335,15 +397,14 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
   std::unique_ptr<ValueExpr> algebrized_tree;
   Parameters algebrizer_parameters(ParameterMap{});
   ParameterMap column_map;
-  SystemVariablesAlgebrizerMap system_variables;
+  SystemVariablesAlgebrizerMap algebrizer_system_variables;
   ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
       analyzer_options.language(), algebrizer_options, type_factory,
       analyzed->resolved_statement(), &algebrized_tree, &algebrizer_parameters,
-      &column_map, &system_variables));
+      &column_map, &algebrizer_system_variables));
   ZETASQL_VLOG(1) << "Algebrized tree:\n"
           << algebrized_tree->DebugString(true /* verbose */);
   ZETASQL_RET_CHECK(column_map.empty());
-  ZETASQL_RET_CHECK(system_variables.empty());
 
   if (!algebrized_tree->output_type()->IsSupportedType(language_options_)) {
     *uses_unsupported_type = true;
@@ -406,12 +467,25 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
   const TupleSchema params_schema(param_variables);
   const TupleData params_data =
       CreateTupleDataFromValues(std::move(param_values));
-  ZETASQL_RETURN_IF_ERROR(algebrized_tree->SetSchemasForEvaluation({&params_schema}));
+
+  std::vector<VariableId> system_var_ids;
+  std::vector<Value> system_var_values;
+  system_var_ids.reserve(algebrizer_system_variables.size());
+  for (const auto& sys_var : algebrizer_system_variables) {
+    system_var_ids.push_back(sys_var.second);
+    system_var_values.push_back(system_variables.at(sys_var.first));
+  }
+  const TupleSchema system_vars_schema(system_var_ids);
+  const TupleData system_vars_data =
+      CreateTupleDataFromValues(std::move(system_var_values));
+
+  ZETASQL_RETURN_IF_ERROR(algebrized_tree->SetSchemasForEvaluation(
+      {&params_schema, &system_vars_schema}));
 
   TupleSlot result;
   absl::Status status;
-  if (!algebrized_tree->EvalSimple({&params_data}, &context, &result,
-                                   &status)) {
+  if (!algebrized_tree->EvalSimple({&params_data, &system_vars_data}, &context,
+                                   &result, &status)) {
     return status;
   }
   const Value& output = result.value();
@@ -461,6 +535,130 @@ zetasql_base::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDrive
   *is_deterministic_output = context.IsDeterministicOutput();
 
   return output;
+}
+
+// StatementEvaluator implementation for compliance tests with the reference
+// driver. We use the reference driver to evaluate statements and the default
+// StatementEvaluator for everything else.
+class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
+ public:
+  ReferenceDriverStatementEvaluator(
+      ScriptResult* result, const std::map<std::string, Value>* parameters,
+      const ReferenceDriver::ExecuteStatementOptions& options,
+      TypeFactory* type_factory, ReferenceDriver* driver,
+      const EvaluatorOptions& evaluator_options)
+      : StatementEvaluatorImpl(evaluator_options, *parameters, type_factory,
+                               driver->catalog(), &evaluator_callback_),
+        evaluator_callback_(/*bytes_per_iterator=*/100),
+        result_(result),
+        parameters_(parameters),
+        options_(options),
+        type_factory_(type_factory),
+        driver_(driver) {}
+
+  // Override ExecuteStatement() to ensure that statement results exactly match
+  // up what would be produced by a standalone-statement compliance test.
+  absl::Status ExecuteStatement(const ScriptExecutor& executor,
+                                const ScriptSegment& segment) override;
+
+  // TODO: Currently, this is only set to true if a statement uses an
+  // unsupported type, and fails to detect cases where a script variable or
+  // expression uses an unsupported type.
+  bool uses_unsupported_type() const { return uses_unsupported_type_; }
+
+ private:
+  StatementEvaluatorCallback evaluator_callback_;
+  ScriptResult* result_;
+  const std::map<std::string, Value>* parameters_;
+  ReferenceDriver::ExecuteStatementOptions options_;
+  TypeFactory* type_factory_;
+  ReferenceDriver* driver_;
+  bool uses_unsupported_type_ = false;
+};
+
+absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
+    const ScriptExecutor& executor, const ScriptSegment& segment) {
+  bool stmt_uses_unsupported_type;
+  ParseLocationTranslator translator(segment.script());
+  zetasql_base::StatusOr<std::pair<int, int>> line_and_column =
+      translator.GetLineAndColumnAfterTabExpansion(segment.range().start());
+  StatementResult result;
+  result.line = line_and_column.ok() ? line_and_column->first : 0;
+  result.column = line_and_column.ok() ? line_and_column->second : 0;
+  bool is_deterministic_output_unused;
+  result.result = driver_->ExecuteStatementForReferenceDriverInternal(
+      std::string(segment.GetSegmentText()), executor.GetAnalyzerOptions(),
+      *parameters_, executor.GetCurrentVariables(),
+      executor.GetKnownSystemVariables(), options_, type_factory_,
+      &is_deterministic_output_unused, &stmt_uses_unsupported_type);
+  if (!result.result.status().ok()) {
+    result.result =
+        absl::Status(zetasql_base::StatusBuilder(result.result.status())
+                         .With(ConvertLocalErrorToScriptError(segment)));
+  }
+  uses_unsupported_type_ |= stmt_uses_unsupported_type;
+
+  result_->statement_results.push_back(std::move(result));
+  absl::Status status = result_->statement_results.back().result.status();
+  if (!status.ok() && status.code() != absl::StatusCode::kInternal) {
+    // Mark this error as handleable
+    internal::AttachPayload(&status, ScriptException());
+  }
+  return status;
+}
+
+namespace {
+absl::Status ExecuteScriptInternal(ScriptExecutor* executor) {
+  while (!executor->IsComplete()) {
+    ZETASQL_RETURN_IF_ERROR(executor->ExecuteNext());
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
+zetasql_base::StatusOr<ScriptResult> ReferenceDriver::ExecuteScriptForReferenceDriver(
+    const std::string& sql, const std::map<std::string, Value>& parameters,
+    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    bool* uses_unsupported_type) {
+  ScriptResult result;
+  ZETASQL_RETURN_IF_ERROR(ExecuteScriptForReferenceDriverInternal(
+      sql, parameters, options, type_factory, uses_unsupported_type, &result));
+  return result;
+}
+
+absl::Status ReferenceDriver::ExecuteScriptForReferenceDriverInternal(
+    const std::string& sql, const std::map<std::string, Value>& parameters,
+    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    bool* uses_unsupported_type, ScriptResult* result) {
+  ZETASQL_ASSIGN_OR_RETURN(AnalyzerOptions analyzer_options,
+                   GetAnalyzerOptions(parameters, uses_unsupported_type));
+  ScriptExecutorOptions script_executor_options;
+  script_executor_options.set_analyzer_options(analyzer_options);
+  EvaluatorOptions evaluator_options;
+  evaluator_options.type_factory = type_factory;
+  evaluator_options.clock = zetasql_base::Clock::RealClock();
+  ReferenceDriverStatementEvaluator evaluator(
+      result, &parameters, options, type_factory, this, evaluator_options);
+
+  // Make table data set up in the [prepare_database] section accessible in
+  // evaluation of expressions/queries, which go through the evaluator, rather
+  // than ExecuteStatementForReferenceDriver().
+  for (const TableInfo& table : tables_) {
+    std::vector<std::vector<Value>> data;
+    data.reserve(table.array.num_elements());
+    for (int i = 0; i < table.array.num_elements(); ++i) {
+      data.push_back(table.array.element(i).fields());
+    }
+    table.table->SetContents(data);
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ScriptExecutor> executor,
+      ScriptExecutor::Create(sql, script_executor_options, &evaluator));
+  absl::Status status = ExecuteScriptInternal(executor.get());
+  *uses_unsupported_type = evaluator.uses_unsupported_type();
+  ZETASQL_RETURN_IF_ERROR(status);
+  return absl::OkStatus();
 }
 
 const absl::TimeZone ReferenceDriver::GetDefaultTimeZone() const {

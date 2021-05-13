@@ -54,7 +54,7 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   UnpivotRewriterVisitor(const AnalyzerOptions* analyzer_options,
                          Catalog* catalog, TypeFactory* type_factory,
                          absl::Span<const Rewriter* const> rewriters)
-      : analyzer_options_(analyzer_options),
+      : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
         rewriters_(rewriters) {}
@@ -79,7 +79,7 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   CreateArrayScanWithStructElements(const ResolvedUnpivotScan* node,
                                     const StructType** struct_type);
 
-  const AnalyzerOptions* analyzer_options_;
+  const AnalyzerOptions& analyzer_options_;
   Catalog* const catalog_;
   TypeFactory* type_factory_;
   absl::Span<const Rewriter* const> rewriters_;
@@ -143,7 +143,7 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
     is_null_args.push_back(std::move(value_struct_expr));
     const Function* is_null_function;
     ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$is_null"}, &is_null_function,
-                                        /*options=*/{}));
+                                        analyzer_options_.find_options()));
     // The null function checks that the struct field that holds the values for
     // the unpivot value columns is null. We then use a not function since we
     // want to add a filter for this value to not be null.
@@ -158,8 +158,8 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
             std::move(is_null_args), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 
     const Function* is_not_function;
-    ZETASQL_RET_CHECK_OK(
-        catalog_->FindFunction({"$not"}, &is_not_function, /*options=*/{}));
+    ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$not"}, &is_not_function,
+                                        analyzer_options_.find_options()));
     std::vector<std::unique_ptr<ResolvedExpr>> is_not_args;
     is_not_args.push_back(std::move(is_null_function_expr));
     std::unique_ptr<ResolvedExpr> is_not_function_expr =
@@ -176,7 +176,8 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
     or_function_args.push_back(std::move(is_not_function_expr));
   }
   const Function* or_function;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$or"}, &or_function, /*options=*/{}));
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$or"}, &or_function,
+                                      analyzer_options_.find_options()));
   std::unique_ptr<const ResolvedExpr> or_function_expr =
       MakeResolvedFunctionCall(
           types::BoolType(), or_function,
@@ -247,7 +248,8 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
   // The make_array_function takes struct elements and constructs an array for
   // them.
   const Function* make_array_function;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$make_array"}, &make_array_function))
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$make_array"}, &make_array_function,
+                                      analyzer_options_.find_options()))
       << "UNPIVOT is not supported since the engine does not support "
          "make_array function";
   ZETASQL_RET_CHECK_NE(make_array_function, nullptr);
@@ -266,13 +268,13 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
 
   // Construct element column for array scan that'll hold the newly generated
   // value of struct type.
-  const IdString& array_id_string = analyzer_options_->id_string_pool()->Make(
+  const IdString& array_id_string = analyzer_options_.id_string_pool()->Make(
       absl::StrCat("unpivot_array_", unpivot_array_sequence_id_++));
   const IdString& unnest_id_string =
-      analyzer_options_->id_string_pool()->Make("unpivot_unnest");
+      analyzer_options_.id_string_pool()->Make("unpivot_unnest");
   const ResolvedColumn unnest_column(
       static_cast<int>(
-          analyzer_options_->column_id_sequence_number()->GetNext()),
+          analyzer_options_.column_id_sequence_number()->GetNext()),
       array_id_string, unnest_id_string, *struct_type);
 
   std::vector<ResolvedColumn> output_column_list = input_scan->column_list();

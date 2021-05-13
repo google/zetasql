@@ -167,7 +167,7 @@ CreateExternalTableStmt
 | +-ColumnDefinition(name="x", type=INT64, column=a.b.c.T.x#1)
 | +-ColumnDefinition(name="y", type=STRING, column=a.b.c.T.y#2)
 +-primary_key=
-  +-PrimaryKey(column_offset_list=[0])
+  +-PrimaryKey(column_offset_list=[0], column_name_list=[x])
 ==
 
 [language_features=CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CHECK_CONSTRAINT]
@@ -422,7 +422,7 @@ create external table t(a int64, primary key (b))
 with partition columns(b int64)
 options (x = 5)
 --
-ERROR: Unknown column b specified in PRIMARY KEY of CREATE TABLE [at 1:47]
+ERROR: Unsupported primary key column b either does not exist or is a pseudocolumn [at 1:47]
 create external table t(a int64, primary key (b))
                                               ^
 
@@ -488,3 +488,112 @@ ERROR: Unsupported foreign key column b either does not exist or is a pseudocolu
 create external table t(a int64, FOREIGN KEY (b) REFERENCES Value (value))
                                               ^
 ==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[no_java]
+create external table projectid.datasetid.tablename(x int64)
+with partition columns
+with connection conn
+options (x=f1)
+--
+ERROR: Connection not found: conn [at 3:17]
+with connection conn
+                ^
+==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[no_java]
+create external table projectid.datasetid.tablename(x int64)
+with connection connection1
+options (x=foo)
+--
+
+CreateExternalTableStmt
++-name_path=projectid.datasetid.tablename
++-option_list=
+| +-x := Literal(type=STRING, value="foo")
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=projectid.datasetid.tablename.x#1)
++-connection=
+  +-Connection(connection=connection1)
+==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[no_java]
+create external table projectid.datasetid.tablename(x int64)
+with connection `connection2`
+with partition columns
+options (x=bar)
+--
+
+ERROR: Syntax error: Expected keyword OPTIONS [at 2:30]
+with connection `connection2`
+                             ^
+==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[no_java]
+create external table projectid.datasetid.tablename(x int64)
+with partition columns
+with connection `connection2`
+options (x=bar)
+--
+
+CreateExternalTableStmt
++-name_path=projectid.datasetid.tablename
++-option_list=
+| +-x := Literal(type=STRING, value="bar")
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=projectid.datasetid.tablename.x#1)
++-with_partition_columns=
+| +-WithPartitionColumns
++-connection=
+  +-Connection(connection=connection2)
+==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[no_java]
+create external table t(x int64)
+with partition columns (
+  y int64
+)
+with connection connection2
+options (x=baz)
+--
+
+CreateExternalTableStmt
++-name_path=t
++-option_list=
+| +-x := Literal(type=STRING, value="baz")
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
++-with_partition_columns=
+| +-WithPartitionColumns
+|   +-column_definition_list=
+|     +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
++-connection=
+  +-Connection(connection=connection2)
+==
+
+[language_features=CREATE_EXTERNAL_TABLE_WITH_CONNECTION,CREATE_EXTERNAL_TABLE_WITH_TABLE_ELEMENT_LIST,CREATE_EXTERNAL_TABLE_WITH_PARTITION_COLUMNS]
+[no_java]
+create external table t(x int64)
+with partition columns (
+  y int64
+)
+with connection nested_catalog.connection2
+options (x=baz)
+--
+
+CreateExternalTableStmt
++-name_path=t
++-option_list=
+| +-x := Literal(type=STRING, value="baz")
++-column_definition_list=
+| +-ColumnDefinition(name="x", type=INT64, column=t.x#1)
++-with_partition_columns=
+| +-WithPartitionColumns
+|   +-column_definition_list=
+|     +-ColumnDefinition(name="y", type=INT64, column=t.y#2)
++-connection=
+  +-Connection(connection=connection2)

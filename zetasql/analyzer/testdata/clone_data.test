@@ -6,6 +6,26 @@ CLONE DATA INTO ds.tbl
 ^
 ==
 
+# Source is value table
+[default language_features=CLONE_DATA]
+CLONE DATA INTO KeyValue
+FROM Int64ValueTable
+--
+ERROR: Cannot clone from value table: Int64ValueTable [at 2:6]
+FROM Int64ValueTable
+     ^
+==
+
+# Target is value table
+[default language_features=CLONE_DATA]
+CLONE DATA INTO Int64ValueTable
+FROM KeyValue
+--
+ERROR: Cannot clone into a value table: Int64ValueTable [at 1:17]
+CLONE DATA INTO Int64ValueTable
+                ^
+==
+
 # Source and target have different number of columns
 [default language_features=CLONE_DATA]
 CLONE DATA INTO KeyValue

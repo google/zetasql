@@ -26,18 +26,19 @@ def Trim(s):
   return s
 
 
-def CleanComment(text, prefix=''):
-  """Remove extra indentation from comments.
+def CleanIndent(text, prefix=''):
+  """Remove extra indentation from comments or code.
 
-  This allows comments to be written as triple-quoted strings with natural
-  wrapping and the extra spaces will get stripped.
+  This allows code to be written as triple-quoted strings with natural
+  indentation in the python file, and that indentation will be removed
+  and replaced with the provided prefix.
 
   Args:
-    text: Comment text
+    text: Input code
     prefix: will be added to the start of each line.
 
   Returns:
-    Comment text with extra indentation removed.
+    Code text with indentation regenerated.
   """
   if text:
     text = text.strip()

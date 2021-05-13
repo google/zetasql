@@ -77,7 +77,7 @@ public abstract class Type implements Serializable {
     "EXTENDED",
     "JSON",
     "INTERVAL",
-    "TOKENSET",
+    "TOKENLIST",
   };
 
   /** Returns {@code true} if the given {@code date} value is within valid range. */
@@ -180,8 +180,8 @@ public abstract class Type implements Serializable {
     return kind == TypeKind.TYPE_INTERVAL;
   }
 
-  public boolean isTokenSet() {
-    return kind == TypeKind.TYPE_TOKENSET;
+  public boolean isTokenList() {
+    return kind == TypeKind.TYPE_TOKENLIST;
   }
 
   public boolean isGeography() {

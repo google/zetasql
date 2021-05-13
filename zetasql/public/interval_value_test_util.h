@@ -20,6 +20,8 @@
 #include <cstdint>
 
 #include "zetasql/public/interval_value.h"
+#include "absl/random/distributions.h"
+#include "absl/random/random.h"
 
 namespace zetasql {
 
@@ -71,6 +73,19 @@ inline IntervalValue Minutes(int64_t minutes) {
 
 inline IntervalValue Seconds(int64_t seconds) {
   return YMDHMS(0, 0, 0, 0, 0, seconds);
+}
+
+inline IntervalValue GenerateRandomInterval(absl::BitGen* gen) {
+  int64_t months =
+      absl::Uniform(*gen, IntervalValue::kMinMonths, IntervalValue::kMaxMonths);
+  int64_t days =
+      absl::Uniform(*gen, IntervalValue::kMinDays, IntervalValue::kMaxDays);
+  int64_t micros =
+      absl::Uniform(*gen, IntervalValue::kMinMicros, IntervalValue::kMaxMicros);
+  int64_t nano_fractions = absl::Uniform(*gen, -999, 999);
+  __int128 nanos = static_cast<__int128>(micros) * 1000 + nano_fractions;
+
+  return MonthsDaysNanos(months, days, nanos);
 }
 
 }  // namespace interval_testing

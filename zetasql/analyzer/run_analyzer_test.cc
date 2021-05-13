@@ -2043,7 +2043,7 @@ class AnalyzerTestRunner {
     }
 
     for (int i = 0; i < unparsed_path.size(); ++i) {
-      if (!zetasql_base::StringCaseEqual(output_path[i], unparsed_path[i])) {
+      if (!zetasql_base::CaseEqual(output_path[i], unparsed_path[i])) {
         return false;
       }
     }

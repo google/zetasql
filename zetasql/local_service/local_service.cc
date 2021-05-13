@@ -161,101 +161,17 @@ class RegisteredDescriptorPoolPool
   std::shared_ptr<RegisteredDescriptorPoolState> builtin_pool_;
 };
 
-// This class is thread-safe.
-class BaseSavedState : public GenericState {
- protected:
-  BaseSavedState() : GenericState(), initialized_(false) {}
-
-  absl::Status Init(const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets) {
-    absl::MutexLock lock(&mutex_);
-    ZETASQL_CHECK(!initialized_);
-
-    // In case Init() failed half way and called again.
-    pools_.clear();
-    const_pools_.clear();
-
-    const int num_pools = fdsets.size();
-    pools_.reserve(num_pools);
-    const_pools_.reserve(num_pools);
-
-    for (const auto& file_descirptor_set : fdsets) {
-      std::unique_ptr<google::protobuf::DescriptorPool> pool(
-          new google::protobuf::DescriptorPool());
-      ZETASQL_RETURN_IF_ERROR(
-          AddFileDescriptorSetToPool(&file_descirptor_set, pool.get()));
-      const_pools_.emplace_back(pool.get());
-      pools_.emplace_back(pool.release());
-    }
-
-    return absl::OkStatus();
-  }
-
-  absl::Status InitWithPools(
-      const std::vector<const google::protobuf::DescriptorPool*>& pools) {
-    absl::MutexLock lock(&mutex_);
-    const_pools_ = pools;
-    return absl::OkStatus();
-  }
-
+class PreparedExpressionState : public GenericState {
  public:
-  TypeFactory* GetTypeFactory() {
-    absl::MutexLock lock(&mutex_);
-    ZETASQL_CHECK(initialized_);
-
-    return &factory_;
-  }
-
-  const std::vector<const google::protobuf::DescriptorPool*>& GetDescriptorPools() {
-    absl::MutexLock lock(&mutex_);
-    ZETASQL_CHECK(initialized_);
-
-    return const_pools_;
-  }
-
- protected:
-  absl::Mutex mutex_;
-
-  bool initialized_ ABSL_GUARDED_BY(mutex_);
-
-  TypeFactory factory_ ABSL_GUARDED_BY(mutex_);
-
-  std::vector<std::unique_ptr<google::protobuf::DescriptorPool>> pools_
-      ABSL_GUARDED_BY(mutex_);
-  std::vector<const google::protobuf::DescriptorPool*> const_pools_
-      ABSL_GUARDED_BY(mutex_);
-};
-
-class PreparedExpressionState : public BaseSavedState {
- public:
-  PreparedExpressionState() : BaseSavedState() {}
+  PreparedExpressionState() {}
   PreparedExpressionState(const PreparedExpressionState&) = delete;
   PreparedExpressionState& operator=(const PreparedExpressionState&) = delete;
 
-  ABSL_DEPRECATED(" use InitAndDeserializeOptionsWithPools")
-  absl::Status InitAndDeserializeOptions(
-      const std::string& sql,
-      const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets,
-      const AnalyzerOptionsProto& proto) {
-    ZETASQL_RETURN_IF_ERROR(BaseSavedState::Init(fdsets));
-
-    absl::MutexLock lock(&mutex_);
-    ZETASQL_RETURN_IF_ERROR(AnalyzerOptions::Deserialize(proto, const_pools_, &factory_,
-                                                 &options_));
-    zetasql::EvaluatorOptions evaluator_options;
-    evaluator_options.type_factory = &factory_;
-    evaluator_options.default_time_zone = options_.default_time_zone();
-    exp_ = absl::make_unique<PreparedExpression>(sql, evaluator_options);
-    initialized_ = true;
-    return absl::OkStatus();
-  }
-
   absl::Status InitAndDeserializeOptionsWithPools(
       const std::string& sql, const AnalyzerOptionsProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
+      std::vector<const google::protobuf::DescriptorPool*> pools,
       absl::flat_hash_set<int64_t> owned_descriptor_pool_ids = {},
       absl::optional<int64_t> owned_catalog_id = absl::nullopt) {
-    ZETASQL_RETURN_IF_ERROR(BaseSavedState::InitWithPools(pools));
-
     absl::MutexLock lock(&mutex_);
     ZETASQL_RETURN_IF_ERROR(
         AnalyzerOptions::Deserialize(proto, pools, &factory_, &options_));
@@ -296,6 +212,11 @@ class PreparedExpressionState : public BaseSavedState {
   }
 
  private:
+  absl::Mutex mutex_;
+
+  bool initialized_ ABSL_GUARDED_BY(mutex_);
+
+  TypeFactory factory_ ABSL_GUARDED_BY(mutex_);
   // TODO: Restructure API so we can drop the mutexes.
   std::unique_ptr<PreparedExpression> exp_ ABSL_GUARDED_BY(mutex_);
   AnalyzerOptions options_ ABSL_GUARDED_BY(mutex_);
@@ -309,28 +230,16 @@ class PreparedExpressionState : public BaseSavedState {
 class PreparedExpressionPool : public SharedStatePool<PreparedExpressionState> {
 };
 
-class RegisteredCatalogState : public BaseSavedState {
+class RegisteredCatalogState : public GenericState {
  public:
-  RegisteredCatalogState() : BaseSavedState() {}
+  RegisteredCatalogState() {}
   RegisteredCatalogState(const RegisteredCatalogState&) = delete;
   RegisteredCatalogState& operator=(const RegisteredCatalogState&) = delete;
-
-  absl::Status Init(const SimpleCatalogProto& proto,
-                    const RepeatedPtrField<google::protobuf::FileDescriptorSet>& fdsets) {
-    ZETASQL_RETURN_IF_ERROR(BaseSavedState::Init(fdsets));
-
-    absl::MutexLock lock(&mutex_);
-    ZETASQL_RETURN_IF_ERROR(SimpleCatalog::Deserialize(proto, const_pools_, &catalog_));
-    initialized_ = true;
-    return absl::OkStatus();
-  }
 
   absl::Status InitWithPools(
       const SimpleCatalogProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       absl::flat_hash_set<int64_t> owned_descriptor_pool_ids = {}) {
-    ZETASQL_RETURN_IF_ERROR(BaseSavedState::InitWithPools(pools));
-
     absl::MutexLock lock(&mutex_);
     ZETASQL_RETURN_IF_ERROR(SimpleCatalog::Deserialize(proto, pools, &catalog_));
     owned_descriptor_pool_ids_ = std::move(owned_descriptor_pool_ids);
@@ -349,6 +258,10 @@ class RegisteredCatalogState : public BaseSavedState {
   }
 
  private:
+  absl::Mutex mutex_;
+
+  bool initialized_ ABSL_GUARDED_BY(mutex_);
+
   std::unique_ptr<SimpleCatalog> catalog_ ABSL_GUARDED_BY(mutex_);
   absl::flat_hash_set<int64_t> owned_descriptor_pool_ids_;
 };
@@ -406,59 +319,31 @@ absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
 
   std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>
       descriptor_pool_states;
-  absl::flat_hash_set<int64_t> owned_descriptor_pool_ids;
-  std::optional<int64_t> owned_catalog_id;
+  ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
+                                     descriptor_pool_states, pools));
 
+  absl::flat_hash_set<int64_t> owned_descriptor_pool_ids;
   // On error, make sure we don't leak any registered descriptor pools.
   auto descriptor_pool_cleanup = absl::MakeCleanup(
       absl::bind_front(&ZetaSqlLocalServiceImpl::CleanupDescriptorPools, this,
                        &owned_descriptor_pool_ids));
+  ZETASQL_RETURN_IF_ERROR(RegisterNewDescriptorPools(
+      descriptor_pool_states, owned_descriptor_pool_ids,
+      *(response->mutable_prepared()->mutable_descriptor_pool_id_list())));
+
+  ZETASQL_RETURN_IF_ERROR(GetCatalogState(request, pools, catalog_state));
+  std::optional<int64_t> owned_catalog_id;
   auto catalog_cleanup = absl::MakeCleanup(absl::bind_front(
       &ZetaSqlLocalServiceImpl::CleanupCatalog, this, &owned_catalog_id));
 
-  if (request.has_descriptor_pool_list()) {
-    ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
-                                       descriptor_pool_states, pools));
-
-    ZETASQL_RETURN_IF_ERROR(RegisterNewDescriptorPools(
-        descriptor_pool_states, owned_descriptor_pool_ids,
-        *(response->mutable_prepared()->mutable_descriptor_pool_id_list())));
-
-    ZETASQL_RETURN_IF_ERROR(GetCatalogState(request, pools, catalog_state));
-    if (catalog_state != nullptr && !catalog_state->IsRegistered()) {
-      owned_catalog_id = registered_catalogs_->Register(catalog_state);
-      ZETASQL_RET_CHECK_NE(-1, owned_catalog_id.value())
-          << "Failed to register catalog, this shouldn't happen";
-    }
-    ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptionsWithPools(
-        request.sql(), request.options(), pools, owned_descriptor_pool_ids,
-        owned_catalog_id));
-  } else {
-    // TODO: remove once Java stops using this.
-    ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptions(
-        request.sql(), request.file_descriptor_set(), request.options()));
-
-    RegisteredCatalogState* catalog_state = nullptr;
-    // Needed to hold the new state because shared_ptr doesn't support
-    // release().
-    std::unique_ptr<RegisteredCatalogState> new_catalog_state;
-
-    if (request.has_registered_catalog_id()) {
-      int64_t id = request.registered_catalog_id();
-      std::shared_ptr<RegisteredCatalogState> shared_state =
-          registered_catalogs_->Get(id);
-      catalog_state = shared_state.get();
-      if (catalog_state == nullptr) {
-        return MakeSqlError() << "Registered catalog " << id << " unknown.";
-      }
-    } else if (request.has_simple_catalog()) {
-      new_catalog_state = absl::make_unique<RegisteredCatalogState>();
-      catalog_state = new_catalog_state.get();
-      ZETASQL_RETURN_IF_ERROR(catalog_state->Init(request.simple_catalog(),
-                                          request.file_descriptor_set()));
-    }
-    pools = state->GetDescriptorPools();
+  if (catalog_state != nullptr && !catalog_state->IsRegistered()) {
+    owned_catalog_id = registered_catalogs_->Register(catalog_state);
+    ZETASQL_RET_CHECK_NE(-1, owned_catalog_id.value())
+        << "Failed to register catalog, this shouldn't happen";
   }
+  ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptionsWithPools(
+      request.sql(), request.options(), pools, owned_descriptor_pool_ids,
+      owned_catalog_id));
   ZETASQL_RETURN_IF_ERROR(state->GetPreparedExpression()->Prepare(
       state->GetAnalyzerOptions(),
       catalog_state != nullptr ? catalog_state->GetCatalog() : nullptr));
@@ -498,6 +383,9 @@ absl::Status ZetaSqlLocalServiceImpl::RegisterPrepared(
       << "Failed to register prepared state, this shouldn't happen.";
 
   response->set_prepared_expression_id(id);
+  if (response->descriptor_pool_id_list().registered_ids_size() == 0) {
+    response->clear_descriptor_pool_id_list();
+  }
 
   return absl::OkStatus();
 }
@@ -543,47 +431,32 @@ absl::Status ZetaSqlLocalServiceImpl::Evaluate(const EvaluateRequest& request,
   auto descriptor_pool_cleanup = absl::MakeCleanup(
       absl::bind_front(&ZetaSqlLocalServiceImpl::CleanupDescriptorPools, this,
                        &owned_descriptor_pool_ids));
-
-  if (request.has_descriptor_pool_list()) {
+  if (prepared) {
+    // Descriptor pools should only be transmitted during prepare (or the
+    // the first call to evaluate, which is implicitly a Prepare).
+    ZETASQL_RET_CHECK_EQ(request.descriptor_pool_list().definitions_size(), 0);
+    int64_t id = request.prepared_expression_id();
+    state = prepared_expressions_->Get(id);
+    if (state == nullptr) {
+      return MakeSqlError() << "Prepared expression " << id << " unknown.";
+    }
+  } else {
     ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
                                        descriptor_pool_states, pools));
 
     ZETASQL_RETURN_IF_ERROR(RegisterNewDescriptorPools(
         descriptor_pool_states, owned_descriptor_pool_ids,
         *(response->mutable_prepared()->mutable_descriptor_pool_id_list())));
-
-    if (prepared) {
-      int64_t id = request.prepared_expression_id();
-      state = prepared_expressions_->Get(id);
-      if (state == nullptr) {
-        return MakeSqlError() << "Prepared expression " << id << " unknown.";
-      }
-    } else {
-      state = std::make_shared<PreparedExpressionState>();
-      ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptionsWithPools(
-          request.sql(), request.options(), pools, owned_descriptor_pool_ids,
-          /*owned_catalog_id=*/std::nullopt));
-      if (request.has_options()) {
-        // PreparedExpression::Prepare must be invoked if we need to supply
-        // analyzer options.
-        ZETASQL_RETURN_IF_ERROR(state->GetPreparedExpression()->Prepare(
-            state->GetAnalyzerOptions(), nullptr));
-      }
+    state = std::make_shared<PreparedExpressionState>();
+    ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptionsWithPools(
+        request.sql(), request.options(), pools, owned_descriptor_pool_ids,
+        /*owned_catalog_id=*/std::nullopt));
+    if (request.has_options()) {
+      // PreparedExpression::Prepare must be invoked if we need to supply
+      // analyzer options.
+      ZETASQL_RETURN_IF_ERROR(state->GetPreparedExpression()->Prepare(
+          state->GetAnalyzerOptions(), nullptr));
     }
-  } else {
-    // TODO: remove once Java stops using this.
-    if (prepared) {
-      int64_t id = request.prepared_expression_id();
-      state = prepared_expressions_->Get(id);
-      if (state == nullptr) {
-        return MakeSqlError() << "Prepared expression " << id << " unknown.";
-      }
-    } else {
-      state = std::make_shared<PreparedExpressionState>();
-      ZETASQL_RETURN_IF_ERROR(state->InitAndDeserializeOptions(
-          request.sql(), request.file_descriptor_set(), request.options()));
-    }
-    pools = state->GetDescriptorPools();
   }
   ZETASQL_RETURN_IF_ERROR(EvaluateImpl(request, state.get(), response));
 
@@ -734,24 +607,9 @@ absl::Status ZetaSqlLocalServiceImpl::Analyze(const AnalyzeRequest& request,
   std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>
       descriptor_pool_states;
 
-  if (request.has_descriptor_pool_list()) {
-    ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
-                                       descriptor_pool_states, pools));
-    ZETASQL_RETURN_IF_ERROR(GetCatalogState(request, pools, catalog_state));
-  } else {
-    if (request.has_registered_catalog_id()) {
-      int64_t id = request.registered_catalog_id();
-      catalog_state = registered_catalogs_->Get(id);
-      if (catalog_state == nullptr) {
-        return MakeSqlError() << "Registered catalog " << id << " unknown.";
-      }
-    } else {
-      catalog_state = std::make_shared<RegisteredCatalogState>();
-      ZETASQL_RETURN_IF_ERROR(catalog_state->Init(request.simple_catalog(),
-                                          request.file_descriptor_set()));
-    }
-    pools = catalog_state->GetDescriptorPools();
-  }
+  ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
+                                     descriptor_pool_states, pools));
+  ZETASQL_RETURN_IF_ERROR(GetCatalogState(request, pools, catalog_state));
   if (request.has_sql_expression()) {
     return AnalyzeExpressionImpl(request, pools, catalog_state->GetCatalog(),
                                  response);
@@ -829,28 +687,13 @@ absl::Status ZetaSqlLocalServiceImpl::BuildSql(const BuildSqlRequest& request,
   std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>
       descriptor_pool_states;
 
-  if (request.has_descriptor_pool_list()) {
-    ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
-                                       descriptor_pool_states, pools));
-    ZETASQL_RETURN_IF_ERROR(GetCatalogState(request, pools, catalog_state));
-  } else {
-    if (request.has_registered_catalog_id()) {
-      int64_t id = request.registered_catalog_id();
-      catalog_state = registered_catalogs_->Get(id);
-      if (catalog_state == nullptr) {
-        return MakeSqlError() << "Registered catalog " << id << " unknown.";
-      }
-    } else {
-      catalog_state = std::make_shared<RegisteredCatalogState>();
-      ZETASQL_RETURN_IF_ERROR(catalog_state->Init(request.simple_catalog(),
-                                          request.file_descriptor_set()));
-    }
-    pools = catalog_state->GetDescriptorPools();
-  }
+  ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
+                                     descriptor_pool_states, pools));
+  ZETASQL_RETURN_IF_ERROR(GetCatalogState(request, pools, catalog_state));
   IdStringPool string_pool;
-  ResolvedNode::RestoreParams restore_params(pools, catalog_state->GetCatalog(),
-                                             catalog_state->GetTypeFactory(),
-                                             &string_pool);
+  ResolvedNode::RestoreParams restore_params(
+      pools, catalog_state->GetCatalog(),
+      catalog_state->GetCatalog()->type_factory(), &string_pool);
 
   std::unique_ptr<ResolvedNode> ast;
   if (request.has_resolved_statement()) {
@@ -973,39 +816,34 @@ absl::Status ZetaSqlLocalServiceImpl::FormatSql(
 absl::Status ZetaSqlLocalServiceImpl::RegisterCatalog(
     const RegisterCatalogRequest& request, RegisterResponse* response) {
   std::unique_ptr<RegisteredCatalogState> state(new RegisteredCatalogState());
-  absl::flat_hash_set<int64_t> owned_descriptor_pool_ids;
 
+  std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>
+      descriptor_pool_states;
+  std::vector<const google::protobuf::DescriptorPool*> pools;
+
+  ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
+                                     descriptor_pool_states, pools));
+
+  absl::flat_hash_set<int64_t> owned_descriptor_pool_ids;
   // On error, make sure we don't leak any registered descriptor pools.
   auto descriptor_pool_cleanup = absl::MakeCleanup(
       absl::bind_front(&ZetaSqlLocalServiceImpl::CleanupDescriptorPools, this,
                        &owned_descriptor_pool_ids));
-
-  if (request.has_descriptor_pool_list()) {
-    std::vector<std::shared_ptr<RegisteredDescriptorPoolState>>
-        descriptor_pool_states;
-    std::vector<const google::protobuf::DescriptorPool*> pools;
-
-    ZETASQL_RETURN_IF_ERROR(GetDescriptorPools(request.descriptor_pool_list(),
-                                       descriptor_pool_states, pools));
-
-    for (std::shared_ptr<RegisteredDescriptorPoolState>& pool_state :
-         descriptor_pool_states) {
-      if (!pool_state->IsRegistered()) {
-        // Not registered, so we registered it, and own it.
-        int64_t pool_id = registered_descriptor_pools_->Register(pool_state);
-        ZETASQL_RET_CHECK_NE(-1, pool_id)
-            << "Failed to register descriptor pool, this shouldn't happen";
-        owned_descriptor_pool_ids.insert(pool_id);
-      }
-      response->mutable_descriptor_pool_id_list()->add_registered_ids(
-          pool_state->GetId());
+  for (std::shared_ptr<RegisteredDescriptorPoolState>& pool_state :
+       descriptor_pool_states) {
+    if (!pool_state->IsRegistered()) {
+      // Not registered, so we registered it, and own it.
+      int64_t pool_id = registered_descriptor_pools_->Register(pool_state);
+      ZETASQL_RET_CHECK_NE(-1, pool_id)
+          << "Failed to register descriptor pool, this shouldn't happen";
+      owned_descriptor_pool_ids.insert(pool_id);
     }
-    ZETASQL_RETURN_IF_ERROR(state->InitWithPools(request.simple_catalog(), pools,
-                                         owned_descriptor_pool_ids));
-  } else {
-    ZETASQL_RETURN_IF_ERROR(
-        state->Init(request.simple_catalog(), request.file_descriptor_set()));
+    response->mutable_descriptor_pool_id_list()->add_registered_ids(
+        pool_state->GetId());
   }
+
+  ZETASQL_RETURN_IF_ERROR(state->InitWithPools(request.simple_catalog(), pools,
+                                       owned_descriptor_pool_ids));
   int64_t id = registered_catalogs_->Register(std::move(state));
   ZETASQL_RET_CHECK_NE(-1, id) << "Failed to register catalog, this shouldn't happen.";
 

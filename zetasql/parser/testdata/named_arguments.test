@@ -3,6 +3,9 @@
 #
 # Valid function call with named arguments in the same order as they appear in
 # the function signature.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select parse_date(format_string => "%x", date_string => "12/25/08")
 --
 QueryStatement [0-67]

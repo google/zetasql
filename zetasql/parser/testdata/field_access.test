@@ -1,5 +1,8 @@
 # Tests for field access, including simple path expressions (a.b.c) and
 # generalized identifiers. Generalized field access (e.g. extensions) is tested
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select NULL, x from a.b.c.T;
 --
 QueryStatement [0-27]

@@ -15,7 +15,7 @@
 #
 
 """Tests for generator_utils."""
-from zetasql.parser.generator_utils import CleanComment
+from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import Trim
 from absl.testing import absltest
 
@@ -27,7 +27,7 @@ class GeneratorUtilsTest(absltest.TestCase):
     expected = '\n\nbrevity\n\nis the soul\n\nof wit\n\n'
     self.assertEqual(expected, Trim(untrimmed))
 
-  def test_clean_comment(self):
+  def test_clean_indent(self):
     comment = """
     First line of comment, often rather short.
 
@@ -38,7 +38,7 @@ class GeneratorUtilsTest(absltest.TestCase):
 //\u0020
 // Sometimes there is a much longer, rambling, multiline continuation which
 // has a lot more detail."""
-    self.assertEqual(expected, CleanComment(comment, prefix='// '))
+    self.assertEqual(expected, CleanIndent(comment, prefix='// '))
 
 
 if __name__ == '__main__':

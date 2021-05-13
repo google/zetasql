@@ -271,6 +271,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadProtoTables();
   LoadNestedCatalogs();
   LoadFunctions();
+  LoadExtendedSubscriptFunctions();
   LoadFunctionsWithDefaultArguments();
   LoadTemplatedSQLUDFs();
   LoadTableValuedFunctions1();
@@ -1198,6 +1199,32 @@ void SampleCatalog::AddFunctionWithArgumentType(std::string type_name,
       absl::StrCat("fn_on_", type_name), "sample_functions", Function::SCALAR);
   function->AddSignature({types_->get_bool(), {arg_type}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(std::move(function));
+}
+
+void SampleCatalog::LoadExtendedSubscriptFunctions() {
+  // Add new signatures for '$subscript_with_offset' so we can do some
+  // additional testing.  The signatures are:
+  // 1) <string>[OFFSET(<int64_t>)]:
+  //    $subscript_with_offset(string, int64_t) -> (string)
+  // 2) <string>[OFFSET(<string>)]:
+  //    $subscript_with_offset(string, string) -> (string)
+  const Function* subscript_offset_function;
+  ZETASQL_CHECK_OK(catalog_->GetFunction("$subscript_with_offset",
+                                 &subscript_offset_function));
+  ZETASQL_CHECK(subscript_offset_function != nullptr);
+  // If we ever update the builtin function implementation to actually include
+  // a signature, then take a look at this code to see if it is still needed.
+  ZETASQL_CHECK_EQ(subscript_offset_function->NumSignatures(), 0);
+  Function* mutable_subscript_offset_function =
+      const_cast<Function*>(subscript_offset_function);
+  mutable_subscript_offset_function->AddSignature(
+      {types_->get_string(),
+       {types_->get_string(), types_->get_int64()},
+       /*context_id=*/-1});
+  mutable_subscript_offset_function->AddSignature(
+      {types_->get_string(),
+       {types_->get_string(), types_->get_string()},
+       /*context_id=*/-1});
 }
 
 void SampleCatalog::LoadFunctions() {
@@ -4380,7 +4407,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
                             output_schema_all_types,
                             /*extra_relation_input_columns_allowed=*/false),
                         FunctionArgumentTypeList(), context_id++),
-      output_schema_all_types, "column_int64"));
+      output_schema_all_types, {"column_int64"}));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
       {"tvf_one_relation_arg_with_anonymization_uid"},
@@ -4390,7 +4417,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
               /*extra_relation_input_columns_allowed=*/false),
           FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_RELATION)}),
           context_id++),
-      output_schema_all_types, "column_int64"));
+      output_schema_all_types, {"column_int64"}));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
       {"tvf_one_templated_arg_with_anonymization_uid"},
@@ -4400,7 +4427,29 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
               /*extra_relation_input_columns_allowed=*/false),
           FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_ARBITRARY)}),
           context_id++),
-      output_schema_all_types, "column_int64"));
+      output_schema_all_types, {"column_int64"}));
+
+  TVFRelation output_schema_proto(
+      {{"user_info", GetProtoType(zetasql_test::TestExtraPB::descriptor())}});
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+      {"tvf_no_args_with_nested_anonymization_uid"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_proto,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        FunctionArgumentTypeList(), context_id++),
+      output_schema_proto, {"user_info", "int32_val1"}));
+
+  TVFRelation output_schema_proto_value_table = TVFRelation::ValueTable(
+      GetProtoType(zetasql_test::TestExtraPB::descriptor()));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+      {"tvf_no_args_value_table_with_nested_anonymization_uid"},
+      FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                            output_schema_proto_value_table,
+                            /*extra_relation_input_columns_allowed=*/false),
+                        FunctionArgumentTypeList(), context_id++),
+      output_schema_proto_value_table, {"int32_val1"}));
 }
 
 void SampleCatalog::AddProcedureWithArgumentType(std::string type_name,

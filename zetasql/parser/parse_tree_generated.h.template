@@ -41,7 +41,6 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
  public:
  # if node.is_abstract
   explicit {{node.name}}(ASTNodeKind kind) : {{node.parent}}(kind) {}
-{{blank_line}}
  # else
   static constexpr ASTNodeKind kConcreteNodeKind = {{node.node_kind}};
 {{blank_line}}
@@ -56,6 +55,9 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 
  # if node.use_custom_debug_string
 {{blank_line}}
+  # if node.custom_debug_string_comment
+  {{node.custom_debug_string_comment}}
+  # endif
   std::string SingleNodeDebugString() const override;
  # endif
  # for enum_def in node.enum_defs
@@ -107,6 +109,11 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 {{blank_line}}
    # set ns.section_blank_line = false
    # endif
+   # if field.comment
+{{blank_line}}
+{{field.comment}}
+   # set ns.section_blank_line = true
+   # endif
   const {{field.member_type}}& {{field.name}}() const {
     return {{field.member_name}};
   }
@@ -116,14 +123,19 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
  # endfor
 
  # if node.extra_defs
+{{blank_line}}
 {{node.extra_defs}}
  # endif
 
- # if node.fields or node.extra_private_defs
+ # if node.fields or node.extra_private_defs or node.gen_init_fields
 {{blank_line}}
  private:
   # if node.gen_init_fields
+   # if node.class_final
   void InitFields() final {
+   # else
+  void InitFields() override {
+   # endif
     FieldLoader fl(this);
    # for field in node.fields
     # if field.is_node_ptr or field.is_vector
@@ -139,6 +151,8 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
     fl.AddRepeatedWhileIsNodeKind(&{{field.member_name}}, {{field.node_kind}});
      # elif field.field_loader == 'REPEATING_WHILE_IS_EXPRESSION'
     fl.AddRepeatedWhileIsExpression(&{{field.member_name}});
+     # elif field.field_loader == 'OPTIONAL_TYPE'
+    fl.AddOptionalType(&{{field.member_name}});
      # endif
     # endif
    # endfor

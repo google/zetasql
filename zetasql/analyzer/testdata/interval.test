@@ -630,6 +630,50 @@ QueryStmt
       +-SingleRowScan
 ==
 
+[language_features=INTERVAL_TYPE]
+select i * 10, 2 * i, i / 10 from (select interval 1 day as i)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [INTERVAL]
+| +-$query.$col2#3 AS `$col2` [INTERVAL]
+| +-$query.$col3#4 AS `$col3` [INTERVAL]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#2, $col2#3, $col3#4]
+    +-expr_list=
+    | +-$col1#2 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INTERVAL, INT64) -> INTERVAL)
+    | |   +-ColumnRef(type=INTERVAL, column=$subquery1.i#1)
+    | |   +-Literal(type=INT64, value=10)
+    | +-$col2#3 :=
+    | | +-FunctionCall(ZetaSQL:$multiply(INT64, INTERVAL) -> INTERVAL)
+    | |   +-Literal(type=INT64, value=2)
+    | |   +-ColumnRef(type=INTERVAL, column=$subquery1.i#1)
+    | +-$col3#4 :=
+    |   +-FunctionCall(ZetaSQL:$divide(INTERVAL, INT64) -> INTERVAL)
+    |     +-ColumnRef(type=INTERVAL, column=$subquery1.i#1)
+    |     +-Literal(type=INT64, value=10)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.i#1]
+        +-expr_list=
+        | +-i#1 :=
+        |   +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+[language_features=INTERVAL_TYPE]
+select 10 / INTERVAL '10' YEAR
+--
+ERROR: No matching signature for operator / for argument types: INT64, INTERVAL. Supported signatures: DOUBLE / DOUBLE; INTERVAL / INT64 [at 1:8]
+select 10 / INTERVAL '10' YEAR
+       ^
+==
+
 [language_features=INTERVAL_TYPE,NAMED_ARGUMENTS]
 select
   make_interval(year => 1),

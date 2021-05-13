@@ -572,7 +572,7 @@ CreateTableAsSelectStmt
 | +-ColumnDefinition(name="z", type=INT64, column=MyTable.z#3)
 | +-ColumnDefinition(name="y2", type=STRING, column=MyTable.y2#4)
 +-primary_key=
-| +-PrimaryKey(column_offset_list=[2, 0])
+| +-PrimaryKey(column_offset_list=[2, 0], column_name_list=[z, x])
 +-output_column_list=
 | +-$create_as_cast.Key#8 AS x [INT32]
 | +-KeyValue.Value#6 AS y [STRING]
@@ -696,7 +696,7 @@ CreateTableAsSelectStmt
 |   | +-ColumnAnnotations(not_null=TRUE)
 |   +-column=t1.c3#3
 +-primary_key=
-| +-PrimaryKey(column_offset_list=[0])
+| +-PrimaryKey(column_offset_list=[0], column_name_list=[c1])
 +-output_column_list=
 | +-$create_as_cast.Key#8 AS c1 [INT32]
 | +-$create_as_cast.$col2#9 AS c2 [STRUCT<INT64, z STRING>]
@@ -1172,7 +1172,7 @@ CreateTableAsSelectStmt
 |   +-column=t1.c3#3
 +-pseudo_column_list=t1.[pseudo_column_int32#10, pseudo_column_kitchensink#11, pseudo_column_timestamp#12]
 +-primary_key=
-| +-PrimaryKey(column_offset_list=[0])
+| +-PrimaryKey(column_offset_list=[0], column_name_list=[c1])
 +-partition_by_list=
 | +-ColumnRef(type=INT32, column=t1.c1#1)
 +-cluster_by_list=

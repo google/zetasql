@@ -35,6 +35,8 @@ message ResolvedSubqueryExprEnums {
     ARRAY = 1;
     EXISTS = 2;
     IN = 3;
+    LIKE_ANY = 4;
+    LIKE_ALL = 5;
   }
 }
 

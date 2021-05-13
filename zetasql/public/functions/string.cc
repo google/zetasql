@@ -2072,8 +2072,7 @@ void ThreeBytesToEightBase8Digits(const unsigned char* in_bytes,
 // bytes.
 const int kBase8NumUnescapedBytes[] = {0, 1, 1, 1, 2, 2, 2, 3};
 
-void EightBase8DigitsToThreeBytes(const char* in,
-                                         unsigned char* bytes_out) {
+void EightBase8DigitsToThreeBytes(const char* in, unsigned char* bytes_out) {
   // It's easier to just hard code this.
   // The conversion is based on the following picture of the division of a
   // 3-byte words into 8 bytes:
@@ -2270,20 +2269,41 @@ bool UTF8CheckAndCopy(absl::string_view str, std::string* out,
   return true;
 }
 
+bool ToBase64m(absl::string_view str, std::string* out, absl::Status* error) {
+  std::string base64;
+  if (!ToBase64(str, &base64, error)) {
+    return false;
+  }
 
-bool ToBase64m(absl::string_view str,
-               std::string* out, absl::Status* error){
-  bool result = ToBase64(str, out, error);
-    if (result && !out->empty() && out->size() > kMaxLineLengthBase64M) {
-      size_t newline_cnt = (out->size() - 1) / kMaxLineLengthBase64M;
-      size_t newline_pos = 0;
-      while (newline_cnt > 0) {
-        newline_pos += kMaxLineLengthBase64M;
-        out->insert(newline_pos, "\n");
-        newline_cnt--;
-      }
-    }
-    return result;
+  if (base64.size() <= kMaxLineLengthBase64M) {
+    *out = std::move(base64);
+    return true;
+  }
+
+  size_t new_line_cnt = (base64.size() - 1) / kMaxLineLengthBase64M;
+
+  out->clear();
+  size_t required_size = base64.size() + new_line_cnt;
+  out->reserve(required_size);
+
+  // Copies <base64> to <out> every <kMaxLineLengthBase64M>
+  // characters and adds newline characters ('\n') between lines.
+  const char* src_ptr = base64.data();
+  const char* src_end_ptr = base64.data() + base64.size();
+
+  while (out->size() < required_size) {
+    size_t copy_length = std::min(kMaxLineLengthBase64M,
+                                  static_cast<size_t>(src_end_ptr - src_ptr));
+
+    bool last_line = src_ptr + copy_length >= src_end_ptr;
+
+    absl::StrAppend(out, absl::string_view(src_ptr, copy_length),
+                    last_line ? "" : "\n");
+
+    src_ptr += copy_length;
+  }
+
+  return true;
 }
 
 const ConversionFuncMap& GetConversionFuncMap() {

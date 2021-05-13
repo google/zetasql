@@ -31,7 +31,7 @@ from absl import flags
 import jinja2
 
 from zetasql.parser import ast_enums_pb2
-from zetasql.parser.generator_utils import CleanComment
+from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 
@@ -53,6 +53,14 @@ def NormalCamel(name):
     return 'AstBignumericLiteral'
   elif name == 'ASTJSONLiteral':
     return 'AstJsonLiteral'
+  elif name == 'ASTTVFSchema':
+    return 'AstTvfSchema'
+  elif name == 'ASTTVF':
+    return 'AstTvf'
+  elif name == 'ASTTVFArgument':
+    return 'AstTvfArgument'
+  elif name == 'ASTTVFSchemaColumn':
+    return 'AstTvfSchemaColumn'
   else:
     return name.replace('AST', 'Ast')
 
@@ -64,6 +72,10 @@ def NameToNodeKind(name):
 SCALAR_BOOL = ScalarType(
     'bool',
     cpp_default='false')
+
+SCALAR_BOOL_DEFAULT_TRUE = ScalarType(
+    'bool',
+    cpp_default='true')
 
 SCALAR_STRING = ScalarType(
     'std::string')
@@ -96,7 +108,7 @@ def EnumScalarType(enum_name, node_name, cpp_default):
       cpp_default=cpp_default)
 
 
-SCALAR_OP = EnumScalarType('Op', 'ASTBinaryExpression', 'NOT_SET')
+SCALAR_BINARY_OP = EnumScalarType('Op', 'ASTBinaryExpression', 'NOT_SET')
 
 SCALAR_ORDERING_SPEC = EnumScalarType('OrderingSpec', 'ASTOrderingExpression',
                                       'UNSPECIFIED')
@@ -118,6 +130,56 @@ SCALAR_MODIFIER_KIND = EnumScalarType('ModifierKind', 'ASTHavingModifier',
 SCALAR_OPERATION_TYPE = EnumScalarType('OperationType', 'ASTSetOperation',
                                        'NOT_SET')
 
+SCALAR_OPERATION_TYPE = EnumScalarType('OperationType', 'ASTSetOperation',
+                                       'NOT_SET')
+
+SCALAR_UNARY_OP = EnumScalarType('Op', 'ASTUnaryExpression', 'NOT_SET')
+
+SCALAR_FRAME_UNIT = EnumScalarType('FrameUnit', 'ASTWindowFrame', 'RANGE')
+
+SCALAR_BOUNDARY_TYPE = EnumScalarType('BoundaryType', 'ASTWindowFrameExpr',
+                                      'UNBOUNDED_PRECEDING')
+
+SCALAR_ANY_SOME_ALL_OP = EnumScalarType('Op', 'ASTAnySomeAllOp',
+                                        'kUninitialized')
+SCALAR_READ_WRITE_MODE = EnumScalarType('Mode', 'ASTTransactionReadWriteMode',
+                                        'INVALID')
+
+SCALAR_IMPORT_KIND = EnumScalarType('ImportKind', 'ASTImportStatement',
+                                    'MODULE')
+
+SCALAR_NULL_FILTER = EnumScalarType('NullFilter', 'ASTUnpivotClause',
+                                    'kUnspecified')
+
+SCALAR_SCOPE = EnumScalarType('Scope', 'ASTCreateStatement', 'DEFAULT_SCOPE')
+
+SCALAR_SQL_SECURITY = EnumScalarType('SqlSecurity', 'ASTCreateStatement',
+                                     'DEFAULT_SCOPE')
+
+SCALAR_PROCEDURE_PARAMETER_MODE = EnumScalarType('ProcedureParameterMode',
+                                                 'ASTFunctionParameter',
+                                                 'NOT_SET')
+
+SCALAR_TEMPLATED_TYPE_KIND = EnumScalarType('TemplatedTypeKind',
+                                            'ASTTemplatedParameterType',
+                                            'UNINITIALIZED')
+
+SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ASTGeneratedColumnInfo',
+                                    'NON_STORED')
+
+SCALAR_RELATIVE_POSITION_TYPE = EnumScalarType('RelativePositionType',
+                                               'ASTColumnPosition', 'PRECEDING')
+
+SCALAR_INSERT_MODE = EnumScalarType('InsertMode', 'ASTInsertStatement',
+                                    'DEFAULT_MODE')
+
+SCALAR_PARSE_PROGRESS = EnumScalarType('ParseProgress', 'ASTInsertStatement',
+                                       'kInitial')
+
+SCALAR_ACTION_TYPE = EnumScalarType('ActionType', 'ASTMergeAction', 'NOT_SET')
+
+SCALAR_MATCH_TYPE = EnumScalarType('MatchType', 'ASTMergeWhenClause', 'NOT_SET')
+
 
 # Identifies the FieldLoader method used to populate member fields.
 # Each node field in a subclass is added to the children_ vector in ASTNode,
@@ -128,6 +190,8 @@ SCALAR_OPERATION_TYPE = EnumScalarType('OperationType', 'ASTSetOperation',
 #           field.
 # OPTIONAL: The next node in the vector, if it exists, is used for this field.
 # OPTIONAL_EXPRESSION: The next node in the vector for which IsExpression()
+#           is true, if it exists, is used for this field.
+# OPTIONAL_TYPE: The next node in the vector for which IsType()
 #           is true, if it exists, is used for this field.
 # REST_AS_REPEATED: All remaining nodes, if any, are used for this field,
 #           which should be a vector type.
@@ -142,8 +206,9 @@ class FieldLoaderMethod(enum.Enum):
   OPTIONAL = 2
   REST_AS_REPEATED = 3
   OPTIONAL_EXPRESSION = 4
-  REPEATING_WHILE_IS_NODE_KIND = 5
-  REPEATING_WHILE_IS_EXPRESSION = 6
+  OPTIONAL_TYPE = 5
+  REPEATING_WHILE_IS_NODE_KIND = 6
+  REPEATING_WHILE_IS_EXPRESSION = 7
 
 
 def Field(name,
@@ -214,8 +279,8 @@ def Field(name,
       'cpp_default': cpp_default,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
-      'comment': CleanComment(comment, prefix='  // '),
-      'private_comment': CleanComment(private_comment, prefix='  // '),
+      'comment': CleanIndent(comment, prefix='  // '),
+      'private_comment': CleanIndent(private_comment, prefix='  // '),
       'member_type': member_type,
       'is_node_ptr': is_node_ptr,
       'field_loader': field_loader.name,
@@ -243,6 +308,7 @@ class TreeGenerator(object):
               extra_private_defs='',
               comment=None,
               use_custom_debug_string=False,
+              custom_debug_string_comment=None,
               force_gen_init_fields=False):
     """Add a node class to be generated.
 
@@ -258,6 +324,8 @@ class TreeGenerator(object):
           de-indented.
       use_custom_debug_string: If True, generate prototype for overridden
           SingleNodeDebugString method.
+      custom_debug_string_comment: Optional comment for SingleNodeDebugString
+          method.
       force_gen_init_fields: If True, generate the InitFields method even when
           there are no fields to be added, so as to ensure there are no children
     """
@@ -277,17 +345,24 @@ class TreeGenerator(object):
       if (field['is_node_ptr'] or field['is_vector']
          ) and field['field_loader'] != 'NONE':
         gen_init_fields = True
+    if custom_debug_string_comment:
+      assert use_custom_debug_string, ('custom_debug_string_comment should be '
+                                       'used with use_custom_debug_string')
+      custom_debug_string_comment = CleanIndent(
+          custom_debug_string_comment, prefix='// ')
+
     node_dict = ({
         'name': name,
         'parent': parent,
         'class_final': class_final,
         'is_abstract': is_abstract,
-        'comment': CleanComment(comment, prefix='// '),
+        'comment': CleanIndent(comment, prefix='// '),
         'fields': fields,
         'node_kind': node_kind,
         'extra_defs': extra_defs.rstrip(),
         'extra_private_defs': extra_private_defs.lstrip('\n').rstrip(),
         'use_custom_debug_string': use_custom_debug_string,
+        'custom_debug_string_comment': custom_debug_string_comment,
         'gen_init_fields': gen_init_fields,
         'enum_defs': enum_defs})
 
@@ -806,7 +881,7 @@ def main(argv):
       use_custom_debug_string=True,
       fields=[
           Field('op',
-                SCALAR_OP,
+                SCALAR_BINARY_OP,
                 comment="""
                 See description of Op values in ast_enums.proto.
                 """),
@@ -2004,9 +2079,2396 @@ def main(argv):
               'ASTSampleClause'),
       ])
 
-  gen.Generate(
-      output_path,
-      h_template_path=h_template_path)
+  gen.AddNode(
+      name='ASTUnaryExpression',
+      parent='ASTExpression',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'operand',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'op',
+              SCALAR_UNARY_OP),
+      ],
+      extra_defs="""
+  bool IsAllowedInComparison() const override {
+    return parenthesized() || op_ != NOT;
+  }
+
+  std::string GetSQLForOperator() const;
+      """)
+
+  gen.AddNode(
+      name='ASTUnnestExpression',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTWindowClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'windows',
+              'ASTWindowDefinition',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTWindowDefinition',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Required, never NULL.
+              """),
+          Field(
+              'window_spec',
+              'ASTWindowSpecification',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Required, never NULL.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTWindowFrame',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'start_expr',
+              'ASTWindowFrameExpr',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Starting boundary expression. Never NULL.
+              """),
+          Field(
+              'end_expr',
+              'ASTWindowFrameExpr',
+              private_comment="""
+              Ending boundary expression. Can be NULL.
+              When this is NULL, the implicit ending boundary is CURRENT ROW.
+              """),
+          Field(
+              'frame_unit',
+              SCALAR_FRAME_UNIT,
+              gen_setters_and_getters=False),
+      ],
+      extra_defs="""
+  void set_unit(FrameUnit frame_unit) { frame_unit_ = frame_unit; }
+  FrameUnit frame_unit() const { return frame_unit_; }
+
+  std::string GetFrameUnitString() const;
+
+  static std::string FrameUnitToString(FrameUnit unit);
+      """)
+
+  gen.AddNode(
+      name='ASTWindowFrameExpr',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+              private_comment="""
+             Expression to specify the boundary as a logical or physical offset
+             to current row. Cannot be NULL if boundary_type is OFFSET_PRECEDING
+             or OFFSET_FOLLOWING; otherwise, should be NULL.
+              """),
+          Field(
+              'boundary_type',
+              SCALAR_BOUNDARY_TYPE),
+      ],
+      extra_defs="""
+  std::string GetBoundaryTypeString() const;
+  static std::string BoundaryTypeToString(BoundaryType type);
+      """)
+
+  gen.AddNode(
+      name='ASTLikeExpression',
+      parent='ASTExpression',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'lhs',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+      Expression for which we need to verify whether its resolved result matches
+      any of the resolved results of the expressions present in the in_list_.
+              """),
+          Field(
+              'op',
+              'ASTAnySomeAllOp',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+      The any, some, or all operation used.
+              """,
+              private_comment="""
+      Any, some, or all operator.
+              """),
+          Field(
+              'hint',
+              'ASTHint',
+              comment="""
+      Hints specified on LIKE clause.
+      This can be set only if LIKE clause has subquery as RHS.
+              """,
+              private_comment="""
+       Hints specified on LIKE clause
+              """),
+          Field(
+              'in_list',
+              'ASTInList',
+              comment="""
+       Exactly one of in_list, query or unnest_expr is present
+              """,
+              private_comment="""
+       List of expressions to check against for any/some/all comparison for lhs_.
+              """),
+          Field(
+              'query',
+              'ASTQuery',
+              private_comment="""
+       Query returns the row values to check against for any/some/all comparison
+       for lhs_.
+              """),
+          Field(
+              'unnest_expr',
+              'ASTUnnestExpression',
+              private_comment="""
+       Check if lhs_ is an element of the array value inside Unnest.
+              """),
+          Field(
+              'is_not',
+              SCALAR_BOOL,
+              comment="""
+       Signifies whether the LIKE operator has a preceding NOT to it.
+              """),
+      ],
+      extra_defs="""
+  bool IsAllowedInComparison() const override { return parenthesized(); }
+      """)
+
+  gen.AddNode(
+      name='ASTWindowSpecification',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'base_window_name',
+              'ASTIdentifier',
+              private_comment="""
+              All fields are optional, can be NULL.
+              """),
+          Field(
+              'partition_by',
+              'ASTPartitionBy'),
+          Field(
+              'order_by',
+              'ASTOrderBy'),
+          Field(
+              'window_frame',
+              'ASTWindowFrame'),
+      ])
+
+  gen.AddNode(
+      name='ASTWithOffset',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'alias',
+              'ASTAlias',
+              comment="""
+               alias may be NULL.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTAnySomeAllOp',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'op',
+              SCALAR_ANY_SOME_ALL_OP),
+      ],
+      extra_defs="""
+  std::string GetSQLForOperator() const;
+      """,
+      extra_private_defs="""
+  void InitFields() final {}
+      """)
+
+  gen.AddNode(
+      name='ASTParameterExprBase',
+      parent='ASTExpression',
+      is_abstract=True,
+      force_gen_init_fields=True)
+
+  gen.AddNode(
+      name='ASTStatementList',
+      parent='ASTNode',
+      comment="""
+      Contains a list of statements.  Variable declarations allowed only at the
+      start of the list, and only if variable_declarations_allowed() is true.
+      """,
+      fields=[
+          Field(
+              'statement_list',
+              'ASTStatement',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              private_comment="""
+              Repeated
+              """),
+          Field(
+              'variable_declarations_allowed',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+ protected:
+  explicit ASTStatementList(ASTNodeKind node_kind) : ASTNode(node_kind) {}
+      """)
+
+  gen.AddNode(
+      name='ASTScriptStatement',
+      parent='ASTStatement',
+      is_abstract=True,
+      extra_defs="""
+  bool IsScriptStatement() const final { return true; }
+  bool IsSqlStatement() const override { return false; }
+      """)
+
+  gen.AddNode(
+      name='ASTHintedStatement',
+      parent='ASTStatement',
+      comment="""
+      This wraps any other statement to add statement-level hints.
+      """,
+      fields=[
+          Field(
+              'hint',
+              'ASTHint',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'statement',
+              'ASTStatement',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTExplainStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents an EXPLAIN statement.
+      """,
+      fields=[
+          Field(
+              'statement',
+              'ASTStatement',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTDescribeStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents a DESCRIBE statement.
+      """,
+      fields=[
+          Field(
+              'optional_identifier',
+              'ASTIdentifier'),
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'optional_from_name',
+              'ASTPathExpression'),
+      ])
+
+  gen.AddNode(
+      name='ASTShowStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents a SHOW statement.
+      """,
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'optional_name',
+              'ASTPathExpression'),
+          Field(
+              'optional_like_string',
+              'ASTStringLiteral'),
+      ])
+
+  gen.AddNode(
+      name='ASTTransactionMode',
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      Base class transaction modifier elements.
+      """)
+
+  gen.AddNode(
+      name='ASTTransactionIsolationLevel',
+      parent='ASTTransactionMode',
+      fields=[
+          Field(
+              'identifier1',
+              'ASTIdentifier'),
+          Field(
+              'identifier2',
+              'ASTIdentifier',
+              comment="""
+         Second identifier can be non-null only if first identifier is non-null.
+               """)
+      ])
+
+  gen.AddNode(
+      name='ASTTransactionReadWriteMode',
+      parent='ASTTransactionMode',
+      force_gen_init_fields=True,
+      fields=[
+          Field(
+              'mode',
+              SCALAR_READ_WRITE_MODE),
+      ])
+
+  gen.AddNode(
+      name='ASTTransactionModeList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'elements',
+              'ASTTransactionMode',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTBeginStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents a BEGIN or START TRANSACTION statement.
+      """,
+      fields=[
+          Field(
+              'mode_list',
+              'ASTTransactionModeList'),
+      ])
+
+  gen.AddNode(
+      name='ASTSetTransactionStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents a SET TRANSACTION statement.
+      """,
+      fields=[
+          Field(
+              'mode_list',
+              'ASTTransactionModeList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTCommitStatement',
+      parent='ASTStatement',
+      force_gen_init_fields=True,
+      comment="""
+      Represents a COMMIT statement.
+      """)
+
+  gen.AddNode(
+      name='ASTRollbackStatement',
+      parent='ASTStatement',
+      force_gen_init_fields=True,
+      comment="""
+      Represents a ROLLBACK statement.
+      """)
+
+  gen.AddNode(
+      name='ASTStartBatchStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'batch_type',
+              'ASTIdentifier'),
+      ])
+
+  gen.AddNode(
+      name='ASTRunBatchStatement',
+      parent='ASTStatement',
+      force_gen_init_fields=True)
+
+  gen.AddNode(
+      name='ASTAbortBatchStatement',
+      parent='ASTStatement',
+      force_gen_init_fields=True)
+
+  gen.AddNode(
+      name='ASTDdlStatement',
+      parent='ASTStatement',
+      is_abstract=True,
+      comment="""
+      Common superclass of DDL statements.
+      """,
+      extra_defs="""
+  bool IsDdlStatement() const override { return true; }
+
+  virtual const ASTPathExpression* GetDdlTarget() const = 0;
+      """
+      )
+
+  gen.AddNode(
+      name='ASTDropEntityStatement',
+      parent='ASTDdlStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Generic DROP statement (broken link).
+      """,
+      fields=[
+          Field(
+              'entity_type',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTDropFunctionStatement',
+      parent='ASTDdlStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Represents a DROP FUNCTION statement.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'parameters',
+              'ASTFunctionParameters'),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTDropTableFunctionStatement',
+      parent='ASTDdlStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Represents a DROP TABLE FUNCTION statement.
+      Note: Table functions don't support overloading so function parameters are
+            not accepted in this statement.
+            (broken link)
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTDropAllRowAccessPoliciesStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents a DROP ALL ROW ACCESS POLICIES statement.
+      """,
+      fields=[
+          Field(
+              'table_name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'has_access_keyword',
+              SCALAR_BOOL),
+      ])
+
+  gen.AddNode(
+      name='ASTDropMaterializedViewStatement',
+      parent='ASTDdlStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Represents a DROP MATERIALIZED VIEW statement.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTDropSnapshotTableStatement',
+      parent='ASTDdlStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Represents a DROP SNAPSHOT TABLE statement.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTDropSearchIndexStatement',
+      parent='ASTDdlStatement',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the "if exists" modifier to the node name.
+      """,
+      comment="""
+      Represents a DROP SEARCH INDEX statement.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'table_name',
+              'ASTPathExpression'),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTRenameStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents a RENAME statement.
+      """,
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'old_name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'new_name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTImportStatement',
+      parent='ASTStatement',
+      comment="""
+      Represents an IMPORT statement, which currently support MODULE or PROTO
+      kind. We want this statement to be a generic import at some point.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              private_comment="""
+              Exactly one of 'name_' or 'string_value_' will be populated.
+              """),
+          Field(
+              'string_value',
+              'ASTStringLiteral'),
+          Field(
+              'alias',
+              'ASTAlias',
+              private_comment="""
+              At most one of 'alias_' or 'into_alias_' will be populated.
+              """),
+          Field(
+              'into_alias',
+              'ASTIntoAlias'),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              private_comment="""
+              May be NULL.
+              """),
+          Field(
+              'import_kind',
+              SCALAR_IMPORT_KIND
+              ),
+      ])
+
+  gen.AddNode(
+      name='ASTModuleStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              private_comment="""
+              May be NULL
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTWithConnectionClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'connection_clause',
+              'ASTConnectionClause',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTIntoAlias',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_defs="""
+  // Get the unquoted and unescaped string value of this alias.
+  std::string GetAsString() const;
+  absl::string_view GetAsStringView() const;
+  IdString GetAsIdString() const;
+      """)
+
+  gen.AddNode(
+      name='ASTUnnestExpressionWithOptAliasAndOffset',
+      parent='ASTNode',
+      comment="""
+      A conjunction of the unnest expression and the optional alias and offset.
+      """,
+      fields=[
+          Field(
+              'unnest_expression',
+              'ASTUnnestExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'optional_alias',
+              'ASTAlias'),
+          Field(
+              'optional_with_offset',
+              'ASTWithOffset'),
+      ])
+
+  gen.AddNode(
+      name='ASTPivotExpression',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTAlias'),
+      ])
+
+  gen.AddNode(
+      name='ASTPivotValue',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'value',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTAlias'),
+      ])
+
+  gen.AddNode(
+      name='ASTPivotExpressionList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expressions',
+              'ASTPivotExpression',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTPivotValueList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'values',
+              'ASTPivotValue',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTPivotClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'pivot_expressions',
+              'ASTPivotExpressionList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'for_expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'pivot_values',
+              'ASTPivotValueList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'output_alias',
+              'ASTAlias'),
+      ])
+
+  gen.AddNode(
+      name='ASTUnpivotInItem',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'unpivot_columns',
+              'ASTPathExpressionList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTUnpivotInItemLabel'),
+      ])
+
+  gen.AddNode(
+      name='ASTUnpivotInItemList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'in_items',
+              'ASTUnpivotInItem',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTUnpivotClause',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'unpivot_output_value_columns',
+              'ASTPathExpressionList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'unpivot_output_name_column',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'unpivot_in_items',
+              'ASTUnpivotInItemList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'output_alias',
+              'ASTAlias'),
+          Field(
+              'null_filter',
+              SCALAR_NULL_FILTER),
+      ],
+      extra_defs="""
+  std::string GetSQLForNullFilter() const;
+      """)
+
+  gen.AddNode(
+      name='ASTUsingClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'keys',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTForSystemTime',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTQualify',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTClampedBetweenModifier',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'low',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'high',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTFormatClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'format',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'time_zone_expr',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+      ])
+
+  gen.AddNode(
+      name='ASTPathExpressionList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'path_expression_list',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              comment="""
+              Guaranteed by the parser to never be empty.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTParameterExpr',
+      parent='ASTParameterExprBase',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier'),
+          Field(
+              'position',
+              SCALAR_INT,
+              private_comment="""
+              1-based position of the parameter in the query. Mutually exclusive
+              with name_.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTSystemVariableExpr',
+      parent='ASTParameterExprBase',
+      fields=[
+          Field(
+              'path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTWithGroupRows',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'subquery',
+              'ASTQuery',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTLambda',
+      parent='ASTExpression',
+      comment="""
+      Function argument is required to be expression.
+      """,
+      fields=[
+          Field(
+              'argument_list',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Empty parameter list is represented as empty
+              ASTStructConstructorWithParens.
+              """),
+          Field(
+              'body',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Required, never NULL.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTAnalyticFunctionCall',
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              gen_setters_and_getters=False,
+              private_comment="""
+              Required, never NULL.
+              The expression is has to be either an ASTFunctionCall or an
+              ASTFunctionCallWithGroupRows.
+              """),
+          Field(
+              'window_spec',
+              'ASTWindowSpecification',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Required, never NULL.
+              """),
+      ],
+      extra_defs="""
+  // Exactly one of function() or function_with_group_rows() will be non-null.
+  //
+  // In the normal case, function() is non-null.
+  //
+  // The function_with_group_rows() case can only happen if
+  // FEATURE_V_1_3_WITH_GROUP_ROWS is enabled and one function call has both
+  // WITH GROUP_ROWS and an OVER clause.
+  const ASTFunctionCall* function() const;
+  const ASTFunctionCallWithGroupRows* function_with_group_rows() const;
+      """)
+
+  gen.AddNode(
+      name='ASTFunctionCallWithGroupRows',
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'function',
+              'ASTFunctionCall',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Required, never NULL.
+              """),
+          Field(
+              'subquery',
+              'ASTQuery',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              private_comment="""
+              Required, never NULL.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTClusterBy',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'clustering_expressions',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTNewConstructorArg',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'optional_identifier',
+              'ASTIdentifier',
+              comment="""
+         At most one of 'optional_identifier' and 'optional_path_expression' are
+         set.
+               """),
+          Field(
+              'optional_path_expression',
+              'ASTPathExpression'),
+      ])
+
+  gen.AddNode(
+      name='ASTNewConstructor',
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'type_name',
+              'ASTSimpleType',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'arguments',
+              'ASTNewConstructorArg',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ],
+      # legacy non-standard getter
+      extra_defs="""
+  const ASTNewConstructorArg* argument(int i) const { return arguments_[i]; }
+      """)
+
+  gen.AddNode(
+      name='ASTOptionsList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'options_entries',
+              'ASTOptionsEntry',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTOptionsEntry',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'value',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Value is always an identifier, literal, or parameter.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTCreateStatement',
+      parent='ASTDdlStatement',
+      is_abstract=True,
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      This adds the modifiers is_temp, etc, to the node name.
+      """,
+      comment="""
+      Common superclass of CREATE statements supporting the common
+      modifiers:
+        CREATE [OR REPLACE] [TEMP|PUBLIC|PRIVATE] <object> [IF NOT EXISTS].
+      """,
+      fields=[
+          Field(
+              'scope',
+              SCALAR_SCOPE
+              ),
+          Field(
+              'is_or_replace',
+              SCALAR_BOOL
+              ),
+          Field(
+              'is_if_not_exists',
+              SCALAR_BOOL
+              )
+      ],
+      extra_defs="""
+  bool is_default_scope() const { return scope_ == DEFAULT_SCOPE; }
+  bool is_private() const { return scope_ == PRIVATE; }
+  bool is_public() const { return scope_ == PUBLIC; }
+  bool is_temp() const { return scope_ == TEMPORARY; }
+
+  bool IsCreateStatement() const override { return true; }
+
+ protected:
+  virtual void CollectModifiers(std::vector<std::string>* modifiers) const;
+      """)
+
+  gen.AddNode(
+      name='ASTFunctionParameter',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier'),
+          Field(
+              'type',
+              'ASTType',
+              field_loader=FieldLoaderMethod.OPTIONAL_TYPE,
+              private_comment="""
+              Only one of <type_>, <templated_parameter_type_>, or <tvf_schema_>
+              will be set.
+
+              This is the type for concrete scalar parameters.
+              """),
+          Field(
+              'templated_parameter_type',
+              'ASTTemplatedParameterType',
+              private_comment="""
+          This indicates a templated parameter type, which may be either a
+          templated scalar type (ANY PROTO, ANY STRUCT, etc.) or templated table
+          type as indicated by its kind().
+              """),
+          Field(
+              'tvf_schema',
+              'ASTTVFSchema',
+              private_comment="""
+              Only allowed for table-valued functions, indicating a table type
+              parameter.
+              """),
+          Field(
+              'alias',
+              'ASTAlias'),
+          Field(
+              'default_value',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+              private_comment="""
+              The default value of the function parameter if specified.
+              """),
+          Field(
+              'procedure_parameter_mode',
+              SCALAR_PROCEDURE_PARAMETER_MODE,
+              private_comment="""
+         Function parameter doesn't use this field and always has value NOT_SET.
+         Procedure parameter should have this field set during parsing.
+              """),
+          Field(
+              'is_not_aggregate',
+              SCALAR_BOOL,
+              private_comment="""
+              True if the NOT AGGREGATE modifier is present.
+              """),
+      ],
+      extra_defs="""
+
+  bool IsTableParameter() const;
+  bool IsTemplated() const {
+    return templated_parameter_type_ != nullptr;
+  }
+
+  static std::string ProcedureParameterModeToString(
+      ProcedureParameterMode mode);
+      """)
+
+  gen.AddNode(
+      name='ASTFunctionParameters',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'parameter_entries',
+              'ASTFunctionParameter',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTFunctionDeclaration',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'parameters',
+              'ASTFunctionParameters',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_defs="""
+  // Returns whether or not any of the <parameters_> are templated.
+  bool IsTemplated() const;
+      """)
+
+  gen.AddNode(
+      name='ASTSqlFunctionBody',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+      ])
+
+  gen.AddNode(
+      name='ASTTVFArgument',
+      parent='ASTNode',
+      comment="""
+  This represents an argument to a table-valued function (TVF). ZetaSQL can
+  parse the argument in one of the following ways:
+
+  (1) ZetaSQL parses the argument as an expression; if any arguments are
+      table subqueries then ZetaSQL will parse them as subquery expressions
+      and the resolver may interpret them as needed later. In this case the
+      expr_ of this class is filled.
+
+  (2) ZetaSQL parses the argument as "TABLE path"; this syntax represents a
+      table argument including all columns in the named table. In this case the
+      table_clause_ of this class is non-empty.
+
+  (3) ZetaSQL parses the argument as "MODEL path"; this syntax represents a
+      model argument. In this case the model_clause_ of this class is
+      non-empty.
+
+  (4) ZetaSQL parses the argument as "CONNECTION path"; this syntax
+      represents a connection argument. In this case the connection_clause_ of
+      this class is non-empty.
+
+  (5) ZetaSQL parses the argument as a named argument; this behaves like when
+      the argument is an expression with the extra requirement that the
+      resolver rearranges the provided named arguments to match the required
+      argument names from the function signature, if present. The named
+      argument is stored in the expr_ of this class in this case since an
+      ASTNamedArgument is a subclass of ASTExpression.
+  (6) ZetaSQL parses the argument as "DESCRIPTOR"; this syntax represents a
+     descriptor on a list of columns with optional types.
+      """,
+      fields=[
+          Field(
+              'expr',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
+              private_comment="""
+              Only one of expr, table_clause, model_clause, connection_clause or
+              descriptor may be non-null.
+              """),
+          Field(
+              'table_clause',
+              'ASTTableClause'),
+          Field(
+              'model_clause',
+              'ASTModelClause'),
+          Field(
+              'connection_clause',
+              'ASTConnectionClause'),
+          Field(
+              'descriptor',
+              'ASTDescriptor'),
+      ])
+
+  gen.AddNode(
+      name='ASTTVF',
+      parent='ASTTableExpression',
+      comment="""
+    This represents a call to a table-valued function (TVF). Each TVF returns an
+    entire output relation instead of a single scalar value. The enclosing query
+    may refer to the TVF as if it were a table subquery. The TVF may accept
+    scalar arguments and/or other input relations.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'argument_entries',
+              'ASTTVFArgument',
+              field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND),
+          Field(
+              'hint',
+              'ASTHint'),
+          Field(
+              'alias',
+              'ASTAlias'),
+          Field(
+              'pivot_clause',
+              'ASTPivotClause'),
+          Field(
+              'unpivot_clause',
+              'ASTUnpivotClause'),
+          Field(
+              'sample',
+              'ASTSampleClause'),
+      ])
+
+  gen.AddNode(
+      name='ASTTableClause',
+      parent='ASTNode',
+      comment="""
+     This represents a clause of form "TABLE <target>", where <target> is either
+     a path expression representing a table name, or <target> is a TVF call.
+     It is currently only supported for relation arguments to table-valued
+     functions.
+      """,
+      fields=[
+          Field(
+              'table_path',
+              'ASTPathExpression',
+              private_comment="""
+              Exactly one of these will be non-null.
+              """),
+          Field(
+              'tvf',
+              'ASTTVF'),
+      ])
+
+  gen.AddNode(
+      name='ASTModelClause',
+      parent='ASTNode',
+      comment="""
+    This represents a clause of form "MODEL <target>", where <target> is a model
+    name.
+      """,
+      fields=[
+          Field(
+              'model_path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTConnectionClause',
+      parent='ASTNode',
+      comment="""
+     This represents a clause of form "CONNECTION <target>", where <target> is a
+     connection name.
+      """,
+      fields=[
+          Field(
+              'connection_path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTTableDataSource',
+      parent='ASTTableExpression',
+      is_abstract=True,
+      fields=[
+          Field(
+              'path_expr',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'for_system_time',
+              'ASTForSystemTime'),
+          Field(
+              'where_clause',
+              'ASTWhereClause'),
+      ])
+
+  gen.AddNode(
+      name='ASTCloneDataSource',
+      parent='ASTTableDataSource')
+
+  gen.AddNode(
+      name='ASTCopyDataSource',
+      parent='ASTTableDataSource')
+
+  gen.AddNode(
+      name='ASTCloneDataSourceList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'data_sources',
+              'ASTCloneDataSource',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTCloneDataStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'target_path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'data_source_list',
+              'ASTCloneDataSourceList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTCreateConstantStatement',
+      parent='ASTCreateStatement',
+      comment="""
+      This represents a CREATE CONSTANT statement, i.e.,
+      CREATE [OR REPLACE] [TEMP|TEMPORARY|PUBLIC|PRIVATE] CONSTANT
+        [IF NOT EXISTS] <name_path> = <expression>;
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'expr',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTCreateDatabaseStatement',
+      parent='ASTStatement',
+      comment="""
+      This represents a CREATE DATABASE statement, i.e.,
+      CREATE DATABASE <name> [OPTIONS (name=value, ...)];
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+      ])
+
+  gen.AddNode(
+      name='ASTCreateProcedureStatement',
+      parent='ASTCreateStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'parameters',
+              'ASTFunctionParameters',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+          Field(
+              'body',
+              'ASTScript',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              The body of a procedure. Always consists of a single BeginEndBlock
+              including the BEGIN/END keywords and text in between.
+              """),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTCreateSchemaStatement',
+      parent='ASTCreateStatement',
+      comment="""
+      This represents a CREATE SCHEMA statement, i.e.,
+      CREATE SCHEMA <name> [OPTIONS (name=value, ...)];
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'collate',
+              'ASTCollate'),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTTransformClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'select_list',
+              'ASTSelectList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTCreateModelStatement',
+      parent='ASTCreateStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'transform_clause',
+              'ASTTransformClause'),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+          Field(
+              'query',
+              'ASTQuery'),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTIndexItemList',
+      parent='ASTNode',
+      comment="""
+      Represents the list of expressions used to order an index.
+      """,
+      fields=[
+          Field(
+              'ordering_expressions',
+              'ASTOrderingExpression',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTIndexStoringExpressionList',
+      parent='ASTNode',
+      comment="""
+      Represents the list of expressions being used in the STORING clause of an
+      index.
+      """,
+      fields=[
+          Field(
+              'expressions',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+  gen.AddNode(
+      name='ASTIndexUnnestExpressionList',
+      parent='ASTNode',
+      comment="""
+      Represents the list of unnest expressions for create_index.
+      """,
+      fields=[
+          Field(
+              'unnest_expressions',
+              'ASTUnnestExpressionWithOptAliasAndOffset',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+  gen.AddNode(
+      name='ASTCreateIndexStatement',
+      parent='ASTCreateStatement',
+      use_custom_debug_string=True,
+      comment="""
+      Represents a CREATE INDEX statement.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'table_name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'optional_table_alias',
+              'ASTAlias'),
+          Field(
+              'optional_index_unnest_expression_list',
+              'ASTIndexUnnestExpressionList'),
+
+          Field(
+              'index_item_list',
+              'ASTIndexItemList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'optional_index_storing_expressions',
+              'ASTIndexStoringExpressionList'),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+          Field(
+              'is_unique',
+              SCALAR_BOOL),
+          Field(
+              'is_search',
+              SCALAR_BOOL),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """
+      )
+
+  gen.AddNode(
+      name='ASTExportDataStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'with_connection_clause',
+              'ASTWithConnectionClause'),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+          Field(
+              'query',
+              'ASTQuery',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTExportModelStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'model_name_path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'with_connection_clause',
+              'ASTWithConnectionClause'),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+      ])
+
+  gen.AddNode(
+      name='ASTCallStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'procedure_name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'arguments',
+              'ASTTVFArgument',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTDefineTableStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTWithPartitionColumnsClause',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'table_element_list',
+              'ASTTableElementList'),
+      ])
+
+  gen.AddNode(
+      name='ASTCreateSnapshotTableStatement',
+      parent='ASTCreateStatement',
+      fields=[
+          Field(
+              'name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'clone_data_source',
+              'ASTCloneDataSource',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+      ],
+      extra_defs="""
+  const ASTPathExpression* GetDdlTarget() const override { return name_; }
+      """)
+
+  gen.AddNode(
+      name='ASTTypeParameterList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'parameters',
+              'ASTLeaf',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTTVFSchema',
+      parent='ASTNode',
+      comment="""
+   This represents a relation argument or return type for a table-valued
+   function (TVF). The resolver can convert each ASTTVFSchema directly into a
+   TVFRelation object suitable for use in TVF signatures. For more information
+   about the TVFRelation object, please refer to public/table_valued_function.h.
+   TODO: Change the names of these objects to make them generic and
+   re-usable wherever we want to represent the schema of some intermediate or
+   final table. Same for ASTTVFSchemaColumn.
+      """,
+      fields=[
+          Field(
+              'columns',
+              'ASTTVFSchemaColumn',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTTVFSchemaColumn',
+      parent='ASTNode',
+      comment="""
+      This represents one column of a relation argument or return value for a
+      table-valued function (TVF). It contains the name and type of the column.
+      """,
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              comment="""
+              name_ will be NULL for value tables.
+              """),
+          Field(
+              'type',
+              'ASTType',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTTableAndColumnInfo',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'table_name',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'column_list',
+              'ASTColumnList'),
+      ])
+
+  gen.AddNode(
+      name='ASTTableAndColumnInfoList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'table_and_column_info_entries',
+              'ASTTableAndColumnInfo',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTTemplatedParameterType',
+      parent='ASTNode',
+      force_gen_init_fields=True,
+      fields=[
+          Field(
+              'kind',
+              SCALAR_TEMPLATED_TYPE_KIND),
+      ])
+
+  gen.AddNode(
+      name='ASTDefaultLiteral',
+      parent='ASTExpression',
+      force_gen_init_fields=True,
+      comment="""
+      This represents the value DEFAULT that shows up in DML statements.
+      It will not show up as a general expression anywhere else.
+      """)
+
+  gen.AddNode(
+      name='ASTAnalyzeStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'options_list',
+              'ASTOptionsList'),
+          Field(
+              'table_and_column_info_list',
+              'ASTTableAndColumnInfoList'),
+      ])
+
+  gen.AddNode(
+      name='ASTAssertStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'expr',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'description',
+              'ASTStringLiteral'),
+      ])
+
+  gen.AddNode(
+      name='ASTAssertRowsModified',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'num_rows',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTReturningClause',
+      parent='ASTNode',
+      comment="""
+      "This represents {THEN RETURN} clause."
+      (broken link)
+      """,
+      fields=[
+          Field(
+              'select_list',
+              'ASTSelectList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'action_alias',
+              'ASTAlias'),
+      ])
+
+  gen.AddNode(
+      name='ASTDeleteStatement',
+      parent='ASTStatement',
+      comment="""
+      This is used for both top-level DELETE statements and for nested DELETEs
+      inside ASTUpdateItem. When used at the top-level, the target is always a
+      path expression.
+      """,
+      fields=[
+          Field(
+              'target_path',
+              'ASTGeneralizedPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTAlias'),
+          Field(
+              'offset',
+              'ASTWithOffset'),
+          Field(
+              'where',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+          Field(
+              'assert_rows_modified',
+              'ASTAssertRowsModified'),
+          Field(
+              'returning',
+              'ASTReturningClause'),
+      ],
+      extra_defs="""
+  // Verifies that the target path is an ASTPathExpression and, if so, returns
+  // it. The behavior is undefined when called on a node that represents a
+  // nested DELETE.
+  zetasql_base::StatusOr<const ASTPathExpression*> GetTargetPathForNonNested() const;
+
+  const ASTGeneralizedPathExpression* GetTargetPathForNested() const {
+    return target_path_;
+  }
+      """)
+
+  gen.AddNode(
+      name='ASTColumnAttribute',
+      parent='ASTNode',
+      is_abstract=True,
+      extra_defs="""
+  virtual std::string SingleNodeSqlString() const = 0;
+      """)
+
+  gen.AddNode(
+      name='ASTNotNullColumnAttribute',
+      parent='ASTColumnAttribute',
+      force_gen_init_fields=True,
+      extra_defs="""
+  std::string SingleNodeSqlString() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTHiddenColumnAttribute',
+      parent='ASTColumnAttribute',
+      force_gen_init_fields=True,
+      extra_defs="""
+  std::string SingleNodeSqlString() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTPrimaryKeyColumnAttribute',
+      parent='ASTColumnAttribute',
+      use_custom_debug_string=True,
+      force_gen_init_fields=True,
+      fields=[
+          Field(
+              'enforced',
+              SCALAR_BOOL_DEFAULT_TRUE)
+      ],
+      extra_defs="""
+  std::string SingleNodeSqlString() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTForeignKeyColumnAttribute',
+      parent='ASTColumnAttribute',
+      fields=[
+          Field(
+              'constraint_name',
+              'ASTIdentifier'),
+          Field(
+              'reference',
+              'ASTForeignKeyReference',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_defs="""
+  std::string SingleNodeSqlString() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTColumnAttributeList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'values',
+              'ASTColumnAttribute',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTStructColumnField',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              comment="""
+            name_ will be NULL for anonymous fields like in STRUCT<int, string>.
+              """),
+          Field(
+              'schema',
+              'ASTColumnSchema',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTGeneratedColumnInfo',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      custom_debug_string_comment="""
+      Adds stored_mode (if needed) to the debug string.
+      """,
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'stored_mode',
+              SCALAR_STORED_MODE),
+      ],
+      extra_defs="""
+  std::string GetSqlForStoredMode() const;
+      """)
+
+  gen.AddNode(
+      name='ASTTableElement',
+      parent='ASTNode',
+      is_abstract=True,
+      comment="""
+      Base class for CREATE TABLE elements, including column definitions and
+      table constraints.
+      """)
+
+  gen.AddNode(
+      name='ASTColumnDefinition',
+      parent='ASTTableElement',
+      fields=[
+          Field(
+              'name',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'schema',
+              'ASTColumnSchema',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTTableElementList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'elements',
+              'ASTTableElement',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTColumnList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'identifiers',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTColumnPosition',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'type',
+              SCALAR_RELATIVE_POSITION_TYPE),
+      ])
+
+  gen.AddNode(
+      name='ASTInsertValuesRow',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'values',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED,
+              comment="""
+             A row of values in a VALUES clause.  May include ASTDefaultLiteral.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTInsertValuesRowList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'rows',
+              'ASTInsertValuesRow',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTInsertStatement',
+      parent='ASTStatement',
+      use_custom_debug_string=True,
+      comment="""
+      This is used for both top-level INSERT statements and for nested INSERTs
+      inside ASTUpdateItem. When used at the top-level, the target is always a
+      path expression.
+      """,
+      fields=[
+          Field(
+              'target_path',
+              'ASTGeneralizedPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'column_list',
+              'ASTColumnList'),
+          Field(
+              'rows',
+              'ASTInsertValuesRowList',
+              comment="""
+              Non-NULL rows() means we had a VALUES clause.
+              This is mutually exclusive with query() and with().
+              """,
+              private_comment="""
+              Exactly one of rows_ or query_ will be present.
+              with_ can be present if query_ is present.
+              """),
+          Field(
+              'query',
+              'ASTQuery'),
+          Field(
+              'assert_rows_modified',
+              'ASTAssertRowsModified'),
+          Field(
+              'returning',
+              'ASTReturningClause'),
+          Field(
+              'parse_progress',
+              SCALAR_PARSE_PROGRESS,
+              comment="""
+      This is used by the Bison parser to store the latest element of the INSERT
+      syntax that was seen. The INSERT statement is extremely complicated to
+      parse in bison because it is very free-form, almost everything is optional
+      and almost all of the keywords are also usable as identifiers. So we parse
+      it in a very free-form way, and enforce the grammar in code during/after
+      parsing.
+              """),
+          Field(
+              'insert_mode',
+              SCALAR_INSERT_MODE),
+      ],
+      extra_defs="""
+  const ASTGeneralizedPathExpression* GetTargetPathForNested() const {
+     return target_path_;
+  }
+
+  std::string GetSQLForInsertMode() const;
+
+  // Verifies that the target path is an ASTPathExpression and, if so, returns
+  // it. The behavior is undefined when called on a node that represents a
+  // nested INSERT.
+  zetasql_base::StatusOr<const ASTPathExpression*> GetTargetPathForNonNested() const;
+""")
+
+  gen.AddNode(
+      name='ASTUpdateSetValue',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'path',
+              'ASTGeneralizedPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'value',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              The rhs of SET X=Y.  May be ASTDefaultLiteral.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTUpdateItem',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'set_value',
+              'ASTUpdateSetValue',
+              private_comment="""
+              Exactly one of set_value, insert_statement, delete_statement
+              or update_statement will be non-NULL.
+              """),
+          Field(
+              'insert_statement',
+              'ASTInsertStatement'),
+          Field(
+              'delete_statement',
+              'ASTDeleteStatement'),
+          Field(
+              'update_statement',
+              'ASTUpdateStatement'),
+      ])
+
+  gen.AddNode(
+      name='ASTUpdateItemList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'update_items',
+              'ASTUpdateItem',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTUpdateStatement',
+      parent='ASTStatement',
+      comment="""
+      This is used for both top-level UPDATE statements and for nested UPDATEs
+      inside ASTUpdateItem. When used at the top-level, the target is always a
+      path expression.
+      """,
+      fields=[
+          Field(
+              'target_path',
+              'ASTGeneralizedPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTAlias'),
+          Field(
+              'offset',
+              'ASTWithOffset'),
+          Field(
+              'update_item_list',
+              'ASTUpdateItemList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'from_clause',
+              'ASTFromClause'),
+          Field(
+              'where',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+          Field(
+              'assert_rows_modified',
+              'ASTAssertRowsModified'),
+          Field(
+              'returning',
+              'ASTReturningClause'),
+      ],
+      extra_defs="""
+  const ASTGeneralizedPathExpression* GetTargetPathForNested() const {
+    return target_path_;
+  }
+
+  // Verifies that the target path is an ASTPathExpression and, if so, returns
+  // it. The behavior is undefined when called on a node that represents a
+  // nested UPDATE.
+  zetasql_base::StatusOr<const ASTPathExpression*> GetTargetPathForNonNested() const;
+      """
+      )
+  gen.AddNode(
+      name='ASTTruncateStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'target_path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'where',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+      ],
+      extra_defs="""
+  // Verifies that the target path is an ASTPathExpression and, if so, returns
+  // it. The behavior is undefined when called on a node that represents a
+  // nested TRUNCATE (but this is not allowed by the parser).
+  zetasql_base::StatusOr<const ASTPathExpression*> GetTargetPathForNonNested() const;
+      """)
+
+  gen.AddNode(
+      name='ASTMergeAction',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'insert_column_list',
+              'ASTColumnList',
+              comment="""
+     Exactly one of the INSERT/UPDATE/DELETE operation must be defined in
+     following ways,
+       -- INSERT, action_type() is INSERT. The insert_column_list() is optional.
+          The insert_row() must be non-null, but may have an empty value list.
+       -- UPDATE, action_type() is UPDATE. update_item_list() is non-null.
+       -- DELETE, action_type() is DELETE.
+              """,
+              private_comment="""
+              For INSERT operation.
+              """),
+          Field(
+              'insert_row',
+              'ASTInsertValuesRow'),
+          Field(
+              'update_item_list',
+              'ASTUpdateItemList',
+              private_comment="""
+              For UPDATE operation.
+              """),
+          Field(
+              'action_type',
+              SCALAR_ACTION_TYPE,
+              private_comment="""
+              Merge action type.
+              """),
+      ])
+
+  gen.AddNode(
+      name='ASTMergeWhenClause',
+      parent='ASTNode',
+      use_custom_debug_string=True,
+      fields=[
+          Field(
+              'search_condition',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION),
+          Field(
+              'action',
+              'ASTMergeAction',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'match_type',
+              SCALAR_MATCH_TYPE),
+      ],
+      extra_defs="""
+  std::string GetSQLForMatchType() const;
+      """)
+
+  gen.AddNode(
+      name='ASTMergeWhenClauseList',
+      parent='ASTNode',
+      fields=[
+          Field(
+              'clause_list',
+              'ASTMergeWhenClause',
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTMergeStatement',
+      parent='ASTStatement',
+      fields=[
+          Field(
+              'target_path',
+              'ASTPathExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'alias',
+              'ASTAlias'),
+          Field(
+              'table_expression',
+              'ASTTableExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'merge_condition',
+              'ASTExpression',
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'when_clauses',
+              'ASTMergeWhenClauseList',
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.Generate(output_path, h_template_path=h_template_path)
+
 
 if __name__ == '__main__':
   app.run(main)

@@ -1,3 +1,6 @@
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 create external table t1
 options (a=b, c="def")
 --
@@ -615,7 +618,7 @@ CreateExternalTableStatement [0-90]
       SimpleColumnSchema [54-59]
         PathExpression [54-59]
           Identifier(int64) [54-59]
-    PrimaryKey [61-75]
+    PrimaryKey(ENFORCED) [61-75]
       ColumnList [72-75]
         Identifier(x) [73-74]
   OptionsList [85-90]
@@ -782,7 +785,7 @@ CreateExternalTableStatement [0-111]
         SimpleColumnSchema [78-83]
           PathExpression [78-83]
             Identifier(int64) [78-83]
-      PrimaryKey [85-99]
+      PrimaryKey(ENFORCED) [85-99]
         ColumnList [96-99]
           Identifier(y) [97-98]
   OptionsList [109-111]
@@ -818,7 +821,7 @@ CreateExternalTableStatement [0-125]
       SimpleColumnSchema [54-59]
         PathExpression [54-59]
           Identifier(int64) [54-59]
-    PrimaryKey [61-75]
+    PrimaryKey(ENFORCED) [61-75]
       ColumnList [72-75]
         Identifier(x) [73-74]
   WithPartitionColumnsClause [77-114]
@@ -838,3 +841,206 @@ CREATE EXTERNAL TABLE projectid.datasetid.tablename
   CHECK(x > 0) ENFORCED
 ) OPTIONS()
 ==
+
+# with connection: missing keyword
+create external table projectid.datasetid.tablename(x int64)
+with partition columns
+with conn_id
+options (x=f1)
+--
+ERROR: Syntax error: Expected keyword CONNECTION but got identifier "conn_id" [at 3:6]
+with conn_id
+     ^
+==
+
+# with connection: missing conn_id
+create external table projectid.datasetid.tablename(x int64)
+with connection
+options (x=f2)
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 3:8]
+options (x=f2)
+       ^
+
+==
+
+# with connection: typo in connection
+create external table projectid.datasetid.tablename(x int64)
+with commection conn_id
+options (x=f2)
+--
+ERROR: Syntax error: Expected keyword CONNECTION or keyword PARTITION but got identifier "commection" [at 2:6]
+with commection conn_id
+     ^
+
+==
+
+# with connection: ill-formed conn_id
+create external table projectid.datasetid.tablename(x int64)
+with connection 1_a.b.c
+options (x=f3)
+--
+ERROR: Syntax error: Missing whitespace between literal and alias [at 2:18]
+with connection 1_a.b.c
+                 ^
+
+==
+
+create external table projectid.datasetid.tablename(x int64)
+with connection conn_1
+options (x=foo)
+--
+CreateExternalTableStatement [0-99]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  TableElementList [51-60]
+    ColumnDefinition [52-59]
+      Identifier(x) [52-53]
+      SimpleColumnSchema [54-59]
+        PathExpression [54-59]
+          Identifier(int64) [54-59]
+  WithConnectionClause [61-83]
+    ConnectionClause [66-83]
+      PathExpression [77-83]
+        Identifier(conn_1) [77-83]
+  OptionsList [92-99]
+    OptionsEntry [93-98]
+      Identifier(x) [93-94]
+      PathExpression [95-98]
+        Identifier(foo) [95-98]
+--
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64
+) WITH CONNECTION conn_1 OPTIONS(x = foo)
+
+==
+
+create external table projectid.datasetid.tablename(x int64)
+with connection proj.loc.conn_id
+options (x=foo)
+--
+CreateExternalTableStatement [0-109]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  TableElementList [51-60]
+    ColumnDefinition [52-59]
+      Identifier(x) [52-53]
+      SimpleColumnSchema [54-59]
+        PathExpression [54-59]
+          Identifier(int64) [54-59]
+  WithConnectionClause [61-93]
+    ConnectionClause [66-93]
+      PathExpression [77-93]
+        Identifier(proj) [77-81]
+        Identifier(loc) [82-85]
+        Identifier(conn_id) [86-93]
+  OptionsList [102-109]
+    OptionsEntry [103-108]
+      Identifier(x) [103-104]
+      PathExpression [105-108]
+        Identifier(foo) [105-108]
+--
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64
+) WITH CONNECTION proj.loc.conn_id OPTIONS(x = foo)
+==
+
+# Invalid WITH CLAUSE order: CONNECTION, PARTITION COLUMNS.
+# CONNECTION must be after PARTITION COLUMNS.
+create external table projectid.datasetid.tablename(x int64)
+with connection `project.us-west-2.connection_1`
+with partition columns
+options (x=bar)
+--
+ERROR: Syntax error: Expected keyword OPTIONS [at 2:49]
+with connection `project.us-west-2.connection_1`
+                                                ^
+==
+
+# WITH CLAUSE order: PARTITION COLUMNS, CONNECTION
+create external table projectid.datasetid.tablename(x int64)
+with partition columns
+with connection `project.country-region-5.connection_1`
+options (x=bar)
+--
+CreateExternalTableStatement [0-155]
+  PathExpression [22-51]
+    Identifier(projectid) [22-31]
+    Identifier(datasetid) [32-41]
+    Identifier(tablename) [42-51]
+  TableElementList [51-60]
+    ColumnDefinition [52-59]
+      Identifier(x) [52-53]
+      SimpleColumnSchema [54-59]
+        PathExpression [54-59]
+          Identifier(int64) [54-59]
+  WithPartitionColumnsClause [61-83]
+  WithConnectionClause [84-139]
+    ConnectionClause [89-139]
+      PathExpression [100-139]
+        Identifier(`project.country-region-5.connection_1`) [100-139]
+  OptionsList [148-155]
+    OptionsEntry [149-154]
+      Identifier(x) [149-150]
+      PathExpression [151-154]
+        Identifier(bar) [151-154]
+--
+CREATE EXTERNAL TABLE projectid.datasetid.tablename
+(
+  x int64
+) WITH PARTITION COLUMNS WITH CONNECTION `project.country-region-5.connection_1` OPTIONS(x = bar)
+==
+
+create external table t(x int64)
+with partition columns (
+  y int64,
+  PRIMARY KEY(y)
+)
+with connection a.b.c
+options (x=baz)
+--
+
+CreateExternalTableStatement [0-125]
+  PathExpression [22-23]
+    Identifier(t) [22-23]
+  TableElementList [23-32]
+    ColumnDefinition [24-31]
+      Identifier(x) [24-25]
+      SimpleColumnSchema [26-31]
+        PathExpression [26-31]
+          Identifier(int64) [26-31]
+  WithPartitionColumnsClause [33-87]
+    TableElementList [56-87]
+      ColumnDefinition [60-67]
+        Identifier(y) [60-61]
+        SimpleColumnSchema [62-67]
+          PathExpression [62-67]
+            Identifier(int64) [62-67]
+      PrimaryKey(ENFORCED) [71-85]
+        ColumnList [82-85]
+          Identifier(y) [83-84]
+  WithConnectionClause [88-109]
+    ConnectionClause [93-109]
+      PathExpression [104-109]
+        Identifier(a) [104-105]
+        Identifier(b) [106-107]
+        Identifier(c) [108-109]
+  OptionsList [118-125]
+    OptionsEntry [119-124]
+      Identifier(x) [119-120]
+      PathExpression [121-124]
+        Identifier(baz) [121-124]
+--
+CREATE EXTERNAL TABLE t
+(
+  x int64
+) WITH PARTITION COLUMNS(
+  y int64,
+  PRIMARY KEY(y)
+) WITH CONNECTION a.b.c OPTIONS(x = baz)

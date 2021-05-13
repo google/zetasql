@@ -261,6 +261,9 @@ void ResolvedNode::GetDescendantsSatisfying(
 void ResolvedNode::CollectDebugStringFieldsWithNameFormat(
     const ResolvedNode* node, std::vector<DebugStringField>* fields) const {
   ZETASQL_DCHECK(fields->empty());
+  if (node == nullptr) {
+    return;
+  }
   if (node->HasDebugStringFieldsWithNodes()) {
     fields->emplace_back(DebugStringField("" /* name */, node));
   } else {
@@ -270,7 +273,9 @@ void ResolvedNode::CollectDebugStringFieldsWithNameFormat(
 
 std::string ResolvedNode::GetNameForDebugStringWithNameFormat(
     const std::string& name, const ResolvedNode* node) const {
-  if (node->HasDebugStringFieldsWithNodes()) {
+  if (node == nullptr) {
+    return absl::StrCat(name, " := <nullptr AST node>");
+  } else if (node->HasDebugStringFieldsWithNodes()) {
     return absl::StrCat(name, " :=");
   } else {
     return absl::StrCat(name, " := ", node->GetNameForDebugString());
@@ -696,6 +701,20 @@ zetasql_base::StatusOr<TypeParameters> ResolvedColumnDefinition::GetFullTypePara
     return TypeParameters();
   }
   return annotations()->GetFullTypeParameters(type());
+}
+
+FunctionEnums::Volatility ResolvedCreateFunctionStmt::volatility() const {
+  switch (determinism_level()) {
+    case ResolvedCreateStatementEnums::DETERMINISM_VOLATILE:
+    case ResolvedCreateStatementEnums::DETERMINISM_NOT_DETERMINISTIC:
+    case ResolvedCreateStatementEnums::DETERMINISM_UNSPECIFIED:
+      return FunctionEnums::VOLATILE;
+    case ResolvedCreateStatementEnums::DETERMINISM_DETERMINISTIC:
+    case ResolvedCreateStatementEnums::DETERMINISM_IMMUTABLE:
+      return FunctionEnums::IMMUTABLE;
+    case ResolvedCreateStatementEnums::DETERMINISM_STABLE:
+      return FunctionEnums::STABLE;
+  }
 }
 
 }  // namespace zetasql

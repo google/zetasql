@@ -47,18 +47,6 @@ class ZetaSqlCollator {
   ZetaSqlCollator& operator=(const ZetaSqlCollator&) = delete;
   virtual ~ZetaSqlCollator() = 0;
 
-  // Returns nullptr on error. The returned ZetaSqlCollator* is
-  // owned by the caller.
-  ABSL_DEPRECATED("use zetasql::MakeSqlCollator")
-  static ZetaSqlCollator* CreateFromCollationName(
-      const std::string& collation_name);
-
-  // This function never returns nullptr. The returned ZetaSqlCollator* is
-  // owned by the caller.
-  ABSL_DEPRECATED("use zetasql::MakeSqlCollatorLite")
-  static zetasql_base::StatusOr<ZetaSqlCollator*> CreateFromCollationNameLite(
-      const std::string& collation_name);
-
   // A three valued string compare method based on the collate specific rules.
   //
   // Returns -1 if s1 is less than s2.

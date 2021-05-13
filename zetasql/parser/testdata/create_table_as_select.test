@@ -1,5 +1,8 @@
 # NOTE: CREATE VIEW syntax and tests are identical to those for
 # CREATE TABLE AS SELECT tests, except for the keyword.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 
 create table t1 as select * from t2;
 --

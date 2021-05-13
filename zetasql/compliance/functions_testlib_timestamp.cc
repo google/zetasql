@@ -43,6 +43,7 @@
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -58,6 +59,8 @@ namespace {
 constexpr absl::StatusCode INVALID_ARGUMENT =
     absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
+
+constexpr int64_t kNaiveNumSecondsPerDay = 24 * 60 * 60;
 }  // namespace
 
 using functions::DateTimestampPart;
@@ -5992,6 +5995,7 @@ std::vector<FunctionTestCall> GetFunctionTestsParseDateTimestamp() {
 // <current_timestamp> arguments for test cases.
 struct CastStringToDateTimestampCommonTest : ParseDateTimestampCommonTest {
   int32_t current_date;
+  std::string nano_expected_result;
   CastStringToDateTimestampCommonTest(const std::string& format_string_in,
                                       TestFormatDateTimeParts parts_in,
                                       const std::string& input_string_in,
@@ -5999,14 +6003,38 @@ struct CastStringToDateTimestampCommonTest : ParseDateTimestampCommonTest {
                                       const std::string& expected_result_in)
       : ParseDateTimestampCommonTest{format_string_in, parts_in,
                                      input_string_in, expected_result_in},
-        current_date(current_date_in) {}
+        current_date(current_date_in),
+        nano_expected_result(expected_result_in) {}
+
+  CastStringToDateTimestampCommonTest(
+      const std::string& format_string_in, TestFormatDateTimeParts parts_in,
+      const std::string& input_string_in, int32_t current_date_in,
+      const std::string& expected_result_in,
+      const std::string& nano_expected_result_in)
+      : ParseDateTimestampCommonTest{format_string_in, parts_in,
+                                     input_string_in, expected_result_in},
+        current_date(current_date_in),
+        nano_expected_result(nano_expected_result_in) {}
 
   CastStringToDateTimestampCommonTest(const std::string& format_string_in,
                                       TestFormatDateTimeParts parts_in,
                                       const std::string& input_string_in,
                                       const std::string& expected_result_in)
       : ParseDateTimestampCommonTest{format_string_in, parts_in,
-                                     input_string_in, expected_result_in} {
+                                     input_string_in, expected_result_in},
+        nano_expected_result(expected_result_in) {
+    // Sets value of <current_date> to 1970-1-1 if not provided in constructor
+    // arguments.
+    ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &current_date));
+  }
+
+  CastStringToDateTimestampCommonTest(
+      const std::string& format_string_in, TestFormatDateTimeParts parts_in,
+      const std::string& input_string_in, const std::string& expected_result_in,
+      const std::string& nano_expected_result_in)
+      : ParseDateTimestampCommonTest{format_string_in, parts_in,
+                                     input_string_in, expected_result_in},
+        nano_expected_result(nano_expected_result_in) {
     // Sets value of <current_date> to 1970-1-1 if not provided in constructor
     // arguments.
     ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &current_date));
@@ -6019,6 +6047,7 @@ static std::vector<CastStringToDateTimestampCommonTest>
 GetCastStringToDateTimestampCommonTests() {
   const char kTestExpected19700101[] = "1970-01-01";
   const char* kTestExpectedDefault = kTestExpected19700101;
+  const char kTestExpected20010203[] = "2001-02-03";
   const char* dummy_input_timestamp = "1";
   int32_t date_2002_1_1, date_2002_2_2, date_2299_2_1;
   ZETASQL_CHECK_OK(functions::ConstructDate(2002, 1, 1, &date_2002_1_1));
@@ -6031,7 +6060,7 @@ GetCastStringToDateTimestampCommonTests() {
       // 00:00:00 in the default time zone. Value of <current_date> is set to
       // 1970-1-1 when it is not present.
       {"", TEST_FORMAT_ANY, "", kTestExpectedDefault},
-      {"", TEST_FORMAT_DATE, "", date_2002_2_2, "2002-02-01 00:00:00"},
+      {"", TEST_FORMAT_DATE, "", date_2002_2_2, "2002-02-01"},
 
       // Elements of "kLiteral" type.
       {"-", TEST_FORMAT_ANY, "-", kTestExpectedDefault},
@@ -6101,7 +6130,7 @@ GetCastStringToDateTimestampCommonTests() {
       // Trailing empty format elements in the format string.
       {"--.\"\"\"\"", TEST_FORMAT_ANY, "--.", kTestExpectedDefault},
 
-      // Elements of "kYear" type.
+      // Elements in "kYear" category.
       // "YYYY" - year value.
       // TODO: "YYYY"/"RRRR" can successfully match integer strings
       // whose values are 0 ("0", "00", etc.) or 10000 with other format
@@ -6117,6 +6146,7 @@ GetCastStringToDateTimestampCommonTests() {
       {"YYYY", TEST_FORMAT_DATE, "1234", "1234-01-01"},
       {"YYYY", TEST_FORMAT_DATE, "01234", "1234-01-01"},
       {"YYYY", TEST_FORMAT_DATE, "001234", EXPECT_ERROR},
+      {"YYYY", TEST_FORMAT_DATE, "9999", "9999-01-01"},
       {"YYYY", TEST_FORMAT_DATE, "10000", EXPECT_ERROR},
       {"YYYY", TEST_FORMAT_DATE, "10001", EXPECT_ERROR},
       {"YYYY", TEST_FORMAT_DATE, "123456", EXPECT_ERROR},
@@ -6131,6 +6161,7 @@ GetCastStringToDateTimestampCommonTests() {
       {"YYY", TEST_FORMAT_DATE, "123", "1123-01-01"},
       {"YYY", TEST_FORMAT_DATE, "0123", EXPECT_ERROR},
       {"YYY", TEST_FORMAT_DATE, "00123", EXPECT_ERROR},
+      {"YYY", TEST_FORMAT_DATE, "999", "1999-01-01"},
       {"YYY", TEST_FORMAT_DATE, "123", date_2002_2_2, "2123-02-01"},
       // "YY" - the last 2 digits of the year value.
       {"YY", TEST_FORMAT_DATE, "", EXPECT_ERROR},
@@ -6141,6 +6172,7 @@ GetCastStringToDateTimestampCommonTests() {
       {"YY", TEST_FORMAT_DATE, "12", "1912-01-01"},
       {"YY", TEST_FORMAT_DATE, "012", EXPECT_ERROR},
       {"YY", TEST_FORMAT_DATE, "0012", EXPECT_ERROR},
+      {"YY", TEST_FORMAT_DATE, "99", "1999-01-01"},
       {"YY", TEST_FORMAT_DATE, "12", date_2002_2_2, "2012-02-01"},
       // "Y" - the last digit of the year value.
       {"Y", TEST_FORMAT_DATE, "", EXPECT_ERROR},
@@ -6150,6 +6182,7 @@ GetCastStringToDateTimestampCommonTests() {
       {"Y", TEST_FORMAT_DATE, "1", "1971-01-01"},
       {"Y", TEST_FORMAT_DATE, "01", EXPECT_ERROR},
       {"Y", TEST_FORMAT_DATE, "001", EXPECT_ERROR},
+      {"Y", TEST_FORMAT_DATE, "9", "1979-01-01"},
       {"Y", TEST_FORMAT_DATE, "1", date_2002_2_2, "2001-02-01"},
       // "RRRR" - year value. It has the same behavior as format element "YYYY".
       {"RRRR", TEST_FORMAT_DATE, "", EXPECT_ERROR},
@@ -6162,6 +6195,7 @@ GetCastStringToDateTimestampCommonTests() {
       {"RRRR", TEST_FORMAT_DATE, "1234", "1234-01-01"},
       {"RRRR", TEST_FORMAT_DATE, "01234", "1234-01-01"},
       {"RRRR", TEST_FORMAT_DATE, "001234", EXPECT_ERROR},
+      {"RRRR", TEST_FORMAT_DATE, "9999", "9999-01-01"},
       {"RRRR", TEST_FORMAT_DATE, "10000", EXPECT_ERROR},
       {"RRRR", TEST_FORMAT_DATE, "10001", EXPECT_ERROR},
       {"RRRR", TEST_FORMAT_DATE, "123456", EXPECT_ERROR},
@@ -6201,6 +6235,569 @@ GetCastStringToDateTimestampCommonTests() {
       {"Y,YYY", TEST_FORMAT_DATE, "10,000", EXPECT_ERROR},
       {"Y,YYY", TEST_FORMAT_DATE, "10,001", EXPECT_ERROR},
       {"Y,YYY", TEST_FORMAT_DATE, "9,999", date_2002_2_2, "9999-02-01"},
+
+      // Elements in "kMonth" category.
+      // "MM" - month 1-12.
+      {"MM", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"MM", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"MM", TEST_FORMAT_DATE, "0", EXPECT_ERROR},
+      {"MM", TEST_FORMAT_DATE, "1", "1970-01-01"},
+      {"MM", TEST_FORMAT_DATE, "01", "1970-01-01"},
+      {"MM", TEST_FORMAT_DATE, "001", EXPECT_ERROR},
+      {"MM", TEST_FORMAT_DATE, "0001", EXPECT_ERROR},
+      {"MM", TEST_FORMAT_DATE, "2", "1970-02-01"},
+      {"MM", TEST_FORMAT_DATE, "12", "1970-12-01"},
+      {"MM", TEST_FORMAT_DATE, "13", EXPECT_ERROR},
+      {"MM", TEST_FORMAT_DATE, "03", date_2002_2_2, "2002-03-01"},
+      // "MON" - abbreviated month name. The matching is case insensitive.
+      {"MON", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"MON", TEST_FORMAT_DATE, "11", EXPECT_ERROR},
+      {"MON", TEST_FORMAT_DATE, "JAN", "1970-01-01"},
+      {"MON", TEST_FORMAT_DATE, "Jan", "1970-01-01"},
+      {"MON", TEST_FORMAT_DATE, "jan", "1970-01-01"},
+      {"MON", TEST_FORMAT_DATE, "Feb", "1970-02-01"},
+      {"MON", TEST_FORMAT_DATE, "Mar", "1970-03-01"},
+      {"MON", TEST_FORMAT_DATE, "Apr", "1970-04-01"},
+      {"MON", TEST_FORMAT_DATE, "May", "1970-05-01"},
+      {"MON", TEST_FORMAT_DATE, "Jun", "1970-06-01"},
+      {"MON", TEST_FORMAT_DATE, "Jul", "1970-07-01"},
+      {"MON", TEST_FORMAT_DATE, "Aug", "1970-08-01"},
+      {"MON", TEST_FORMAT_DATE, "Sep", "1970-09-01"},
+      {"MON", TEST_FORMAT_DATE, "Sept", EXPECT_ERROR},
+      {"MON", TEST_FORMAT_DATE, "Oct", "1970-10-01"},
+      {"MON", TEST_FORMAT_DATE, "Nov", "1970-11-01"},
+      {"MON", TEST_FORMAT_DATE, "Dec", "1970-12-01"},
+      {"MON", TEST_FORMAT_DATE, "NAM", EXPECT_ERROR},
+      {"MON", TEST_FORMAT_DATE, "Oct", date_2002_2_2, "2002-10-01"},
+      // "MONTH" - full month name. The matching is case insensitive.
+      {"MONTH", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"MONTH", TEST_FORMAT_DATE, "11", EXPECT_ERROR},
+      {"MONTH", TEST_FORMAT_DATE, "January", "1970-01-01"},
+      {"MONTH", TEST_FORMAT_DATE, "JANUARY", "1970-01-01"},
+      {"MONTH", TEST_FORMAT_DATE, "january", "1970-01-01"},
+      {"MONTH", TEST_FORMAT_DATE, "jAnUaRY", "1970-01-01"},
+      {"MONTH", TEST_FORMAT_DATE, "February", "1970-02-01"},
+      {"MONTH", TEST_FORMAT_DATE, "March", "1970-03-01"},
+      {"MONTH", TEST_FORMAT_DATE, "April", "1970-04-01"},
+      {"MONTH", TEST_FORMAT_DATE, "May", "1970-05-01"},
+      {"MONTH", TEST_FORMAT_DATE, "June", "1970-06-01"},
+      {"MONTH", TEST_FORMAT_DATE, "July", "1970-07-01"},
+      {"MONTH", TEST_FORMAT_DATE, "August", "1970-08-01"},
+      {"MONTH", TEST_FORMAT_DATE, "September", "1970-09-01"},
+      {"MONTH", TEST_FORMAT_DATE, "October", "1970-10-01"},
+      {"MONTH", TEST_FORMAT_DATE, "November", "1970-11-01"},
+      {"MONTH", TEST_FORMAT_DATE, "December", "1970-12-01"},
+      {"MONTH", TEST_FORMAT_DATE, "NotAMonth", EXPECT_ERROR},
+      {"MONTH", TEST_FORMAT_DATE, "July", date_2002_2_2, "2002-07-01"},
+
+      // Elements in "kDay" category.
+      // "DD" - day of month 1-31.
+      {"DD", TEST_FORMAT_DATE, "", EXPECT_ERROR},
+      {"DD", TEST_FORMAT_DATE, "non_digit", EXPECT_ERROR},
+      {"DD", TEST_FORMAT_DATE, "0", EXPECT_ERROR},
+      {"DD", TEST_FORMAT_DATE, "1", "1970-01-01"},
+      {"DD", TEST_FORMAT_DATE, "01", "1970-01-01"},
+      {"DD", TEST_FORMAT_DATE, "001", EXPECT_ERROR},
+      {"DD", TEST_FORMAT_DATE, "9", "1970-01-09"},
+      {"DD", TEST_FORMAT_DATE, "09", "1970-01-09"},
+      {"DD", TEST_FORMAT_DATE, "31", "1970-01-31"},
+      {"DD", TEST_FORMAT_DATE, "32", EXPECT_ERROR},
+      {"DD", TEST_FORMAT_DATE, "15", date_2002_2_2, "2002-02-15"},
+
+      // Test different ordering and cases of "YYYY", "MM", "DD" format
+      // elements, and they should all give the same result.
+      {"YYYY MM DD", TEST_FORMAT_DATE, "2001 02 03", kTestExpected20010203},
+      {"YyYY dd Mm", TEST_FORMAT_DATE, "2001 03 02", kTestExpected20010203},
+      {"mM YyyY Dd", TEST_FORMAT_DATE, "02 2001 03", kTestExpected20010203},
+      {"mm dD YyYy", TEST_FORMAT_DATE, "02 03 2001", kTestExpected20010203},
+      {"DD YYYy mM", TEST_FORMAT_DATE, "03 2001 02", kTestExpected20010203},
+      {"dd Mm yyyy", TEST_FORMAT_DATE, "03 02 2001", kTestExpected20010203},
+
+      // Dates that do not exist.
+      {"YYYY MM DD", TEST_FORMAT_DATE, "1234 4 31", EXPECT_ERROR},
+      {"YYYY MM DD", TEST_FORMAT_DATE, "2001 09 31", EXPECT_ERROR},
+      {"YYYY MM DD", TEST_FORMAT_DATE, "7777 02 29", EXPECT_ERROR},
+      {"YYYY MM DD", TEST_FORMAT_DATE, "1900 02 29", EXPECT_ERROR},
+      {"YYYY MM DD", TEST_FORMAT_DATE, "2004 02 29", "2004-02-29"},
+      {"YYYY MM DD", TEST_FORMAT_DATE, "1600 02 29", "1600-02-29"},
+
+      // Date boundaries and out-of-range cases.
+      {"YYYY-MM-DD", TEST_FORMAT_DATE, "0001-01-01", "0001-01-01"},
+      {"YYYY-MM-DD", TEST_FORMAT_DATE, "9999-12-31", "9999-12-31"},
+      {"YYYY-MM-DD", TEST_FORMAT_DATE, "0000-12-31", EXPECT_ERROR},
+      {"YYYY-MM-DD", TEST_FORMAT_DATE, "10000-01-01", EXPECT_ERROR},
+
+      // Elements in "kHour" category.
+      // "HH24" - hour value of a 24-hour clock.
+      {"HH24", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"HH24", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"HH24", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"HH24", TEST_FORMAT_TIME, "0", "00:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "1", "01:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "01", "01:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "001", EXPECT_ERROR},
+      {"HH24", TEST_FORMAT_TIME, "0001", EXPECT_ERROR},
+      {"HH24", TEST_FORMAT_TIME, "2", "02:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "12", "12:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "13", "13:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "23", "23:00:00"},
+      {"HH24", TEST_FORMAT_TIME, "24", EXPECT_ERROR},
+      {"HH24", TEST_FORMAT_DATE_AND_TIME, "15", date_2002_2_2,
+       "2002-02-01 15:00:00"},
+
+      // Elements in "kMinute" category.
+      // "MI" - minutes 00-59.
+      {"MI", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"MI", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"MI", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"MI", TEST_FORMAT_TIME, "0", "00:00:00"},
+      {"MI", TEST_FORMAT_TIME, "1", "00:01:00"},
+      {"MI", TEST_FORMAT_TIME, "01", "00:01:00"},
+      {"MI", TEST_FORMAT_TIME, "001", EXPECT_ERROR},
+      {"MI", TEST_FORMAT_TIME, "0001", EXPECT_ERROR},
+      {"MI", TEST_FORMAT_TIME, "30", "00:30:00"},
+      {"MI", TEST_FORMAT_TIME, "59", "00:59:00"},
+      {"MI", TEST_FORMAT_TIME, "60", EXPECT_ERROR},
+      {"MI", TEST_FORMAT_DATE_AND_TIME, "15", date_2002_2_2,
+       "2002-02-01 00:15:00"},
+
+      // Elements in "kSecond" category.
+      // "SS" - seconds 00-59.
+      {"SS", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"SS", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"SS", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"SS", TEST_FORMAT_TIME, "0", "00:00:00"},
+      {"SS", TEST_FORMAT_TIME, "1", "00:00:01"},
+      {"SS", TEST_FORMAT_TIME, "01", "00:00:01"},
+      {"SS", TEST_FORMAT_TIME, "001", EXPECT_ERROR},
+      {"SS", TEST_FORMAT_TIME, "0001", EXPECT_ERROR},
+      {"SS", TEST_FORMAT_TIME, "30", "00:00:30"},
+      {"SS", TEST_FORMAT_TIME, "59", "00:00:59"},
+      {"SS", TEST_FORMAT_TIME, "60", EXPECT_ERROR},
+      {"SS", TEST_FORMAT_DATE_AND_TIME, "15", date_2002_2_2,
+       "2002-02-01 00:00:15"},
+
+      // "SSSSS" - number of seconds past midnight.
+      {"SSSSS", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"SSSSS", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"SSSSS", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"SSSSS", TEST_FORMAT_TIME, "0", "00:00:00"},
+      {"SSSSS", TEST_FORMAT_TIME, "1", "00:00:01"},
+      {"SSSSS", TEST_FORMAT_TIME, "01", "00:00:01"},
+      {"SSSSS", TEST_FORMAT_TIME, "001", "00:00:01"},
+      {"SSSSS", TEST_FORMAT_TIME, "0001", "00:00:01"},
+      {"SSSSS", TEST_FORMAT_TIME, "00001", "00:00:01"},
+      {"SSSSS", TEST_FORMAT_TIME, "000001", EXPECT_ERROR},
+      {"SSSSS", TEST_FORMAT_TIME, "0000001", EXPECT_ERROR},
+      {"SSSSS", TEST_FORMAT_TIME, "60", "00:01:00"},
+      {"SSSSS", TEST_FORMAT_TIME, "3661", "01:01:01"},
+      {"SSSSS", TEST_FORMAT_TIME, "36061", "10:01:01"},
+      {"SSSSS", TEST_FORMAT_TIME, absl::StrCat(kNaiveNumSecondsPerDay - 1),
+       "23:59:59"},
+      {"SSSSS", TEST_FORMAT_TIME, absl::StrCat(kNaiveNumSecondsPerDay),
+       EXPECT_ERROR},
+      {"SSSSS", TEST_FORMAT_DATE_AND_TIME, "3661", date_2002_2_2,
+       "2002-02-01 01:01:01"},
+
+      // "FFN" - subsecond value. The value of "N" indicates the maximal number
+      // of digits to parse.
+      {"FF1", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF1", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF1", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF1", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF1", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF1", TEST_FORMAT_TIME, "12", EXPECT_ERROR},
+      {"FF1", TEST_FORMAT_TIME, "123", EXPECT_ERROR},
+      {"FF1", TEST_FORMAT_DATE_AND_TIME, "1", date_2002_2_2,
+       "2002-02-01 00:00:00.1"},
+
+      {"FF2", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF2", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF2", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF2", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF2", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF2", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF2", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF2", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF2", TEST_FORMAT_TIME, "123", EXPECT_ERROR},
+      {"FF2", TEST_FORMAT_TIME, "1234", EXPECT_ERROR},
+      {"FF2", TEST_FORMAT_DATE_AND_TIME, "12", date_2002_2_2,
+       "2002-02-01 00:00:00.12"},
+
+      {"FF3", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF3", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF3", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF3", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF3", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF3", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF3", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF3", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF3", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF3", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF3", TEST_FORMAT_TIME, "1234", EXPECT_ERROR},
+      {"FF3", TEST_FORMAT_TIME, "12345", EXPECT_ERROR},
+      {"FF3", TEST_FORMAT_DATE_AND_TIME, "123", date_2002_2_2,
+       "2002-02-01 00:00:00.123"},
+
+      {"FF4", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF4", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF4", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF4", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF4", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF4", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF4", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF4", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF4", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF4", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF4", TEST_FORMAT_TIME, "1234", "00:00:00.1234"},
+      {"FF4", TEST_FORMAT_TIME, "12345", EXPECT_ERROR},
+      {"FF4", TEST_FORMAT_TIME, "123456", EXPECT_ERROR},
+      {"FF4", TEST_FORMAT_DATE_AND_TIME, "1234", date_2002_2_2,
+       "2002-02-01 00:00:00.1234"},
+
+      {"FF5", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF5", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF5", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF5", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF5", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF5", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF5", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF5", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF5", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF5", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF5", TEST_FORMAT_TIME, "1234", "00:00:00.1234"},
+      {"FF5", TEST_FORMAT_TIME, "12345", "00:00:00.12345"},
+      {"FF5", TEST_FORMAT_TIME, "123456", EXPECT_ERROR},
+      {"FF5", TEST_FORMAT_TIME, "1234567", EXPECT_ERROR},
+      {"FF5", TEST_FORMAT_DATE_AND_TIME, "12345", date_2002_2_2,
+       "2002-02-01 00:00:00.12345"},
+
+      {"FF6", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF6", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF6", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF6", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF6", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF6", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF6", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF6", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF6", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF6", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF6", TEST_FORMAT_TIME, "1234", "00:00:00.1234"},
+      {"FF6", TEST_FORMAT_TIME, "12345", "00:00:00.12345"},
+      {"FF6", TEST_FORMAT_TIME, "123456", "00:00:00.123456"},
+      {"FF6", TEST_FORMAT_TIME, "1234567", EXPECT_ERROR},
+      {"FF6", TEST_FORMAT_TIME, "12345678", EXPECT_ERROR},
+      {"FF6", TEST_FORMAT_TIME, "123456789", EXPECT_ERROR},
+      {"FF6", TEST_FORMAT_DATE_AND_TIME, "123456", date_2002_2_2,
+       "2002-02-01 00:00:00.123456"},
+
+      {"FF7", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF7", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF7", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF7", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF7", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF7", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF7", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF7", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF7", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF7", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF7", TEST_FORMAT_TIME, "1234", "00:00:00.1234"},
+      {"FF7", TEST_FORMAT_TIME, "12345", "00:00:00.12345"},
+      {"FF7", TEST_FORMAT_TIME, "123456", "00:00:00.123456"},
+      {"FF7", TEST_FORMAT_TIME, "1234567", "00:00:00.123456",
+       "00:00:00.1234567"},
+      {"FF7", TEST_FORMAT_TIME, "12345678", EXPECT_ERROR},
+      {"FF7", TEST_FORMAT_TIME, "123456789", EXPECT_ERROR},
+      {"FF7", TEST_FORMAT_DATE_AND_TIME, "1234567", date_2002_2_2,
+       "2002-02-01 00:00:00.123456", "2002-02-01 00:00:00.1234567"},
+
+      {"FF8", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF8", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF8", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF8", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF8", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF8", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF8", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF8", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF8", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF8", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF8", TEST_FORMAT_TIME, "1234", "00:00:00.1234"},
+      {"FF8", TEST_FORMAT_TIME, "12345", "00:00:00.12345"},
+      {"FF8", TEST_FORMAT_TIME, "123456", "00:00:00.123456"},
+      {"FF8", TEST_FORMAT_TIME, "1234567", "00:00:00.123456",
+       "00:00:00.1234567"},
+      {"FF8", TEST_FORMAT_TIME, "12345678", "00:00:00.123456",
+       "00:00:00.12345678"},
+      {"FF8", TEST_FORMAT_TIME, "123456789", EXPECT_ERROR},
+      {"FF8", TEST_FORMAT_TIME, "1234567890", EXPECT_ERROR},
+      {"FF8", TEST_FORMAT_DATE_AND_TIME, "12345678", date_2002_2_2,
+       "2002-02-01 00:00:00.123456", "2002-02-01 00:00:00.12345678"},
+
+      {"FF9", TEST_FORMAT_TIME, "", EXPECT_ERROR},
+      {"FF9", TEST_FORMAT_TIME, "non_digit", EXPECT_ERROR},
+      {"FF9", TEST_FORMAT_TIME, "-1", EXPECT_ERROR},
+      {"FF9", TEST_FORMAT_TIME, "0", "00:00:00.0"},
+      {"FF9", TEST_FORMAT_TIME, "1", "00:00:00.1"},
+      {"FF9", TEST_FORMAT_TIME, "01", "00:00:00.01"},
+      {"FF9", TEST_FORMAT_TIME, "10", "00:00:00.1"},
+      {"FF9", TEST_FORMAT_TIME, "010", "00:00:00.01"},
+      {"FF9", TEST_FORMAT_TIME, "12", "00:00:00.12"},
+      {"FF9", TEST_FORMAT_TIME, "123", "00:00:00.123"},
+      {"FF9", TEST_FORMAT_TIME, "1234", "00:00:00.1234"},
+      {"FF9", TEST_FORMAT_TIME, "12345", "00:00:00.12345"},
+      {"FF9", TEST_FORMAT_TIME, "123456", "00:00:00.123456"},
+      {"FF9", TEST_FORMAT_TIME, "1234567", "00:00:00.123456",
+       "00:00:00.1234567"},
+      {"FF9", TEST_FORMAT_TIME, "12345678", "00:00:00.123456",
+       "00:00:00.12345678"},
+      {"FF9", TEST_FORMAT_TIME, "123456789", "00:00:00.123456",
+       "00:00:00.123456789"},
+      {"FF9", TEST_FORMAT_TIME, "1234567890", EXPECT_ERROR},
+      {"FF9", TEST_FORMAT_TIME, "12345678901", EXPECT_ERROR},
+      {"FF9", TEST_FORMAT_DATE_AND_TIME, "123456789", date_2002_2_2,
+       "2002-02-01 00:00:00.123456", "2002-02-01 00:00:00.123456789"},
+
+      {"FF10", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
+      {"FF11", TEST_FORMAT_TIME, "1", EXPECT_ERROR},
+
+      // Combined Time format elements.
+      {"HH24:MI:SS.FF6", TEST_FORMAT_TIME, "01:02:03.040000",
+       "01:02:03.040000"},
+      {"HH:MI:SS.FF6 P.M.", TEST_FORMAT_TIME, "01:02:04.110000 A.M.",
+       "01:02:04.110000"},
+      {"HH12:MI:SS.FF6 A.M.", TEST_FORMAT_TIME, "01:12:05.123456 P.M.",
+       "13:12:05.123456"},
+      {"HH:MI:SS.FF9 A.M.", TEST_FORMAT_TIME, "01:12:05.123456789 P.M.",
+       "13:12:05.123456", "13:12:05.123456789"},
+
+      // Time edge cases.
+      {"HH24:MI:SS.FF6", TEST_FORMAT_TIME, "00:00:00.000000",
+       "00:00:00.000000"},
+      {"HH12:MI:SS.FF6 A.M.", TEST_FORMAT_TIME, "12:00:00.000000 A.M.",
+       "00:00:00.000000"},
+      {"HH24:MI:SS.FF6", TEST_FORMAT_TIME, "23:59:59.999999",
+       "23:59:59.999999"},
+      {"HH:MI:SS.FF6 A.M.", TEST_FORMAT_TIME, "11:59:59.999999 P.M.",
+       "23:59:59.999999"},
+      {"HH24:MI:SS.FF6", TEST_FORMAT_TIME, "-1:59:59.999999", EXPECT_ERROR},
+      {"HH24:MI:SS.FF6", TEST_FORMAT_TIME, "24:00:00.000000", EXPECT_ERROR},
+
+      {"HH24:MI:SS.FF9", TEST_FORMAT_TIME, "00:00:00.000000000",
+       "00:00:00.000000"},
+      {"HH24:MI:SS.FF9", TEST_FORMAT_TIME, "23:59:59.999999999",
+       "23:59:59.999999", "23:59:59.999999999"},
+      {"HH24:MI:SS.FF9", TEST_FORMAT_TIME, "-1:59:59.999999999", EXPECT_ERROR},
+      {"HH24:MI:SS.FF9", TEST_FORMAT_TIME, "24:00:00.000000000", EXPECT_ERROR},
+
+      // Elements in "kTimeZone" category.
+      // "TZH" - hour value of time zone offset with a leading sign from
+      // {'+', '-', ' ' (same as '+')}.
+      {"TZH", TEST_FORMAT_TIMEZONE, "", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "UTC", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "11", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+non_digit", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-15", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-14", "1970-01-01 00:00:00-14"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-8", "1970-01-01 00:00:00-08"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-08", "1970-01-01 00:00:00-08"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-008", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-0008", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-1", "1970-01-01 00:00:00-01"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "-0", "1970-01-01 00:00:00+00"},
+      // We use a preceding "." format element so that the space character in
+      // the <input_string> will not be trimmed in parsing.
+      {"TZH", TEST_FORMAT_TIMEZONE, "+0", "1970-01-01 00:00:00+00"},
+      {".TZH", TEST_FORMAT_TIMEZONE, ". 0", "1970-01-01 00:00:00+00"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+1", "1970-01-01 00:00:00+01"},
+      {".TZH", TEST_FORMAT_TIMEZONE, ". 1", "1970-01-01 00:00:00+01"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+12", "1970-01-01 00:00:00+12"},
+      {".TZH", TEST_FORMAT_TIMEZONE, ". 12", "1970-01-01 00:00:00+12"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+14", "1970-01-01 00:00:00+14"},
+      {".TZH", TEST_FORMAT_TIMEZONE, ". 14", "1970-01-01 00:00:00+14"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+15", EXPECT_ERROR},
+      {".TZH", TEST_FORMAT_TIMEZONE, ". 15", EXPECT_ERROR},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+1", date_2002_2_2,
+       "2002-02-01 00:00:00+01"},
+
+      // "TZM" - minute value of time zone offset.
+      {"TZM", TEST_FORMAT_TIMEZONE, "", EXPECT_ERROR},
+      {"TZM", TEST_FORMAT_TIMEZONE, "non_digit", EXPECT_ERROR},
+      {"TZM", TEST_FORMAT_TIMEZONE, "-1", EXPECT_ERROR},
+      {"TZM", TEST_FORMAT_TIMEZONE, "0", "1970-01-01 00:00:00+00:00"},
+      {"TZM", TEST_FORMAT_TIMEZONE, "1", "1970-01-01 00:00:00+00:01"},
+      {"TZM", TEST_FORMAT_TIMEZONE, "01", "1970-01-01 00:00:00+00:01"},
+      {"TZM", TEST_FORMAT_TIMEZONE, "001", EXPECT_ERROR},
+      {"TZM", TEST_FORMAT_TIMEZONE, "0001", EXPECT_ERROR},
+      {"TZM", TEST_FORMAT_TIMEZONE, "30", "1970-01-01 00:00:00+00:30"},
+      {"TZM", TEST_FORMAT_TIMEZONE, "59", "1970-01-01 00:00:00+00:59"},
+      {"TZM", TEST_FORMAT_TIMEZONE, "60", EXPECT_ERROR},
+      {"TZM", TEST_FORMAT_TIMEZONE, "15", date_2002_2_2,
+       "2002-02-01 00:00:00+00:15"},
+
+      // Combiend Timezone format elements.
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "UTC", EXPECT_ERROR},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "-1401", EXPECT_ERROR},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "-1400", "1970-01-01 00:00:00-14:00"},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "-0100", "1970-01-01 00:00:00-01:00"},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "-0050", "1970-01-01 00:00:00-00:50"},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "+0050", "1970-01-01 00:00:00+00:50"},
+      {".TZHTZM", TEST_FORMAT_TIMEZONE, ". 0050", "1970-01-01 00:00:00+00:50"},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "+0159", "1970-01-01 00:00:00+01:59"},
+      {".TZHTZM", TEST_FORMAT_TIMEZONE, ". 0159", "1970-01-01 00:00:00+01:59"},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "+1400", "1970-01-01 00:00:00+14:00"},
+      {".TZHTZM", TEST_FORMAT_TIMEZONE, ". 1400", "1970-01-01 00:00:00+14:00"},
+      {"TZHTZM", TEST_FORMAT_TIMEZONE, "+1401", EXPECT_ERROR},
+      {".TZHTZM", TEST_FORMAT_TIMEZONE, ". 1401", EXPECT_ERROR},
+
+      // Datetime/timestamp edge cases.
+      {"YYYY-MM-DD HH24:MI:SS.FF6", TEST_FORMAT_DATE_AND_TIME,
+       "0001-01-01 00:00:00.000000", "0001-01-01 00:00:00.000000"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "0000-12-31 16:08:00.000000-07:52", "0001-01-01 00:00:00.000000 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6", TEST_FORMAT_DATE_AND_TIME,
+       "9999-12-31 23:59:59.999999", "9999-12-31 23:59:59.999999"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "10000-01-01 06:29:59.999999+06:30", "9999-12-31 23:59:59.999999 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6", TEST_FORMAT_DATE_AND_TIME,
+       "0000-12-31 23:59:59.999999", EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "0000-12-31 16:07:59.999999-07:52", EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF6", TEST_FORMAT_DATE_AND_TIME,
+       "10000-01-01 00:00:00.000000", EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF6TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "10000-01-01 07:30:00.000000+06:30", EXPECT_ERROR},
+
+      {"YYYY-MM-DD HH24:MI:SS.FF9", TEST_FORMAT_DATE_AND_TIME,
+       "0001-01-01 00:00:00.000000000", "0001-01-01 00:00:00.000000"},
+      {"YYYY-MM-DD HH24:MI:SS.FF9TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "0000-12-31 16:08:00.000000000-07:52", "0001-01-01 00:00:00.000000 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF9", TEST_FORMAT_DATE_AND_TIME,
+       "9999-12-31 23:59:59.999999999", "9999-12-31 23:59:59.999999",
+       "9999-12-31 23:59:59.999999999"},
+      {"YYYY-MM-DD HH24:MI:SS.FF9TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "10000-01-01 06:29:59.999999999+06:30", "9999-12-31 23:59:59.999999 UTC",
+       "9999-12-31 23:59:59.999999999 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF9", TEST_FORMAT_DATE_AND_TIME,
+       "0000-12-31 23:59:59.999999999", EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF9TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "0000-12-31 16:07:59.999999999-07:52", EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF9", TEST_FORMAT_DATE_AND_TIME,
+       "10000-01-01 00:00:00.000000000", EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF9TZH:TZM", TEST_FORMAT_TIMEZONE,
+       "10000-01-01 07:30:00.000000000+06:30", EXPECT_ERROR},
+
+      // Test different cases of format elements, and they should all give the
+      // same result.
+      {"YYYY-MM-DD HH24:MI:SS.FF5", TEST_FORMAT_DATE_AND_TIME,
+       "1234-02-03 11:22:33.12345", "1234-02-03 11:22:33.12345"},
+      {"YyYY-Mm-dD hh24:mI:sS.fF5", TEST_FORMAT_DATE_AND_TIME,
+       "1234-02-03 11:22:33.12345", "1234-02-03 11:22:33.12345"},
+      {"YyyY-mm-Dd hH24:mi:Ss.ff5", TEST_FORMAT_DATE_AND_TIME,
+       "1234-02-03 11:22:33.12345", "1234-02-03 11:22:33.12345"},
+      {"yyYY-mM-dd hH24:Mi:Ss.Ff5", TEST_FORMAT_DATE_AND_TIME,
+       "1234-02-03 11:22:33.12345", "1234-02-03 11:22:33.12345"},
+      {"yyYY-mM-dd hH24:Mi:Ss.Ff5Tzh:tzM", TEST_FORMAT_TIMEZONE,
+       "1234-02-03 11:22:33.12345 07:52", "1234-02-03 11:22:33.12345+07:52"},
+      {"yyYY-mM-dd hH24:Mi:Ss.Ff5tzH:Tzm", TEST_FORMAT_TIMEZONE,
+       "1234-02-03 11:22:33.12345 07:52", "1234-02-03 11:22:33.12345+07:52"},
+
+      // Test cases about DigitCountRange of element. Please see details at
+      // ComputeDigitCountRanges function in cast_date_time.cc.
+      // There is no element that parses characters after "YYYY", so it can
+      // consume up to 5 digits (note that element R"("")" consumes no
+      // characters).
+      {"YYYY", TEST_FORMAT_DATE, "01212", "1212-01-01"},
+      {R"(YYYY"")", TEST_FORMAT_DATE, "1", "0001-01-01"},
+      {R"(YYYY"""")", TEST_FORMAT_DATE, "12", "0012-01-01"},
+      {R"(YYYY"""")", TEST_FORMAT_DATE, "123", "0123-01-01"},
+      {R"(YYYY"""""")", TEST_FORMAT_DATE, "1234", "1234-01-01"},
+      {R"(YYYY"")", TEST_FORMAT_DATE, "01234", "1234-01-01"},
+      // The first character parsed by the elements after "YYYY" is not a digit,
+      // so "YYYY" can parse up to 5 digits.
+      {"YYYY-MM", TEST_FORMAT_DATE, "1-12", "0001-12-01"},
+      {"YYYY,-MM", TEST_FORMAT_DATE, "12,-2", "0012-02-01"},
+      {"YYYY   MM", TEST_FORMAT_DATE, "123\n12", "0123-12-01"},
+      {R"(YYYY"":""MM)", TEST_FORMAT_DATE, "1234:2", "1234-02-01"},
+      {R"(YYYY"""""";;MM)", TEST_FORMAT_DATE, "01234;;12", "1234-12-01"},
+      {R"(YYYY""MON)", TEST_FORMAT_DATE, "00123apr", "0123-04-01"},
+      {R"(YYYY""""MONTH)", TEST_FORMAT_DATE, "1octoBer", "0001-10-01"},
+      {R"(YYYY""A.M.HH)", TEST_FORMAT_DATE_AND_TIME, "00123A.M.11",
+       "0123-01-01 11:00:00"},
+      {R"(YYYY""""P.M.HH)", TEST_FORMAT_DATE_AND_TIME, "1a.m.11",
+       "0001-01-01 11:00:00"},
+      {R"(YYYY""""TZH)", TEST_FORMAT_TIMEZONE, "123+1",
+       "0123-01-01 00:00:00+01"},
+      // The first character parsed by the elements after "YYYY" is a digit, so
+      // "YYYY" parses exactly 4 digits from the input.
+      {"YYYYMM", TEST_FORMAT_DATE, "01212", "0121-02-01"},
+      {R"(YYYY""MM)", TEST_FORMAT_DATE, "01212", "0121-02-01"},
+      {R"(YYYY""""""MM)", TEST_FORMAT_DATE, "01212", "0121-02-01"},
+      {R"(YYYY""""""MM)", TEST_FORMAT_DATE, "0121", EXPECT_ERROR},
+      // Similarly, "RR" parses exactly 2 digits with the first element that
+      // consumes characters after it being "MM".
+      {"RRMM", TEST_FORMAT_DATE, "111", date_2002_2_2, "2011-01-01"},
+      {R"(RR""MM)", TEST_FORMAT_DATE, "111", date_2002_2_2, "2011-01-01"},
+      {R"(RR""MM)", TEST_FORMAT_DATE, "11", date_2002_2_2, EXPECT_ERROR},
+      {"MMYYYY", TEST_FORMAT_DATE, "02212", "0212-02-01"},
+      {"MMYYYY", TEST_FORMAT_DATE, "02", EXPECT_ERROR},
+      {"DDMM", TEST_FORMAT_DATE, "0212", "1970-12-02"},
+      {"DDMM", TEST_FORMAT_DATE, "02", EXPECT_ERROR},
+      {"A.M.HH12DD", TEST_FORMAT_DATE_AND_TIME, "a.m.1102",
+       "1970-01-02 11:00:00"},
+      {"A.M.HH12DD", TEST_FORMAT_DATE_AND_TIME, "a.m.11", EXPECT_ERROR},
+      {"A.M.HHDD", TEST_FORMAT_DATE_AND_TIME, "a.m.1102",
+       "1970-01-02 11:00:00"},
+      {"A.M.HHDD", TEST_FORMAT_DATE_AND_TIME, "a.m.11", EXPECT_ERROR},
+      {R"(MI""HHA.M.)", TEST_FORMAT_TIME, "111A.M.", "01:11:00"},
+      {R"(MI""""""HHA.M.)", TEST_FORMAT_TIME, "11A.M.", EXPECT_ERROR},
+      {R"(MI""HH12A.M.)", TEST_FORMAT_TIME, "111A.M.", "01:11:00"},
+      {R"(MI""""""HH12A.M.)", TEST_FORMAT_TIME, "11A.M.", EXPECT_ERROR},
+      {R"(HH24""MI)", TEST_FORMAT_TIME, "231", "23:01:00"},
+      {"HH24MI", TEST_FORMAT_TIME, "23", EXPECT_ERROR},
+      {R"(SS""HH24)", TEST_FORMAT_TIME, "231", "01:00:23"},
+      {"SSHH24", TEST_FORMAT_TIME, "23", EXPECT_ERROR},
+      {R"(SSSSS""MM)", TEST_FORMAT_DATE_AND_TIME, "036612",
+       "1970-02-01 01:01:01"},
+      {R"(SSSSS""""""MM)", TEST_FORMAT_DATE_AND_TIME, "03661", EXPECT_ERROR},
+      {R"(FF4""SS)", TEST_FORMAT_DATE_AND_TIME, "01212",
+       "1970-01-01 00:00:02.0121"},
+      {R"(FF4""""""SS)", TEST_FORMAT_DATE_AND_TIME, "0121", EXPECT_ERROR},
+      {R"(FF4""SSSSS)", TEST_FORMAT_DATE_AND_TIME, "01212",
+       "1970-01-01 00:00:02.0121"},
+      {R"(FF4""""""SSSSS)", TEST_FORMAT_DATE_AND_TIME, "0121", EXPECT_ERROR},
+      {R"(TZM""FF4)", TEST_FORMAT_TIMEZONE, "121",
+       "1970-01-01 00:00:00.1+00:12"},
+      {R"(TZM""""""FF4)", TEST_FORMAT_TIMEZONE, "12", EXPECT_ERROR},
+      {R"(TZH""TZM)", TEST_FORMAT_TIMEZONE, "+121",
+       "1970-01-01 00:00:00+12:01"},
+      {R"(TZH""""""TZM)", TEST_FORMAT_TIMEZONE, "+12", EXPECT_ERROR},
+
+      // Whether the first character parsed by a "kDoubleQuotedLiteral" element
+      // depends on the first characters inside quote.
+      // The first character parsed by element R"("abc")" is not a digit since
+      // the first character inside its quote ('a') is not a digit. Therefore,
+      // the preceding element "YYYY" can parse up to 5 digits.
+      {R"(YYYY"abc")", TEST_FORMAT_DATE, "1abc", "0001-01-01"},
+      {R"(YYYY"abc")", TEST_FORMAT_DATE, "12abc", "0012-01-01"},
+      {R"(YYYY"abc")", TEST_FORMAT_DATE, "012abc", "0012-01-01"},
+      {R"(YYYY"abc")", TEST_FORMAT_DATE, "0012abc", "0012-01-01"},
+      {R"(YYYY"abc")", TEST_FORMAT_DATE, "00012abc", "0012-01-01"},
+      // The first character parsed by element R"("9abc")" is a digit since the
+      // first character inside its quote ('9') is a digit. Therefore, the
+      // preceding element "YYYY" parses exactly 4 digits.
+      {R"(YYYY"9abc")", TEST_FORMAT_DATE, "00129abc", "0012-01-01"},
+      {R"(YYYY"9abc")", TEST_FORMAT_DATE, "0129abc", EXPECT_ERROR},
+      {R"(YYYY"9abc")", TEST_FORMAT_DATE, "129abc", EXPECT_ERROR},
+      {R"(YYYY"9abc")", TEST_FORMAT_DATE, "000129abc", EXPECT_ERROR},
+      // More complicated cases.
+      {R"(YYYY"9abc"MM"""""def")", TEST_FORMAT_DATE, "00129abc3def",
+       "0012-03-01"},
+      {R"(YYYY"""abc"MM"""2def")", TEST_FORMAT_DATE, "12abc012def",
+       "0012-01-01"},
+      {R"(MM"""abc"YYYY"""2def")", TEST_FORMAT_DATE, "2abc20122def",
+       "2012-02-01"},
+      {"HH24MISSFF9", TEST_FORMAT_TIME, "123456789", "12:34:56.789"},
+
       // Error cases.
       // Returns error if input strings are not valid UTF-8.
       {"£\xff£", TEST_FORMAT_ANY, "£\xff£", EXPECT_ERROR},
@@ -6240,17 +6837,142 @@ GetCastStringToDateTimestampCommonTests() {
       {"fF2 Ff2", TEST_FORMAT_ANY, "50 50", EXPECT_ERROR},
       {"YYYY RR", TEST_FORMAT_ANY, "1950 50", EXPECT_ERROR},
       {"Month MM", TEST_FORMAT_ANY, "FEBRUARY 11", EXPECT_ERROR},
-      {"DDD Dd", TEST_FORMAT_ANY, "170 11", EXPECT_ERROR},
-      {"HH24 HHAM", TEST_FORMAT_ANY, "13 11AM", EXPECT_ERROR},
-      {"HH24 hh12AM", TEST_FORMAT_ANY, "13 11AM", EXPECT_ERROR},
-      {"MonDDD", TEST_FORMAT_ANY, "FEB170", EXPECT_ERROR},
+      {"HH24 HHA.M.", TEST_FORMAT_ANY, "13 11A.M.", EXPECT_ERROR},
+      {"HH24 hh12A.M.", TEST_FORMAT_ANY, "13 11A.M.", EXPECT_ERROR},
       {"hh", TEST_FORMAT_ANY, "11", EXPECT_ERROR},
       {"Hh12", TEST_FORMAT_ANY, "11", EXPECT_ERROR},
-      {"AM", TEST_FORMAT_ANY, "AM", EXPECT_ERROR},
+      {"A.M.", TEST_FORMAT_ANY, "A.M.", EXPECT_ERROR},
       {"P.M.", TEST_FORMAT_ANY, "A.M.", EXPECT_ERROR},
-      {"SSSSS HH12AM", TEST_FORMAT_ANY, "3601 11AM", EXPECT_ERROR},
+      {"SSSSS HH12A.M.", TEST_FORMAT_ANY, "3601 11A.M.", EXPECT_ERROR},
       {"SSSSS Mi", TEST_FORMAT_ANY, "3601 50", EXPECT_ERROR},
       {"Ss SSSSS", TEST_FORMAT_ANY, "50 3601", EXPECT_ERROR},
+  });
+
+  // Elements in "kHour" category.
+  // "HH"/"HH12" (along with "A.M."/"P.M.") - hour value of a 12-hour clock.
+  std::vector<absl::string_view> hour12_elements = {"HH", "HH12"};
+  std::vector<absl::string_view> meridian_indicator_elements = {"A.M.", "P.M."};
+  for (absl::string_view hour12_element : hour12_elements) {
+    for (absl::string_view mi_element : meridian_indicator_elements) {
+      std::string hour12_mi_format = absl::StrCat(hour12_element, mi_element);
+      std::string mi_hour12_format = absl::StrCat(mi_element, hour12_element);
+
+      tests.push_back({hour12_mi_format, TEST_FORMAT_TIME, "", EXPECT_ERROR});
+      tests.push_back({mi_hour12_format, TEST_FORMAT_TIME, "", EXPECT_ERROR});
+
+      tests.push_back({hour12_mi_format, TEST_FORMAT_TIME, "01", EXPECT_ERROR});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "A.M.", EXPECT_ERROR});
+
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "0A.M.", EXPECT_ERROR});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "1A.M.", "01:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "01a.M.", "01:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "001a.m.", EXPECT_ERROR});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "0001a.m.", EXPECT_ERROR});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "1AM", EXPECT_ERROR});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "1pm", EXPECT_ERROR});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "1Zm", EXPECT_ERROR});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "A.m.1", "01:00:00"});
+
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "2A.M.", "02:00:00"});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "a.M.2", "02:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "12A.m.", "00:00:00"});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "a.m.12", "00:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "13A.M.", EXPECT_ERROR});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "a.M.13", EXPECT_ERROR});
+
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "0P.M.", EXPECT_ERROR});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "1p.M.", "13:00:00"});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "P.m.1", "13:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "2p.M.", "14:00:00"});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "P.M.2", "14:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "12P.M.", "12:00:00"});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "P.m.12", "12:00:00"});
+      tests.push_back(
+          {hour12_mi_format, TEST_FORMAT_TIME, "13P.M.", EXPECT_ERROR});
+      tests.push_back(
+          {mi_hour12_format, TEST_FORMAT_TIME, "P.M.13", EXPECT_ERROR});
+
+      tests.push_back({hour12_mi_format, TEST_FORMAT_DATE_AND_TIME, "11a.m.",
+                       date_2002_2_2, "2002-02-01 11:00:00"});
+      tests.push_back({mi_hour12_format, TEST_FORMAT_DATE_AND_TIME, "P.M.2",
+                       date_2002_2_2, "2002-02-01 14:00:00"});
+    }
+  }
+
+  return tests;
+}  // NOLINT(readability/fn_size)
+
+// This struct is used to construct test cases to verify that a format element
+// is not supported for certain output types (e.g. element "HH" is not supported
+// for the output type DATE).
+//
+// See comments of TestFormatDateTimeParts for the exact meaning of each type.
+//
+// The <input_string> is naive so it would be simple to verify that it can be
+// parsed successfully by if the <format_string> is supported by the output
+// type.
+struct CastStringToDateTimestampInvalidElementTest {
+  std::string format_string;      // The format string specified.
+  TestFormatDateTimeParts parts;  // The format parts needed to be supported.
+  std::string input_string;       // The input date/time string to parse.
+};
+
+static std::vector<CastStringToDateTimestampInvalidElementTest>
+GetCastStringToDateTimestampInvalidElementTests() {
+  std::vector<CastStringToDateTimestampInvalidElementTest> tests({
+      {"YYYY", TEST_FORMAT_DATE, "1111"},
+      {"YYY", TEST_FORMAT_DATE, "111"},
+      {"YY", TEST_FORMAT_DATE, "11"},
+      {"Y", TEST_FORMAT_DATE, "1"},
+      {"RRRR", TEST_FORMAT_DATE, "1111"},
+      {"RR", TEST_FORMAT_DATE, "11"},
+      {"Y,YYY", TEST_FORMAT_DATE, "1,111"},
+      {"MM", TEST_FORMAT_DATE, "11"},
+      {"MON", TEST_FORMAT_DATE, "JAN"},
+      {"MONTH", TEST_FORMAT_DATE, "JANUARY"},
+      {"DD", TEST_FORMAT_DATE, "11"},
+      {"HHA.M.", TEST_FORMAT_TIME, "11A.M."},
+      {"HHP.M.", TEST_FORMAT_TIME, "11A.M."},
+      {"HH12A.M.", TEST_FORMAT_TIME, "11A.M."},
+      {"HH12P.M.", TEST_FORMAT_TIME, "11A.M."},
+      {"HH24", TEST_FORMAT_TIME, "11"},
+      {"MI", TEST_FORMAT_TIME, "11"},
+      {"SS", TEST_FORMAT_TIME, "11"},
+      {"SSSSS", TEST_FORMAT_TIME, "11111"},
+      {"FF1", TEST_FORMAT_TIME, "1"},
+      {"FF2", TEST_FORMAT_TIME, "11"},
+      {"FF3", TEST_FORMAT_TIME, "111"},
+      {"FF4", TEST_FORMAT_TIME, "1111"},
+      {"FF5", TEST_FORMAT_TIME, "11111"},
+      {"FF6", TEST_FORMAT_TIME, "111111"},
+      {"FF7", TEST_FORMAT_TIME, "1111111"},
+      {"FF8", TEST_FORMAT_TIME, "11111111"},
+      {"FF9", TEST_FORMAT_TIME, "111111111"},
+      {"TZH", TEST_FORMAT_TIMEZONE, "+11"},
+      {"TZM", TEST_FORMAT_TIMEZONE, "11"},
   });
 
   return tests;
@@ -6296,21 +7018,26 @@ GetCastStringToTimestampCommonTests() {
     absl::Time current_timestamp;
     ZETASQL_CHECK_OK(functions::ConvertDateToTimestamp(common_test.current_date, "UTC",
                                                &current_timestamp));
-    tests.push_back({common_test.format_string, common_test.input_string,
-                     "UTC", current_timestamp, common_test.expected_result});
-    // TODO: Add '1970-01-01' as date part when dealing with cases
-    // where common_test.parts == TEST_FORMAT_TIME.
+    if (common_test.parts == TEST_FORMAT_TIME) {
+      std::string micro_result =
+          common_test.expected_result.empty()
+              ? ""
+              : absl::StrCat("1970-01-01 ", common_test.expected_result, "+00");
+      std::string nano_result =
+          common_test.nano_expected_result.empty()
+              ? ""
+              : absl::StrCat("1970-01-01 ", common_test.nano_expected_result,
+                             "+00");
+      tests.push_back({common_test.format_string, common_test.input_string,
+                       "UTC", current_timestamp, micro_result, nano_result});
+    } else {
+      tests.push_back({common_test.format_string, common_test.input_string,
+                       "UTC", current_timestamp, common_test.expected_result,
+                       common_test.nano_expected_result});
+    }
   }
 
   return tests;
-}
-
-absl::Time GetCurrentTimestamp(int32_t current_date,
-                               absl::string_view timezone_string) {
-  absl::Time current_timestamp;
-  ZETASQL_CHECK_OK(functions::ConvertDateToTimestamp(current_date, timezone_string,
-                                             &current_timestamp));
-  return current_timestamp;
 }
 
 static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
@@ -6333,22 +7060,75 @@ static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
       {"RR", "12", "-01:00", ts_1970_1_1_utc, "2012-12-01 00:00:00-01:00"},
       {"Y,YYY", "1,234", "-01:00", ts_1970_1_1_utc,
        "1234-12-01 00:00:00-01:00"},
-      // Boundary cases.
-      {"YYYY", "1", "UTC", ts_1970_1_1_utc, "0001-01-01 00:00:00 UTC"},
-      {"YYYY", "0", "UTC", ts_1970_1_1_utc, EXPECT_ERROR},
-      {"YYYY", "9999", "UTC", ts_1970_1_1_utc, "9999-01-01 00:00:00 UTC"},
-      {"YYYY", "10000", "UTC", ts_1970_1_1_utc, EXPECT_ERROR},
-      // 'YYYY'/'RRRR' format elements can match integer values of 10000 by
-      // changing <default_timezone> values. The <default_timzone> is
-      // "+1:00" and the <current_timestamp> is "2002-1-1 +1:00", so the
-      // default year and default month (which depends on the
-      // <current_timestamp> under <default_timzone>) are 2002 and 1.
-      {"YYYY", "10000", "+1:00", GetCurrentTimestamp(date_2002_1_1, "+1:00"),
+      {"MM", "03", "-01:00", ts_1970_1_1_utc, "1969-03-01 00:00:00-01:00"},
+      {"MON", "MAR", "-01:00", ts_1970_1_1_utc, "1969-03-01 00:00:00-01:00"},
+      {"MONTH", "June", "-01:00", ts_1970_1_1_utc, "1969-06-01 00:00:00-01:00"},
+      {"YYMM", "1202", "-01:00", ts_1970_1_1_utc, "1912-02-01 00:00:00-01:00"},
+      {"DD", "02", "-01:00", ts_1970_1_1_utc, "1969-12-02 00:00:00-01:00"},
+      {"HHA.M.", "02a.m.", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 02:00:00-01:00"},
+      {"HHP.M.", "02a.m.", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 02:00:00-01:00"},
+      {"HH12A.M.", "02a.m.", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 02:00:00-01:00"},
+      {"HH12P.M.", "02a.m.", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 02:00:00-01:00"},
+      {"HH24", "6", "-01:00", ts_1970_1_1_utc, "1969-12-01 06:00:00-01:00"},
+      {"MI", "24", "-01:00", ts_1970_1_1_utc, "1969-12-01 00:24:00-01:00"},
+      {"SS", "24", "-01:00", ts_1970_1_1_utc, "1969-12-01 00:00:24-01:00"},
+      {"SSSSS", "24", "-01:00", ts_1970_1_1_utc, "1969-12-01 00:00:24-01:00"},
+      {"FF3", "234", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 00:00:00.234-01:00"},
+      {"FF7", "2345678", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 00:00:00.234567-01:00", "1969-12-01 00:00:00.2345678-01:00"},
+      {"HH24MISS", "062411", "-01:00", ts_1970_1_1_utc,
+       "1969-12-01 06:24:11-01:00"},
+      {"TZH", "+01", "-01:59", ts_1970_1_1_utc, "1969-12-01 00:00:00+01:59"},
+      {"TZM", "13", "-01:59", ts_1970_1_1_utc, "1969-12-01 00:00:00-01:13"},
+      // The offset of "Pacific/Honolulu" time zone is always -10:00 and not
+      // affected by Dalight Saving Time.
+      {"TZH", "+02", "Pacific/Honolulu", ts_1970_1_1_utc,
+       "1969-12-01 00:00:00+02:00"},
+      {"TZM", "13", "Pacific/Honolulu", ts_1970_1_1_utc,
+       "1969-12-01 00:00:00-10:13"},
+      // Boundary cases with non-UTC <default_time_zone>.
+      {"YYYY-MM-DD HH24:MI:SS.FF6", "0000-12-31 16:08:00.000000", "-07:52",
+       ts_1970_1_1_utc, "0001-01-01 00:00:00.000000 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6", "0000-12-31 16:07:59.999999", "-07:52",
+       ts_1970_1_1_utc, EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF6", "10000-01-01 06:29:59.999999", "+06:30",
+       ts_1970_1_1_utc, "9999-12-31 23:59:59.999999 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF6", "10000-01-01 06:30:00.000000", "+06:30",
+       ts_1970_1_1_utc, EXPECT_ERROR},
+
+      {"YYYY-MM-DD HH24:MI:SS.FF9", "0000-12-31 16:08:00.000000000", "-07:52",
+       ts_1970_1_1_utc, "0001-01-01 00:00:00.000000 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF9", "0000-12-31 16:07:59.999999999", "-07:52",
+       ts_1970_1_1_utc, EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS.FF9", "10000-01-01 06:29:59.999999999", "+06:30",
+       ts_1970_1_1_utc, "9999-12-31 23:59:59.999999 UTC",
+       "9999-12-31 23:59:59.999999999 UTC"},
+      {"YYYY-MM-DD HH24:MI:SS.FF9", "10000-01-01 06:30:00.000000000", "+06:30",
+       ts_1970_1_1_utc, EXPECT_ERROR},
+      // 'YYYY'/'RRRR'/'Y,YYY' format elements can match integer values of 0 and
+      // 10000 by changing <default_time_zone> values.
+      {"YYYY-MM-DD", "10000-1-1", "+1:00", ts_1970_1_1_utc,
        "9999-12-31 23:00:00 UTC"},
-      {"RRRR", "10000", "+1:00", GetCurrentTimestamp(date_2002_1_1, "+1:00"),
+      {"RRRR-MM-DD", "10000-1-1", "+1:00", ts_1970_1_1_utc,
        "9999-12-31 23:00:00 UTC"},
-      {"Y,YYY", "10,000", "+1:00", GetCurrentTimestamp(date_2002_1_1, "+1:00"),
+      {"Y,YYY-MM-DD", "10,000-1-1", "+1:00", ts_1970_1_1_utc,
        "9999-12-31 23:00:00 UTC"},
+      {"YYYY-MM-DD HH24", "0000-12-31 23", "-1:00", ts_1970_1_1_utc,
+       "0001-1-1 00:00:00 UTC"},
+      {"RRRR-MM-DD HH24", "0000-12-31 23", "-1:00", ts_1970_1_1_utc,
+       "0001-1-1 00:00:00 UTC"},
+      {"Y,YYY-MM-DD HH24", "0,000-12-31 23", "-1:00", ts_1970_1_1_utc,
+       "0001-1-1 00:00:00 UTC"},
+      // The time zone offset yields timestamps outside the valid range.
+      {"YYYY-MM-DD HH24:MI:SS", "9999-12-31 23:00:00", "-1:00", ts_1970_1_1_utc,
+       EXPECT_ERROR},
+      {"YYYY-MM-DD HH24:MI:SS", "0001-01-01 00:00:00", "+1:00", ts_1970_1_1_utc,
+       EXPECT_ERROR},
       // Invalid default time zones.
       {"", "", "£\xff£", ts_1970_1_1_utc, EXPECT_ERROR},
       {"", "", "", ts_1970_1_1_utc, EXPECT_ERROR},
@@ -6364,6 +7144,41 @@ static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
   return tests;
 }
 
+struct CastStringToDateTest : ParseDateTest {
+  int32_t current_date;
+
+  CastStringToDateTest(const std::string& format_string_in,
+                       const std::string& date_string_in, int32_t current_date_in,
+                       const std::string& expected_result_in)
+      : ParseDateTest{format_string_in, date_string_in, expected_result_in},
+        current_date(current_date_in) {}
+};
+
+static std::vector<CastStringToDateTest> GetCastStringToDateTests() {
+  std::vector<CastStringToDateTest> tests;
+  // Add common test cases.
+  for (const CastStringToDateTimestampCommonTest& common_test :
+       GetCastStringToDateTimestampCommonTests()) {
+    if (common_test.parts == TEST_FORMAT_DATE ||
+        common_test.parts == TEST_FORMAT_ANY) {
+      tests.push_back({common_test.format_string, common_test.input_string,
+                       common_test.current_date, common_test.expected_result});
+    }
+  }
+
+  // Add test cases for invalid elements when casting to Date type.
+  int32_t date_1970_1_1;
+  ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &date_1970_1_1));
+  for (const CastStringToDateTimestampInvalidElementTest& test :
+       GetCastStringToDateTimestampInvalidElementTests()) {
+    if (test.parts == TEST_FORMAT_TIME || test.parts == TEST_FORMAT_TIMEZONE) {
+      tests.push_back(
+          {test.format_string, test.input_string, date_1970_1_1, EXPECT_ERROR});
+    }
+  }
+  return tests;
+}
+
 #undef EXPECT_ERROR
 
 static QueryParamsWithResult::ResultMap
@@ -6371,6 +7186,132 @@ GetResultMapWithNullMicroAndNanoResults() {
   return GetResultMapWithMicroAndNanoResults(
       QueryParamsWithResult::Result(NullTimestamp()),
       QueryParamsWithResult::Result(NullTimestamp()));
+}
+
+static std::vector<FunctionTestCall> GetFunctionTestsCastStringToTime() {
+  std::vector<CivilTimeTestCase> test_cases;
+  // Add common test cases.
+  for (const CastStringToDateTimestampCommonTest& common_test :
+       GetCastStringToDateTimestampCommonTests()) {
+    if (common_test.parts == TEST_FORMAT_TIME ||
+        common_test.parts == TEST_FORMAT_ANY) {
+      auto ConvertTimeStringToTime = [](const std::string& time_string,
+                                        functions::TimestampScale scale) {
+        if (IsExpectedError(time_string)) {
+          return zetasql_base::StatusOr<Value>(FunctionEvalError());
+        }
+        TimeValue time;
+        ZETASQL_CHECK_OK(functions::ConvertStringToTime(time_string, scale, &time));
+        ZETASQL_CHECK(time.IsValid());
+        return zetasql_base::StatusOr<Value>(Value::Time(time));
+      };
+      std::string micro_result = common_test.expected_result;
+      std::string nano_result = common_test.nano_expected_result;
+      // When common_test.parts == TEST_FORMAT_ANY, we only test format elements
+      // in "kLiteral" category, so the result is default value of Time if not
+      // error.
+      if (common_test.parts == TEST_FORMAT_ANY && !micro_result.empty()) {
+        micro_result = "00:00:00";
+      }
+
+      if (common_test.parts == TEST_FORMAT_ANY && !nano_result.empty()) {
+        nano_result = "00:00:00";
+      }
+      test_cases.push_back(
+          {{String(common_test.format_string),
+            String(common_test.input_string)},
+           ConvertTimeStringToTime(micro_result, kMicroseconds),
+           ConvertTimeStringToTime(nano_result, kNanoseconds),
+           TimeType()});
+    }
+  }
+
+  // Add test cases for invalid elements when casting to Time type.
+  for (const CastStringToDateTimestampInvalidElementTest& test :
+       GetCastStringToDateTimestampInvalidElementTests()) {
+    if (test.parts == TEST_FORMAT_DATE || test.parts == TEST_FORMAT_TIMEZONE) {
+      test_cases.push_back(
+          {{String(test.format_string), String(test.input_string)},
+           FunctionEvalError(),
+           TimeType()});
+    }
+  }
+
+  // Null arguments handling.
+  test_cases.push_back({{NullString(), String("")}, NullTime()});
+  test_cases.push_back({{String(""), NullString()}, NullTime()});
+  test_cases.push_back({{NullString(), NullString()}, NullTime()});
+
+  // Construct a vector of FunctionTestCall by wrapping the test cases with
+  // necessary features such as FEATURE_V_1_2_CIVIL_TIME.
+  return PrepareCivilTimeTestCaseAsFunctionTestCall(test_cases,
+                                                    "cast_string_to_time");
+}
+
+static std::vector<FunctionTestCall> GetFunctionTestsCastStringToDatetime() {
+  int32_t date_1970_1_1;
+  ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &date_1970_1_1));
+  std::vector<CivilTimeTestCase> test_cases;
+  // Add common test cases.
+  for (const CastStringToDateTimestampCommonTest& common_test :
+       GetCastStringToDateTimestampCommonTests()) {
+    if (common_test.parts == TEST_FORMAT_TIMEZONE) {
+      continue;
+    }
+    auto ConvertDatetimeStringToDateTime =
+        [](const std::string& datetime_string,
+           functions::TimestampScale scale) {
+          if (IsExpectedError(datetime_string)) {
+            return zetasql_base::StatusOr<Value>(FunctionEvalError());
+          }
+          DatetimeValue datetime;
+          ZETASQL_CHECK_OK(functions::ConvertStringToDatetime(datetime_string, scale,
+                                                      &datetime));
+          ZETASQL_CHECK(datetime.IsValid());
+          return zetasql_base::StatusOr<Value>(Value::Datetime(datetime));
+        };
+
+    std::string micro_result = common_test.expected_result;
+    std::string nano_result = common_test.nano_expected_result;
+    if (common_test.parts == TEST_FORMAT_TIME && !micro_result.empty()) {
+      micro_result = absl::StrCat("1970-01-01 ", micro_result);
+    }
+    if (common_test.parts == TEST_FORMAT_TIME && !nano_result.empty()) {
+      nano_result = absl::StrCat("1970-01-01 ", nano_result);
+    }
+
+    test_cases.push_back(
+        {{String(common_test.format_string), String(common_test.input_string),
+          Int32(common_test.current_date)},
+         ConvertDatetimeStringToDateTime(micro_result, kMicroseconds),
+         ConvertDatetimeStringToDateTime(nano_result, kNanoseconds),
+         DatetimeType()});
+  }
+
+  // Add test cases for invalid elements when casting to Datetime type.
+  for (const CastStringToDateTimestampInvalidElementTest& test :
+       GetCastStringToDateTimestampInvalidElementTests()) {
+    if (test.parts == TEST_FORMAT_TIMEZONE) {
+      test_cases.push_back({{String(test.format_string),
+                             String(test.input_string), Int32(date_1970_1_1)},
+                            FunctionEvalError(),
+                            DatetimeType()});
+    }
+  }
+
+  // Null arguments handling.
+  test_cases.push_back(
+      {{NullString(), String(""), Int32(date_1970_1_1)}, NullDatetime()});
+  test_cases.push_back(
+      {{String(""), NullString(), Int32(date_1970_1_1)}, NullDatetime()});
+  test_cases.push_back({{String(""), String(""), NullInt32()}, NullDatetime()});
+  test_cases.push_back(
+      {{NullString(), NullString(), NullInt32()}, NullDatetime()});
+
+  // Construct a vector of FunctionTestCall by wrapping the test cases with
+  // necessary features such as FEATURE_V_1_2_CIVIL_TIME.
+  return PrepareCivilTimeTestCaseAsFunctionTestCall(test_cases,
+                                                    "cast_string_to_datetime");
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
@@ -6408,6 +7349,51 @@ std::vector<FunctionTestCall> GetFunctionTestsCastStringToDateTimestamp() {
   tests.push_back({"cast_string_to_timestamp",
                    {String(""), String(""), String("UTC"), NullTimestamp()},
                    GetResultMapWithNullMicroAndNanoResults()});
+  tests.push_back({"cast_string_to_timestamp",
+                   {NullString(), NullString(), NullString(), NullTimestamp()},
+                   GetResultMapWithNullMicroAndNanoResults()});
+
+  // Adds CAST_STRING_TO_DATE() tests.
+  for (const CastStringToDateTest& test : GetCastStringToDateTests()) {
+    if (test.expected_result.empty()) {
+      tests.push_back({"cast_string_to_date",
+                       {String(test.format_string), String(test.date_string),
+                        Int32(test.current_date)},
+                       NullDate(),
+                       OUT_OF_RANGE});
+    } else {
+      tests.push_back({"cast_string_to_date",
+                       {String(test.format_string), String(test.date_string),
+                        Int32(test.current_date)},
+                       DateFromStr(test.expected_result)});
+    }
+  }
+
+  // Null arguments handling.
+  int32_t date_1970_1_1;
+  ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &date_1970_1_1));
+  tests.push_back({"cast_string_to_date",
+                   {NullString(), String(""), Int32(date_1970_1_1)},
+                   NullDate()});
+  tests.push_back({"cast_string_to_date",
+                   {String(""), NullString(), Int32(date_1970_1_1)},
+                   NullDate()});
+  tests.push_back({"cast_string_to_date",
+                   {String(""), String(""), NullInt32()},
+                   NullDate()});
+  tests.push_back({"cast_string_to_date",
+                   {NullString(), NullString(), NullInt32()},
+                   NullDate()});
+
+  // Adds CAST_STRING_TO_TIME() tests.
+  for (const FunctionTestCall& test : GetFunctionTestsCastStringToTime()) {
+    tests.push_back(test);
+  }
+
+  // Adds CAST_STRING_TO_DATETIME() tests.
+  for (const FunctionTestCall& test : GetFunctionTestsCastStringToDatetime()) {
+    tests.push_back(test);
+  }
 
   return tests;
 }

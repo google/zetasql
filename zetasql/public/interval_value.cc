@@ -25,6 +25,7 @@
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "zetasql/base/endian.h"
@@ -54,6 +55,53 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
 
 size_t IntervalValue::HashCode() const {
   return absl::Hash<IntervalValue>()(*this);
+}
+
+zetasql_base::StatusOr<IntervalValue> IntervalValue::operator*(int64_t value) const {
+  absl::Status status;
+  int64_t months;
+  if (!zetasql::functions::Multiply(get_months(), value, &months, &status)) {
+    return absl::OutOfRangeError("Interval overflow during multiplication");
+  }
+
+  int64_t days;
+  if (!zetasql::functions::Multiply(get_days(), value, &days, &status)) {
+    return absl::OutOfRangeError("Interval overflow during multiplication");
+  }
+
+  FixedInt<64, 3> nanos = FixedInt<64, 3>(get_nanos());
+  nanos *= value;
+  if (nanos > FixedInt<64, 3>(FixedInt<64, 2>::max()) ||
+      nanos < FixedInt<64, 3>(FixedInt<64, 2>::min())) {
+    return absl::OutOfRangeError("Interval overflow during multiplication");
+  }
+  return IntervalValue::FromMonthsDaysNanos(months, days,
+                                            static_cast<__int128>(nanos));
+}
+
+zetasql_base::StatusOr<IntervalValue> IntervalValue::operator/(int64_t value) const {
+  if (value == 0) {
+    return absl::OutOfRangeError("Interval division by zero");
+  }
+
+  int64_t months = get_months() / value;
+  int64_t months_remainder = get_months() % value;
+  int64_t adjusted_days =
+      get_days() + (months_remainder * IntervalValue::kDaysInMonth);
+  int64_t days = adjusted_days / value;
+  __int128 days_reminder = adjusted_days % value;
+  FixedInt<64, 3> adjusted_nanos = FixedInt<64, 3>(get_nanos());
+  adjusted_nanos += FixedInt<64, 3>(days_reminder * IntervalValue::kNanosInDay);
+  FixedInt<64, 3> nanos = adjusted_nanos;
+  nanos /= FixedInt<64, 3>(value);
+
+  if (nanos > FixedInt<64, 3>(FixedInt<64, 2>::max()) ||
+      nanos < FixedInt<64, 3>(FixedInt<64, 2>::min())) {
+    return absl::OutOfRangeError("Interval overflow during division");
+  }
+
+  return IntervalValue::FromMonthsDaysNanos(months, days,
+                                            static_cast<__int128>(nanos));
 }
 
 void IntervalValue::SumAggregator::Add(IntervalValue value) {
@@ -836,6 +884,13 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromISO8601(
     absl::string_view input) {
   ISO8601Parser parser;
   return parser.Parse(input);
+}
+
+zetasql_base::StatusOr<IntervalValue> IntervalValue::Parse(absl::string_view input) {
+  if (absl::StartsWith(input, "P")) {
+    return ParseFromISO8601(input);
+  }
+  return ParseFromString(input);
 }
 
 zetasql_base::StatusOr<IntervalValue> IntervalValue::FromInteger(

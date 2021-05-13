@@ -1,3 +1,6 @@
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 START BATCH
 --
 StartBatchStatement [0-11]

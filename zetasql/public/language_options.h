@@ -245,7 +245,7 @@ class LanguageOptions {
   };
   struct CaseEq {
     size_t operator()(absl::string_view s1, absl::string_view s2) const {
-      return absl::EqualsIgnoreCase(s1, s2);
+      return zetasql_base::CaseEqual(s1, s2);
     }
   };
   // For generic DDLs CREATE/DROP/ALTER <entity_type>, parser will report

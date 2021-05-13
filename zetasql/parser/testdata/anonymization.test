@@ -1,4 +1,7 @@
 # Simple anonymization query.
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 select with anonymization sum() from table;
 --
 QueryStatement [0-42]

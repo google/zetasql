@@ -44,7 +44,7 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                                 ColumnFactory* column_factory,
                                 const AnalyzerOptions* analyzer_options,
                                 absl::Span<const Rewriter* const> rewriters)
-      : analyzer_options_(analyzer_options),
+      : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
         column_factory_(column_factory),
@@ -120,7 +120,7 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       std::unique_ptr<ResolvedExpr> pivot_value_expr,
       const ResolvedColumn& pivot_column);
 
-  const AnalyzerOptions* analyzer_options_;
+  const AnalyzerOptions& analyzer_options_;
   Catalog* const catalog_;
   TypeFactory* type_factory_;
   ColumnFactory* const column_factory_;
@@ -278,7 +278,7 @@ absl::Status PivotRewriterVisitor::VerifyAggregateFunctionIsSupported(
       if (call->function()
               ->function_options()
               .supports_null_handling_modifier &&
-          analyzer_options_->language().LanguageFeatureEnabled(
+          analyzer_options_.language().LanguageFeatureEnabled(
               FEATURE_V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE)) {
         return MakeUnimplementedErrorAtPoint(
                    call->GetParseLocationOrNULL()->start())
@@ -307,7 +307,7 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
       pivot_column.type(), pivot_column, /*is_correlated=*/false);
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedExpr> countif_arg,
-      AnalyzeSubstitute(*analyzer_options_, rewriters_, *catalog_,
+      AnalyzeSubstitute(analyzer_options_, rewriters_, *catalog_,
                         *type_factory_,
                         "pivot_column IS NOT DISTINCT FROM pivot_value",
                         {{"pivot_column", pivot_column_ref.get()},
@@ -318,8 +318,8 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
   countif_args.push_back(std::move(countif_arg));
 
   const Function* countif_fn;
-  ZETASQL_RET_CHECK_OK(
-      catalog_->FindFunction({"countif"}, &countif_fn, /*options=*/{}));
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"countif"}, &countif_fn,
+                                      analyzer_options_.find_options()));
   FunctionArgumentType int64_arg = FunctionArgumentType(types::Int64Type(), 1);
   FunctionArgumentType bool_arg = FunctionArgumentType(types::BoolType(), 1);
   FunctionSignature countif_sig(int64_arg, {bool_arg}, FN_COUNTIF);
@@ -386,7 +386,7 @@ PivotRewriterVisitor::MakeAggregateExpr(
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedExpr> agg_fn_arg,
         AnalyzeSubstitute(
-            *analyzer_options_, rewriters_, *catalog_, *type_factory_,
+            analyzer_options_, rewriters_, *catalog_, *type_factory_,
             "IF(pivot_column IS NOT DISTINCT FROM pivot_value, orig_arg, NULL)",
             {{"pivot_column", pivot_column_ref.get()},
              {"pivot_value", pivot_value_expr_copy.get()},

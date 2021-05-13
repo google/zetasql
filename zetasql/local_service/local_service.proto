@@ -239,14 +239,14 @@ message DescriptorPoolIdList {
 message PrepareRequest {
   optional string sql = 1;
   optional AnalyzerOptionsProto options = 2;
-  // Deprecated, prefer descriptor_pool_list
-  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
   // This list defines how to construct the list of DescriptorPools for
   // use during deserialization.
   optional DescriptorPoolListProto descriptor_pool_list = 6;
 
   optional SimpleCatalogProto simple_catalog = 4;
   optional int64 registered_catalog_id = 5;
+
+  reserved 3;
 }
 
 message PreparedState {
@@ -266,11 +266,9 @@ message PreparedState {
 }
 
 message PrepareResponse {
-  // TODO: Remove these fields
-  optional int64 prepared_expression_id = 1;
-  optional TypeProto output_type = 2;
-  optional PreparedState prepared = 3;
   // Never add fields to this proto, add them to PreparedState instead.
+  optional PreparedState prepared = 3;
+  reserved 1, 2;
 }
 
 message EvaluateRequest {
@@ -284,8 +282,6 @@ message EvaluateRequest {
 
   repeated Parameter columns = 2;
   repeated Parameter params = 3;
-  // Deprecated, prefer descriptor_pool_list
-  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 4;
   // This list defines how to construct the list of DescriptorPools for
   // use during deserialization.
   optional DescriptorPoolListProto descriptor_pool_list = 7;
@@ -294,14 +290,14 @@ message EvaluateRequest {
   // file_descriptor_set will be ignored.
   optional int64 prepared_expression_id = 5;
   optional AnalyzerOptionsProto options = 6;
+
+  reserved 4;
 }
 
 message EvaluateResponse {
   optional ValueProto value = 1;
-  // TODO: Remove these fields
-  optional TypeProto type = 2;
-  optional int64 prepared_expression_id = 3;
   optional PreparedState prepared = 4;
+  reserved 2, 3;
 }
 
 message EvaluateRequestBatch {
@@ -325,8 +321,6 @@ message AnalyzeRequest {
   optional AnalyzerOptionsProto options = 1;
   optional SimpleCatalogProto simple_catalog = 2;
 
-  // Deprecated, prefer descriptor_pool_list
-  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 3;
   // This list defines how to construct the list of DescriptorPools for
   // use during deserialization.
   optional DescriptorPoolListProto descriptor_pool_list = 9;
@@ -344,7 +338,7 @@ message AnalyzeRequest {
     string sql_expression = 8;
   }
 
-  reserved 7;
+  reserved 3, 7;
 }
 
 message AnalyzeResponse {
@@ -358,8 +352,6 @@ message AnalyzeResponse {
 
 message BuildSqlRequest {
   optional SimpleCatalogProto simple_catalog = 1;
-  // Deprecated, prefer descriptor_pool_list
-  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 2;
   // This list defines how to construct the list of DescriptorPools for
   // use during deserialization.
   optional DescriptorPoolListProto descriptor_pool_list = 6;
@@ -372,6 +364,7 @@ message BuildSqlRequest {
     AnyResolvedStatementProto resolved_statement = 4;
     AnyResolvedExprProto resolved_expression = 5;
   }
+  reserved 2;
 }
 
 message BuildSqlResponse {
@@ -441,11 +434,11 @@ message FormatSqlResponse {
 
 message RegisterCatalogRequest {
   optional SimpleCatalogProto simple_catalog = 1;
-  // Deprecated, prefer descriptor_pool_list
-  repeated google.protobuf.FileDescriptorSet file_descriptor_set = 2;
   // This list defines how to construct the list of DescriptorPools for
   // use during deserialization.
   optional DescriptorPoolListProto descriptor_pool_list = 3;
+
+  reserved 2;
 }
 
 message RegisterResponse {
@@ -461,9 +454,7 @@ message UnregisterRequest {
 
 message GetBuiltinFunctionsResponse {
   repeated FunctionProto function = 1;
-  // No file_descriptor_set returned. For now, only Datetime functions
-  // have arguments of enum type which need to be added manually when
-  // deserializing.
+  // This implicitly requires the builtin descriptor pool for deserialization.
 }
 
 message LanguageOptionsRequest {

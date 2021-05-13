@@ -1,5 +1,9 @@
 
 # Valid rename to action succeeds.
+
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 alter row access policy p1 on t1 rename to p2;
 --
 AlterRowAccessPolicyStatement [0-45]

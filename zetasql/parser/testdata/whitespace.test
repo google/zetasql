@@ -1,6 +1,9 @@
 # This contains every type of "Unicode" whitespace between the "SELECT" and the
 # 1, but no regular whitespace. This should verify that all of these are
 # recognized and treated as whitespace.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 SELECT
               　1
 --

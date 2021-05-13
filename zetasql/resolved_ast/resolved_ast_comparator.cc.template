@@ -29,7 +29,7 @@ namespace {
 
 // Overloads for Equals to compare two node fields of scalar type.
 static bool Equals(const std::string& str1, const std::string& str2) {
-  return zetasql_base::StringCaseEqual(str1, str2);
+  return zetasql_base::CaseEqual(str1, str2);
 }
 
 static bool Equals(const Type* type1, const Type* type2) {
@@ -41,12 +41,12 @@ static bool Equals(const Constant* constant1, const Constant* constant2) {
   // containing catalog names, so two constants in different (sub)catalogs with
   // the same name will have different full names and therefore compare not
   // equal.
-  return zetasql_base::StringCaseEqual(constant1->FullName(), constant2->FullName());
+  return zetasql_base::CaseEqual(constant1->FullName(), constant2->FullName());
 }
 
 static bool Equals(const FunctionSignature& sig1,
                    const FunctionSignature& sig2) {
-  return zetasql_base::StringCaseEqual(sig1.DebugString(), sig2.DebugString());
+  return zetasql_base::CaseEqual(sig1.DebugString(), sig2.DebugString());
 }
 
 static bool Equals(const std::shared_ptr<ResolvedFunctionCallInfo>& info1,
@@ -54,7 +54,7 @@ static bool Equals(const std::shared_ptr<ResolvedFunctionCallInfo>& info1,
   if (info1 == nullptr || info2 == nullptr) {
     return (info1 == nullptr) == (info2 == nullptr);
   }
-  return zetasql_base::StringCaseEqual(info1->DebugString(), info2->DebugString());
+  return zetasql_base::CaseEqual(info1->DebugString(), info2->DebugString());
 }
 
 static bool Equals(const Value& val1, const Value& val2) {
@@ -64,13 +64,13 @@ static bool Equals(const Value& val1, const Value& val2) {
 static bool Equals(const Function* f1, const Function* f2) {
   // For now, we only compare function names.  If/when we have new use
   // cases, we may want to compare additional things.
-  return zetasql_base::StringCaseEqual(f1->Name(), f2->Name());
+  return zetasql_base::CaseEqual(f1->Name(), f2->Name());
 }
 
 static bool Equals(const Table* t1, const Table* t2) {
   // For now, we only compare table names.  If/when we have new use
   // cases, we may want to compare additional things.
-  return zetasql_base::StringCaseEqual(t1->Name(), t2->Name());
+  return zetasql_base::CaseEqual(t1->Name(), t2->Name());
 }
 
 static bool Equals(const google::protobuf::FieldDescriptor* f1,

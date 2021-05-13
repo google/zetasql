@@ -1,3 +1,6 @@
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 analyze OPTIONS(p1=a1,p2=a2) T(a,b,c)
 --
 AnalyzeStatement [0-37]

@@ -7,6 +7,9 @@
 # statement type.
 
 # An empty options list is allowed.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 MODULE foo OPTIONS();
 --
 ModuleStatement [0-20]

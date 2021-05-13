@@ -733,7 +733,7 @@ public class SimpleCatalogTest {
             "The number of fields in SimpleCatalog class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(SimpleCatalog.class))
-        .isEqualTo(16);
+        .isEqualTo(17);
   }
 
   @Test

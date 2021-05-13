@@ -160,11 +160,19 @@ std::string BetweenFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string InListFunctionSQL(const std::vector<std::string>& inputs);
 
+std::string LikeAnyFunctionSQL(const std::vector<std::string>& inputs);
+
+std::string LikeAllFunctionSQL(const std::vector<std::string>& inputs);
+
 std::string CaseWithValueFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string CaseNoValueFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string InArrayFunctionSQL(const std::vector<std::string>& inputs);
+
+std::string LikeAnyArrayFunctionSQL(const std::vector<std::string>& inputs);
+
+std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string ArrayAtOffsetFunctionSQL(const std::vector<std::string>& inputs);
 
@@ -174,6 +182,11 @@ std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs);
+std::string SubscriptWithKeyFunctionSQL(const std::vector<std::string>& inputs);
+std::string SubscriptWithOffsetFunctionSQL(
+    const std::vector<std::string>& inputs);
+std::string SubscriptWithOrdinalFunctionSQL(
+    const std::vector<std::string>& inputs);
 
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs);
@@ -297,6 +310,14 @@ std::string NoMatchingSignatureForInArrayFunction(
     const std::string& qualified_function_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
 
+std::string NoMatchingSignatureForLikeExprFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+
+std::string NoMatchingSignatureForLikeExprArrayFunction(
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+
 std::string NoMatchingSignatureForComparisonOperator(
     const std::string& operator_name,
     const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
@@ -353,6 +374,10 @@ std::string ExtractSupportedSignatures(
     const std::string& explicit_datepart_name,
     const LanguageOptions& language_options, const Function& function);
 
+std::string NoMatchingSignatureForSubscript(
+    absl::string_view offset_or_ordinal, absl::string_view operator_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode);
+
 std::string EmptySupportedSignatures(const LanguageOptions& language_options,
                                      const Function& function);
 
@@ -396,6 +421,10 @@ absl::Status CheckArrayIsDistinctArguments(
     const LanguageOptions& language_options);
 
 absl::Status CheckInArrayArguments(
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
+absl::Status CheckLikeExprArrayArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -608,6 +637,10 @@ void GetProto3ConversionFunctions(
 void GetMiscellaneousFunctions(TypeFactory* type_factory,
                                const ZetaSQLBuiltinFunctionOptions& options,
                                NameToFunctionMap* functions);
+
+void GetSubscriptFunctions(TypeFactory* type_factory,
+                           const ZetaSQLBuiltinFunctionOptions& options,
+                           NameToFunctionMap* functions);
 
 void GetJSONFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,

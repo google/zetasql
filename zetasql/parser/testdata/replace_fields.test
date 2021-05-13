@@ -1,4 +1,7 @@
 # Tests for the REPLACE_FIELDS function.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 
 select replace_fields(some_proto, 0 as int32_field)
 --

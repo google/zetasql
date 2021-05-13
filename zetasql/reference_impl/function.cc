@@ -855,16 +855,20 @@ template <TypeKind type>
 static RegexpFunction::EvalFunction WrapOrInitRegexpFunction(
     RegexpFunction::EvalFunction func, const ConstExpr* pattern,
     functions::RegExp* regexp, absl::Status* status) {
-  if (pattern && !pattern->value().is_null()) {
-    *status = ValueTraits<type>::InitializePattern(pattern->value(), regexp);
+  // Try to initialize the pattern at prepare time, but if it fails fallback to
+  // initializing at runtime. This allows SAFE.* regex functions to have invalid
+  // regex literals.
+  if (pattern && !pattern->value().is_null() &&
+      ValueTraits<type>::InitializePattern(pattern->value(), regexp).ok()) {
+    *status = absl::OkStatus();
     return func;
-  } else {
-    return [func](const absl::Span<const Value> x,
-                  functions::RegExp* regexp) -> zetasql_base::StatusOr<Value> {
-      ZETASQL_RETURN_IF_ERROR(ValueTraits<type>::InitializePattern(x[1], regexp));
-      return func(x, regexp);
-    };
   }
+
+  return [func](const absl::Span<const Value> x,
+                functions::RegExp* regexp) -> zetasql_base::StatusOr<Value> {
+    ZETASQL_RETURN_IF_ERROR(ValueTraits<type>::InitializePattern(x[1], regexp));
+    return func(x, regexp);
+  };
 }
 
 // Helper function for regexp_contains.
@@ -2469,8 +2473,18 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     }
 
     case FCT(FunctionKind::kMultiply, TYPE_INT64):
-      return InvokeBinary<int64_t>(&functions::Multiply<int64_t>, args, result,
-                                   status);
+      if (args[1].type()->IsInt64()) {
+        return InvokeBinary<int64_t>(&functions::Multiply<int64_t>, args,
+                                     result, status);
+      } else if (args[1].type()->IsInterval()) {
+        auto status_interval = args[1].interval_value() * args[0].int64_value();
+        if (status_interval.ok()) {
+          *result = Value::Interval(*status_interval);
+        } else {
+          *status = status_interval.status();
+        }
+      }
+      return status->ok();
     case FCT(FunctionKind::kMultiply, TYPE_UINT64):
       return InvokeBinary<uint64_t>(&functions::Multiply<uint64_t>, args,
                                     result, status);
@@ -2484,6 +2498,16 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
       return InvokeBinary<BigNumericValue>(
           &functions::Multiply<BigNumericValue>, args, result, status);
 
+    case FCT(FunctionKind::kMultiply, TYPE_INTERVAL): {
+      auto status_interval = args[0].interval_value() * args[1].int64_value();
+      if (status_interval.ok()) {
+        *result = Value::Interval(*status_interval);
+      } else {
+        *status = status_interval.status();
+      }
+      return status->ok();
+    }
+
     case FCT(FunctionKind::kDivide, TYPE_DOUBLE):
       return InvokeBinary<double>(&functions::Divide<double>, args, result,
                                   status);
@@ -2493,6 +2517,15 @@ bool ArithmeticFunction::Eval(absl::Span<const Value> args,
     case FCT(FunctionKind::kDivide, TYPE_BIGNUMERIC):
       return InvokeBinary<BigNumericValue>(&functions::Divide<BigNumericValue>,
                                            args, result, status);
+    case FCT(FunctionKind::kDivide, TYPE_INTERVAL): {
+      auto status_interval = args[0].interval_value() / args[1].int64_value();
+      if (status_interval.ok()) {
+        *result = Value::Interval(*status_interval);
+      } else {
+        *status = status_interval.status();
+      }
+      return status->ok();
+    }
 
     case FCT(FunctionKind::kDiv, TYPE_INT64):
       return InvokeBinary<int64_t>(&functions::Divide<int64_t>, args, result,
@@ -3034,8 +3067,10 @@ zetasql_base::StatusOr<Value> CastFunction::Eval(absl::Span<const Value> args,
   }
 
   zetasql_base::StatusOr<Value> status_or = internal::CastValueWithoutTypeValidation(
-      v, context->GetDefaultTimeZone(), context->GetLanguageOptions(),
-      output_type(), format, time_zone, extended_cast_evaluator_.get());
+      v, context->GetDefaultTimeZone(),
+      absl::FromUnixMicros(context->GetCurrentTimestamp()),
+      context->GetLanguageOptions(), output_type(), format, time_zone,
+      extended_cast_evaluator_.get());
   if (!status_or.ok() && return_null_on_error) {
     // TODO: check that failure is not due to absence of
     // extended_type_function. In this case we still probably wants to fail the
@@ -3449,6 +3484,9 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kAvg, TYPE_BIGNUMERIC):
       bignumeric_aggregator_ = BigNumericValue::SumAggregator();
       break;
+    case FCT(FunctionKind::kAvg, TYPE_INTERVAL):
+      interval_aggregator_ = IntervalValue::SumAggregator();
+      break;
 
     // Sum
     case FCT(FunctionKind::kSum, TYPE_DOUBLE):
@@ -3581,6 +3619,12 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       // For BigNumeric type the sum is accumulated in bignumeric_aggregator,
       // then divided by count at the end.
       bignumeric_aggregator_.Add(value.bignumeric_value());
+      break;
+    }
+    case FCT(FunctionKind::kAvg, TYPE_INTERVAL): {
+      // For Interval type the sum is accumulated in interval_aggregator, then
+      // divided by count at the end.
+      interval_aggregator_.Add(value.interval_value());
       break;
     }
     // Variance and Stddev
@@ -4010,6 +4054,13 @@ zetasql_base::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInterna
       ZETASQL_ASSIGN_OR_RETURN(out_bignumeric_,
                        bignumeric_aggregator_.GetAverage(count_));
       return Value::BigNumeric(out_bignumeric_);
+    }
+    case FCT(FunctionKind::kAvg, TYPE_INTERVAL): {
+      if (count_ == 0) {
+        return Value::NullInterval();
+      }
+      ZETASQL_ASSIGN_OR_RETURN(out_interval_, interval_aggregator_.GetAverage(count_));
+      return Value::Interval(out_interval_);
     }
     // Sum
     case FCT(FunctionKind::kSum, TYPE_DOUBLE): {
@@ -5564,6 +5615,9 @@ absl::Status FilterFieldsFunction::AddFieldPath(
 zetasql_base::StatusOr<Value> FilterFieldsFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args[0].type()->IsProto());
+  if (args[0].is_null()) {
+    return Value::Null(args[0].type());
+  }
   google::protobuf::DynamicMessageFactory factory;
   std::unique_ptr<google::protobuf::Message> mutable_root_message =
       absl::WrapUnique(args[0].ToMessage(&factory));

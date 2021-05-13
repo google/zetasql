@@ -473,6 +473,67 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
     });
   }
 
+  zetasql_base::StatusOr<VisitResult> visitASTCaseStatement(
+      const ASTCaseStatement* node) override {
+    return VisitResult::VisitChildren(node, [=]() -> absl::Status {
+      ZETASQL_ASSIGN_OR_RETURN(NodeData * case_stmt_node_data, CreateNodeData(node));
+      ZETASQL_ASSIGN_OR_RETURN(ControlFlowNode* case_stmt_cfg_node,
+                       AddGraphNode(node,
+                                    node->expression() == nullptr ?
+                                      ThrowSemantics::kNoThrow
+                                      : ThrowSemantics::kCanThrow));
+      case_stmt_node_data->start = case_stmt_cfg_node;
+      ControlFlowNode * prev_condition = nullptr;
+
+      ZETASQL_RET_CHECK(node->when_then_clauses() != nullptr);
+      for (const ASTWhenThenClause* when_then_clause :
+               node->when_then_clauses()->when_then_clauses()) {
+        ZETASQL_ASSIGN_OR_RETURN(ControlFlowNode * curr_condition,
+                         AddGraphNode(when_then_clause));
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NodeData> body_data,
+                         TakeNodeData(when_then_clause->body()));
+
+        if (prev_condition == nullptr) {
+          // First condition
+          ZETASQL_RETURN_IF_ERROR(LinkNodes(case_stmt_cfg_node,
+                                    curr_condition,
+                                    ControlFlowEdge::Kind::kNormal,
+                                    /*exit_to=*/nullptr));
+        } else {
+          // All subsequent conditions
+          ZETASQL_RETURN_IF_ERROR(LinkNodes(prev_condition, curr_condition,
+                                    ControlFlowEdge::Kind::kFalseCondition));
+        }
+        if (!body_data->empty()) {
+          ZETASQL_RETURN_IF_ERROR(LinkNodes(curr_condition, body_data->start,
+                                    ControlFlowEdge::Kind::kTrueCondition));
+        } else {
+          case_stmt_node_data->AddOpenEndEdge(
+              curr_condition, ControlFlowEdge::Kind::kTrueCondition);
+        }
+        case_stmt_node_data->TakeEndEdgesFrom(body_data.get());
+        prev_condition = curr_condition;
+      }
+
+      bool has_nonempty_else = false;
+      if (node->else_list() != nullptr) {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NodeData> else_data,
+                         TakeNodeData(node->else_list()));
+        if (!else_data->empty()) {
+          has_nonempty_else = true;
+          ZETASQL_RETURN_IF_ERROR(LinkNodes(prev_condition, else_data->start,
+                                    ControlFlowEdge::Kind::kFalseCondition));
+        }
+        case_stmt_node_data->TakeEndEdgesFrom(else_data.get());
+      }
+      if (!has_nonempty_else) {
+        case_stmt_node_data->AddOpenEndEdge(
+            prev_condition, ControlFlowEdge::Kind::kFalseCondition);
+      }
+      return absl::OkStatus();
+    });
+  }
+
   zetasql_base::StatusOr<VisitResult> visitASTWhileStatement(
       const ASTWhileStatement* node) override {
     loop_data_.emplace_back();
@@ -779,6 +840,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
           << "Unexpected node kind throwing exception: "
           << cfg_pred->ast_node()->SingleNodeDebugString();
     } else if (cfg_pred->ast_node()->node_kind() == AST_FOR_IN_STATEMENT ||
+               cfg_pred->ast_node()->node_kind() == AST_WHEN_THEN_CLAUSE ||
                cfg_pred->ast_node()->node_kind() == AST_IF_STATEMENT ||
                cfg_pred->ast_node()->node_kind() == AST_ELSEIF_CLAUSE ||
                cfg_pred->ast_node()->node_kind() == AST_UNTIL_CLAUSE ||
@@ -793,11 +855,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
           << "conditional statement must use true/false condition"
           << cfg_pred->DebugString();
     } else if (cfg_pred->ast_node()->IsStatement() ||
-               cfg_pred->ast_node()->node_kind() == AST_STATEMENT_LIST ||
-               (cfg_pred->ast_node()->node_kind() == AST_WHILE_STATEMENT &&
-                cfg_pred->ast_node()
-                        ->GetAsOrDie<ASTWhileStatement>()
-                        ->condition() == nullptr)) {
+               cfg_pred->ast_node()->node_kind() == AST_STATEMENT_LIST) {
       ZETASQL_RET_CHECK(kind == ControlFlowEdge::Kind::kNormal)
           << "Unconditional statement must use normal edge"
           << cfg_pred->DebugString();

@@ -30,7 +30,7 @@ class CollationAnnotation : public AnnotationSpec {
  public:
   CollationAnnotation() {}
 
-  static int GetId() { return static_cast<int>(AnnotationKind::COLLATION); }
+  static int GetId() { return static_cast<int>(AnnotationKind::kCollation); }
 
   int Id() const override { return GetId(); }
 

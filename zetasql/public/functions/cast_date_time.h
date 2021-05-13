@@ -42,9 +42,6 @@ namespace functions {
 //
 // Requires that the string_view arguments are UTF8.
 //
-// WARNING: These functions are still under development and do not yet support
-// all the valid format elements.
-//
 // The supported format elements and their semantics are different from those
 // for ParseStringToTimestamp functions and they are defined in:
 // (broken link).
@@ -76,6 +73,72 @@ absl::Status CastStringToTimestamp(absl::string_view format_string,
                                    absl::string_view default_timezone_string,
                                    const absl::Time current_timestamp,
                                    absl::Time* timestamp);
+
+// CastStringToDate function is used for CAST(input AS Date FORMAT '...')
+// syntax.
+//
+// Parses an input <date_string> with the given input <format_string>, and
+// produces the appropriate date as output. Date parts that are unspecified
+// in the format are derived from 'current_year-current_month-01'
+// ('current_year' and 'current_month' are from <current_date>). Returns an
+// error if the <format_string> contains format elements unsupported for DATE or
+// the resulting date is not in the ZetaSQL valid range.
+//
+// Requires that the string_view arguments are UTF8.
+//
+// The supported format elements and their semantics are different from those
+// for ParseStringToDate functions and they are defined in:
+// (broken link).
+absl::Status CastStringToDate(absl::string_view format_string,
+                              absl::string_view date_string,
+                              int32_t current_date, int32_t* date);
+
+// CastStringToTime function is used for CAST(input AS Time FORMAT '...')
+// syntax.
+//
+// Parses an input <time_string> with the given input <format_string>, and
+// produces the appropriate time as output. Time parts that are unspecified in
+// the format are derived from '00:00:00.000000000'. Returns an error if the
+// <format_string> contains a format element unsupported for TIME or the
+// resulting time is not in the range of [00:00:00, 24:00:00).
+//
+// <scale> is used to specify the maximum precision supported for the format
+// elements of type "kFFN", which will be 6 and 9 for micros and nanos,
+// respectively. The parsed result value also respects this specified <scale>,
+// which means that for the format element of "kFFN" type, while parsing will
+// consume as many numeric digits as present, the parsed result will truncate
+// any digits beyond 6 or 9 for micros and nanos, respectively. The same
+// behavior also applys to the <scale> argument for CastStringToDateTime below.
+//
+// Requires that the string_view arguments are UTF8.
+//
+// The supported format elements and their semantics are different from those
+// for ParseStringToTime function and they are defined in:
+// (broken link).
+absl::Status CastStringToTime(absl::string_view format_string,
+                              absl::string_view time_string,
+                              TimestampScale scale, TimeValue* time);
+
+// CastStringToDatetime function is used for CAST(input AS
+// Datetime FORMAT '...') syntax.
+//
+// Parses an input <datetime_string> with the given input <format_string>, and
+// produces the appropriate datetime as output. Date and time parts that are
+// unspecified in the format are derived from 'current_year-current_month-01
+// 00:00:00.000000000' ('current_year' and 'current_month' are from
+// <current_date>). Returns an error if the <format_string> contains a format
+// element unsupported for DATETIME or the resulting datetime is not in the
+// ZetaSQL valid range.
+//
+// Requires that the string_view arguments are UTF8.
+//
+// The supported format elements and their semantics are different from those
+// for ParseStringToDatetime function and they are defined in:
+// (broken link).
+absl::Status CastStringToDatetime(absl::string_view format_string,
+                                  absl::string_view datetime_string,
+                                  TimestampScale scale, int32_t current_date,
+                                  DatetimeValue* datetime);
 
 // Perform validations on the <format_string> that is used for parse the given
 // <out_type> according to specifications at (broken link).

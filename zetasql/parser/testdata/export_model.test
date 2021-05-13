@@ -1,4 +1,7 @@
 # Valid statement with connection and options.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 export model model.name with connection connection_id options(uri="destination");
 --
 ExportModelStatement [0-80]

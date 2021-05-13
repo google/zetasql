@@ -35,6 +35,9 @@ class ResolvedCollation {
   static zetasql_base::StatusOr<ResolvedCollation> MakeResolvedCollation(
       const AnnotationMap& annotation_map);
 
+  // Makes a ResolvedCollation instance for scalar type.
+  static ResolvedCollation MakeScalar(absl::string_view collation_name);
+
   // Constructs empty ResolvedCollation. Default constructor must be public to
   // be used in the ResolvedAST.
   ResolvedCollation() = default;
@@ -57,10 +60,24 @@ class ResolvedCollation {
   bool Equals(const ResolvedCollation& that) const;
   bool operator==(const ResolvedCollation& that) const { return Equals(that); }
 
+  // Returns true if this ResolvedCollation has compatible nested structure with
+  // <type>. The structures are compatible when they meet the conditions below:
+  // * The ResolvedCollation instance is either empty or is compatible by
+  //   recursively following these rules. When it is empty, it indicates that
+  //   the collation is empty on all the nested levels, and therefore such
+  //   instance is compatible with any Type (including structs and arrays).
+  // * This instance has collation and the <type> is a STRING type.
+  // * This instance has non-empty child_list and the <type> is a STRUCT,
+  //   the number of children matches the number of struct fields, and the
+  //   children have a compatible structure with the corresponding struct field
+  //   types.
+  // * This instance has exactly one child and <type> is an ARRAY, and the child
+  //   has a compatible structure with the array's element type.
+  bool HasCompatibleStructure(const Type* type) const;
+
   // Collation on current type (STRING), not on subfields.
   bool HasCollation() const {
-    return collation_name_.has_string_value() &&
-           !collation_name_.string_value().empty();
+    return collation_name_.has_string_value();
   }
 
   absl::string_view CollationName() const {
@@ -81,6 +98,8 @@ class ResolvedCollation {
   absl::Status Serialize(ResolvedCollationProto* proto) const;
   static zetasql_base::StatusOr<ResolvedCollation> Deserialize(
       const ResolvedCollationProto& proto);
+
+  std::string DebugString() const;
 
  private:
   // Stores ResolvedCollation for subfields for ARRAY/STRUCT types.

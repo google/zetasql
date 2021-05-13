@@ -102,6 +102,8 @@ namespace zetasql {
 
 class SQLTestBase : public ::testing::TestWithParam<std::string> {
  public:
+  using ComplianceTestCaseResult = absl::variant<Value, ScriptResult>;
+
   const std::string kDefaultTimeZone = "default_time_zone";
   const std::string kDescription = "description";
   const std::string kGlobalLabels = "global_labels";
@@ -157,7 +159,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   virtual const std::string GetTestSuiteName() = 0;
 
   // Returns a debug string.
-  static std::string ToString(const zetasql_base::StatusOr<Value>& status);
+  static std::string ToString(
+      const zetasql_base::StatusOr<ComplianceTestCaseResult>& status);
   static std::string ToString(const std::map<std::string, Value>& parameters);
 
   // Returns the error matcher to match legal runtime errors.
@@ -208,6 +211,14 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   }
 
   virtual absl::Status CreateDatabase(const TestDatabase& test_db);
+
+  // Executes a test case, either as a standalone statement, or as a script,
+  // depending on <script_mode_>.
+  zetasql_base::StatusOr<ComplianceTestCaseResult> ExecuteTestCase(
+      const std::string& sql, const std::map<std::string, Value>& parameters);
+
+ public:
+  // Executes 'sql', as a standalone statement.
   virtual zetasql_base::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters);
 
@@ -276,26 +287,34 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Sample syntax of the gMock matchers.
   //   EXPECT_THAT(RunStatement(sql), Returns(x));
   //   EXPECT_THAT(RunStatement(sql), ReturnsSuccess());
-  ::testing::Matcher<const zetasql_base::StatusOr<Value>&> Returns(
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
       const Value& result, const absl::Status& status = absl::OkStatus(),
+      FloatMargin float_margin = kExactFloatMargin) {
+    return Returns(ComplianceTestCaseResult(result), status, float_margin);
+  }
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
+      const ComplianceTestCaseResult& result,
+      const absl::Status& status = absl::OkStatus(),
       FloatMargin float_margin = kExactFloatMargin);
-  ::testing::Matcher<const zetasql_base::StatusOr<Value>&> Returns(
-      const zetasql_base::StatusOr<Value>& result,
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
+      const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
       FloatMargin float_margin = kExactFloatMargin);
-  ::testing::Matcher<const zetasql_base::StatusOr<Value>&> Returns(
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
       const std::string& result);
-  ::testing::Matcher<const zetasql_base::StatusOr<Value>&> Returns(
-      const ::testing::Matcher<const zetasql_base::StatusOr<Value>&> matcher);
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
+      const ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+          matcher);
   // A googletest matcher that only checks if the result has OK status.
-  ::testing::Matcher<const zetasql_base::StatusOr<Value>&> ReturnsSuccess();
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+  ReturnsSuccess();
   // A googletest matcher that only checks the result and records nothing.
-  ::testing::Matcher<const zetasql_base::StatusOr<Value>&> ReturnsCheckOnly(
-      const zetasql_base::StatusOr<Value>& result,
-      FloatMargin float_margin = kExactFloatMargin);
+  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+  ReturnsCheckOnly(const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
+                   FloatMargin float_margin = kExactFloatMargin);
 
   // Runs statements with optional parameters. Parameters can have optional
   // names.
-  zetasql_base::StatusOr<Value> RunStatement(
+  zetasql_base::StatusOr<ComplianceTestCaseResult> RunStatement(
       const std::string& sql, const std::vector<Value>& params = {},
       const std::vector<std::string>& param_names = {});
 
@@ -481,6 +500,11 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Get the set of code-based labels. Make it protected so a subclass can
   // access it.
   std::set<std::string> GetCodeBasedLabels();
+
+  // Helper function to implement ExecuteTestCase(), either when
+  // executing a script, or when ExecuteStatement() isn't overridden.
+  zetasql_base::StatusOr<ComplianceTestCaseResult> ExecuteTestCaseImpl(
+      const std::string& sql, const std::map<std::string, Value>& parameters);
 
   // Internal state that controls the file-level workflow.
   enum FileWorkflow { CREATE_DATABASE, FIRST_STATEMENT, REST_STATEMENTS };
@@ -718,6 +742,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     return enabled;
   }
 
+  void set_script_mode(bool script_mode) { script_mode_ = script_mode; }
+
   // TODO: Move the following to private once all subclasses migrate to
   // the method version.
   StatementWorkflow statement_workflow_;
@@ -735,6 +761,10 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // sections. It must outlive all of the other drivers/TypeFactories, which may
   // depend on this ReferenceDriver's TypeFactory.
   std::unique_ptr<ReferenceDriver> test_setup_driver_;
+
+  // If true, queries are executed as scripts, rather than standalone
+  // statements.
+  bool script_mode_ = false;
 
   // NULL if this object does not own 'test_driver_'.
   std::unique_ptr<TestDriver> test_driver_owner_;

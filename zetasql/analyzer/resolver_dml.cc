@@ -943,13 +943,21 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           expr_resolution_info, update_target_infos));
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
+      if (!info.target->type()->IsArray()) {
+        return MakeSqlErrorAt(array_element->position())
+               << "UPDATE ... SET does not support value modification with [] "
+               << "for type "
+               << info.target->type()->ShortTypeName(product_mode());
+      }
 
       absl::string_view function_name;
       const ASTExpression* unwrapped_ast_position_expr;
       // Verifies that 'info.target->type()' is an array.
+      std::string original_wrapper_name("");
       ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
           info.target.get(), array_element->position(), expr_resolution_info,
-          &function_name, &unwrapped_ast_position_expr, &info.array_offset));
+          &function_name, &unwrapped_ast_position_expr, &info.array_offset,
+          &original_wrapper_name));
       if (function_name == kSafeArrayAtOffset) {
         return MakeSqlErrorAt(array_element->position())
                << "UPDATE ... SET does not support array[SAFE_OFFSET(...)]; "
@@ -980,6 +988,16 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
             {unwrapped_ast_position_expr, unwrapped_ast_position_expr},
             subtraction_name, std::move(subtraction_args),
             /*named_arguments=*/{}, expr_resolution_info, &info.array_offset));
+      } else if (function_name == kProtoMapAtKey ||
+                 function_name == kSafeProtoMapAtKey) {
+        // ZetaSQL does not currently support updating proto map entries
+        // specified by key.
+        return MakeSqlErrorAt(array_element->position())
+               << "UPDATE ... SET does not support updating proto map entries "
+               << "by key";
+      } else if (function_name == kSubscript) {
+        // ResolveArrayElementAccess should never return this.
+        ZETASQL_RET_CHECK_FAIL() << "Unexpected function name: " << kSubscript;
       } else {
         ZETASQL_RET_CHECK_EQ(function_name, kArrayAtOffset);
       }

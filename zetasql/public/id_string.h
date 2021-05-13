@@ -36,6 +36,7 @@
 #include "absl/base/const_init.h"
 #include <cstdint>
 #include "absl/base/thread_annotations.h"
+#include "absl/hash/hash.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -215,7 +216,7 @@ class IdString {
       // atomic value that can only be overwritten by an identical value.
       size_t h = hash_;
       if (h == 0) {
-        h = std::hash<std::string>()(std::string(str));
+        h = absl::Hash<absl::string_view>()(str);
         hash_ = h;
       }
       return h;
@@ -227,7 +228,7 @@ class IdString {
       // atomic value that can only be overwritten by an identical value.
       size_t h = hash_case_;
       if (h == 0) {
-        h = std::hash<std::string>()(std::string(str_lower));
+        h = absl::Hash<absl::string_view>()(str_lower);
         hash_case_ = h;
       }
       return h;

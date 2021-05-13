@@ -38,10 +38,10 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -1001,7 +1001,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
       signature_argument.options().relation_input_schema();
 
   // Store the set of required column names for later reference.
-  std::set<std::string, zetasql_base::StringCaseLess> required_col_names;
+  std::set<std::string, zetasql_base::CaseLess> required_col_names;
   for (const TVFRelation::Column& column : required_schema.columns()) {
     required_col_names.emplace(column.name);
   }
@@ -1009,7 +1009,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
   // The input relation argument specifies a required schema. Start by building
   // a map from each provided column's name to its index in the ordered list of
   // columns in the relation.
-  std::map<std::string, int, zetasql_base::StringCaseLess>
+  std::map<std::string, int, zetasql_base::CaseLess>
       provided_col_name_to_required_col_idx;
   for (int provided_col_idx = 0;
        provided_col_idx < provided_schema.num_columns(); ++provided_col_idx) {

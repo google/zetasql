@@ -38,12 +38,12 @@ enum FunctionSignatureId {
   // other special functions (CASE).  FunctionSignatureIds are assigned
   // in ranges:
   //
-  // 0002-0999 Non-standard function calls    (NextId: 291)
+  // 0002-0999 Non-standard function calls    (NextId: 302)
   // 1000-1099 String functions               (NextId: 1082)
   // 1100-1199 Control flow functions         (NextId: 1104)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
-  // 1400-1499 Aggregate functions            (NextId: 1490)
+  // 1400-1499 Aggregate functions            (NextId: 1491)
   // 1500-1599 Analytic functions             (NextId: 1513)
   // 1600-1699 Misc functions                 (NextId: 1699)
   // 1700-1799 Net functions                  (NextId: 1716)
@@ -76,6 +76,7 @@ enum FunctionSignatureId {
   FN_DIVIDE_DOUBLE = 40;                   // $divide
   FN_DIVIDE_NUMERIC = 250;                 // $divide
   FN_DIVIDE_BIGNUMERIC = 263;              // $divide
+  FN_DIVIDE_INTERVAL_INT64 = 301;          // $divide
   FN_GREATER = 107;                        // $greater
   FN_GREATER_INT64_UINT64 = 222;           // $greater
   FN_GREATER_UINT64_INT64 = 223;           // $greater
@@ -91,8 +92,16 @@ enum FunctionSignatureId {
   FN_EQUAL = 42;                           // $equal
   FN_EQUAL_INT64_UINT64 = 230;             // $equal
   FN_EQUAL_UINT64_INT64 = 231;             // $equal
+  FN_STRING_ARRAY_LIKE_ANY = 291;          // $like_any_array
+  FN_STRING_ARRAY_LIKE_ALL = 292;          // $like_all_array
   FN_STRING_LIKE = 97;                     // $like
+  FN_STRING_LIKE_ANY = 293;                // $like_any
+  FN_STRING_LIKE_ALL = 294;                // $like_all
+  FN_BYTE_ARRAY_LIKE_ANY = 295;            // like_any_array
+  FN_BYTE_ARRAY_LIKE_ALL = 296;            // $like_all_array
   FN_BYTE_LIKE = 98;                       // $like
+  FN_BYTE_LIKE_ANY = 297;                  // $like_any
+  FN_BYTE_LIKE_ALL = 298;                  // $like_all
   FN_IN = 100;                             // $in
   FN_IN_ARRAY = 219;                       // $in_array
   FN_BETWEEN = 110;                        // $between
@@ -110,6 +119,8 @@ enum FunctionSignatureId {
   FN_MULTIPLY_UINT64 = 114;                // $multiply
   FN_MULTIPLY_NUMERIC = 251;               // $multiply
   FN_MULTIPLY_BIGNUMERIC = 264;            // $multiply
+  FN_MULTIPLY_INTERVAL_INT64 = 299;        // $multiply
+  FN_MULTIPLY_INT64_INTERVAL = 300;        // $multiply
   FN_NOT = 45;                             // $not
   FN_NOT_EQUAL = 109;                      // $not_equal
   FN_NOT_EQUAL_INT64_UINT64 = 232;         // $not_equal
@@ -539,6 +550,7 @@ enum FunctionSignatureId {
   FN_AVG_DOUBLE = 1404;               // avg
   FN_AVG_NUMERIC = 1468;              // avg
   FN_AVG_BIGNUMERIC = 1479;           // avg
+  FN_AVG_INTERVAL = 1490;             // avg
   FN_COUNT = 1405;                    // count
   FN_MAX = 1406;                      // max
   FN_MIN = 1407;                      // min
@@ -712,7 +724,7 @@ enum FunctionSignatureId {
   FN_JSON_QUERY_JSON = 1686;        // json_query(json, string) -> json
   FN_JSON_VALUE = 1624;             // json_value(string[, string]) -> string
   FN_JSON_VALUE_JSON = 1687;        // json_value(json[, string]) -> string
-  FN_PARSE_JSON = 1698;             // parse_json(string) -> json
+  FN_PARSE_JSON = 1698;             // parse_json(string[, string]) -> json
   FN_FROM_PROTO_TIMESTAMP =
       1626;  // from_proto(google.protobuf.Timestamp) -> timestamp
   FN_FROM_PROTO_DATE = 1627;  // from_proto(google.type.Date) -> date
@@ -859,6 +871,14 @@ enum FunctionSignatureId {
   FN_AEAD_ENVELOPE_DECRYPT_STRING = 1926;
   // aead.envelope_decrypt_bytes(string, bytes, bytes, bytes)
   FN_AEAD_ENVELOPE_DECRYPT_BYTES = 1927;
+  // keys.keyset_chain(string, bytes, bytes)
+  FN_KEYS_KEYSET_CHAIN_STRING_BYTES_BYTES = 1928;
+  // keys.keyset_chain(string, bytes)
+  FN_KEYS_KEYSET_CHAIN_STRING_BYTES = 1929;
+  // aead.encrypt(struct, string, string)
+  FN_AEAD_ENCRYPT_STRUCT_STRING = 1930;
+  // aead.encrypt(struct, bytes, bytes)
+  FN_AEAD_ENCRYPT_STRUCT_BYTES = 1931;
 
   // ST_ family of functions (Geography related - (broken link))
   // Constructors
@@ -900,6 +920,7 @@ enum FunctionSignatureId {
   FN_ST_IS_COLLECTION = 2031;
   FN_ST_DIMENSION = 2032;
   FN_ST_NUM_POINTS = 2033;
+  FN_ST_NUM_GEOMETRIES = 2034;
   FN_ST_DUMP = 2064;
   FN_ST_POINT_N = 2075;
   FN_ST_START_POINT = 2076;
@@ -976,6 +997,9 @@ enum FunctionSignatureId {
   FN_ARRAY_FILTER_WITH_INDEX = 2505;  // ARRAY_FILTER(array, lambda) -> array
   FN_ARRAY_TRANSFORM = 2506;          // ARRAY_TRANSFORM(array, lambda) -> array
   FN_ARRAY_TRANSFORM_WITH_INDEX =
-      2507;                // ARRAY_TRANSFORM(array, lambda) -> array
-  FN_CONTAINS_KEY = 2508;  // contains_key(map, key) -> bool
+      2507;                         // ARRAY_TRANSFORM(array, lambda) -> array
+  FN_CONTAINS_KEY = 2508;           // contains_key(map, key) -> bool
+  FN_ARRAY_INCLUDES = 2511;         // ARRAY_INCLUDES(array, element) -> bool
+  FN_ARRAY_INCLUDES_LAMBDA = 2512;  // ARRAY_INCLUDES(array, lambda) -> bool
+  FN_ARRAY_INCLUDES_ANY = 2513;     // ARRAY_INCLUDES(array, element) -> bool
 }

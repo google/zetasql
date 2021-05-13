@@ -637,65 +637,164 @@ std::vector<FunctionTestCall> GetFunctionTestsParseJson() {
   // the same output as JSONValue::ParseJsonString. A better test would need
   // to evaluate the output of PARSE_JSON either through JSONValueConstRef
   // accessors or through the JSON_VALUE SQL function.
-  std::vector<std::string> valid_json_strings = {
-      "123",
-      "\"string\"",
-      "12.3",
-      "true",
-      "null",
-      "[1, true, null]",
-      "{\"a\" : [ {\"b\": \"c\"}, {\"b\": false}]}",
-      absl::StrCat("{", kDeepJsonString, "}"),
-      absl::StrCat("{", kWideJsonString, "}"),
-      "11111111111111111111",
-      "1.2345678901234568e+29",
-      R"("foo\t\\t\\\t\n\\nbar \"baz\\")",
-      "123456789012345678901234567890",
-      R"({"x":11111111111111111111, "z":123456789012345678901234567890})",
-      "[[1, 2, 3], [\"a\", \"b\", \"c\"], [[true, false]]]",
-      "\"\u005C\u005C\u0301\u263a\u2028\"",
-      "\"你好\"",
-      "{\"%2526%7C%2B\": null}"};
-  std::vector<std::string> invalid_json_strings = {"{\"foo\": 12",
-                                                   "\"",
-                                                   "string",
-                                                   "[1, 2",
-                                                   "[\"a\" \"b\"]",
-                                                   "'foo'",
-                                                   "True",
-                                                   "FALSE",
-                                                   "NULL",
-                                                   "nan",
-                                                   R"("\")",
-                                                   ".3",
-                                                   "4.",
-                                                   "0x3",
-                                                   "1.e",
-                                                   R"("f1":"v1")",
-                                                   R"("":"v1")",
-                                                   "3]",
-                                                   "4}",
-                                                   "-",
-                                                   "",
-                                                   " "};
+  enum WideNumberMode { kExact = 0x1, kRound = 0x2 };
+  struct ParseJsonTestCase {
+    std::string json_to_parse;
+    // Bit flag representing the wide number parsing modes supported by the
+    // test. 'json_to_parse' will be parsed in all supported modes.
+    uint8_t wide_number_mode_flag;
+  };
+  std::vector<ParseJsonTestCase> valid_json_tests = {
+      // 'exact' or 'round' mode
+      {"123", kExact | kRound},
+      {"\"string\"", kExact | kRound},
+      {"12.3", kExact | kRound},
+      {"true", kExact | kRound},
+      {"null", kExact | kRound},
+      {"[1, true, null]", kExact | kRound},
+      {"{\"a\" : [ {\"b\": \"c\"}, {\"b\": false}]}", kExact | kRound},
+      {absl::StrCat("{", kDeepJsonString, "}"), kExact | kRound},
+      {absl::StrCat("{", kWideJsonString, "}"), kExact | kRound},
+      {"11111111111111111111", kExact | kRound},
+      {"1.2345678901234568e+29", kExact | kRound},
+      {R"("foo\t\\t\\\t\n\\nbar \"baz\\")", kExact | kRound},
+      {"[[1, 2, 3], [\"a\", \"b\", \"c\"], [[true, false]]]", kExact | kRound},
+      {"\"\u005C\u005C\u0301\u263a\u2028\"", kExact | kRound},
+      {"\"你好\"", kExact | kRound},
+      {"{\"%2526%7C%2B\": null}", kExact | kRound},
+      // 'round' mode only
+      {"123456789012345678901234567890", kRound},
+      {R"({"x":11111111111111111111, "z":123456789012345678901234567890})",
+       kRound},
+      {"-0.0000002414214151379150123", kRound},
+      {"989124899124.1241251252125121285", kRound},
+      {"9891248991241241251252125121285021782188712512512", kRound}};
+  std::vector<ParseJsonTestCase> invalid_json_tests = {
+      // Invalid regardless of wide number mode
+      {"{\"foo\": 12", kExact | kRound},
+      {"\"", kExact | kRound},
+      {"string", kExact | kRound},
+      {"[1, 2", kExact | kRound},
+      {"[\"a\" \"b\"]", kExact | kRound},
+      {"'foo'", kExact | kRound},
+      {"True", kExact | kRound},
+      {"FALSE", kExact | kRound},
+      {"NULL", kExact | kRound},
+      {"nan", kExact | kRound},
+      {R"("\")", kExact | kRound},
+      {".3", kExact | kRound},
+      {"4.", kExact | kRound},
+      {"0x3", kExact | kRound},
+      {"1.e", kExact | kRound},
+      {R"("f1":"v1")", kExact | kRound},
+      {R"("":"v1")", kExact | kRound},
+      {"3]", kExact | kRound},
+      {"4}", kExact | kRound},
+      {"-", kExact | kRound},
+      {"", kExact | kRound},
+      {" ", kExact | kRound},
+      // Fails parsing in both 'exact' and 'round'. Intentionally kept separate
+      // from cases above to allow for handling `kStringify` when implemented.
+      {"-1.79769313486232e+309", kExact | kRound},
+      {"1.79769313486232e+309", kExact | kRound},
+      // Fails parsing in 'exact'
+      {"123456789012345678901234567890", kExact},
+      {R"({"x":11111111111111111111, "z":123456789012345678901234567890})",
+       kExact},
+      {"-0.0000002414214151379150123", kExact},
+      {"989124899124.1241251252125121285", kExact},
+      {"9891248991241241251252125121285021782188712512512", kExact}};
   std::vector<FunctionTestCall> v;
-  v.reserve(valid_json_strings.size() + invalid_json_strings.size() + 2);
-  for (const std::string& str : valid_json_strings) {
-    v.push_back(
-        {"parse_json", {{str}, Json(JSONValue::ParseJSONString(str).value())}});
+  v.reserve(valid_json_tests.size() * 3 + invalid_json_tests.size() * 3 + 6);
+  for (const ParseJsonTestCase& test : valid_json_tests) {
+    if (test.wide_number_mode_flag & kExact) {
+      // Add both the case where mode is specified and mode is not specified.
+      v.push_back(
+          {"parse_json",
+           QueryParamsWithResult(
+               {test.json_to_parse},
+               Json(JSONValue::ParseJSONString(
+                        test.json_to_parse,
+                        {.legacy_mode = false, .strict_number_parsing = true})
+                        .value()))
+               .WrapWithFeature(FEATURE_JSON_TYPE)});
+      v.push_back(
+          {"parse_json",
+           QueryParamsWithResult(
+               {test.json_to_parse, "exact"},
+               Json(JSONValue::ParseJSONString(
+                        test.json_to_parse,
+                        {.legacy_mode = false, .strict_number_parsing = true})
+                        .value()))
+               .WrapWithFeatureSet(
+                   {FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
+    }
+    if (test.wide_number_mode_flag & kRound) {
+      v.push_back(
+          {"parse_json",
+           QueryParamsWithResult(
+               {test.json_to_parse, "round"},
+               Json(JSONValue::ParseJSONString(test.json_to_parse).value()))
+               .WrapWithFeatureSet(
+                   {FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
+    }
   }
-  for (const std::string& str : invalid_json_strings) {
-    v.push_back({"parse_json", {str}, NullJson(), OUT_OF_RANGE});
+  for (const ParseJsonTestCase& test : invalid_json_tests) {
+    if (test.wide_number_mode_flag & kExact) {
+      // Add both the case where mode is specified and mode is not specified.
+      v.push_back({"parse_json", QueryParamsWithResult({test.json_to_parse},
+                                                       NullJson(), OUT_OF_RANGE)
+                                     .WrapWithFeature(FEATURE_JSON_TYPE)});
+      v.push_back(
+          {"parse_json", QueryParamsWithResult({test.json_to_parse, "exact"},
+                                               NullJson(), OUT_OF_RANGE)
+                             .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS,
+                                                  FEATURE_JSON_TYPE})});
+    }
+    if (test.wide_number_mode_flag & kRound) {
+      v.push_back(
+          {"parse_json", QueryParamsWithResult({test.json_to_parse, "round"},
+                                               NullJson(), OUT_OF_RANGE)
+                             .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS,
+                                                  FEATURE_JSON_TYPE})});
+    }
   }
+  // Fail if invalid 'wide_number_mode' specified. 'wide_number_mode' is
+  // case-sensitive.
+  v.push_back(
+      {"parse_json",
+       QueryParamsWithResult({"2.5", "junk"}, NullJson(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
+  v.push_back(
+      {"parse_json",
+       QueryParamsWithResult({"2.5", "EXACT"}, NullJson(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
+  v.push_back(
+      {"parse_json",
+       QueryParamsWithResult({"2.5", "Round"}, NullJson(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
+  // Return NULL if either argument is NULL.
+  v.push_back({"parse_json", QueryParamsWithResult({NullString()}, NullJson())
+                                 .WrapWithFeatureSet({FEATURE_JSON_TYPE})});
+  v.push_back(
+      {"parse_json",
+       QueryParamsWithResult({NullString(), "wide"}, NullJson())
+           .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
+  v.push_back(
+      {"parse_json",
+       QueryParamsWithResult({"25", NullString()}, NullJson())
+           .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})});
   // Legacy parsing
   v.push_back(
       {"parse_json",
-       QueryParamsWithResult({"'str'"}, Json(JSONValue::ParseJSONString(
-                                                 "'str'", {.legacy_mode = true})
-                                                 .value()))
-           .WrapWithFeatureSet(
-               {FEATURE_JSON_TYPE, FEATURE_JSON_LEGACY_PARSE})});
-  v.push_back({"parse_json", {{NullString()}, NullJson()}});
+       QueryParamsWithResult(
+           {"'str'", "round"},
+           Json(JSONValue::ParseJSONString("'str'", {.legacy_mode = true})
+                    .value()))
+           .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE,
+                                FEATURE_JSON_LEGACY_PARSE})});
+  v.push_back({"parse_json", QueryParamsWithResult({NullString()}, NullJson())
+                                 .WrapWithFeature(FEATURE_JSON_TYPE)});
   return v;
 }
 

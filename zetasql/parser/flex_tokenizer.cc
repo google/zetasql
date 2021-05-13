@@ -21,6 +21,14 @@
 #include "zetasql/parser/location.hh"
 #include "zetasql/public/parse_location.h"
 
+// TODO: The end state is to turn on everywhere and remove this
+// flag. Before that, we'll turn on this feature in test environment and soak
+// for a while. Then roll out to Evenflow prod instances and eventually
+// deprecate this flag.
+ABSL_FLAG(
+    bool, zetasql_use_customized_flex_istream, false,
+    "If true, use customized StringStreamWithSentinel to read input.");
+
 namespace zetasql {
 namespace parser {
 

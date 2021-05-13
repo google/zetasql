@@ -16,14 +16,23 @@
 
 #include "zetasql/public/functions/cast_date_time.h"
 
+#include <cstdint>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/input_format_string_max_width.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "gtest/gtest.h"
+#include "absl/cleanup/cleanup.h"
+#include "absl/flags/flag.h"
+#include "absl/functional/bind_front.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/time.h"
 
 namespace zetasql {
 namespace functions {
@@ -443,9 +452,7 @@ static void TestCastStringToTimestamp(const FunctionTestCall& test) {
   // with NULL value inputs.  The date/time function library is only
   // implemented for non-NULL values.
   const int expected_param_size = 4;
-  if (test.params.params().size() != expected_param_size) {
-    return;
-  }
+  ZETASQL_CHECK_EQ(test.params.params().size(), expected_param_size);
 
   for (size_t i = 0; i < expected_param_size; ++i) {
     if (test.params.param(i).is_null()) {
@@ -514,6 +521,171 @@ static void TestCastStringToTimestamp(const FunctionTestCall& test) {
   }
 }
 
+static void TestCastStringToDate(const FunctionTestCall& test) {
+  ZETASQL_CHECK_EQ(test.params.params().size(), 3);
+  // Ignore test cases with NULL value inputs. The date/time function library
+  // is only implemented for non-NULL values.
+  if (test.params.param(0).is_null() || test.params.param(1).is_null() ||
+      test.params.param(2).is_null()) {
+    return;
+  }
+
+  const Value& format_param = test.params.param(0);
+  const Value& date_string_param = test.params.param(1);
+  const Value& current_date_param = test.params.param(2);
+  int32_t result_date;
+
+  absl::Status status = CastStringToDate(
+      format_param.string_value(), date_string_param.string_value(),
+      current_date_param.int32_value(), &result_date);
+  std::string test_string = absl::Substitute(
+      absl::StrCat(test.function_name, "($0, $1, $2)"),
+      format_param.DebugString(), date_string_param.DebugString(),
+      current_date_param.int32_value());
+
+  if (test.params.status().ok()) {
+    ZETASQL_EXPECT_OK(status) << test_string;
+    EXPECT_EQ(TYPE_DATE, test.params.result().type_kind()) << test_string;
+    EXPECT_EQ(test.params.result().date_value(), result_date) << test_string;
+  } else {
+    EXPECT_FALSE(status.ok()) << test_string;
+  }
+}
+
+// TODO: The following 2 functions are copied from file
+// "parse_date_time_test.cc". We should extract this function into a shared
+// library and avoid duplication.
+
+// Use the supplied <result_validator> to validate that the <actual_status> and
+// <actual_output_string_value> matches the expected <result>.
+static void ValidateResult(
+    const QueryParamsWithResult::Result* result,
+    const absl::Status& actual_status,
+    const std::string& actual_output_string_value,
+    const std::function<bool(const Value& expected_result,
+                             const std::string& actual_string_value)>&
+        result_validator) {
+  ASSERT_TRUE(result != nullptr);
+  const absl::Status& expected_status = result->status;
+  const Value& expected_result = result->result;
+
+  if (expected_status.ok()) {
+    ZETASQL_ASSERT_OK(actual_status);
+    EXPECT_TRUE(result_validator(expected_result, actual_output_string_value))
+        << "Expected result string: " << expected_result.DebugString()
+        << "\nActual result string: " << actual_output_string_value;
+  } else {
+    EXPECT_FALSE(actual_status.ok());
+  }
+}
+
+static void TestCivilTimeFunction(
+    const FunctionTestCall& testcase,
+    const std::function<bool(const FunctionTestCall& testcase)>&
+        should_skip_test_case,
+    const std::function<absl::Status(const FunctionTestCall& testcase,
+                                     std::string* output_string_value)>&
+        function_to_test_for_micro,
+    const std::function<absl::Status(const FunctionTestCall& testcase,
+                                     std::string* output_string_value)>&
+        function_to_test_for_nano,
+    const std::function<bool(const Value& expected_result,
+                             const std::string& actual_string_value)>&
+        result_validator) {
+  if (should_skip_test_case(testcase)) {
+    return;
+  }
+
+  // Validate micro result
+  const QueryParamsWithResult::FeatureSet civil_time_feature_set(
+      {FEATURE_V_1_2_CIVIL_TIME});
+  std::string actual_micro_string_value;
+  absl::Status actual_micro_status =
+      function_to_test_for_micro(testcase, &actual_micro_string_value);
+  const QueryParamsWithResult::Result* expected_micro_result =
+      zetasql_base::FindOrNull(testcase.params.results(), civil_time_feature_set);
+  ValidateResult(expected_micro_result, actual_micro_status,
+                 actual_micro_string_value, result_validator);
+
+  // Validate nano result
+  const QueryParamsWithResult::FeatureSet civil_time_and_nano_feature_set(
+      {FEATURE_V_1_2_CIVIL_TIME, FEATURE_TIMESTAMP_NANOS});
+  std::string actual_nano_string_value;
+  absl::Status actual_nano_status =
+      function_to_test_for_nano(testcase, &actual_nano_string_value);
+  const QueryParamsWithResult::Result* expected_nano_result = zetasql_base::FindOrNull(
+      testcase.params.results(), civil_time_and_nano_feature_set);
+  ValidateResult(expected_nano_result, actual_nano_status,
+                 actual_nano_string_value, result_validator);
+}
+
+static void TestCastStringToTime(const FunctionTestCall& test) {
+  auto ShouldSkipTestCase = [](const FunctionTestCall& testcase) {
+    ZETASQL_CHECK_EQ(testcase.params.params().size(), 2);
+    // Ignore test cases with NULL value inputs.  The date/time function
+    // library is only implemented for non-NULL values.
+    if (testcase.params.param(0).is_null() ||
+        testcase.params.param(1).is_null()) {
+      return true;
+    }
+    return false;
+  };
+  auto GetCastStringToTimeFunc = [](TimestampScale scale) {
+    return [scale](const FunctionTestCall& testcase,
+                   std::string* output_string) -> absl::Status {
+      TimeValue time;
+      ZETASQL_RETURN_IF_ERROR(CastStringToTime(testcase.params.param(0).string_value(),
+                                       testcase.params.param(1).string_value(),
+                                       scale, &time));
+      *output_string = time.DebugString();
+      return absl::OkStatus();
+    };
+  };
+  auto ParseTimeResultValidator = [](const Value& expected_result,
+                                     const std::string& actual_string) {
+    return expected_result.type_kind() == TYPE_TIME &&
+           expected_result.DebugString() == actual_string;
+  };
+  TestCivilTimeFunction(
+      test, ShouldSkipTestCase, GetCastStringToTimeFunc(kMicroseconds),
+      GetCastStringToTimeFunc(kNanoseconds), ParseTimeResultValidator);
+}
+
+static void TestCastStringToDatetime(const FunctionTestCall& test) {
+  auto ShouldSkipTestCase = [](const FunctionTestCall& testcase) {
+    ZETASQL_CHECK_EQ(testcase.params.params().size(), 3);
+    // Ignore test cases with NULL value inputs.  The date/time function
+    // library is only implemented for non-NULL values.
+    if (testcase.params.param(0).is_null() ||
+        testcase.params.param(1).is_null() ||
+        testcase.params.param(2).is_null()) {
+      return true;
+    }
+    return false;
+  };
+  auto GetCastStringToDatetimeFunc = [](TimestampScale scale) {
+    return [scale](const FunctionTestCall& testcase,
+                   std::string* output_string) -> absl::Status {
+      DatetimeValue datetime;
+      ZETASQL_RETURN_IF_ERROR(CastStringToDatetime(
+          testcase.params.param(0).string_value(),
+          testcase.params.param(1).string_value(), scale,
+          testcase.params.param(2).int32_value(), &datetime));
+      *output_string = datetime.DebugString();
+      return absl::OkStatus();
+    };
+  };
+  auto CastStringToDatetimeResultValidator =
+      [](const Value& expected_result, const std::string& actual_string) {
+        return expected_result.type_kind() == TYPE_DATETIME &&
+               expected_result.DebugString() == actual_string;
+      };
+  TestCivilTimeFunction(test, ShouldSkipTestCase,
+                        GetCastStringToDatetimeFunc(kMicroseconds),
+                        GetCastStringToDatetimeFunc(kNanoseconds),
+                        CastStringToDatetimeResultValidator);
+}
+
 static void TestValidateFormatStringForParsing(
     zetasql::TypeKind out_type, absl::string_view format_string,
     std::string expected_error_message,
@@ -542,6 +714,11 @@ static void TestValidateFormatStringForFormatting(
   }
 }
 
+static void ExpectFormatStringTooLongError(absl::Status status) {
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
+                          HasSubstr("Format string too long")));
+}
+
 static void TestCastFormatFunction(
     const FunctionTestCall& testcase,
     const std::function<absl::Status(std::string* result_string,
@@ -562,7 +739,7 @@ static void TestCastFormatFunction(
 static void TestCastFormatDatetime(const FunctionTestCall& testcase) {
   auto FormatDatetimeFunc = [&testcase](std::string* result_string,
                                         std::string* test_name) {
-    ZETASQL_DCHECK_EQ(testcase.params.num_params(), 2);
+    ZETASQL_CHECK_EQ(testcase.params.num_params(), 2);
     const Value& format_param = testcase.params.param(1);
     const Value& datetime_param = testcase.params.param(0);
     *test_name = absl::Substitute(
@@ -578,7 +755,7 @@ static void TestCastFormatDatetime(const FunctionTestCall& testcase) {
 static void TestCastFormatTime(const FunctionTestCall& testcase) {
   auto FormatTimeFunc = [&testcase](std::string* result_string,
                                     std::string* test_name) {
-    ZETASQL_DCHECK_EQ(testcase.params.num_params(), 2);
+    ZETASQL_CHECK_EQ(testcase.params.num_params(), 2);
     const Value& format_param = testcase.params.param(1);
     const Value& time_param = testcase.params.param(0);
     *test_name =
@@ -594,7 +771,7 @@ static void TestCastFormatTime(const FunctionTestCall& testcase) {
 static void TestCastFormatDate(const FunctionTestCall& testcase) {
   auto FormatDateFunc = [&testcase](std::string* result_string,
                                     std::string* test_name) {
-    ZETASQL_DCHECK_EQ(testcase.params.num_params(), 2);
+    ZETASQL_CHECK_EQ(testcase.params.num_params(), 2);
     const Value& format_param = testcase.params.param(1);
     const Value& date_param = testcase.params.param(0);
     *test_name =
@@ -610,7 +787,7 @@ static void TestCastFormatDate(const FunctionTestCall& testcase) {
 static void TestCastFormatTimestamp(const FunctionTestCall& testcase) {
   auto FormatTimestampFunc = [&testcase](std::string* result_string,
                                          std::string* test_name) {
-    ZETASQL_DCHECK_EQ(testcase.params.num_params(), 3);
+    ZETASQL_CHECK_EQ(testcase.params.num_params(), 3);
     const Value& format_param = testcase.params.param(1);
     const Value& timestamp_param = testcase.params.param(0);
     const Value& timezone_param = testcase.params.param(2);
@@ -630,6 +807,12 @@ static void CastStringToDateTimestampFunctionTest(
     const FunctionTestCall& test) {
   if (test.function_name == "cast_string_to_timestamp") {
     TestCastStringToTimestamp(test);
+  } else if (test.function_name == "cast_string_to_date") {
+    TestCastStringToDate(test);
+  } else if (test.function_name == "cast_string_to_time") {
+    TestCastStringToTime(test);
+  } else if (test.function_name == "cast_string_to_datetime") {
+    TestCastStringToDatetime(test);
   } else {
     ASSERT_FALSE(true) << "Test cases do not support function: "
                        << test.function_name;
@@ -649,71 +832,179 @@ INSTANTIATE_TEST_SUITE_P(
     CastStringToDateTimestampTests, CastStringToDateTimeTestWithParam,
     testing::ValuesIn(GetFunctionTestsCastStringToDateTimestamp()));
 
-TEST(StringToTimestampTests, ValidateFormatStringForParsing) {
-  TestValidateFormatStringForParsing(TYPE_TIMESTAMP, "", "");
-  TestValidateFormatStringForParsing(TYPE_TIMESTAMP, "£\xff£",
-                                     "Input string is not valid UTF-8");
-  TestValidateFormatStringForParsing(TYPE_TIMESTAMP, "invalid_element",
-                                     "Cannot find matched format element");
+TEST(StringToDateTimestampTests, InvalidInputScale) {
+  // Test that <scale> argument can only take "kMicroseconds" or "kNanoseconds".
+  int32_t date_1970_1_1;
+  ZETASQL_CHECK_OK(functions::ConstructDate(1970, 1, 1, &date_1970_1_1));
+  for (TimestampScale invalid_scale : {kSeconds, kMilliseconds}) {
+    // Test with CastStringToTime function.
+    TimeValue time;
+    EXPECT_THAT(
+        CastStringToTime("", "", invalid_scale, &time),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr(
+                     "Only kNanoseconds or kMicroseconds scale is supported")));
+    // Test with CastStringToDatetime function.
+    DatetimeValue datetime;
+    EXPECT_THAT(
+        CastStringToDatetime("", "", invalid_scale, date_1970_1_1, &datetime),
+        StatusIs(absl::StatusCode::kInternal,
+                 HasSubstr(
+                     "Only kNanoseconds or kMicroseconds scale is supported")));
+  }
+}
+
+TEST(StringToDateTimestampTests, FormatStringTooLong) {
+  auto flag_resetter = absl::MakeCleanup(absl::bind_front(
+      absl::SetFlag<int32_t>, &FLAGS_zetasql_cast_format_string_max_width,
+      absl::GetFlag(FLAGS_zetasql_cast_format_string_max_width)));
+  absl::SetFlag(&FLAGS_zetasql_cast_format_string_max_width, 4);
+  int64_t ts_micro;
+  absl::Time ts;
+  int32_t date;
+  TimeValue time;
+  DatetimeValue datetime;
+  std::string too_long_format_string = ",,,,,,";
+  std::string input_string = too_long_format_string;
+  absl::Time current_ts = absl::UnixEpoch();
+  int32_t current_date;
+  ZETASQL_EXPECT_OK(ExtractFromTimestamp(DATE, current_ts, absl::UTCTimeZone(),
+                                 &current_date));
+
+  ExpectFormatStringTooLongError(CastStringToTimestamp(
+      too_long_format_string, input_string, "UTC", current_ts, &ts_micro));
+  ExpectFormatStringTooLongError(
+      CastStringToTimestamp(too_long_format_string, input_string,
+                            absl::UTCTimeZone(), current_ts, &ts_micro));
+  ExpectFormatStringTooLongError(CastStringToTimestamp(
+      too_long_format_string, input_string, "UTC", current_ts, &ts));
+  ExpectFormatStringTooLongError(
+      CastStringToTimestamp(too_long_format_string, input_string,
+                            absl::UTCTimeZone(), current_ts, &ts));
+  ExpectFormatStringTooLongError(CastStringToDate(
+      too_long_format_string, input_string, current_date, &date));
+  ExpectFormatStringTooLongError(CastStringToTime(
+      too_long_format_string, input_string, kMicroseconds, &time));
+  ExpectFormatStringTooLongError(CastStringToTime(
+      too_long_format_string, input_string, kNanoseconds, &time));
+  ExpectFormatStringTooLongError(
+      CastStringToDatetime(too_long_format_string, input_string, kMicroseconds,
+                           current_date, &datetime));
+  ExpectFormatStringTooLongError(
+      CastStringToDatetime(too_long_format_string, input_string, kNanoseconds,
+                           current_date, &datetime));
+}
+
+TEST(StringToDateTimestampTests, ValidateFormatStringForParsing) {
+  for (TypeKind output_type :
+       {TYPE_TIMESTAMP, TYPE_DATE, TYPE_TIME, TYPE_DATETIME}) {
+    TestValidateFormatStringForParsing(output_type, "", "");
+    TestValidateFormatStringForParsing(
+        output_type, "£\xff£", "Format string is not a valid UTF-8 string");
+    TestValidateFormatStringForParsing(output_type, "invalid_element",
+                                       "Cannot find matched format element");
+    // Format string too long.
+    auto flag_resetter = absl::MakeCleanup(absl::bind_front(
+        absl::SetFlag<int32_t>, &FLAGS_zetasql_cast_format_string_max_width,
+        absl::GetFlag(FLAGS_zetasql_cast_format_string_max_width)));
+    absl::SetFlag(&FLAGS_zetasql_cast_format_string_max_width, 4);
+    TestValidateFormatStringForFormatting(output_type, ",,,,,,",
+                                          "Format string too");
+  }
+  for (TypeKind output_type : {TYPE_TIMESTAMP, TYPE_DATE, TYPE_DATETIME}) {
+    TestValidateFormatStringForParsing(
+        output_type, "DAY",
+        "Format element 'DAY' is not supported for parsing");
+    TestValidateFormatStringForParsing(
+        output_type, "MONmoN",
+        "Format element 'MON' appears more than once in the format string");
+    // The single occurrence limit of distinct uppercase forms only applies to
+    // non-literal format elements.
+    TestValidateFormatStringForParsing(output_type, R"(MON"moN")", "");
+    TestValidateFormatStringForParsing(output_type, "- -", "");
+    TestValidateFormatStringForParsing(
+        output_type, "YYYYRR",
+        "More than one format element in category YEAR exist: 'YYYY' and 'RR'");
+    TestValidateFormatStringForParsing(
+        output_type, "MonthMM",
+        "More than one format element in category MONTH exist: 'MONTH' and "
+        "'MM'");
+  }
+  for (TypeKind output_type : {TYPE_TIMESTAMP, TYPE_TIME, TYPE_DATETIME}) {
+    TestValidateFormatStringForParsing(
+        output_type, "MiMI",
+        "Format element 'MI' appears more than once in the format string");
+    TestValidateFormatStringForParsing(
+        output_type, "fF2Ff2",
+        "Format element 'FF2' appears more than once in the format string");
+    TestValidateFormatStringForParsing(
+        output_type, "HH24HH",
+        "More than one format element in category HOUR exist: 'HH24' and 'HH'");
+    TestValidateFormatStringForParsing(
+        output_type, "HH24hh12",
+        "More than one format element in category HOUR exist: 'HH24' and "
+        "'HH12'");
+    TestValidateFormatStringForParsing(
+        output_type, "HH24A.M.",
+        "Format element in category MERIDIAN_INDICATOR ('A.M.') and format "
+        "element 'HH24' cannot exist simultaneously");
+    TestValidateFormatStringForParsing(
+        output_type, "hh",
+        "Format element in category MERIDIAN_INDICATOR is required when format "
+        "element 'HH' exists");
+    TestValidateFormatStringForParsing(
+        output_type, "Hh12",
+        "Format element in category MERIDIAN_INDICATOR is required when format "
+        "element 'HH12' exists");
+    TestValidateFormatStringForParsing(
+        output_type, "A.M.",
+        "Format element of type HH/HH12 is required when format "
+        "element in category MERIDIAN_INDICATOR ('A.M.') exists");
+    TestValidateFormatStringForParsing(
+        output_type, "SSSSSHH12A.M.",
+        "Format element in category HOUR ('HH12') and format "
+        "element 'SSSSS' cannot exist simultaneously");
+    TestValidateFormatStringForParsing(
+        output_type, "SSSSSMi",
+        "Format element in category MINUTE ('MI') and format "
+        "element 'SSSSS' cannot exist simultaneously");
+    TestValidateFormatStringForParsing(
+        output_type, "SsFF2SSSSS",
+        "Format elements 'SSSSS' and 'SS' cannot exist simultaneously");
+  }
+  TestValidateFormatStringForParsing(TYPE_DATE, "HH24",
+                                     "Format element in category HOUR ('HH24') "
+                                     "is not allowed for output type DATE");
+  TestValidateFormatStringForParsing(TYPE_DATE, "HH A.M.",
+                                     "Format element in category HOUR ('HH') "
+                                     "is not allowed for output type DATE");
+  TestValidateFormatStringForParsing(TYPE_DATE, "MI",
+                                     "Format element in category MINUTE ('MI') "
+                                     "is not allowed for output type DATE");
+  TestValidateFormatStringForParsing(TYPE_DATE, "SS",
+                                     "Format element in category SECOND ('SS') "
+                                     "is not allowed for output type DATE");
   TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "DAY",
-      "Format element 'DAY' is not supported for parsing");
+      TYPE_DATE, "TZM",
+      "Format element in category TIME_ZONE ('TZM') "
+      "is not allowed for output type DATE");
+  TestValidateFormatStringForParsing(TYPE_TIME, "YYYY",
+                                     "Format element in category YEAR ('YYYY') "
+                                     "is not allowed for output type TIME");
+  TestValidateFormatStringForParsing(TYPE_TIME, "MM",
+                                     "Format element in category MONTH ('MM') "
+                                     "is not allowed for output type TIME");
+  TestValidateFormatStringForParsing(TYPE_TIME, "DD",
+                                     "Format element in category DAY ('DD') "
+                                     "is not allowed for output type TIME");
   TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "MiMI",
-      "Format element 'MI' appears more than once in the format string");
+      TYPE_TIME, "TZH",
+      "Format element in category TIME_ZONE ('TZH') "
+      "is not allowed for output type TIME");
   TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "fF2Ff2",
-      "Format element 'FF2' appears more than once in the format string");
-  // The single occurrence limit of distinct uppercase forms only applies to
-  // non-literal format elements.
-  TestValidateFormatStringForParsing(TYPE_TIMESTAMP, R"(Mi"MI")", "");
-  TestValidateFormatStringForParsing(TYPE_TIMESTAMP, "- -", "");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "YYYYRR",
-      "More than one format element in category YEAR exist: 'YYYY' and 'RR'");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "MonthMM",
-      "More than one format element in category MONTH exist: 'MONTH' and 'MM'");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "DDDDd",
-      "More than one format element in category DAY exist: 'DDD' and 'DD'");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "HH24HH",
-      "More than one format element in category HOUR exist: 'HH24' and 'HH'");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "HH24hh12",
-      "More than one format element in category HOUR exist: 'HH24' and 'HH12'");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "MonDDD",
-      "Format element in category MONTH ('MON') and format "
-      "element 'DDD' cannot exist simultaneously");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "HH24A.M.",
-      "Format element in category MERIDIAN_INDICATOR ('A.M.') and format "
-      "element 'HH24' cannot exist simultaneously");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "hh",
-      "Format element in category MERIDIAN_INDICATOR is required when format "
-      "element 'HH' exists");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "Hh12",
-      "Format element in category MERIDIAN_INDICATOR is required when format "
-      "element 'HH12' exists");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "AM",
-      "Format element of type HH/HH12 is required when format "
-      "element in category MERIDIAN_INDICATOR ('AM') exists");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "SSSSSHH12AM",
-      "Format element in category HOUR ('HH12') and format "
-      "element 'SSSSS' cannot exist simultaneously");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "SSSSSMi",
-      "Format element in category MINUTE ('MI') and format "
-      "element 'SSSSS' cannot exist simultaneously");
-  TestValidateFormatStringForParsing(
-      TYPE_TIMESTAMP, "SsYYSSSSS",
-      "Format elements 'SSSSS' and 'SS' cannot exist simultaneously");
+      TYPE_DATETIME, "TZM",
+      "Format element in category TIME_ZONE ('TZM') "
+      "is not allowed for output type DATETIME");
   TestValidateFormatStringForParsing(TYPE_INT64, "",
                                      "Unsupported output type for validation",
                                      absl::StatusCode::kInvalidArgument);
@@ -745,6 +1036,27 @@ std::vector<std::string> GetTimeZoneElements() {
   return elements;
 }
 
+TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingCommon) {
+  for (TypeKind output_type :
+       {TYPE_TIMESTAMP, TYPE_DATE, TYPE_TIME, TYPE_DATETIME}) {
+    TestValidateFormatStringForFormatting(output_type, "", "");
+    // Format string is not valid utf-8 string.
+    TestValidateFormatStringForFormatting(
+        output_type, "\xFF\xFF", "Format string is not a valid UTF-8 string");
+
+    // Invalid format element.
+    TestValidateFormatStringForFormatting(
+        output_type, "a", "Cannot find matched format element at 0");
+    // Format string too long.
+    auto flag_resetter = absl::MakeCleanup(absl::bind_front(
+        absl::SetFlag<int32_t>, &FLAGS_zetasql_cast_format_string_max_width,
+        absl::GetFlag(FLAGS_zetasql_cast_format_string_max_width)));
+    absl::SetFlag(&FLAGS_zetasql_cast_format_string_max_width, 4);
+    TestValidateFormatStringForFormatting(output_type, ",,,,,,",
+                                          "Format string too long");
+  }
+}
+
 TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingDate) {
   // Success case
   for (const auto& element : GetDateElements()) {
@@ -764,14 +1076,6 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingDate) {
         TYPE_DATE, element,
         absl::Substitute("DATE does not support '$0'", element));
   }
-
-  // Format string is not valid utf-8 string
-  TestValidateFormatStringForFormatting(
-      TYPE_DATE, "\xFF\xFF", "Format string is not a valid UTF-8 string");
-
-  // Invalid format element
-  TestValidateFormatStringForFormatting(
-      TYPE_DATE, "a", "Cannot find matched format element at 0");
 }
 
 TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingDateTime) {
@@ -789,14 +1093,6 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingDateTime) {
         TYPE_DATETIME, element,
         absl::Substitute("DATETIME does not support '$0'", element));
   }
-
-  // Format string is not valid utf-8 string
-  TestValidateFormatStringForFormatting(
-      TYPE_DATETIME, "\xFF\xFF", "Format string is not a valid UTF-8 string");
-
-  // Invalid format element
-  TestValidateFormatStringForFormatting(
-      TYPE_DATETIME, "a", "Cannot find matched format element at 0");
 }
 
 TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingTime) {
@@ -818,14 +1114,6 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingTime) {
         TYPE_TIME, element,
         absl::Substitute("TIME does not support '$0'", element));
   }
-
-  // Format string is not valid utf-8 string
-  TestValidateFormatStringForFormatting(
-      TYPE_TIME, "\xFF\xFF", "Format string is not a valid UTF-8 string");
-
-  // Invalid format element
-  TestValidateFormatStringForFormatting(
-      TYPE_TIME, "a", "Cannot find matched format element at 0");
 }
 
 TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingTimestamp) {
@@ -839,14 +1127,6 @@ TEST(DateAndTimeToStringTests, ValidateFormatStringForFormattingTimestamp) {
   for (const auto& element : GetTimeZoneElements()) {
     TestValidateFormatStringForFormatting(TYPE_TIMESTAMP, element, "");
   }
-
-  // Format string is not valid utf-8 string
-  TestValidateFormatStringForFormatting(
-      TYPE_TIMESTAMP, "\xFF\xFF", "Format string is not a valid UTF-8 string");
-
-  // Invalid format element
-  TestValidateFormatStringForFormatting(
-      TYPE_TIMESTAMP, "a", "Cannot find matched format element at 0");
 }
 
 TEST(DateAndTimeToStringTests, ValidateFormatStringForFormatting) {
@@ -1130,13 +1410,14 @@ TEST(DateTimeUtilTest, BasicCastFormatTimestampTest) {
 }
 
 static void ExecuteCastDateTimeFunctionTest(const FunctionTestCall& test) {
-  if (zetasql_base::StringCaseEqual(test.function_name, "cast_format_timestamp")) {
+  if (zetasql_base::CaseEqual(test.function_name, "cast_format_timestamp")) {
     TestCastFormatTimestamp(test);
-  } else if (zetasql_base::StringCaseEqual(test.function_name, "cast_format_date")) {
+  } else if (zetasql_base::CaseEqual(test.function_name, "cast_format_date")) {
     TestCastFormatDate(test);
-  } else if (zetasql_base::StringCaseEqual(test.function_name, "cast_format_datetime")) {
+  } else if (zetasql_base::CaseEqual(test.function_name,
+                                    "cast_format_datetime")) {
     TestCastFormatDatetime(test);
-  } else if (zetasql_base::StringCaseEqual(test.function_name, "cast_format_time")) {
+  } else if (zetasql_base::CaseEqual(test.function_name, "cast_format_time")) {
     TestCastFormatTime(test);
   }
 }
@@ -1194,6 +1475,40 @@ TEST(DateTimeUtilTest, NonTraditionalYearTest) {
                                           absl::UTCTimeZone(), &output));
     EXPECT_EQ(output, test.expected_string);
   }
+}
+
+TEST(DateTimeUtilTest, FormatStringTooLongForFormatting) {
+  auto flag_resetter = absl::MakeCleanup(absl::bind_front(
+      absl::SetFlag<int32_t>, &FLAGS_zetasql_cast_format_string_max_width,
+      absl::GetFlag(FLAGS_zetasql_cast_format_string_max_width)));
+  absl::SetFlag(&FLAGS_zetasql_cast_format_string_max_width, 4);
+  absl::Time ts = absl::UnixEpoch();
+  int64_t ts_micro = absl::ToUnixMicros(ts);;
+  int32_t date;
+  TimeValue time;
+  DatetimeValue datetime;
+
+  ZETASQL_EXPECT_OK(ExtractFromTimestamp(DATE, ts, absl::UTCTimeZone(), &date));
+  ZETASQL_EXPECT_OK(
+      ConvertTimestampToTime(ts, absl::UTCTimeZone(), kNanoseconds, &time));
+  ZETASQL_EXPECT_OK(ConvertTimestampToDatetime(ts, absl::UTCTimeZone(), &datetime));
+  std::string too_long_format_string = ",,,,,,";
+  std::string out;
+
+  ExpectFormatStringTooLongError(
+      CastFormatTimestampToString(too_long_format_string, ts, "UTC", &out));
+  ExpectFormatStringTooLongError(CastFormatTimestampToString(
+      too_long_format_string, ts, absl::UTCTimeZone(), &out));
+  ExpectFormatStringTooLongError(CastFormatTimestampToString(
+      too_long_format_string, ts_micro, "UTC", &out));
+  ExpectFormatStringTooLongError(CastFormatTimestampToString(
+      too_long_format_string, ts_micro, absl::UTCTimeZone(), &out));
+  ExpectFormatStringTooLongError(
+      CastFormatDateToString(too_long_format_string, date, &out));
+  ExpectFormatStringTooLongError(
+      CastFormatTimeToString(too_long_format_string, time, &out));
+  ExpectFormatStringTooLongError(
+      CastFormatDatetimeToString(too_long_format_string, datetime, &out));
 }
 
 }  // namespace

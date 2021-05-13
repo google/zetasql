@@ -26,6 +26,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
+import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
 import com.google.zetasql.ZetaSQLOptions.ProductMode;
 import com.google.zetasql.ZetaSQLType.TypeKind;
 import com.google.zetasql.ZetaSQLType.TypeProto;
@@ -448,6 +449,28 @@ public class PreparedExpressionTest {
       Value result = exp.execute(columns, parameters);
       assertThat(result.getType().isInt32()).isTrue();
       assertThat(result.getInt32Value()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void testPrepareAndExecuteRespectsOptionsForDefaultCatalog() {
+    try (PreparedExpression exp = new PreparedExpression("datetime('2021-04-30 00:01:02')")) {
+      LanguageOptions languageOptions = new LanguageOptions();
+      languageOptions.enableLanguageFeature(LanguageFeature.FEATURE_V_1_2_CIVIL_TIME);
+      languageOptions.enableLanguageFeature(LanguageFeature.FEATURE_V_1_3_DATE_TIME_CONSTRUCTORS);
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.setLanguageOptions(languageOptions);
+      exp.prepare(options);
+      assertThat(exp.getOutputType().isDatetime()).isTrue();
+      exp.execute();
+    }
+    try (PreparedExpression exp = new PreparedExpression("datetime('2021-04-30 00:01:02')")) {
+      LanguageOptions languageOptions = new LanguageOptions();
+      AnalyzerOptions options = new AnalyzerOptions();
+      options.setLanguageOptions(languageOptions);
+      exp.prepare(options);
+      fail();
+    } catch (SqlException expected) {
     }
   }
 

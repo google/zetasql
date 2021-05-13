@@ -205,14 +205,38 @@ std::string FormatElementToString(FormatElement element);
 
 }  // namespace internal
 
+// The class that is used to format a numerical value to string using a format
+// string.
+//
+// See (broken link) for documented behavior.
+class NumericalToStringFormatter {
+ public:
+  explicit NumericalToStringFormatter(ProductMode product_mode)
+      : product_mode_(product_mode) {}
+
+  NumericalToStringFormatter(const NumericalToStringFormatter&) = delete;
+  NumericalToStringFormatter& operator=(const NumericalToStringFormatter&) =
+      delete;
+
+  // Set the format string.
+  absl::Status SetFormatString(absl::string_view format);
+
+  // Format the value <v> using the format string.
+  // Precondition:
+  // - SetFormatString() must have been called,
+  // - <v> cannot be a NullValue,
+  // - the type of <v> has to be numerical.
+  zetasql_base::StatusOr<std::string> Format(const Value& v);
+
+ private:
+  ProductMode product_mode_;
+  absl::optional<internal::ParsedFormatElementInfo> parsed_info_;
+};
+
 // Validates the format string used in CAST() from a numerical type to string.
 absl::Status ValidateNumericalToStringFormat(absl::string_view format);
 
-// Generates the result of CAST() from a numerical value <v> to string using the
-// format string <format>.
-// Precondition:
-// - v cannot be a NullValue,
-// - the type of v has to be numerical.
+// Shorthand for doing the format in one call.
 zetasql_base::StatusOr<std::string> NumericalToStringWithFormat(
     const Value& v, absl::string_view format, ProductMode product_mode);
 

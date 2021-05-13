@@ -52,6 +52,7 @@ import com.google.zetasql.Model;
 import com.google.zetasql.ModelRefProto;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
+import com.google.zetasql.ResolvedCollationProto;
 import com.google.zetasql.ResolvedColumnProto;
 import com.google.zetasql.ResolvedNodeProto;
 import com.google.zetasql.Table;
@@ -92,6 +93,28 @@ final class AnnotationMap {
   public AnnotationMapProto serialize(
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return AnnotationMapProto.getDefaultInstance();
+  }
+
+  public String debugString() {
+    return "";
+  }
+}
+
+/**
+ * This is a dummy implementation of ResolvedCollation.
+ * TODO: implement ResolvedCollation in
+ *   package com.google.zetasql
+ */
+final class ResolvedCollation {
+  public ResolvedCollation() {
+  }
+
+  public ResolvedCollationProto serialize() {
+    return ResolvedCollationProto.getDefaultInstance();
+  }
+
+  public static ResolvedCollation deserialize(ResolvedCollationProto proto) {
+    return new ResolvedCollation();
   }
 
   public String debugString() {
@@ -208,6 +231,12 @@ public final class ResolvedNodes {
       AnnotationMap annotationMap,
       FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     return annotationMap.serialize(fileDescriptorSetsBuilder);
+  }
+
+  static ResolvedCollationProto serialize(
+      ResolvedCollation resolvedCollation,
+      FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
+    return resolvedCollation.serialize();
   }
 
   static TypeParametersProto serialize(

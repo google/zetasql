@@ -45,6 +45,7 @@ import com.google.zetasql.NotFoundException;
 import com.google.zetasql.OneofDescriptorRefProto;
 import com.google.zetasql.Procedure;
 import com.google.zetasql.ProcedureRefProto;
+import com.google.zetasql.ResolvedCollationProto;
 import com.google.zetasql.ResolvedColumnProto;
 import com.google.zetasql.ResolvedFunctionCallInfo;
 import com.google.zetasql.SimpleCatalog;
@@ -181,6 +182,10 @@ public final class DeserializationHelper {
   AnnotationMap deserialize(AnnotationMapProto proto) {
     // TODO: use TypeFactory to create AnnotatedType.
     return null;
+  }
+
+  ResolvedCollation deserialize(ResolvedCollationProto proto) {
+    return ResolvedCollation.deserialize(proto);
   }
 
   TypeParameters deserialize(TypeParametersProto proto) {

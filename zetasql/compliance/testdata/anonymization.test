@@ -68,7 +68,7 @@ SELECT WITH ANONYMIZATION OPTIONS(k_threshold=0)
   IF(ANON_COUNT(double_val CLAMPED BETWEEN 0 AND 10) >= 0, true, true)
 FROM TestTableWithUid;
 --
-ERROR: generic::invalid_argument: Anonymization option EPSILON must be set
+ERROR: generic::invalid_argument: Anonymization option EPSILON must be set and non-NULL
 ==
 
 # epsilon = 1e20 implies that no noise is added in this case

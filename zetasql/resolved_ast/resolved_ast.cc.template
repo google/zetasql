@@ -105,6 +105,13 @@ struct TestIsDefaultValue<TypeParameters> {
   }
 };
 
+template <>
+struct TestIsDefaultValue<ResolvedCollation> {
+  static bool IsDefaultValue(const ResolvedCollation& resolved_collation) {
+    return resolved_collation.Empty();
+  }
+};
+
 // Return true if <value> is equal to the default value for its type.
 // e.g. for pointers, return true if <value> is nullptr.
 // TODO This provides no way to distinguish an unset value from a
@@ -366,21 +373,6 @@ static std::string ToStringImpl(const std::vector<std::string>& value_vector) {
 // This formats a list of identifiers (quoting if needed).
 static std::string ToStringCommaSeparated(const std::vector<std::string>& value_vector) {
   return absl::StrCat("[", ToStringImpl(value_vector, ", "), "]");
-}
-
-static FunctionEnums::Volatility DeterminismLevelToVolatility(
-    ResolvedCreateStatementEnums::DeterminismLevel level) {
-  switch (level) {
-    case ResolvedCreateStatementEnums::DETERMINISM_VOLATILE:
-    case ResolvedCreateStatementEnums::DETERMINISM_NOT_DETERMINISTIC:
-    case ResolvedCreateStatementEnums::DETERMINISM_UNSPECIFIED:
-      return FunctionEnums::VOLATILE;
-    case ResolvedCreateStatementEnums::DETERMINISM_DETERMINISTIC:
-    case ResolvedCreateStatementEnums::DETERMINISM_IMMUTABLE:
-      return FunctionEnums::IMMUTABLE;
-    case ResolvedCreateStatementEnums::DETERMINISM_STABLE:
-      return FunctionEnums::STABLE;
-  }
 }
 
 // Use template functions to allow functions with the same argument list but
@@ -904,6 +896,36 @@ zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
   // TODO: Implement this for ResolvedFunctionCallInfo subclasses.
   return std::shared_ptr<ResolvedFunctionCallInfo>(
       new ResolvedFunctionCallInfo());
+}
+
+static std::string ToStringImpl(const ResolvedCollation& resolved_collation) {
+  return resolved_collation.DebugString();
+}
+
+static std::string ToStringImpl(
+    const std::vector<ResolvedCollation>& resolved_collation_list) {
+  std::string joined =
+      absl::StrJoin(
+          resolved_collation_list, ",",
+          [] (std::string* out, const ResolvedCollation& resolved_collation) {
+            absl::StrAppend(out, resolved_collation.DebugString());
+          });
+  return absl::StrCat("[", joined, "]");
+}
+
+static absl::Status SaveToImpl(
+    const ResolvedCollation& resolved_collation,
+    FileDescriptorSetMap* file_descriptor_set_map,
+    ResolvedCollationProto* proto) {
+  return resolved_collation.Serialize(proto);
+}
+
+template<>
+zetasql_base::StatusOr<ResolvedCollation>
+    RestoreFromImpl(
+        const ResolvedCollationProto& proto,
+        const ResolvedNode::RestoreParams& params) {
+  return ResolvedCollation::Deserialize(proto);
 }
 
 static std::string ToStringImpl(const AnnotationMap* annotation_map) {

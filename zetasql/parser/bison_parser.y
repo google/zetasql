@@ -33,6 +33,8 @@
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_format.h"
+#include "absl/status/status.h"
 
 #define YYINITDEPTH 50
 
@@ -73,35 +75,43 @@ enum class ImportType {
   kProto,
 };
 
-// This node is used for temporarily aggregating together components of dashed
-// identifiers ('a-b-1.c-2.d').  This node exists temporarily to hold
-// intermediate values, and will not be part of the final parse tree.
-class DashedIdentifierTmpNode final : public zetasql::ASTNode {
+// This node is used for temporarily aggregating together components of an
+// identifier that are separated by various characters, such as slash ("/"),
+// dash ("-"), and colon (":") to enable supporting table paths of the form:
+// /span/nonprod-test:db.Table without any escaping.  This node exists
+// temporarily to hold intermediate values, and will not be part of the final
+// parse tree.
+class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
  public:
   static constexpr zetasql::ASTNodeKind kConcreteNodeKind =
       zetasql::AST_FAKE;
 
-  DashedIdentifierTmpNode() : ASTNode(kConcreteNodeKind) {}
+  SeparatedIdentifierTmpNode() : ASTNode(kConcreteNodeKind) {}
   void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
-    ZETASQL_LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
+    ZETASQL_LOG(FATAL) << "SeparatedIdentifierTmpNode does not support Accept";
   }
   zetasql_base::StatusOr<zetasql::VisitResult> Accept(
       zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
-    ZETASQL_LOG(FATAL) << "DashedIdentifierTmpNode does not support Accept";
+    ZETASQL_LOG(FATAL) << "SeparatedIdentifierTmpNode does not support Accept";
   }
   // This is used to represent an unquoted full identifier path that may contain
-  // dashes ('-'). This requires special handling because of the ambiguity
-  // in the lexer between an identifier and a number. For example:
-  // outer-table-1.subtable-2.inner-3
+  // slashes ("/"), dashes ('-'), and colons (":"). This requires special
+  // handling because of the ambiguity in the lexer between an identifier and a
+  // number. For example:
+  // /span/nonprod-5:db-3.Table
   // The lexer takes this to be
-  // outer,-,table,-,1.,subtable,-,2.,inner,-,3
-  // For more information on this, see the 'dashed_identifier' rule.
+  // /,span,/,nonprod,-,5,:,db,-,3.,Table
+  // Where tokens like 3. are treated as a FLOATING_POINT_LITERAL, so the
+  // natural path separator "." is lost. For more information on this, see the
+  // 'slashed_identifier' rule.
 
   // We represent this as a list of one or more 'PathParts' which are
   // implicitly separated by a dot ('.'). Each may be composed of one or more
-  // 'DashParts' which are implicitly separated by a dash ('-').
+  // 'IdParts' which is a list of the tokens that compose a single component of
+  // the path (a single identifier) including any slashes, dashes, and/or
+  // colons.
   // Thus, the example string above would be represented as the following:
-  // {{"outer", "table", "1"}, {"subtable", "2"}, {"inner", "3"}}
+  // {{"/", "span", "/", "nonprod", "-", "5", ":", "db", "-", "3"}, {"Table"}}
 
   // In order to save memory, these all contain string_view entries (backed by
   // the parser's copy of the input sql).
@@ -109,8 +119,8 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   // entries at either level.
   // Note, in the event the size is large, this will allocate directly to the
   // heap, rather than into the arena.
-  using DashParts = absl::InlinedVector<absl::string_view, 2>;
-  using PathParts = absl::InlinedVector<DashParts, 2>;
+  using IdParts = std::vector<absl::string_view>;
+  using PathParts = std::vector<IdParts>;
 
   void set_path_parts(PathParts path_parts) {
     path_parts_ = std::move(path_parts);
@@ -123,6 +133,40 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
     {
       FieldLoader fl(this);  // Triggers check that there were no children.
     }
+  }
+
+  // Returns a vector of identifier ASTNodes from `raw_parts`.
+  // `raw_parts` represents a path as a list of lists. Each sublist contains the
+  // raw components of an identifier. To form an ASTPathExpression, we
+  // concatenate the components of each sublist together to form a single
+  // identifier and return a list of these identifiers, which can be used to
+  // build an ASTPathExpression.
+  static zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> BuildPathParts(
+    const zetasql_bison_parser::location& bison_location,
+    PathParts raw_parts, zetasql::parser::BisonParser* parser) {
+    if(raw_parts.empty()) {
+      return absl::InvalidArgumentError(
+        "Internal error: Empty slashed path expression");
+    }
+    std::vector<zetasql::ASTNode*> parts;
+    for (int i = 0; i < raw_parts.size(); ++i) {
+      SeparatedIdentifierTmpNode::IdParts& raw_id_parts = raw_parts[i];
+      if (raw_id_parts.empty()) {
+        return absl::InvalidArgumentError(
+          "Internal error: Empty dashed identifier part");
+      }
+      // Trim trailing "." which is leftover from lexing float literals
+      // like a/1.b -> {"a", "/", "1.", "b"}
+      for (int j = 0; j < raw_id_parts.size(); ++j) {
+        absl::string_view& dash_part = raw_id_parts[j];
+        if (absl::EndsWith(dash_part, ".")) {
+          dash_part.remove_suffix(1);
+        }
+      }
+      parts.push_back(parser->MakeIdentifier(bison_location,
+                                             absl::StrJoin(raw_id_parts, "")));
+    }
+    return parts;
   }
 
  private:
@@ -456,7 +500,7 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
   zetasql::ASTInsertStatement* insert_statement;
   zetasql::ASTNode* node;
   zetasql::ASTStatementList* statement_list;
-  DashedIdentifierTmpNode* dashed_identifier;
+  SeparatedIdentifierTmpNode* slashed_identifier;
   zetasql::ASTPivotClause* pivot_clause;
   zetasql::ASTUnpivotClause* unpivot_clause;
   struct {
@@ -475,6 +519,10 @@ class DashedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTExpression* default_expression;
     zetasql::ASTGeneratedColumnInfo* generated_column_info;
   } generated_or_default_column_info;
+  struct {
+    zetasql::ASTWithPartitionColumnsClause* with_partition_columns_clause;
+    zetasql::ASTWithConnectionClause* with_connection_clause;
+  } external_table_with_clauses;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -787,6 +835,7 @@ using zetasql::ASTDropStatement;
 %token KW_CHECK "CHECK"
 %token KW_CLAMPED "CLAMPED"
 %token KW_CLONE "CLONE"
+%token KW_COPY "COPY"
 %token KW_CLUSTER "CLUSTER"
 %token KW_COLUMN "COLUMN"
 %token KW_COLUMNS "COLUMNS"
@@ -1042,6 +1091,9 @@ using zetasql::ASTDropStatement;
 %type <identifier> identifier_in_hints
 %type <node> if_statement
 %type <node> elseif_clauses
+%type <node> when_then_clauses
+%type <node> case_statement
+%type <node> opt_expression
 %type <node> execute_immediate
 %type <node> opt_execute_into_clause
 %type <node> opt_execute_using_clause
@@ -1074,6 +1126,7 @@ using zetasql::ASTDropStatement;
 %type <node> clone_data_source
 %type <node> clone_data_source_list
 %type <node> clone_data_statement
+%type <node> copy_data_source
 %type <insert_statement> insert_statement
 %type <insert_statement> insert_statement_prefix
 %type <insert_values_row_list> insert_values_list
@@ -1117,6 +1170,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_assert_rows_modified
 %type <node> opt_clamped_between_modifier
 %type <node> opt_clone_table
+%type <node> opt_copy_table
 %type <node> opt_cluster_by_clause_no_hint
 %type <node> collate_clause
 %type <node> opt_collate_clause
@@ -1130,6 +1184,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_format
 %type <drop_mode> opt_drop_mode
 %type <node> opt_else
+%type <external_table_with_clauses> opt_external_table_with_clauses
 %type <node> opt_on_path_expression
 %type <node> opt_foreign_key_actions
 %type <node> opt_from_clause
@@ -1205,12 +1260,16 @@ using zetasql::ASTDropStatement;
 %type <node> partition_by_clause_prefix
 %type <node> partition_by_clause_prefix_no_hint
 %type <expression> path_expression
-%type <dashed_identifier> dashed_identifier
+%type <slashed_identifier> dashed_identifier
+%type <slashed_identifier> slashed_identifier
+%type <expression> slashed_path_expression
 %type <expression> dashed_path_expression
 %type <expression> maybe_dashed_path_expression
 %type <node> path_expression_or_string
 %type <expression> possibly_cast_int_literal_or_parameter
 %type <node> possibly_empty_column_list
+%type <node> primary_key_or_table_constraint_spec
+%type <node> primary_key_spec
 %type <node> privilege
 %type <node> privilege_list
 %type <node> privilege_name
@@ -1326,6 +1385,7 @@ using zetasql::ASTDropStatement;
 %type <node> with_clause
 %type <node> with_clause_entry
 %type <node> with_clause_with_trailing_comma
+%type <node> with_connection_clause
 %type <node> opt_with_connection_clause
 %type <node> alter_action_list
 %type <node> alter_action
@@ -1417,7 +1477,6 @@ using zetasql::ASTDropStatement;
 %type <node> descriptor_column
 %type <node> descriptor_argument
 %type <node> with_partition_columns_clause
-%type <node> opt_with_partition_columns_clause
 %type <pivot_or_unpivot_clause_and_alias> opt_pivot_or_unpivot_clause_and_alias
 
 %start start_mode
@@ -1491,6 +1550,7 @@ unterminated_sql_statement:
 
 unterminated_script_statement:
     if_statement
+    | case_statement
     | begin_end_block
     | variable_declaration
     | while_statement
@@ -1579,7 +1639,12 @@ alter_action:
       {
         $$ = MAKE_NODE(ASTAddConstraintAction, @$, {$2});
       }
-    | "ADD" "CONSTRAINT" opt_if_not_exists identifier table_constraint_spec
+    | "ADD" primary_key_spec
+      {
+        $$ = MAKE_NODE(ASTAddConstraintAction, @$, {$2});
+      }
+    | "ADD" "CONSTRAINT" opt_if_not_exists identifier
+        primary_key_or_table_constraint_spec
       {
         auto* constraint = $5;
         constraint->AddChild($4);
@@ -2394,16 +2459,50 @@ with_partition_columns_clause:
       }
       ;
 
-opt_with_partition_columns_clause:
-    with_partition_columns_clause
-    | /* Nothing */ { $$ = nullptr; }
+with_connection_clause:
+    "WITH" connection_clause
+      {
+        $$ = MAKE_NODE(ASTWithConnectionClause, @$, {$2});
+      }
+
+// An ideal solution would be to combine the rules
+// 'opt_with_partition_columns_clause opt_with_connection_clause' directly in
+// create_external_table_statement. However, this leads to a shift/reduce
+// confilict, as when the parser sees:
+// CREATE EXTERNAL TABLE t WITH ...
+// it can either apply a shift, trying to match it with a
+// with_partition_columns_clause, or it can apply a reduce (reducing
+// opt_with_partition_columns_clause to empty), trying to match it with a
+// with_connection_clause. We workaround this by combining the rules into a
+// single production rule and with one empty (Nothing) option.
+opt_external_table_with_clauses:
+    with_partition_columns_clause with_connection_clause {
+      $$.with_partition_columns_clause =
+          $1->GetAsOrDie<zetasql::ASTWithPartitionColumnsClause>();
+      $$.with_connection_clause =
+          $2->GetAsOrDie<zetasql::ASTWithConnectionClause>();
+    }
+    | with_partition_columns_clause {
+      $$.with_partition_columns_clause =
+          $1->GetAsOrDie<zetasql::ASTWithPartitionColumnsClause>();
+      $$.with_connection_clause = nullptr;
+    }
+    | with_connection_clause {
+      $$.with_partition_columns_clause = nullptr;
+      $$.with_connection_clause =
+          $1->GetAsOrDie<zetasql::ASTWithConnectionClause>();
+    }
+    | /* Nothing */ {
+      $$.with_partition_columns_clause = nullptr;
+      $$.with_connection_clause = nullptr;
+    }
     ;
 
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
     "TABLE" opt_if_not_exists maybe_dashed_path_expression
     opt_table_element_list opt_like_path_expression opt_collate_clause
-    opt_with_partition_columns_clause opt_options_list
+    opt_external_table_with_clauses opt_options_list
       {
         if ($12 == nullptr) {
           YYERROR_AND_ABORT_AT(
@@ -2412,7 +2511,8 @@ create_external_table_statement:
         }
         auto* create =
             MAKE_NODE(ASTCreateExternalTableStatement, @$,
-            {$7, $8, $9, $10, $11, $12});
+            {$7, $8, $9, $10, $11.with_partition_columns_clause,
+             $11.with_connection_clause, $12});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($6);
@@ -2463,16 +2563,6 @@ create_snapshot_table_statement:
     "CREATE" opt_or_replace "SNAPSHOT" "TABLE" opt_if_not_exists maybe_dashed_path_expression
      "CLONE" clone_data_source opt_options_list
       {
-        if ($8 == nullptr) {
-          YYERROR_AND_ABORT_AT(
-              @8,
-              "Syntax error: Expected keyword CLONE");
-        }
-        if ($2) {
-          YYERROR_AND_ABORT_AT(
-              @2,
-              "Syntax error: OR REPLACE clause is not supported with CREATE SNAPSHOT TABLE");
-        }
         auto* create =
             MAKE_NODE(ASTCreateSnapshotTableStatement, @$, {$6, $8, $9});
         create->set_is_if_not_exists($5);
@@ -2520,12 +2610,12 @@ create_table_function_statement:
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
     maybe_dashed_path_expression opt_table_element_list
-    opt_like_path_expression opt_clone_table opt_collate_clause
+    opt_like_path_expression opt_clone_table opt_copy_table opt_collate_clause
     opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
     opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13, $14});
+            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13, $14, $15});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_if_not_exists($5);
@@ -3028,16 +3118,25 @@ table_constraint_spec:
       }
     ;
 
+primary_key_spec:
+  "PRIMARY" "KEY" possibly_empty_column_list opt_constraint_enforcement
+  opt_options_list
+    {
+      zetasql::ASTPrimaryKey* node = MAKE_NODE(ASTPrimaryKey, @$, {$3, $5});
+      node->set_enforced($4);
+      $$ = node;
+    }
+  ;
+
+primary_key_or_table_constraint_spec:
+    primary_key_spec
+  | table_constraint_spec
+  ;
+
 // This rule produces 2 shift/reduce conflicts and requires manual parsing of
 // named constraints. See table_element for details.
 table_constraint_definition:
-    "PRIMARY" "KEY" possibly_empty_column_list opt_constraint_enforcement
-    opt_options_list
-      {
-        zetasql::ASTPrimaryKey* node = MAKE_NODE(ASTPrimaryKey, @$, {$3, $5});
-        node->set_enforced($4);
-        $$ = node;
-      }
+      primary_key_spec
     | table_constraint_spec
     | identifier identifier table_constraint_spec
       {
@@ -3538,6 +3637,14 @@ opt_like_path_expression:
 
 opt_clone_table:
     "CLONE" clone_data_source
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_copy_table:
+    "COPY" copy_data_source
       {
         $$ = $2;
       }
@@ -4505,6 +4612,22 @@ tvf:
 table_path_expression_base:
     unnest_expression
     | maybe_dashed_path_expression { $$ = $1; }
+    | slashed_path_expression
+      {
+        if (parser->language_options() != nullptr &&
+            parser->language_options()->LanguageFeatureEnabled(
+               zetasql::FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
+          $$ = $1;
+        } else {
+          YYERROR_AND_ABORT_AT(
+              @1,
+              absl::StrCat(
+                "Syntax error: Table name contains '/' character. "
+                "It needs to be quoted: ",
+                zetasql::ToIdentifierLiteral(
+                  parser->GetInputText(@1), false)));
+        }
+      }
     | path_expression "["
       {
         YYERROR_AND_ABORT_AT(
@@ -5025,10 +5148,7 @@ with_clause:
     ;
 
 opt_with_connection_clause:
-    "WITH" connection_clause
-      {
-        $$ = MAKE_NODE(ASTWithConnectionClause, @$, {$2});
-      }
+    with_connection_clause
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -5796,8 +5916,7 @@ dashed_identifier:
     identifier "-" identifier
       {
         // a - b
-        if (@1.end.column != @2.begin.column ||
-            @2.end.column != @3.begin.column) {
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
         absl::string_view id1 = parser->GetInputText(@1);
@@ -5805,33 +5924,32 @@ dashed_identifier:
         if (id1[0] == '`' || id2[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
-        out->set_path_parts({{id1, id2}});
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        out->set_path_parts({{id1, "-", id2}});
         $$ = out;
       }
     | dashed_identifier "-" identifier
       {
         // a-b - c
-        if (@1.end.column != @2.begin.column ||
-            @2.end.column != @3.begin.column) {
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        DashedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+        SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
         absl::string_view id2 = parser->GetInputText(@3);
         if (id2[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
         // Add an extra sub-part to the ending dashed identifier.
+        prev.back().push_back("-");
         prev.back().push_back(id2);
-        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
     | identifier "-" INTEGER_LITERAL
       {
         // a - 5
-        if (@1.end.column != @2.begin.column ||
-            @2.end.column != @3.begin.column) {
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
         absl::string_view id1 = parser->GetInputText(@1);
@@ -5839,29 +5957,28 @@ dashed_identifier:
         if (id1[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
-        out->set_path_parts({{id1, id2}});
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        out->set_path_parts({{id1, "-", id2}});
         $$ = out;
       }
     | dashed_identifier "-" INTEGER_LITERAL
       {
         // a-b - 5
-        if (@1.end.column != @2.begin.column ||
-            @2.end.column != @3.begin.column) {
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        DashedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+        SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
         absl::string_view id2 = parser->GetInputText(@3);
+        prev.back().push_back("-");
         prev.back().push_back(id2);
-        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
     | identifier '-' FLOATING_POINT_LITERAL identifier
       {
         // a - 1. b
-        if (@1.end.column != @2.begin.column ||
-            @2.end.column != @3.begin.column) {
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
         absl::string_view id1 = parser->GetInputText(@1);
@@ -5870,22 +5987,21 @@ dashed_identifier:
         if (id1[0] == '`') {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
         // Here (and below) we need to handle the case where dot is lex'ed as
         // part of floating number as opposed to path delimiter. To parse it
         // correctly, we push the components separately (as string_view).
         // {{"a", "1"}, "b"}
-        out->set_path_parts({{id1, id2}, {id3}});
+        out->set_path_parts({{id1, "-", id2}, {id3}});
         $$ = out;
       }
     | dashed_identifier '-' FLOATING_POINT_LITERAL identifier
       {
         // a-b - 1. c
-        if (@1.end.column != @2.begin.column ||
-            @2.end.column != @3.begin.column) {
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected \"-\"");
         }
-        DashedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+        SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
         absl::string_view id1 = parser->GetInputText(@3);
         absl::string_view id2 = parser->GetInputText(@4);
         // This case is a continuation of an existing dashed_identifier `prev`,
@@ -5894,9 +6010,10 @@ dashed_identifier:
         // we append "1" to complete the dashed components, followed
         // by the identifier ("c") as {{"c"}}.
         // Thus, we end up with {{"a", "b", "1"}, {"c"}}
+        prev.back().push_back("-");
         prev.back().push_back(id1);
         prev.push_back({id2});
-        auto out = parser->CreateASTNode<DashedIdentifierTmpNode>(@1);
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
         out->set_path_parts(std::move(prev));
         $$ = out;
       }
@@ -5904,29 +6021,13 @@ dashed_identifier:
 dashed_path_expression:
     dashed_identifier
       {
-        // Dashed identifiers are represented by a temporary node, which
-        // aggregates the raw components (as string_view backed by the
-        // original query). The `dashed_identifier` rule will create raw parts
-        // which we then essentially concatenate back together.
-        DashedIdentifierTmpNode::PathParts raw_parts = $1->release_path_parts();
-        std::vector<zetasql::ASTNode*> parts;
-        for (int i = 0; i < raw_parts.size(); ++i) {
-          DashedIdentifierTmpNode::DashParts& raw_dash_parts = raw_parts[i];
-          if (raw_dash_parts.empty()) {
-            YYERROR_AND_ABORT_AT(@1,
-                "Internal error: Empty dashed identifier part");
-          }
-          for (int j =0; j< raw_dash_parts.size(); ++j) {
-            absl::string_view &dash_part = raw_dash_parts[j];
-            if (absl::EndsWith(dash_part, ".")) {
-              dash_part.remove_suffix(1);
-            }
-          }
-          parts.push_back(
-              parser->MakeIdentifier(@1, absl::StrJoin(raw_dash_parts, "-")));
+        zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+          SeparatedIdentifierTmpNode::BuildPathParts(@1,
+            std::move($1->release_path_parts()), parser);
+        if (!path_parts.ok()) {
+          YYERROR_AND_ABORT_AT(@1, std::string(path_parts.status().message()));
         }
-
-        $$ = MAKE_NODE(ASTPathExpression, @$, std::move(parts))
+        $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
       }
     | dashed_path_expression "." identifier
       {
@@ -5953,6 +6054,221 @@ maybe_dashed_path_expression:
         }
       }
     ;
+
+slashed_identifier_separator: "-" | "/" | ":"
+
+identifier_or_integer: identifier | INTEGER_LITERAL
+
+// An identifier that starts with a "/" and can contain non-adjacent /:-
+// separators.
+slashed_identifier:
+    "/" identifier_or_integer
+      {
+        // Return an error if there is embedded whitespace.
+        if (parser->HasWhitespace(@1, @2)) {
+          YYERROR_AND_ABORT_AT(@1, "Syntax error: Unexpected \"/\"");
+        }
+        absl::string_view id = parser->GetInputText(@2);
+        // Return an error if the identifier/literal is quoted.
+        if (id[0] == '`') {
+          YYERROR_AND_ABORT_AT(@1, "Syntax error: Unexpected \"/\"");
+        }
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        out->set_path_parts({{"/", id}});
+        $$ = out;
+      }
+    | slashed_identifier slashed_identifier_separator
+      identifier_or_integer
+      {
+        absl::string_view separator = parser->GetInputText(@2);
+        absl::string_view id = parser->GetInputText(@3);
+        // Return an error if there is embedded whitespace.
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
+          YYERROR_AND_ABORT_AT(@2,
+            absl::StrFormat("Syntax error: Unexpected \"%s\"", separator));
+        }
+        // Return an error if the identifier/literal is quoted.
+        if (id[0] == '`') {
+          YYERROR_AND_ABORT_AT(@2,
+            absl::StrFormat("Syntax error: Unexpected \"%s\"", separator));
+        }
+        SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+        // Add the separator and extra sub-part to the end of the current
+        // identifier: {"a", "-", "b"} -> {"a", "-", "b", ":", "c"}
+        prev.back().push_back(separator);
+        prev.back().push_back(id);
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        out->set_path_parts(std::move(prev));
+        $$ = out;
+      }
+    | slashed_identifier slashed_identifier_separator FLOATING_POINT_LITERAL
+      slashed_identifier_separator identifier_or_integer
+      {
+        // This rule handles floating point literals between separator
+        // characters (/:-) before the first dot.  The floating point literal
+        // can be {1., .1, 1.1, 1e2, 1.e2, .1e2, 1.1e2}.  The only valid form is
+        // "1e2".  All forms containing a dot are invalid because the separator
+        // characters are not allowed in identifiers after the dot.
+        absl::string_view separator1 = parser->GetInputText(@2);
+        absl::string_view float_literal = parser->GetInputText(@3);
+        absl::string_view separator2 = parser->GetInputText(@4);
+        absl::string_view id = parser->GetInputText(@5);
+        // Return an error if there is embedded whitespace.
+        if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
+          YYERROR_AND_ABORT_AT(@2,
+            absl::StrFormat("Syntax error: Unexpected \"%s\"", separator1));
+        }
+        // Return an error if there is embedded whitespace.
+        if (parser->HasWhitespace(@3, @4) || parser->HasWhitespace(@4, @5)) {
+          YYERROR_AND_ABORT_AT(@2,
+            absl::StrFormat("Syntax error: Unexpected \"%s\"", separator2));
+        }
+        // Return an error if the trailing identifier is quoted.
+        if (id[0] == '`') {
+          YYERROR_AND_ABORT_AT(@2,
+            absl::StrFormat("Syntax error: Unexpected \"%s\"", separator2));
+        }
+        // Return an error if the floating point literal contains a dot. Only
+        // scientific notation is allowed in this rule.
+        if (absl::StrContains(float_literal, '.')) {
+          YYERROR_AND_ABORT_AT(@3,
+            "Syntax error: Unexpected floating point literal");
+        }
+        // We are parsing a floating point literal that uses scientific notation
+        // in the middle of a slashed path, so just append the text to the
+        // existing path. For text: "/a/1e10-b", {"/", "a"} becomes
+        // {"/", "a", "/", "1e10". "-", "b"} after matching this rule.
+        SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+        prev.back().push_back(separator1);
+        prev.back().push_back(float_literal);
+        prev.back().push_back(separator2);
+        prev.back().push_back(id);
+        auto out = parser->CreateASTNode<SeparatedIdentifierTmpNode>(@1);
+        out->set_path_parts(std::move(prev));
+        $$ = out;
+      }
+    ;
+
+
+// A path where the first identifier starts with "/" and can contain
+// non-adjacent /:- separators.  Identifiers after the first dot are regular
+// identifiers, except they can also start with a digit.
+slashed_path_expression:
+  slashed_identifier
+     {
+       // Build the path.
+       zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+          SeparatedIdentifierTmpNode::BuildPathParts(@1,
+            std::move($1->release_path_parts()), parser);
+       if (!path_parts.ok()) {
+         YYERROR_AND_ABORT_AT(@1, std::string(path_parts.status().message()));
+       }
+       $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+     }
+  | slashed_identifier slashed_identifier_separator FLOATING_POINT_LITERAL
+    identifier
+    {
+      // This rule handles floating point literals that are preceded by a
+      // separator character (/:-). The floating point literal can be
+      // {1., .1, 1.1, 1e2, 1.e2, .1e2, 1.1e2}, but the only valid form is a
+      // floating point that ends with a dot. The dot is interpreted as the path
+      // component separator, and we only allow a regular identifier following
+      // the dot. A floating point that starts with a dot is not valid becuase
+      // this implies that a dot and separator are adjacent: "-.1". A floating
+      // point that has a dot in the middle is not supported because this format
+      // is rejected by the tokenizer: "1.5table". A floating point literal that
+      // does not contain a dot is not valid because this implies scientific
+      // notation was lexed when adjacent to an identifier:
+      // "/path/1e10  table". In this case it is not possible to determine if
+      // the next token is an alias or part of the next statement.
+      absl::string_view separator = parser->GetInputText(@2);
+      absl::string_view float_literal = parser->GetInputText(@3);
+      absl::string_view id = $4->GetAsStringView();
+      // Return an error if there is embedded whitespace.
+      if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
+        YYERROR_AND_ABORT_AT(@2,
+          absl::StrFormat("Syntax error: Unexpected \"%s\"", separator));
+      }
+      // Assert that the raw text of the floating literal ends in a dot since
+      // we expect this rule to match at the boundary of a new path component.
+      if (!absl::EndsWith(float_literal, ".")) {
+        YYERROR_AND_ABORT_AT(@2,absl::StrFormat(
+          "Syntax error: Unexpected floating point literal \"%s\" after \"%s\"",
+          float_literal, separator));
+      }
+      SeparatedIdentifierTmpNode::PathParts prev =
+        $1->release_path_parts();
+      // This case is a continuation of an existing slashed_identifier
+      // `prev`, followed by what the lexer believes is a floating point
+      // literal.
+      // here: /*prev=*/={{"a", "-", "b"}}
+      // we append "1" to complete the identifier components, followed
+      // by the identifier ("c") as {{"c"}}.
+      // Thus, we end up with {{"a", "-", "b", "/", "1"}, {"c"}}
+      prev.back().push_back(separator);
+      prev.back().push_back(float_literal);
+      prev.push_back({id});
+
+      // Build the path.
+      zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+        SeparatedIdentifierTmpNode::BuildPathParts(@$,
+          std::move(prev), parser);
+      if (!path_parts.ok()) {
+        YYERROR_AND_ABORT_AT(@1, std::string(path_parts.status().message()));
+      }
+      $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+    }
+  | slashed_identifier slashed_identifier_separator FLOATING_POINT_LITERAL "."
+    identifier
+    {
+      // This rule matches a slashed_identifier that terminates in a floating
+      // point literal and is followed by the next path component, which must be
+      // a regular identifier. The floating point literal can be
+      // {1., .1, 1.1, 1e2, 1.e2, .1e2, 1.1e2}, but the only valid form is
+      // "1e2".  All forms containing a dot are invalid because this implies
+      // that either there are two dots in a row "1.." or the next path
+      // component is a number itself, which we do not support (like "1.5.table"
+      // and "1.1e10.table"). Note: paths like "/span/global.5.table" are
+      // supported because once the lexer sees the first dot it enters
+      // DOT_IDENTIFIER mode and lexs the "5" as an identifier rather than
+      // producing a ".5" floating point literal token.
+      absl::string_view separator = parser->GetInputText(@2);
+      absl::string_view float_literal = parser->GetInputText(@3);
+      // Return an error if there is embedded whitespace.
+      if (parser->HasWhitespace(@1, @2) || parser->HasWhitespace(@2, @3)) {
+        YYERROR_AND_ABORT_AT(@2,
+          absl::StrFormat("Syntax error: Unexpected \"%s\"", separator));
+      }
+      // Reject any floating point literal that contains a dot.
+      if (absl::StrContains(float_literal, '.')) {
+        YYERROR_AND_ABORT_AT(@3,
+          "Syntax error: Unexpected floating point literal");
+      }
+      // We are parsing a floating point literal that uses scientific notation
+      // "1e10" that is followed by a dot and then an identifier. Append the
+      // separator and floating point literal to the existing path and then
+      // form an ASTPathExpression from the slash path and the trailing
+      // identifier.
+      SeparatedIdentifierTmpNode::PathParts prev = $1->release_path_parts();
+      prev.back().push_back(separator);
+      prev.back().push_back(float_literal);
+
+      // Build the slash path.
+      zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+        SeparatedIdentifierTmpNode::BuildPathParts(@$,
+          std::move(prev), parser);
+      if (!path_parts.ok()) {
+        YYERROR_AND_ABORT_AT(@1, std::string(path_parts.status().message()));
+      }
+      // Add the trailing identifier to the path.
+      path_parts.value().push_back($5);
+      $$ = MAKE_NODE(ASTPathExpression, @$, std::move(path_parts).value());
+    }
+  | slashed_path_expression "." identifier
+    {
+      $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+    }
+  ;
 
 array_constructor_prefix_no_expressions:
     "ARRAY" "[" { $$ = MAKE_NODE(ASTArrayConstructor, @$); }
@@ -7212,6 +7528,7 @@ keyword_as_identifier:
     | "CHECK"
     | "CLAMPED"
     | "CLONE"
+    | "COPY"
     | "CLUSTER"
     | "COLUMN"
     | "COLUMNS"
@@ -7719,6 +8036,13 @@ insert_statement:
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected query");
         }
         $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3, $4}), @$);
+      }
+    ;
+
+copy_data_source:
+    maybe_dashed_path_expression opt_at_system_time opt_where_clause
+      {
+        $$ = MAKE_NODE(ASTCopyDataSource, @$, {$1, $2, $3});
       }
     ;
 
@@ -8417,6 +8741,44 @@ if_statement:
       }
     ;
 
+when_then_clauses:
+    "WHEN" expression "THEN" statement_list
+    {
+      zetasql::ASTWhenThenClause* when_then_clause = MAKE_NODE(
+          ASTWhenThenClause, @$, {$2, $4});
+      $$ = MAKE_NODE(ASTWhenThenClauseList, @$, {when_then_clause});
+    }
+    | when_then_clauses "WHEN" expression "THEN" statement_list
+    {
+      zetasql::ASTWhenThenClause* when_then_clause = MAKE_NODE(
+          ASTWhenThenClause, @2, {$3, $5});
+      $$ = WithEndLocation(WithExtraChildren(
+          $1, {WithEndLocation(when_then_clause, @$)}), @$);
+    };
+
+opt_expression:
+    expression
+    {
+      $$ = $1;
+    }
+    | /* Nothing */
+    {
+      $$ = nullptr;
+    }
+    ;
+
+case_statement:
+    "CASE" opt_expression when_then_clauses opt_else "END" "CASE"
+      {
+        if (parser->language_options() != nullptr &&
+           !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_CASE_STMT)) {
+          YYERROR_AND_ABORT_AT(@1, "Statement CASE...WHEN is not supported");
+        }
+        $$ = MAKE_NODE(ASTCaseStatement, @$, {$2, $3, $4});
+      }
+    ;
+
 begin_end_block:
     "BEGIN" statement_list opt_exception_handler "END" {
       $2->set_variable_declarations_allowed(true);
@@ -8725,7 +9087,7 @@ next_statement_kind_without_hint:
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list
-      opt_like_path_expression opt_clone_table opt_collate_clause
+      opt_like_path_expression opt_clone_table opt_copy_table opt_collate_clause
       opt_partition_by_clause_no_hint
       opt_cluster_by_clause_no_hint opt_options_list
       next_statement_kind_create_table_opt_as_or_semicolon

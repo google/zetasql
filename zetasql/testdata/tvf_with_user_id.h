@@ -35,21 +35,11 @@ class TVFSignatureWithUid : public TVFSignature {
  public:
   TVFSignatureWithUid(const std::vector<TVFInputArgumentType>& input_arguments,
                       const TVFRelation& result_schema,
-                      const std::string& uid_column_name)
+                      absl::Span<const std::string> uid_column_name_path)
       : TVFSignature(input_arguments, result_schema) {
-    ZETASQL_CHECK(absl::c_any_of(result_schema.columns(),
-                         [&uid_column_name](const TVFSchemaColumn& col) {
-                           return col.name == uid_column_name;
-                         }));
-    anon_info_ = AnonymizationInfo::Create({uid_column_name}).ValueOrDie();
+    SetAnonymizationInfo(
+        AnonymizationInfo::Create(uid_column_name_path).ValueOrDie());
   }
-
-  std::optional<const AnonymizationInfo> GetAnonymizationInfo() const override {
-    return *anon_info_;
-  }
-
- private:
-  std::unique_ptr<AnonymizationInfo> anon_info_;
 };
 
 class FixedOutputSchemaTVFWithUid : public FixedOutputSchemaTVF {
@@ -58,10 +48,10 @@ class FixedOutputSchemaTVFWithUid : public FixedOutputSchemaTVF {
   FixedOutputSchemaTVFWithUid(
       const std::vector<std::string>& function_name_path,
       const FunctionSignature& signature, const TVFRelation& result_schema,
-      const std::string uid_column_name)
+      const std::vector<std::string> uid_column_name_path)
       : FixedOutputSchemaTVF(function_name_path, signature, result_schema),
         result_schema_(result_schema),
-        uid_column_name_(uid_column_name) {}
+        uid_column_name_path_(uid_column_name_path) {}
 
   absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,
@@ -70,13 +60,13 @@ class FixedOutputSchemaTVFWithUid : public FixedOutputSchemaTVF {
       TypeFactory* type_factory,
       std::shared_ptr<TVFSignature>* tvf_signature) const override {
     tvf_signature->reset(new TVFSignatureWithUid(
-        actual_arguments, result_schema_, uid_column_name_));
+        actual_arguments, result_schema_, uid_column_name_path_));
     return absl::OkStatus();
   }
 
  private:
   const TVFRelation result_schema_;
-  const std::string uid_column_name_;
+  const std::vector<std::string> uid_column_name_path_;
 };
 
 }  // namespace zetasql

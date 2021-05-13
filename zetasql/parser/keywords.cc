@@ -90,6 +90,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"contains", KW_CONTAINS, KeywordInfo::kReserved},
     {"continue", KW_CONTINUE},
     {"clone", KW_CLONE},
+    {"copy", KW_COPY},
     {"create", KW_CREATE, KeywordInfo::kReserved},
     {"cross", KW_CROSS, KeywordInfo::kReserved},
     {"cube", KW_CUBE, KeywordInfo::kReserved},

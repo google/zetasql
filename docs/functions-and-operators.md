@@ -64,8 +64,7 @@ itself: it does not prevent errors that occur while evaluating argument
 expressions. The `SAFE.` prefix only prevents errors that occur because of the
 value of the function inputs, such as "value out of range" errors; other
 errors, such as internal or system errors, may still occur. If the function
-does not return an error, `SAFE.` has no effect on the output. If the function
-never returns an error, like `RAND`, then `SAFE.` has no effect.
+does not return an error, `SAFE.` has no effect on the output.
 
 [Operators][link-to-operators], such as `+` and `=`, do not support the `SAFE.`
 prefix. To prevent errors from a division
@@ -6048,7 +6047,18 @@ specified by a format element.
         Output as DATE: 2008-12-03
       </td>
     </tr>
-
+    <tr>
+      <td>Y,YYY</td>
+      <td>
+        Matches the pattern of 1 to 2 digits, comma, then exactly 3 digits.
+        Sets the year part to the matched number.
+      </td>
+      <td>
+        Input for Y,YYY-MM-DD: '2,018-12-03'<br />
+        Output as DATE: 2008-12-03
+      </td>
+    </tr>
+    <tr>
     <tr>
       <td>RRRR</td>
       <td>Same behavior as YYYY.</td>
@@ -6327,13 +6337,13 @@ specified by a format element.
       <td>
         Matches 2 digits. If the matched number <code>n</code> is <code>12</code>,
         sets <code>temp = 0</code>; otherwise, sets <code>temp = n</code>. If
-        the matched value of the AM/PM format element is PM, sets
+        the matched value of the A.M./P.M. format element is P.M., sets
         <code>temp = n + 12</code>. Sets the hour part to <code>temp</code>.
         A meridian indicator must be present in the format model, when
         HH is present.
       </td>
       <td>
-        Input for HH:MI PM: '03:30 PM'<br />
+        Input for HH:MI P.M.: '03:30 P.M.'<br />
         Output as TIME: 15:30:00
       </td>
     </tr>
@@ -6425,7 +6435,7 @@ specified by a format element.
         Matches 2 digits. Sets the minute part to the matched number.
       </td>
       <td>
-        Input for HH:MI PM: '03:30 PM'<br />
+        Input for HH:MI P.M.: '03:30 P.M.'<br />
         Output as TIME: 15:30:00
       </td>
     </tr>
@@ -6443,7 +6453,7 @@ The data type to which the string was cast. This can be:
 **Examples**
 
 ```sql
-SELECT CAST('03:30 PM' AS TIME FORMAT 'HH:MI PM') AS string_to_date_time
+SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI P.M.') AS string_to_date_time
 
 +---------------------+
 | string_to_date_time |
@@ -6500,7 +6510,7 @@ specified by a format element.
         Matches 2 digits. Sets the second part to the matched number.
       </td>
       <td>
-        Input for HH:MI:SS PM: '03:30:02 PM'<br />
+        Input for HH:MI:SS P.M.: '03:30:02 P.M.'<br />
         Output as TIME: 15:30:02
       </td>
     </tr>
@@ -6614,28 +6624,6 @@ specified by a format element.
         Output as TIME: 15:30:00
         <hr />
         Input for HH:MI a.m.: '03:30 a.m.'<br />
-        Output as TIME: 03:30:00
-      </td>
-    </tr>
-    <tr>
-      <td>AM or PM</td>
-      <td>
-        Matches using the regular expression <code>'(A|P)M'</code>.
-      </td>
-      <td>
-        Input for HH:MI AM: '03:30 AM'<br />
-        Output as TIME: 03:30:00
-        <hr />
-        Input for HH:MI PM: '03:30 PM'<br />
-        Output as TIME: 15:30:00
-        <hr />
-        Input for HH:MI PM: '03:30 AM'<br />
-        Output as TIME: 03:30:00
-        <hr />
-        Input for HH:MI AM: '03:30 PM'<br />
-        Output as TIME: 15:30:00
-        <hr />
-        Input for HH:MI am: '03:30 am'<br />
         Output as TIME: 03:30:00
       </td>
     </tr>
@@ -6851,12 +6839,10 @@ the Latin letters in the input string are case-insensitive. For example, both
 will output the same result.
 
 [formatting-syntax]: #formatting_syntax
-
 [rfc-4648]: https://tools.ietf.org/html/rfc4648#section-3.3
 [about-basex-encoding]: #about_basex_encoding
 [format-string-as-bytes]: #format_string_as_bytes
 [format-bytes-as-string]: #format_bytes_as_string
-
 [format-date-time-as-string]: #format_date_time_as_string
 [case-matching-date-time]: #case_matching_date_time
 [format-year-as-string]: #format_year_as_string
@@ -6879,35 +6865,34 @@ will output the same result.
 [format-string-as-meridian]: #format_string_as_meridian
 [format-string-as-tz]: #format_string_as_tz
 [format-string-as-literal]: #format_string_as_literal
-
 [con-func-cast]: #cast
 [con-func-safecast]: #safe_casting
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
-[conversion-rules]: #conversion_rules
-[ARRAY_STRING]: #array_to_string
-[BIT_I32]: #bit_cast_to_int32
-[BIT_U32]: #bit_cast_to_uint32
-[BIT_I64]: #bit_cast_to_int64
-[BIT_U64]: #bit_cast_to_uint64
-[F_B32]: #from_base32
-[F_B64]: #from_base64
-[F_HEX]: #from_hex
-[F_PROTO]: #from_proto
-[P_DATE]: #parse_date
-[P_DATETIME]: #parse_datetime
-[P_TIME]: #parse_time
-[P_TIMESTAMP]: #parse_timestamp
-[SC_BTS]: #safe_convert_bytes_to_string
-[STRING_TIMESTAMP]: #string
-[T_B32]: #to_base32
-[T_B64]: #to_base64
-[T_HEX]: #to_hex
-[T_PROTO]: #to_proto
-[T_DATE]: #date
-[T_DATETIME]: #datetime
-[T_TIMESTAMP]: #timestamp
-[T_TIME]: #time
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#conversion_rules
+[ARRAY_STRING]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_to_string
+[BIT_I32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_int32
+[BIT_U32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_uint32
+[BIT_I64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_int64
+[BIT_U64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#bit_cast_to_uint64
+[F_B32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_base32
+[F_B64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_base64
+[F_HEX]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_hex
+[F_PROTO]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_proto
+[P_DATE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_date
+[P_DATETIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_datetime
+[P_TIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_time
+[P_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_timestamp
+[SC_BTS]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_convert_bytes_to_string
+[STRING_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#string
+[T_B32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_base32
+[T_B64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_base64
+[T_HEX]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_hex
+[T_PROTO]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_proto
+[T_DATE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#date
+[T_DATETIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#datetime
+[T_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#timestamp
+[T_TIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#time
 
 ## Mathematical functions
 
@@ -13204,7 +13189,7 @@ FROM UNNEST([
 ### JSON_EXTRACT_SCALAR
 
 ```sql
-JSON_EXTRACT_SCALAR(json_string_expr, json_path)
+JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
 ```
 
 **Description**
@@ -13224,6 +13209,8 @@ using single quotes and brackets.
     values that you want to obtain from the JSON-formatted string. If
     `json_path` returns a JSON `null` or a non-scalar value (in other words, if
     `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+    If this optional parameter is not provided, then the JSONPath `$` symbol is
+    applied, which means that the entire JSON-formatted string is analyzed.
 
 If you only want to extract scalar values such strings, integers, and booleans,
 then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
@@ -13276,7 +13263,7 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 ### JSON_VALUE
 
 ```sql
-JSON_VALUE(json_string_expr, json_path)
+JSON_VALUE(json_string_expr[, json_path])
 ```
 
 **Description**
@@ -13296,6 +13283,8 @@ using double quotes.
     values that you want to obtain from the JSON-formatted string. If
     `json_path` returns a JSON `null` or a non-scalar value (in other words, if
     `json_path` refers to an object or an array), then a SQL `NULL` is returned.
+    If this optional parameter is not provided, then the JSONPath `$` symbol is
+    applied, which means that the entire JSON-formatted string is analyzed.
 
 If you only want to extract scalar values such strings, integers, and booleans,
 then use `JSON_VALUE`. If you want to include non-scalar values such as arrays

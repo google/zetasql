@@ -25,6 +25,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
+#include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
 
 namespace zetasql {
@@ -119,7 +120,8 @@ struct AllowedHintsAndOptions {
 
   // For each qualifier in this set, give errors for unknown hints with that
   // qualifier.  If "" is in the set, give errors for unknown unqualified hints.
-  std::set<std::string, zetasql_base::StringCaseLess> disallow_unknown_hints_with_qualifiers;
+  std::set<std::string, zetasql_base::CaseLess>
+      disallow_unknown_hints_with_qualifiers;
 
   // Maps containing declared hints and options, keyed on lower case strings.
   //

@@ -17,7 +17,7 @@ select xxx[5]
 
 select KitchenSink[5] from TestTable
 --
-ERROR: Element access using [] is not supported on values of type zetasql_test.KitchenSinkPB [at 1:20]
+ERROR: Subscript access using [INT64] is not supported on values of type zetasql_test.KitchenSinkPB [at 1:20]
 select KitchenSink[5] from TestTable
                    ^
 ==
@@ -329,14 +329,14 @@ QueryStmt
 
 select 5[OFFSET(6)];
 --
-ERROR: Element access using [] is not supported on values of type INT64 [at 1:10]
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type INT64 [at 1:10]
 select 5[OFFSET(6)];
          ^
 ==
 
 select NULL[ORDINAL(2)];
 --
-ERROR: Element access using [] is not supported on values of type INT64 [at 1:13]
+ERROR: Subscript access using [ORDINAL(INT64)] is not supported on values of type NULL [at 1:13]
 select NULL[ORDINAL(2)];
             ^
 ==
@@ -423,7 +423,7 @@ QueryStmt
 
 select KitchenSink[OFFSET(1)] from TestTable;
 --
-ERROR: Element access using [] is not supported on values of type zetasql_test.KitchenSinkPB [at 1:20]
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type zetasql_test.KitchenSinkPB [at 1:20]
 select KitchenSink[OFFSET(1)] from TestTable;
                    ^
 ==
@@ -493,7 +493,7 @@ select [1,2,3][OFFSET("abc")]
 
 select 1.5[OFFSET(5)]
 --
-ERROR: Element access using [] is not supported on values of type DOUBLE [at 1:12]
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type DOUBLE [at 1:12]
 select 1.5[OFFSET(5)]
            ^
 ==
@@ -703,11 +703,19 @@ QueryStmt
       +-TableScan(column_list=[MapFieldTable.MessageWithMapField#2], table=MapFieldTable, column_index_list=[1])
 ==
 
-select MessageWithMapField.string_int32_map[SAFE_KEY("foo")]
+select MessageWithMapField.string_int32_map[{{SAFE_|}}KEY("foo")]
 from MapFieldTable
 --
-ERROR: Function not found: `$safe_proto_map_at_key` [at 1:45]
+ALTERNATION GROUP: SAFE_
+--
+ERROR: Element access using [SAFE_KEY()] is not supported on values of type ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry> [at 1:45]
 select MessageWithMapField.string_int32_map[SAFE_KEY("foo")]
+                                            ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Element access using [KEY()] is not supported on values of type ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry> [at 1:45]
+select MessageWithMapField.string_int32_map[KEY("foo")]
                                             ^
 ==
 

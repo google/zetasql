@@ -18,25 +18,31 @@
 
 #include <algorithm>
 #include <functional>
+#include <limits>
 #include <queue>
 #include <stack>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/utf_util.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
 // This is not a header -- it is a generated part of this source file.
 #include "zetasql/parser/parse_tree_accept_methods.inc"  
 #include "zetasql/parser/visit_result.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "zetasql/base/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
+#include "unicode/utf8.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -96,6 +102,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_BREAK_STATEMENT] = "Break";
   map[AST_BYTES_LITERAL] = "BytesLiteral";
   map[AST_CALL_STATEMENT] = "CallStatement";
+  map[AST_CASE_STATEMENT] = "CaseStatement";
   map[AST_CASE_NO_VALUE_EXPRESSION] = "CaseNoValueExpression";
   map[AST_CASE_VALUE_EXPRESSION] = "CaseValueExpression";
   map[AST_CAST_EXPRESSION] = "CastExpression";
@@ -104,6 +111,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CLONE_DATA_SOURCE] = "CloneDataSource";
   map[AST_CLONE_DATA_SOURCE_LIST] = "CloneDataSourceList";
   map[AST_CLONE_DATA_STATEMENT] = "CloneDataStatement";
+  map[AST_COPY_DATA_SOURCE] = "CopyDataSource";
   map[AST_CLUSTER_BY] = "ClusterBy";
   map[AST_COLLATE] = "Collate";
   map[AST_COLUMN_DEFINITION] = "ColumnDefinition";
@@ -340,6 +348,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_UPDATE_STATEMENT] = "UpdateStatement";
   map[AST_USING_CLAUSE] = "UsingClause";
   map[AST_VARIABLE_DECLARATION] = "VariableDeclaration";
+  map[AST_WHEN_THEN_CLAUSE] = "WhenThenClause",
+  map[AST_WHEN_THEN_CLAUSE_LIST] = "WhenThenClauseList",
   map[AST_WHERE_CLAUSE] = "WhereClause";
   map[AST_WHILE_STATEMENT] = "While";
   map[AST_WINDOW_CLAUSE] = "WindowClause";
@@ -454,8 +464,26 @@ std::string ASTNode::SingleNodeDebugString() const {
 // This function is not inlined, to minimize the stack usage of Dump().
 ABSL_ATTRIBUTE_NOINLINE bool ASTNode::Dumper::DumpNode() {
   out_->append(current_depth_ * 2, ' ');
-  absl::StrAppend(out_, node_->SingleNodeDebugString(), " [",
-                  node_->GetParseLocationRange().GetString(), "]", separator_);
+  const ParseLocationRange& range = node_->GetParseLocationRange();
+  absl::StrAppend(out_, node_->SingleNodeDebugString(), " [", range.GetString(),
+                  "]");
+
+  // Show the actual text indicated by the position range, but only if the
+  // position range falls entirely within the bounds of the input string and
+  // the end position appears at or after the start position.
+  if (sql_.has_value() && range.start().GetByteOffset() >= 0 &&
+      range.end().GetByteOffset() >= range.start().GetByteOffset() &&
+      range.end().GetByteOffset() <= sql_->size()) {
+    absl::string_view node_substr = sql_->substr(
+        range.start().GetByteOffset(),
+        range.end().GetByteOffset() - range.start().GetByteOffset());
+    zetasql_base::StatusOr<std::string> status_or_summary_str =
+        GetSummaryString(node_substr, 30);
+    if (status_or_summary_str.ok()) {
+      absl::StrAppend(out_, " [", status_or_summary_str.value(), "]");
+    }
+  }
+  absl::StrAppend(out_, separator_);
   if (current_depth_ >= max_depth_) {
     out_->append(current_depth_ * 2, ' ');
     absl::StrAppend(out_, "  Subtree skipped (reached max depth ", max_depth_,
@@ -489,7 +517,13 @@ void ASTNode::Dumper::Dump() {
 
 std::string ASTNode::DebugString(int max_depth) const {
   std::string out;
-  Dumper(this, "\n", max_depth, &out).Dump();
+  Dumper(this, "\n", max_depth, absl::nullopt, &out).Dump();
+  return out;
+}
+
+std::string ASTNode::DebugString(absl::string_view sql, int max_depth) const {
+  std::string out;
+  Dumper(this, "\n", max_depth, sql, &out).Dump();
   return out;
 }
 
@@ -1413,6 +1447,16 @@ std::string ASTHiddenColumnAttribute::SingleNodeSqlString() const {
 
 std::string ASTPrimaryKeyColumnAttribute::SingleNodeSqlString() const {
   return "PRIMARY KEY";
+}
+
+std::string ASTPrimaryKeyColumnAttribute::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                      (enforced_ ? "" : "NOT "), "ENFORCED)");
+}
+
+std::string ASTPrimaryKey::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(), "(",
+                      (enforced_ ? "" : "NOT "), "ENFORCED)");
 }
 
 std::string ASTForeignKeyColumnAttribute::SingleNodeSqlString() const {

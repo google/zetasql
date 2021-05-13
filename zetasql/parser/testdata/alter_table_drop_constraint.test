@@ -1,3 +1,6 @@
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 alter table foo.bar drop;
 --
 ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:25]

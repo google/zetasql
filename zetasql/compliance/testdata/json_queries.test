@@ -178,3 +178,41 @@ ERROR: generic::invalid_argument: parse error at line 1, column 20: syntax error
 SELECT (JSON '{"f1": {"f2":"foo"}}')['f1']['f2']
 --
 ARRAY<STRUCT<JSON>>[{"foo"}]
+==
+[name=json_equality]
+SELECT JSON '10' = JSON '{"a": 10}'
+--
+ERROR: generic::invalid_argument: Equality is not defined for arguments of type JSON [at 1:8]
+SELECT JSON '10' = JSON '{"a": 10}'
+       ^
+==
+[name=json_comparison]
+SELECT JSON '10' < JSON '{"a": 10}'
+--
+ERROR: generic::invalid_argument: Less than is not defined for arguments of type JSON [at 1:8]
+SELECT JSON '10' < JSON '{"a": 10}'
+       ^
+==
+[name=parse_json]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS]
+WITH Round AS (SELECT "round" foo1),
+Number AS (SELECT "2.75897182587158791241578135873519" foo3)
+SELECT PARSE_JSON('1'), PARSE_JSON('[1, null, true]'),
+PARSE_JSON('2.5', wide_number_mode=>'exact'),
+PARSE_JSON('2.2412421353246235436', wide_number_mode=>'round'),
+PARSE_JSON('18446744073709551615', wide_number_mode=>'exact'),
+PARSE_JSON(foo3, wide_number_mode=>'round'),
+PARSE_JSON('123', wide_number_mode=>foo1),
+PARSE_JSON('456', wide_number_mode=>concat('ex', 'act'))
+FROM Round, Number;
+--
+ARRAY<STRUCT<JSON, JSON, JSON, JSON, JSON, JSON, JSON, JSON>>[
+  {1,
+   [1,null,true],
+   2.5,
+   2.2412421353246237,
+   18446744073709551615,
+   2.758971825871588,
+   123,
+   456}
+]

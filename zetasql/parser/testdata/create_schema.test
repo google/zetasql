@@ -1,4 +1,7 @@
 # CREATE SCHEMA
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 CREATE SCHEMA foo;
 --
 CreateSchemaStatement [0-17]

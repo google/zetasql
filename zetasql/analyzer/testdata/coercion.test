@@ -389,11 +389,27 @@ QueryStmt
       +-SingleRowScan
 ==
 
+# TODO:There is something weird with this case in java, as the error message seems
+# to indicate that the type of the lhs expression is NULL, which is not
+# correct.  We should be inferring the type as STRING, since the
+# `subscript_with_offset` function is defined in the sample catalog for these
+# tests.
+[no_java]
 select NULL[offset(0)]
 --
-ERROR: Element access using [] is not supported on values of type INT64 [at 1:13]
-select NULL[offset(0)]
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$subscript_with_offset(STRING, INT64) -> STRING)
+    |     +-Literal(type=STRING, value=NULL)
+    |     +-Literal(type=INT64, value=0)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select fn_on_arbitrary_type_argument(NULL),

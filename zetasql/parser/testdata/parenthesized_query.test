@@ -7,6 +7,9 @@
 #  - for conflicts with struct construction
 # The lookahead may differ in these cases, affecting how the parser interprets
 # leading ( characters.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 
 (select 1)
 --

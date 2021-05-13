@@ -31,6 +31,7 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/proto_util.h"
+#include "zetasql/base/case.h"
 #include <cstdint>
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
@@ -57,7 +58,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -301,7 +301,8 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
 
   // Build a set of all argument names in the function signature argument
   // options.
-  std::set<std::string, zetasql_base::StringCaseLess> argument_names_from_signature_options;
+  std::set<std::string, zetasql_base::CaseLess>
+      argument_names_from_signature_options;
   int last_arg_index_with_default = -1;
   int last_named_arg_index = -1;
   for (int i = 0; i < signature.arguments().size(); ++i) {
@@ -326,7 +327,8 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
 
   // Build a map from each argument name to the index in which the named
   // argument appears in <arguments> and <arg_locations>.
-  std::map<std::string, int, zetasql_base::StringCaseLess> argument_names_to_indexes;
+  std::map<std::string, int, zetasql_base::CaseLess>
+      argument_names_to_indexes;
   int first_named_arg_index_in_call = std::numeric_limits<int>::max();
   int last_named_arg_index_in_call = -1;
   for (int i = 0; i < named_arguments.size(); ++i) {
@@ -1002,6 +1004,9 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     }
   }
 
+  // Implicitly convert literals if possible.  When casting to a parameterized
+  // type, we first cast to the base type here, and then add an explicit cast to
+  // the parameterized type after this implicit conversion.
   if (argument_literal != nullptr && format == nullptr) {
     std::unique_ptr<const ResolvedLiteral> converted_literal;
     ZETASQL_RETURN_IF_ERROR(ConvertLiteralToType(
@@ -1183,9 +1188,10 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     std::unique_ptr<ResolvedFunctionCall>* resolved_expr_out) {
   const Function* function;
   ResolvedFunctionCallBase::ErrorMode error_mode;
-  ZETASQL_RETURN_IF_ERROR(
-      resolver_->LookupFunctionFromCatalog(ast_location, function_name_path,
-                                           &function, &error_mode));
+  ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
+      ast_location, function_name_path,
+      Resolver::FunctionNotFoundHandleMode::kReturnError, &function,
+      &error_mode));
   return ResolveGeneralFunctionCall(
       ast_location, arg_locations, function, error_mode, is_analytic,
       std::move(arguments), std::move(named_arguments), expected_result_type,
@@ -1299,7 +1305,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
       // Check whether function call was using named argument or positional
       // argument, and if it was named - use the name in the error message.
       for (const auto& named_arg : named_arguments) {
-        if (absl::EqualsIgnoreCase(named_arg.first->name()->GetAsString(),
+        if (zetasql_base::CaseEqual(named_arg.first->name()->GetAsString(),
                                    argument.argument_name())) {
           return absl::StrCat("Argument '", argument.argument_name(), "' to ",
                               function->SQLName());
@@ -1530,8 +1536,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     if (result_signature->result_type().type()->IsArray()) {
       function_name_path.push_back("array_concat");
       ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
-          ast_location, function_name_path, &concat_op_function,
-          &concat_op_error_mode));
+          ast_location, function_name_path,
+          Resolver::FunctionNotFoundHandleMode::kReturnError,
+          &concat_op_function, &concat_op_error_mode));
       ZETASQL_ASSIGN_OR_RETURN(const FunctionSignature* matched_signature,
                        FindMatchingSignature(concat_op_function, ast_location,
                                              arg_locations_in, named_arguments,
@@ -1543,8 +1550,9 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     } else {
       function_name_path.push_back("concat");
       ZETASQL_RETURN_IF_ERROR(resolver_->LookupFunctionFromCatalog(
-          ast_location, function_name_path, &concat_op_function,
-          &concat_op_error_mode));
+          ast_location, function_name_path,
+          Resolver::FunctionNotFoundHandleMode::kReturnError,
+          &concat_op_function, &concat_op_error_mode));
       ZETASQL_ASSIGN_OR_RETURN(
           const FunctionSignature* matched_signature,
           FindMatchingSignature(concat_op_function, ast_location,

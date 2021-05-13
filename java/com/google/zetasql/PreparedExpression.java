@@ -21,12 +21,10 @@ import static com.google.common.base.Verify.verify;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Queues;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.zetasql.LocalService.EvaluateRequest;
 import com.google.zetasql.LocalService.EvaluateRequestBatch;
 import com.google.zetasql.LocalService.EvaluateResponse;
@@ -45,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -99,17 +98,48 @@ public class PreparedExpression implements AutoCloseable {
    * @param options
    */
   public void prepare(AnalyzerOptions options) {
+    prepareInternal(options, Optional.empty());
+  }
+
+  public void prepareWithCatalog(AnalyzerOptions options, SimpleCatalog catalog) {
+    Preconditions.checkNotNull(catalog);
+    prepareInternal(options, Optional.of(catalog));
+  }
+
+  private void prepareInternal(AnalyzerOptions options, Optional<SimpleCatalog> maybeCatalog) {
     Preconditions.checkState(!prepared);
     Preconditions.checkState(!closed);
     this.options = options;
+
+    fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+    fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
+
     PrepareRequest.Builder request = PrepareRequest.newBuilder();
     request.setSql(sql);
-    fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     request.setOptions(options.serialize(fileDescriptorSetsBuilder));
-    for (FileDescriptorSet fileDescriptorSet : fileDescriptorSetsBuilder.build()) {
-      request.addFileDescriptorSet(fileDescriptorSet);
+    Map<DescriptorPool, Long> catalogRegisteredDescriptorPoolIds = Collections.emptyMap();
+    if (maybeCatalog.isPresent()) {
+      SimpleCatalog catalog = maybeCatalog.get();
+      if (catalog.isRegistered()) {
+        catalogRegisteredDescriptorPoolIds = catalog.getRegisteredDescriptorPoolIds();
+        for (DescriptorPool pool : catalogRegisteredDescriptorPoolIds.keySet()) {
+          fileDescriptorSetsBuilder.addAllFileDescriptors(pool);
+        }
+        request.setRegisteredCatalogId(catalog.getRegisteredId());
+      } else {
+        request.setSimpleCatalog(catalog.serialize(fileDescriptorSetsBuilder));
+      }
+    } else {
+      // A catalog must be provided, so we request a default initialized catalog with all of
+      // the builtin functions.
+      request
+          .getSimpleCatalogBuilder()
+          .getBuiltinFunctionOptionsBuilder()
+          .setLanguageOptions(request.getOptions().getLanguageOptions());
     }
-
+    request.setDescriptorPoolList(
+        DescriptorPoolSerializer.createDescriptorPoolListWithRegisteredIds(
+            fileDescriptorSetsBuilder, catalogRegisteredDescriptorPoolIds));
     PrepareResponse resp;
     try {
       resp = Client.getStub().prepare(request.build());
@@ -117,36 +147,19 @@ public class PreparedExpression implements AutoCloseable {
       throw new SqlException(e);
     }
 
-    // TODO: Remove this backwards compatibility code
-    final PreparedState prepared;
-    if (resp.hasPrepared()) {
-      prepared = resp.getPrepared();
-    } else {
-      prepared = PreparedState.newBuilder()
-          .setOutputType(resp.getOutputType())
-          .setPreparedExpressionId(resp.getPreparedExpressionId())
-          .build();
-    }
-    setPrepared(prepared);
+    setPrepared(resp.getPrepared());
   }
 
   private void setPrepared(PreparedState resp) {
     preparedId = resp.getPreparedExpressionId();
-
     outputType =
         factory.deserialize(resp.getOutputType(), fileDescriptorSetsBuilder.getDescriptorPools());
 
     expectedColumns = toLower(options.getExpressionColumns());
     expectedParameters = toLower(options.getQueryParameters());
 
-    // TODO: Remove this backwards compatibility code
-    if (resp.hasPositionalParameterCount()) {
-      referencedColumns = resp.getReferencedColumnsList();
-      referencedParameters = resp.getReferencedParametersList();
-    } else {
-      referencedColumns = ImmutableList.copyOf(expectedColumns.keySet());
-      referencedParameters = ImmutableList.copyOf(expectedParameters.keySet());
-    }
+    referencedColumns = resp.getReferencedColumnsList();
+    referencedParameters = resp.getReferencedParametersList();
 
     prepared = true;
   }
@@ -213,17 +226,7 @@ public class PreparedExpression implements AutoCloseable {
     }
 
     if (!prepared) {
-      // TODO: Remove this backwards compatibility code
-      final PreparedState prepared;
-      if (resp.hasPrepared()) {
-        prepared = resp.getPrepared();
-      } else {
-        prepared = PreparedState.newBuilder()
-            .setOutputType(resp.getType())
-            .setPreparedExpressionId(resp.getPreparedExpressionId())
-            .build();
-      }
-      setPrepared(prepared);
+      setPrepared(resp.getPrepared());
     }
     return Value.deserialize(outputType, resp.getValue());
   }
@@ -253,9 +256,16 @@ public class PreparedExpression implements AutoCloseable {
         }
         request.addParams(serializeParameter(param, value));
       }
+      // TODO: Remove once new descriptor pool is the default
+      // Force adding this field, as empty to ensure we use the 'new' local_service
+      // descriptor pool codepath.  It is not really needed, as all of the descriptor
+      // pools are already synchronized via prepare.
+      request.getDescriptorPoolListBuilder();
     } else {
       request.setSql(sql);
       fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+      fileDescriptorSetsBuilder.addAllFileDescriptors(BuiltinDescriptorPool.getInstance());
+      ImmutableMap<DescriptorPool, Long> registeredDescriptorPoolIds = ImmutableMap.of();
       options = new AnalyzerOptions();
 
       for (Entry<String, Value> column : columns.entrySet()) {
@@ -268,11 +278,10 @@ public class PreparedExpression implements AutoCloseable {
       }
 
       request.setOptions(options.serialize(fileDescriptorSetsBuilder));
-      for (FileDescriptorSet fileDescriptorSet : fileDescriptorSetsBuilder.build()) {
-        request.addFileDescriptorSet(fileDescriptorSet);
-      }
+      request.setDescriptorPoolList(
+          DescriptorPoolSerializer.createDescriptorPoolListWithRegisteredIds(
+              fileDescriptorSetsBuilder, registeredDescriptorPoolIds));
     }
-
     return request.build();
   }
 

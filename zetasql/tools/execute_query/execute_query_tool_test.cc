@@ -270,15 +270,6 @@ TEST(AddTablesFromFlags, GoodFlags) {
   EXPECT_EQ(csv_table->NumColumns(), 3);
 }
 
-const ProtoType* AddKitchenSink(ExecuteQueryConfig& config) {
-  config.mutable_catalog().SetDescriptorPool(
-      google::protobuf::DescriptorPool::generated_pool());
-  const zetasql::Type* type = nullptr;
-  ZETASQL_EXPECT_OK(
-      config.mutable_catalog().GetType("zetasql_test.KitchenSinkPB", &type));
-  return type->AsProto();
-}
-
 TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
   ExecuteQueryConfig config;
   config.mutable_catalog().SetDescriptorPool(

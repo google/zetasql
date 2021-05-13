@@ -241,7 +241,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
 
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
 
-  ADD_TO_MAP(TOKENSET,   TOKENSET,   IMPLICIT);
+  ADD_TO_MAP(TOKENLIST,  TOKENLIST,   IMPLICIT);
 
   ADD_TO_MAP(ENUM,       STRING,     EXPLICIT);
 
@@ -450,10 +450,37 @@ namespace {
 // (CastValueWithoutTypeValidation) casts.
 class CastContext {
  public:
+  // Deprecated. Use CastContext(default_timezone, current_timestamp,
+  // language_options) instead.
+  // Otherwise, if the cast is a cast from STRING to DATE, DATETIME or TIMESTAMP
+  // with a format string, the cast will fail with error that current timestamp
+  // is not set.
+  ABSL_DEPRECATED(
+      "Use CastContext(default_timezone, current_timestamp, language_options) "
+      "instead")
   CastContext(absl::TimeZone default_timezone,
               const LanguageOptions& language_options)
       : default_timezone_(default_timezone),
-        language_options_(language_options) {}
+        language_options_(language_options),
+        current_timestamp_(absl::nullopt) {}
+
+  CastContext(absl::TimeZone default_timezone,
+              absl::optional<absl::Time> current_timestamp,
+              const LanguageOptions& language_options)
+      : default_timezone_(default_timezone),
+        language_options_(language_options),
+        current_timestamp_(current_timestamp) {
+    if (current_timestamp_.has_value()) {
+      // Extracting the DATE from the current timestamp should never fail since
+      // it will be in the supported range 0001-01-01 to 9999-12-31.
+      int32_t current_date;
+      ZETASQL_CHECK_OK(functions::ExtractFromTimestamp(
+          functions::DATE, current_timestamp_.value(),
+          default_timezone_, &current_date));
+      current_date_ = current_date;
+    }
+  }
+
   virtual ~CastContext() {}
 
   CastContext(const CastContext&) = delete;
@@ -468,6 +495,10 @@ class CastContext {
  protected:
   const absl::TimeZone& default_timezone() const { return default_timezone_; }
   const LanguageOptions& language_options() const { return language_options_; }
+  const absl::optional<absl::Time> current_timestamp() const {
+    return current_timestamp_;
+  }
+  const absl::optional<int32_t> current_date() const { return current_date_; }
 
  private:
   // Executes a cast which involves extended types: source and/or destination
@@ -481,18 +512,28 @@ class CastContext {
 
   const absl::TimeZone default_timezone_;
   const LanguageOptions& language_options_;
+  const absl::optional<absl::Time> current_timestamp_;
+  absl::optional<int32_t> current_date_;
 };
 
-// Validates the format string used by cast from string to timestamp.
-// Note that this is a fake implementation for now. The only format it
-// recoginzes is "YYYY".
-// TODO: replace it with the real implementation.
-static absl::Status ValidateFormatStringToTimestamp(absl::string_view format) {
-  if (!zetasql_base::CaseEqual(format, "yyyy")) {
-    return MakeSqlError() << "Invalid format '" << format << "'";
-  }
+static absl::Status ValidateFormatStringToDate(absl::string_view format) {
+  return functions::ValidateFormatStringForParsing(
+      format, zetasql::TypeKind::TYPE_DATE);
+}
 
-  return absl::OkStatus();
+static absl::Status ValidateFormatStringToDatetime(absl::string_view format) {
+  return functions::ValidateFormatStringForParsing(
+      format, zetasql::TypeKind::TYPE_DATETIME);
+}
+
+static absl::Status ValidateFormatStringToTime(absl::string_view format) {
+  return functions::ValidateFormatStringForParsing(
+      format, zetasql::TypeKind::TYPE_TIME);
+}
+
+static absl::Status ValidateFormatStringToTimestamp(absl::string_view format) {
+  return functions::ValidateFormatStringForParsing(
+      format, zetasql::TypeKind::TYPE_TIMESTAMP);
 }
 
 static absl::Status ValidateFormatStringFromDate(absl::string_view format) {
@@ -510,30 +551,6 @@ static absl::Status ValidateFormatStringFromDateTime(absl::string_view format) {
 static absl::Status ValidateFormatStringFromTimestamp(
     absl::string_view format) {
   return functions::ValidateFormatStringForFormatting(format, TYPE_TIMESTAMP);
-}
-
-// Converts a string to a timestamp using the format string.
-// Note that this is not implemented yet.
-// TODO: replace it with the real implementation.
-static absl::Status ConvertStringToTimestampWithFormat(absl::string_view str,
-                                                       absl::string_view format,
-                                                       absl::TimeZone timezone,
-                                                       absl::Time* output) {
-  return MakeSqlError()
-         << "ConvertStringToTimestampWithFormat not implemented. Timezone is "
-         << timezone.name();
-}
-
-// Converts a string to a timestamp using the format string.
-// Note that this is not implemented yet.
-// TODO: replace it with the real implementation.
-static absl::Status ConvertStringToTimestampWithFormat(absl::string_view str,
-                                                       absl::string_view format,
-                                                       absl::TimeZone timezone,
-                                                       int64_t* output) {
-  return MakeSqlError()
-         << "ConvertStringToTimestampWithFormat not implemented. Timezone is "
-         << timezone.name();
 }
 
 zetasql_base::StatusOr<Value> NumericToStringWithFormat(const Value& v,
@@ -802,7 +819,17 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
 
     case FCT(TYPE_STRING, TYPE_DATE): {
       int32_t date;
-      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDate(v.string_value(), &date));
+      if (format.has_value()) {
+        if (!current_date().has_value()) {
+          return MakeEvalError() << "current timestamp is not set";
+        }
+
+        ZETASQL_RETURN_IF_ERROR(functions::CastStringToDate(
+            format.value(), v.string_value(), current_date().value(), &date));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(
+            functions::ConvertStringToDate(v.string_value(), &date));
+      }
       return Value::Date(date);
     }
     case FCT(TYPE_STRING, TYPE_TIMESTAMP): {
@@ -814,8 +841,14 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
         absl::Time timestamp;
 
         if (format.has_value()) {
-          ZETASQL_RETURN_IF_ERROR(ConvertStringToTimestampWithFormat(
-              v.string_value(), format.value(), default_timezone(),
+          if (!current_timestamp().has_value()) {
+            return MakeEvalError() << "current timestamp is not set";
+          }
+
+          ZETASQL_RETURN_IF_ERROR(functions::CastStringToTimestamp(
+              format.value(),
+              v.string_value(), default_timezone(),
+              current_timestamp().value(),
               &timestamp));
         } else {
           ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
@@ -826,8 +859,14 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
       } else {
         int64_t timestamp;
         if (format.has_value()) {
-          ZETASQL_RETURN_IF_ERROR(ConvertStringToTimestampWithFormat(
-              v.string_value(), format.value(), default_timezone(),
+          if (!current_timestamp().has_value()) {
+            return MakeEvalError() << "current timestamp is not set";
+          }
+
+          ZETASQL_RETURN_IF_ERROR(functions::CastStringToTimestamp(
+              format.value(),
+              v.string_value(), default_timezone(),
+              current_timestamp().value(),
               &timestamp));
         } else {
           ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTimestamp(
@@ -837,7 +876,6 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
         return Value::TimestampFromUnixMicros(timestamp);
       }
     }
-
     case FCT(TYPE_TIMESTAMP, TYPE_STRING): {
       std::string timestamp;
       if (format.has_value()) {
@@ -980,8 +1018,14 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
 
     case FCT(TYPE_STRING, TYPE_TIME): {
       TimeValue time;
-      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTime(
-          v.string_value(), GetTimestampScale(language_options()), &time));
+      if (format.has_value()) {
+        ZETASQL_RETURN_IF_ERROR(functions::CastStringToTime(
+            format.value(), v.string_value(),
+            GetTimestampScale(language_options()), &time));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToTime(
+            v.string_value(), GetTimestampScale(language_options()), &time));
+      }
       return Value::Time(time);
     }
     case FCT(TYPE_TIME, TYPE_STRING): {
@@ -1004,8 +1048,20 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
 
     case FCT(TYPE_STRING, TYPE_DATETIME): {
       DatetimeValue datetime;
-      ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(
-          v.string_value(), GetTimestampScale(language_options()), &datetime));
+      if (format.has_value()) {
+        if (!current_date().has_value()) {
+          return MakeEvalError() << "current timestamp is not set";
+        }
+
+        ZETASQL_RETURN_IF_ERROR(functions::CastStringToDatetime(
+            format.value(), v.string_value(),
+            GetTimestampScale(language_options()), current_date().value(),
+            &datetime));
+      } else {
+        ZETASQL_RETURN_IF_ERROR(functions::ConvertStringToDatetime(
+            v.string_value(), GetTimestampScale(language_options()),
+            &datetime));
+      }
       return Value::Datetime(datetime);
     }
     case FCT(TYPE_DATETIME, TYPE_STRING): {
@@ -1056,7 +1112,7 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
     }
     case FCT(TYPE_STRING, TYPE_INTERVAL): {
       ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval,
-                       IntervalValue::ParseFromString(v.string_value()));
+                       IntervalValue::Parse(v.string_value()));
       return Value::Interval(interval);
     }
 
@@ -1189,9 +1245,11 @@ zetasql_base::StatusOr<Value> CastContext::CastValue(
 class CastContextWithValidation : public CastContext {
  public:
   CastContextWithValidation(absl::TimeZone default_timezone,
+                            absl::optional<absl::Time> current_timestamp,
                             const LanguageOptions& language_options,
                             Catalog* catalog)
-      : CastContext(default_timezone, language_options), catalog_(catalog) {}
+      : CastContext(default_timezone, current_timestamp, language_options),
+        catalog_(catalog) {}
 
  private:
   zetasql_base::StatusOr<Value> CastWithExtendedType(
@@ -1234,9 +1292,11 @@ class CastContextWithValidation : public CastContext {
 class CastContextWithoutValidation : public CastContext {
  public:
   CastContextWithoutValidation(
-      absl::TimeZone default_timezone, const LanguageOptions& language_options,
+      absl::TimeZone default_timezone,
+      absl::optional<absl::Time> current_timestamp,
+      const LanguageOptions& language_options,
       const ExtendedCompositeCastEvaluator* extended_cast_evaluator)
-      : CastContext(default_timezone, language_options),
+      : CastContext(default_timezone, current_timestamp, language_options),
         extended_cast_evaluator_(extended_cast_evaluator) {}
 
   zetasql_base::StatusOr<Value> CastWithExtendedType(
@@ -1275,7 +1335,9 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                                 const Type* to_type,
                                 const absl::optional<std::string>& format,
                                 Catalog* catalog) {
-  return CastContextWithValidation(default_timezone, language_options, catalog)
+  return CastContextWithValidation(default_timezone,
+                                   /*current_timestamp=*/absl::nullopt,
+                                   language_options, catalog)
       .CastValue(from_value, to_type, format);
 }
 
@@ -1283,6 +1345,7 @@ namespace internal {
 
 zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
+    absl::optional<absl::Time> current_timestamp,
     const LanguageOptions& language_options, const Type* to_type,
     const absl::optional<std::string>& format,
     const absl::optional<std::string>& explicit_time_zone,
@@ -1292,7 +1355,9 @@ zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
     ZETASQL_RETURN_IF_ERROR(
         functions::MakeTimeZone(explicit_time_zone.value(), &timezone));
   }
-  return CastContextWithoutValidation(timezone, language_options,
+  return CastContextWithoutValidation(timezone,
+                                      current_timestamp,
+                                      language_options,
                                       extended_cast_evaluator)
       .CastValue(from_value, to_type, format);
 }
@@ -1312,6 +1377,12 @@ const CastFormatMap& GetCastFormatMap() {
         {{TYPE_BYTES, TYPE_STRING}, functions::ValidateFormat});
 
     // String to Date/DateTime/Time/Timestamp
+    map->insert(
+        {{TYPE_STRING, TYPE_DATE}, ValidateFormatStringToDate});
+    map->insert(
+        {{TYPE_STRING, TYPE_DATETIME}, ValidateFormatStringToDatetime});
+    map->insert(
+        {{TYPE_STRING, TYPE_TIME}, ValidateFormatStringToTime});
     map->insert(
         {{TYPE_STRING, TYPE_TIMESTAMP}, ValidateFormatStringToTimestamp});
 

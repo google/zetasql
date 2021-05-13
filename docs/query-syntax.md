@@ -447,6 +447,7 @@ FROM <span class="var">from_clause</span>[, ...]
 
 <span class="var">from_clause</span>:
     <span class="var">from_item</span>
+    [ <span class="var">unpivot_operator</span> ]
     [ <a href="#tablesample_operator"><span class="var">tablesample_operator</span></a> ]
 
 <span class="var">from_item</span>:
@@ -466,6 +467,11 @@ FROM <span class="var">from_clause</span>[, ...]
 The `FROM` clause indicates the table or tables from which to retrieve rows,
 and specifies how to join those rows together to produce a single stream of
 rows for processing in the rest of the query.
+
+#### unpivot_operator 
+<a id="unpivot_operator_stub"></a>
+
+See [UNPIVOT operator][unpivot-operator].
 
 #### tablesample_operator 
 <a id="tablesample_operator_clause"></a>
@@ -725,6 +731,248 @@ Example:
 
 ```sql
 SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
+```
+
+## UNPIVOT operator 
+<a id="unpivot_operator"></a>
+
+<pre class="lang-sql prettyprint">
+FROM <span class="var">from_item</span>[, ...] <span class="var">unpivot_operator</span>
+
+<span class="var">unpivot_operator</span>:
+    UNPIVOT [ { INCLUDE NULLS | EXCLUDE NULLS } ] (
+        { <span class="var">single_column_unpivot</span> | <span class="var">multi_column_unpivot</span> }
+    ) [<span class="var">unpivot_alias</span>]
+
+<span class="var">single_column_unpivot</span>:
+    <span class="var">values_column</span>
+    FOR <span class="var">name_column</span>
+    IN (<span class="var">columns_to_unpivot</span>)
+
+<span class="var">multi_column_unpivot</span>:
+    <span class="var">values_column_set</span>
+    FOR <span class="var">name_column</span>
+    IN (<span class="var">column_sets_to_unpivot</span>)
+
+<span class="var">values_column_set</span>:
+    (<span class="var">values_column</span>[, ...])
+
+<span class="var">columns_to_unpivot</span>:
+    <span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...]
+
+<span class="var">column_sets_to_unpivot</span>:
+    (<span class="var">unpivot_column</span> [<span class="var">row_value_alias</span>][, ...])
+
+<span class="var">unpivot_alias</span> and <span class="var">row_value_alias</span>:
+    [AS] <span class="var">alias</span>
+</pre>
+
+The `UNPIVOT` operator rotates columns into rows. `UNPIVOT` is part of the
+`FROM` clause.
+
++ `UNPIVOT` can be used to modify any table
+  expression.
++ A `WITH OFFSET` clause immediately preceding the `UNPIVOT` operator is not
+  allowed.
+
+Conceptual example:
+
+```sql
+-- Before UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
++---------+----+----+----+----+
+| product | Q1 | Q2 | Q3 | Q4 |
++---------+----+----+----+----+
+| Kale    | 51 | 23 | 45 | 3  |
+| Apple   | 77 | 0  | 25 | 2  |
++---------+----+----+----+----+
+
+-- After UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
++---------+-------+---------+
+| product | sales | quarter |
++---------+-------+---------+
+| Kale    | 51    | Q1      |
+| Kale    | 23    | Q2      |
+| Kale    | 45    | Q3      |
+| Kale    | 3     | Q4      |
+| Apple   | 77    | Q1      |
+| Apple   | 0     | Q2      |
+| Apple   | 25    | Q3      |
+| Apple   | 2     | Q4      |
++---------+-------+---------+
+```
+
+**Definitions**
+
+Top-level definitions:
+
++ `from_item`: The table, subquery, or
+  table-valued function (TVF) on which
+  to perform a pivot operation. The `from_item` must
+  [follow these rules](#rules_for_unpivot_from_item).
++ `unpivot_operator`: The pivot operation to perform on a `from_item`.
+
+`unpivot_operator` definitions:
+
++ `INCLUDE NULLS`: Add rows with `NULL` values to the result.
++ `EXCLUDE NULLS`: Do not add rows with `NULL` values to the result.
+  By default, `UNPIVOT` excludes rows with `NULL` values.
++ `single_column_unpivot`: Rotates columns into one `values_column`
+  and one `name_column`.
++ `multi_column_unpivot`: Rotates columns into multiple
+  `values_column`s and one `name_column`.
++ `unpivot_alias`: An alias for the results of the `UNPIVOT` operation. This
+  alias can be referenced elsewhere in the query.
+
+`single_column_unpivot` definitions:
+
++ `values_column`: A column to contain the row values from `columns_to_unpivot`.
+  [Follow these rules](#rules_for_values_column) when creating a values column.
++ `name_column`: A column to contain the column names from `columns_to_unpivot`.
+  [Follow these rules](#rules_for_name_column) when creating a name column.
++ `columns_to_unpivot`: The columns from the `from_item` to populate
+  `values_column` and `name_column`.
+  [Follow these rules](#rules_for_unpivot_column) when creating an unpivot
+  column.
+  + `row_value_alias`: An optional alias for a column that is displayed for the
+    column in `name_column`. If not specified, the string value of the
+    column name is used.
+    [Follow these rules](#rules_for_row_value_alias) when creating a
+    row value alias.
+
+`multi_column_unpivot` definitions:
+
++ `values_column_set`: A set of columns to contain the row values from
+  `columns_to_unpivot`. [Follow these rules](#rules_for_values_column) when
+   creating a values column.
++ `name_column`: A set of columns to contain the column names from
+  `columns_to_unpivot`. [Follow these rules](#rules_for_name_column) when
+  creating a name column.
++ `column_sets_to_unpivot`: The columns from the `from_item` to unpivot.
+  [Follow these rules](#rules_for_unpivot_column) when creating an unpivot
+  column.
+  + `row_value_alias`: An optional alias for a column set that is displayed
+    for the column set in `name_column`. If not specified, a string value for
+    the column set is used and each column in the string is separated with an
+    underscore (`_`). For example, `(col1, col2)` outputs `col1_col2`.
+    [Follow these rules](#rules_for_row_value_alias) when creating a
+    row value alias.
+
+**Rules**
+
+<a id="rules_for_unpivot_from_item"></a>
+Rules for a `from_item` passed to `UNPIVOT`:
+
++ The `from_item` may consist of any
+  table, subquery, or table-valued function
+  (TVF) result.
++ The `from_item` may not produce a value table.
++ Duplicate columns in a `from_item` cannot be referenced in the `UNPIVOT`
+  clause.
+
+<a id="rules_for_unpivot_operator"></a>
+Rules for `unpivot_operator`:
+
++ Expressions are not permitted.
++ Qualified names are not permitted. For example, `mytable.mycolumn` is not
+  allowed.
++ In the case where the `UNPIVOT` result has duplicate column names:
+    + `SELECT *` is allowed.
+    + `SELECT values_column` causes ambiguity.
+
+<a id="rules_for_values_column"></a>
+Rules for `values_column`:
+
++ It cannot be a name used for a `name_column` or an `unpivot_column`.
++ It can be the same name as a column from the `from_item`.
+
+<a id="rules_for_name_column"></a>
+Rules for `name_column`:
+
++ It cannot be a name used for a `values_column` or an `unpivot_column`.
++ It can be the same name as a column from the `from_item`.
+
+<a id="rules_for_unpivot_column"></a>
+Rules for `unpivot_column`:
+
++ Must be a column name from the `from_item`.
++ It cannot reference duplicate `from_item` column names.
++ All columns in a column set must have equivalent data types.
+  + Data types cannot be coerced to a common supertype.
+  + If the data types are exact matches (for example, a struct with
+    different field names), the data type of the first input is
+    the data type of the output.
++ You cannot have the same name in the same column set. For example,
+  `(emp1, emp1)` results in an error.
++ You can have a the same name in different column sets. For example,
+  `(emp1, emp2), (emp1, emp3)` is valid.
+
+<a id="rules_for_row_value_alias"></a>
+Rules for `row_value_alias`:
+
++ This can be a `STRING` or an `INT64` literal.
++ The data type for all `row_value_alias` clauses must be the same.
++ If the value is an `INT64`, the `row_value_alias` for each `unpivot_column`
+  must be specified.
+
+**Examples**
+
+The following examples reference a table called `Produce` that looks like this:
+
+```sql
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
+  SELECT 'Apple', 77, 0, 25, 2)
+SELECT * FROM Produce
+
++---------+----+----+----+----+
+| product | Q1 | Q2 | Q3 | Q4 |
++---------+----+----+----+----+
+| Kale    | 51 | 23 | 45 | 3  |
+| Apple   | 77 | 0  | 25 | 2  |
++---------+----+----+----+----+
+```
+
+With the `UNPIVOT` operator, the columns `Q1`, `Q2`, `Q3`, and `Q4` are
+rotated. The values of these columns now populate a new column called `Sales`
+and the names of these columns now populate a new column called `Quarter`.
+This is a single-column unpivot operation.
+
+```sql
+SELECT * FROM Produce
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+
++---------+-------+---------+
+| product | sales | quarter |
++---------+-------+---------+
+| Kale    | 51    | Q1      |
+| Kale    | 23    | Q2      |
+| Kale    | 45    | Q3      |
+| Kale    | 3     | Q4      |
+| Apple   | 77    | Q1      |
+| Apple   | 0     | Q2      |
+| Apple   | 25    | Q3      |
+| Apple   | 2     | Q4      |
++---------+-------+---------+
+```
+
+In this example, we `UNPIVOT` four quarters into two semesters.
+This is a multi-column unpivot operation.
+
+```sql
+SELECT * FROM Produce
+UNPIVOT(
+  (first_half_sales, second_half_sales)
+  FOR semesters
+  IN ((Q1, Q2) AS 'semester_1', (Q3, Q4) AS 'semester_2'))
+
++---------+------------------+-------------------+------------+
+| product | first_half_sales | second_half_sales | semesters  |
++---------+------------------+-------------------+------------+
+| Kale    | 51               | 23                | semester_1 |
+| Kale    | 45               | 3                 | semester_2 |
+| Apple   | 77               | 0                 | semester_1 |
+| Apple   | 25               | 2                 | semester_2 |
++---------+------------------+-------------------+------------+
 ```
 
 ## TABLESAMPLE operator
@@ -1001,7 +1249,7 @@ is true:
 
 +  `join_type` is `CROSS`.
 +  One or both of the `from_item`s is not a table, for example, an
-   `array_path` or `field_path`.
+   `array_path` or a `field_path`.
 
 ### [INNER] JOIN
 
@@ -3385,6 +3633,7 @@ Results:
 [with_clause]: #with_clause
 [unnest-operator]: #unnest_operator
 
+[unpivot-operator]: #unpivot_operator
 [tablesample-operator]: #tablesample_operator
 [with-clause-anchor-rules]: #with_clause_anchor_rules
 [with-clause-recursive-rules]: #with_clause_recursive_rules

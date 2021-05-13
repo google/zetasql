@@ -1,6 +1,8 @@
 # NOTE: CREATE MODEL syntax and tests are derived from those for
 # CREATE VIEW tests, except for the keyword.
-
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 create model t1 as select * from t2;
 --
 CreateModelStatement [0-35]

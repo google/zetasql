@@ -1,4 +1,7 @@
 # Test cases for WITH OFFSET / WITH POSITION.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select pos1, pos2
   from T, T.arr AS arr WITH OFFSET AS pos1, T.arr WITH OFFSET pos2
 --

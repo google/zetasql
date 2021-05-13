@@ -17,6 +17,8 @@
 
 package com.google.zetasql.resolvedast;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,6 +28,7 @@ import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.Connection;
 import com.google.zetasql.Constant;
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLOneofDescriptor;
 import com.google.zetasql.FunctionSignature;
 import com.google.zetasql.ZetaSQLStrings;
 import com.google.zetasql.Model;
@@ -117,6 +120,11 @@ class DebugStrings {
 
   static boolean isDefaultValue(AnnotationMap annotationMap) {
     return annotationMap == null;
+  }
+
+  static boolean isDefaultValue(ResolvedCollation resolvedCollation) {
+    // TODO: implement ResolvedCollation in Java.
+    return resolvedCollation == null || resolvedCollation.debugString().isEmpty();
   }
 
   static boolean isDefaultValue(TypeParameters typeParameters) {
@@ -236,6 +244,10 @@ class DebugStrings {
     return annotationMap.debugString();
   }
 
+  static String toStringImpl(ResolvedCollation resolvedCollation) {
+    return resolvedCollation.debugString();
+  }
+
   static String toStringImpl(TypeParameters typeParameters) {
     return typeParameters.debugString();
   }
@@ -275,6 +287,10 @@ class DebugStrings {
   // This formats a list of identifiers (quoting if needed).
   static String toStringCommaSeparated(List<String> values) {
     return "[" + toStringImpl(values, ", ") + "]";
+  }
+
+  static String toStringCommaSeparated(ImmutableList<ResolvedCollation> resolvedCollations) {
+    return resolvedCollations.stream().map(ResolvedCollation::debugString).collect(joining(","));
   }
 
   // Functions for classes in the generated code with customized debugStrings. These functions

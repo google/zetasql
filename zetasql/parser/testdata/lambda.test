@@ -1,4 +1,7 @@
 # Non path expression as parameter
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 select Func([1,2,3], e>0 -> e > 1);
 --
 ERROR: Syntax error: Expecting lambda argument list [at 1:22]

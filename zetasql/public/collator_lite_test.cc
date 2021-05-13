@@ -26,22 +26,6 @@ using ::zetasql_base::testing::StatusIs;
 namespace zetasql {
 namespace {
 
-TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCsDeprecated) {
-  internal::RegisterDefaultCollatorImpl();
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      ZetaSqlCollator* collator,
-      ZetaSqlCollator::CreateFromCollationNameLite("unicode:cs"));
-
-  absl::Status error;
-  EXPECT_THAT(collator->CompareUtf8("a", "b", &error), Eq(-1));
-  EXPECT_THAT(error, IsOk());
-
-  EXPECT_THAT(collator->IsBinaryComparison(), Eq(true));
-
-  delete collator;
-}
-
 TEST(CreateFromCollationNameLite, DefaultImplSupportsUnicodeCs) {
   internal::RegisterDefaultCollatorImpl();
 

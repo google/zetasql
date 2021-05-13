@@ -87,8 +87,9 @@ TEST(SimpleBuiltinFunctionTests, ConstructWithProtoTest) {
 }
 
 TEST(SimpleBuiltinFunctionTests, ClassAndProtoSize) {
-  EXPECT_EQ(
-      96, sizeof(ZetaSQLBuiltinFunctionOptions) - sizeof(LanguageOptions))
+  EXPECT_EQ(2 * sizeof(absl::flat_hash_set<FunctionSignatureId,
+                                           FunctionSignatureIdHasher>),
+            sizeof(ZetaSQLBuiltinFunctionOptions) - sizeof(LanguageOptions))
       << "The size of ZetaSQLBuiltinFunctionOptions class has changed, "
       << "please also update the proto and serialization code if you "
       << "added/removed fields in it.";

@@ -35,8 +35,8 @@ namespace zetasql {
 
 static std::string GetAnnotationKindName(AnnotationKind kind) {
   switch (kind) {
-    case AnnotationKind::COLLATION:
-      return "COLLATION";
+    case AnnotationKind::kCollation:
+      return "Collation";
     case AnnotationKind::kMaxBuiltinAnnotationKind:
       return "MaxBuiltinAnnotationKind";
   }
@@ -357,7 +357,7 @@ std::string StructAnnotationMap::DebugString() const {
   absl::StrAppend(&out, "<");
   for (int i = 0; i < num_fields(); i++) {
     std::string field_debug_string =
-        field(i) == nullptr ? "" : field(i)->DebugString();
+        field(i) == nullptr ? "null" : field(i)->DebugString();
     absl::StrAppend(&out,
                     field_debug_string.empty() ? "{}" : field_debug_string);
     if (i != num_fields() - 1) {

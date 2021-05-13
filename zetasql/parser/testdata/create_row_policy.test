@@ -1,3 +1,6 @@
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 create row policy on t1 to 'foo@google.com' using(c1 = 'foo');
 --
 CreateRowAccessPolicyStatement [0-61]

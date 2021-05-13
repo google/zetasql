@@ -34,6 +34,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.h"

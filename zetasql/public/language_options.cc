@@ -71,6 +71,8 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_COLUMN_DEFAULT_VALUE);
       features.insert(FEATURE_V_1_3_FOR_IN);
       features.insert(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
+      features.insert(FEATURE_V_1_3_CASE_STMT);
+      features.insert(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

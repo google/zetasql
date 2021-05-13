@@ -1,4 +1,7 @@
 # Assert can take an expression of any type.
+# TODO: Remove this after parse locations have been manually
+# verified as correct.
+[default no_show_parse_location_text]
 
 ASSERT TRUE;
 --

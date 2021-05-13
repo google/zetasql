@@ -17,11 +17,21 @@
 #include "zetasql/resolved_ast/resolved_collation.h"
 
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+// static
+ResolvedCollation ResolvedCollation::MakeScalar(
+    absl::string_view collation_name) {
+  ResolvedCollation resolved_collation;
+  resolved_collation.collation_name_ =
+      SimpleValue::String(std::string(collation_name));
+  return resolved_collation;
+}
 
 // static
 zetasql_base::StatusOr<ResolvedCollation> ResolvedCollation::MakeResolvedCollation(
@@ -56,7 +66,7 @@ zetasql_base::StatusOr<ResolvedCollation> ResolvedCollation::MakeResolvedCollati
     }
   } else {
     const SimpleValue* collation_name = annotation_map.GetAnnotation(
-        static_cast<int>(AnnotationKind::COLLATION));
+        static_cast<int>(AnnotationKind::kCollation));
     if (collation_name != nullptr) {
       ZETASQL_RET_CHECK(collation_name->has_string_value());
       if (!collation_name->string_value().empty()) {
@@ -95,6 +105,49 @@ zetasql_base::StatusOr<ResolvedCollation> ResolvedCollation::Deserialize(
     resolved_collation.child_list_.push_back(std::move(child));
   }
   return resolved_collation;
+}
+
+std::string ResolvedCollation::DebugString() const {
+  if (child_list_.empty()) {
+    // Print "_" when collation is empty. "_" is not a valid collation name so
+    // it shouldn't cause confusion.
+    return CollationName().empty() ? "_" : std::string(CollationName());
+  } else {
+    return absl::StrCat(
+        CollationName(), "[",
+        absl::StrJoin(
+            child_list_, ",",
+            [](std::string* out, const ResolvedCollation& resolved_collation) {
+              absl::StrAppend(out, resolved_collation.DebugString());
+            }),
+        "]");
+  }
+}
+
+bool ResolvedCollation::HasCompatibleStructure(const Type* type) const {
+  if (Empty()) {
+    return true;
+  }
+  if (HasCollation()) {
+    return type->IsString();
+  }
+  // At this point, this instance has no collation name and a non-empty child
+  // list.
+  if (type->IsStruct()) {
+    if (type->AsStruct()->num_fields() != num_children()) {
+      return false;
+    }
+    for (int i = 0; i < num_children(); i++) {
+      if (!child(i).HasCompatibleStructure(type->AsStruct()->field(i).type)) {
+        return false;
+      }
+    }
+    return true;
+  } else if (type->IsArray()) {
+    return num_children() == 1 &&
+           child(0).HasCompatibleStructure(type->AsArray()->element_type());
+  }
+  return false;
 }
 
 }  // namespace zetasql

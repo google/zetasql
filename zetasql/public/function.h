@@ -132,7 +132,8 @@ using FunctionGetSQLCallback =
 // message string to be used when no matching function signature is found for
 // the function based on the argument list.
 using NoMatchingSignatureCallback = std::function<std::string(
-    const std::string&, const std::vector<InputArgumentType>&, ProductMode)>;
+    const std::string& qualified_function_name,
+    const std::vector<InputArgumentType>&, ProductMode)>;
 
 // This callback produces text containing supported function signatures. This
 // text is used in the user facing messages, i.e. in errors. Example of

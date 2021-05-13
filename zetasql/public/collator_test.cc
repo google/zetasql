@@ -63,21 +63,6 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
   }
 };
 
-TEST_P(CollatorTest, CreateCollatorDeprecated) {
-  std::unique_ptr<const ZetaSqlCollator> collator;
-  const std::vector<std::string> valid_collation_names = {
-      "unicode", "en", "zh-cmn", "en_US", "zh_Hans_HK", "zh_Hant_HK",
-      "de@collation=phonebook",
-      // Collation names are case insensitive.
-      "EN", "EN_us",
-      // Collation names with attributes.
-      "en:ci", "en_us:cs", "zh_Hans_HK:ci"};
-  for (const std::string& name : valid_collation_names) {
-    collator.reset(ZetaSqlCollator::CreateFromCollationName(name));
-    EXPECT_NE(nullptr, collator.get()) << "name=" << name;
-  }
-}
-
 TEST_P(CollatorTest, MakeSqlCollator) {
   const std::vector<std::string> valid_collation_names = {
       "unicode", "en", "zh-cmn", "en_US", "zh_Hans_HK", "zh_Hant_HK",

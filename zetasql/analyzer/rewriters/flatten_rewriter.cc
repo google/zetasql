@@ -35,9 +35,12 @@ namespace {
 // A visitor that rewrites ResolvedFlatten nodes into standard UNNESTs.
 class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
-  explicit FlattenRewriterVisitor(Catalog* catalog,
+  explicit FlattenRewriterVisitor(const AnalyzerOptions* options,
+                                  Catalog* catalog,
                                   ColumnFactory* column_factory)
-      : catalog_(catalog), column_factory_(column_factory) {}
+      : analyzer_options_(*options),
+        catalog_(catalog),
+        column_factory_(column_factory) {}
 
  private:
   absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
@@ -70,6 +73,7 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       std::unique_ptr<ResolvedScan> input_scan, bool order_results,
       bool in_subquery);
 
+  const AnalyzerOptions& analyzer_options_;
   Catalog* catalog_;
   ColumnFactory* column_factory_;
 };
@@ -174,8 +178,8 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   std::vector<std::unique_ptr<ResolvedExpr>> if_args;
   // Check if the input expression is NULL.
   const Function* is_null_fn;
-  ZETASQL_RET_CHECK_OK(
-      catalog_->FindFunction({"$is_null"}, &is_null_fn, /*options=*/{}));
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$is_null"}, &is_null_fn,
+                                      analyzer_options_.find_options()));
   FunctionArgumentType bool_arg = FunctionArgumentType(types::BoolType(), 1);
   FunctionSignature is_null_signature(
       bool_arg, {FunctionArgumentType(flatten_expr_column.type(), 1)},
@@ -210,7 +214,8 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
       /*in_expr=*/nullptr, std::move(rewritten_flatten)));
 
   const Function* if_fn;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"if"}, &if_fn, /*options=*/{}));
+  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"if"}, &if_fn,
+                                      analyzer_options_.find_options()));
   FunctionArgumentType out_arg = FunctionArgumentType(node->type(), 1);
   FunctionSignature if_signature(out_arg, {bool_arg, out_arg, out_arg}, FN_IF);
   ResolvedColumn result_column =
@@ -361,7 +366,7 @@ class FlattenRewriter : public Rewriter {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
     ColumnFactory column_factory(0, options.id_string_pool().get(),
                                  options.column_id_sequence_number());
-    FlattenRewriterVisitor rewriter(&catalog, &column_factory);
+    FlattenRewriterVisitor rewriter(&options, &catalog, &column_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      rewriter.ConsumeRootNode<ResolvedNode>());

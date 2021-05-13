@@ -285,6 +285,7 @@ CLIENT_SRCS = [
     "Column.java",
     "Connection.java",
     "Constant.java",
+    "DescriptorPoolSerializer.java",
     "Function.java",
     "FunctionArgumentType.java",
     "FunctionSignature.java",

@@ -18,11 +18,16 @@
 #define ZETASQL_PARSER_FLEX_TOKENIZER_H_
 
 #include <cstdint>
+#include <istream>
+#include <memory>
 #include <sstream>
 #include <string>
 
 #include "zetasql/parser/position.hh"
 #include <cstdint>
+#include "absl/flags/flag.h"
+#include "absl/memory/memory.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
@@ -37,8 +42,12 @@
 #include "zetasql/parser/location.hh"
 #include "zetasql/public/parse_location.h"
 
+#include "zetasql/parser/flex_istream.h"
+#include "absl/flags/declare.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+
+ABSL_DECLARE_FLAG(bool, zetasql_use_customized_flex_istream);
 
 namespace zetasql {
 namespace parser {
@@ -48,20 +57,25 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
  public:
   // Constructs a simple wrapper around a flex generated tokenizer. 'mode'
   // controls the first token that is returned to the bison parser, which
-  // determines the starting production used by the parser.  The 'filename'
-  // must outlive this object.
+  // determines the starting production used by the parser.  The 'filename' and
+  // 'input' must outlive this object.
   ZetaSqlFlexTokenizer(BisonParserMode mode, absl::string_view filename,
                          absl::string_view input, int start_offset)
       : filename_(filename),
         start_offset_(start_offset),
         input_size_(static_cast<int64_t>(input.size())),
-        mode_(mode),
-        input_stream_(absl::StrCat(input, kEofSentinelInput)) {
+        mode_(mode) {
+    if (absl::GetFlag(FLAGS_zetasql_use_customized_flex_istream)) {
+      input_stream_ = absl::make_unique<StringStreamWithSentinel>(input);
+    } else {
+      input_stream_ = absl::make_unique<std::istringstream>(
+          absl::StrCat(input, kEofSentinelInput));
+    }
     // Seek the stringstream to the start_offset, and then instruct flex to read
     // from the stream. (Flex has the ability to read multiple consecutive
     // streams, but we only ever feed it one.)
-    input_stream_.seekg(start_offset, std::ios_base::beg);
-    switch_streams(&input_stream_ /* new_in */, nullptr /* new_out */);
+    input_stream_->seekg(start_offset, std::ios_base::beg);
+    switch_streams(input_stream_.get() /* new_in */, nullptr /* new_out */);
   }
 
   ZetaSqlFlexTokenizer(const ZetaSqlFlexTokenizer&) = delete;
@@ -144,18 +158,15 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // to determine the returned location for the first token.
   const int start_offset_ = 0;
 
-  // The size of the input, in bytes.
+  // The length of the input string without the sentinel.
   const int input_size_;
+  // An input stream over the input string (of size input_size_) plus the
+  // sentinel.
+  std::unique_ptr<std::istream> input_stream_;
 
   // This determines the first token returned to the bison parser, which
   // determines the mode that we'll run in.
   const BisonParserMode mode_;
-
-  // Stream on the input. This is what is consumed by flex. It consists of the
-  // input (of size input_size_) plus a single byte \001 which is used as a
-  // sentinel value in the tokenizer (but only if it occurs at location
-  // input_size_).
-  std::istringstream input_stream_;
 
   // The tokenizer may want to return an error directly. It does this by
   // returning EOF to the bison parser, which then may or may not spew out its

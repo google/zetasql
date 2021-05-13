@@ -359,14 +359,14 @@ You cannot create new ENUM types using ZetaSQL.
 
 Numeric types include the following types:
 
- * `INT32`
- * `UINT32`
- * `INT64`
- * `UINT64`
- * `NUMERIC` with alias `DECIMAL`
- * `BIGNUMERIC` with alias `BIGDECIMAL`
- * `FLOAT`
- * `DOUBLE`
+* `INT32`
+* `UINT32`
+* `INT64`
+* `UINT64`
+* `NUMERIC` with alias `DECIMAL`
+* `BIGNUMERIC` with alias `BIGDECIMAL`
+* `FLOAT`
+* `DOUBLE`
 
 ### Integer types
 
@@ -392,7 +392,8 @@ Integers are numeric values that do not have fractional components.
 </tr>
 
 <tr>
-<td><code>INT64</code></td>
+<td><code>INT64</code>
+</td>
 <td>-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</td>
 </tr>
 

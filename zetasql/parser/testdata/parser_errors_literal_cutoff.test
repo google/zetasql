@@ -1,5 +1,8 @@
 # Long literals are cut off (single quotes).
 # The length of the text is chosen to test edge cases for the limit of 50 bytes.
+# TODO: Remove no_show_parse_location_text after parse locations
+# have been manually verified as correct.
+[default no_show_parse_location_text]
 {{|rb|b|R|BR}}'01234567890123456789012345678901234567890123456{{7|78|789|7890|78901|789012}}'
 --
 ALTERNATION GROUP: 7

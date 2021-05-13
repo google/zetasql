@@ -639,8 +639,15 @@ class TVFSignature {
   //
   // This method only returns AnonymizationInfo for TVFs that produce private
   // user data and that support anonymization queries.
-  virtual std::optional<const AnonymizationInfo> GetAnonymizationInfo() const {
-    return std::nullopt;
+  std::optional<const AnonymizationInfo> GetAnonymizationInfo() const {
+    return anonymization_info_ == nullptr
+               ? std::nullopt
+               : std::optional<const zetasql::AnonymizationInfo>(
+                     *anonymization_info_);
+  }
+  void SetAnonymizationInfo(
+      std::unique_ptr<AnonymizationInfo> anonymization_info) {
+    anonymization_info_ = std::move(anonymization_info);
   }
   bool SupportsAnonymization() const {
     return GetAnonymizationInfo().has_value();
@@ -675,6 +682,10 @@ class TVFSignature {
   const TVFRelation result_schema_;
 
   const TVFSignatureOptions options_;
+
+  // The AnonymizationInfo related to a resolved call of this TVF. See
+  // (broken link) for further details.
+  std::unique_ptr<AnonymizationInfo> anonymization_info_;
 };
 
 // This represents a TVF that always returns a relation with the same fixed

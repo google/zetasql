@@ -79,6 +79,7 @@ class SampleCatalog {
   void LoadNestedCatalogs();
   void AddFunctionWithArgumentType(std::string type_name, const Type* arg_type);
   void LoadFunctions();
+  void LoadExtendedSubscriptFunctions();
   void LoadFunctionsWithDefaultArguments();
   void LoadTemplatedSQLUDFs();
 

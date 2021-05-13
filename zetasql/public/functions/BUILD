@@ -256,6 +256,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":convert",
         ":format_max_output_width",
         ":string_format",
         ":util",
@@ -363,6 +364,22 @@ cc_library(
     deps = [
         "@com_google_absl//absl/flags:flag",
     ],
+)
+
+cc_library(
+    name = "input_format_string_max_width",
+    srcs = ["input_format_string_max_width.cc"],
+    hdrs = ["input_format_string_max_width.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = ["@com_google_absl//absl/flags:flag"],
 )
 
 cc_library(
@@ -827,6 +844,7 @@ cc_library(
     deps = [
         ":date_time_util",
         ":datetime_cc_proto",
+        ":input_format_string_max_width",
         ":parse_date_time_utils",
         "//zetasql/base",
         "//zetasql/base:general_trie",
@@ -842,6 +860,7 @@ cc_library(
         "//zetasql/public:type_cc_proto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -1160,6 +1179,7 @@ cc_test(
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
         "//zetasql/testing:test_function",
+        "@com_google_absl//absl/status",
     ],
 )
 

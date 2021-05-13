@@ -609,6 +609,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Helper function to append foreign key table constraint.
   zetasql_base::StatusOr<std::string> ProcessForeignKey(
       const ResolvedForeignKey* foreign_key, bool is_if_not_exists);
+  // Helper function to append primary key table constraint.
+  zetasql_base::StatusOr<std::string> ProcessPrimaryKey(
+      const ResolvedPrimaryKey* primary_key);
   std::string ComputedColumnAliasDebugString() const;
 
   // If we have a recursive view, sets up internal data structures in

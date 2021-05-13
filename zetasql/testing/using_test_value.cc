@@ -33,6 +33,7 @@ using zetasql::test_values::StructArray;
 using zetasql::test_values::kIgnoresOrder;
 using zetasql::test_values::kPreservesOrder;
 
+using zetasql::types::BigNumericType;  // NOLINT
 using zetasql::types::BoolType;
 using zetasql::types::BytesType;
 using zetasql::types::DatetimeType;
@@ -42,8 +43,8 @@ using zetasql::types::EmptyStructType;
 using zetasql::types::FloatType;
 using zetasql::types::Int32Type;
 using zetasql::types::Int64Type;
+using zetasql::types::IntervalType;
 using zetasql::types::NumericType;  // NOLINT
-using zetasql::types::BigNumericType;  // NOLINT
 using zetasql::types::StringType;
 using zetasql::types::TimestampType;
 using zetasql::types::TimeType;

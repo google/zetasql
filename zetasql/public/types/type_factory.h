@@ -181,7 +181,7 @@ class TypeFactory {
   const Type* get_numeric();
   const Type* get_bignumeric();
   const Type* get_json();
-  const Type* get_tokenset();
+  const Type* get_tokenlist();
 
   // Return a Type object for a simple type.  This works for all
   // non-parameterized scalar types.  Enums, arrays, structs and protos must
@@ -469,7 +469,7 @@ const Type* GeographyType();
 const Type* NumericType();
 const Type* BigNumericType();
 const Type* JsonType();
-const Type* TokenSetType();
+const Type* TokenListType();
 const StructType* EmptyStructType();
 
 // ArrayTypes
@@ -491,7 +491,7 @@ const ArrayType* GeographyArrayType();
 const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
 const ArrayType* JsonArrayType();
-const ArrayType* TokenSetArrayType();
+const ArrayType* TokenListArrayType();
 
 // Accessor for the ZetaSQL enum Type (functions::DateTimestampPart)
 // that represents date parts in function signatures.  Intended

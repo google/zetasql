@@ -53,15 +53,19 @@ namespace functions {
 //
 class RegExp {
  public:
-  // TODO: extend this class to support memory limits on memory used
-  // by the processed regexp.
-
   // The following two functions parse a regular expression assuming
   // UTF-8 (InitializePatternUtf8) or Latin1 (InitializePatternBytes) encoding.
   // If the regular expression is not correct *error is updated
   // and false is returned.
   bool InitializePatternUtf8(absl::string_view pattern, absl::Status* error);
   bool InitializePatternBytes(absl::string_view pattern, absl::Status* error);
+
+  // Initializes a regular expression from `pattern` with `options`. This
+  // function can be used when other options (including string encoding) need
+  // to be provided for initializing the regular expression. If `pattern` cannot
+  // be parsed, `error` is updated and false is returned.
+  bool InitializeWithOptions(absl::string_view pattern,
+                             const RE2::Options& options, absl::Status* error);
 
   // REGEXP_CONTAINS (substring match)
   bool Contains(absl::string_view str, bool* out, absl::Status* error);
